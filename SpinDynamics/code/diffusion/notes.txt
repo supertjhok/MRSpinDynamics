@@ -1,0 +1,12 @@
+Soumyajit,
+
+Here are the m-files for the diffusion sensitivity calculations for the CPMG sequence. The main routine is ‘coherences.m’. The calculations follow the discussions in JMR 148, 367-378 (2001).
+
+To calculate the diffusion effect for broadband pulses, one has to replace the two files ‘Lambdas.m’ and ‘asy.m’. 
+
+Lambdas calculates the transition probabilities from coherence p to coherence q for different offset frequencies \omega_o. In the current file, the transition probabilities are those for a nominal 180 degree pulse. Also, it contains the effect of the initial excitation pulse. Currently, the code considers a nominal 90 pulse with timing adjustment.
+
+Asy.m calculates the asymptotic echo shape of the CPMG echo. The calculations currently assume that we use matched filtering with this asymptotic echo shape. Therefore, asy.m has to be replaced with the new asymptotic echo shape.
+
+Best regards
+Martin
