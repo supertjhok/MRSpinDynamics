@@ -1,0 +1,135 @@
+% Simulate a basic CPMG sequence with rectangular pulses and finite
+% transmit and receive bandwidth
+% -------------------------------------------------------------------
+% Precompute excitation and refocusing pulses for speed
+
+% NE -> Number of echoes to simulate
+% TE -> Echo spacing (real value)
+% T1, T2 -> Relaxation time constants (s)
+function [echo_rx,tvect]=sim_cpmg_matched_probe_relax3(NE,TE,T1,T2)
+
+% Simulate each echo of a CPMG sequence
+[sp, pp]=set_params_matched; % Define system parameters
+T_90=pp.T_90; % Nominal T_90 pulse length
+
+% Set plotting parameters
+sp.plt_tx = 0; sp.plt_rx = 0; sp.plt_sequence = 0; % Plots /off
+sp.plt_axis = 0; sp.plt_mn = 0; sp.plt_echo = 0;
+
+% Design matching network
+[C1,C2]=matching_network_design2(sp.L,sp.Q,sp.f0,sp.Rs,sp.plt_mn);
+sp.C1=C1; sp.C2=C2; % Save matching capacitor values
+sp.numpts = 2000;
+% Create (w0, w1) and coil sensitivity maps
+numpts=sp.numpts;
+maxoffs=10;
+sp.del_w=linspace(-maxoffs,maxoffs,numpts); % Linear gradient
+sp.del_wg=zeros(1,numpts); % No additional gradient
+sp.w_1=ones(1,numpts); % Uniform transmit w_1
+sp.w_1r=ones(1,numpts); % Uniform receiver sensitivity
+
+% Set sample parameters
+sp.m0=ones(1,numpts);
+sp.mth=ones(1,numpts); % Spin density
+sp.T1=T1*ones(1,numpts); 
+sp.T2=T2*ones(1,numpts); % Relaxation constants in s
+
+% Set acquisition parameters
+tacq=((pi/2)*pp.tacq/T_90)*10; % Normalized acquisition window length
+tdw=((pi/2)*pp.tdw/T_90)*10; % Normalized receiver dwell time
+nacq=round(tacq/tdw)+1; % Number of acquired time domain points
+
+% Create pulse sequence (in normalized time)
+% --------------------------------------------
+% Pre-calculate all pulses for speed
+Rtot={};
+pp_in.tp=pp.T_90; 
+pp_in.tdel=2*pp.T_90;
+pp_in.phi=pi/2;
+pp_in.amp=1;
+pp_out=calc_pulse_shape(sp,pp,pp_in); % Exc pulse 1 (phase = pi/2)
+sp.tf1=pp_out.tf1; sp.tf2=pp_out.tf2; % Save Rx transfer functions
+Rtot{1}=calc_rotation_matrix(sp,pp_out);
+
+pp_in.phi=3*pi/2;
+pp_out=calc_pulse_shape(sp,pp,pp_in); % Exc pulse 2 (phase = 3*pi/2)
+Rtot{2}=calc_rotation_matrix(sp,pp_out);
+
+pp_in.tp=pp.T_180; pp_in.phi=0;
+pp_out=calc_pulse_shape(sp,pp,pp_in); % Ref pulse (phase = 0)
+Rtot{3}=calc_rotation_matrix(sp,pp_out);
+
+% Excitation pulse 1, including timing correction
+texc=[pi/2 -1]; aexc=[1 0]; % pexc is pulse type
+pexc1=[1 0];
+acq_exc=[0 0]; gexc=[0 0]; % gexc is the gradient
+
+%  Excitation pulse 2, including timing correction
+pexc2=[2 0]; % pexc is pulse type
+
+% Refocusing cycles
+nref=3; % Segments in refocusing cycle
+tref=zeros(1,nref*NE); pref=tref; aref=tref; acq_ref=tref; gref=tref;
+tfp=(pi/2)*(TE-pp.T_180)/(2*T_90); % Free precession period (normalized)
+for i=1:NE
+    tref((i-1)*nref+1:i*nref)=[tfp pi tfp];
+    pref((i-1)*nref+1:i*nref)=[0 3 0]; % Pulse type
+    aref((i-1)*nref+1:i*nref)=[0 1 0];
+    acq_ref((i-1)*nref+1:i*nref)=[0 0 1];
+    gref((i-1)*nref+1:i*nref)=[0 0 0]; % Gradient
+end
+
+% Assume PAP phase cycle
+% Create complete pulse sequence 1
+pp.tp=[texc tref]; pp.pul=[pexc1 pref];
+pp.amp=[aexc aref]; 
+pp.acq=[acq_exc acq_ref]; pp.grad=[gexc gref];
+pp.Rtot=Rtot;
+
+[~,mrx1,~,~,~,~]=calc_macq_matched_probe_relax3(sp,pp); % Part 1
+
+% Create complete pulse sequence 2
+pp.pul=[pexc2 pref];
+
+[~,mrx2,~,~,~,~]=calc_macq_matched_probe_relax3(sp,pp); % Part 2
+
+mrx=(mrx1-mrx2); % Apply phase cycle
+
+figure; % Figure to show outputs
+% Calculate time-domain echoes
+echo_rx=zeros(NE,nacq); SNR=zeros(1,NE);
+for i=1:NE
+    [echo_rx(i,:),tvect]=calc_time_domain_echo_arb(mrx(i,:),sp.del_w,tacq,tdw,sp.plt_echo);
+    plot((tvect*T_90/(pi/2)+i*TE)*1e3,real(echo_rx(i,:)),'b-'); hold on;
+    plot((tvect*T_90/(pi/2)+i*TE)*1e3,imag(echo_rx(i,:)),'r-'); 
+end
+
+set(gca,'FontSize',14);
+xlabel('Time (ms)'); ylabel('Received echoes');
+
+function [pp_out]=calc_pulse_shape(sp,pp,pp_in)
+
+T_90=pp.T_90;
+tdeln=(pi/2)*pp_in.tdel/T_90; % Normalized delay
+amp_zero=pp.amp_zero; % Minimum amplitude for calculations
+
+% Add delay to RF pulse to account for ring down, create structure
+pp_curr=pp;
+pp_curr.tp = [pp_in.tp pp_in.tdel];
+pp_curr.phi = [pp_in.phi 0];
+pp_curr.amp = [pp_in.amp 0];
+
+% Calculate RF pulse
+sp.plt_rx=0; % Turn off plotting
+[tvect, Icr, tf1, tf2] = find_coil_current(sp,pp_curr);
+pp_out.tf1=tf1; pp_out.tf2=tf2;
+
+delt=(pi/2)*(tvect(2)-tvect(1))/T_90; % Convert to normalized time
+texc=delt*ones(1,length(tvect));
+pexc=atan2(imag(Icr),real(Icr));
+aexc=abs(Icr);
+aexc(aexc<amp_zero)=0; % Threshold amplitude
+
+% Remove added delay from RF pulse
+pp_out.tp=[texc -tdeln]; pp_out.phi=[pexc 0]; pp_out.amp=[aexc 0];
+pp_out.acq=zeros(1,length(texc)+1);

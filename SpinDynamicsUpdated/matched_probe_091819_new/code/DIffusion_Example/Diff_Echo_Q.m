@@ -1,0 +1,14 @@
+close all
+
+NE = 5;
+TE = 1000e-6;
+T1 = 100e-3;
+T2 = 100e-3;
+dz = 0.001;
+Delta = 1000e-6;
+T_90 = [100e-6];
+Q = [50 500 5000 50000 500000];
+
+for i = 1:5
+    [echo_rx,tvect]=sim_dif_matched_CPMG_noRx(NE,TE,T1,T2,dz,Delta,T_90,Q(i));
+end
