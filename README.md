@@ -1,4 +1,4 @@
-# Spin-Dynamics
+# MATLABSpinDynamics
 
 The folder contains a set of MATLAB functions for simulating the spin dynamics of NMR experiments. Various subfolders contain specialized versions of the functions for simulating specific scenarios, as described later. The key ideas used in the simulation are summarized below:
 
