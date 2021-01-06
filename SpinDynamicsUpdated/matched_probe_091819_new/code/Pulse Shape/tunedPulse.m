@@ -33,6 +33,7 @@ legend({'Real','Imag'});
 
 % Plot receiver TF
 [tf] = tuned_probe_rx_tf(sp,pp);
+[~,~,~] = tuned_probe_rx(sp,pp,ones(1,length(sp.del_w))); % Show other receiver properties
 
 figure(1);
 subplot(2,1,1); semilogy(sp.del_w,abs(tf),'LineWidth',1); hold on;

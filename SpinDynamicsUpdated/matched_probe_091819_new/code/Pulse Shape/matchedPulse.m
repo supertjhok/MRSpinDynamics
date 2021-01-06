@@ -14,7 +14,7 @@ pp.phi=pp.pref;
 pp.amp=pp.aref;
 
 % Find coil current and receiver TFs
-[tvec2,yr2,tvec,y,tf,~] = find_coil_current_orig(sp,pp);
+[tvec2,yr2,tvec,y,tf1,tf2] = find_coil_current_orig(sp,pp);
 
 figure(15+sp.plt_tx);
 % RF 
@@ -36,11 +36,14 @@ legend({'Real','Imag'});
 
 % Plot receiver TF
 figure(1);
-subplot(2,1,1); semilogy(sp.del_w,abs(tf),'LineWidth',1); hold on;
+subplot(2,1,1); semilogy(sp.del_w,abs(tf1),'LineWidth',1); hold on;
 ylabel('mag(TF)');
 set(gca,'FontSize',15); set(gca,'FontWeight','bold');
 
-subplot(2,1,2); plot(sp.del_w,(180/pi)*angle(tf),'LineWidth',1); hold on;
+subplot(2,1,2); plot(sp.del_w,(180/pi)*angle(tf1),'LineWidth',1); hold on;
 ylabel('phase(TF)');
 xlabel('\Delta\omega_{0}/\omega_{1,max}');
 set(gca,'FontSize',15); set(gca,'FontWeight','bold');
+
+% Show other receiver properties
+[~,~,~,~] = matched_probe_rx(sp,pp,ones(1,length(sp.del_w)),tf1,tf2);

@@ -34,9 +34,10 @@ ind=find(arefc==0); prefc(ind)=0;
 
 if sp.plt_tx
     figure(98);
-    plot(tvect/T_90,arefc);
+    plot(tvect/T_90,arefc.*cos(prefc)); hold on;
+	plot(tvect/T_90,arefc.*sin(prefc));
     xlabel('Normalized time, t/T_{90}')
-    ylabel('Normalized current amplitude in coil')
+    ylabel('Normalized coil current, rotating frame')
 end
    
 [neff]=calc_rot_axis_arba3(trefc,prefc,arefc,sp.del_w,sp.plt_axis);

@@ -96,4 +96,4 @@ if sp.plt_rx
     title('Receiver NF');
 end
 
-mrx=mrx/max(abs(tf)); % Normalize amplitude of received magnetization
+% mrx=mrx/max(abs(tf)); % Normalize amplitude of received magnetization

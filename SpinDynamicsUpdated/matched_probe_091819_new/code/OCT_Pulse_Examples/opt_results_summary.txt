@@ -1,0 +1,27 @@
+% Summary of best OCT pulses found using optimization
+
+Tuned refocusing, 500 kHz, T_90 = 26 us
+(ref_len, pulse_num)
+
+1 21
+1.5 17
+2 23
+
+Tuned excitation, 500 kHz, T_90 = 26 us
+(ref_len, ref_pulse_num, exc_pulse_num)
+
+1 21 2
+1.5 17 14
+
+Untuned refocusing, 500 kHz, T_90 = 26 us
+(ref_len, pulse_num)
+
+1 13
+1.5 19 
+2 14
+
+Matched refocusing, 500 kHz, T_90 = 50 us
+(ref_len, pulse_num)
+
+1 11
+1.5 11

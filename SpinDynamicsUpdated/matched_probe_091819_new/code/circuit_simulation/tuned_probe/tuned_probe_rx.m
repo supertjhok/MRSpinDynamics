@@ -57,43 +57,43 @@ SNR=real(vsig)/vnoise; % Signal-to-noise ratio (SNR) per scan in voltage units
 
 NF=pnoise./vni2; % Calculate receiver noise figure
 
-% if sp.plt_rx
-%     figure;
-%     subplot(1,3,1);
-%  %   plot(del_w,real(macq),'b--'); hold on;
-%  %   plot(del_w,imag(macq),'r--');
-%     plot(del_w,real(mrx)/max(abs(tf)),'b-'); hold on;
-%     plot(del_w,imag(mrx)/max(abs(tf)),'r-');
-%  %   ylabel('m_{acq}(\omega), m_{rx}(\omega)');
-%     ylabel('m_{rx}(\omega)');
-%     xlabel('\Delta\omega_{0}/\omega_{1,max}');
-% %     
-%     subplot(1,2,1);
-%     plot(del_w,pnoise/vn^2,'k-'); hold on;
-%     ylabel('N(\omega)');
-%     xlabel('\Delta\omega_{0}/\omega_{1,max}');
-%    title('Filter functions');
-%     
-%     subplot(1,2,2);
-%     plot(del_w,abs(mf),'r-'); hold on;
-%     plot(del_w,real(mf),'r-'); hold on; plot(del_w,imag(mf),'b')
-%     ylabel('|H(\omega)|');
-%     xlabel('\Delta\omega_{0}/\omega_{1,max}');
-%      
-%     figure(7);
-%     subplot(2,1,1); plot(del_w,abs(tf),'b-');
-%     ylabel('mag(TF)');
-%     title('Receiver gain A(\omega)');
-%     
-%     subplot(2,1,2); plot(del_w,(180/pi)*phase(tf),'r-');
-%     ylabel('phase(TF)');
-%     xlabel('\Delta\omega_{0}/\omega_{1,max}');
-%     
-%     figure;
-%     plot(del_w,10*log10(NF),'b-'); hold on;
-%     ylabel('NF (dB)');
-%     xlabel('\Delta\omega_{0}/\omega_{1,max}');
-%     title('Receiver NF');
-% end
+if sp.plt_rx
+     figure;
+     subplot(1,3,1);
+  %   plot(del_w,real(macq),'b--'); hold on;
+  %   plot(del_w,imag(macq),'r--');
+     plot(del_w,real(mrx)/max(abs(tf)),'b-'); hold on;
+     plot(del_w,imag(mrx)/max(abs(tf)),'r-');
+  %   ylabel('m_{acq}(\omega), m_{rx}(\omega)');
+     ylabel('m_{rx}(\omega)');
+     xlabel('\Delta\omega_{0}/\omega_{1,max}');
+     
+     subplot(1,2,1);
+     plot(del_w,pnoise/vn^2,'k-'); hold on;
+     ylabel('N(\omega)');
+     xlabel('\Delta\omega_{0}/\omega_{1,max}');
+     title('Filter functions');
+     
+     subplot(1,2,2);
+     plot(del_w,abs(mf),'r-'); hold on;
+     plot(del_w,real(mf),'r-'); hold on; plot(del_w,imag(mf),'b')
+     ylabel('|H(\omega)|');
+     xlabel('\Delta\omega_{0}/\omega_{1,max}');
+      
+     figure(7);
+     subplot(2,1,1); plot(del_w,abs(tf),'b-');
+     ylabel('mag(TF)');
+     title('Receiver gain A(\omega)');
+     
+     subplot(2,1,2); plot(del_w,(180/pi)*angle(tf),'r-');
+     ylabel('phase(TF)');
+     xlabel('\Delta\omega_{0}/\omega_{1,max}');
+     
+     figure;
+     plot(del_w,10*log10(NF),'b-'); hold on;
+     ylabel('NF (dB)');
+     xlabel('\Delta\omega_{0}/\omega_{1,max}');
+     title('Receiver NF');
+end
 
 % mrx=mrx/max(abs(tf)); % Normalize amplitude of received magnetization

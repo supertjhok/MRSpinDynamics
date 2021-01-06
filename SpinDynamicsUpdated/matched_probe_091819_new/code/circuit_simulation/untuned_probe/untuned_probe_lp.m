@@ -52,9 +52,17 @@ end
 Icr=Ic.*exp(-1i*w0*tvect);
 
 % Average over windows of length = 1/(2*w) to remove 2*w component
-numpts=floor(Ncyc*2/N); tvect2=zeros(1,numpts); Icr2=tvect2;
+%numpts=floor(Ncyc*2/N); tvect2=zeros(1,numpts); Icr2=tvect2;
+%for i=1:numpts
+%    ind=(i-1)*N/2+1:i*N/2;
+%    tvect2(i)=mean(tvect(ind));
+%    Icr2(i)=mean(Icr(ind));
+%end
+
+% Average over windows of length = 1/(w) to remove 2*w component
+numpts=floor(Ncyc/N); tvect2=zeros(1,numpts); Icr2=tvect2;
 for i=1:numpts
-    ind=(i-1)*N/2+1:i*N/2;
+    ind=(i-1)*N+1:i*N;
     tvect2(i)=mean(tvect(ind));
     Icr2(i)=mean(Icr(ind));
 end

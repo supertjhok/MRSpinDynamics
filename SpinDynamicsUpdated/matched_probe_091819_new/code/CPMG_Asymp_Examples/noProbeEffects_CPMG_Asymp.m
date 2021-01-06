@@ -1,8 +1,11 @@
-close all
-clear all
+% Calculate asymptotic magnetization and echo for a CPMG sequence assuming
+% no probe effects
+% -----------------------------------------------------------------------
+close all;
+clear all;
 
 [sp, pp] = set_params_ideal; % Define system parameters
-[masy]=calc_masy_ideal(sp,pp); % Simulate ideal system
+[masy] = calc_masy_ideal(sp,pp); % Simulate ideal system
 
 figure;
 %plot(sp.del_w,real(masy),'b--'); hold on; plot(sp.del_w,imag(masy),'r--');

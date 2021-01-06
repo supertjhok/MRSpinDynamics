@@ -1,3 +1,6 @@
+% Calculate asymptotic magnetization and echo for a CPMG sequence assuming
+% a tuned probe
+% -----------------------------------------------------------------------
 %close all
  
 %[sp, pp] = set_params_tuned_JMR; % Define system parameters

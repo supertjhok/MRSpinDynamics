@@ -20,9 +20,10 @@ vni2=4*k*T*Rc*abs(tf1).^2; % Probe noise PSD
 
 % Receiver noise (assume white)
 Fn=10^(sp.NF/10); % Noise factor
-vn2=4*k*T*sp.Rin*(Fn-1)*ones(1,length(f));
+vn2=k*T*sp.Rin*(Fn-1)*ones(1,length(f)); % Note kT instead of 4kT due to impedance matching
 
 pnoise=vni2+vn2; % Total noise PSD
+NF_probe=pnoise./vni2; % Calculate receiver noise figure
 
 % Matched filtering (maximize SNR at t=0)
 switch mf_type
@@ -57,4 +58,10 @@ if sp.plt_rx
     xlabel('\Delta\omega_{0}/\omega_{1,max}')
     ylabel('v_{n}, nV/Hz^{1/2}')
     set(gca,'FontSize',14);
+    
+    figure;
+    plot(del_w,10*log10(NF_probe),'b-'); hold on;
+    ylabel('NF (dB)');
+    xlabel('\Delta\omega_{0}/\omega_{1,max}');
+    title('Receiver NF');
 end

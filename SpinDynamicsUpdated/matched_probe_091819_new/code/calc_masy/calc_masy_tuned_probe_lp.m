@@ -12,6 +12,7 @@ amp_zero=pp.amp_zero; % Minimum amplitude for calculations
 
 % Convert acquisition time to normalized time
 tacq=(pi/2)*pp.tacq/T_90;
+
 % Calculate refocusing axis
 [neff]=calc_rot_axis_tuned_probe_lp(sp,pp);
 

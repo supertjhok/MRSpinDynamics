@@ -17,6 +17,7 @@ tacq=(pi/2)*pp.tacq/T_90;
 sp.C1=C1; sp.C2=C2; % Save matching capacitor values
 
 % Calculate refocusing axis
+sp.plt_tx=0; 
 [neff]=calc_rot_axis_matched_probe(sp,pp);
 
 % Add delay to excitation pulse to account for ring down, create structure
@@ -27,7 +28,7 @@ pp_curr.phi=[pp.pexc 0];
 pp_curr.amp=[pp.aexc 0];
 
 % Calculate excitation pulse
-sp.plt_rx=0; 
+sp.plt_rx=0; sp.plt_tx=0; 
 [tvect, Icr, tf1, tf2] = find_coil_current(sp,pp_curr); 
 
 delt=(pi/2)*(tvect(2)-tvect(1))/T_90; % Convert to normalized time

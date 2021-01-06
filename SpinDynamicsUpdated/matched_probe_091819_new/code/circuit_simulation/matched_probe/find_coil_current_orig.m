@@ -5,7 +5,7 @@
 % input voltage waveform
 % 04/09/19: Modified to include absolute RF phase parameter (psi)
 
-function [tvec2, yr2, tf1, tf2] = find_coil_current(sp,pp)
+function [tvec2, yr2, tvec, y, tf1, tf2] = find_coil_current_orig(sp,pp)
 
 % Read probe parameters
 L=sp.L;
@@ -94,9 +94,17 @@ y=y+(ycos_imp+1i*ysin_imp); % Add impulses
 yr=y.*exp(-1i*wn*tvec')*exp(-1i*psi);
 
 % Average over windows of length = 1/(2*w) to remove residual 2*w component
-ntot2=floor(ntot*2/N); tvec2=zeros(1,ntot2); yr2=tvec2;
+%ntot2=floor(ntot*2/N); tvec2=zeros(1,ntot2); yr2=tvec2;
+%for i=1:ntot2
+%    ind=(i-1)*N/2+1:i*N/2;
+%    tvec2(i)=mean(tvec(ind));
+%    yr2(i)=mean(yr(ind));
+%end
+
+% Average over windows of length = 1/(w) to remove residual 2*w component
+ntot2=floor(ntot/N); tvec2=zeros(1,ntot2); yr2=tvec2;
 for i=1:ntot2
-    ind=(i-1)*N/2+1:i*N/2;
+    ind=(i-1)*N+1:i*N;
     tvec2(i)=mean(tvec(ind));
     yr2(i)=mean(yr(ind));
 end
@@ -112,14 +120,13 @@ if sp.plt_tx
 %     ylabel('RF coil current (normalized)'); xlabel('Time (\mus)');
 %     legend(['Real';'Imag']); set(gca,'FontSize',14);
     
-    figure; 
+     figure; 
     plot(tvec*1e6,ycos(:,1)); hold on; plot(tvec*1e6,ysin(:,1));
     ylabel('RF coil current (normalized)'); xlabel('Time (\mus)');
     legend(['Real';'Imag']); set(gca,'FontSize',14);
     whiteBg;
     setSize;
     font;
-%     export_fig D:\Dropbox\TuneMatchJMR\Figures\Updated\TxMatch.pdf
     
 %     subplot(1,2,2);
 %     %plot(tvec*1e6,real(yr)); hold on; plot(tvec*1e6,imag(yr));
@@ -135,7 +142,6 @@ figure
     whiteBg;
     setSize;
     font;
-%   export_fig D:\Dropbox\TuneMatchJMR\Figures\Updated\TxMatchDemod.pdf
 end
 
 % Find receiver and noise transfer functions

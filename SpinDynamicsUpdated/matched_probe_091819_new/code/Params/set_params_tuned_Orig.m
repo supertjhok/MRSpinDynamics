@@ -45,7 +45,7 @@ sp.mth=1; % Asymptotic / thermal magnetization
 sp.numpts=1e4;  
 sp.maxoffs=10;
 sp.del_w=linspace(-sp.maxoffs,sp.maxoffs,sp.numpts);%Static Gradient
-sp.sens=0.0148; %Coil sensitivity (T/A)
+sp.sens=0.0296; %Coil sensitivity (T/A)
 
 % Matched filter type
 sp.mf_type=2; % 1 -> matched (white noise), 2 -> matched (colored noise)

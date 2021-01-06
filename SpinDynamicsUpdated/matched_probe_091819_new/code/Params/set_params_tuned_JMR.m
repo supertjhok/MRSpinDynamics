@@ -55,7 +55,7 @@ sp.mf_type=2; % 1 -> matched (white noise), 2 -> matched (colored noise)
 % Plotting parameters
 % --------------------------------------------
 sp.plt_tx = 0; 
-sp.plt_rx = 0; 
+sp.plt_rx = 1; 
 sp.plt_sequence = 0; % Plot on/off
 sp.plt_axis = 0; 
 sp.plt_mn = 0; 

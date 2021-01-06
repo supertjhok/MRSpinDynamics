@@ -1,19 +1,22 @@
 % Calculate rotation axis of a refocusing cycle including transmitter and
-% receiver bandwidth effects
+% receiver bandwidth effects (tuned probe)
 % --------------------------------------------------------------
 % params = [tref, pref, aref, tfp, tacq, Rs(Qsw_on,Qsw_off,Tx_on)] (all times normalized to w1 = 1)
 % --------------------------------------------------------------
 
 function [neff,SNR]=calc_rot_axis_tuned_probe_lp_Orig(params,sp,pp)
 
-% Simulation parameters
-del_w=sp.del_w;
-window = sinc(del_w*params.tacq/(2*pi)); % window function for acquisition
-window=window./sum(window);
-
 T_90=pp.T_90; % Rectangular T_90 time
 B1max=(pi/2)/(T_90*sp.gamma);
 sens=sp.sens; % Coil sensitivity, T/A
+
+% Convert acquisition time to normalized time
+tacq=(pi/2)*params.tacq/T_90;
+
+% Simulation parameters
+del_w=sp.del_w;
+window = sinc(del_w*tacq/(2*pi)); % window function for acquisition
+window=window./sum(window);
 
 % Create refocusing cycle
 % pp.tref=[params.tfp params.tref params.tqs (params.tfp-params.tqs)]*T_90/(pi/2);
@@ -31,13 +34,14 @@ trefc=delt*ones(1,length(tvect));
 prefc=atan2(imag(Icr),real(Icr));
 arefc=abs(Icr)*sens/B1max;
 arefc(arefc<amp_zero)=0; % Threshold amplitude
-ind=find(arefc==0); prefc(ind)=0; 
+ind=find(arefc==0); prefc(ind)=0;
 
 if sp.plt_tx
     figure(98);
-    plot(tvect/T_90,arefc);
+    plot(tvect/T_90,arefc.*cos(prefc)); hold on;
+	plot(tvect/T_90,arefc.*sin(prefc));
     xlabel('Normalized time, t/T_{90}')
-    ylabel('Normalized current amplitude in coil')
+    ylabel('Normalized coil current, rotating frame')
 end
    
 [neff]=calc_rot_axis_arba3(trefc,prefc,arefc,sp.del_w,sp.plt_axis);

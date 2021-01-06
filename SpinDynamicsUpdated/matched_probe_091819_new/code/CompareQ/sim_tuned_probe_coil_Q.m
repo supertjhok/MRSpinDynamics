@@ -8,6 +8,7 @@ Qvec = linspace(1,100,100); % Vary coil Q
 
 SNR = zeros(1, length(Qvec)); % Storage for output variables
 echo_rx = zeros(4*length(sp.del_w),length(Qvec));
+mrx = zeros(length(Qvec),length(sp.del_w));
 
 % Run simulations
 for i=1:length(Qvec)

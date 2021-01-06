@@ -41,7 +41,7 @@ sp.L1 = 75e-6; sp.R1 = 0.26; % Transformer primary
 sp.L2 = 1250e-6; sp.R2 = 0.91; % Transformer secondary
 
 sp.NF = 1; % Noise figure, dB
-sp.vn = 0.5e-9; 
+sp.vn = 0.45e-9; 
 sp.in = 2e-15; % Receiver input noise voltage [V/sqrt(Hz)] and current [A/sqrt(Hz)]
 
 % Simulation parameters
@@ -58,7 +58,7 @@ sp.mf_type=2; % 1 -> matched (white noise), 2 -> matched (colored noise)
 % Plotting parameters
 % --------------------------------------------
 sp.plt_tx = 0; 
-sp.plt_rx = 0; 
+sp.plt_rx = 1; 
 sp.plt_sequence = 1; % Plot on/off
 sp.plt_axis = 1; 
 sp.plt_mn = 1; 

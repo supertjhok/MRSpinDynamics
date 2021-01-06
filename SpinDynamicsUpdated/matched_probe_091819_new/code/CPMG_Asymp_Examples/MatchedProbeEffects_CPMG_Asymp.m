@@ -1,3 +1,6 @@
+% Calculate asymptotic magnetization and echo for a CPMG sequence assuming
+% a matched probe
+% -----------------------------------------------------------------------
 close all;
 
 [sp, pp] = set_params_matched_Orig; % Define system parameters

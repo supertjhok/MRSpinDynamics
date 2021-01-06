@@ -21,7 +21,7 @@ vni2=4*k*T*Rc*abs(tf1).^2; % Probe noise PSD
 
 % Receiver noise (assume white)
 Fn=10^(sp.NF/10); % Noise factor
-vn2=4*k*T*sp.Rin*(Fn-1)*ones(1,length(f));
+vn2=k*T*sp.Rin*(Fn-1)*ones(1,length(f)); % Note kT instead of 4kT due to impedance matching
 
 pnoise=vni2+vn2; % Total noise PSD
 
