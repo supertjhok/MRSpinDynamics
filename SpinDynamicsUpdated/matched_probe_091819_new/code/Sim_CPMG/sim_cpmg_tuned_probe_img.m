@@ -1,3 +1,27 @@
+% Simulate a 2D image with pure phase encoding.
+% Uses a pair of CPMG sequences (x,y) with phase gradient,
+% rectangular pulses, and finite transmit and receive bandwidth (tuned probe).
+% All CPMG echoes are computed.
+% Excitation and refocusing pulses are precomputed for speed.
+% ----------------------------------------------------------------------
+% Note: Running time scales at least as O(N^4) where N is
+% the number of pixels in each dimension (N^2 voxels x N^2 scans).
+% --> On tonks w/ NE = 6 and Ny = 400, we get running times of:
+% 1.3 min, 6.7 min, and 20 min for N = 16, 24, and 32.
+% --> This dependence is close to O(N^4).
+% ----------------------------------------------------------------------
+% Input parameters:
+% -----------------------------------------------------------------------
+% NE -> Number of echoes to simulate
+% TE -> Echo spacing (real value, sec)
+% Tgrad -> Normalized gradient pulse length (real value, sec)
+% rho, T1map, T2map -> 2D spin density and relaxation time maps (of the sample)
+% pxz -> Image size (px,pz), should be equal to or smaller than the sample maps
+% FOV -> Target FOV (FOV_x, FOV_z) in pixels
+% -----------------------------------------------------------------------
+% Sequence: (pi/2)x - Grad - (pi)x,y - [(pi)x,y]^(N_E)
+% ----------------------------------------------------------------------
+
 function [echo_int_all] = sim_cpmg_tuned_probe_img(params)
 
 % Read in parameters
@@ -140,10 +164,9 @@ gradz=wzmax*linspace(-1,1,pz); % z-gradient steps
 %Get receiver transfer function
 [sp.tf]=tuned_probe_rx_tf(sp,pp); % Filtering by tuned receiver
 
-
 % Generate image
 echo_int_all=zeros(px,pz,NE);
-for i=1:px % Parallelize for speed
+parfor i=1:px % Parallelize for speed
     spc=sp; ppc=pp; % Create local variables
     gradxc=gradx; gradzc=gradz;
     
@@ -190,6 +213,7 @@ if sp.plt_output % Plot selected outputs
     colorbar; title('Spin density image (Mag)');
     end
 end
+
 function [pp_out]=calc_pulse_shape(sp,pp,pp_in)
 
 T_90=pp.T_90;

@@ -1,6 +1,6 @@
 % Simulate a 2D image with pure phase encoding.
 % Uses a pair of CPMG sequences (x,y) with phase gradient,
-% rectangular pulses, and finite transmit and receive bandwidth.
+% rectangular pulses, and finite transmit and receive bandwidth (matched probe).
 % All CPMG echoes are computed.
 % Excitation and refocusing pulses are precomputed for speed.
 % ----------------------------------------------------------------------
@@ -21,6 +21,7 @@
 % -----------------------------------------------------------------------
 % Sequence: (pi/2)x - Grad - (pi)x,y - [(pi)x,y]^(N_E)
 % ----------------------------------------------------------------------
+
 function [echo_int_all]=sim_cpmg_matched_probe_img(params)
 
 % Read in parameters
@@ -167,7 +168,7 @@ gradz=wzmax*linspace(-1,1,pz); % z-gradient steps
 
 % Generate image
 echo_int_all=zeros(px,pz,NE);
-for i=1:px % Parallelize for speed
+parfor i=1:px % Parallelize for speed
     spc=sp; ppc=pp; % Create local variables
     gradxc=gradx; gradzc=gradz;
     
