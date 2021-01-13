@@ -29,6 +29,7 @@ sp.C = 1/((2*pi*sp.f0)^2*sp.L);
 % Transmitter parameters
 % --------------------------------------------
 sp.Rs = 2; % Series resistance, Ohms
+sp.Vs = 1; % Source voltage, V
 
 % Receiver parameters
 % --------------------------------------------
@@ -91,5 +92,9 @@ pp.tacq=[3]*pp.T_180; % Acquisition time for observing echo
 pp.tdw=0.5e-6; % Receiver dwell time
 
 pp.amp_zero=1e-4; % Minimum amplitude for calculations
+
+% Calculate coil sensitivity to ensure nominal coil current is correct
+sp.sens=((pi/2)/pp.T_90)*(2*sp.w0*sp.L)/(sp.gamma*sp.Vs); % Coil sensitivity (T/A)
+
 end
 

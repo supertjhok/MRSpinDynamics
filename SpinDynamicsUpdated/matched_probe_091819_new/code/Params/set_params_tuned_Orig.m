@@ -26,6 +26,7 @@ sp.C = 1/((2*pi*sp.f0)^2*sp.L);
 % Transmitter parameters
 % --------------------------------------------
 sp.Rs = 1; % Series resistance, Ohms
+sp.Vs = 1; % Source voltage, V
 
 % Receiver parameters
 % --------------------------------------------
@@ -45,7 +46,6 @@ sp.mth=1; % Asymptotic / thermal magnetization
 sp.numpts=1e4;  
 sp.maxoffs=10;
 sp.del_w=linspace(-sp.maxoffs,sp.maxoffs,sp.numpts);%Static Gradient
-sp.sens=0.0296; %Coil sensitivity (T/A)
 
 % Matched filter type
 sp.mf_type=2; % 1 -> matched (white noise), 2 -> matched (colored noise)
@@ -91,6 +91,9 @@ pp.tacq=[3]*pp.T_180; % Acquisition time for observing echo
 pp.tdw=0.5e-6; % Receiver dwell time
 
 pp.amp_zero=1e-4; % Minimum amplitude for calculations
+
+% Calculate coil sensitivity to ensure nominal coil current is correct
+sp.sens=((pi/2)/pp.T_90)*(2*sp.w0*sp.L)/(sp.gamma*sp.Vs); % Coil sensitivity (T/A)
 
 %Params
 params.texc = pp.texc;

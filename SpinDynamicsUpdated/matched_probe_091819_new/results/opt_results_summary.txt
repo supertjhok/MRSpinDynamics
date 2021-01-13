@@ -12,6 +12,7 @@ Tuned excitation, 500 kHz, T_90 = 26 us
 
 1 21 2
 1.5 17 14
+2 23 6
 
 Untuned refocusing, 500 kHz, T_90 = 26 us
 (ref_len, pulse_num)
@@ -25,3 +26,4 @@ Matched refocusing, 500 kHz, T_90 = 50 us
 
 1 11
 1.5 11
+2 15

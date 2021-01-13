@@ -14,7 +14,7 @@ amp_zero=pp.amp_zero; % Minimum amplitude for calculations
 % Convert acquisition time to normalized time
 tacq=(pi/2)*pp.tacq/T_90;
 
-sp.plt_axis=0;  sp.plt_tx=0; sp.plt_rx=0; % Turn off/on plots
+%sp.plt_axis=0;  sp.plt_tx=0; sp.plt_rx=0; % Turn off/on plots
 %sp.mf_type=2;
 
 % Calculate refocusing axis
@@ -39,7 +39,8 @@ ind=find(aexc==0); pexc(ind)=0;
 
 if sp.plt_tx
     figure(99);
-    plot(tvect/T_90,aexc);
+    plot(tvect/T_90,aexc.*cos(pexc)); hold on;
+	plot(tvect/T_90,aexc.*sin(pexc));
     xlabel('Normalized time, t/T_{90}')
     ylabel('Normalized current amplitude in coil')
 end

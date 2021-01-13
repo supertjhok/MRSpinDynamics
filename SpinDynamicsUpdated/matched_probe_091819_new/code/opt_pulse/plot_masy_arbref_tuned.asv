@@ -1,0 +1,19 @@
+% Calculate asymptotic SNR of a CPMG sequence assuming arbitrary 
+constant-amplitude refocusing pulses
+% Assume a tuned probe
+% --------------------------------------------------------------
+
+% function [masy,SNR] = plot_masy_rect_tuned(vars)
+% params: 
+% aexc, texc: normalized excitation pulse amplitude and length
+% pref: refocusing pulse phase vector, delt: length of each segment (units of T_180)
+
+function [mrx,masy,echo_rx,tvect,SNR] = plot_masy_arbref_tuned(params,sp,pp)
+
+sp.plt_axis=1;  sp.plt_tx=1; sp.plt_rx=1; % Set plotting parameters
+
+% Calculate asymptotic magnetization
+[mrx,masy,SNR] = calc_masy_tuned_probe_lp_Orig(params,sp,pp);
+
+% Plot time-domain echo
+[echo_rx,tvect]=calc_time_domain_echo(mrx,sp.del_w,1,1);

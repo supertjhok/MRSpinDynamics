@@ -60,40 +60,46 @@ NF=pnoise./vni2; % Calculate receiver noise figure
 
 if sp.plt_rx
     figure(6);
-    subplot(1,3,1);
- %   plot(del_w,real(macq),'b--'); hold on;
- %   plot(del_w,imag(macq),'r--');
-    plot(del_w,real(mrx)/max(abs(tf)),'b-'); hold on;
-    plot(del_w,imag(mrx)/max(abs(tf)),'r-');
- %   ylabel('m_{acq}(\omega), m_{rx}(\omega)');
-    ylabel('m_{rx}(\omega)');
+    plot(del_w,real(macq),'b--','LineWidth',1); hold on;
+    plot(del_w,imag(macq),'r--','LineWidth',1);
+    plot(del_w,real(mrx)/max(abs(tf)),'b-','LineWidth',1); hold on;
+    plot(del_w,imag(mrx)/max(abs(tf)),'r-','LineWidth',1);
+    ylabel('S_{asy}(\omega), S_{rx}(\omega)');
+%    ylabel('S_{rx}(\omega)');
     xlabel('\Delta\omega_{0}/\omega_{1,max}');
+    set(gca,'FontSize',15); set(gca,'FontWeight','bold');
     
-    subplot(1,3,2);
+    figure(7);
+    subplot(1,2,1);
     plot(del_w,pnoise/vn^2,'k-'); hold on;
     ylabel('N(\omega)');
     xlabel('\Delta\omega_{0}/\omega_{1,max}');
     title('Filter functions');
+    set(gca,'FontSize',15); set(gca,'FontWeight','bold');
     
-    subplot(1,3,3);
+    subplot(1,2,2);
     plot(del_w,abs(mf),'r-'); hold on;
     ylabel('|H(\omega)|');
     xlabel('\Delta\omega_{0}/\omega_{1,max}');
+    set(gca,'FontSize',15); set(gca,'FontWeight','bold');
      
-    figure(7);
+    figure(8);
     subplot(2,1,1); plot(del_w,abs(tf),'b-');
     ylabel('mag(TF)');
     title('Receiver gain A(\omega)');
+    set(gca,'FontSize',15); set(gca,'FontWeight','bold');
     
     subplot(2,1,2); plot(del_w,(180/pi)*angle(tf),'r-');
     ylabel('phase(TF)');
     xlabel('\Delta\omega_{0}/\omega_{1,max}');
+    set(gca,'FontSize',15); set(gca,'FontWeight','bold');
     
     figure(9);
     plot(del_w,10*log10(NF),'b-'); hold on;
     ylabel('NF (dB)');
     xlabel('\Delta\omega_{0}/\omega_{1,max}');
     title('Receiver NF');
+    set(gca,'FontSize',15); set(gca,'FontWeight','bold');
 end
 
 % mrx=mrx/max(abs(tf)); % Normalize amplitude of received magnetization

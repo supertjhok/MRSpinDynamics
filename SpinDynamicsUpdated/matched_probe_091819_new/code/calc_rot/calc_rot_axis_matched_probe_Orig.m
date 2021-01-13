@@ -37,6 +37,6 @@ arefc=abs(Icr);
 arefc(arefc<amp_zero)=0; % Threshold amplitude
     
 [neff]=calc_rot_axis_arba3(trefc,prefc,arefc,sp.del_w,sp.plt_axis);
-masy_matched = conv(abs(neff(1,:)+1i*neff(2,:)),window,'same'); % Maximum possible asymptotic magnetization
+masy_matched = conv(neff(1,:)+1i*neff(2,:),window,'same'); % Maximum possible asymptotic magnetization
 
 [~,~,~,SNR]=matched_probe_rx(sp,pp,masy_matched,sp.tf1,sp.tf2); % Filtering by matched receiver

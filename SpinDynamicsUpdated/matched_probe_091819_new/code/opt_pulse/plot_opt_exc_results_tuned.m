@@ -24,6 +24,7 @@ plot(pulse_num,results{7},'rs','MarkerSize',10);
 params=results{8};
 sp=results{9}; pp=results{10};
 params.pcycle=0;
+sp.plt_axis=1;  sp.plt_tx=1; sp.plt_rx=1; % Turn on plots
 
 % Quantize pulse phases
 % pp.NumPhases = 4096;

@@ -45,7 +45,8 @@ if sp.plt_tx
 end
    
 [neff]=calc_rot_axis_arba3(trefc,prefc,arefc,sp.del_w,sp.plt_axis);
-masy_matched = conv(abs(neff(1,:)+1i*neff(2,:)),window,'same'); % Maximum possible asymptotic magnetization
+masy_matched = conv(neff(1,:)+1i*neff(2,:),window,'same'); % Maximum possible asymptotic magnetization
 
+sp.plt_rx = 1; % Plots received magnetization
 [~,SNR,~]=untuned_probe_rx(sp,pp,masy_matched); % Filtering by tuned receiver
 SNR=SNR/1e8;

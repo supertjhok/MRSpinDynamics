@@ -7,6 +7,8 @@ function [sp,pp] = set_params_untuned_JMR
 sp.k = 1.381e-23; % J/K
 sp.T = 300; % Sample temperature
 
+sp.gamma = 2*pi*42.577e6;
+
 % System parameters
 % --------------------------------------------
 sp.f0 = 0.5e6; % Target matching frequency (= Larmor frequency), Hz
@@ -27,6 +29,7 @@ sp.C = 1/((2*pi*10*sp.f0)^2*sp.L); % Parasitic cap, fsr = 10 x f0
 % Transmitter parameters
 % --------------------------------------------
 sp.Rs = 2; % Series resistance, Ohms
+sp.Vs = 1; % Source voltage, V
 
 % Receiver parameters
 % --------------------------------------------
@@ -89,4 +92,8 @@ pp.tacq=[5]*pp.T_180; % Acquisition time for observing echo
 pp.tdw=0.5e-6; % Receiver dwell time
 
 pp.amp_zero=1e-4; % Minimum amplitude for calculations
+
+% Calculate coil sensitivity to ensure nominal coil current is correct
+sp.sens=((pi/2)/pp.T_90)*(2*sp.w0*sp.L)/(sp.gamma*sp.Vs); % Coil sensitivity (T/A)
+
 end

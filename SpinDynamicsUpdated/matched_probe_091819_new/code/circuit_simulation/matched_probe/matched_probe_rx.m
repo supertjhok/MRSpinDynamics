@@ -42,26 +42,27 @@ SNR=SNR/1e8;
 [echo,tvect]=calc_time_domain_echo(mrx,sp.del_w,0,0);
 
 if sp.plt_rx
-    figure;
-    plot(del_w,real(macq),'b--'); hold on;
-    plot(del_w,imag(macq),'r--');
-    plot(del_w,real(mrx)/max(abs(tf2)),'b-');
-    plot(del_w,imag(mrx)/max(abs(tf2)),'r-');
+    figure(7);
+    plot(del_w,real(macq),'b--','LineWidth',1); hold on;
+    plot(del_w,imag(macq),'r--','LineWidth',1);
+    plot(del_w,real(mrx)/max(abs(tf2)),'b-','LineWidth',1);
+    plot(del_w,imag(mrx)/max(abs(tf2)),'r-','LineWidth',1);
     title('Asymptotic magnetization')
     xlabel('\Delta\omega_{0}/\omega_{1,max}')
-    ylabel('M_{asy} (dashed), M_{rx} (solid)')
-    set(gca,'FontSize',14);
+    ylabel('S_{asy}(\omega), S_{rx}(\omega)')
+    set(gca,'FontSize',15); set(gca,'FontWeight','bold');
     
-    figure;
+    figure(8);
     plot(del_w,sqrt(pnoise)*1e9);
     title('Noise PSD at receiver')
     xlabel('\Delta\omega_{0}/\omega_{1,max}')
     ylabel('v_{n}, nV/Hz^{1/2}')
-    set(gca,'FontSize',14);
+    set(gca,'FontSize',15); set(gca,'FontWeight','bold');
     
-    figure;
+    figure(9);
     plot(del_w,10*log10(NF_probe),'b-'); hold on;
     ylabel('NF (dB)');
     xlabel('\Delta\omega_{0}/\omega_{1,max}');
     title('Receiver NF');
+    set(gca,'FontSize',15); set(gca,'FontWeight','bold');
 end
