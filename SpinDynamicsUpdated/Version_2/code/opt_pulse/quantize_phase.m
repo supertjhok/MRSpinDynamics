@@ -1,10 +1,12 @@
+% Quantize a phase vector to the nearest set of NumPhase values
+% Soumyajit Mandal, 01/20/2021
 
 function [phiq]=quantize_phase(phi,sp,pp)
 
 numpts=length(phi);
-Np=pp.NumPhases; 
+Np=pp.NumPhases;
 %w=pp.w;
-%tau=sp.L/(sp.R+pp.Rsref(1)); % Assume Rsref is constant
+%tau=sp.L/(sp.R+pp.Rsref(2)); % Assume Rsref is constant
 %theta=-atan2(w*tau,1);
 
 % Quantize phase to one of NumPhases evenly-spaced values 
