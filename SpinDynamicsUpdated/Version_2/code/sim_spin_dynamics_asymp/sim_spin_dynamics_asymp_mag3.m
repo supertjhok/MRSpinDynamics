@@ -27,7 +27,6 @@ mvect=zeros(3,numpts); % Magnetization vectors
 mvect(1,:)=m0*ones(1,numpts); % Initial vectors are along z-axis
 
 num_pulses=length(phi);
-% num_pulses = 41;
 for j=1:num_pulses
     
     if amp(j)>0
@@ -51,8 +50,6 @@ tmp=mvect;
 mvect(1,:)=0.5*(tmp(3,:)+tmp(2,:)); % Mx
 mvect(2,:)=-0.5*1i*(tmp(3,:)-tmp(2,:)); % My
 mvect(3,:)=tmp(1,:); % Mz
-
-% plot(del_w,fftshift(abs(fft(mvect(3,:)))));
 
 % Calculate asymptotic magnetization (spin-locked to effective rotation
 % axis)

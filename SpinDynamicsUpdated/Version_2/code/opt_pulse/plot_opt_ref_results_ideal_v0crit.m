@@ -1,0 +1,60 @@
+% Plot results of refocusing pulse optimization for v0crit
+% --------------------------------------------------------------
+% params = [tref, pref, aref, tfp, tacq, Rs(off,on)] (all times normalized to w1 = 1)
+% --------------------------------------------------------------
+
+function [neff,SNR] = plot_opt_ref_results_ideal_v0crit(file,pulse_num)
+
+% Load the results file
+filname = file;
+
+tmp=load(filname); results_all=tmp.results;
+siz = size(results_all);
+
+% Plot optimization result (SNR) of all pulses for comparison
+axis_rms=zeros(1,siz(1));
+for i=1:siz(1)
+tmp=results_all{i}; axis_rms(i)=tmp{4};
+end
+figure(10); plot(axis_rms,'LineWidth',1); hold on;
+set(gca,'FontSize',15); set(gca,'FontWeight','bold');
+ylabel('Optimized SNR');
+
+% Plot optimization result (v0crit) of all pulses for comparison
+axis_rms=zeros(1,siz(1));
+for i=1:siz(1)
+tmp=results_all{i}; v0crit_av(i)=tmp{5};
+end
+figure(11); 
+plot(v0crit_av,'LineWidth',1); hold on;
+set(gca,'FontSize',15); set(gca,'FontWeight','bold');
+ylabel('Average v_{0,crit}');
+    
+results=results_all{pulse_num};
+SNR=results{4}; v0crit_opt=results{5};
+figure(10); plot(pulse_num,SNR,'rs','MarkerSize',10);
+figure(11); plot(pulse_num,v0crit_opt,'rs','MarkerSize',10);
+params=results{6};
+sp=results{7}; pp=results{8};
+
+sp.plt_axis=1;  sp.plt_tx=1; sp.plt_rx=1; % Set plotting parameters
+
+w_1n=(pi/2)/pp.T_90; % Nominal nutation frequency
+% Plot refocusing cycle
+tp=results{1}; phi=results{2}; amp=results{3}; 
+pp.tref=tp/w_1n; pp.pref=phi; pp.aref=amp;
+del_w=sp.del_w; plt=1;
+[neff,alpha]=calc_rot_axis_arba4(tp,phi,amp,del_w,plt);
+[v0crit]=calc_v0crit(del_w,neff,alpha,plt);
+
+% Plot pulse
+figure(13); clf;
+stairs([0 cumsum(tp/w_1n)]*1e6,[amp.*cos(phi) 0],'LineWidth',1); hold on;
+stairs([0 cumsum(tp/w_1n)]*1e6,[amp.*sin(phi) 0],'LineWidth',1);
+xlabel('Time (\mus)'); ylabel('Complex amplitude');
+set(gca,'FontSize',14); set(gca,'FontWeight','Bold');
+
+figure(14); clf;
+stairs([0 cumsum(tp/w_1n)]*1e6,unwrap([phi 0])*180/pi,'LineWidth',1); hold on;
+xlabel('Time (\mus)'); ylabel('Pulse phase (degrees)');
+set(gca,'FontSize',14); set(gca,'FontWeight','Bold');

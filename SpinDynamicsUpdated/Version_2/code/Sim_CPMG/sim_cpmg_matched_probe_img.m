@@ -45,7 +45,7 @@ if pp.tacq>(TE-T_180)
 end
 
 % Set size of simulation domain
-sp.numptsy=400; 
+sp.ny=400; 
 sp.maxoffs=5; % y-axis
 siz=size(rho);
 sp.nx=siz(1);
@@ -60,7 +60,7 @@ pz=pxz(2);
 
 % Predicted maximum number of echoes before simulation instability occurs
 % (in the absence of a gradient - gradients will make matters worse)
-dw=2*sp.maxoffs/sp.numptsy; % Normalized to w1
+dw=2*sp.maxoffs/sp.ny; % Normalized to w1
 NE_max=2*T_180/(dw*TE);
 display(['NE_max = ' num2str(NE_max)]);
 if NE>NE_max

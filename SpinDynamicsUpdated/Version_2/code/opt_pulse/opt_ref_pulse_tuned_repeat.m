@@ -1,5 +1,7 @@
 % Repeated optimization runs, store current maximum
 % lp -> linearly polarized transmitter
+% Pulse is ref_len*T_180 long
+% techo is the echo period, normalized to w1n = 1 (for which T_180 = pi)
 
 function opt_ref_pulse_tuned_repeat(ref_len,techo,file)
 

@@ -34,7 +34,7 @@
 % possible.
 % -----------------------------------------------------------------------
 
-function [macq]=sim_spin_dynamics_arb9(params)
+function [macq]=sim_spin_dynamics_arb9(params) %#codegen
 
 % Load parameters
 tp=params.tp; 
@@ -67,7 +67,8 @@ macq=zeros(nacq,numpts);
 % Evolution of magnetization
 num_pulses=length(tp); del_w0=del_w;
 for j=1:num_pulses
-    del_w=del_w0+grad(j)*del_wg; % Apply gradient pulse
+    % Change static field (e.g.,to model a gradient pulse) 
+    del_w=del_w0+grad(j)*del_wg;
     
     if amp(j)>0 % RF pulse, use precomputed matrix
         mat=Rtot{pul(j)}; % RF pulses

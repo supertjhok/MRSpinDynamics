@@ -1,0 +1,70 @@
+% Repeated optimization runs, store current maximum
+% Pulse is ref_len*T_180 long
+% tE is the echo period, normalized to w1n = 1 (for which T_180 = pi)
+
+function opt_ref_pulse_ideal_v0crit_exc_repeat(ref_len,tE,file)
+
+% Number of iteration runs (should be integer multiple of parpool size)
+numiter=32;
+
+[sp,pp]=set_params_ideal_tv_exc; % Set parameters
+sp.rho=1; sp.T1map=1e8; sp.T2map=1e8; % Set sample properties
+sp=create_fields_lingrad(sp); % Create field and sample parameter vectors
+
+% Find magnetization after the excitation pulse
+w_1n=(pi/2)/pp.T_90; % Nominal nutation frequency
+tp=pp.texc*w_1n; phi=pp.pexc; amp=pp.aexc;
+pp.mexc=sim_spin_dynamics_exc(tp,phi,amp,sp.del_w);
+
+% Plot magnetization after excitation pulse
+figure(1);
+subplot(3,1,1);
+plot(sp.del_w,pp.mexc(1,:),'LineWidth',1);
+set(gca,'FontSize',14); set(gca,'FontWeight','Bold');
+ylabel('M_{exc,x}');
+subplot(3,1,2);
+plot(sp.del_w,pp.mexc(2,:),'LineWidth',1);
+set(gca,'FontSize',14); set(gca,'FontWeight','Bold');
+ylabel('M_{exc,y}');
+subplot(3,1,3);
+plot(sp.del_w,pp.mexc(3,:),'LineWidth',1);
+set(gca,'FontSize',14); set(gca,'FontWeight','Bold');
+ylabel('M_{exc,z}'); xlabel('\Delta\omega_0/\omega_1');
+
+% Parameters of the refocusing pulse
+lref=0.05*pi; % Each segment is 0.1 x T_180 long
+nref=round(ref_len*pi/lref); % Pulse is ref_len*T_180 long
+disp(['Number of optimization variables = ' num2str(nref)]);
+
+% Create delay parameters (normalized time)
+params.tref=lref*ones(1,nref);
+params.tfp=(tE-ref_len*pi)/2; % Free precession time
+
+results=cell(numiter,1);
+parfor count = 1:numiter
+    disp(['Starting run ' num2str(count)]);
+    params_curr=params;
+    params_curr.pref=2*pi*rand(1,nref);
+    
+    % Run optimization
+    [out]=opt_ref_pulse_ideal_v0crit_exc(params_curr,sp,pp);
+    
+    % Create results structure
+    results_curr=cell(1,7);
+    results_curr{1}=[params_curr.tfp out.tref params_curr.tfp]; % Store refocusing cycle
+    results_curr{2}=[0 out.pref 0];
+    results_curr{3}=[0 out.aref 0];
+    results_curr{4}=out.axis_rms;
+    results_curr{5}=out.v0crit_av;
+    results_curr{6}=out.params;
+    results_curr{7}=out.sp;
+    results_curr{8}=out.pp;
+    
+    results{count}=results_curr;
+    
+    disp(out.axis_rms)
+    disp(out.v0crit_av)
+end
+
+% Save optimization results
+save(file,'results');

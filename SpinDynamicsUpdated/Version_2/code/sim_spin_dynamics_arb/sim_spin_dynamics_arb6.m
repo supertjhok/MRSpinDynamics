@@ -77,8 +77,6 @@ plot(del_w,real(mvect(1,:)))
 hold on
 plot(del_w,imag(mvect(1,:)));
 
-1+1
-
 % Calculate matrix elements for RF pulses, neglect relaxation
 function R = calc_matrix_elements(del_w,w1,Omega,tp,phi)
 

@@ -6,14 +6,11 @@
 % 04/09/19: Modified to include absolute RF phase parameter (psi)
 % 09/09/19: Modified to allow arbitrary pulse sequences & (w0,w1) maps
 
-function [macq]=calc_macq_ideal_probe_relax4(sp,pp)
+function [macq]=calc_macq_ideal_probe_relax4(sp,pp) %#codegen
 
 T_90=pp.T_90; % Rectangular T_90 time
 T1=(pi/2)*sp.T1/T_90; 
 T2=(pi/2)*sp.T2/T_90; % Relaxation time constants (normalized)
-
-% Convert to normalized time
-tacq=(pi/2)*pp.tacq/T_90; % Acquisition window length
 
 % Create structure
 params.tp=pp.tp;

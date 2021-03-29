@@ -1,0 +1,39 @@
+% Summary of best refocusing cycles for time-varying fields
+% -----------------------------------------------------------
+% (1) Optimizing for v0_crit directly
+% -----------------------------------------------------------
+% (a) Ideal (AMEX) excitation pulse
+% File name, pulse_length (x180), t_E (x180), run_number, pulse_number
+ref_ideal_v0crit_1p0_6pi_1, 1.0, 6, 1, 12
+ref_ideal_v0crit_1p5_6pi_1, 1.5, 6, 1, 15
+ref_ideal_v0crit_1p5_6pi_2, 1.5, 6, 2, 7
+ref_ideal_v0crit_2p0_6pi_1, 2.0, 6, 1, 7
+ref_ideal_v0crit_2p5_6pi_1, 2.5, 6, 1, 9
+ref_ideal_v0crit_3p0_6pi_1, 3.0, 6, 1, 10
+
+% (b) Rectangular excitation pulse (amplitude = 2), fixed t_E
+% File name, pulse_length (x180), t_E (x180), run_number, pulse_number
+ref_ideal_v0crit_rect1_1p0_6pi_1, 1.0, 6, 1, 22
+ref_ideal_v0crit_rect1_1p5_6pi_1, 1.5, 6, 1, 21
+ref_ideal_v0crit_rect1_2p0_6pi_1, 2.0, 6, 1, 13
+ref_ideal_v0crit_rect1_2p5_6pi_1, 2.5, 6, 1, 14
+ref_ideal_v0crit_rect1_2p5_6pi_3, 2.5, 6, 3, 5
+
+% (c) Rectangular excitation pulse (amplitude = 2), variable t_E
+% File name, pulse_length (x180), t_E (x180), run_number, pulse_number
+ref_ideal_v0crit_rect1_1p5_6pi_1, 1.5, 6, 1, 21
+ref_ideal_v0crit_rect1_1p5_8pi_1, 1.5, 8, 1, 12
+ref_ideal_v0crit_rect1_1p5_8pi_1, 1.5, 8, 1, 32
+ref_ideal_v0crit_rect1_1p5_10pi_1, 1.5, 10, 1, 31
+ref_ideal_v0crit_rect1_1p5_12pi_1, 1.5, 12, 1, 20
+
+% -----------------------------------------------------------
+% (2) Optimizing using transient simulation of a cyclic field fluctuation
+% -----------------------------------------------------------
+% (a) Rectangular excitation pulse (amplitude = 2), fixed t_E
+% File name, pulse_length (x180), t_E (x180), type of fluctuation, amplitude of fluctuation, period of fluctuation (echoes), pulse_number
+ref_ideal_tv_1p0_6pi_sin_1p0_200, 1.0, 6, sine, 1.0, 200, 2
+ref_ideal_tv_1p0_6pi_tri_1p0_200, 1.0, 6, triangle, 1.0, 200, 9
+ref_ideal_tv_1p5_6pi_sin_1p0_200, 1.5, 6, sine, 1.0, 200, 13
+ref_ideal_tv_1p5_6pi_tri_1p0_200, 1.5, 6, triangle, 1.0, 200, 3
+ref_ideal_tv_1p0_6pi_sin_1p5_200, 1.5, 6, sine, 1.5, 200, 3

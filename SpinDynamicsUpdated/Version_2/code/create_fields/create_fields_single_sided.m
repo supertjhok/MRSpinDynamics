@@ -5,8 +5,8 @@
 function [sp]=create_fields_single_sided(sp)
 
 % Fixed offset: strong gradient in y-direction
-numptsy=sp.numptsy; maxoffs=sp.maxoffs; % Size of y-axis
-del_w0y=linspace(-maxoffs,maxoffs,numptsy); % Linear y-gradient
+ny=sp.ny; maxoffs=sp.maxoffs; % Size of y-axis
+del_w0y=linspace(-maxoffs,maxoffs,ny); % Linear y-gradient
 
 if sp.plt_fields
     figure;
@@ -41,29 +41,30 @@ xzv=reshape(xz,1,nx*nz); % Reshape to vector
 
 if sp.plt_fields
     figure;
-    surf(z1,x1,xz); title('Normalized RF amplitude in (x,z) plane');
+    if nx>1 && nz>1
+        surf(z1,x1,xz); title('Normalized RF amplitude in (x,z) plane');
+    end
 end
 
 % Sample properties
 rho=sp.rho; T1map=sp.T1map; T2map=sp.T2map;
 rhov=reshape(rho,1,nx*nz); % Reshape to vector
-T1mapv=reshape(T1map,1,nx*nz); 
+T1mapv=reshape(T1map,1,nx*nz);
 T2mapv=reshape(T2map,1,nx*nz);
 
 if sp.plt_fields
     figure;
-    subplot(1,3,1); plot(z1,x1,rho); title('Spin density')
-    subplot(1,3,2); plot(z1,x1,T1map); title('T1')
-    subplot(1,3,3); plot(z1,x1,T2map); title('T2')
+    subplot(1,3,1); imagesc(z1,x1,rho); title('Spin density')
+    subplot(1,3,2); imagesc(z1,x1,T1map); title('T1')
+    subplot(1,3,3); imagesc(z1,x1,T2map); title('T2')
 end
-
 
 % Create offset frequency, RF amplitude, and sample vectors
 % Created by flattening (x,z) for each y to a 1D list, then repeating for each y
-sp.numpts=numptsy*nx*nz;
+sp.numpts=ny*nx*nz;
 del_w0=zeros(1,sp.numpts); w_1=del_w0; del_wx=del_w0; del_wz=del_w0;
 m0=del_w0; mth=del_w0; T1=del_w0; T2=del_w0;
-for i=1:sp.numptsy
+for i=1:sp.ny
     del_w0((i-1)*nx*nz+1:i*nx*nz)=del_w0y(i)*ones(1,nx*nz);
     del_wx((i-1)*nx*nz+1:i*nx*nz)=del_wgxv;
     del_wz((i-1)*nx*nz+1:i*nx*nz)=del_wgzv;
@@ -74,8 +75,8 @@ for i=1:sp.numptsy
     T2((i-1)*nx*nz+1:i*nx*nz)=T2mapv;
 end
 
-sp.del_w=del_w0; 
+sp.del_w=del_w0;
 sp.w_1=w_1;
-sp.del_wx=del_wx; 
+sp.del_wx=del_wx;
 sp.del_wz=del_wz;
-sp.m0=m0; sp.mth=mth; sp.T1=T1; sp.T2=T2; 
+sp.m0=m0; sp.mth=mth; sp.T1=T1; sp.T2=T2;
