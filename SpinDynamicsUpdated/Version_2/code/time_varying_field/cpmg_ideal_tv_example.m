@@ -1,3 +1,27 @@
+% CPMG_IDEAL_TV_EXAMPLE
+% Simulate ideal-probe CPMG echoes with a time-varying B0 field.
+%
+% Purpose
+%   Demonstrates the time-varying-field workflow by constructing ideal CPMG
+%   parameters, defining a B0 fluctuation waveform, running the simulation, and
+%   comparing against a reference scan with no field fluctuations.
+%
+% Inputs
+%   This script takes no function arguments. The field waveform is selected by
+%   editing the B_0t block in the script.
+%
+% Outputs
+%   Leaves mrx, echo_rx, echo_int, mrx_ref, echo_rx_ref, sp, pp, and tvect in
+%   the workspace and may create plots depending on sp.plt_output.
+%
+% Key functions
+%   set_params_ideal_tv, create_fields_lingrad, calc_rot_axis_arba4,
+%   sim_cpmg_ideal_tv, sim_cpmg_ideal_tv_final.
+%
+% Notes
+%   Time and frequency quantities are normalized through the nominal nutation
+%   frequency w_1n.
+% -------------------------------------------------------------------------
 % Set parameters
 [sp, pp]=set_params_ideal_tv;
 sp.rho=1; sp.T1map=1e8; sp.T2map=1e8; % Set sample properties

@@ -1,3 +1,28 @@
+% MATCHEDCOMPAREQ
+% Sweep matched-probe coil Q and compare received CPMG spectra, echoes, and
+% SNR.
+%
+% Purpose
+%   Runs a parallel Q sweep using the original matched-probe CPMG workflow,
+%   stores received spectra and time-domain echoes, and plots Q-dependent
+%   signal maps and SNR.
+%
+% Inputs
+%   This script takes no function arguments. Qvec is defined near the top of
+%   the script.
+%
+% Outputs
+%   Creates figures for abs(mrx), abs(echo_rx), and SNR. Leaves Qvec, SNR,
+%   echo_rx, tvect2, mrx, sp, and pp in the workspace.
+%
+% Key functions
+%   set_params_matched_Orig, calc_masy_matched_probe_Orig,
+%   calc_time_domain_echo.
+%
+% Notes
+%   Uses parfor, so the Parallel Computing Toolbox is expected for parallel
+%   execution. Plotting flags are disabled inside the sweep.
+% -------------------------------------------------------------------------
 close all
 [sp, pp] = set_params_matched_Orig; % Define system parameters
 

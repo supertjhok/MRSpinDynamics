@@ -1,8 +1,33 @@
-% Calculate asymptotic magnetization of CPMG including transmitter and
-% receiver bandwidth effects for a tuned-and-matched probe
-% --------------------------------------------------------------
+% CALC_MASY_MATCHED_PROBE
+% Calculate CPMG asymptotic and received magnetization for a matched probe.
+%
+% Signature
+%   [mrx,echo,tvect,SNR] = calc_masy_matched_probe(sp,pp)
+%
+% Inputs
+%   sp - Matched-probe system/simulation structure. Required fields include
+%     L, Q, f0, Rs, R, del_w, plt_mn, plt_rx, and mf_type.
+%   pp - Pulse-sequence structure. Required fields include T_90, tacq, trd,
+%     texc, pexc, aexc, tcorr, amp_zero, and refocusing-cycle fields used by
+%     calc_rot_axis_matched_probe.
+%
+% Outputs
+%   mrx - Complex received magnetization spectrum after receiver filtering.
+%   echo - Complex time-domain echo from mrx.
+%   tvect - Time vector corresponding to echo.
+%   SNR - Matched-filter signal-to-noise ratio estimate.
+%
+% Dependencies
+%   matching_network_design2, calc_rot_axis_matched_probe, find_coil_current,
+%   sim_spin_dynamics_asymp_mag3, matched_probe_rx.
+%
+% Notes
+%   Includes transmitter ring-down, PAP phase cycling, and receiver
+%   transfer-function filtering.
+%
 % Written by: Soumyajit Mandal, 03/28/19
 % 04/09/19: Modified to include absolute RF phase parameter (psi)
+% --------------------------------------------------------------
 
 function [mrx,echo,tvect,SNR]=calc_masy_matched_probe(sp,pp)
 

@@ -1,6 +1,33 @@
-% Calculate receiver filtering function for a matched probe
-% ------------------------------------------------------
+% MATCHED_PROBE_RX
+% Apply matched-probe receiver filtering and estimate matched-filter SNR.
+%
+% Signature
+%   [mrx,echo,tvect,SNR] = matched_probe_rx(sp,pp,macq,tf1,tf2)
+%
+% Inputs
+%   sp - Matched-probe system/simulation structure. Required fields include k,
+%     T, L, f0, Q, mf_type, del_w, NF, Rin, and plt_rx.
+%   pp - Pulse-sequence structure. Required fields include T_90.
+%   macq - Complex acquired/asymptotic magnetization spectrum before receiver
+%     filtering.
+%   tf1 - Probe-noise transfer function.
+%   tf2 - Signal transfer function from magnetization to receiver input.
+%
+% Outputs
+%   mrx - Complex receiver-filtered magnetization/signal spectrum.
+%   echo - Complex time-domain echo calculated from mrx.
+%   tvect - Time vector corresponding to echo.
+%   SNR - Matched-filter signal-to-noise ratio estimate.
+%
+% Dependencies
+%   calc_time_domain_echo.
+%
+% Notes
+%   mf_type selects white-noise or colored-noise matched filtering. Plotting is
+%   controlled by sp.plt_rx.
+%
 % Written by: Soumyajit Mandal, 03/28/19
+% ------------------------------------------------------
 
 function [mrx,echo,tvect,SNR] = matched_probe_rx(sp,pp,macq,tf1,tf2)
 

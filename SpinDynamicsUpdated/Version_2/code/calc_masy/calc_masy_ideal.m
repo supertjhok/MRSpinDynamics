@@ -1,7 +1,27 @@
-% Calculate asymptotic magnetization of CPMG with no probe effects
-% for a tuned-and-matched probe
-% --------------------------------------------------------------
+% CALC_MASY_IDEAL
+% Calculate CPMG asymptotic magnetization with no probe-circuit effects.
+%
+% Signature
+%   masy = calc_masy_ideal(sp,pp)
+%
+% Inputs
+%   sp - Simulation/system parameter structure. Required fields include
+%     del_w and plotting flags such as plt_axis and plt_rx.
+%   pp - Pulse-sequence parameter structure. Required fields include T_90,
+%     tref, pref, aref, texc, pexc, aexc, tacq, and tcorr.
+%
+% Outputs
+%   masy - Complex asymptotic magnetization spectrum after phase cycling.
+%
+% Dependencies
+%   calc_rot_axis_arba3, sim_spin_dynamics_asymp_mag3.
+%
+% Notes
+%   This ideal workflow converts absolute pulse timings in pp to normalized
+%   time using T_90 before calling the lower-level spin-dynamics routines.
+%
 % Written by: Soumyajit Mandal, 03/28/19
+% --------------------------------------------------------------
 
 function [masy]=calc_masy_ideal(sp,pp)
 

@@ -1,8 +1,32 @@
-% Calculate asymptotic magnetization of CPMG including transmitter and
-% receiver bandwidth effects
-% --------------------------------------------------------------
-% params = [texc, pexc, aexc, tref, pref, aref, tfp, tacq, Rs(Qsw_on,Qsw_off,Tx_on), pcycle]
-% (all times normalized to w1 = 1)
+% CALC_MASY_TUNED_PROBE_LP
+% Calculate CPMG asymptotic and received magnetization for a tuned probe.
+%
+% Signature
+%   [mrx,masy,SNR,vsig] = calc_masy_tuned_probe_lp(sp,pp)
+%
+% Inputs
+%   sp - Tuned-probe system/simulation structure. Required fields include
+%     del_w, plt_tx, plt_rx, and tuned-probe circuit fields used by
+%     tuned_probe_lp and tuned_probe_rx.
+%   pp - Pulse-sequence structure. Required fields include T_90, tacq, texc,
+%     pexc, aexc, tcorr, amp_zero, pcycle, and refocusing-cycle fields used by
+%     calc_rot_axis_tuned_probe_lp.
+%
+% Outputs
+%   mrx - Complex received magnetization spectrum after tuned receiver
+%     filtering.
+%   masy - Complex asymptotic magnetization spectrum before receiver filtering.
+%   SNR - Signal-to-noise ratio estimate scaled to voltage units.
+%   vsig - Matched-filter signal amplitude returned by tuned_probe_rx.
+%
+% Dependencies
+%   calc_rot_axis_tuned_probe_lp, tuned_probe_lp,
+%   sim_spin_dynamics_asymp_mag3, tuned_probe_rx.
+%
+% Notes
+%   Pulse times are converted from seconds to normalized units through T_90.
+%   The excitation pulse is generated through the tuned-probe circuit model and
+%   thresholded using pp.amp_zero.
 % --------------------------------------------------------------
 
 function [mrx,masy,SNR,vsig] = calc_masy_tuned_probe_lp(sp,pp)

@@ -1,8 +1,32 @@
-% Calculate asymptotic magnetization of CPMG including transmitter and
-% receiver bandwidth effects
-% --------------------------------------------------------------
-% params = [texc, pexc, aexc, tref, pref, aref, tfp, tacq, Rs(Qsw_on,Qsw_off,Tx_on), pcycle]
-% (all times normalized to w1 = 1)
+% CALC_MASY_UNTUNED_PROBE_LP
+% Calculate CPMG asymptotic and received magnetization for an untuned probe.
+%
+% Signature
+%   [mrx,masy,SNR] = calc_masy_untuned_probe_lp(params,sp,pp)
+%
+% Inputs
+%   params - Compact pulse/circuit parameter structure. Required fields include
+%     texc, pexc, aexc, tref, pref, aref, tfp, tqs, trd, tacq, Rs, and pcycle.
+%   sp - Untuned-probe system/simulation structure. Required fields include
+%     gamma, sens, del_w, plt_tx, plt_rx, and untuned-probe circuit fields used
+%     by untuned_probe_lp and untuned_probe_rx.
+%   pp - Pulse-sequence structure. Required fields include T_90, tcorr, and
+%     amp_zero.
+%
+% Outputs
+%   mrx - Complex received magnetization spectrum after untuned receiver
+%     filtering.
+%   masy - Complex asymptotic magnetization spectrum before receiver filtering.
+%   SNR - Signal-to-noise ratio estimate scaled to voltage units.
+%
+% Dependencies
+%   calc_rot_axis_untuned_probe_lp, untuned_probe_lp,
+%   sim_spin_dynamics_asymp_mag3, untuned_probe_rx.
+%
+% Notes
+%   Pulse times are converted from seconds to normalized units through T_90.
+%   The excitation pulse is generated through the untuned-probe circuit model
+%   and scaled by coil sensitivity.
 % --------------------------------------------------------------
 
 function [mrx,masy,SNR] = calc_masy_untuned_probe_lp(params,sp,pp)

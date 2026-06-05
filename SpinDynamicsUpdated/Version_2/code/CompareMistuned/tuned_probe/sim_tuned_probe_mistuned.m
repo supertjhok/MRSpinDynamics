@@ -1,6 +1,31 @@
-% Simulate a tuned probe with varying frequency offset
-% ------------------------------------------------------
+% SIM_TUNED_PROBE_MISTUNED
+% Sweep tuned-probe tuning frequency error and compare received CPMG spectra,
+% echoes, and SNR.
+%
+% Purpose
+%   Varies the tuned-probe resonant frequency in units of probe bandwidth,
+%   updates the coil resistance and tuning capacitance, runs the original
+%   tuned-probe CPMG workflow, and plots received spectrum, echo, and SNR
+%   versus frequency error.
+%
+% Inputs
+%   This script takes no function arguments. f0_vec is defined from sp.fin and
+%   sp.Q near the top of the script.
+%
+% Outputs
+%   Creates figures for abs(mrx), abs(echo_rx), and SNR. Leaves f0_vec, SNR,
+%   echo_rx, tvect2, mrx, params, sp, and pp in the workspace.
+%
+% Key functions
+%   set_params_tuned_Orig, calc_masy_tuned_probe_lp_Orig,
+%   calc_time_domain_echo.
+%
+% Notes
+%   Uses parfor, so the Parallel Computing Toolbox is expected for parallel
+%   execution. Frequency error is plotted in units of fin/Q.
+%
 % Written by: Soumyajit Mandal, 01/03/21
+% -------------------------------------------------------------------------
 
 [params,sp,pp] = set_params_tuned_Orig; % Define system parameters
 

@@ -1,7 +1,31 @@
-% Set simulation parameters assuming no probe dynamics 
-% ------------------------------------------------------
+% SET_PARAMS_IDEAL
+% Construct default simulation and pulse-sequence parameters for the ideal
+% no-probe CPMG workflow.
+%
+% Signature
+%   [sp,pp] = set_params_ideal()
+%
+% Inputs
+%   None.
+%
+% Outputs
+%   sp - System/simulation parameter structure containing physical constants,
+%     sample parameters, offset grid, plotting flags, and matched-filter type.
+%   pp - Pulse-sequence parameter structure containing nominal pulse lengths,
+%     excitation pulse, refocusing cycle, acquisition timing, and numerical
+%     thresholds.
+%
+% Dependencies
+%   None.
+%
+% Notes
+%   These parameters assume no probe dynamics. Pulse sequence timings are
+%   stored in absolute seconds and converted to normalized units by downstream
+%   helpers such as calc_masy_ideal.
+%
 % Written by: Soumyajit Mandal, 03/28/19
 % Last updated: 12/30/20
+% ------------------------------------------------------
 
 function [sp, pp] = set_params_ideal
 

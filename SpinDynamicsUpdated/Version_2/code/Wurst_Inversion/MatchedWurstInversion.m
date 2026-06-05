@@ -1,3 +1,25 @@
+% MATCHEDWURSTINVERSION
+% Run a matched-probe WURST inversion example.
+%
+% Purpose
+%   Sets matched-probe system parameters and calls the WURST inversion
+%   simulation entry point. The commented sections show earlier plotting and
+%   asymptotic-magnetization checks.
+%
+% Inputs
+%   This script takes no function arguments. It currently passes params = 1 to
+%   sim_inv_matched_probe_WURST.
+%
+% Outputs
+%   Leaves sp, pp, params, and output_args in the workspace.
+%
+% Key functions
+%   set_params_matched, sim_inv_matched_probe_WURST.
+%
+% Notes
+%   This appears to be an exploratory script rather than a polished example.
+%   Review the params placeholder before using it as a canonical workflow.
+% -------------------------------------------------------------------------
 close all
 [sp, pp] = set_params_matched; % Define system parameters
 

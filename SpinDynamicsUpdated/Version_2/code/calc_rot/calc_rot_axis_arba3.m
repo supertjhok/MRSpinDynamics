@@ -1,6 +1,26 @@
-% Calculate effective rotation axis of CPMG refocusing cycle
-% Intervals of free precession have zero amplitude
-% Returns rotation axis n in [x y z] form
+% CALC_ROT_AXIS_ARBA3
+% Calculate the effective rotation axis of an arbitrary-amplitude refocusing
+% cycle.
+%
+% Signature
+%   n = calc_rot_axis_arba3(tp,phi,amp,del_w,plt)
+%
+% Inputs
+%   tp - Segment durations in normalized time units.
+%   phi - RF segment phases in radians.
+%   amp - RF segment amplitudes; zero indicates free precession.
+%   del_w - Offset-frequency vector for the isochromat ensemble.
+%   plt - Plot flag; nonzero plots alpha and the n components.
+%
+% Outputs
+%   n - Effective rotation-axis array in [x; y; z] form, size 3-by-numpts.
+%
+% Dependencies
+%   MATLAB vector and cross-product operations.
+%
+% Notes
+%   This routine returns only the rotation axis. Use calc_rot_axis_arba4 when
+%   the net rotation angle alpha is also needed.
 % ------------------------------------------------------------
 % Soumyajit Mandal
 % Initial version: 09/21/10

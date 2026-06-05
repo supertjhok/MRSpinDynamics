@@ -1,7 +1,31 @@
-% Example of generating broadband OCT excitation and refocusing pulses for 
-% CPMG-like sequences (in tuned probes) and evaluating their performance
-% ----------------------------------------------------------------------
+% TUNEDPROBE_OCT
+% Generate and evaluate broadband OCT pulses for tuned-probe CPMG-like
+% sequences.
+%
+% Purpose
+%   Optimizes refocusing and excitation pulses for a tuned probe, plots
+%   refocusing-pulse performance, asks the user to choose a refocusing pulse,
+%   and then optimizes excitation pulses against that choice.
+%
+% Inputs
+%   This script takes no function arguments. It prompts interactively for the
+%   refocusing pulse number. File names and pulse lengths are set near the top
+%   of the script.
+%
+% Outputs
+%   Writes optimization result MAT-files using rfilname, efilname, and
+%   efilname_inv. Also creates plots through the optimization plotting helpers.
+%
+% Key functions
+%   opt_ref_pulse_tuned_repeat, plot_opt_ref_results_tuned,
+%   opt_exc_pulse_tuned_repeat.
+%
+% Notes
+%   Change the output file names before rerunning if existing optimization
+%   results should not be overwritten.
+%
 % Written by: Soumyajit Mandal, 01/07/21
+% -------------------------------------------------------------------------
 
 % Set optimization parameters
 % ----------------------------------------------------------------------

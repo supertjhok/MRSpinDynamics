@@ -1,5 +1,26 @@
-%SET_PARAMS_TUNED Summary of this function goes here
-%   Detailed explanation goes here
+% SET_PARAMS_TUNED_JMR
+% Construct tuned-probe parameters for JMR-paper workflows.
+%
+% Signature
+%   [sp,pp] = set_params_tuned_JMR()
+%
+% Inputs
+%   None.
+%
+% Outputs
+%   sp - Tuned-probe system/simulation structure containing physical constants,
+%     coil/tuning/transmitter/receiver parameters, offset grid, plotting flags,
+%     and matched-filter type.
+%   pp - Pulse-sequence structure containing nominal pulse lengths, excitation
+%     pulse, refocusing cycle, acquisition timing, and numerical thresholds.
+%
+% Dependencies
+%   None.
+%
+% Notes
+%   Use this parameter constructor for workflows intended to reproduce or
+%   compare against JMR-paper tuned-probe settings.
+% -------------------------------------------------------------------------
 
 function [sp,pp] = set_params_tuned_JMR
 % Global parameters

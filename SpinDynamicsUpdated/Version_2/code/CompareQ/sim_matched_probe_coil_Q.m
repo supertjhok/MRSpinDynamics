@@ -1,6 +1,28 @@
-% Simulate a tuned-and-matched probe with varying coil Q
-% ------------------------------------------------------
+% SIM_MATCHED_PROBE_COIL_Q
+% Sweep matched-probe coil Q and export Q-dependent CPMG signal figures.
+%
+% Purpose
+%   Runs a serial matched-probe Q sweep, computes received spectra and echoes,
+%   plots signal maps, and exports figures for manuscript-style output.
+%
+% Inputs
+%   This script takes no function arguments. Qvec and export paths are defined
+%   directly in the script.
+%
+% Outputs
+%   Creates figures for abs(mrx), abs(echo_rx), and SNR. Exports figures using
+%   export_fig. Leaves Qvec, SNR, echo_rx, tvect, mrx, sp, and pp in the
+%   workspace.
+%
+% Key functions
+%   set_params_matched, calc_masy_matched_probe, export_fig.
+%
+% Notes
+%   The hard-coded export paths may need editing before running on another
+%   machine.
+%
 % Written by: Soumyajit Mandal, 03/28/19
+% -------------------------------------------------------------------------
 
 [sp, pp] = set_params_matched; % Define system parameters
 

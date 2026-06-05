@@ -1,7 +1,29 @@
-% Set parameters for a tuned-and-matched probe
-% ------------------------------------------------------
+% SET_PARAMS_MATCHED_JMR
+% Construct matched-probe parameters for JMR-paper workflows.
+%
+% Signature
+%   [sp,pp] = set_params_matched_JMR()
+%
+% Inputs
+%   None.
+%
+% Outputs
+%   sp - Matched-probe system/simulation structure containing physical
+%     constants, coil/transmitter/receiver parameters, offset grid, plotting
+%     flags, and matched-filter type.
+%   pp - Pulse-sequence structure containing nominal pulse lengths, excitation
+%     pulse, refocusing cycle, acquisition timing, and numerical thresholds.
+%
+% Dependencies
+%   None.
+%
+% Notes
+%   Use this parameter constructor for workflows intended to reproduce or
+%   compare against JMR-paper settings.
+%
 % Written by: Soumyajit Mandal, 03/28/19
 % Last updated: 12/30/20
+% ------------------------------------------------------
 
 function [sp, pp] = set_params_matched_JMR
 

@@ -1,5 +1,34 @@
-%SET_PARAMS_UNTUNED Summary of this function goes here
-%   Detailed explanation goes here
+% SET_PARAMS_UNTUNED_ORIG
+% Construct original/reference simulation and pulse-sequence parameters for an
+% untuned-probe workflow.
+%
+% Signature
+%   [params,sp,pp] = set_params_untuned_Orig()
+%
+% Inputs
+%   None.
+%
+% Outputs
+%   params - Compact pulse/circuit parameter structure used by untuned-probe
+%     helper routines. Includes excitation/refocusing pulse definitions,
+%     acquisition time, Q-switch/source-resistance values, and phase-cycle
+%     setting.
+%   sp - Untuned-probe system/simulation parameter structure containing
+%     physical constants, coil/parasitic-capacitance/transmitter/receiver
+%     parameters, transformer parameters, offset grid, plotting flags,
+%     matched-filter type, and coil sensitivity.
+%   pp - Pulse-sequence parameter structure containing nominal pulse lengths,
+%     excitation pulse, refocusing cycle, Q-switch/ring-down timing,
+%     acquisition timing, and numerical thresholds.
+%
+% Dependencies
+%   None.
+%
+% Notes
+%   This is the original/reference untuned-probe parameter set used by active
+%   examples. Downstream routines convert absolute timings in seconds to
+%   normalized spin-dynamics units.
+% -------------------------------------------------------------------------
 
 function [params,sp,pp] = set_params_untuned_Orig
 % Global parameters

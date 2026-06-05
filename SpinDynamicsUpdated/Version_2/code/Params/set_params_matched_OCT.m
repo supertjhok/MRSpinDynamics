@@ -1,6 +1,29 @@
-% Set parameters for a tuned-and-matched probe
-% ------------------------------------------------------
+% SET_PARAMS_MATCHED_OCT
+% Construct matched-probe parameters for OCT pulse workflows.
+%
+% Signature
+%   [sp,pp] = set_params_matched_OCT()
+%
+% Inputs
+%   None.
+%
+% Outputs
+%   sp - Matched-probe system/simulation structure containing physical
+%     constants, coil/transmitter/receiver parameters, offset grid, plotting
+%     flags, and matched-filter type.
+%   pp - Pulse-sequence structure containing nominal pulse lengths,
+%     OCT-oriented excitation/refocusing settings, acquisition timing, and
+%     numerical thresholds.
+%
+% Dependencies
+%   None.
+%
+% Notes
+%   Use this parameter constructor for matched-probe OCT optimization and
+%   evaluation workflows.
+%
 % Written by: Soumyajit Mandal, 03/28/19
+% ------------------------------------------------------
 
 function [sp, pp] = set_params_matched_OCT
 

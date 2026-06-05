@@ -1,6 +1,28 @@
-% Calculate asymptotic magnetization and echo for a CPMG sequence assuming
-% a tuned probe
-% -----------------------------------------------------------------------
+% TUNEDPROBEEFFECTS_CPMG_ASYMP
+% Calculate asymptotic magnetization and echo for a CPMG sequence with a
+% tuned probe.
+%
+% Purpose
+%   Demonstrates the tuned-probe CPMG asymptotic workflow. The script builds
+%   tuned-probe parameters, computes asymptotic and received magnetization,
+%   plots both spectra, and computes the received time-domain echo.
+%
+% Inputs
+%   This script takes no function arguments. It uses set_params_tuned_Orig
+%   to construct the circuit, simulation, and pulse-sequence parameters.
+%
+% Outputs
+%   Prints SNR, creates a figure of M_asy and M_rx versus normalized offset,
+%   and leaves params, sp, pp, mrx, masy, SNR, echo_rx, and tvect in the
+%   workspace.
+%
+% Key functions
+%   set_params_tuned_Orig, calc_masy_tuned_probe_lp_Orig,
+%   calc_time_domain_echo.
+%
+% Notes
+%   The received magnetization is divided by Q for plotting clarity.
+% -------------------------------------------------------------------------
 %close all
  
 %[sp, pp] = set_params_tuned_JMR; % Define system parameters

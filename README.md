@@ -66,6 +66,18 @@ One of the unique aspects of this simulation package is that it includes models 
 
 3. It is recommended to use the functions within **SpinDynamicsUpdated/Version_2**, since those are the latest ones. The other folders are mainly provided for historical reasons.
 
+## Documentation and version guide
+
+This repository contains multiple generations and variants of many MATLAB
+functions. For an initial map of the active code, legacy code, repeated function
+names, and recommended documentation structure, see
+[`docs/VERSION_GUIDE.md`](docs/VERSION_GUIDE.md).
+
+For a practical entry point into the current MATLAB implementation, start with
+[`docs/QUICK_START.md`](docs/QUICK_START.md), then use
+[`docs/VERSION_2_WORKFLOWS.md`](docs/VERSION_2_WORKFLOWS.md) to choose the
+workflow you want to run or modify.
+
 ## Contact information
 
 In case of any questions, please contact Soumyajit Mandal (supertjhok@gmail.com).

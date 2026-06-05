@@ -1,13 +1,34 @@
-% Use Hurlimann-Song terminology to simulate dynamics of spin-1/2
-% ensembles. Find asymptotic echo shape from effective rotation axis.
-% ------------------------------------
-% tp = RF pulse durations in sec
-% phi = RF pulse phases in radians
-% amp = pulse amplitude (zero for free precession)
-% neff = effective rotation axis
-% t_acq = duration for observing echo
-% all coherence pathways are considered in this simulation
-% ------------------------------------
+% SIM_SPIN_DYNAMICS_ASYMP_MAG3
+% Calculate asymptotic magnetization from an excitation sequence and effective
+% refocusing rotation axis.
+%
+% Signature
+%   masy = sim_spin_dynamics_asymp_mag3(tp,phi,amp,neff,del_w,t_acq)
+%
+% Inputs
+%   tp - Segment durations in normalized time units.
+%   phi - RF segment phases in radians.
+%   amp - RF segment amplitudes; zero indicates free precession.
+%   neff - Effective refocusing-axis array, usually size 3-by-numpts.
+%   del_w - Offset-frequency vector for the isochromat ensemble.
+%   t_acq - Normalized acquisition-window duration used for spectral
+%     smoothing.
+%
+% Outputs
+%   masy - Complex asymptotic magnetization spectrum, one value per offset.
+%
+% Dependencies
+%   Usually called after calc_rot_axis_arba3 or a probe-specific rotation-axis
+%   helper has produced neff.
+%
+% Notes
+%   Uses Hurlimann-Song terminology and includes all coherence pathways. Pulse
+%   durations and acquisition time are normalized to the w1 convention used by
+%   the caller.
+% -------------------------------------------------------------------------
+%
+% Algorithm history
+%
 % Soumyajit Mandal
 % Initial version: 08/26/10
 % Allow arbitrary pulse amplitudes: 03/03/11

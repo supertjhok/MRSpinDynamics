@@ -1,3 +1,33 @@
+% SET_PARAMS_TUNED_ORIG
+% Construct original/reference simulation and pulse-sequence parameters for a
+% tuned-probe workflow.
+%
+% Signature
+%   [params,sp,pp] = set_params_tuned_Orig()
+%
+% Inputs
+%   None.
+%
+% Outputs
+%   params - Compact pulse/circuit parameter structure used by tuned-probe
+%     helper routines. Includes excitation/refocusing pulse definitions,
+%     acquisition time, Q-switch/source-resistance values, and phase-cycle
+%     setting.
+%   sp - Tuned-probe system/simulation parameter structure containing physical
+%     constants, coil/tuning/transmitter/receiver parameters, offset grid,
+%     plotting flags, matched-filter type, and coil sensitivity.
+%   pp - Pulse-sequence parameter structure containing nominal pulse lengths,
+%     excitation pulse, refocusing cycle, Q-switch/ring-down timing,
+%     acquisition timing, and numerical thresholds.
+%
+% Dependencies
+%   None.
+%
+% Notes
+%   This is the original/reference tuned-probe parameter set used by several
+%   active examples. Downstream routines convert absolute timings in seconds to
+%   normalized spin-dynamics units.
+% -------------------------------------------------------------------------
 function [params,sp,pp] = set_params_tuned_Orig
 % Global parameters
 % --------------------------------------------

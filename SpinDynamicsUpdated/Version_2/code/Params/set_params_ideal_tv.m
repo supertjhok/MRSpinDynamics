@@ -1,7 +1,28 @@
-% Set simulation parameters assuming no probe dynamics 
-% ------------------------------------------------------
+% SET_PARAMS_IDEAL_TV
+% Construct default ideal-probe parameters for time-varying-field CPMG
+% simulations.
+%
+% Signature
+%   [sp,pp] = set_params_ideal_tv()
+%
+% Inputs
+%   None.
+%
+% Outputs
+%   sp - Ideal time-varying-field system/simulation structure containing
+%     physical constants, sample properties, offset grid, and plotting flags.
+%   pp - CPMG pulse-sequence structure containing echo count, pulse timings,
+%     acquisition timing, and numerical thresholds.
+%
+% Dependencies
+%   None.
+%
+% Notes
+%   Used by cpmg_ideal_tv_example and related time_varying_field simulations.
+%
 % Written by: Soumyajit Mandal, 03/28/19
 % Last updated: 03/16/21
+% ------------------------------------------------------
 
 function [sp, pp] = set_params_ideal_tv
 

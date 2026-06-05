@@ -1,6 +1,26 @@
 function [sp,pp] = set_params_ideal_FID
-%SET_PARAMS_IDEAL_FID Summary of this function goes here
-%   Detailed explanation goes here
+% SET_PARAMS_IDEAL_FID
+% Construct default simulation and pulse-sequence parameters for an ideal FID
+% workflow.
+%
+% Signature
+%   [sp,pp] = set_params_ideal_FID()
+%
+% Inputs
+%   None.
+%
+% Outputs
+%   sp - Ideal FID system/simulation structure containing physical constants,
+%     offset grid, relaxation maps, and plotting flags.
+%   pp - FID pulse-sequence structure containing excitation/acquisition timing
+%     and related simulation controls.
+%
+% Dependencies
+%   None.
+%
+% Notes
+%   Intended for use with simFID_ideal and the noProbeEffects_FID example.
+% -------------------------------------------------------------------------
 
 T1 = 2000e-3;
 T2 = 2000e-3;

@@ -1,6 +1,28 @@
-% Calculate asymptotic magnetization and echo for a CPMG sequence assuming
-% a matched probe
-% -----------------------------------------------------------------------
+% MATCHEDPROBEEFFECTS_CPMG_ASYMP
+% Calculate asymptotic magnetization and echo for a CPMG sequence with a
+% matched probe.
+%
+% Purpose
+%   Demonstrates the matched-probe CPMG asymptotic workflow. The script builds
+%   matched-probe parameters, computes asymptotic and received magnetization,
+%   plots both spectra, and computes the received time-domain echo.
+%
+% Inputs
+%   This script takes no function arguments. It uses set_params_matched_Orig
+%   to construct the simulation and pulse-sequence parameter structures.
+%
+% Outputs
+%   Creates a figure of M_asy and M_rx versus normalized offset and leaves
+%   mrx, masy, SNR, echo_rx, tvect, sp, and pp in the workspace.
+%
+% Key functions
+%   set_params_matched_Orig, calc_masy_matched_probe_Orig,
+%   calc_time_domain_echo.
+%
+% Notes
+%   The received magnetization is divided by the peak transfer-function gain
+%   for plotting clarity.
+% -------------------------------------------------------------------------
 close all;
 
 [sp, pp] = set_params_matched_Orig; % Define system parameters

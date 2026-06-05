@@ -1,7 +1,28 @@
-% Set simulation parameters assuming no probe dynamics 
-% ------------------------------------------------------
+% SET_PARAMS_IDEAL_TV_EXC
+% Construct ideal-probe parameters for time-varying-field excitation studies.
+%
+% Signature
+%   [sp,pp] = set_params_ideal_tv_exc()
+%
+% Inputs
+%   None.
+%
+% Outputs
+%   sp - Ideal excitation/time-varying-field system structure containing
+%     physical constants, sample properties, offset grid, and plotting flags.
+%   pp - Pulse-sequence structure containing excitation/refocusing timing,
+%     acquisition timing, and numerical thresholds.
+%
+% Dependencies
+%   None.
+%
+% Notes
+%   This is a specialized ideal parameter set for excitation-oriented
+%   time-varying-field workflows.
+%
 % Written by: Soumyajit Mandal, 03/28/19
 % Last updated: 03/16/21
+% ------------------------------------------------------
 
 function [sp, pp] = set_params_ideal_tv_exc
 

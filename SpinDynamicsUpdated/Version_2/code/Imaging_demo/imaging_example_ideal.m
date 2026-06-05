@@ -1,5 +1,24 @@
-% Imaging example
-% ----------------------------------------------
+% IMAGING_EXAMPLE_IDEAL
+% Simulate a simple CPMG image with ideal-probe dynamics.
+%
+% Purpose
+%   Builds a small image phantom from flower.png, assigns uniform T1/T2 maps,
+%   and simulates CPMG image acquisition without probe-circuit effects.
+%
+% Inputs
+%   This script takes no function arguments. It requires flower.png to be
+%   available on the MATLAB path or in the current working directory.
+%
+% Outputs
+%   Leaves echo_int_all and params in the workspace.
+%
+% Key functions
+%   imread, imresize, rgb2gray, sim_cpmg_ideal_probe_img.
+%
+% Notes
+%   The commented parpool line can be enabled for parallel runs when the
+%   Parallel Computing Toolbox is available.
+% -------------------------------------------------------------------------
 %parpool('local',32)
 % ----------------------------------------------
 % Define parameters

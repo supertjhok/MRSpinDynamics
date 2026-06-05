@@ -1,5 +1,24 @@
-% Imaging example
-% ----------------------------------------------
+% IMAGING_EXAMPLE_TUNED
+% Simulate a simple CPMG image with tuned-probe dynamics.
+%
+% Purpose
+%   Builds a small image phantom from flower.png, assigns uniform T1/T2 maps,
+%   and simulates CPMG image acquisition with tuned-probe effects.
+%
+% Inputs
+%   This script takes no function arguments. It requires flower.png to be
+%   available on the MATLAB path or in the current working directory.
+%
+% Outputs
+%   Leaves echo_int_all and params in the workspace.
+%
+% Key functions
+%   imread, imresize, rgb2gray, sim_cpmg_tuned_probe_img.
+%
+% Notes
+%   This example uses a small 4-by-4 phantom, which keeps the tuned-probe image
+%   simulation lightweight.
+% -------------------------------------------------------------------------
 %parpool('local',32)
 % ----------------------------------------------
 % Define parameters

@@ -1,6 +1,29 @@
-% Calculate asymptotic magnetization and echo for a CPMG sequence assuming
-% an untuned probe
-% -----------------------------------------------------------------------
+% UNTUNEDPROBEEFFECTS_CPMG_ASYMP
+% Calculate asymptotic magnetization and echo for a CPMG sequence with an
+% untuned probe.
+%
+% Purpose
+%   Demonstrates the untuned-probe CPMG asymptotic workflow. The script builds
+%   untuned-probe parameters, computes asymptotic and received magnetization,
+%   plots both spectra, and computes the received time-domain echo.
+%
+% Inputs
+%   This script takes no function arguments. It uses set_params_untuned_Orig
+%   to construct the circuit, simulation, and pulse-sequence parameters.
+%
+% Outputs
+%   Prints SNR, creates a figure of M_asy and M_rx versus normalized offset,
+%   and leaves params, sp, pp, mrx, masy, SNR, echo_rx, and tvect in the
+%   workspace.
+%
+% Key functions
+%   set_params_untuned_Orig, calc_masy_untuned_probe_lp,
+%   calc_time_domain_echo.
+%
+% Notes
+%   The received magnetization is divided by the transformer gain for plotting
+%   clarity.
+% -------------------------------------------------------------------------
 %close all
 
 [params,sp,pp] = set_params_untuned_Orig; % Define system parameters

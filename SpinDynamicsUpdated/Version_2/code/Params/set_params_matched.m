@@ -1,6 +1,30 @@
-% Set parameters for a tuned-and-matched probe
-% ------------------------------------------------------
+% SET_PARAMS_MATCHED
+% Construct default simulation and pulse-sequence parameters for a matched
+% probe workflow.
+%
+% Signature
+%   [sp,pp] = set_params_matched()
+%
+% Inputs
+%   None.
+%
+% Outputs
+%   sp - Matched-probe system/simulation parameter structure containing
+%     physical constants, coil/transmitter/receiver parameters, offset grid,
+%     plotting flags, and matched-filter type.
+%   pp - Pulse-sequence parameter structure containing nominal pulse lengths,
+%     excitation pulse, refocusing cycle, acquisition timing, and numerical
+%     thresholds.
+%
+% Dependencies
+%   None.
+%
+% Notes
+%   Downstream matched-probe helpers add derived circuit values such as matching
+%   capacitors and transfer functions.
+%
 % Written by: Soumyajit Mandal, 03/28/19
+% ------------------------------------------------------
 
 function [sp, pp] = set_params_matched
 
