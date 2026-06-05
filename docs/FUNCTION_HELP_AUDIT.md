@@ -8,7 +8,8 @@ The standard format is defined in
 
 ## Initial Key Function Coverage
 
-The first two passes document 23 key function files:
+The first two passes plus the imaging dependency update document 26 key function
+files:
 
 | Function | File | Role |
 | --- | --- | --- |
@@ -35,6 +36,9 @@ The first two passes document 23 key function files:
 | `set_params_tuned_Orig` | `SpinDynamicsUpdated/Version_2/code/Params/set_params_tuned_Orig.m` | Tuned-probe original/reference parameter constructor. |
 | `set_params_untuned_Orig` | `SpinDynamicsUpdated/Version_2/code/Params/set_params_untuned_Orig.m` | Untuned-probe original/reference parameter constructor. |
 | `matched_probe_rx` | `SpinDynamicsUpdated/Version_2/code/circuit_simulation/matched_probe/matched_probe_rx.m` | Matched-probe receiver filtering and SNR estimate. |
+| `sim_cpmg_ideal_probe_img` | `SpinDynamicsUpdated/Version_2/code/Sim_CPMG/sim_cpmg_ideal_probe_img.m` | Ideal-probe CPMG image simulator; uses `parfor`. |
+| `sim_cpmg_matched_probe_img` | `SpinDynamicsUpdated/Version_2/code/Sim_CPMG/sim_cpmg_matched_probe_img.m` | Matched-probe CPMG image simulator; uses `parfor`. |
+| `sim_cpmg_tuned_probe_img` | `SpinDynamicsUpdated/Version_2/code/Sim_CPMG/sim_cpmg_tuned_probe_img.m` | Tuned-probe CPMG image simulator; uses `parfor`. |
 
 ## Recommended Next Batches
 

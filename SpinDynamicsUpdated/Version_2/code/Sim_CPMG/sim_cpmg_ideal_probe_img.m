@@ -1,25 +1,32 @@
-% Simulate a 2D image with pure phase encoding.
-% Uses a pair of CPMG sequences (x,y) with phase gradient,
-% rectangular pulses, and infinite transmit and receive bandwidth.
-% All CPMG echoes are computed.
-% Excitation and refocusing pulses are precomputed for speed.
-% ----------------------------------------------------------------------
-% Note: Running time scales at least as O(N^4) where N is
-% the number of pixels in each dimension (N^2 voxels x N^2 scans).
-% --> On tonks w/ NE = 6 and Ny = 400, we get running times of:
-% 1.2 min, 6.1 min, and 19 min for N = 16, 24, and 32.
-% --> This dependence is close to O(N^4).
-% ----------------------------------------------------------------------
-% Input parameters:
-% -----------------------------------------------------------------------
-% NE -> Number of echoes to simulate
-% TE -> Echo spacing (real value, sec)
-% Tgrad -> Normalized gradient pulse length (real value, sec)
-% rho, T1map, T2map -> 2D spin density and relaxation time maps (of the sample)
-% pxz -> Image size (px,pz), should be equal to or smaller than the sample maps
-% FOV -> Target FOV (FOV_x, FOV_z) in pixels
-% -----------------------------------------------------------------------
-% Sequence: (pi/2)x - Grad - (pi)x,y - [(pi)x,y]^(N_E)
+% SIM_CPMG_IDEAL_PROBE_IMG
+% Simulate a 2D CPMG image with ideal probe dynamics.
+%
+% Signature
+%   echo_int_all = sim_cpmg_ideal_probe_img(params)
+%
+% Inputs
+%   params - Structure with fields:
+%     NE - Number of echoes to simulate.
+%     TE - Echo spacing in seconds.
+%     Tgrad - Gradient pulse length in seconds.
+%     rho - 2D spin-density map.
+%     T1map, T2map - 2D relaxation-time maps.
+%     pxz - Image size [px,pz], no larger than the sample maps.
+%     FOV - Target field of view [FOV_x,FOV_z] in pixel units.
+%
+% Outputs
+%   echo_int_all - Simulated image/echo integral data for all phase-encoding
+%     scans and echoes.
+%
+% Dependencies
+%   set_params_ideal, create_fields_single_sided, calc_rotation_matrix,
+%   sim_spin_dynamics_arb10 or related arbitrary-pulse kernels.
+%
+% Notes
+%   Uses parfor over image rows for speed, so the Parallel Computing Toolbox is
+%   required as written. Convert parfor to for for slower serial execution.
+%   Running time scales approximately as O(N^4), where N is image dimension.
+%   Sequence: (pi/2)x - Grad - (pi)x,y - [(pi)x,y]^(N_E).
 % ----------------------------------------------------------------------
 function [echo_int_all]=sim_cpmg_ideal_probe_img(params)
 

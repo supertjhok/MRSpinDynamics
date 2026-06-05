@@ -16,8 +16,9 @@
 %   imread, imresize, rgb2gray, sim_cpmg_tuned_probe_img.
 %
 % Notes
-%   This example uses a small 4-by-4 phantom, which keeps the tuned-probe image
-%   simulation lightweight.
+%   sim_cpmg_tuned_probe_img uses parfor internally, so the Parallel Computing
+%   Toolbox is required as written. This example uses a small 4-by-4 phantom,
+%   which keeps the tuned-probe image simulation lightweight.
 % -------------------------------------------------------------------------
 %parpool('local',32)
 % ----------------------------------------------

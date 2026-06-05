@@ -16,8 +16,9 @@
 %   imread, imresize, rgb2gray, sim_cpmg_ideal_probe_img.
 %
 % Notes
-%   The commented parpool line can be enabled for parallel runs when the
-%   Parallel Computing Toolbox is available.
+%   sim_cpmg_ideal_probe_img uses parfor internally, so the Parallel Computing
+%   Toolbox is required as written. The commented parpool line can be enabled
+%   to choose the worker pool explicitly.
 % -------------------------------------------------------------------------
 %parpool('local',32)
 % ----------------------------------------------

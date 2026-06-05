@@ -102,6 +102,11 @@ SpinDynamicsUpdated/Version_2/code/Images/flower.png
 Because the full `Version_2/code` tree was added to the path in step 2, MATLAB
 should be able to find this image.
 
+The imaging simulation drivers use `parfor` internally for speed, so they
+require the Parallel Computing Toolbox as written. To run them without that
+toolbox, edit the `parfor` loops in the corresponding `Sim_CPMG` image
+simulation function to ordinary `for` loops; the calculation will be slower.
+
 ```matlab
 run(fullfile('SpinDynamicsUpdated','Version_2','code', ...
     'Imaging_demo','imaging_example_ideal.m'));
@@ -126,7 +131,9 @@ run(fullfile('SpinDynamicsUpdated','Version_2','code', ...
 Most basic examples use standard MATLAB functionality. Some workflows need
 additional tools:
 
-- Parallel Computing Toolbox: scripts using `parfor` or optional `parpool`.
+- Parallel Computing Toolbox: scripts/functions using `parfor`, including the
+  imaging simulation drivers under `code/Sim_CPMG`; imaging demos also include
+  optional commented `parpool` calls.
 - MATLAB Coder: MEX build scripts under `code/mex`.
 - Image Processing Toolbox: imaging examples use `imresize` and `rgb2gray`.
 - `export_fig`: some plotting/export scripts call `export_fig` with hard-coded

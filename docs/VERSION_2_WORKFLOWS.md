@@ -21,7 +21,7 @@ addpath(genpath(fullfile(pwd,'SpinDynamicsUpdated','Version_2','code')));
 | Tuned-probe CPMG | `CPMG_Asymp_Examples/TunedProbeEffects_CPMG_Asymp.m` | `set_params_tuned_Orig` | `calc_masy_tuned_probe_lp_Orig`, `tuned_probe_lp`, `tuned_probe_rx` | Includes tuned transmitter/receiver probe effects. |
 | Matched-probe CPMG | `CPMG_Asymp_Examples/MatchedProbeEffects_CPMG_Asymp.m` | `set_params_matched_Orig` | `calc_masy_matched_probe_Orig`, `find_coil_current`, `matched_probe_rx` | Includes matching-network design and receiver filtering. |
 | FID | `FID_Example/noProbeEffects_FID.m` | `set_params_ideal_FID` | `simFID_ideal` | Minimal ideal FID workflow. |
-| Imaging | `Imaging_demo/imaging_example_ideal.m` | Script-local `params` | `sim_cpmg_ideal_probe_img` | Uses `Images/flower.png`; tuned and matched variants are also available. |
+| Imaging | `Imaging_demo/imaging_example_ideal.m` | Script-local `params` | `sim_cpmg_ideal_probe_img` | Uses `Images/flower.png`; image simulators use `parfor` and require Parallel Computing Toolbox as written. |
 | Diffusion | `DIffusion_Example/Diff_Echo_Q.m` | Script-local parameters | `sim_dif_matched_CPMG_noRx` | Compact Q sweep for diffusion-aware CPMG. |
 | Q comparison | `CompareQ/matchedCompareQ.m`, `CompareQ/tunedCompareQ.m` | `set_params_matched_Orig`, `set_params_tuned_Orig` | `calc_masy_*`, `calc_time_domain_echo` | Uses `parfor`; serial/export variants also exist. |
 | Mistuning comparison | `CompareMistuned/.../sim_*_mistuned.m` | `set_params_matched_Orig`, `set_params_tuned_Orig` | `calc_masy_*`, `calc_time_domain_echo` | Sweeps probe frequency error in units of `fin/Q`. |
@@ -100,6 +100,19 @@ Some variants include relaxation, gradients, or probe-specific behavior.
 Folder: `calc_macq_diff`
 
 Diffusion-aware acquisition calculations.
+
+### Imaging Simulators
+
+Folder: `Sim_CPMG`
+
+- `sim_cpmg_ideal_probe_img`
+- `sim_cpmg_tuned_probe_img`
+- `sim_cpmg_matched_probe_img`
+
+These functions simulate 2D CPMG image acquisition with pure phase encoding.
+They use `parfor` over image rows for speed, so the Parallel Computing Toolbox
+is required as written. Users without the toolbox can convert the `parfor` loop
+to a regular `for` loop for slower serial execution.
 
 ### Probe Circuit Models
 
