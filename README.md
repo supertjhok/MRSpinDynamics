@@ -78,6 +78,10 @@ For a practical entry point into the current MATLAB implementation, start with
 [`docs/VERSION_2_WORKFLOWS.md`](docs/VERSION_2_WORKFLOWS.md) to choose the
 workflow you want to run or modify.
 
+For a first performance-oriented review of optimized routines, older slow
+variants, and future compiled-kernel targets, see
+[`docs/SPEED_AUDIT.md`](docs/SPEED_AUDIT.md).
+
 ## Contact information
 
 In case of any questions, please contact Soumyajit Mandal (supertjhok@gmail.com).

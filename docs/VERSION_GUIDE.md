@@ -14,7 +14,8 @@ documentation, Python conversion, compiled numerical kernels, and GUI work.
 
 For a practical first run, see [`QUICK_START.md`](QUICK_START.md). For a map of
 active `Version_2` workflows, see
-[`VERSION_2_WORKFLOWS.md`](VERSION_2_WORKFLOWS.md).
+[`VERSION_2_WORKFLOWS.md`](VERSION_2_WORKFLOWS.md). For a first pass at speed
+and modernization targets, see [`SPEED_AUDIT.md`](SPEED_AUDIT.md).
 
 ## Repository Generations
 
