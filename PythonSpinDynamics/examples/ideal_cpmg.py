@@ -1,0 +1,52 @@
+"""Run a small ideal CPMG example using the Python port."""
+
+from __future__ import annotations
+
+import argparse
+from pathlib import Path
+
+import numpy as np
+
+from spin_dynamics.core.echo import calc_time_domain_echo
+from spin_dynamics.parameters import set_params_ideal
+from spin_dynamics.workflows.cpmg import calc_masy_ideal
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--numpts", type=int, default=101, help="Number of offset points.")
+    parser.add_argument("--save-npz", type=Path, default=None, help="Optional output .npz path.")
+    args = parser.parse_args()
+
+    sp, pp = set_params_ideal(numpts=args.numpts)
+    masy = calc_masy_ideal(sp, pp)
+    echo, tvect = calc_time_domain_echo(masy, sp.del_w)
+
+    peak_idx = int(np.argmax(np.abs(echo)))
+    print("Ideal CPMG example")
+    print(f"num offsets: {sp.del_w.size}")
+    print(f"del_w range: {sp.del_w[0]:.6g} to {sp.del_w[-1]:.6g}")
+    print(f"masy shape: {masy.shape}")
+    print(f"masy first 5 real: {np.array2string(np.real(masy[:5]), precision=6, separator=', ')}")
+    print(f"masy first 5 imag: {np.array2string(np.imag(masy[:5]), precision=6, separator=', ')}")
+    print(f"echo shape: {echo.shape}")
+    print(f"peak echo index: {peak_idx}")
+    print(f"peak echo time: {tvect[peak_idx]:.12g}")
+    print(f"peak echo value: {echo[peak_idx]}")
+    print(f"sum |masy|: {np.sum(np.abs(masy)):.12g}")
+    print(f"sum |echo|: {np.sum(np.abs(echo)):.12g}")
+
+    if args.save_npz is not None:
+        args.save_npz.parent.mkdir(parents=True, exist_ok=True)
+        np.savez(
+            args.save_npz,
+            del_w=sp.del_w,
+            masy=masy,
+            echo=echo,
+            tvect=tvect,
+        )
+        print(f"saved: {args.save_npz}")
+
+
+if __name__ == "__main__":
+    main()
