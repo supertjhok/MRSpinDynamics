@@ -13,7 +13,11 @@ from typing import Any
 
 import numpy as np
 
-from spin_dynamics.core.kernels import sim_spin_dynamics_arb10
+from spin_dynamics.core.isochromats import check_rephasing
+from spin_dynamics.core.kernels import (
+    sim_spin_dynamics_arb10,
+    sim_spin_dynamics_arb10_chunked,
+)
 
 
 def _field(obj: Mapping[str, Any] | Any, name: str) -> Any:
@@ -29,6 +33,11 @@ def _as_vector(value: Any, dtype: Any) -> np.ndarray:
 def calc_macq_ideal_probe_relax4(
     sp: Mapping[str, Any] | Any,
     pp: Mapping[str, Any] | Any,
+    *,
+    num_workers: int | None = 1,
+    rephase_max_time: float | None = None,
+    rephase_safety_factor: float = 1.25,
+    rephase_action: str = "ignore",
 ) -> np.ndarray:
     """Calculate acquired spectra for an ideal-probe arbitrary sequence.
 
@@ -57,34 +66,56 @@ def calc_macq_ideal_probe_relax4(
         "m0": _field(sp, "m0"),
         "mth": _field(sp, "mth"),
     }
+    if rephase_max_time is not None:
+        check_rephasing(
+            params["del_w"],
+            rephase_max_time,
+            safety_factor=rephase_safety_factor,
+            action=rephase_action,
+        )
+    if num_workers is None or int(num_workers) > 1:
+        return sim_spin_dynamics_arb10_chunked(params, num_workers=num_workers)
     return sim_spin_dynamics_arb10(params)
 
 
 def _calc_macq_relax4(
     sp: Mapping[str, Any] | Any,
     pp: Mapping[str, Any] | Any,
+    *,
+    num_workers: int | None = 1,
+    rephase_max_time: float | None = None,
+    rephase_safety_factor: float = 1.25,
+    rephase_action: str = "ignore",
 ) -> np.ndarray:
     t_90 = float(_field(pp, "T_90"))
     t1n = (np.pi / 2) * _as_vector(_field(sp, "T1"), np.float64) / t_90
     t2n = (np.pi / 2) * _as_vector(_field(sp, "T2"), np.float64) / t_90
 
-    return sim_spin_dynamics_arb10(
-        {
-            "tp": _field(pp, "tp"),
-            "pul": _field(pp, "pul"),
-            "amp": _field(pp, "amp"),
-            "acq": _field(pp, "acq"),
-            "grad": _field(pp, "grad"),
-            "Rtot": _field(pp, "Rtot"),
-            "del_w": _field(sp, "del_w"),
-            "del_wg": _field(sp, "del_wg"),
-            "w_1": _field(sp, "w_1"),
-            "T1n": t1n,
-            "T2n": t2n,
-            "m0": _field(sp, "m0"),
-            "mth": _field(sp, "mth"),
-        }
-    )
+    params = {
+        "tp": _field(pp, "tp"),
+        "pul": _field(pp, "pul"),
+        "amp": _field(pp, "amp"),
+        "acq": _field(pp, "acq"),
+        "grad": _field(pp, "grad"),
+        "Rtot": _field(pp, "Rtot"),
+        "del_w": _field(sp, "del_w"),
+        "del_wg": _field(sp, "del_wg"),
+        "w_1": _field(sp, "w_1"),
+        "T1n": t1n,
+        "T2n": t2n,
+        "m0": _field(sp, "m0"),
+        "mth": _field(sp, "mth"),
+    }
+    if rephase_max_time is not None:
+        check_rephasing(
+            params["del_w"],
+            rephase_max_time,
+            safety_factor=rephase_safety_factor,
+            action=rephase_action,
+        )
+    if num_workers is None or int(num_workers) > 1:
+        return sim_spin_dynamics_arb10_chunked(params, num_workers=num_workers)
+    return sim_spin_dynamics_arb10(params)
 
 
 def _apply_receiver(
@@ -104,6 +135,11 @@ def _apply_receiver(
 def calc_macq_tuned_probe_relax4(
     sp: Mapping[str, Any] | Any,
     pp: Mapping[str, Any] | Any,
+    *,
+    num_workers: int | None = 1,
+    rephase_max_time: float | None = None,
+    rephase_safety_factor: float = 1.25,
+    rephase_action: str = "ignore",
 ) -> tuple[np.ndarray, np.ndarray]:
     """Calculate finite acquisition for a tuned probe.
 
@@ -112,7 +148,14 @@ def calc_macq_tuned_probe_relax4(
     `sp.w_1r`.
     """
 
-    macq = _calc_macq_relax4(sp, pp)
+    macq = _calc_macq_relax4(
+        sp,
+        pp,
+        num_workers=num_workers,
+        rephase_max_time=rephase_max_time,
+        rephase_safety_factor=rephase_safety_factor,
+        rephase_action=rephase_action,
+    )
     mrx = _apply_receiver(macq, _field(sp, "tf"), _field(sp, "w_1r"))
     return macq, mrx
 
@@ -120,6 +163,11 @@ def calc_macq_tuned_probe_relax4(
 def calc_macq_untuned_probe_relax4(
     sp: Mapping[str, Any] | Any,
     pp: Mapping[str, Any] | Any,
+    *,
+    num_workers: int | None = 1,
+    rephase_max_time: float | None = None,
+    rephase_safety_factor: float = 1.25,
+    rephase_action: str = "ignore",
 ) -> tuple[np.ndarray, np.ndarray]:
     """Calculate finite acquisition for an untuned probe.
 
@@ -128,7 +176,14 @@ def calc_macq_untuned_probe_relax4(
     provide the untuned receiver transfer function as `sp.tf`.
     """
 
-    macq = _calc_macq_relax4(sp, pp)
+    macq = _calc_macq_relax4(
+        sp,
+        pp,
+        num_workers=num_workers,
+        rephase_max_time=rephase_max_time,
+        rephase_safety_factor=rephase_safety_factor,
+        rephase_action=rephase_action,
+    )
     mrx = _apply_receiver(macq, _field(sp, "tf"), _field(sp, "w_1r"))
     return macq, mrx
 
@@ -136,6 +191,11 @@ def calc_macq_untuned_probe_relax4(
 def calc_macq_matched_probe_relax4(
     sp: Mapping[str, Any] | Any,
     pp: Mapping[str, Any] | Any,
+    *,
+    num_workers: int | None = 1,
+    rephase_max_time: float | None = None,
+    rephase_safety_factor: float = 1.25,
+    rephase_action: str = "ignore",
 ) -> tuple[np.ndarray, np.ndarray]:
     """Calculate finite acquisition for a tuned-and-matched probe.
 
@@ -144,6 +204,13 @@ def calc_macq_matched_probe_relax4(
     `sp.w_1r`.
     """
 
-    macq = _calc_macq_relax4(sp, pp)
+    macq = _calc_macq_relax4(
+        sp,
+        pp,
+        num_workers=num_workers,
+        rephase_max_time=rephase_max_time,
+        rephase_safety_factor=rephase_safety_factor,
+        rephase_action=rephase_action,
+    )
     mrx = _apply_receiver(macq, _field(sp, "tf2"), _field(sp, "w_1r"))
     return macq, mrx

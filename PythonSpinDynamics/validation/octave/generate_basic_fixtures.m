@@ -712,4 +712,423 @@ train_int_table = [
 ];
 dlmwrite(fullfile(fixture_dir, 'run_ideal_cpmg_train_integrals.csv'), train_int_table, 'precision', '%.17g');
 
+numpts_tuned_train = 16;
+num_echoes_tuned_train = 3;
+[~, sp_tuned_train_default, pp_tuned_train_default] = set_params_tuned_Orig();
+del_w_tuned_train = linspace(-5, 5, numpts_tuned_train);
+
+sp_tuned_train = sp_tuned_train_default;
+sp_tuned_train.numpts = numpts_tuned_train;
+sp_tuned_train.maxoffs = 5;
+sp_tuned_train.del_w = del_w_tuned_train;
+sp_tuned_train.del_wg = zeros(1, numpts_tuned_train);
+sp_tuned_train.w_1 = ones(1, numpts_tuned_train);
+sp_tuned_train.w_1r = ones(1, numpts_tuned_train);
+sp_tuned_train.T1 = 1.7 * ones(1, numpts_tuned_train);
+sp_tuned_train.T2 = 1.1 * ones(1, numpts_tuned_train);
+sp_tuned_train.m0 = sp_tuned_train_default.m0 * ones(1, numpts_tuned_train);
+sp_tuned_train.mth = sp_tuned_train_default.mth * ones(1, numpts_tuned_train);
+sp_tuned_train.plt_tx = 0;
+sp_tuned_train.plt_rx = 0;
+sp_tuned_train.plt_sequence = 0;
+sp_tuned_train.plt_axis = 0;
+sp_tuned_train.plt_mn = 0;
+sp_tuned_train.plt_echo = 0;
+
+Rtot_tuned_train = cell(1, 3);
+pulse_tp_tuned_train = [
+    pp_tuned_train_default.T_90, ...
+    pp_tuned_train_default.T_90, ...
+    pp_tuned_train_default.T_180
+];
+pulse_phi_tuned_train = [pi / 2, 3 * pi / 2, 0];
+pulse_amp_tuned_train = [1, 1, 1];
+pulse_delay_tuned_train = 2 * pp_tuned_train_default.T_90;
+
+for kk = 1:3
+    pp_curr_tuned = pp_tuned_train_default;
+    pp_curr_tuned.tref = [pulse_tp_tuned_train(kk), pulse_delay_tuned_train];
+    pp_curr_tuned.pref = [pulse_phi_tuned_train(kk), 0];
+    pp_curr_tuned.aref = [pulse_amp_tuned_train(kk), 0];
+
+    [tvect_tuned_pulse, Icr_tuned_pulse, ~, ~] = tuned_probe_lp( ...
+        sp_tuned_train, pp_curr_tuned);
+    delt_tuned_pulse = (pi / 2) * ...
+        (tvect_tuned_pulse(2) - tvect_tuned_pulse(1)) / pp_tuned_train_default.T_90;
+    tp_tuned_pulse = delt_tuned_pulse * ones(1, length(tvect_tuned_pulse));
+    phi_tuned_pulse = atan2(imag(Icr_tuned_pulse), real(Icr_tuned_pulse));
+    amp_tuned_pulse = abs(Icr_tuned_pulse);
+    amp_tuned_pulse(amp_tuned_pulse < pp_tuned_train_default.amp_zero) = 0;
+    amp_tuned_pulse = (amp_tuned_pulse - min(amp_tuned_pulse)) / ...
+        (max(amp_tuned_pulse) - min(amp_tuned_pulse));
+    amp_tuned_pulse(amp_tuned_pulse < pp_tuned_train_default.amp_zero) = 0;
+
+    pp_out_tuned = struct();
+    pp_out_tuned.tp = [
+        tp_tuned_pulse, ...
+        -(pi / 2) * pulse_delay_tuned_train / pp_tuned_train_default.T_90
+    ];
+    pp_out_tuned.phi = [phi_tuned_pulse, 0];
+    pp_out_tuned.amp = [amp_tuned_pulse, 0];
+    pp_out_tuned.acq = zeros(1, length(tp_tuned_pulse) + 1);
+
+    Rtot_tuned_train{kk} = calc_rotation_matrix(sp_tuned_train, pp_out_tuned);
+end
+
+texc_tuned_train = [
+    pi / 2, (pi / 2) * pp_tuned_train_default.tcorr / pp_tuned_train_default.T_90
+];
+aexc_tuned_train = [1, 0];
+pexc1_tuned_train = [1, 0];
+pexc2_tuned_train = [2, 0];
+acq_exc_tuned_train = [0, 0];
+grad_exc_tuned_train = [0, 0];
+
+tfp_tuned_train = (pi / 2) * ...
+    (pp_tuned_train_default.preDelay + pp_tuned_train_default.postDelay) / ...
+    (2 * pp_tuned_train_default.T_90);
+tref_tuned_train = repmat([tfp_tuned_train, pi, tfp_tuned_train], 1, num_echoes_tuned_train);
+pref_tuned_train = repmat([0, 3, 0], 1, num_echoes_tuned_train);
+aref_tuned_train = repmat([0, 1, 0], 1, num_echoes_tuned_train);
+acq_ref_tuned_train = repmat([0, 0, 1], 1, num_echoes_tuned_train);
+grad_ref_tuned_train = zeros(1, 3 * num_echoes_tuned_train);
+
+pp_tuned_train = struct();
+pp_tuned_train.T_90 = pp_tuned_train_default.T_90;
+pp_tuned_train.tacq = pp_tuned_train_default.tacq;
+pp_tuned_train.tp = [texc_tuned_train, tref_tuned_train];
+pp_tuned_train.amp = [aexc_tuned_train, aref_tuned_train];
+pp_tuned_train.acq = [acq_exc_tuned_train, acq_ref_tuned_train];
+pp_tuned_train.grad = [grad_exc_tuned_train, grad_ref_tuned_train];
+pp_tuned_train.Rtot = Rtot_tuned_train;
+
+sp_tuned_train.tf = tuned_probe_rx_tf(sp_tuned_train, pp_tuned_train_default);
+pp_tuned_train.pul = [pexc1_tuned_train, pref_tuned_train];
+[~, mrx_tuned_train_1] = calc_macq_tuned_probe_relax4(sp_tuned_train, pp_tuned_train);
+pp_tuned_train.pul = [pexc2_tuned_train, pref_tuned_train];
+[~, mrx_tuned_train_2] = calc_macq_tuned_probe_relax4(sp_tuned_train, pp_tuned_train);
+mrx_tuned_train = (mrx_tuned_train_1 - mrx_tuned_train_2) / 2;
+
+tacq_tuned_train = (pi / 2) * pp_tuned_train_default.tacq(1) / pp_tuned_train_default.T_90;
+tdw_tuned_train = (pi / 2) * pp_tuned_train_default.tdw / pp_tuned_train_default.T_90;
+nacq_tuned_train = round(tacq_tuned_train / tdw_tuned_train) + 1;
+tvect_tuned_train = linspace(-tacq_tuned_train / 2, tacq_tuned_train / 2, nacq_tuned_train).';
+isoc_tuned_train = exp(1i * tvect_tuned_train * del_w_tuned_train);
+echo_tuned_train = (isoc_tuned_train * mrx_tuned_train.').';
+echo_int_tuned_train = trapz(tvect_tuned_train, echo_tuned_train, 2);
+
+tuned_train_mrx_table = zeros(numel(mrx_tuned_train), 4);
+row = 1;
+for ii = 1:size(mrx_tuned_train, 1)
+    for jj = 1:size(mrx_tuned_train, 2)
+        tuned_train_mrx_table(row, :) = [
+            ii, jj, real(mrx_tuned_train(ii, jj)), imag(mrx_tuned_train(ii, jj))
+        ];
+        row = row + 1;
+    end
+end
+dlmwrite(fullfile(fixture_dir, 'run_tuned_cpmg_train_mrx.csv'), tuned_train_mrx_table, 'precision', '%.17g');
+
+tuned_train_echo_table = zeros(numel(echo_tuned_train), 5);
+row = 1;
+for ii = 1:size(echo_tuned_train, 1)
+    for jj = 1:size(echo_tuned_train, 2)
+        tuned_train_echo_table(row, :) = [
+            ii, jj, real(echo_tuned_train(ii, jj)), imag(echo_tuned_train(ii, jj)), ...
+            tvect_tuned_train(jj)
+        ];
+        row = row + 1;
+    end
+end
+dlmwrite(fullfile(fixture_dir, 'run_tuned_cpmg_train_echo.csv'), tuned_train_echo_table, 'precision', '%.17g');
+
+tuned_train_int_table = [
+    (1:num_echoes_tuned_train).', ...
+    real(echo_int_tuned_train(:)), imag(echo_int_tuned_train(:))
+];
+dlmwrite(fullfile(fixture_dir, 'run_tuned_cpmg_train_integrals.csv'), tuned_train_int_table, 'precision', '%.17g');
+
+numpts_untuned_train = 16;
+num_echoes_untuned_train = 3;
+[~, sp_untuned_train_default, pp_untuned_train_default] = set_params_untuned_Orig();
+del_w_untuned_train = linspace(-5, 5, numpts_untuned_train);
+
+sp_untuned_train = sp_untuned_train_default;
+sp_untuned_train.numpts = numpts_untuned_train;
+sp_untuned_train.maxoffs = 5;
+sp_untuned_train.del_w = del_w_untuned_train;
+sp_untuned_train.del_wg = zeros(1, numpts_untuned_train);
+sp_untuned_train.w_1 = ones(1, numpts_untuned_train);
+sp_untuned_train.w_1r = ones(1, numpts_untuned_train);
+sp_untuned_train.T1 = 1.7 * ones(1, numpts_untuned_train);
+sp_untuned_train.T2 = 1.1 * ones(1, numpts_untuned_train);
+sp_untuned_train.m0 = sp_untuned_train_default.m0 * ones(1, numpts_untuned_train);
+sp_untuned_train.mth = sp_untuned_train_default.mth * ones(1, numpts_untuned_train);
+sp_untuned_train.plt_tx = 0;
+sp_untuned_train.plt_rx = 0;
+sp_untuned_train.plt_sequence = 0;
+sp_untuned_train.plt_axis = 0;
+sp_untuned_train.plt_mn = 0;
+sp_untuned_train.plt_echo = 0;
+
+Rtot_untuned_train = cell(1, 3);
+pulse_tp_untuned_train = [
+    pp_untuned_train_default.T_90, ...
+    pp_untuned_train_default.T_90, ...
+    pp_untuned_train_default.T_180
+];
+pulse_phi_untuned_train = [pi / 2, 3 * pi / 2, 0];
+pulse_amp_untuned_train = [1, 1, 1];
+pulse_delay_untuned_train = pp_untuned_train_default.trd;
+B1max_untuned_train = (pi / 2) / ...
+    (pp_untuned_train_default.T_90 * sp_untuned_train.gamma);
+
+for kk = 1:3
+    pp_curr_untuned = pp_untuned_train_default;
+    pp_curr_untuned.tref = [pulse_tp_untuned_train(kk), pulse_delay_untuned_train];
+    pp_curr_untuned.pref = [pulse_phi_untuned_train(kk), 0];
+    pp_curr_untuned.aref = [pulse_amp_untuned_train(kk), 0];
+
+    [tvect_untuned_pulse, Icr_untuned_pulse, ~, ~] = untuned_probe_lp( ...
+        sp_untuned_train, pp_curr_untuned);
+    delt_untuned_pulse = (pi / 2) * ...
+        (tvect_untuned_pulse(2) - tvect_untuned_pulse(1)) / pp_untuned_train_default.T_90;
+    tp_untuned_pulse = delt_untuned_pulse * ones(1, length(tvect_untuned_pulse));
+    phi_untuned_pulse = atan2(imag(Icr_untuned_pulse), real(Icr_untuned_pulse));
+    amp_untuned_pulse = abs(Icr_untuned_pulse) * ...
+        sp_untuned_train.sens / B1max_untuned_train;
+    amp_untuned_pulse(amp_untuned_pulse < pp_untuned_train_default.amp_zero) = 0;
+    phi_untuned_pulse(amp_untuned_pulse == 0) = 0;
+
+    pp_out_untuned = struct();
+    pp_out_untuned.tp = [
+        tp_untuned_pulse, ...
+        -(pi / 2) * pulse_delay_untuned_train / pp_untuned_train_default.T_90
+    ];
+    pp_out_untuned.phi = [phi_untuned_pulse, 0];
+    pp_out_untuned.amp = [amp_untuned_pulse, 0];
+    pp_out_untuned.acq = zeros(1, length(tp_untuned_pulse) + 1);
+
+    Rtot_untuned_train{kk} = calc_rotation_matrix(sp_untuned_train, pp_out_untuned);
+end
+
+texc_untuned_train = [
+    pi / 2, (pi / 2) * pp_untuned_train_default.tcorr / pp_untuned_train_default.T_90
+];
+aexc_untuned_train = [1, 0];
+pexc1_untuned_train = [1, 0];
+pexc2_untuned_train = [2, 0];
+acq_exc_untuned_train = [0, 0];
+grad_exc_untuned_train = [0, 0];
+
+tfp_untuned_train = (pi / 2) * ...
+    (pp_untuned_train_default.preDelay + pp_untuned_train_default.postDelay) / ...
+    (2 * pp_untuned_train_default.T_90);
+tref_untuned_train = repmat([tfp_untuned_train, pi, tfp_untuned_train], 1, num_echoes_untuned_train);
+pref_untuned_train = repmat([0, 3, 0], 1, num_echoes_untuned_train);
+aref_untuned_train = repmat([0, 1, 0], 1, num_echoes_untuned_train);
+acq_ref_untuned_train = repmat([0, 0, 1], 1, num_echoes_untuned_train);
+grad_ref_untuned_train = zeros(1, 3 * num_echoes_untuned_train);
+
+pp_untuned_train = struct();
+pp_untuned_train.T_90 = pp_untuned_train_default.T_90;
+pp_untuned_train.tacq = pp_untuned_train_default.tacq;
+pp_untuned_train.tp = [texc_untuned_train, tref_untuned_train];
+pp_untuned_train.amp = [aexc_untuned_train, aref_untuned_train];
+pp_untuned_train.acq = [acq_exc_untuned_train, acq_ref_untuned_train];
+pp_untuned_train.grad = [grad_exc_untuned_train, grad_ref_untuned_train];
+pp_untuned_train.Rtot = Rtot_untuned_train;
+
+[~, ~, sp_untuned_train.tf] = untuned_probe_rx( ...
+    sp_untuned_train, pp_untuned_train_default, ones(1, numpts_untuned_train));
+pp_untuned_train.pul = [pexc1_untuned_train, pref_untuned_train];
+[~, mrx_untuned_train_1] = calc_macq_tuned_probe_relax4(sp_untuned_train, pp_untuned_train);
+pp_untuned_train.pul = [pexc2_untuned_train, pref_untuned_train];
+[~, mrx_untuned_train_2] = calc_macq_tuned_probe_relax4(sp_untuned_train, pp_untuned_train);
+mrx_untuned_train = (mrx_untuned_train_1 - mrx_untuned_train_2) / 2;
+
+tacq_untuned_train = (pi / 2) * pp_untuned_train_default.tacq(1) / pp_untuned_train_default.T_90;
+tdw_untuned_train = (pi / 2) * pp_untuned_train_default.tdw / pp_untuned_train_default.T_90;
+nacq_untuned_train = round(tacq_untuned_train / tdw_untuned_train) + 1;
+tvect_untuned_train = linspace(-tacq_untuned_train / 2, tacq_untuned_train / 2, nacq_untuned_train).';
+isoc_untuned_train = exp(1i * tvect_untuned_train * del_w_untuned_train);
+echo_untuned_train = (isoc_untuned_train * mrx_untuned_train.').';
+echo_int_untuned_train = trapz(tvect_untuned_train, echo_untuned_train, 2);
+
+untuned_train_mrx_table = zeros(numel(mrx_untuned_train), 4);
+row = 1;
+for ii = 1:size(mrx_untuned_train, 1)
+    for jj = 1:size(mrx_untuned_train, 2)
+        untuned_train_mrx_table(row, :) = [
+            ii, jj, real(mrx_untuned_train(ii, jj)), imag(mrx_untuned_train(ii, jj))
+        ];
+        row = row + 1;
+    end
+end
+dlmwrite(fullfile(fixture_dir, 'run_untuned_cpmg_train_mrx.csv'), untuned_train_mrx_table, 'precision', '%.17g');
+
+untuned_train_echo_table = zeros(numel(echo_untuned_train), 5);
+row = 1;
+for ii = 1:size(echo_untuned_train, 1)
+    for jj = 1:size(echo_untuned_train, 2)
+        untuned_train_echo_table(row, :) = [
+            ii, jj, real(echo_untuned_train(ii, jj)), imag(echo_untuned_train(ii, jj)), ...
+            tvect_untuned_train(jj)
+        ];
+        row = row + 1;
+    end
+end
+dlmwrite(fullfile(fixture_dir, 'run_untuned_cpmg_train_echo.csv'), untuned_train_echo_table, 'precision', '%.17g');
+
+untuned_train_int_table = [
+    (1:num_echoes_untuned_train).', ...
+    real(echo_int_untuned_train(:)), imag(echo_int_untuned_train(:))
+];
+dlmwrite(fullfile(fixture_dir, 'run_untuned_cpmg_train_integrals.csv'), untuned_train_int_table, 'precision', '%.17g');
+
+try
+    numpts_matched_train = 8;
+    num_echoes_matched_train = 2;
+    [sp_matched_train_default, pp_matched_train_default] = set_params_matched_Orig();
+    del_w_matched_train = linspace(-4, 4, numpts_matched_train);
+
+    sp_matched_train = sp_matched_train_default;
+    sp_matched_train.numpts = numpts_matched_train;
+    sp_matched_train.maxoffs = 4;
+    sp_matched_train.del_w = del_w_matched_train;
+    sp_matched_train.del_wg = zeros(1, numpts_matched_train);
+    sp_matched_train.w_1 = ones(1, numpts_matched_train);
+    sp_matched_train.w_1r = ones(1, numpts_matched_train);
+    sp_matched_train.T1 = 1.7 * ones(1, numpts_matched_train);
+    sp_matched_train.T2 = 1.1 * ones(1, numpts_matched_train);
+    sp_matched_train.m0 = sp_matched_train_default.m0 * ones(1, numpts_matched_train);
+    sp_matched_train.mth = sp_matched_train_default.mth * ones(1, numpts_matched_train);
+    sp_matched_train.plt_tx = 0;
+    sp_matched_train.plt_rx = 0;
+    sp_matched_train.plt_sequence = 0;
+    sp_matched_train.plt_axis = 0;
+    sp_matched_train.plt_mn = 0;
+    sp_matched_train.plt_echo = 0;
+    [C1_matched_train, C2_matched_train] = matching_network_design2( ...
+        sp_matched_train.L, sp_matched_train.Q, sp_matched_train.f0, ...
+        sp_matched_train.Rs, 0);
+    sp_matched_train.C1 = C1_matched_train;
+    sp_matched_train.C2 = C2_matched_train;
+
+    Rtot_matched_train = cell(1, 3);
+    pulse_tp_matched_train = [
+        pp_matched_train_default.T_90, ...
+        pp_matched_train_default.T_90, ...
+        pp_matched_train_default.T_180
+    ];
+    pulse_phi_matched_train = [pi / 2, 3 * pi / 2, 0];
+    pulse_amp_matched_train = [1, 1, 1];
+    pulse_delay_matched_train = pp_matched_train_default.trd;
+
+    for kk = 1:3
+        pp_curr_matched = pp_matched_train_default;
+        pp_curr_matched.tp = [pulse_tp_matched_train(kk), pulse_delay_matched_train];
+        pp_curr_matched.phi = [pulse_phi_matched_train(kk), 0];
+        pp_curr_matched.amp = [pulse_amp_matched_train(kk), 0];
+
+        [tvect_matched_pulse, Icr_matched_pulse, tf1_matched_pulse, tf2_matched_pulse] = ...
+            find_coil_current(sp_matched_train, pp_curr_matched);
+        if kk == 1
+            sp_matched_train.tf1 = tf1_matched_pulse;
+            sp_matched_train.tf2 = tf2_matched_pulse;
+        end
+        delt_matched_pulse = (pi / 2) * ...
+            (tvect_matched_pulse(2) - tvect_matched_pulse(1)) / pp_matched_train_default.T_90;
+        tp_matched_pulse = delt_matched_pulse * ones(1, length(tvect_matched_pulse));
+        phi_matched_pulse = atan2(imag(Icr_matched_pulse), real(Icr_matched_pulse));
+        amp_matched_pulse = abs(Icr_matched_pulse);
+        amp_matched_pulse(amp_matched_pulse < pp_matched_train_default.amp_zero) = 0;
+
+        pp_out_matched = struct();
+        pp_out_matched.tp = [
+            tp_matched_pulse, ...
+            -(pi / 2) * pulse_delay_matched_train / pp_matched_train_default.T_90
+        ];
+        pp_out_matched.phi = [phi_matched_pulse, 0];
+        pp_out_matched.amp = [amp_matched_pulse, 0];
+        pp_out_matched.acq = zeros(1, length(tp_matched_pulse) + 1);
+
+        Rtot_matched_train{kk} = calc_rotation_matrix(sp_matched_train, pp_out_matched);
+    end
+
+    texc_matched_train = [
+        pi / 2, (pi / 2) * pp_matched_train_default.tcorr / pp_matched_train_default.T_90
+    ];
+    aexc_matched_train = [1, 0];
+    pexc1_matched_train = [1, 0];
+    pexc2_matched_train = [2, 0];
+    acq_exc_matched_train = [0, 0];
+    grad_exc_matched_train = [0, 0];
+
+    tfp_matched_train = (pi / 2) * ...
+        (pp_matched_train_default.preDelay + pp_matched_train_default.postDelay) / ...
+        (2 * pp_matched_train_default.T_90);
+    tref_matched_train = repmat([tfp_matched_train, pi, tfp_matched_train], 1, num_echoes_matched_train);
+    pref_matched_train = repmat([0, 3, 0], 1, num_echoes_matched_train);
+    aref_matched_train = repmat([0, 1, 0], 1, num_echoes_matched_train);
+    acq_ref_matched_train = repmat([0, 0, 1], 1, num_echoes_matched_train);
+    grad_ref_matched_train = zeros(1, 3 * num_echoes_matched_train);
+
+    pp_matched_train = struct();
+    pp_matched_train.T_90 = pp_matched_train_default.T_90;
+    pp_matched_train.tacq = pp_matched_train_default.tacq;
+    pp_matched_train.tp = [texc_matched_train, tref_matched_train];
+    pp_matched_train.amp = [aexc_matched_train, aref_matched_train];
+    pp_matched_train.acq = [acq_exc_matched_train, acq_ref_matched_train];
+    pp_matched_train.grad = [grad_exc_matched_train, grad_ref_matched_train];
+    pp_matched_train.Rtot = Rtot_matched_train;
+
+    pp_matched_train.pul = [pexc1_matched_train, pref_matched_train];
+    [~, mrx_matched_train_1] = calc_macq_matched_probe_relax4(sp_matched_train, pp_matched_train);
+    pp_matched_train.pul = [pexc2_matched_train, pref_matched_train];
+    [~, mrx_matched_train_2] = calc_macq_matched_probe_relax4(sp_matched_train, pp_matched_train);
+    mrx_matched_train = (mrx_matched_train_1 - mrx_matched_train_2) / 2;
+
+    tacq_matched_train = (pi / 2) * pp_matched_train_default.tacq(1) / pp_matched_train_default.T_90;
+    tdw_matched_train = (pi / 2) * pp_matched_train_default.tdw / pp_matched_train_default.T_90;
+    nacq_matched_train = round(tacq_matched_train / tdw_matched_train) + 1;
+    tvect_matched_train = linspace(-tacq_matched_train / 2, tacq_matched_train / 2, nacq_matched_train).';
+    isoc_matched_train = exp(1i * tvect_matched_train * del_w_matched_train);
+    echo_matched_train = (isoc_matched_train * mrx_matched_train.').';
+    echo_int_matched_train = trapz(tvect_matched_train, echo_matched_train, 2);
+
+    matched_train_mrx_table = zeros(numel(mrx_matched_train), 4);
+    row = 1;
+    for ii = 1:size(mrx_matched_train, 1)
+        for jj = 1:size(mrx_matched_train, 2)
+            matched_train_mrx_table(row, :) = [
+                ii, jj, real(mrx_matched_train(ii, jj)), imag(mrx_matched_train(ii, jj))
+            ];
+            row = row + 1;
+        end
+    end
+    dlmwrite(fullfile(fixture_dir, 'run_matched_cpmg_train_mrx.csv'), matched_train_mrx_table, 'precision', '%.17g');
+
+    matched_train_echo_table = zeros(numel(echo_matched_train), 5);
+    row = 1;
+    for ii = 1:size(echo_matched_train, 1)
+        for jj = 1:size(echo_matched_train, 2)
+            matched_train_echo_table(row, :) = [
+                ii, jj, real(echo_matched_train(ii, jj)), imag(echo_matched_train(ii, jj)), ...
+                tvect_matched_train(jj)
+            ];
+            row = row + 1;
+        end
+    end
+    dlmwrite(fullfile(fixture_dir, 'run_matched_cpmg_train_echo.csv'), matched_train_echo_table, 'precision', '%.17g');
+
+    matched_train_int_table = [
+        (1:num_echoes_matched_train).', ...
+        real(echo_int_matched_train(:)), imag(echo_int_matched_train(:))
+    ];
+    dlmwrite(fullfile(fixture_dir, 'run_matched_cpmg_train_integrals.csv'), matched_train_int_table, 'precision', '%.17g');
+catch matched_train_fixture_error
+    disp(['Skipping matched finite-train fixtures: ', matched_train_fixture_error.message]);
+end
+
 disp(['Wrote fixtures to ', fixture_dir]);

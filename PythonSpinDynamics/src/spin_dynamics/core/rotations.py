@@ -41,8 +41,10 @@ def rf_matrix_elements(
 
     del_w = np.asarray(del_w, dtype=np.float64).reshape(-1)
     omega = np.sqrt(w1**2 + del_w**2)
-    dw = del_w / omega
-    w1n = w1 / omega
+    zero_omega = omega == 0
+    omega_safe = np.where(zero_omega, 1.0, omega)
+    dw = del_w / omega_safe
+    w1n = w1 / omega_safe
     ph = np.exp(1j * phi)
     sn = np.sin(omega * tp)
     cs = np.cos(omega * tp)
@@ -52,6 +54,12 @@ def rf_matrix_elements(
     R_p0 = w1n * (dw * (1 - cs) - 1j * sn) * ph
     R_pp = 0.5 * (w1n**2 + (1 + dw**2) * cs) + 1j * dw * sn
     R_pm = 0.5 * w1n**2 * (1 - cs) * ph**2
+
+    R_00 = np.where(zero_omega, 1.0, R_00)
+    R_0p = np.where(zero_omega, 0.0, R_0p)
+    R_p0 = np.where(zero_omega, 0.0, R_p0)
+    R_pp = np.where(zero_omega, 1.0, R_pp)
+    R_pm = np.where(zero_omega, 0.0, R_pm)
 
     return MatrixElements(
         R_00=R_00,

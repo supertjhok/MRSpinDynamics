@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import subprocess
 import sys
-import tempfile
 import unittest
+import uuid
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES = ROOT / "examples"
+LOCAL_TMP = ROOT / ".tmp"
 
 
 def run_example(*args: str, cwd: Path = ROOT) -> subprocess.CompletedProcess[str]:
@@ -30,6 +31,10 @@ class ExampleSmokeTests(unittest.TestCase):
             ("examples/compare_cpmg_fid.py", "--numpts", "21"),
             ("examples/tuned_probe_cpmg.py", "--numpts", "21"),
             ("examples/probe_cpmg_compare.py", "--numpts", "21"),
+            ("examples/tuned_cpmg_train.py", "--numpts", "16", "--num-echoes", "2"),
+            ("examples/untuned_cpmg_train.py", "--numpts", "16", "--num-echoes", "2"),
+            ("examples/matched_cpmg_train.py", "--numpts", "9", "--num-echoes", "2"),
+            ("examples/probe_parameter_sweeps.py", "--numpts", "9"),
         ]
         for command in commands:
             with self.subTest(command=command[0]):
@@ -41,21 +46,22 @@ class ExampleSmokeTests(unittest.TestCase):
         self.assertIn("Ideal CPMG example", result.stdout)
 
     def test_export_example_writes_npz(self) -> None:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            output = Path(tmpdir) / "arrays.npz"
-            result = run_example(
-                "examples/export_validation_arrays.py",
-                str(output),
-                "--numpts",
-                "21",
-            )
-            self.assertIn("saved:", result.stdout)
-            self.assertTrue(output.exists())
+        LOCAL_TMP.mkdir(exist_ok=True)
+        output = LOCAL_TMP / f"arrays_test_{uuid.uuid4().hex}.npz"
+        result = run_example(
+            "examples/export_validation_arrays.py",
+            str(output),
+            "--numpts",
+            "21",
+        )
+        self.assertIn("saved:", result.stdout)
+        self.assertTrue(output.exists())
 
     def test_plot_examples_expose_cli_without_matplotlib(self) -> None:
         scripts = [
             "examples/plot_ideal_workflows.py",
             "examples/plot_probe_cpmg.py",
+            "examples/plot_probe_parameter_sweep.py",
         ]
         for script in scripts:
             with self.subTest(script=script):
@@ -63,6 +69,8 @@ class ExampleSmokeTests(unittest.TestCase):
                 self.assertIn("usage:", result.stdout)
         result = run_example("examples/plot_probe_cpmg.py", "--help")
         self.assertIn("--masy-component", result.stdout)
+        result = run_example("examples/plot_probe_parameter_sweep.py", "--help")
+        self.assertIn("--workers", result.stdout)
 
 
 if __name__ == "__main__":

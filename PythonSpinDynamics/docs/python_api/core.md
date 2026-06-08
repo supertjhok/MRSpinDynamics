@@ -40,13 +40,30 @@ helpers used by the ideal CPMG path.
 from spin_dynamics.core.kernels import (
     sim_spin_dynamics_arb7,
     sim_spin_dynamics_arb10,
+    sim_spin_dynamics_arb10_chunked,
 )
 ```
 
 - `sim_spin_dynamics_arb10` is the current arbitrary-pulse kernel using
   precomputed RF pulse matrices.
+- `sim_spin_dynamics_arb10_chunked` splits large isochromat vectors into
+  contiguous chunks and runs the same kernel through a thread pool.
 - `sim_spin_dynamics_arb7` is retained for compatibility with the current MATLAB
   ideal FID workflow, including its acquisition-window convolution behavior.
+
+## Isochromat Grid Checks
+
+```python
+from spin_dynamics.core.isochromats import (
+    analyze_rephasing,
+    check_rephasing,
+    recommended_numpts_for_rephasing,
+)
+```
+
+These helpers estimate angular-grid rephasing at approximately
+`2*pi / spacing`. Finite CPMG train workflows use them to warn, raise, or refine
+the offset grid before long simulations.
 
 ## Tuned Probe
 

@@ -42,13 +42,19 @@ result = run_tuned_cpmg(numpts=101, maxoffs=10)
 ```
 
 The currently validated public runners are `run_ideal_cpmg`,
-`run_ideal_cpmg_train`, `run_tuned_cpmg`, `run_untuned_cpmg`, and
-`run_matched_cpmg`.
+`run_ideal_cpmg_train`, `run_tuned_cpmg`, `run_tuned_cpmg_train`,
+`run_untuned_cpmg`, `run_untuned_cpmg_train`, `run_matched_cpmg`, and
+`run_matched_cpmg_train`. Probe-parameter sweep runners are available as
+`run_tuned_q_sweep`, `run_matched_q_sweep`, `run_tuned_mistuning_sweep`, and
+`run_matched_mistuning_sweep`.
 
 The validated lower-level workflow surface also includes
 `calc_macq_ideal_probe_relax4`, `calc_macq_tuned_probe_relax4`,
 `calc_macq_untuned_probe_relax4`, and `calc_macq_matched_probe_relax4` for
 assembled arbitrary sequences with relaxation during free-precession intervals.
+Finite CPMG train runners can warn about isochromat-grid rephasing, refine the
+offset grid with `auto_refine_grid=True`, and split isochromat propagation
+across CPU cores with `num_workers`.
 
 ## Examples
 
@@ -78,6 +84,19 @@ Run a finite ideal CPMG echo train:
 
 ```powershell
 python examples\ideal_cpmg_train.py --numpts 101 --num-echoes 8
+```
+
+Run a finite tuned-probe CPMG echo train:
+
+```powershell
+python examples\tuned_cpmg_train.py --numpts 101 --num-echoes 8
+```
+
+Run finite untuned- and matched-probe CPMG echo trains:
+
+```powershell
+python examples\untuned_cpmg_train.py --numpts 101 --num-echoes 8
+python examples\matched_cpmg_train.py --numpts 101 --num-echoes 8
 ```
 
 Compare the currently validated workflows:
@@ -111,6 +130,18 @@ Compare ideal, tuned, untuned, and matched CPMG:
 
 ```powershell
 python examples\probe_cpmg_compare.py --numpts 101
+```
+
+Run compact tuned and matched Q/mistuning sweeps:
+
+```powershell
+python examples\probe_parameter_sweeps.py --numpts 101
+```
+
+Plot a tuned or matched Q/mistuning sweep if Matplotlib is installed:
+
+```powershell
+python examples\plot_probe_parameter_sweep.py --probe tuned --sweep q --output results\tuned_q_sweep.png
 ```
 
 Plot the same comparison if Matplotlib is installed:

@@ -165,6 +165,168 @@ def tuned_probe_lp_orig(
     return tvect2 / wp, icr2, tvect / wp, ic
 
 
+def tuned_probe_lp(
+    sp: Mapping[str, Any] | Any,
+    pp: Mapping[str, Any] | Any,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Calculate tuned-probe coil current for the newer half-cycle path.
+
+    Mirrors MATLAB `circuit_simulation/tuned_probe/tuned_probe_lp.m`. The
+    dynamics are the same as `tuned_probe_lp_Orig`, but the rotating-frame
+    current is averaged over half-RF-cycle windows instead of full cycles.
+    """
+
+    L = float(_field(sp, "L"))
+    R = float(_field(sp, "R"))
+    C = float(_field(sp, "C"))
+    wp = 1 / np.sqrt(L * C)
+    Z0 = np.sqrt(L / C)
+
+    w0 = float(_field(sp, "w0")) / wp
+    tp = wp * _as_vector(_field(pp, "tref"))
+    phi = _as_vector(_field(pp, "pref"))
+    amp = _as_vector(_field(pp, "aref"))
+    Rs = _as_vector(_field(pp, "Rsref"))
+    w = float(_field(pp, "w")) / wp
+    N = int(_field(pp, "N"))
+
+    np_seg = np.rint(tp * N * w / (2 * np.pi)).astype(int)
+    ncyc = int(np.sum(np_seg))
+    if ncyc <= 0:
+        raise ValueError("pulse sequence must contain at least one simulation cycle")
+    tvect = 2 * np.pi * np.linspace(1, ncyc, ncyc) / (w * N)
+
+    ic0 = np.array([0.0 + 0.0j, 0.0 + 0.0j], dtype=np.complex128)
+    ic = np.zeros(ncyc, dtype=np.complex128)
+    cnt = 0
+
+    for np_j, phi_j, amp_j, Rs_j in zip(np_seg, phi, amp, Rs):
+        if np_j <= 0:
+            continue
+        gamma = 0.5 * (R / Z0 + Z0 / Rs_j)
+        wn = np.sqrt(1 + R / Rs_j)
+        alpha = np.sqrt((gamma**2 - wn**2) + 0j)
+        lam = -gamma + np.array([1.0, -1.0]) * alpha
+        lmat = np.array([[1.0 + 0j, 1.0 + 0j], [lam[0], lam[1]]])
+
+        tv = 2 * np.pi * np.linspace(1, np_j, np_j) / (w * N)
+        tve = tv[-1]
+        phi_eff = w * tvect[cnt] - 2 * np.pi / N + phi_j
+
+        ch = np.linalg.solve(lmat, ic0)
+        ich = ch[0] * np.exp(lam[0] * tv) + ch[1] * np.exp(lam[1] * tv)
+        dich = (
+            ch[0] * lam[0] * np.exp(lam[0] * tve)
+            + ch[1] * lam[1] * np.exp(lam[1] * tve)
+        )
+
+        if amp_j == 0:
+            icd = 0.0
+            dicd = 0.0
+        else:
+            icd1 = (
+                (amp_j / Rs_j)
+                * np.exp(1j * phi_eff)
+                * (
+                    np.exp(1j * w * tv)
+                    + (
+                        (lam[1] - 1j * w) * np.exp(lam[0] * tv) / (2 * alpha)
+                        - (lam[0] - 1j * w) * np.exp(lam[1] * tv)
+                    )
+                    / (2 * alpha)
+                )
+                / (wn**2 - w**2 + 2j * gamma * w)
+            )
+            icd2 = (
+                (amp_j / Rs_j)
+                * np.exp(-1j * phi_eff)
+                * (
+                    np.exp(-1j * w * tv)
+                    + (
+                        (lam[1] + 1j * w) * np.exp(lam[0] * tv) / (2 * alpha)
+                        - (lam[0] + 1j * w) * np.exp(lam[1] * tv)
+                    )
+                    / (2 * alpha)
+                )
+                / (wn**2 - w**2 - 2j * gamma * w)
+            )
+            icd = 0.5 * (icd1 + icd2)
+
+            dicd1 = (
+                (amp_j / Rs_j)
+                * np.exp(1j * phi_eff)
+                * (
+                    1j * w * np.exp(1j * w * tve)
+                    + (
+                        lam[0] * (lam[1] - 1j * w) * np.exp(lam[0] * tve)
+                        / (2 * alpha)
+                        - lam[1] * (lam[0] - 1j * w) * np.exp(lam[1] * tve)
+                    )
+                    / (2 * alpha)
+                )
+                / (wn**2 - w**2 + 2j * gamma * w)
+            )
+            dicd2 = (
+                (amp_j / Rs_j)
+                * np.exp(-1j * phi_eff)
+                * (
+                    -1j * w * np.exp(-1j * w * tve)
+                    + (
+                        lam[0] * (lam[1] + 1j * w) * np.exp(lam[0] * tve)
+                        / (2 * alpha)
+                        - lam[1] * (lam[0] + 1j * w) * np.exp(lam[1] * tve)
+                    )
+                    / (2 * alpha)
+                )
+                / (wn**2 - w**2 - 2j * gamma * w)
+            )
+            dicd = 0.5 * (dicd1 + dicd2)
+
+        ic[cnt : cnt + np_j] = ich + icd
+        ic0[0] = ic[cnt + np_j - 1]
+        ic0[1] = dich + dicd
+        cnt += np_j
+
+    icr = ic * np.exp(-1j * w0 * tvect)
+
+    step = N // 2
+    numpts = int(np.floor(ncyc * 2 / N))
+    tvect2 = np.zeros(numpts, dtype=np.float64)
+    icr2 = np.zeros(numpts, dtype=np.complex128)
+    for idx in range(numpts):
+        ind = slice(idx * step, (idx + 1) * step)
+        tvect2[idx] = np.mean(tvect[ind])
+        icr2[idx] = np.mean(icr[ind])
+
+    return tvect2 / wp, icr2, tvect / wp, ic
+
+
+def tuned_probe_rx_tf(
+    sp: Mapping[str, Any] | Any,
+    pp: Mapping[str, Any] | Any,
+) -> np.ndarray:
+    """Return tuned-probe receiver transfer function.
+
+    Mirrors MATLAB `circuit_simulation/tuned_probe/tuned_probe_rx_tf.m`.
+    """
+
+    L = float(_field(sp, "L"))
+    R = float(_field(sp, "R"))
+    C = float(_field(sp, "C"))
+    Cin = float(_field(sp, "Cin"))
+    Rin = float(_field(sp, "Rin"))
+    Rd = float(_field(sp, "Rd"))
+    w0 = float(_field(sp, "w0"))
+    del_w = _as_vector(_field(sp, "del_w"))
+    w1_max = (np.pi / 2) / float(_field(pp, "T_90"))
+
+    s = 1j * (w0 + del_w * w1_max)
+    f = np.imag(s) / (2 * np.pi)
+    Yin = s * Cin + 1 / Rin
+    tf = 1 / (1 + (s * L + R) * (s * C + 1 / Rd + Yin))
+    return tf * (2 * np.pi * f / w0) ** 2
+
+
 def tuned_probe_rx(
     sp: Mapping[str, Any] | Any,
     pp: Mapping[str, Any] | Any,

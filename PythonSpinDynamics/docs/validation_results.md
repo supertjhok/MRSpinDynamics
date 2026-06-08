@@ -46,11 +46,20 @@ skips matched-probe files when `fmincon` is unavailable.
 | `spin_dynamics.parameters.set_params_matched_orig` | `Params/set_params_matched_Orig.m` | `set_params_matched_orig.csv` | Passed |
 | `spin_dynamics.core.rotations.calc_rotation_matrix` | `calc_rot/calc_rotation_matrix.m` | `calc_rotation_matrix.csv` | Passed |
 | `spin_dynamics.core.kernels.sim_spin_dynamics_arb10` | `sim_spin_dynamics_arb/sim_spin_dynamics_arb10.m` | `sim_spin_dynamics_arb10.csv` | Passed |
+| `spin_dynamics.core.kernels.sim_spin_dynamics_arb10_chunked` | Serial Python `arb10` kernel | direct serial/chunked equality test | Passed |
+| `spin_dynamics.core.isochromats.check_rephasing` | Python extension beyond MATLAB warning-only checks | direct warning and recommendation test | Passed |
 | `spin_dynamics.workflows.acquisition.calc_macq_ideal_probe_relax4` | `calc_macq/calc_macq_ideal_probe_relax4.m` | `calc_macq_ideal_probe_relax4.csv` | Passed |
 | `spin_dynamics.workflows.acquisition.calc_macq_tuned_probe_relax4` | `calc_macq/calc_macq_tuned_probe_relax4.m` | `calc_macq_tuned_probe_relax4.csv` | Passed |
 | `spin_dynamics.workflows.acquisition.calc_macq_matched_probe_relax4` | `calc_macq/calc_macq_matched_probe_relax4.m` | `calc_macq_matched_probe_relax4.csv` | Passed |
 | `spin_dynamics.workflows.acquisition.calc_macq_untuned_probe_relax4` | Python analogue of tuned `relax4` receiver-map contract | direct receiver contract test | Passed |
 | `spin_dynamics.workflows.run_ideal_cpmg_train` | `time_varying_field/sim_cpmg_ideal_tv.m` assembly pattern | `run_ideal_cpmg_train_*.csv` | Passed |
+| `spin_dynamics.workflows.run_tuned_cpmg_train` | `Sim_CPMG/sim_cpmg_tuned_probe_img.m` assembly pattern without phase encoding | `run_tuned_cpmg_train_*.csv` | Passed |
+| `spin_dynamics.workflows.run_untuned_cpmg_train` | Python analogue of tuned finite-train assembly with untuned pulse and receiver models | `run_untuned_cpmg_train_*.csv` | Passed |
+| `spin_dynamics.workflows.run_matched_cpmg_train` | `Sim_CPMG/sim_cpmg_matched_probe_img.m` assembly pattern without phase encoding | `run_matched_cpmg_train_*.csv` | Passed |
+| `spin_dynamics.workflows.run_tuned_q_sweep` | `CompareQ/sim_tuned_probe_coil_Q.m` | workflow shape and finite-output smoke test | Passed |
+| `spin_dynamics.workflows.run_matched_q_sweep` | `CompareQ/sim_matched_probe_coil_Q.m` | workflow shape and finite-output smoke test | Passed |
+| `spin_dynamics.workflows.run_tuned_mistuning_sweep` | `CompareMistuned/tuned_probe/sim_tuned_probe_mistuned.m` | workflow shape and finite-output smoke test | Passed |
+| `spin_dynamics.workflows.run_matched_mistuning_sweep` | `CompareMistuned/matched_probe/sim_matched_probe_mistuned.m` | workflow shape and finite-output smoke test | Passed |
 | `spin_dynamics.workflows.fid.sim_fid_ideal` | `Sim_FID/simFID_ideal.m` via `calc_macq_fid`/`calc_FID_time_domain` | `sim_fid_ideal_macq.csv`, `sim_fid_ideal_echo.csv` | Passed |
 | `spin_dynamics.probes.tuned.tuned_probe_lp_orig` | `circuit_simulation/tuned_probe/tuned_probe_lp_Orig.m` | `tuned_probe_lp_orig.csv` | Passed |
 | `spin_dynamics.probes.tuned.calc_masy_tuned_probe_lp_orig` | `calc_masy/calc_masy_tuned_probe_lp_Orig.m` | `calc_masy_tuned_probe_lp_orig.csv` | Passed |
@@ -65,8 +74,17 @@ The public CPMG runners are also tested for result-container shape and metadata:
 
 - `run_ideal_cpmg`
 - `run_tuned_cpmg`
+- `run_tuned_cpmg_train`
 - `run_untuned_cpmg`
+- `run_untuned_cpmg_train`
 - `run_matched_cpmg`
+- `run_matched_cpmg_train`
+- `run_tuned_q_sweep`
+- `run_matched_q_sweep`
+- `run_tuned_mistuning_sweep`
+- `run_matched_mistuning_sweep`
+
+The finite ideal train is also tested for `auto_refine_grid=True`.
 
 ## Run Log
 
@@ -91,6 +109,51 @@ Result: OK
 ```text
 Ran 30 Python unittest comparisons, workflow smoke tests, and example smoke tests.
 Ran Python compile checks over src, tests, and examples.
+Result: OK
+```
+
+2026-06-08:
+
+```text
+Generated tuned finite CPMG train fixtures with Octave 11.3.0.
+Ran 31 Python unittest comparisons, workflow smoke tests, and example smoke tests.
+Result: OK
+```
+
+2026-06-08:
+
+```text
+Generated untuned finite CPMG train fixtures with Octave 11.3.0.
+Generated matched finite CPMG train fixtures with MATLAB R2025b.
+Ran 33 Python unittest comparisons, workflow smoke tests, and example smoke tests.
+Result: OK
+```
+
+2026-06-08:
+
+```text
+Added isochromat-grid rephasing checks, optional finite-train grid refinement,
+and chunked multicore `arb10` propagation.
+Ran 35 Python unittest comparisons, workflow smoke tests, and example smoke tests.
+Result: OK
+```
+
+2026-06-08:
+
+```text
+Benchmarked long finite ideal CPMG trains across isochromat vector sizes and
+worker counts on a 24-logical-CPU Windows host.
+Best measured speedup was 1.88x for 64,001 isochromats, 256 echoes, and
+4 workers versus 1 worker.
+Detailed results are in benchmarks/README.md and benchmarks/results/.
+```
+
+2026-06-08:
+
+```text
+Added tuned/matched Q and mistuning sweep workflows plus a compact example.
+Added a Matplotlib sweep plotting example with CLI smoke coverage.
+Ran 37 Python unittest comparisons, workflow smoke tests, and example smoke tests.
 Result: OK
 ```
 

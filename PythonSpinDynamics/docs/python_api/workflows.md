@@ -20,7 +20,13 @@ from spin_dynamics.workflows import (
 )
 
 result = run_tuned_cpmg(numpts=101, maxoffs=10)
-train = run_ideal_cpmg_train(numpts=101, maxoffs=10, num_echoes=8)
+train = run_ideal_cpmg_train(
+    numpts=101,
+    maxoffs=10,
+    num_echoes=8,
+    auto_refine_grid=True,
+    num_workers=None,
+)
 ```
 
 Each runner returns a `CPMGResult` with:
@@ -32,14 +38,54 @@ Each runner returns a `CPMGResult` with:
 - `snr`: probe SNR where available, otherwise `None`;
 - `probe`: one of `ideal`, `tuned`, `untuned`, or `matched`.
 
-`run_ideal_cpmg_train` returns a `CPMGTrainResult` with:
+Finite train runners return a `CPMGTrainResult` with:
 
 - `del_w`: normalized offset grid;
 - `mrx`: acquired spectra with shape `(num_echoes, numpts)`;
 - `echo`, `tvect`: direct-summed time-domain echoes and acquisition vector;
 - `echo_integrals`: trapezoidal integrals of each echo;
 - `sequence_time`: physical echo-center times in seconds;
-- `probe`: currently `ideal`.
+- `probe`: one of `ideal`, `tuned`, `untuned`, or `matched`.
+
+Finite train runners also accept `rephase_action`, `rephase_safety_factor`,
+`auto_refine_grid`, and `num_workers`. By default they warn when the normalized
+angular offset grid may rephase before the train finishes. Set
+`auto_refine_grid=True` to increase `numpts` before pulse matrices are built,
+and set `num_workers=None` to use the available CPU count for chunked
+isochromat propagation.
+
+## Probe Parameter Sweeps
+
+```python
+from spin_dynamics.workflows import (
+    run_matched_mistuning_sweep,
+    run_matched_q_sweep,
+    run_tuned_mistuning_sweep,
+    run_tuned_q_sweep,
+)
+
+tuned_q = run_tuned_q_sweep(q_values=[20, 50, 80], numpts=101)
+matched_detune = run_matched_mistuning_sweep(offsets=[-2, 0, 2], numpts=101)
+```
+
+Sweep runners return `CPMGParameterSweepResult` with:
+
+- `values` and `value_label`: the swept Q values or frequency-error offsets;
+- `del_w`: normalized offset grid;
+- `mrx`: received spectra with shape `(num_values, numpts)`;
+- `echo`, `tvect`: direct-summed echoes and common echo time vector;
+- `snr`: matched-filter SNR for each sweep point;
+- `probe` and `sweep`: metadata labels.
+
+The mistuning offsets are in units of `fin / Q`, matching the MATLAB scripts.
+The sweep-level `num_workers` option parallelizes independent sweep points.
+
+MATLAB references:
+
+- `CompareQ/sim_tuned_probe_coil_Q.m`
+- `CompareQ/sim_matched_probe_coil_Q.m`
+- `CompareMistuned/tuned_probe/sim_tuned_probe_mistuned.m`
+- `CompareMistuned/matched_probe/sim_matched_probe_mistuned.m`
 
 ## Ideal CPMG
 
@@ -64,7 +110,13 @@ MATLAB references:
 ```python
 from spin_dynamics.workflows import run_ideal_cpmg_train
 
-result = run_ideal_cpmg_train(numpts=101, maxoffs=10, num_echoes=8)
+result = run_ideal_cpmg_train(
+    numpts=101,
+    maxoffs=10,
+    num_echoes=8,
+    auto_refine_grid=True,
+    num_workers=None,
+)
 ```
 
 This public workflow assembles a no-probe PAP phase-cycled CPMG echo train,

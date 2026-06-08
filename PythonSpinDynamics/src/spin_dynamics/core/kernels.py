@@ -9,7 +9,9 @@ Primary MATLAB references:
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+import os
 from typing import Any
 
 import numpy as np
@@ -152,6 +154,86 @@ def sim_spin_dynamics_arb10(params: Mapping[str, Any] | Arb10Parameters | Any) -
             acq_cnt += 1
 
     return macq
+
+
+def _slice_matrix_elements(mat: MatrixElements, slc: slice) -> MatrixElements:
+    return MatrixElements(
+        R_00=mat.R_00[slc],
+        R_0p=mat.R_0p[slc],
+        R_0m=mat.R_0m[slc],
+        R_p0=mat.R_p0[slc],
+        R_m0=mat.R_m0[slc],
+        R_pp=mat.R_pp[slc],
+        R_mm=mat.R_mm[slc],
+        R_pm=mat.R_pm[slc],
+        R_mp=mat.R_mp[slc],
+    )
+
+
+def _slice_arb10_params(
+    params: Mapping[str, Any] | Arb10Parameters | Any,
+    slc: slice,
+) -> Arb10Parameters:
+    rtot = tuple(_slice_matrix_elements(mat, slc) for mat in _field(params, "Rtot"))
+    return Arb10Parameters(
+        tp=_field(params, "tp"),
+        pul=_field(params, "pul"),
+        Rtot=rtot,
+        amp=_field(params, "amp"),
+        acq=_field(params, "acq"),
+        grad=_field(params, "grad"),
+        del_w=_as_vector(_field(params, "del_w"), np.float64)[slc],
+        del_wg=_as_vector(_field(params, "del_wg"), np.float64)[slc],
+        T1n=_as_vector(_field(params, "T1n"), np.float64)[slc],
+        T2n=_as_vector(_field(params, "T2n"), np.float64)[slc],
+        m0=_as_vector(_field(params, "m0"), np.complex128)[slc],
+        mth=_as_vector(_field(params, "mth"), np.complex128)[slc],
+    )
+
+
+def _chunk_slices(numpts: int, chunks: int) -> list[slice]:
+    bounds = np.linspace(0, numpts, chunks + 1, dtype=np.int64)
+    return [
+        slice(int(start), int(stop))
+        for start, stop in zip(bounds[:-1], bounds[1:])
+        if stop > start
+    ]
+
+
+def sim_spin_dynamics_arb10_chunked(
+    params: Mapping[str, Any] | Arb10Parameters | Any,
+    num_workers: int | None = None,
+    min_chunk_size: int = 256,
+) -> np.ndarray:
+    """Run `sim_spin_dynamics_arb10` on contiguous isochromat chunks.
+
+    The serial kernel is already vectorized over isochromats. This helper
+    splits that vector into core-sized chunks and uses threads to avoid copying
+    the full state through process boundaries.
+    """
+
+    del_w = _as_vector(_field(params, "del_w"), np.float64)
+    numpts = del_w.size
+    if numpts == 0:
+        return sim_spin_dynamics_arb10(params)
+
+    if num_workers is None:
+        workers = os.cpu_count() or 1
+    else:
+        workers = int(num_workers)
+    if workers <= 1:
+        return sim_spin_dynamics_arb10(params)
+
+    max_useful_workers = max(1, int(np.ceil(numpts / max(1, int(min_chunk_size)))))
+    workers = min(workers, numpts, max_useful_workers)
+    if workers <= 1:
+        return sim_spin_dynamics_arb10(params)
+
+    slices = _chunk_slices(numpts, workers)
+    chunk_params = [_slice_arb10_params(params, slc) for slc in slices]
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        chunks = list(executor.map(sim_spin_dynamics_arb10, chunk_params))
+    return np.concatenate(chunks, axis=1)
 
 
 def sim_spin_dynamics_arb7(params: Mapping[str, Any] | Arb7Parameters | Any) -> np.ndarray:

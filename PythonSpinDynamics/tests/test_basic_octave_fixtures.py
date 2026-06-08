@@ -11,7 +11,15 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from spin_dynamics.core.echo import calc_time_domain_echo, calc_time_domain_echo_arb
-from spin_dynamics.core.kernels import sim_spin_dynamics_arb10
+from spin_dynamics.core.isochromats import (
+    analyze_rephasing,
+    check_rephasing,
+    recommended_numpts_for_rephasing,
+)
+from spin_dynamics.core.kernels import (
+    sim_spin_dynamics_arb10,
+    sim_spin_dynamics_arb10_chunked,
+)
 from spin_dynamics.core.numerics import trapezoid
 from spin_dynamics.core.rotations import (
     calc_rotation_matrix,
@@ -48,8 +56,15 @@ from spin_dynamics.workflows import (
     run_ideal_cpmg,
     run_ideal_cpmg_train,
     run_matched_cpmg,
+    run_matched_cpmg_train,
+    run_matched_mistuning_sweep,
+    run_matched_q_sweep,
     run_tuned_cpmg,
+    run_tuned_cpmg_train,
+    run_tuned_mistuning_sweep,
+    run_tuned_q_sweep,
     run_untuned_cpmg,
+    run_untuned_cpmg_train,
 )
 from spin_dynamics.workflows.fid import sim_fid_ideal
 
@@ -62,6 +77,17 @@ class OctaveFixtureTests(unittest.TestCase):
         y = np.array([0.0, 1.0, 0.0])
         x = np.array([0.0, 0.5, 1.0])
         self.assertAlmostEqual(float(trapezoid(y, x)), 0.5)
+
+    def test_rephasing_analysis_recommends_finer_grid(self) -> None:
+        del_w = np.linspace(-5, 5, 11)
+        analysis = analyze_rephasing(del_w, max_time=12.0, safety_factor=1.25)
+        self.assertFalse(analysis.ok)
+        self.assertGreaterEqual(
+            analysis.recommended_numpts,
+            recommended_numpts_for_rephasing(5, 12.0, safety_factor=1.25),
+        )
+        with self.assertWarns(RuntimeWarning):
+            check_rephasing(del_w, max_time=12.0, safety_factor=1.25, action="warn")
 
     def test_calc_time_domain_echo_matches_octave(self) -> None:
         table = np.loadtxt(FIXTURES / "calc_time_domain_echo.csv", delimiter=",")
@@ -494,8 +520,14 @@ class OctaveFixtureTests(unittest.TestCase):
         }
 
         macq = sim_spin_dynamics_arb10(params)
+        macq_chunked = sim_spin_dynamics_arb10_chunked(
+            params,
+            num_workers=2,
+            min_chunk_size=4,
+        )
 
         np.testing.assert_allclose(macq, macq_ref, rtol=1e-13, atol=1e-13)
+        np.testing.assert_allclose(macq_chunked, macq, rtol=1e-13, atol=1e-13)
 
     def test_calc_macq_ideal_probe_relax4_matches_octave(self) -> None:
         table = np.loadtxt(FIXTURES / "calc_macq_ideal_probe_relax4.csv", delimiter=",")
@@ -948,6 +980,7 @@ class OctaveFixtureTests(unittest.TestCase):
             num_echoes=num_echoes,
             t1_seconds=1.7,
             t2_seconds=1.1,
+            rephase_action="ignore",
         )
 
         np.testing.assert_allclose(result.mrx, mrx_ref, rtol=1e-13, atol=1e-13)
@@ -960,6 +993,124 @@ class OctaveFixtureTests(unittest.TestCase):
             atol=1e-13,
         )
         self.assertEqual(result.probe, "ideal")
+
+    def test_run_ideal_cpmg_train_can_auto_refine_grid(self) -> None:
+        coarse = run_ideal_cpmg_train(
+            numpts=5,
+            maxoffs=5,
+            num_echoes=1,
+            rephase_action="ignore",
+        )
+        refined = run_ideal_cpmg_train(
+            numpts=5,
+            maxoffs=5,
+            num_echoes=1,
+            auto_refine_grid=True,
+            rephase_action="raise",
+        )
+        self.assertEqual(coarse.del_w.size, 5)
+        self.assertGreater(refined.del_w.size, coarse.del_w.size)
+
+    def test_probe_parameter_sweeps_return_expected_shapes(self) -> None:
+        cases = [
+            run_tuned_q_sweep(q_values=[20, 50], numpts=17),
+            run_tuned_mistuning_sweep(offsets=[-1, 0, 1], numpts=17),
+            run_matched_q_sweep(q_values=[20, 50], numpts=16),
+            run_matched_mistuning_sweep(offsets=[-1, 0, 1], numpts=16),
+        ]
+        for result in cases:
+            self.assertEqual(result.mrx.shape, (result.values.size, result.del_w.size))
+            self.assertEqual(result.echo.shape, (result.values.size, result.tvect.size))
+            self.assertEqual(result.snr.shape, (result.values.size,))
+            self.assertTrue(np.all(np.isfinite(result.snr)))
+
+    def test_tuned_q_sweep_parallel_matches_serial(self) -> None:
+        serial = run_tuned_q_sweep(q_values=[20, 50, 80], numpts=17, num_workers=1)
+        parallel = run_tuned_q_sweep(q_values=[20, 50, 80], numpts=17, num_workers=2)
+        np.testing.assert_allclose(parallel.values, serial.values)
+        np.testing.assert_allclose(parallel.mrx, serial.mrx, rtol=1e-13, atol=1e-13)
+        np.testing.assert_allclose(parallel.echo, serial.echo, rtol=1e-13, atol=1e-13)
+        np.testing.assert_allclose(parallel.snr, serial.snr, rtol=1e-13, atol=1e-13)
+
+    def test_run_tuned_cpmg_train_matches_octave(self) -> None:
+        self._assert_train_fixture(
+            "run_tuned_cpmg_train",
+            run_tuned_cpmg_train,
+            numpts_expected=None,
+            maxoffs=5,
+            rtol=1e-11,
+            atol=1e-11,
+        )
+
+    def test_run_untuned_cpmg_train_matches_octave(self) -> None:
+        self._assert_train_fixture(
+            "run_untuned_cpmg_train",
+            run_untuned_cpmg_train,
+            numpts_expected=None,
+            maxoffs=5,
+            rtol=1e-11,
+            atol=1e-11,
+        )
+
+    def test_run_matched_cpmg_train_matches_matlab(self) -> None:
+        self._assert_train_fixture(
+            "run_matched_cpmg_train",
+            run_matched_cpmg_train,
+            numpts_expected=None,
+            maxoffs=4,
+            rtol=8e-2,
+            atol=5e-2,
+        )
+
+    def _assert_train_fixture(
+        self,
+        fixture_stem: str,
+        runner,
+        numpts_expected: int | None,
+        maxoffs: float,
+        rtol: float,
+        atol: float,
+    ) -> None:
+        mrx_table = np.loadtxt(FIXTURES / f"{fixture_stem}_mrx.csv", delimiter=",")
+        echo_table = np.loadtxt(FIXTURES / f"{fixture_stem}_echo.csv", delimiter=",")
+        int_table = np.loadtxt(FIXTURES / f"{fixture_stem}_integrals.csv", delimiter=",")
+
+        num_echoes = int(np.max(mrx_table[:, 0]))
+        numpts = int(np.max(mrx_table[:, 1]))
+        if numpts_expected is not None:
+            self.assertEqual(numpts, numpts_expected)
+        mrx_ref = np.zeros((num_echoes, numpts), dtype=np.complex128)
+        for row in mrx_table:
+            mrx_ref[int(row[0]) - 1, int(row[1]) - 1] = row[2] + 1j * row[3]
+
+        nacq = int(np.max(echo_table[:, 1]))
+        echo_ref = np.zeros((num_echoes, nacq), dtype=np.complex128)
+        tvect_ref = np.zeros(nacq, dtype=np.float64)
+        for row in echo_table:
+            echo_ref[int(row[0]) - 1, int(row[1]) - 1] = row[2] + 1j * row[3]
+            tvect_ref[int(row[1]) - 1] = row[4]
+
+        echo_int_ref = int_table[:, 1] + 1j * int_table[:, 2]
+
+        result = runner(
+            numpts=numpts,
+            maxoffs=maxoffs,
+            num_echoes=num_echoes,
+            t1_seconds=1.7,
+            t2_seconds=1.1,
+            rephase_action="ignore",
+        )
+
+        np.testing.assert_allclose(result.mrx, mrx_ref, rtol=rtol, atol=atol)
+        np.testing.assert_allclose(result.echo, echo_ref, rtol=rtol, atol=atol)
+        np.testing.assert_allclose(result.tvect, tvect_ref, rtol=1e-13, atol=1e-13)
+        np.testing.assert_allclose(
+            result.echo_integrals,
+            echo_int_ref,
+            rtol=rtol,
+            atol=atol,
+        )
+        self.assertEqual(result.probe, fixture_stem.removeprefix("run_").removesuffix("_cpmg_train"))
 
 
 if __name__ == "__main__":

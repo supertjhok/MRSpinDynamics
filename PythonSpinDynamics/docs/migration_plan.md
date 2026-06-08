@@ -13,7 +13,7 @@
 - The same script can be run from MATLAB or Octave.
 - MATLAB-generated fixtures are used for matched-probe cases that require
   optimization toolbox behavior not available in a stock Octave install.
-- The current Python test suite contains 30 checks against fixtures, public
+- The current Python test suite contains 37 checks against fixtures, public
   workflow result shapes, compatibility helpers, and example smoke paths.
 
 ## Completed Phase 2: Low-Level Numerical Helpers
@@ -57,6 +57,9 @@ their inputs and outputs are small, array-based, and close to NumPy's strengths.
 - MATLAB coherence ordering is preserved and documented as `M0`, `M-`, `M+`.
 - Precomputed pulse rotation matrix semantics are retained before any optimized
   backend is introduced.
+- `sim_spin_dynamics_arb10_chunked` can split large isochromat grids into
+  contiguous chunks and evaluate them across a thread pool while preserving the
+  serial kernel's numerical result.
 - The legacy-compatible `sim_spin_dynamics_arb7` path used by ideal FID is also
   available.
 
@@ -84,10 +87,19 @@ their inputs and outputs are small, array-based, and close to NumPy's strengths.
   as a Python analogue using the same receiver-map contract.
 - `run_ideal_cpmg_train` provides a public finite ideal CPMG acquisition
   workflow returning acquired spectra, direct-summed echoes, and echo integrals.
-- Next, port the probe-specific relaxation/acquisition wrappers around
-  `calc_macq_*_relax`.
-- Add examples for Q-factor, mistuning, and probe-parameter sweeps once the
-  underlying helpers are in place.
+- `run_tuned_cpmg_train`, `run_untuned_cpmg_train`, and
+  `run_matched_cpmg_train` provide public finite probe CPMG trains with probe
+  pulse shaping, receiver filtering, relaxation, direct-summed echoes, and echo
+  integrals.
+- Finite train workflows now estimate isochromat-grid rephasing time, warn or
+  raise when the grid is too coarse, optionally refine `numpts` before building
+  pulse matrices, and pass long isochromat vectors through the chunked backend
+  with `num_workers`.
+- `run_tuned_q_sweep`, `run_matched_q_sweep`, `run_tuned_mistuning_sweep`, and
+  `run_matched_mistuning_sweep` port the plotting-oriented MATLAB Q and
+  mistuning scripts into array-returning workflow APIs.
+- `examples/probe_parameter_sweeps.py` provides a compact non-plot smoke path
+  for the sweep APIs.
 - Keep workflow-level APIs returning small typed result containers, following
   `CPMGResult`.
 

@@ -178,6 +178,44 @@ def untuned_probe_rx(
     return mrx, snr, tf
 
 
+def untuned_probe_rx_tf(
+    sp: Mapping[str, Any] | Any,
+    pp: Mapping[str, Any] | Any,
+) -> np.ndarray:
+    """Return untuned-probe receiver transfer function.
+
+    Mirrors the transfer-function portion of MATLAB
+    `circuit_simulation/untuned_probe/untuned_probe_rx.m`.
+    """
+
+    L = float(_field(sp, "L"))
+    R = float(_field(sp, "R"))
+    C = float(_field(sp, "C"))
+    Cin = float(_field(sp, "Cin"))
+    Rin = float(_field(sp, "Rin"))
+    Rd = float(_field(sp, "Rd"))
+    Rdup = float(_field(sp, "Rdup"))
+    Nrx = float(_field(sp, "Nrx"))
+    krx = float(_field(sp, "krx"))
+    L1 = float(_field(sp, "L1"))
+    R1 = float(_field(sp, "R1"))
+    w0 = float(_field(sp, "w0"))
+    del_w = _as_vector(_field(sp, "del_w"))
+
+    L2 = L1 * Nrx**2
+    R2 = Nrx * R1
+    w1_max = (np.pi / 2) / float(_field(pp, "T_90"))
+    s = 1j * (w0 + del_w * w1_max)
+    Yin = s * Cin + 1 / Rin + 1 / Rd
+    Yp = s * C + 1 / (s * L + R)
+    Zp = 1 / Yp
+
+    Nv = krx * Nrx * L1 / (L + L1)
+    Zeff = (Zp + Rdup + R1) * Nv**2 + s * L2 * (1 - krx**2) + R2
+    tf = Nv / (1 + Zeff * Yin)
+    return tf
+
+
 def calc_rot_axis_untuned_probe_lp(
     params: Mapping[str, Any] | Any,
     sp: Mapping[str, Any] | Any,

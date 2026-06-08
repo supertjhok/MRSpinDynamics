@@ -67,6 +67,20 @@ python examples\tuned_probe_cpmg.py --numpts 101
 python examples\probe_cpmg_compare.py --numpts 101
 ```
 
+## Probe Parameter Sweeps
+
+```powershell
+python examples\probe_parameter_sweeps.py --numpts 101
+```
+
+## Plot Probe Parameter Sweep
+
+This example requires Matplotlib.
+
+```powershell
+python examples\plot_probe_parameter_sweep.py --probe tuned --sweep q --output results\tuned_q_sweep.png
+```
+
 ## Plot Probe CPMG Comparison
 
 This example requires Matplotlib.
