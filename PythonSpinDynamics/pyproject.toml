@@ -23,6 +23,9 @@ dev = [
 bench = [
   "pytest-benchmark>=4"
 ]
+plot = [
+  "matplotlib>=3.7"
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]

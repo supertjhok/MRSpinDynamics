@@ -14,7 +14,7 @@ from typing import Any
 
 import numpy as np
 
-from spin_dynamics.core.rotations import MatrixElements
+from spin_dynamics.core.rotations import MatrixElements, rf_matrix_elements
 
 
 @dataclass(frozen=True)
@@ -35,10 +35,34 @@ class Arb10Parameters:
     mth: np.ndarray
 
 
+@dataclass(frozen=True)
+class Arb7Parameters:
+    """Parameters for `sim_spin_dynamics_arb7`."""
+
+    tp: np.ndarray
+    phi: np.ndarray
+    amp: np.ndarray
+    acq: np.ndarray
+    grad: np.ndarray
+    len_acq: float
+    del_w: np.ndarray
+    w_1: np.ndarray
+    T1n: np.ndarray
+    T2n: np.ndarray
+    m0: np.ndarray
+    mth: np.ndarray
+
+
 def _field(obj: Mapping[str, Any] | Any, name: str) -> Any:
     if isinstance(obj, Mapping):
         return obj[name]
     return getattr(obj, name)
+
+
+def _field_or_default(obj: Mapping[str, Any] | Any, name: str, default: Any) -> Any:
+    if isinstance(obj, Mapping):
+        return obj.get(name, default)
+    return getattr(obj, name, default)
 
 
 def _as_vector(value: Any, dtype: Any) -> np.ndarray:
@@ -125,6 +149,80 @@ def sim_spin_dynamics_arb10(params: Mapping[str, Any] | Arb10Parameters | Any) -
 
         if acq_j:
             macq[acq_cnt, :] = mvect[1, :]
+            acq_cnt += 1
+
+    return macq
+
+
+def sim_spin_dynamics_arb7(params: Mapping[str, Any] | Arb7Parameters | Any) -> np.ndarray:
+    """Simulate arbitrary-pulse dynamics with acquisition-window convolution.
+
+    Mirrors MATLAB `sim_spin_dynamics_arb/sim_spin_dynamics_arb7.m`. This older
+    compatibility kernel is still used by the ideal FID workflow.
+    """
+
+    tp = _as_vector(_field(params, "tp"), np.float64)
+    phi = _as_vector(_field(params, "phi"), np.float64)
+    amp = _as_vector(_field(params, "amp"), np.float64)
+    acq = _as_vector(_field(params, "acq"), bool)
+    grad = _as_vector(_field(params, "grad"), np.float64)
+    del_w0 = _as_vector(_field(params, "del_w"), np.float64)
+    del_wg = _as_vector(_field_or_default(params, "del_wg", del_w0), np.float64)
+    w_1 = _as_vector(_field(params, "w_1"), np.float64)
+    T1n = _as_vector(_field(params, "T1n"), np.float64)
+    T2n = _as_vector(_field(params, "T2n"), np.float64)
+    m0 = _as_vector(_field(params, "m0"), np.complex128)
+    mth = _as_vector(_field(params, "mth"), np.complex128)
+
+    numpts = del_w0.size
+    if not (tp.size == phi.size == amp.size == acq.size == grad.size):
+        raise ValueError("tp, phi, amp, acq, and grad must have the same length")
+    for name, arr in {
+        "del_wg": del_wg,
+        "w_1": w_1,
+        "T1n": T1n,
+        "T2n": T2n,
+        "m0": m0,
+        "mth": mth,
+    }.items():
+        if arr.size != numpts:
+            raise ValueError(f"{name} must have length len(del_w)")
+
+    window = np.sinc(del_w0 / (2 * np.pi))
+    window = window / np.sum(window)
+
+    mvect = np.zeros((3, numpts), dtype=np.complex128)
+    mvect[0, :] = m0
+
+    macq = np.zeros((int(np.sum(acq)), numpts), dtype=np.complex128)
+    acq_cnt = 0
+
+    for tp_j, phi_j, amp_j, acq_j, grad_j in zip(tp, phi, amp, acq, grad):
+        del_w = del_w0 + grad_j * del_wg
+
+        if amp_j > 0:
+            mat = rf_matrix_elements(del_w, amp_j * w_1, float(tp_j), float(phi_j))
+            mlong = np.zeros(numpts, dtype=np.complex128)
+        else:
+            mat = _free_precession_matrix_elements(del_w, float(tp_j), T1n, T2n)
+            mlong = mth * (1 - np.exp(-tp_j / T1n))
+
+        tmp = mvect.copy()
+        mvect[0, :] = (
+            mat.R_00 * tmp[0, :]
+            + mat.R_0m * tmp[1, :]
+            + mat.R_0p * tmp[2, :]
+            + mlong
+        )
+        mvect[1, :] = (
+            mat.R_m0 * tmp[0, :] + mat.R_mm * tmp[1, :] + mat.R_mp * tmp[2, :]
+        )
+        mvect[2, :] = (
+            mat.R_p0 * tmp[0, :] + mat.R_pm * tmp[1, :] + mat.R_pp * tmp[2, :]
+        )
+
+        if acq_j:
+            macq[acq_cnt, :] = np.convolve(mvect[1, :], window, mode="same")
             acq_cnt += 1
 
     return macq

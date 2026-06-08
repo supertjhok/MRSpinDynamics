@@ -1,4 +1,4 @@
-# MATLAB-to-Python Migration Plan
+# MATLAB-to-Python Migration Status and Plan
 
 ## Reference Policy
 
@@ -6,53 +6,92 @@
 - Keep `SpinDynamicsUpdated/Version_1` and `SpinDynamics` as legacy references.
 - Do not move or rewrite MATLAB files as part of the Python port.
 
-## Phase 1: Baseline and Fixtures
+## Completed Phase 1: Baseline and Fixtures
 
-- Run the MATLAB quick-start ideal CPMG example.
-- Save small reference outputs for `sp`, `pp`, `masy`, `echo_asy`, and `tvect`.
-- Run or inspect the MATLAB benchmark suite in `Version_2/code/benchmarks`.
-- Define numerical tolerances for complex spectra and echoes.
+- Small reference outputs are stored under `validation/fixtures`.
+- Fixture generation is scripted in `validation/octave/generate_basic_fixtures.m`.
+- The same script can be run from MATLAB or Octave.
+- MATLAB-generated fixtures are used for matched-probe cases that require
+  optimization toolbox behavior not available in a stock Octave install.
+- The current Python test suite contains 30 checks against fixtures, public
+  workflow result shapes, compatibility helpers, and example smoke paths.
 
-## Phase 2: Low-Level Numerical Helpers
+## Completed Phase 2: Low-Level Numerical Helpers
 
-- Port free-precession matrix elements.
-- Port RF pulse matrix elements.
-- Port effective rotation-axis helpers from `calc_rot`.
-- Port `calc_time_domain_echo`.
+- Free-precession matrix elements and RF pulse matrix elements are available in
+  `spin_dynamics.core.kernels` and `spin_dynamics.core.rotations`.
+- Effective rotation-axis helpers from `calc_rot` are available in
+  `spin_dynamics.core.rotations`.
+- Echo and FID time-domain conversion helpers are available in
+  `spin_dynamics.core.echo`.
 
-These functions are good early tests because their inputs and outputs are small,
-array-based, and close to NumPy's strengths.
+These functions remain the best first place to debug numerical drift because
+their inputs and outputs are small, array-based, and close to NumPy's strengths.
 
-## Phase 3: Parameter and Sequence API
+## Completed Phase 3: Parameter and Sequence API
 
-- Convert MATLAB `sp`, `pp`, and `params` structures to Python dataclasses.
-- Start with `set_params_ideal` and `set_params_ideal_FID`.
-- Add probe-specific constructors after the ideal CPMG and FID paths pass.
-- Keep units explicit: distinguish absolute seconds from normalized `w1` time.
+- MATLAB `sp`, `pp`, and `params` structures are represented by Python
+  dataclasses.
+- Validated constructors include:
+  - `set_params_ideal`
+  - `set_params_ideal_fid`
+  - `set_params_tuned_orig`
+  - `set_params_untuned_orig`
+  - `set_params_matched_orig`
+- Units remain explicit in the API and docs: ideal "bare" spin-dynamics helpers
+  use normalized `w1` time, while probe helpers mirror MATLAB's absolute-time
+  circuit conventions where applicable.
 
-## Phase 4: Ideal Workflows
+## Completed Phase 4: Ideal Workflows
 
-- Port the ideal CPMG asymptotic path:
+- The ideal CPMG asymptotic path is ported and validated:
   `set_params_ideal` -> `calc_masy_ideal` -> `calc_time_domain_echo`.
-- Port the ideal FID path:
+- The ideal FID path is ported and validated:
   `set_params_ideal_FID` -> `simFID_ideal`.
-- Add tests that compare Python arrays with MATLAB fixtures.
+- Public examples and workflow documentation are available under
+  `examples/` and `docs/python_api/`.
 
-## Phase 5: Core Arbitrary-Pulse Kernel
+## Completed Phase 5: Core Arbitrary-Pulse Kernel
 
-- Port `sim_spin_dynamics_arb10.m` to a clear NumPy implementation.
-- Preserve the MATLAB coherence ordering: `M0`, `M-`, `M+`.
-- Preserve precomputed pulse rotation matrix semantics through a Python data
-  structure before optimizing.
-- Validate against MATLAB benchmark-sized cases.
+- `sim_spin_dynamics_arb10.m` has a clear NumPy implementation.
+- MATLAB coherence ordering is preserved and documented as `M0`, `M-`, `M+`.
+- Precomputed pulse rotation matrix semantics are retained before any optimized
+  backend is introduced.
+- The legacy-compatible `sim_spin_dynamics_arb7` path used by ideal FID is also
+  available.
 
-## Phase 6: Probe Models
+## Completed Phase 6: Original/Reference Probe CPMG Models
 
-- Port untuned, tuned, and matched probe circuit models in that order.
-- Recreate the CPMG probe-effect examples as Python workflow tests.
-- Keep receiver filtering and SNR calculations separately testable.
+- Tuned, untuned, and matched original/reference CPMG paths are ported.
+- Public runners are available:
+  - `run_tuned_cpmg`
+  - `run_untuned_cpmg`
+  - `run_matched_cpmg`
+- Lower-level probe modules expose transmit response, receive filtering,
+  effective-axis helpers, received spectra, asymptotic spectra, and SNR where
+  the MATLAB path provides it.
+- The matched-probe port uses a NumPy-only Newton solve and fixed-step RK4 probe
+  response to avoid adding SciPy as a required dependency. It is validated
+  against MATLAB fixtures with practical tolerances appropriate for the
+  independent solver.
 
-## Phase 7: Diffusion, Imaging, and Optimization
+## Started Phase 7: Relaxation, Acquisition Variants, and Sweeps
+
+- `calc_macq_ideal_probe_relax4` is ported for assembled ideal-probe arbitrary
+  sequences with relaxation during free-precession intervals.
+- `calc_macq_tuned_probe_relax4` and `calc_macq_matched_probe_relax4` are
+  ported and fixture-validated. `calc_macq_untuned_probe_relax4` is available
+  as a Python analogue using the same receiver-map contract.
+- `run_ideal_cpmg_train` provides a public finite ideal CPMG acquisition
+  workflow returning acquired spectra, direct-summed echoes, and echo integrals.
+- Next, port the probe-specific relaxation/acquisition wrappers around
+  `calc_macq_*_relax`.
+- Add examples for Q-factor, mistuning, and probe-parameter sweeps once the
+  underlying helpers are in place.
+- Keep workflow-level APIs returning small typed result containers, following
+  `CPMGResult`.
+
+## Later Phase 8: Diffusion, Imaging, and Optimization
 
 - Port diffusion only after the non-diffusion kernel is stable.
 - Revisit the diffusion kernel design using the `arb10` structure, since the
@@ -62,7 +101,7 @@ array-based, and close to NumPy's strengths.
 - Port OCT/SPA optimization last; these workflows depend on fast, trusted
   kernels.
 
-## Phase 8: Acceleration
+## Later Phase 9: Acceleration
 
 - Start with NumPy/SciPy.
 - Add Numba, Cython, compiled C/C++, or GPU backends only behind the same public

@@ -82,6 +82,15 @@ For a first performance-oriented review of optimized routines, older slow
 variants, and future compiled-kernel targets, see
 [`docs/SPEED_AUDIT.md`](docs/SPEED_AUDIT.md).
 
+## Python port
+
+An in-progress Python port lives in
+[`PythonSpinDynamics`](PythonSpinDynamics/README.md). It currently validates
+ideal CPMG, ideal FID, and original/reference tuned, untuned, and matched probe
+CPMG paths against small MATLAB/Octave fixtures. The Python API documentation
+starts at
+[`PythonSpinDynamics/docs/python_api/index.md`](PythonSpinDynamics/docs/python_api/index.md).
+
 ## Contact information
 
 In case of any questions, please contact Soumyajit Mandal (supertjhok@gmail.com).

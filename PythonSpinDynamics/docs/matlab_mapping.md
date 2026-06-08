@@ -8,7 +8,7 @@ The recommended MATLAB source tree is:
 ../SpinDynamicsUpdated/Version_2/code
 ```
 
-## Proposed Python Package Map
+## Current Python Package Map
 
 | MATLAB area | Python module | Notes |
 | --- | --- | --- |
@@ -18,6 +18,7 @@ The recommended MATLAB source tree is:
 | `sim_spin_dynamics_asymp` | `spin_dynamics.core.rotations` or `spin_dynamics.workflows.cpmg` | Keep low-level propagation separate from CPMG workflow code. |
 | `calc_echo` | `spin_dynamics.core.echo` | Start with `calc_time_domain_echo.m`. |
 | `calc_masy` | `spin_dynamics.workflows.cpmg` | High-level CPMG magnetization helpers; may call probe modules. |
+| CPMG example workflows | `spin_dynamics.workflows` | Public `run_*_cpmg` helpers returning `CPMGResult`. |
 | `calc_macq` | `spin_dynamics.sequences` and `spin_dynamics.core.kernels` | Split sequence construction from kernel calls. |
 | `calc_macq_diff` | `spin_dynamics.diffusion` later | Defer until ideal/probe kernels are validated. |
 | `circuit_simulation/matched_probe` | `spin_dynamics.probes.matched` | Matched transmit/receive and matching network helpers. |
@@ -28,7 +29,7 @@ The recommended MATLAB source tree is:
 | `Sim_CPMG`, `Imaging_demo` | `spin_dynamics.imaging` later | Defer until CPMG and probe models are stable. |
 | `OCT_Pulse_Examples`, `opt_pulse` | `spin_dynamics.optimization` later | Defer until kernels are fast and trusted. |
 
-## First Port Candidates
+## Initial Port Candidates and Status
 
 | Priority | MATLAB reference | Python target |
 | --- | --- | --- |
@@ -38,10 +39,22 @@ The recommended MATLAB source tree is:
 | 4 | `calc_masy/calc_masy_ideal.m` | `spin_dynamics.workflows.cpmg` |
 | 5 | `sim_spin_dynamics_arb/sim_spin_dynamics_arb10.m` | `spin_dynamics.core.kernels` |
 
-Current status: priorities 1-5 have initial NumPy ports validated against
-Octave-generated fixtures from the MATLAB originals. `calc_time_domain_echo_arb`
-is also validated and available for direct-sum echoes from arbitrary acquired
-magnetization.
+Current status: priorities 1-5 have NumPy ports validated against small fixtures
+from the MATLAB originals. `calc_time_domain_echo_arb` is also validated and
+available for direct-sum echoes from arbitrary acquired magnetization.
+
+| Area | Python status |
+| --- | --- |
+| Ideal CPMG | `set_params_ideal`, `calc_masy_ideal`, `calc_time_domain_echo`, and `run_ideal_cpmg` are available. |
+| Finite ideal CPMG | `run_ideal_cpmg_train` is available for finite no-probe echo trains with relaxation. |
+| Ideal FID | `set_params_ideal_fid`, `calc_macq_fid`, `sim_spin_dynamics_arb7`, `calc_fid_time_domain`, and `sim_fid_ideal` are available. |
+| Ideal finite acquisition | `calc_macq_ideal_probe_relax4` is available for assembled arbitrary sequences with relaxation during free precession. |
+| Probe finite-acquisition wrappers | `calc_macq_tuned_probe_relax4`, `calc_macq_untuned_probe_relax4`, and `calc_macq_matched_probe_relax4` are available. Tuned and matched are MATLAB-fixture validated; untuned follows the same receiver-map contract. |
+| Arbitrary-pulse kernel | `sim_spin_dynamics_arb10` is available. |
+| Tuned-probe CPMG | `set_params_tuned_orig`, `tuned_probe_lp_orig`, `tuned_probe_rx`, `calc_rot_axis_tuned_probe_lp_orig2`, `calc_masy_tuned_probe_lp_orig`, and `run_tuned_cpmg` are available. |
+| Untuned-probe CPMG | `set_params_untuned_orig`, `untuned_probe_lp`, `untuned_probe_rx`, `calc_rot_axis_untuned_probe_lp`, `calc_masy_untuned_probe_lp`, and `run_untuned_cpmg` are available. |
+| Matched-probe CPMG | `set_params_matched_orig`, `matching_network_design2`, `find_coil_current`, `matched_probe_rx`, `calc_rot_axis_matched_probe`, `calc_masy_matched_probe_orig`, and `run_matched_cpmg` are available. |
+| Probe relaxation, diffusion, imaging, OCT/SPA | Still MATLAB reference-only. |
 
 ## Naming Conventions
 

@@ -7,6 +7,10 @@ from pathlib import Path
 
 import numpy as np
 
+from _source_path import add_src_to_path
+
+add_src_to_path()
+
 from spin_dynamics.core.echo import calc_time_domain_echo
 from spin_dynamics.parameters import set_params_ideal
 from spin_dynamics.workflows.cpmg import calc_masy_ideal
