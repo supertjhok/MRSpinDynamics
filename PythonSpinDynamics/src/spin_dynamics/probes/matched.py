@@ -83,7 +83,10 @@ def matching_network_design2(
             xm = x.copy()
             xm[idx] = max(xm[idx] - step, 1e-12)
             jac[:, idx] = (residual(xp) - residual(xm)) / (xp[idx] - xm[idx])
-        delta = np.linalg.solve(jac, r)
+        try:
+            delta = np.linalg.solve(jac, r)
+        except np.linalg.LinAlgError:
+            delta = np.linalg.lstsq(jac, r, rcond=None)[0]
         current = np.linalg.norm(r, ord=2)
         scale = 1.0
         for _line in range(30):

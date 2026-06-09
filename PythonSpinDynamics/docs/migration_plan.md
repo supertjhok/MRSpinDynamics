@@ -13,7 +13,7 @@
 - The same script can be run from MATLAB or Octave.
 - MATLAB-generated fixtures are used for matched-probe cases that require
   optimization toolbox behavior not available in a stock Octave install.
-- The current Python test suite contains 47 checks against fixtures, public
+- The current Python test suite contains 48 checks against fixtures, public
   workflow result shapes, compatibility helpers, and example smoke paths.
 
 ## Completed Phase 2: Low-Level Numerical Helpers

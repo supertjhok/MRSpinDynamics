@@ -916,6 +916,13 @@ class OctaveFixtureTests(unittest.TestCase):
         np.testing.assert_allclose(tvect, tvect_ref, rtol=1e-12, atol=1e-12)
         np.testing.assert_allclose(icr, icr_ref, rtol=7e-2, atol=7e-3)
 
+    def test_matching_network_design_high_q_fallback_is_finite(self) -> None:
+        c1, c2 = matching_network_design2(10e-6, 50_000, 1e6, 50)
+        self.assertGreater(c1, 0)
+        self.assertGreater(c2, 0)
+        self.assertTrue(np.isfinite(c1))
+        self.assertTrue(np.isfinite(c2))
+
     def test_calc_masy_matched_probe_orig_matches_matlab(self) -> None:
         table = np.loadtxt(FIXTURES / "calc_masy_matched_probe_orig.csv", delimiter=",")
         del_w = table[:, 0]
