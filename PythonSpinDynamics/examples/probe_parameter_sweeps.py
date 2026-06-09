@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import argparse
 
+import numpy as np
+
 from _source_path import add_src_to_path
 
 add_src_to_path()
@@ -11,6 +13,7 @@ add_src_to_path()
 from spin_dynamics.workflows import (  # noqa: E402
     run_matched_mistuning_sweep,
     run_matched_q_sweep,
+    run_matched_z_magnetization_q_sweep,
     run_tuned_mistuning_sweep,
     run_tuned_q_sweep,
 )
@@ -24,6 +27,17 @@ def _summary(name: str, result) -> None:
     print(f"  echo shape: {result.echo.shape}")
     print(f"  best {result.value_label}: {result.values[best]:.6g}")
     print(f"  best SNR: {result.snr[best]:.6g}")
+
+
+def _z_summary(name: str, result) -> None:
+    depth = 1 - np.abs(result.mz)
+    best = np.unravel_index(int(np.argmax(depth)), depth.shape)
+    print(f"{name}:")
+    print(f"  values: {result.values.size}")
+    print(f"  mz shape: {result.mz.shape}")
+    print(f"  pulse samples: {result.tvect.size}")
+    print(f"  max inversion Q: {result.values[best[0]]:.6g}")
+    print(f"  max inversion depth: {depth[best]:.6g}")
 
 
 def main() -> None:
@@ -54,6 +68,14 @@ def main() -> None:
         "Matched mistuning sweep",
         run_matched_mistuning_sweep(
             offsets=offsets,
+            numpts=args.numpts,
+            num_workers=args.workers,
+        ),
+    )
+    _z_summary(
+        "Matched Z magnetization Q sweep",
+        run_matched_z_magnetization_q_sweep(
+            q_values=q_values,
             numpts=args.numpts,
             num_workers=args.workers,
         ),

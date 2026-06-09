@@ -19,6 +19,8 @@ from spin_dynamics.core.isochromats import (
 from spin_dynamics.core.kernels import (
     sim_spin_dynamics_arb10,
     sim_spin_dynamics_arb10_chunked,
+    sim_spin_dynamics_arb10_diffusion,
+    sim_spin_dynamics_arb10_diffusion_chunked,
 )
 from spin_dynamics.core.numerics import trapezoid
 from spin_dynamics.core.rotations import (
@@ -55,16 +57,29 @@ from spin_dynamics.workflows import (
     calc_macq_untuned_probe_relax4,
     run_ideal_cpmg,
     run_ideal_cpmg_train,
+    run_ideal_time_varying_amplitude_sweep,
+    run_ideal_time_varying_cpmg_final,
     run_matched_cpmg,
+    run_matched_cpmg_ir_train,
     run_matched_cpmg_train,
+    run_matched_diffusion_cpmg,
+    run_matched_diffusion_q_sweep,
+    run_matched_finite_mistuning_sweep,
+    run_matched_finite_q_sweep,
     run_matched_mistuning_sweep,
     run_matched_q_sweep,
+    run_matched_z_magnetization_q_sweep,
     run_tuned_cpmg,
     run_tuned_cpmg_train,
+    run_tuned_finite_mistuning_sweep,
+    run_tuned_finite_q_sweep,
     run_tuned_mistuning_sweep,
     run_tuned_q_sweep,
     run_untuned_cpmg,
     run_untuned_cpmg_train,
+    run_untuned_finite_mistuning_sweep,
+    run_untuned_finite_q_sweep,
+    sinusoidal_field_waveform,
 )
 from spin_dynamics.workflows.fid import sim_fid_ideal
 
@@ -1024,6 +1039,11 @@ class OctaveFixtureTests(unittest.TestCase):
             self.assertEqual(result.snr.shape, (result.values.size,))
             self.assertTrue(np.all(np.isfinite(result.snr)))
 
+        z_result = run_matched_z_magnetization_q_sweep(q_values=[20, 50], numpts=9)
+        self.assertEqual(z_result.mz.shape, (z_result.values.size, z_result.del_w.size))
+        self.assertGreater(z_result.tvect.size, 0)
+        self.assertTrue(np.all(np.isfinite(z_result.mz)))
+
     def test_tuned_q_sweep_parallel_matches_serial(self) -> None:
         serial = run_tuned_q_sweep(q_values=[20, 50, 80], numpts=17, num_workers=1)
         parallel = run_tuned_q_sweep(q_values=[20, 50, 80], numpts=17, num_workers=2)
@@ -1031,6 +1051,234 @@ class OctaveFixtureTests(unittest.TestCase):
         np.testing.assert_allclose(parallel.mrx, serial.mrx, rtol=1e-13, atol=1e-13)
         np.testing.assert_allclose(parallel.echo, serial.echo, rtol=1e-13, atol=1e-13)
         np.testing.assert_allclose(parallel.snr, serial.snr, rtol=1e-13, atol=1e-13)
+
+    def test_matched_z_magnetization_q_sweep_parallel_matches_serial(self) -> None:
+        serial = run_matched_z_magnetization_q_sweep(
+            q_values=[20, 50],
+            numpts=9,
+            num_workers=1,
+        )
+        parallel = run_matched_z_magnetization_q_sweep(
+            q_values=[20, 50],
+            numpts=9,
+            num_workers=2,
+        )
+        np.testing.assert_allclose(parallel.values, serial.values)
+        np.testing.assert_allclose(parallel.mz, serial.mz, rtol=1e-13, atol=1e-13)
+        np.testing.assert_allclose(parallel.tvect, serial.tvect, rtol=1e-13, atol=1e-13)
+
+    def test_ideal_time_varying_cpmg_final_returns_expected_shapes(self) -> None:
+        waveform = sinusoidal_field_waveform(4)
+        result = run_ideal_time_varying_cpmg_final(
+            0.5 * waveform,
+            numpts=17,
+            pulse_name="rect180",
+        )
+        self.assertEqual(result.field_offsets.shape, (4,))
+        self.assertEqual(result.mrx.shape, (17,))
+        self.assertEqual(result.echo.shape, result.tvect.shape)
+        self.assertTrue(np.isfinite(result.echo_integral))
+
+    def test_ideal_time_varying_amplitude_sweep_parallel_matches_serial(self) -> None:
+        waveform = sinusoidal_field_waveform(4)
+        serial = run_ideal_time_varying_amplitude_sweep(
+            amplitudes=[0.0, 0.5],
+            waveform=waveform,
+            numpts=17,
+            num_workers=1,
+        )
+        parallel = run_ideal_time_varying_amplitude_sweep(
+            amplitudes=[0.0, 0.5],
+            waveform=waveform,
+            numpts=17,
+            num_workers=2,
+        )
+        np.testing.assert_allclose(parallel.amplitudes, serial.amplitudes)
+        np.testing.assert_allclose(parallel.echo, serial.echo, rtol=1e-13, atol=1e-13)
+        np.testing.assert_allclose(
+            parallel.matched_signal,
+            serial.matched_signal,
+            rtol=1e-13,
+            atol=1e-13,
+        )
+
+    def test_matched_cpmg_ir_train_returns_expected_shapes(self) -> None:
+        result = run_matched_cpmg_ir_train(
+            num_echoes=2,
+            tauvect=[0.5e-3, 1.0e-3],
+            numpts=9,
+            rephase_action="ignore",
+        )
+        self.assertEqual(result.mrx.shape, (2, 2, 9))
+        self.assertEqual(result.echo.shape[:2], (2, 2))
+        self.assertEqual(result.echo.shape[2], result.tvect.size)
+        self.assertEqual(result.echo_integrals.shape, (2, 2))
+        self.assertEqual(result.sequence_time.shape, (2,))
+        self.assertTrue(np.all(np.isfinite(result.echo_integrals)))
+
+    def test_matched_cpmg_ir_train_tau_parallel_matches_serial(self) -> None:
+        serial = run_matched_cpmg_ir_train(
+            num_echoes=2,
+            tauvect=[0.5e-3, 1.0e-3],
+            numpts=9,
+            num_workers=1,
+            tau_workers=1,
+            rephase_action="ignore",
+        )
+        parallel = run_matched_cpmg_ir_train(
+            num_echoes=2,
+            tauvect=[0.5e-3, 1.0e-3],
+            numpts=9,
+            num_workers=1,
+            tau_workers=2,
+            rephase_action="ignore",
+        )
+        np.testing.assert_allclose(parallel.tauvect, serial.tauvect)
+        np.testing.assert_allclose(parallel.mrx, serial.mrx, rtol=1e-13, atol=1e-13)
+        np.testing.assert_allclose(parallel.echo, serial.echo, rtol=1e-13, atol=1e-13)
+        np.testing.assert_allclose(
+            parallel.echo_integrals,
+            serial.echo_integrals,
+            rtol=1e-13,
+            atol=1e-13,
+        )
+
+    def test_finite_probe_parameter_sweeps_return_expected_shapes(self) -> None:
+        cases = [
+            run_tuned_finite_q_sweep([20, 50], numpts=9, num_echoes=2, rephase_action="ignore"),
+            run_untuned_finite_q_sweep([20, 50], numpts=9, num_echoes=2, rephase_action="ignore"),
+            run_matched_finite_q_sweep([20, 50], numpts=9, num_echoes=2, rephase_action="ignore"),
+            run_tuned_finite_mistuning_sweep(
+                [-1, 1],
+                numpts=9,
+                num_echoes=2,
+                rephase_action="ignore",
+            ),
+            run_untuned_finite_mistuning_sweep(
+                [-1, 1],
+                numpts=9,
+                num_echoes=2,
+                rephase_action="ignore",
+            ),
+            run_matched_finite_mistuning_sweep(
+                [-1, 1],
+                numpts=9,
+                num_echoes=2,
+                rephase_action="ignore",
+            ),
+        ]
+        for result in cases:
+            with self.subTest(probe=result.probe, sweep=result.sweep):
+                self.assertEqual(result.mrx.shape[:2], (result.values.size, 2))
+                self.assertEqual(result.echo.shape[:2], (result.values.size, 2))
+                self.assertEqual(result.echo.shape[2], result.tvect.size)
+                self.assertEqual(result.echo_integrals.shape, (result.values.size, 2))
+                self.assertGreaterEqual(result.del_w.size, 9)
+                self.assertTrue(np.all(np.isfinite(result.echo_integrals)))
+
+    def test_finite_probe_parameter_sweep_parallel_matches_serial(self) -> None:
+        serial = run_matched_finite_q_sweep(
+            [20, 50],
+            numpts=9,
+            num_echoes=2,
+            num_workers=1,
+            sweep_workers=1,
+            rephase_action="ignore",
+        )
+        parallel = run_matched_finite_q_sweep(
+            [20, 50],
+            numpts=9,
+            num_echoes=2,
+            num_workers=1,
+            sweep_workers=2,
+            rephase_action="ignore",
+        )
+        np.testing.assert_allclose(parallel.values, serial.values)
+        np.testing.assert_allclose(parallel.mrx, serial.mrx, rtol=1e-13, atol=1e-13)
+        np.testing.assert_allclose(parallel.echo, serial.echo, rtol=1e-13, atol=1e-13)
+        np.testing.assert_allclose(
+            parallel.echo_integrals,
+            serial.echo_integrals,
+            rtol=1e-13,
+            atol=1e-13,
+        )
+
+    def test_arb10_diffusion_zero_diffusion_matches_arb10(self) -> None:
+        sp, _pp = set_params_ideal(numpts=9)
+        del_w = np.linspace(-2, 2, 9)
+        rtot = [
+            calc_rotation_matrix(
+                del_w,
+                np.ones_like(del_w),
+                np.array([np.pi / 2]),
+                np.array([np.pi / 2]),
+                np.array([1.0]),
+            )
+        ]
+        params = {
+            "tp": np.array([np.pi / 2, 1.0]),
+            "pul": np.array([1, 0]),
+            "amp": np.array([1.0, 0.0]),
+            "acq": np.array([0, 1]),
+            "grad": np.array([0.0, 0.0]),
+            "Rtot": rtot,
+            "del_w": del_w,
+            "del_wg": np.zeros_like(del_w),
+            "w_1": np.ones_like(del_w),
+            "T1n": 1000 * np.ones_like(del_w),
+            "T2n": 1000 * np.ones_like(del_w),
+            "m0": sp.m0 * np.ones_like(del_w),
+            "mth": sp.mth * np.ones_like(del_w),
+        }
+        diff_params = {
+            **params,
+            "gamma": 1.0,
+            "gradient": 1.0,
+            "diffusion_coefficient": 0.0,
+            "diffusion_time": 1.0,
+        }
+        np.testing.assert_allclose(
+            sim_spin_dynamics_arb10_diffusion(diff_params),
+            sim_spin_dynamics_arb10(params),
+            rtol=1e-13,
+            atol=1e-13,
+        )
+        np.testing.assert_allclose(
+            sim_spin_dynamics_arb10_diffusion_chunked(diff_params, num_workers=2),
+            sim_spin_dynamics_arb10_diffusion(diff_params),
+            rtol=1e-13,
+            atol=1e-13,
+        )
+
+    def test_matched_diffusion_cpmg_returns_expected_shapes(self) -> None:
+        result = run_matched_diffusion_cpmg(num_echoes=2, numpts=17, q_value=20)
+        self.assertEqual(result.mrx.shape, (2, 17))
+        self.assertEqual(result.echo.shape[0], 2)
+        self.assertEqual(result.echo.shape[1], result.tvect.size)
+        self.assertEqual(result.echo_integrals.shape, (2,))
+        self.assertTrue(np.all(np.isfinite(result.echo_integrals)))
+
+    def test_matched_diffusion_q_sweep_parallel_matches_serial(self) -> None:
+        serial = run_matched_diffusion_q_sweep(
+            [20, 50],
+            num_echoes=2,
+            numpts=17,
+            sweep_workers=1,
+        )
+        parallel = run_matched_diffusion_q_sweep(
+            [20, 50],
+            num_echoes=2,
+            numpts=17,
+            sweep_workers=2,
+        )
+        np.testing.assert_allclose(parallel.values, serial.values)
+        np.testing.assert_allclose(parallel.echo, serial.echo, rtol=1e-13, atol=1e-13)
+        np.testing.assert_allclose(
+            parallel.echo_integrals,
+            serial.echo_integrals,
+            rtol=1e-13,
+            atol=1e-13,
+        )
 
     def test_run_tuned_cpmg_train_matches_octave(self) -> None:
         self._assert_train_fixture(

@@ -46,7 +46,19 @@ The currently validated public runners are `run_ideal_cpmg`,
 `run_untuned_cpmg`, `run_untuned_cpmg_train`, `run_matched_cpmg`, and
 `run_matched_cpmg_train`. Probe-parameter sweep runners are available as
 `run_tuned_q_sweep`, `run_matched_q_sweep`, `run_tuned_mistuning_sweep`, and
-`run_matched_mistuning_sweep`.
+`run_matched_mistuning_sweep`. The matched-probe excitation/nutation sweep
+`run_matched_z_magnetization_q_sweep` mirrors the MATLAB `z_Mag_Q` workflow.
+The ideal time-varying-field workflow is available as
+`run_ideal_time_varying_cpmg_final`, with
+`run_ideal_time_varying_amplitude_sweep` for compact fluctuation-amplitude
+studies. The matched-probe inversion-recovery finite train
+`run_matched_cpmg_ir_train` extends the matched finite CPMG path over an
+inversion-delay vector. Python-native finite-train sweep wrappers are available
+as `run_tuned_finite_q_sweep`, `run_untuned_finite_q_sweep`,
+`run_matched_finite_q_sweep`, and their `*_finite_mistuning_sweep` variants.
+The first diffusion-aware matched CPMG workflow is available as
+`run_matched_diffusion_cpmg`, with `run_matched_diffusion_q_sweep` for compact
+Q studies.
 
 The validated lower-level workflow surface also includes
 `calc_macq_ideal_probe_relax4`, `calc_macq_tuned_probe_relax4`,
@@ -86,6 +98,12 @@ Run a finite ideal CPMG echo train:
 python examples\ideal_cpmg_train.py --numpts 101 --num-echoes 8
 ```
 
+Run an ideal CPMG final-echo sweep with time-varying B0 offsets:
+
+```powershell
+python examples\ideal_time_varying_cpmg.py --numpts 101 --num-echoes 16
+```
+
 Run a finite tuned-probe CPMG echo train:
 
 ```powershell
@@ -97,6 +115,24 @@ Run finite untuned- and matched-probe CPMG echo trains:
 ```powershell
 python examples\untuned_cpmg_train.py --numpts 101 --num-echoes 8
 python examples\matched_cpmg_train.py --numpts 101 --num-echoes 8
+```
+
+Run a matched-probe CPMG inversion-recovery finite train:
+
+```powershell
+python examples\matched_cpmg_ir_train.py --numpts 21 --num-echoes 4 --num-tau 4
+```
+
+Run compact finite-train probe parameter sweeps:
+
+```powershell
+python examples\finite_probe_train_sweeps.py --numpts 21 --num-echoes 3
+```
+
+Run a compact matched-probe diffusion CPMG Q sweep:
+
+```powershell
+python examples\matched_diffusion_cpmg.py --numpts 21 --num-echoes 3
 ```
 
 Compare the currently validated workflows:
@@ -132,7 +168,8 @@ Compare ideal, tuned, untuned, and matched CPMG:
 python examples\probe_cpmg_compare.py --numpts 101
 ```
 
-Run compact tuned and matched Q/mistuning sweeps:
+Run compact tuned and matched Q/mistuning sweeps, including matched-probe
+Z-magnetization versus Q:
 
 ```powershell
 python examples\probe_parameter_sweeps.py --numpts 101

@@ -14,7 +14,11 @@ import numpy as np
 
 from spin_dynamics.core.echo import calc_time_domain_echo
 from spin_dynamics.core.numerics import trapezoid
-from spin_dynamics.core.rotations import calc_rot_axis_arba3, sim_spin_dynamics_asymp_mag3
+from spin_dynamics.core.rotations import (
+    calc_rot_axis_arba3,
+    rf_matrix_elements,
+    sim_spin_dynamics_asymp_mag3,
+)
 
 
 def _field(obj: Mapping[str, Any] | Any, name: str) -> Any:
@@ -343,3 +347,64 @@ def calc_masy_matched_probe_orig(
     masy = (masy1 - masy2) / 2
     mrx, _echo, _tvect, snr = matched_probe_rx(sp_match, pp, masy, tf1, tf2)
     return mrx, masy, snr
+
+
+def _sim_spin_dynamics_asymp_nut(
+    pulse_length: np.ndarray,
+    phi: np.ndarray,
+    amp: np.ndarray,
+    del_w: np.ndarray,
+) -> np.ndarray:
+    """Propagate excitation/nutation dynamics and return final z magnetization."""
+
+    tp = _as_vector(pulse_length)
+    phi = _as_vector(phi)
+    amp = _as_vector(amp)
+    del_w = _as_vector(del_w)
+    if not (tp.size == phi.size == amp.size):
+        raise ValueError("pulse_length, phi, and amp must have the same length")
+
+    mvect = np.zeros((3, del_w.size), dtype=np.complex128)
+    mvect[0, :] = 1.0
+    for tp_j, phi_j, amp_j in zip(tp, phi, amp):
+        mat = rf_matrix_elements(del_w, float(amp_j), float(tp_j), float(phi_j))
+        tmp = mvect.copy()
+        mvect[0, :] = mat.R_00 * tmp[0, :] + mat.R_0m * tmp[1, :] + mat.R_0p * tmp[2, :]
+        mvect[1, :] = mat.R_m0 * tmp[0, :] + mat.R_mm * tmp[1, :] + mat.R_mp * tmp[2, :]
+        mvect[2, :] = mat.R_p0 * tmp[0, :] + mat.R_pm * tmp[1, :] + mat.R_pp * tmp[2, :]
+
+    return mvect[0, :]
+
+
+def calc_masy_matched_nut(
+    sp: Mapping[str, Any] | Any,
+    pp: Mapping[str, Any] | Any,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Calculate matched-probe excitation/nutation z magnetization.
+
+    Mirrors MATLAB `calc_masy/calc_masy_matched_nut.m`, with plotting removed.
+    """
+
+    c1, c2 = matching_network_design2(
+        float(_field(sp, "L")),
+        float(_field(sp, "Q")),
+        float(_field(sp, "f0")),
+        float(_field(sp, "Rs")),
+    )
+    sp_match = _with_fields(sp, C1=c1, C2=c2)
+    t_90 = float(_field(pp, "T_90"))
+    amp_zero = float(_field(pp, "amp_zero"))
+    pp_curr = _with_fields(
+        pp,
+        tp=np.concatenate([_as_vector(_field(pp, "texc")), [2 * t_90]]),
+        phi=np.concatenate([_as_vector(_field(pp, "pexc")), [0.0]]),
+        amp=np.concatenate([_as_vector(_field(pp, "aexc")), [0.0]]),
+    )
+    tvect, icr, _tf1, _tf2 = find_coil_current(sp_match, pp_curr)
+    delt = (np.pi / 2) * (tvect[1] - tvect[0]) / t_90
+    texc = delt * np.ones(tvect.size, dtype=np.float64)
+    pexc = np.arctan2(np.imag(icr), np.real(icr))
+    aexc = np.abs(icr)
+    aexc[aexc < amp_zero] = 0
+    mz = _sim_spin_dynamics_asymp_nut(texc, pexc, aexc, _field(sp_match, "del_w"))
+    return mz, tvect

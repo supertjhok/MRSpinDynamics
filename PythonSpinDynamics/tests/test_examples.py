@@ -28,12 +28,16 @@ class ExampleSmokeTests(unittest.TestCase):
             ("examples/ideal_cpmg.py", "--numpts", "21"),
             ("examples/ideal_fid.py", "--numpts", "21"),
             ("examples/ideal_cpmg_train.py", "--numpts", "21", "--num-echoes", "3"),
+            ("examples/ideal_time_varying_cpmg.py", "--numpts", "17", "--num-echoes", "4"),
             ("examples/compare_cpmg_fid.py", "--numpts", "21"),
             ("examples/tuned_probe_cpmg.py", "--numpts", "21"),
             ("examples/probe_cpmg_compare.py", "--numpts", "21"),
             ("examples/tuned_cpmg_train.py", "--numpts", "16", "--num-echoes", "2"),
             ("examples/untuned_cpmg_train.py", "--numpts", "16", "--num-echoes", "2"),
             ("examples/matched_cpmg_train.py", "--numpts", "9", "--num-echoes", "2"),
+            ("examples/matched_cpmg_ir_train.py", "--numpts", "9", "--num-echoes", "2", "--num-tau", "2"),
+            ("examples/finite_probe_train_sweeps.py", "--numpts", "9", "--num-echoes", "2"),
+            ("examples/matched_diffusion_cpmg.py", "--numpts", "17", "--num-echoes", "2"),
             ("examples/probe_parameter_sweeps.py", "--numpts", "9"),
         ]
         for command in commands:

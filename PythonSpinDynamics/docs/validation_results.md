@@ -56,10 +56,20 @@ skips matched-probe files when `fmincon` is unavailable.
 | `spin_dynamics.workflows.run_tuned_cpmg_train` | `Sim_CPMG/sim_cpmg_tuned_probe_img.m` assembly pattern without phase encoding | `run_tuned_cpmg_train_*.csv` | Passed |
 | `spin_dynamics.workflows.run_untuned_cpmg_train` | Python analogue of tuned finite-train assembly with untuned pulse and receiver models | `run_untuned_cpmg_train_*.csv` | Passed |
 | `spin_dynamics.workflows.run_matched_cpmg_train` | `Sim_CPMG/sim_cpmg_matched_probe_img.m` assembly pattern without phase encoding | `run_matched_cpmg_train_*.csv` | Passed |
+| `spin_dynamics.workflows.run_matched_cpmg_ir_train` | `Sim_CPMG_IR/sim_cpmg_ir_matched_probe_relax4.m` | workflow shape, finite-output, and tau-parallel equality smoke tests | Passed |
+| `spin_dynamics.workflows.run_*_finite_q_sweep` | Python-native wrappers around finite train runners | workflow shape and finite-output smoke tests | Passed |
+| `spin_dynamics.workflows.run_*_finite_mistuning_sweep` | Python-native wrappers around finite train runners | workflow shape, finite-output, and sweep-parallel equality smoke tests | Passed |
+| `spin_dynamics.core.kernels.sim_spin_dynamics_arb10_diffusion` | `sim_spin_dynamics_arb/sim_spin_dynamics_arb_relax_diff.m` design, modernized to `arb10` structure | zero-diffusion equality with `arb10` and chunked equality tests | Passed |
+| `spin_dynamics.workflows.run_matched_diffusion_cpmg` | `Sim_Diffusion/sim_dif_matched_CPMG_noRx.m` | workflow shape and finite-output smoke test | Passed |
+| `spin_dynamics.workflows.run_matched_diffusion_q_sweep` | `DIffusion_Example/Diff_Echo_Q.m` | workflow shape and sweep-parallel equality smoke test | Passed |
 | `spin_dynamics.workflows.run_tuned_q_sweep` | `CompareQ/sim_tuned_probe_coil_Q.m` | workflow shape and finite-output smoke test | Passed |
 | `spin_dynamics.workflows.run_matched_q_sweep` | `CompareQ/sim_matched_probe_coil_Q.m` | workflow shape and finite-output smoke test | Passed |
 | `spin_dynamics.workflows.run_tuned_mistuning_sweep` | `CompareMistuned/tuned_probe/sim_tuned_probe_mistuned.m` | workflow shape and finite-output smoke test | Passed |
 | `spin_dynamics.workflows.run_matched_mistuning_sweep` | `CompareMistuned/matched_probe/sim_matched_probe_mistuned.m` | workflow shape and finite-output smoke test | Passed |
+| `spin_dynamics.probes.matched.calc_masy_matched_nut` | `calc_masy/calc_masy_matched_nut.m` | exercised through z-magnetization sweep smoke test | Passed |
+| `spin_dynamics.workflows.run_matched_z_magnetization_q_sweep` | `z_mag/z_Mag_Q.m` | workflow shape and finite-output smoke test | Passed |
+| `spin_dynamics.workflows.run_ideal_time_varying_cpmg_final` | `time_varying_field/sim_cpmg_ideal_tv_final.m` | workflow shape and finite-output smoke test | Passed |
+| `spin_dynamics.workflows.run_ideal_time_varying_amplitude_sweep` | `time_varying_field/compare_cpmg_results_ideal_tv.m` | serial/parallel equality and finite-output smoke test | Passed |
 | `spin_dynamics.workflows.fid.sim_fid_ideal` | `Sim_FID/simFID_ideal.m` via `calc_macq_fid`/`calc_FID_time_domain` | `sim_fid_ideal_macq.csv`, `sim_fid_ideal_echo.csv` | Passed |
 | `spin_dynamics.probes.tuned.tuned_probe_lp_orig` | `circuit_simulation/tuned_probe/tuned_probe_lp_Orig.m` | `tuned_probe_lp_orig.csv` | Passed |
 | `spin_dynamics.probes.tuned.calc_masy_tuned_probe_lp_orig` | `calc_masy/calc_masy_tuned_probe_lp_Orig.m` | `calc_masy_tuned_probe_lp_orig.csv` | Passed |
@@ -79,10 +89,22 @@ The public CPMG runners are also tested for result-container shape and metadata:
 - `run_untuned_cpmg_train`
 - `run_matched_cpmg`
 - `run_matched_cpmg_train`
+- `run_matched_cpmg_ir_train`
+- `run_tuned_finite_q_sweep`
+- `run_untuned_finite_q_sweep`
+- `run_matched_finite_q_sweep`
+- `run_tuned_finite_mistuning_sweep`
+- `run_untuned_finite_mistuning_sweep`
+- `run_matched_finite_mistuning_sweep`
+- `run_matched_diffusion_cpmg`
+- `run_matched_diffusion_q_sweep`
 - `run_tuned_q_sweep`
 - `run_matched_q_sweep`
 - `run_tuned_mistuning_sweep`
 - `run_matched_mistuning_sweep`
+- `run_matched_z_magnetization_q_sweep`
+- `run_ideal_time_varying_cpmg_final`
+- `run_ideal_time_varying_amplitude_sweep`
 
 The finite ideal train is also tested for `auto_refine_grid=True`.
 
@@ -154,6 +176,50 @@ Detailed results are in benchmarks/README.md and benchmarks/results/.
 Added tuned/matched Q and mistuning sweep workflows plus a compact example.
 Added a Matplotlib sweep plotting example with CLI smoke coverage.
 Ran 37 Python unittest comparisons, workflow smoke tests, and example smoke tests.
+Result: OK
+```
+
+2026-06-09:
+
+```text
+Added matched-probe z-magnetization Q sweep from z_mag/z_Mag_Q.m.
+Ran 38 Python unittest comparisons, workflow smoke tests, and example smoke tests.
+Result: OK
+```
+
+2026-06-09:
+
+```text
+Added ideal time-varying-field CPMG final-echo and amplitude-sweep workflows
+from time_varying_field/sim_cpmg_ideal_tv_final.m and comparison scripts.
+Ran 40 Python unittest comparisons, workflow smoke tests, and example smoke tests.
+Result: OK
+```
+
+2026-06-09:
+
+```text
+Added matched-probe CPMG-IR finite train over tauvect from
+Sim_CPMG_IR/sim_cpmg_ir_matched_probe_relax4.m.
+Ran 42 Python unittest comparisons, workflow smoke tests, and example smoke tests.
+Result: OK
+```
+
+2026-06-09:
+
+```text
+Added Python-native finite-train Q and mistuning sweep wrappers around the
+tuned, untuned, and matched finite CPMG train workflows.
+Ran 44 Python unittest comparisons, workflow smoke tests, and example smoke tests.
+Result: OK
+```
+
+2026-06-09:
+
+```text
+Added the first matched-probe diffusion CPMG path with an arb10-style
+diffusion kernel, compact Q sweep, and non-plot example.
+Ran 47 Python unittest comparisons, workflow smoke tests, and example smoke tests.
 Result: OK
 ```
 

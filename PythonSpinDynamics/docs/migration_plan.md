@@ -13,7 +13,7 @@
 - The same script can be run from MATLAB or Octave.
 - MATLAB-generated fixtures are used for matched-probe cases that require
   optimization toolbox behavior not available in a stock Octave install.
-- The current Python test suite contains 37 checks against fixtures, public
+- The current Python test suite contains 47 checks against fixtures, public
   workflow result shapes, compatibility helpers, and example smoke paths.
 
 ## Completed Phase 2: Low-Level Numerical Helpers
@@ -91,6 +91,9 @@ their inputs and outputs are small, array-based, and close to NumPy's strengths.
   `run_matched_cpmg_train` provide public finite probe CPMG trains with probe
   pulse shaping, receiver filtering, relaxation, direct-summed echoes, and echo
   integrals.
+- `run_matched_cpmg_ir_train` extends the finite matched-probe train into an
+  inversion-recovery workflow over `tauvect`, following
+  `Sim_CPMG_IR/sim_cpmg_ir_matched_probe_relax4.m`.
 - Finite train workflows now estimate isochromat-grid rephasing time, warn or
   raise when the grid is too coarse, optionally refine `numpts` before building
   pulse matrices, and pass long isochromat vectors through the chunked backend
@@ -98,17 +101,41 @@ their inputs and outputs are small, array-based, and close to NumPy's strengths.
 - `run_tuned_q_sweep`, `run_matched_q_sweep`, `run_tuned_mistuning_sweep`, and
   `run_matched_mistuning_sweep` port the plotting-oriented MATLAB Q and
   mistuning scripts into array-returning workflow APIs.
+- `run_tuned_finite_q_sweep`, `run_untuned_finite_q_sweep`,
+  `run_matched_finite_q_sweep`, and the corresponding finite mistuning sweeps
+  are Python-native wrappers around the relaxation-aware finite train runners.
+  They support `auto_refine_grid`, sweep-point parallelism, and chunked
+  isochromat propagation.
+- `run_matched_z_magnetization_q_sweep` ports the matched-probe z-magnetization
+  Q sweep from `z_mag/z_Mag_Q.m`.
+- `run_ideal_time_varying_cpmg_final` and
+  `run_ideal_time_varying_amplitude_sweep` port the ideal time-varying-field
+  final-echo workflow from `time_varying_field/sim_cpmg_ideal_tv_final.m` and
+  its comparison scripts into array-returning APIs.
 - `examples/probe_parameter_sweeps.py` provides a compact non-plot smoke path
   for the sweep APIs.
+- `examples/ideal_time_varying_cpmg.py` provides a compact non-plot smoke path
+  for ideal time-varying-field amplitude sweeps.
+- `examples/matched_cpmg_ir_train.py` provides a compact non-plot smoke path
+  for matched-probe CPMG-IR echo-integral arrays.
+- `examples/finite_probe_train_sweeps.py` provides a compact non-plot smoke
+  path for finite-train Q and mistuning sweep arrays.
 - Keep workflow-level APIs returning small typed result containers, following
   `CPMGResult`.
 
-## Later Phase 8: Diffusion, Imaging, and Optimization
+## Started Phase 8: Diffusion, Imaging, and Optimization
 
-- Port diffusion only after the non-diffusion kernel is stable.
-- Revisit the diffusion kernel design using the `arb10` structure, since the
-  MATLAB speed audit identifies the active diffusion path as a modernization
-  target.
+- `sim_spin_dynamics_arb10_diffusion` adds the diffusion free-precession
+  attenuation term to the `arb10` kernel shape while preserving precomputed RF
+  matrices and avoiding the older acquisition-window convolution.
+- `calc_macq_matched_probe_relax_diffusion`,
+  `run_matched_diffusion_cpmg`, and `run_matched_diffusion_q_sweep` provide the
+  first compact matched-probe diffusion CPMG workflows, following
+  `DIffusion_Example/Diff_Echo_Q.m` and
+  `Sim_Diffusion/sim_dif_matched_CPMG_noRx.m`.
+- Keep broad/high-Q diffusion sweeps behind additional solver validation,
+  because the current NumPy matched-probe transient solver can become stiff for
+  very high Q values.
 - Port imaging workflows after probe and CPMG paths are validated.
 - Port OCT/SPA optimization last; these workflows depend on fast, trusted
   kernels.

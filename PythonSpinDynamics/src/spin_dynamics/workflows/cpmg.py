@@ -389,6 +389,8 @@ def run_tuned_cpmg_train(
     t1_seconds: float = 2.0,
     t2_seconds: float = 2.0,
     *,
+    q_value: float | None = None,
+    mistuning_offset: float | None = None,
     num_workers: int | None = 1,
     auto_refine_grid: bool = False,
     rephase_safety_factor: float = 1.25,
@@ -406,6 +408,20 @@ def run_tuned_cpmg_train(
         raise ValueError("t1_seconds and t2_seconds must be positive")
 
     _params, sp0, pp0 = set_params_tuned_orig(numpts=numpts)
+    if q_value is not None:
+        if q_value <= 0:
+            raise ValueError("q_value must be positive")
+        sp0 = replace(sp0, Q=float(q_value))
+    if mistuning_offset is not None:
+        f0 = sp0.fin + (sp0.fin / sp0.Q) * float(mistuning_offset)
+        if f0 <= 0:
+            raise ValueError("mistuning_offset produced non-positive f0")
+        sp0 = replace(sp0, f0=f0)
+    sp0 = replace(
+        sp0,
+        R=2 * np.pi * sp0.f0 * sp0.L / sp0.Q,
+        C=1 / ((2 * np.pi * sp0.f0) ** 2 * sp0.L),
+    )
     tfp = (np.pi / 2) * (pp0.preDelay + pp0.postDelay) / (2 * pp0.T_90)
     max_time = float(
         np.pi / 2
@@ -518,6 +534,8 @@ def run_untuned_cpmg_train(
     t1_seconds: float = 2.0,
     t2_seconds: float = 2.0,
     *,
+    q_value: float | None = None,
+    mistuning_offset: float | None = None,
     num_workers: int | None = 1,
     auto_refine_grid: bool = False,
     rephase_safety_factor: float = 1.25,
@@ -531,6 +549,20 @@ def run_untuned_cpmg_train(
         raise ValueError("t1_seconds and t2_seconds must be positive")
 
     _params, sp0, pp0 = set_params_untuned_orig(numpts=numpts)
+    if q_value is not None:
+        if q_value <= 0:
+            raise ValueError("q_value must be positive")
+        sp0 = replace(sp0, Q=float(q_value))
+    if mistuning_offset is not None:
+        f0 = sp0.fin + (sp0.fin / sp0.Q) * float(mistuning_offset)
+        if f0 <= 0:
+            raise ValueError("mistuning_offset produced non-positive f0")
+        sp0 = replace(sp0, f0=f0)
+    sp0 = replace(
+        sp0,
+        R=2 * np.pi * sp0.f0 * sp0.L / sp0.Q,
+        C=1 / ((2 * np.pi * 10 * sp0.f0) ** 2 * sp0.L),
+    )
     tfp = (np.pi / 2) * (pp0.preDelay + pp0.postDelay) / (2 * pp0.T_90)
     max_time = float(
         np.pi / 2
@@ -643,6 +675,8 @@ def run_matched_cpmg_train(
     t1_seconds: float = 2.0,
     t2_seconds: float = 2.0,
     *,
+    q_value: float | None = None,
+    mistuning_offset: float | None = None,
     num_workers: int | None = 1,
     auto_refine_grid: bool = False,
     rephase_safety_factor: float = 1.25,
@@ -656,6 +690,16 @@ def run_matched_cpmg_train(
         raise ValueError("t1_seconds and t2_seconds must be positive")
 
     sp0, pp0 = set_params_matched_orig(numpts=numpts)
+    if q_value is not None:
+        if q_value <= 0:
+            raise ValueError("q_value must be positive")
+        sp0 = replace(sp0, Q=float(q_value))
+    if mistuning_offset is not None:
+        f0 = sp0.fin + (sp0.fin / sp0.Q) * float(mistuning_offset)
+        if f0 <= 0:
+            raise ValueError("mistuning_offset produced non-positive f0")
+        sp0 = replace(sp0, f0=f0)
+    sp0 = replace(sp0, R=2 * np.pi * sp0.f0 * sp0.L / sp0.Q)
     tfp = (np.pi / 2) * (pp0.preDelay + pp0.postDelay) / (2 * pp0.T_90)
     max_time = float(
         np.pi / 2

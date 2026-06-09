@@ -22,6 +22,12 @@ python examples\ideal_fid.py --numpts 101
 python examples\ideal_cpmg_train.py --numpts 101 --num-echoes 8
 ```
 
+## Ideal Time-Varying CPMG
+
+```powershell
+python examples\ideal_time_varying_cpmg.py --numpts 101 --num-echoes 16
+```
+
 ## Compare CPMG and FID
 
 ```powershell
@@ -71,6 +77,24 @@ python examples\probe_cpmg_compare.py --numpts 101
 
 ```powershell
 python examples\probe_parameter_sweeps.py --numpts 101
+```
+
+## Matched CPMG-IR Finite Train
+
+```powershell
+python examples\matched_cpmg_ir_train.py --numpts 21 --num-echoes 4 --num-tau 4
+```
+
+## Finite Probe Train Sweeps
+
+```powershell
+python examples\finite_probe_train_sweeps.py --numpts 21 --num-echoes 3
+```
+
+## Matched Diffusion CPMG
+
+```powershell
+python examples\matched_diffusion_cpmg.py --numpts 21 --num-echoes 3
 ```
 
 ## Plot Probe Parameter Sweep

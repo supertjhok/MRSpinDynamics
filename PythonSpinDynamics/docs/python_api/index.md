@@ -25,7 +25,13 @@ The validated Python API currently covers:
 - public finite ideal CPMG acquisition returning `CPMGTrainResult`;
 - finite CPMG train rephasing checks, optional grid refinement, and chunked
   multicore isochromat propagation;
+- matched-probe CPMG inversion-recovery finite trains over `tauvect`;
+- Python-native finite-train Q/mistuning sweeps for tuned, untuned, and
+  matched probes;
+- first matched-probe diffusion CPMG workflow and compact diffusion Q sweep;
 - tuned and matched CPMG Q/mistuning sweep workflows;
+- matched-probe z-magnetization Q sweep workflow;
+- ideal time-varying-field CPMG final-echo and amplitude-sweep workflows;
 - ideal FID acquisition and time-domain trace construction;
 - ideal-probe finite acquisition with relaxation through
   `calc_macq_ideal_probe_relax4`;
@@ -34,5 +40,4 @@ The validated Python API currently covers:
 - the legacy-compatible `sim_spin_dynamics_arb7` path needed by ideal FID;
 - original/reference tuned, untuned, and matched probe CPMG paths.
 
-Diffusion, imaging, finite-train sweep variants, and optimization workflows are
-still MATLAB reference-only.
+Imaging and optimization workflows are still MATLAB reference-only.
