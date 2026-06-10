@@ -36,6 +36,7 @@ def _label(result: CPMGResult) -> str:
 
 
 def _masy_component(result: CPMGResult, component: str) -> np.ndarray:
+    # Let users inspect either magnitude or phase-sensitive pieces of `masy`.
     if component == "real":
         return np.real(result.masy)
     if component == "imag":
@@ -69,6 +70,8 @@ def main() -> None:
     args = parser.parse_args()
 
     plt = _load_matplotlib()
+
+    # Compute all four probe models on the same offset grid before plotting.
     results = [
         run_ideal_cpmg(args.numpts, args.maxoffs),
         run_tuned_cpmg(args.numpts, args.maxoffs),
@@ -76,6 +79,8 @@ def main() -> None:
         run_matched_cpmg(args.numpts, args.maxoffs),
     ]
 
+    # Top row: offset-domain quantities. Bottom row: time-domain echoes, both
+    # absolute and normalized to compare shapes independent of scale.
     fig, axes = plt.subplots(2, 2, figsize=(11, 7.5), constrained_layout=True)
     for result in results:
         axes[0, 0].plot(
@@ -110,6 +115,8 @@ def main() -> None:
     axes[1, 1].legend()
 
     if args.output is not None:
+        # Save a static image when an output path is supplied; otherwise open an
+        # interactive Matplotlib window.
         args.output.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(args.output, dpi=150)
         print(f"saved: {args.output}")

@@ -24,6 +24,8 @@ def main() -> None:
     parser.add_argument("--save-npz", type=Path, default=None, help="Optional output .npz path.")
     args = parser.parse_args()
 
+    # The matched-probe runner includes the matching-network response and the
+    # same finite echo-train acquisition surface as the ideal/tuned examples.
     result = run_matched_cpmg_train(
         numpts=args.numpts,
         maxoffs=args.maxoffs,
@@ -32,6 +34,9 @@ def main() -> None:
         t2_seconds=args.t2,
     )
 
+    # Shapes follow (echo, offset) for `mrx` and (echo, time) for `echo`.
+    # The matched path uses practical tolerances in validation because its
+    # nonlinear solve is independent of MATLAB's toolbox implementation.
     peak = np.max(np.abs(result.echo), axis=1)
     print("Finite matched-probe CPMG train")
     print(f"num offsets: {result.del_w.size}")
@@ -46,6 +51,8 @@ def main() -> None:
     )
 
     if args.save_npz is not None:
+        # Keep the saved archive complete enough for plotting without rerunning
+        # the matched-probe transient calculation.
         args.save_npz.parent.mkdir(parents=True, exist_ok=True)
         np.savez(
             args.save_npz,

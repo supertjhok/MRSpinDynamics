@@ -29,6 +29,14 @@ from spin_dynamics.workflows.diffusion import (
     run_matched_diffusion_cpmg,
     run_matched_diffusion_q_sweep,
 )
+from spin_dynamics.workflows.imaging import (
+    IdealCPMGImagingResult,
+    ProbeCPMGImagingResult,
+    reconstruct_image_from_kspace,
+    run_ideal_cpmg_imaging,
+    run_matched_cpmg_imaging,
+    run_tuned_cpmg_imaging,
+)
 from spin_dynamics.workflows.sweeps import (
     CPMGFiniteParameterSweepResult,
     CPMGParameterSweepResult,
@@ -60,6 +68,8 @@ __all__ = [
     "CPMGTrainResult",
     "IdealTimeVaryingCPMGResult",
     "IdealTimeVaryingSweepResult",
+    "IdealCPMGImagingResult",
+    "ProbeCPMGImagingResult",
     "MatchedCPMGIRTrainResult",
     "MatchedDiffusionCPMGResult",
     "MatchedDiffusionQSweepResult",
@@ -70,10 +80,12 @@ __all__ = [
     "calc_macq_tuned_probe_relax4",
     "calc_macq_untuned_probe_relax4",
     "run_ideal_cpmg",
+    "run_ideal_cpmg_imaging",
     "run_ideal_cpmg_train",
     "run_ideal_time_varying_amplitude_sweep",
     "run_ideal_time_varying_cpmg_final",
     "run_matched_cpmg",
+    "run_matched_cpmg_imaging",
     "run_matched_cpmg_ir_train",
     "run_matched_cpmg_train",
     "run_matched_diffusion_cpmg",
@@ -84,6 +96,7 @@ __all__ = [
     "run_matched_q_sweep",
     "run_matched_z_magnetization_q_sweep",
     "run_tuned_cpmg",
+    "run_tuned_cpmg_imaging",
     "run_tuned_cpmg_train",
     "run_tuned_finite_mistuning_sweep",
     "run_tuned_finite_q_sweep",
@@ -93,5 +106,6 @@ __all__ = [
     "run_untuned_cpmg_train",
     "run_untuned_finite_mistuning_sweep",
     "run_untuned_finite_q_sweep",
+    "reconstruct_image_from_kspace",
     "sinusoidal_field_waveform",
 ]

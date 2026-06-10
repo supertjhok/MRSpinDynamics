@@ -64,6 +64,7 @@ class ExampleSmokeTests(unittest.TestCase):
     def test_plot_examples_expose_cli_without_matplotlib(self) -> None:
         scripts = [
             "examples/plot_ideal_workflows.py",
+            "examples/plot_ideal_imaging.py",
             "examples/plot_probe_cpmg.py",
             "examples/plot_probe_parameter_sweep.py",
         ]

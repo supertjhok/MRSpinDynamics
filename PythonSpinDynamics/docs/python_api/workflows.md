@@ -290,6 +290,58 @@ MATLAB references:
 - `calc_macq_diff/calc_macq_matched_probe_relax_diff_noRx.m`
 - `sim_spin_dynamics_arb/sim_spin_dynamics_arb_relax_diff.m`
 
+## CPMG Imaging
+
+```python
+import numpy as np
+
+from spin_dynamics.workflows import run_ideal_cpmg_imaging, run_tuned_cpmg_imaging
+
+rho = np.eye(4)
+result = run_ideal_cpmg_imaging(
+    rho,
+    num_echoes=2,
+    ny=7,
+    phase_workers=2,
+)
+tuned = run_tuned_cpmg_imaging(rho, num_echoes=1, ny=5)
+```
+
+`run_ideal_cpmg_imaging`, `run_tuned_cpmg_imaging`, and
+`run_matched_cpmg_imaging` return imaging result containers with:
+
+- `rho`, `t1_map`, `t2_map`: sample maps;
+- `kspace`: complex phase-encoded echo integrals with shape
+  `(px, pz, num_echoes)`;
+- `image` and `magnitude`: reconstructed image arrays from each echo;
+- `gradx`, `gradz`: phase-encoding gradient steps;
+- `del_w`: flattened normalized offset grid;
+- `sequence_time`: echo-center times in seconds.
+
+All three imaging runners are checked against compact MATLAB-generated k-space
+fixtures in `validation/fixtures`.
+
+`phase_workers` parallelizes independent phase-encoding points. `num_workers`
+is passed through to the chunked isochromat backend inside each acquisition.
+The plotting example `examples/plot_ideal_imaging.py` loads the MATLAB
+`flower.png` phantom and saves a three-panel phantom/k-space/reconstruction
+image. Use `--probe ideal`, `--probe tuned`, or `--probe matched` to choose the
+acquisition model.
+
+The default flower phantom is a bright-background bitmap, so
+`examples/plot_ideal_imaging.py` inverts it before using it as the spin-density
+map. This makes the compact demo behave like a bright object in a darker field
+of view, which is less prone to bright-background aliasing when the FOV is
+small. Use `--raw-image` to preserve the source bitmap contrast.
+
+MATLAB references:
+
+- `Imaging_demo/imaging_example_ideal.m`
+- `Sim_CPMG/sim_cpmg_ideal_probe_img.m`
+- `Sim_CPMG/sim_cpmg_tuned_probe_img.m`
+- `Sim_CPMG/sim_cpmg_matched_probe_img.m`
+- `create_fields/create_fields_single_sided.m`
+
 ## Ideal FID
 
 ```python

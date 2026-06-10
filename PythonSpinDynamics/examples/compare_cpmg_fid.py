@@ -23,13 +23,19 @@ def main() -> None:
     parser.add_argument("--save-npz", type=Path, default=None, help="Optional output .npz path.")
     args = parser.parse_args()
 
+    # CPMG path: construct parameters, compute steady-state/asymptotic
+    # magnetization, then convert the offset-domain spectrum into an echo.
     sp_cpmg, pp_cpmg = set_params_ideal(numpts=args.numpts)
     masy = calc_masy_ideal(sp_cpmg, pp_cpmg)
     echo_cpmg, tvect_cpmg = calc_time_domain_echo(masy, sp_cpmg.del_w)
 
+    # FID path: the workflow returns both the acquired spectrum and the
+    # time-domain FID trace for the same number of offset samples.
     sp_fid, pp_fid = set_params_ideal_fid(numpts=args.numpts)
     macq_fid, fid, tvect_fid = sim_fid_ideal(sp_fid, pp_fid)
 
+    # Report peak locations and simple norms so the two workflows can be
+    # compared without opening a plot.
     cpmg_peak = int(np.argmax(np.abs(echo_cpmg)))
     fid_peak = int(np.argmax(np.abs(fid)))
 
@@ -49,6 +55,7 @@ def main() -> None:
     print(f"FID sum |trace|: {np.sum(np.abs(fid)):.12g}")
 
     if args.save_npz is not None:
+        # Prefix array names by workflow to keep the archive self-describing.
         args.save_npz.parent.mkdir(parents=True, exist_ok=True)
         np.savez(
             args.save_npz,

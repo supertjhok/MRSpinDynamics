@@ -16,6 +16,7 @@ from spin_dynamics.workflows import (  # noqa: E402
 
 
 def _summary(label: str, result) -> None:
+    # Finite sweep arrays use (sweep value, echo, ...) leading dimensions.
     print(label)
     print(f"  probe: {result.probe}")
     print(f"  sweep: {result.sweep}")
@@ -35,6 +36,8 @@ def main() -> None:
     parser.add_argument("--sweep-workers", type=int, default=1)
     args = parser.parse_args()
 
+    # Common settings keep the three example sweeps comparable. Rephasing
+    # warnings are ignored here to keep the compact smoke case quiet.
     common = {
         "numpts": args.numpts,
         "num_echoes": args.num_echoes,
@@ -42,6 +45,7 @@ def main() -> None:
         "sweep_workers": args.sweep_workers,
         "rephase_action": "ignore",
     }
+    # These are intentionally tiny sweeps; expand the value lists for studies.
     _summary(
         "Matched finite Q sweep",
         run_matched_finite_q_sweep([20, 50], **common),

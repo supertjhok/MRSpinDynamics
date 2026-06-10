@@ -20,6 +20,7 @@ from spin_dynamics.workflows import (  # noqa: E402
 
 
 def _summary(name: str, result) -> None:
+    # Parameter sweep results stack one row per sweep value.
     best = int(result.snr.argmax())
     print(f"{name}:")
     print(f"  values: {result.values.size}")
@@ -30,6 +31,7 @@ def _summary(name: str, result) -> None:
 
 
 def _z_summary(name: str, result) -> None:
+    # Z-magnetization sweeps track nutation/inversion depth instead of SNR.
     depth = 1 - np.abs(result.mz)
     best = np.unravel_index(int(np.argmax(depth)), depth.shape)
     print(f"{name}:")
@@ -46,6 +48,8 @@ def main() -> None:
     parser.add_argument("--workers", type=int, default=1)
     args = parser.parse_args()
 
+    # Keep default sweeps deliberately small so this file stays a quick smoke
+    # test as well as a readable starting point.
     q_values = [20, 50, 80]
     offsets = [-2, 0, 2]
     _summary(

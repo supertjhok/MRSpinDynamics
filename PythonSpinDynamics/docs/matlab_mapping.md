@@ -29,7 +29,7 @@ The recommended MATLAB source tree is:
 | `CompareQ`, `CompareMistuned`, `z_mag` | `spin_dynamics.workflows.sweeps` | Probe Q, tuning/matching frequency, and z-magnetization sweeps returning array results. |
 | `time_varying_field` | `spin_dynamics.workflows.time_varying` | Ideal time-varying-field CPMG final-echo and amplitude-sweep workflows. |
 | `FID_Example`, `Sim_FID` | `spin_dynamics.workflows.fid` | Ideal FID should be an early workflow. |
-| `Sim_CPMG`, `Imaging_demo` | `spin_dynamics.imaging` later | Defer until CPMG and probe models are stable. |
+| `Sim_CPMG`, `Imaging_demo` | `spin_dynamics.workflows.imaging` | Ideal, tuned, and matched CPMG imaging are available as compact array-returning workflows. |
 | `OCT_Pulse_Examples`, `opt_pulse` | `spin_dynamics.optimization` later | Defer until kernels are fast and trusted. |
 
 ## Initial Port Candidates and Status
@@ -66,7 +66,8 @@ available for direct-sum echoes from arbitrary acquired magnetization.
 | Matched z-magnetization Q sweep | `calc_masy_matched_nut` and `run_matched_z_magnetization_q_sweep` are available. |
 | Ideal time-varying-field CPMG | `run_ideal_time_varying_cpmg_final`, `run_ideal_time_varying_amplitude_sweep`, and `sinusoidal_field_waveform` are available. |
 | Matched diffusion CPMG | `sim_spin_dynamics_arb10_diffusion`, `calc_macq_matched_probe_relax_diffusion`, `run_matched_diffusion_cpmg`, and `run_matched_diffusion_q_sweep` are available as first Python diffusion paths. |
-| Imaging, OCT/SPA | Still MATLAB reference-only. |
+| CPMG imaging | `run_ideal_cpmg_imaging`, `run_tuned_cpmg_imaging`, `run_matched_cpmg_imaging`, and `reconstruct_image_from_kspace` are available. |
+| OCT/SPA | Still MATLAB reference-only. |
 
 ## Naming Conventions
 

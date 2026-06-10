@@ -48,16 +48,22 @@ def main() -> None:
 
     plt = _load_matplotlib()
 
+    # CPMG plot data: offset-domain asymptotic magnetization and its
+    # time-domain echo.
     sp_cpmg, pp_cpmg = set_params_ideal(numpts=args.numpts)
     masy = calc_masy_ideal(sp_cpmg, pp_cpmg)
     echo_cpmg, tvect_cpmg = calc_time_domain_echo(masy, sp_cpmg.del_w)
 
+    # FID defaults span a wider offset range than is visually helpful here, so
+    # the plot uses a narrower range unless `--fid-maxoffs 10` is requested.
     sp_fid, pp_fid = set_params_ideal_fid(numpts=args.numpts)
     fid_del_w = np.linspace(-args.fid_maxoffs, args.fid_maxoffs, args.numpts)
     sp_fid = replace(sp_fid, maxoffs=args.fid_maxoffs, del_w=fid_del_w)
     macq_fid, fid, tvect_fid = sim_fid_ideal(sp_fid, pp_fid)
     fid_plot = fid if args.raw_fid_scale else fid / np.max(np.abs(fid))
 
+    # The four panels line up the two domains for both workflows:
+    # offset spectra on the left/top pair, time-domain traces on the right.
     fig, axes = plt.subplots(2, 2, figsize=(10, 7), constrained_layout=True)
     axes[0, 0].plot(sp_cpmg.del_w, np.real(masy), label="real")
     axes[0, 0].plot(sp_cpmg.del_w, np.imag(masy), label="imag")
@@ -86,6 +92,7 @@ def main() -> None:
     axes[1, 1].legend()
 
     if args.output is not None:
+        # Saving is useful for docs or CI artifacts; otherwise show interactively.
         args.output.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(args.output, dpi=150)
         print(f"saved: {args.output}")

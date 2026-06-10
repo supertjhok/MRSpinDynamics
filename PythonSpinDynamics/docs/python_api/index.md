@@ -29,6 +29,8 @@ The validated Python API currently covers:
 - Python-native finite-train Q/mistuning sweeps for tuned, untuned, and
   matched probes;
 - first matched-probe diffusion CPMG workflow and compact diffusion Q sweep;
+- fixture-validated ideal, tuned, and matched CPMG imaging and k-space
+  reconstruction;
 - tuned and matched CPMG Q/mistuning sweep workflows;
 - matched-probe z-magnetization Q sweep workflow;
 - ideal time-varying-field CPMG final-echo and amplitude-sweep workflows;
@@ -40,4 +42,4 @@ The validated Python API currently covers:
 - the legacy-compatible `sim_spin_dynamics_arb7` path needed by ideal FID;
 - original/reference tuned, untuned, and matched probe CPMG paths.
 
-Imaging and optimization workflows are still MATLAB reference-only.
+OCT/SPA optimization workflows are still MATLAB reference-only.

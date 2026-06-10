@@ -21,10 +21,13 @@ from spin_dynamics.workflows import (
 
 
 def _peak(echo: np.ndarray) -> complex:
+    # Return the complex echo sample at the magnitude peak.
     return echo[int(np.argmax(np.abs(echo)))]
 
 
 def _print_result(result: CPMGResult) -> None:
+    # All probe runners expose the same result fields. `snr` is absent for the
+    # ideal probe because there is no receiver noise model in that path.
     print(f"{result.probe} sum |mrx|: {np.sum(np.abs(result.mrx)):.12g}")
     print(f"{result.probe} peak echo: {_peak(result.echo)}")
     if result.snr is not None:
@@ -38,6 +41,8 @@ def main() -> None:
     parser.add_argument("--save-npz", type=Path, default=None, help="Optional output .npz path.")
     args = parser.parse_args()
 
+    # Run all currently validated asymptotic CPMG probe models on a common
+    # offset grid for a like-for-like comparison.
     results = [
         run_ideal_cpmg(args.numpts, args.maxoffs),
         run_tuned_cpmg(args.numpts, args.maxoffs),
@@ -52,6 +57,7 @@ def main() -> None:
         _print_result(result)
 
     if args.save_npz is not None:
+        # Store each probe's arrays with a probe-name prefix in one archive.
         args.save_npz.parent.mkdir(parents=True, exist_ok=True)
         np.savez(
             args.save_npz,

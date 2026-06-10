@@ -22,10 +22,18 @@ def main() -> None:
     parser.add_argument("--save-npz", type=Path, default=None, help="Optional output .npz path.")
     args = parser.parse_args()
 
+    # Build the same ideal spin/probe parameter structures used by the MATLAB
+    # `set_params_ideal` reference. `del_w` is the normalized frequency-offset
+    # grid, and increasing `numpts` refines that grid.
     sp, pp = set_params_ideal(numpts=args.numpts)
+
+    # `masy` is the complex asymptotic transverse magnetization over offsets.
+    # The echo helper Fourier-sums that spectrum onto a normalized time axis.
     masy = calc_masy_ideal(sp, pp)
     echo, tvect = calc_time_domain_echo(masy, sp.del_w)
 
+    # Print compact diagnostics that are stable enough for quick comparisons
+    # with validation arrays or MATLAB reference runs.
     peak_idx = int(np.argmax(np.abs(echo)))
     print("Ideal CPMG example")
     print(f"num offsets: {sp.del_w.size}")
@@ -41,6 +49,8 @@ def main() -> None:
     print(f"sum |echo|: {np.sum(np.abs(echo)):.12g}")
 
     if args.save_npz is not None:
+        # Save arrays in NumPy's native archive format for notebooks, plotting,
+        # or direct numerical comparison outside this script.
         args.save_npz.parent.mkdir(parents=True, exist_ok=True)
         np.savez(
             args.save_npz,

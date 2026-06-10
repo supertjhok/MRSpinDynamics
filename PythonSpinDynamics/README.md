@@ -58,7 +58,9 @@ as `run_tuned_finite_q_sweep`, `run_untuned_finite_q_sweep`,
 `run_matched_finite_q_sweep`, and their `*_finite_mistuning_sweep` variants.
 The first diffusion-aware matched CPMG workflow is available as
 `run_matched_diffusion_cpmg`, with `run_matched_diffusion_q_sweep` for compact
-Q studies.
+Q studies. Compact ideal, tuned, and matched CPMG imaging workflows are
+available as `run_ideal_cpmg_imaging`, `run_tuned_cpmg_imaging`, and
+`run_matched_cpmg_imaging`.
 
 The validated lower-level workflow surface also includes
 `calc_macq_ideal_probe_relax4`, `calc_macq_tuned_probe_relax4`,
@@ -67,6 +69,20 @@ assembled arbitrary sequences with relaxation during free-precession intervals.
 Finite CPMG train runners can warn about isochromat-grid rephasing, refine the
 offset grid with `auto_refine_grid=True`, and split isochromat propagation
 across CPU cores with `num_workers`.
+
+## Validation Status
+
+| Area | Status | Notes |
+| --- | --- | --- |
+| Core rotations, echo conversion, FID, and `arb10` kernel | Fixture validated | Tight MATLAB/Octave CSV comparisons. |
+| Ideal, tuned, untuned, and matched reference CPMG | Fixture validated | Matched-probe paths use practical tolerances because Python uses an independent NumPy solver. |
+| Finite CPMG trains, finite Q/mistuning sweeps, and matched CPMG-IR | Validated plus smoke-tested | Includes serial/parallel equality checks where applicable. |
+| Matched diffusion CPMG | Compact validation and smoke-tested | Very high-Q diffusion cases remain a known stiffness target. |
+| Ideal, tuned, and matched CPMG imaging | Fixture validated | MATLAB-generated k-space fixtures plus visual plotting examples. |
+| OCT/SPA optimization | Not yet ported | Planned after the validated workflow kernels stay stable. |
+
+See `docs/validation_results.md` for fixture details, run logs, and tolerance
+notes.
 
 ## Examples
 
@@ -155,6 +171,14 @@ python examples\plot_ideal_workflows.py --numpts 201 --output results\ideal_work
 
 The plotting example uses a narrower FID offset range by default for readability.
 Use `--fid-maxoffs 10 --raw-fid-scale` to show the raw MATLAB-style FID defaults.
+
+Plot an ideal CPMG image reconstruction from the flower phantom:
+
+```powershell
+python examples\plot_ideal_imaging.py --pixels 6 --ny 7 --output results\ideal_imaging.png
+```
+
+Use `--probe tuned` or `--probe matched` to run the probe-aware imaging paths.
 
 Run the original/reference tuned-probe CPMG comparison:
 

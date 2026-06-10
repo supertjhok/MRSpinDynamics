@@ -61,6 +61,16 @@ readable. To reproduce the raw MATLAB default FID range, use:
 python examples\plot_ideal_workflows.py --fid-maxoffs 10 --raw-fid-scale
 ```
 
+## Plot Ideal Imaging
+
+This example uses the `flower.png` phantom from the MATLAB reference tree. It
+uses Matplotlib when available and falls back to Pillow for writing the output
+PNG.
+
+```powershell
+python examples\plot_ideal_imaging.py --pixels 6 --ny 7 --output results\ideal_imaging.png
+```
+
 ## Tuned-Probe CPMG
 
 ```powershell

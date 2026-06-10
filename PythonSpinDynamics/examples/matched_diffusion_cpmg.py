@@ -13,12 +13,14 @@ from spin_dynamics.workflows import run_matched_diffusion_q_sweep  # noqa: E402
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--numpts", type=int, default=21)
-    parser.add_argument("--num-echoes", type=int, default=3)
-    parser.add_argument("--workers", type=int, default=1)
-    parser.add_argument("--sweep-workers", type=int, default=1)
+    parser.add_argument("--numpts", type=int, default=21, help="Number of offset points.")
+    parser.add_argument("--num-echoes", type=int, default=3, help="Number of echoes.")
+    parser.add_argument("--workers", type=int, default=1, help="Isochromat workers.")
+    parser.add_argument("--sweep-workers", type=int, default=1, help="Parallel Q-value workers.")
     args = parser.parse_args()
 
+    # Keep the default Q list modest. Very high-Q diffusion cases need extra
+    # transient-solver validation before they are good teaching examples.
     result = run_matched_diffusion_q_sweep(
         q_values=[20, 50],
         num_echoes=args.num_echoes,

@@ -23,13 +23,17 @@ def main() -> None:
     parser.add_argument("--numpts", type=int, default=101, help="Number of offset points.")
     args = parser.parse_args()
 
+    # Export a small ideal CPMG case. These arrays are useful as lightweight
+    # fixtures for notebooks or external tools that do not run the full tests.
     sp_cpmg, pp_cpmg = set_params_ideal(numpts=args.numpts)
     masy = calc_masy_ideal(sp_cpmg, pp_cpmg)
     echo_cpmg, tvect_cpmg = calc_time_domain_echo(masy, sp_cpmg.del_w)
 
+    # Export the matching ideal FID case with the same offset-grid size.
     sp_fid, pp_fid = set_params_ideal_fid(numpts=args.numpts)
     macq_fid, fid, tvect_fid = sim_fid_ideal(sp_fid, pp_fid)
 
+    # A single .npz keeps complex arrays and coordinate vectors together.
     args.output.parent.mkdir(parents=True, exist_ok=True)
     np.savez(
         args.output,

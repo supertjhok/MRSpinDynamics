@@ -24,6 +24,8 @@ def main() -> None:
     parser.add_argument("--save-npz", type=Path, default=None, help="Optional output .npz path.")
     args = parser.parse_args()
 
+    # The untuned workflow uses the finite acquisition machinery with untuned
+    # probe pulse and receive models.
     result = run_untuned_cpmg_train(
         numpts=args.numpts,
         maxoffs=args.maxoffs,
@@ -32,6 +34,8 @@ def main() -> None:
         t2_seconds=args.t2,
     )
 
+    # Shapes follow (echo, offset) for `mrx` and (echo, time) for `echo`.
+    # Peak magnitudes give a compact look at echo-train decay.
     peak = np.max(np.abs(result.echo), axis=1)
     print("Finite untuned-probe CPMG train")
     print(f"num offsets: {result.del_w.size}")
@@ -46,6 +50,7 @@ def main() -> None:
     )
 
     if args.save_npz is not None:
+        # Save both spectra and time-domain echoes for later comparison.
         args.save_npz.parent.mkdir(parents=True, exist_ok=True)
         np.savez(
             args.save_npz,

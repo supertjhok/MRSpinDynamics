@@ -49,12 +49,46 @@ def matching_network_design2(
 ) -> tuple[float, float]:
     """Design the two-capacitor matching network.
 
-    Mirrors the objective in MATLAB `matching_network_design2.m` using a small
-    finite-difference Newton solve for the dimensionless capacitor parameters.
+    Mirrors the objective in MATLAB `matching_network_design2.m`.
+
+    The MATLAB routine minimizes the scalar input-match error for positive
+    dimensionless capacitor parameters. Solving the same match equations
+    analytically avoids the false Newton root that can appear at the higher
+    imaging frequency.
     """
 
     w0 = 2 * np.pi * f0
     Rs = w0 * L / Q
+    Ld = L * w0 / R0
+    Rsd = Rs / R0
+    coil_z = Rsd + 1j * Ld
+
+    # With dimensionless c1=x and c2=y,
+    # zin = A / (1 + i*x*A) + 1/(i*y).  The real-part match gives a
+    # quadratic in x; y then cancels the remaining positive reactance.
+    coeff = np.array([Rsd**2 + Ld**2, -2 * Ld, 1 - Rsd], dtype=np.float64)
+    roots = np.roots(coeff)
+    candidates: list[tuple[float, float, float]] = []
+    for root in roots:
+        if abs(np.imag(root)) > 1e-10:
+            continue
+        c1 = float(np.real(root))
+        if c1 <= 0:
+            continue
+        zin_without_c2 = coil_z / (1 + 1j * c1 * coil_z)
+        imag_part = float(np.imag(zin_without_c2))
+        if imag_part <= 0:
+            continue
+        c2 = 1 / imag_part
+        zin = zin_without_c2 + 1 / (1j * c2)
+        candidates.append((abs(zin - 1), c1, c2))
+
+    if candidates:
+        _err, c1, c2 = min(candidates, key=lambda item: item[0])
+        return float(c1 / (w0 * R0)), float(c2 / (w0 * R0))
+
+    # Defensive fallback for unusual parameters where the direct match has no
+    # positive-reactance root.
     x = np.array(
         [
             (w0 * R0) / (L * w0**2),
@@ -65,8 +99,6 @@ def matching_network_design2(
 
     def residual(v: np.ndarray) -> np.ndarray:
         c1, c2 = v
-        Ld = L * w0 / R0
-        Rsd = Rs / R0
         s = 1j
         zin = (s * Ld + Rsd) / ((s * Ld + Rsd) * s * c1 + 1) + 1 / (s * c2)
         return np.array([np.real(zin) - 1, np.imag(zin)], dtype=np.float64)
@@ -107,6 +139,17 @@ def _rk4_step(state: np.ndarray, t: float, h: float, rhs: Any) -> np.ndarray:
     k3 = rhs(t + h / 2, state + h * k2 / 2)
     k4 = rhs(t + h, state + h * k3)
     return state + h * (k1 + 2 * k2 + 2 * k3 + k4) / 6
+
+
+def _rk4_advance(state: np.ndarray, t: float, h: float, rhs: Any, max_step: float) -> np.ndarray:
+    steps = max(1, int(np.ceil(abs(h) / max_step)))
+    dt = h / steps
+    out = state
+    t_curr = t
+    for _ in range(steps):
+        out = _rk4_step(out, t_curr, dt, rhs)
+        t_curr += dt
+    return out
 
 
 def _impulse_response(c1: float, c2: float, c3: float, Vs0: float, tvect: np.ndarray) -> np.ndarray:
@@ -167,6 +210,7 @@ def find_coil_current(
     ycos = np.zeros((ntot, 3), dtype=np.float64)
     ysin_imp = np.zeros(ntot, dtype=np.float64)
     ycos_imp = np.zeros(ntot, dtype=np.float64)
+    max_rk4_step = min(h, 0.05)
 
     time_el = 0.0
     ind_last = 0
@@ -211,8 +255,20 @@ def find_coil_current(
         ycos[ind1, :] = ycos_state
         ysin[ind1, :] = ysin_state
         for pos in range(ind1 + 1, ind2 + 1):
-            ycos[pos, :] = _rk4_step(ycos[pos - 1, :], tvec[pos - 1], h, rhs_cos)
-            ysin[pos, :] = _rk4_step(ysin[pos - 1, :], tvec[pos - 1], h, rhs_sin)
+            ycos[pos, :] = _rk4_advance(
+                ycos[pos - 1, :],
+                tvec[pos - 1],
+                h,
+                rhs_cos,
+                max_rk4_step,
+            )
+            ysin[pos, :] = _rk4_advance(
+                ysin[pos - 1, :],
+                tvec[pos - 1],
+                h,
+                rhs_sin,
+                max_rk4_step,
+            )
 
         ysin_imp[ind1:ntot] += amp_i * np.sin(wn * tvec[ind1] + phi_i + psi) * y_imp[: ntot - ind1]
         ysin_imp[ind2:ntot] -= amp_i * np.sin(wn * tvec[ind2] + phi_i + psi) * y_imp[: ntot - ind2]

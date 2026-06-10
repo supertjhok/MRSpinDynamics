@@ -21,9 +21,15 @@ def main() -> None:
     parser.add_argument("--save-npz", type=Path, default=None, help="Optional output .npz path.")
     args = parser.parse_args()
 
+    # Build parameters for the ideal FID MATLAB path. The offset grid in
+    # `sp.del_w` is where the acquired spectrum is evaluated.
     sp, pp = set_params_ideal_fid(numpts=args.numpts)
+
+    # `macq` is the acquired complex spectrum; `fid` is its time-domain trace.
+    # `tvect` is normalized receiver time, matching the MATLAB convention.
     macq, fid, tvect = sim_fid_ideal(sp, pp)
 
+    # Keep the console output small but useful for sanity checks.
     peak_idx = int(np.argmax(np.abs(fid)))
     print("Ideal FID example")
     print(f"num offsets: {sp.del_w.size}")
@@ -41,6 +47,7 @@ def main() -> None:
     print(f"sum |fid|: {np.sum(np.abs(fid)):.12g}")
 
     if args.save_npz is not None:
+        # Save the numerical arrays for later plotting or notebook inspection.
         args.save_npz.parent.mkdir(parents=True, exist_ok=True)
         np.savez(
             args.save_npz,

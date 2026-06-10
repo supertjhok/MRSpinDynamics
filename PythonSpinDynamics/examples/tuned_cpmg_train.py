@@ -24,6 +24,8 @@ def main() -> None:
     parser.add_argument("--save-npz", type=Path, default=None, help="Optional output .npz path.")
     args = parser.parse_args()
 
+    # This workflow adds tuned-probe transmit shaping and receiver filtering to
+    # the same finite CPMG train structure used by the ideal example.
     result = run_tuned_cpmg_train(
         numpts=args.numpts,
         maxoffs=args.maxoffs,
@@ -32,6 +34,8 @@ def main() -> None:
         t2_seconds=args.t2,
     )
 
+    # Shapes follow (echo, offset) for `mrx` and (echo, time) for `echo`.
+    # `echo_integrals` is often the easiest scalar summary to sweep or plot.
     peak = np.max(np.abs(result.echo), axis=1)
     print("Finite tuned-probe CPMG train")
     print(f"num offsets: {result.del_w.size}")
@@ -46,6 +50,7 @@ def main() -> None:
     )
 
     if args.save_npz is not None:
+        # Include all coordinates needed to reproduce the printed summaries.
         args.save_npz.parent.mkdir(parents=True, exist_ok=True)
         np.savez(
             args.save_npz,

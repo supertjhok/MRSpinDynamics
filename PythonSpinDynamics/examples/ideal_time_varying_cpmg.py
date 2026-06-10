@@ -16,11 +16,13 @@ from spin_dynamics.workflows import (  # noqa: E402
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--numpts", type=int, default=101)
-    parser.add_argument("--num-echoes", type=int, default=16)
-    parser.add_argument("--workers", type=int, default=1)
+    parser.add_argument("--numpts", type=int, default=101, help="Number of offset points.")
+    parser.add_argument("--num-echoes", type=int, default=16, help="Number of echoes.")
+    parser.add_argument("--workers", type=int, default=1, help="Parallel amplitude workers.")
     args = parser.parse_args()
 
+    # Build a normalized B0 fluctuation waveform and test several amplitudes.
+    # The runner reports the final echo and a matched-signal scalar per amplitude.
     waveform = sinusoidal_field_waveform(args.num_echoes)
     result = run_ideal_time_varying_amplitude_sweep(
         amplitudes=[0.0, 0.5, 1.0, 2.0],
@@ -28,6 +30,7 @@ def main() -> None:
         numpts=args.numpts,
         num_workers=args.workers,
     )
+    # Pick the amplitude with the largest absolute matched-filter signal.
     best = int(abs(result.matched_signal).argmax())
     print("Ideal time-varying CPMG sweep")
     print(f"num offsets: {result.del_w.size}")

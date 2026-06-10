@@ -56,10 +56,12 @@ from spin_dynamics.workflows import (
     calc_macq_tuned_probe_relax4,
     calc_macq_untuned_probe_relax4,
     run_ideal_cpmg,
+    run_ideal_cpmg_imaging,
     run_ideal_cpmg_train,
     run_ideal_time_varying_amplitude_sweep,
     run_ideal_time_varying_cpmg_final,
     run_matched_cpmg,
+    run_matched_cpmg_imaging,
     run_matched_cpmg_ir_train,
     run_matched_cpmg_train,
     run_matched_diffusion_cpmg,
@@ -70,6 +72,7 @@ from spin_dynamics.workflows import (
     run_matched_q_sweep,
     run_matched_z_magnetization_q_sweep,
     run_tuned_cpmg,
+    run_tuned_cpmg_imaging,
     run_tuned_cpmg_train,
     run_tuned_finite_mistuning_sweep,
     run_tuned_finite_q_sweep,
@@ -1287,6 +1290,112 @@ class OctaveFixtureTests(unittest.TestCase):
             atol=1e-13,
         )
 
+    def test_ideal_cpmg_imaging_returns_expected_shapes(self) -> None:
+        rho = np.eye(3)
+        result = run_ideal_cpmg_imaging(
+            rho,
+            num_echoes=1,
+            ny=5,
+            num_workers=1,
+            phase_workers=1,
+        )
+        self.assertEqual(result.kspace.shape, (3, 3, 1))
+        self.assertEqual(result.image.shape, (3, 3, 1))
+        self.assertEqual(result.magnitude.shape, (3, 3, 1))
+        self.assertEqual(result.echo_integrals.shape, (3, 3, 1))
+        self.assertTrue(np.all(np.isfinite(result.kspace)))
+        self.assertTrue(np.all(np.isfinite(result.magnitude)))
+
+    def test_ideal_cpmg_imaging_phase_parallel_matches_serial(self) -> None:
+        rho = np.array(
+            [
+                [0.0, 1.0, 0.0],
+                [1.0, 1.0, 1.0],
+                [0.0, 1.0, 0.0],
+            ],
+            dtype=np.float64,
+        )
+        serial = run_ideal_cpmg_imaging(
+            rho,
+            num_echoes=1,
+            ny=5,
+            num_workers=1,
+            phase_workers=1,
+        )
+        parallel = run_ideal_cpmg_imaging(
+            rho,
+            num_echoes=1,
+            ny=5,
+            num_workers=1,
+            phase_workers=2,
+        )
+        np.testing.assert_allclose(parallel.kspace, serial.kspace, rtol=1e-13, atol=1e-13)
+        np.testing.assert_allclose(parallel.image, serial.image, rtol=1e-13, atol=1e-13)
+
+    def test_probe_cpmg_imaging_returns_expected_shapes(self) -> None:
+        rho = np.eye(2)
+        for runner, probe in [
+            (run_tuned_cpmg_imaging, "tuned"),
+            (run_matched_cpmg_imaging, "matched"),
+        ]:
+            with self.subTest(probe=probe):
+                result = runner(
+                    rho,
+                    num_echoes=1,
+                    ny=3,
+                    num_workers=1,
+                    phase_workers=1,
+                )
+                self.assertEqual(result.probe, probe)
+                self.assertEqual(result.kspace.shape, (2, 2, 1))
+                self.assertEqual(result.image.shape, (2, 2, 1))
+                self.assertEqual(result.magnitude.shape, (2, 2, 1))
+                self.assertTrue(np.all(np.isfinite(result.kspace)))
+                self.assertTrue(np.all(np.isfinite(result.magnitude)))
+
+    def test_tuned_cpmg_imaging_phase_parallel_matches_serial(self) -> None:
+        rho = np.array([[0.0, 1.0], [1.0, 0.0]], dtype=np.float64)
+        serial = run_tuned_cpmg_imaging(
+            rho,
+            num_echoes=1,
+            ny=3,
+            num_workers=1,
+            phase_workers=1,
+        )
+        parallel = run_tuned_cpmg_imaging(
+            rho,
+            num_echoes=1,
+            ny=3,
+            num_workers=1,
+            phase_workers=2,
+        )
+        np.testing.assert_allclose(parallel.kspace, serial.kspace, rtol=1e-13, atol=1e-13)
+        np.testing.assert_allclose(parallel.image, serial.image, rtol=1e-13, atol=1e-13)
+
+    def test_run_ideal_cpmg_imaging_matches_matlab(self) -> None:
+        self._assert_imaging_fixture(
+            "run_ideal_cpmg_imaging",
+            run_ideal_cpmg_imaging,
+            rtol=1e-13,
+            atol=1e-10,
+        )
+
+    def test_run_tuned_cpmg_imaging_matches_matlab(self) -> None:
+        self._assert_imaging_fixture(
+            "run_tuned_cpmg_imaging",
+            run_tuned_cpmg_imaging,
+            rtol=1e-11,
+            atol=1e-11,
+        )
+
+    def test_run_matched_cpmg_imaging_matches_matlab(self) -> None:
+        self._assert_imaging_fixture(
+            "run_matched_cpmg_imaging",
+            run_matched_cpmg_imaging,
+            rtol=1e-6,
+            atol=3e-5,
+        )
+
     def test_run_tuned_cpmg_train_matches_octave(self) -> None:
         self._assert_train_fixture(
             "run_tuned_cpmg_train",
@@ -1366,6 +1475,38 @@ class OctaveFixtureTests(unittest.TestCase):
             atol=atol,
         )
         self.assertEqual(result.probe, fixture_stem.removeprefix("run_").removesuffix("_cpmg_train"))
+
+    def _assert_imaging_fixture(
+        self,
+        fixture_stem: str,
+        runner,
+        rtol: float,
+        atol: float,
+    ) -> None:
+        table = np.loadtxt(FIXTURES / f"{fixture_stem}_kspace.csv", delimiter=",")
+        px = int(np.max(table[:, 0]))
+        pz = int(np.max(table[:, 1]))
+        num_echoes = int(np.max(table[:, 2]))
+        kspace_ref = np.zeros((px, pz, num_echoes), dtype=np.complex128)
+        for row in table:
+            kspace_ref[int(row[0]) - 1, int(row[1]) - 1, int(row[2]) - 1] = row[3] + 1j * row[4]
+
+        rho = np.array([[0.0, 1.0], [1.0, 0.35]], dtype=np.float64)
+        relaxation = 5e-3 * np.ones_like(rho)
+        result = runner(
+            rho,
+            t1_map=relaxation,
+            t2_map=relaxation,
+            num_echoes=num_echoes,
+            echo_spacing_seconds=0.2e-3,
+            gradient_duration_seconds=0.5e-3,
+            fov=(20.0, 20.0),
+            ny=400,
+            num_workers=1,
+            phase_workers=1,
+        )
+
+        np.testing.assert_allclose(result.kspace, kspace_ref, rtol=rtol, atol=atol)
 
 
 if __name__ == "__main__":

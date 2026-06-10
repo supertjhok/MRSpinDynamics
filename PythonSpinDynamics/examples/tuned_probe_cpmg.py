@@ -21,8 +21,12 @@ def main() -> None:
     parser.add_argument("--save-npz", type=Path, default=None, help="Optional output .npz path.")
     args = parser.parse_args()
 
+    # Run the ideal and tuned-probe asymptotic workflows on the same offset
+    # grid so differences come from the probe model, not sampling.
     ideal = run_ideal_cpmg(args.numpts, args.maxoffs)
     tuned = run_tuned_cpmg(args.numpts, args.maxoffs)
+
+    # The peak echo sample is a compact phase-sensitive comparison point.
     ideal_peak = int(np.argmax(np.abs(ideal.echo)))
     tuned_peak = int(np.argmax(np.abs(tuned.echo)))
 
@@ -37,6 +41,7 @@ def main() -> None:
     print(f"tuned SNR: {tuned.snr:.12g}")
 
     if args.save_npz is not None:
+        # Save both workflows side by side for plotting or numerical diffs.
         args.save_npz.parent.mkdir(parents=True, exist_ok=True)
         np.savez(
             args.save_npz,

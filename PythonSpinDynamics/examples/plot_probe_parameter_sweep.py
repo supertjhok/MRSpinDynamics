@@ -32,6 +32,7 @@ def _load_matplotlib():
 
 
 def _parse_values(text: str) -> np.ndarray:
+    # Accept shell-friendly comma-separated values, for example: --values 20,50,80.
     values = np.asarray([float(part) for part in text.split(",") if part.strip()])
     if values.size == 0:
         raise argparse.ArgumentTypeError("expected at least one comma-separated value")
@@ -39,6 +40,7 @@ def _parse_values(text: str) -> np.ndarray:
 
 
 def _run_sweep(args: argparse.Namespace) -> CPMGParameterSweepResult:
+    # Choose the appropriate public workflow from the two CLI switches.
     if args.sweep == "q":
         q_values = args.values
         if q_values is None:
@@ -102,12 +104,16 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.range is None:
+        # Defaults are intentionally compact enough for quick plotting.
         args.range = (1.0, 100.0, 25.0) if args.sweep == "q" else (-5.0, 5.0, 25.0)
     if args.range[2] <= 0:
         raise SystemExit("range COUNT must be positive")
 
     plt = _load_matplotlib()
     result = _run_sweep(args)
+
+    # Sort rows before imshow so the y-axis is monotonic even if explicit
+    # `--values` were supplied out of order.
     order = np.argsort(result.values)
     y = result.values[order]
     mrx = result.mrx[order]
@@ -115,6 +121,7 @@ def main() -> None:
     tvect = result.tvect / np.pi
 
     fig, axes = plt.subplots(1, 3, figsize=(13, 4.2), constrained_layout=True)
+    # First two panels are heat maps over sweep value and offset/time.
     spec = axes[0].imshow(
         np.abs(mrx),
         aspect="auto",
@@ -146,6 +153,7 @@ def main() -> None:
     fig.suptitle(f"{result.probe.capitalize()} {result.sweep} sweep")
 
     if args.output is not None:
+        # Save a static figure for reports or documentation builds.
         args.output.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(args.output, dpi=150)
         print(f"saved: {args.output}")
