@@ -245,6 +245,7 @@ from spin_dynamics.optimization import (
     evaluate_matched_refocusing_pulse,
     evaluate_tuned_refocusing_pulse,
     evaluate_untuned_refocusing_pulse,
+    summarize_tuned_spa_refocusing,
     spa_pulse_list,
 )
 
@@ -252,8 +253,15 @@ pulse = spa_pulse_list()[0]
 tuned = evaluate_tuned_refocusing_pulse(pulse.phases, numpts=101)
 untuned = evaluate_untuned_refocusing_pulse(pulse.phases, numpts=101)
 matched = evaluate_matched_refocusing_pulse(pulse.phases, numpts=9)
+summary = summarize_tuned_spa_refocusing(numpts=101)
 ```
 
-The optimizer loops are the next porting target after fixed-pulse evaluation.
+The optimization module also includes `summarize_tuned_spa_refocusing`,
+`summarize_untuned_spa_refocusing`, and `summarize_matched_spa_refocusing`,
+which return MATLAB-style normalized SNR and FOM arrays for rectangular and SPA
+catalog pulses. A lightweight `optimize_spa_phase_program` discrete search
+scaffold is available for small phase-state experiments.
+
+Full continuous OCT/SPA optimizer loops are still deferred.
 The matched evaluator uses the matched-network transient solver and is much
 slower than the tuned and untuned evaluators, so start with small offset grids.

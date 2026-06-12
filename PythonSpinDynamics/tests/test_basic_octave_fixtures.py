@@ -47,8 +47,12 @@ from spin_dynamics.optimization import (
     evaluate_tuned_refocusing_pulse,
     evaluate_untuned_refocusing_pulse,
     evaluate_spa_metrics,
+    optimize_spa_phase_program,
     rectangular_refocusing_lengths,
     spa_pulse_list,
+    summarize_matched_spa_refocusing,
+    summarize_tuned_spa_refocusing,
+    summarize_untuned_spa_refocusing,
 )
 from spin_dynamics.pulses import (
     adjust_untuned_segment_lengths,
@@ -1237,6 +1241,56 @@ class OctaveFixtureTests(unittest.TestCase):
         self.assertTrue(np.isfinite(result.snr))
         self.assertGreater(result.snr, 0)
         np.testing.assert_allclose(result.pulse_length_t180, pulse.pulse_length_t180)
+
+    def test_tuned_spa_summary_returns_matlab_style_metrics(self) -> None:
+        result = summarize_tuned_spa_refocusing(numpts=9, pulse_indices=[1, 2])
+
+        self.assertEqual(result.probe, "tuned")
+        self.assertEqual(result.rectangular_snr.shape, (3,))
+        self.assertEqual(result.spa_snr.shape, (2,))
+        np.testing.assert_allclose(result.pulse_indices, [1, 2])
+        self.assertEqual(result.metrics.labels, ("rect0.6", "rect0.8", "spa1", "spa2"))
+        np.testing.assert_allclose(
+            result.metrics.snr[:2],
+            result.rectangular_snr[:2] / result.rectangular_snr[-1],
+        )
+        np.testing.assert_allclose(
+            result.metrics.snr[2:],
+            result.spa_snr / result.rectangular_snr[-1],
+        )
+        self.assertTrue(np.all(np.isfinite(result.metrics.fom_time)))
+
+    def test_untuned_spa_summary_returns_matlab_style_metrics(self) -> None:
+        result = summarize_untuned_spa_refocusing(numpts=9, pulse_indices=[1])
+
+        self.assertEqual(result.probe, "untuned")
+        self.assertEqual(result.rectangular_snr.shape, (3,))
+        self.assertEqual(result.spa_snr.shape, (1,))
+        self.assertEqual(result.metrics.labels, ("rect0.6", "rect0.8", "spa1"))
+        self.assertTrue(np.all(np.isfinite(result.metrics.snr)))
+        self.assertTrue(np.all(result.metrics.fom_energy > 0))
+
+    def test_matched_spa_summary_accepts_selected_catalog_subset(self) -> None:
+        result = summarize_matched_spa_refocusing(numpts=5, pulse_indices=[1])
+
+        self.assertEqual(result.probe, "matched")
+        self.assertEqual(result.rectangular_snr.shape, (3,))
+        self.assertEqual(result.spa_snr.shape, (1,))
+        self.assertEqual(result.metrics.labels, ("rect0.6", "rect0.8", "spa1"))
+        self.assertTrue(np.all(np.isfinite(result.metrics.snr)))
+
+    def test_spa_phase_optimizer_improves_synthetic_objective(self) -> None:
+        target = np.array([0.0, np.pi, np.pi, 0.0])
+
+        def score(phases: np.ndarray) -> float:
+            return -float(np.sum((phases - target) ** 2))
+
+        result = optimize_spa_phase_program(np.zeros(4), score, max_passes=2)
+
+        np.testing.assert_allclose(result.best_phases, target)
+        self.assertGreater(result.best_score, result.history_scores[0])
+        self.assertTrue(result.improved)
+        self.assertGreater(result.iterations, 0)
 
     def test_cpmg_workflow_result_shapes(self) -> None:
         runners = [

@@ -29,6 +29,8 @@ FAST_FIXTURE_TESTS = [
     "test_spa_pulse_catalog_matches_matlab",
     "test_tuned_refocusing_evaluation_accepts_spa_catalog_pulse",
     "test_untuned_refocusing_evaluation_accepts_spa_catalog_pulse",
+    "test_tuned_spa_summary_returns_matlab_style_metrics",
+    "test_spa_phase_optimizer_improves_synthetic_objective",
     "test_ideal_time_varying_cpmg_final_returns_expected_shapes",
     "test_matched_cpmg_ir_train_returns_expected_shapes",
     "test_matched_diffusion_q_stability_boundary",

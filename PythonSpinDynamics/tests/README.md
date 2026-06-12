@@ -29,3 +29,6 @@ python -m unittest discover -s tests
 
 The smoke tier intentionally samples representative fixture, workflow, pulse,
 and example checks. It is not a replacement for full validation.
+
+Matched-probe SPA summary checks are intentionally kept out of the smoke tier
+because each selected catalog pulse runs the matched-network transient solver.

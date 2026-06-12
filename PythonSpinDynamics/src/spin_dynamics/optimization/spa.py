@@ -7,6 +7,7 @@ MATLAB references:
 
 from __future__ import annotations
 
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 
 import numpy as np
@@ -53,6 +54,35 @@ class SPAMetrics:
     fom_time: np.ndarray
     fom_energy: np.ndarray
     labels: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class SPASummary:
+    """Array-returning summary of rectangular and SPA pulse performance."""
+
+    probe: str
+    metrics: SPAMetrics
+    rectangular_snr: np.ndarray
+    spa_snr: np.ndarray
+    rectangular_labels: tuple[str, ...]
+    spa_labels: tuple[str, ...]
+    pulse_indices: np.ndarray
+    rectangular_lengths_t180: np.ndarray
+    segment_fraction: float
+    numpts: int
+
+
+@dataclass(frozen=True)
+class SPAOptimizationResult:
+    """Result of a lightweight discrete SPA phase-program search."""
+
+    initial_phases: np.ndarray
+    best_phases: np.ndarray
+    best_score: float
+    history_scores: np.ndarray
+    history_phases: tuple[np.ndarray, ...]
+    iterations: int
+    improved: bool
 
 
 @dataclass(frozen=True)
@@ -128,6 +158,24 @@ def rectangular_refocusing_lengths() -> np.ndarray:
     """Return the rectangular reference pulse lengths used by MATLAB SPA scripts."""
 
     return np.array([0.6, 0.8, 1.0], dtype=np.float64)
+
+
+def _selected_spa_pulses(
+    pulse_indices: Iterable[int] | np.ndarray | None,
+    *,
+    segment_fraction: float,
+) -> tuple[SPAPulse, ...]:
+    pulses = spa_pulse_list(segment_fraction=segment_fraction)
+    if pulse_indices is None:
+        return pulses
+    selected = []
+    for index in np.asarray(list(pulse_indices), dtype=np.int64).reshape(-1):
+        if index < 1 or index > len(pulses):
+            raise ValueError("pulse_indices must use 1-based SPA catalog indices")
+        selected.append(pulses[int(index) - 1])
+    if not selected:
+        raise ValueError("pulse_indices must not be empty")
+    return tuple(selected)
 
 
 def evaluate_tuned_refocusing_pulse(
@@ -305,6 +353,7 @@ def evaluate_spa_metrics(
     *,
     free_precession_t180: float = 3.0,
     segment_fraction: float = 0.1,
+    pulse_lengths_t180: np.ndarray | list[float] | None = None,
 ) -> SPAMetrics:
     """Normalize SPA and rectangular performance metrics like MATLAB.
 
@@ -315,11 +364,17 @@ def evaluate_spa_metrics(
 
     spa = np.asarray(spa_snr, dtype=np.float64).reshape(-1)
     rect = np.asarray(rectangular_snr, dtype=np.float64).reshape(-1)
-    pulses = spa_pulse_list(segment_fraction=segment_fraction)
     rect_lengths = rectangular_refocusing_lengths()
+    if pulse_lengths_t180 is None:
+        pulses = spa_pulse_list(segment_fraction=segment_fraction)
+        spa_lengths = np.array([pulse.pulse_length_t180 for pulse in pulses], dtype=np.float64)
+        spa_labels = tuple(f"spa{pulse.index}" for pulse in pulses)
+    else:
+        spa_lengths = np.asarray(pulse_lengths_t180, dtype=np.float64).reshape(-1)
+        spa_labels = tuple(f"spa{idx + 1}" for idx in range(spa_lengths.size))
 
-    if spa.size != len(pulses):
-        raise ValueError(f"spa_snr must contain {len(pulses)} values")
+    if spa.size != spa_lengths.size:
+        raise ValueError("spa_snr and pulse_lengths_t180 must have the same length")
     if rect.size != rect_lengths.size:
         raise ValueError(f"rectangular_snr must contain {rect_lengths.size} values")
     if not np.all(np.isfinite(spa)) or not np.all(np.isfinite(rect)):
@@ -327,7 +382,6 @@ def evaluate_spa_metrics(
     if np.any(spa <= 0) or np.any(rect <= 0):
         raise ValueError("SNR values must be positive")
 
-    spa_lengths = np.array([pulse.pulse_length_t180 for pulse in pulses], dtype=np.float64)
     spa_echo_spacing = 2 * float(free_precession_t180) + spa_lengths
     rect_echo_spacing = 2 * float(free_precession_t180) + rect_lengths
 
@@ -345,9 +399,7 @@ def evaluate_spa_metrics(
     snr = np.concatenate([rect[:-1], spa]) / reference_snr
     fom_time = np.concatenate([rect_fom_time[:-1], spa_fom_time]) / reference_fom_time
     fom_energy = np.concatenate([rect_fom_energy[:-1], spa_fom_energy]) / reference_fom_energy
-    labels = tuple([f"rect{length:g}" for length in rect_lengths[:-1]]) + tuple(
-        f"spa{pulse.index}" for pulse in pulses
-    )
+    labels = tuple([f"rect{length:g}" for length in rect_lengths[:-1]]) + spa_labels
 
     return SPAMetrics(
         pulse_length_t180=lengths,
@@ -356,4 +408,169 @@ def evaluate_spa_metrics(
         fom_time=fom_time,
         fom_energy=fom_energy,
         labels=labels,
+    )
+
+
+def summarize_spa_refocusing(
+    probe: str,
+    *,
+    numpts: int = 101,
+    segment_fraction: float = 0.1,
+    pulse_indices: Iterable[int] | np.ndarray | None = None,
+    excitation_amplitude: float = 6.0,
+) -> SPASummary:
+    """Run MATLAB-style SPA rectangular/catalog summary for a probe.
+
+    This is the plotting-free analogue of `SPA_optimization_tuned.m`,
+    `SPA_optimization_untuned.m`, and `SPA_optimization_matched.m`.
+    """
+
+    evaluators = {
+        "tuned": evaluate_tuned_refocusing_pulse,
+        "untuned": evaluate_untuned_refocusing_pulse,
+        "matched": evaluate_matched_refocusing_pulse,
+    }
+    if probe not in evaluators:
+        raise ValueError("probe must be 'tuned', 'untuned', or 'matched'")
+    evaluator = evaluators[probe]
+
+    rect_lengths = rectangular_refocusing_lengths()
+    rect_snr = np.array(
+        [
+            evaluator(
+                np.zeros(int(round(length / segment_fraction)), dtype=np.float64),
+                segment_fraction=segment_fraction,
+                numpts=numpts,
+                excitation_amplitude=excitation_amplitude,
+            ).snr
+            for length in rect_lengths
+        ],
+        dtype=np.float64,
+    )
+
+    pulses = _selected_spa_pulses(pulse_indices, segment_fraction=segment_fraction)
+    spa_snr = np.array(
+        [
+            evaluator(
+                pulse.phases,
+                segment_fraction=segment_fraction,
+                numpts=numpts,
+                excitation_amplitude=excitation_amplitude,
+            ).snr
+            for pulse in pulses
+        ],
+        dtype=np.float64,
+    )
+    pulse_lengths = np.array([pulse.pulse_length_t180 for pulse in pulses], dtype=np.float64)
+    metrics = evaluate_spa_metrics(
+        spa_snr,
+        rect_snr,
+        segment_fraction=segment_fraction,
+        pulse_lengths_t180=pulse_lengths,
+    )
+    spa_labels = tuple(f"spa{pulse.index}" for pulse in pulses)
+    metric_labels = tuple([f"rect{length:g}" for length in rect_lengths[:-1]]) + spa_labels
+    metrics = SPAMetrics(
+        pulse_length_t180=metrics.pulse_length_t180,
+        echo_spacing_t180=metrics.echo_spacing_t180,
+        snr=metrics.snr,
+        fom_time=metrics.fom_time,
+        fom_energy=metrics.fom_energy,
+        labels=metric_labels,
+    )
+    return SPASummary(
+        probe=probe,
+        metrics=metrics,
+        rectangular_snr=rect_snr,
+        spa_snr=spa_snr,
+        rectangular_labels=tuple(f"rect{length:g}" for length in rect_lengths),
+        spa_labels=spa_labels,
+        pulse_indices=np.array([pulse.index for pulse in pulses], dtype=np.int64),
+        rectangular_lengths_t180=rect_lengths,
+        segment_fraction=float(segment_fraction),
+        numpts=int(numpts),
+    )
+
+
+def summarize_tuned_spa_refocusing(**kwargs: object) -> SPASummary:
+    """Summarize tuned-probe rectangular and SPA refocusing pulses."""
+
+    return summarize_spa_refocusing("tuned", **kwargs)
+
+
+def summarize_untuned_spa_refocusing(**kwargs: object) -> SPASummary:
+    """Summarize untuned-probe rectangular and SPA refocusing pulses."""
+
+    return summarize_spa_refocusing("untuned", **kwargs)
+
+
+def summarize_matched_spa_refocusing(**kwargs: object) -> SPASummary:
+    """Summarize matched-probe rectangular and SPA refocusing pulses."""
+
+    return summarize_spa_refocusing("matched", **kwargs)
+
+
+def optimize_spa_phase_program(
+    initial_phases: np.ndarray | list[float],
+    score_fn: Callable[[np.ndarray], float],
+    *,
+    phase_states: np.ndarray | list[float] | None = None,
+    max_passes: int = 1,
+) -> SPAOptimizationResult:
+    """Discrete coordinate-search scaffold for SPA/OCT phase optimization.
+
+    The objective is supplied by the caller so this loop can drive the tuned,
+    untuned, matched, or mocked evaluators without depending on SciPy.
+    Larger continuous optimizers can be added later behind this objective
+    contract.
+    """
+
+    if max_passes <= 0:
+        raise ValueError("max_passes must be positive")
+    states = (
+        np.asarray([0.0, np.pi], dtype=np.float64)
+        if phase_states is None
+        else np.asarray(phase_states, dtype=np.float64).reshape(-1)
+    )
+    if states.size == 0:
+        raise ValueError("phase_states must not be empty")
+    current = np.asarray(initial_phases, dtype=np.float64).reshape(-1).copy()
+    if current.size == 0:
+        raise ValueError("initial_phases must not be empty")
+
+    best_score = float(score_fn(current.copy()))
+    history_scores = [best_score]
+    history_phases = [current.copy()]
+    improved = False
+
+    for _pass in range(int(max_passes)):
+        pass_improved = False
+        for idx in range(current.size):
+            local_best_score = best_score
+            local_best_state = current[idx]
+            for state in states:
+                candidate = current.copy()
+                candidate[idx] = state
+                score = float(score_fn(candidate))
+                history_scores.append(score)
+                history_phases.append(candidate.copy())
+                if score > local_best_score:
+                    local_best_score = score
+                    local_best_state = float(state)
+            if local_best_score > best_score:
+                current[idx] = local_best_state
+                best_score = local_best_score
+                pass_improved = True
+                improved = True
+        if not pass_improved:
+            break
+
+    return SPAOptimizationResult(
+        initial_phases=np.asarray(initial_phases, dtype=np.float64).reshape(-1),
+        best_phases=current,
+        best_score=best_score,
+        history_scores=np.asarray(history_scores, dtype=np.float64),
+        history_phases=tuple(history_phases),
+        iterations=max(0, len(history_scores) - 1),
+        improved=improved,
     )

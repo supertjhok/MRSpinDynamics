@@ -151,8 +151,10 @@ their inputs and outputs are small, array-based, and close to NumPy's strengths.
   and MATLAB-style normalized SNR/FOM metric bookkeeping used by the
   `SPA_optimization_*` scripts. It also includes non-plotting tuned, untuned,
   and matched arbitrary-refocusing evaluators mirroring the
-  `plot_masy_arbref_*` MATLAB helpers. The optimizer loops remain MATLAB
-  reference-only.
+  `plot_masy_arbref_*` MATLAB helpers, plus array-returning SPA summary
+  workflows for tuned, untuned, and matched probes. A lightweight discrete
+  phase-program optimizer scaffold is available for small candidate searches;
+  full continuous OCT/SPA optimizer loops remain MATLAB reference-only.
 - Port OCT/SPA optimization last; these workflows depend on fast, trusted
   kernels.
 
