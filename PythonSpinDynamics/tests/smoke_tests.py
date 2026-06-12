@@ -33,6 +33,7 @@ FAST_FIXTURE_TESTS = [
     "test_spa_phase_optimizer_improves_synthetic_objective",
     "test_ideal_time_varying_cpmg_final_returns_expected_shapes",
     "test_matched_cpmg_ir_train_returns_expected_shapes",
+    "test_nonmatched_cpmg_ir_train_returns_expected_shapes",
     "test_matched_diffusion_q_stability_boundary",
 ]
 

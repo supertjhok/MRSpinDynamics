@@ -19,8 +19,12 @@ from spin_dynamics.workflows.cpmg import (
     run_untuned_cpmg_train,
 )
 from spin_dynamics.workflows.cpmg_ir import (
+    CPMGIRTrainResult,
     MatchedCPMGIRTrainResult,
+    run_ideal_cpmg_ir_train,
     run_matched_cpmg_ir_train,
+    run_tuned_cpmg_ir_train,
+    run_untuned_cpmg_ir_train,
 )
 from spin_dynamics.workflows.diffusion import (
     MatchedDiffusionCPMGResult,
@@ -65,6 +69,7 @@ from spin_dynamics.workflows.time_varying import (
 
 __all__ = [
     "CPMGResult",
+    "CPMGIRTrainResult",
     "CPMGParameterSweepResult",
     "CPMGFiniteParameterSweepResult",
     "CPMGTrainResult",
@@ -85,6 +90,7 @@ __all__ = [
     "check_matched_diffusion_q_stability",
     "run_ideal_cpmg",
     "run_ideal_cpmg_imaging",
+    "run_ideal_cpmg_ir_train",
     "run_ideal_cpmg_train",
     "run_ideal_time_varying_amplitude_sweep",
     "run_ideal_time_varying_cpmg_final",
@@ -101,12 +107,14 @@ __all__ = [
     "run_matched_z_magnetization_q_sweep",
     "run_tuned_cpmg",
     "run_tuned_cpmg_imaging",
+    "run_tuned_cpmg_ir_train",
     "run_tuned_cpmg_train",
     "run_tuned_finite_mistuning_sweep",
     "run_tuned_finite_q_sweep",
     "run_tuned_mistuning_sweep",
     "run_tuned_q_sweep",
     "run_untuned_cpmg",
+    "run_untuned_cpmg_ir_train",
     "run_untuned_cpmg_train",
     "run_untuned_finite_mistuning_sweep",
     "run_untuned_finite_q_sweep",

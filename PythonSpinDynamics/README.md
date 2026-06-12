@@ -51,10 +51,12 @@ The currently validated public runners are `run_ideal_cpmg`,
 The ideal time-varying-field workflow is available as
 `run_ideal_time_varying_cpmg_final`, with
 `run_ideal_time_varying_amplitude_sweep` for compact fluctuation-amplitude
-studies. The matched-probe inversion-recovery finite train
-`run_matched_cpmg_ir_train` extends the matched finite CPMG path over an
-inversion-delay vector. Python-native finite-train sweep wrappers are available
-as `run_tuned_finite_q_sweep`, `run_untuned_finite_q_sweep`,
+studies. CPMG inversion-recovery finite trains are available as
+`run_ideal_cpmg_ir_train`, `run_tuned_cpmg_ir_train`,
+`run_untuned_cpmg_ir_train`, and `run_matched_cpmg_ir_train`; these sweep an
+inversion-delay vector and return tau-by-echo arrays useful for T1-T2
+simulation grids. Python-native finite-train sweep wrappers are available as
+`run_tuned_finite_q_sweep`, `run_untuned_finite_q_sweep`,
 `run_matched_finite_q_sweep`, and their `*_finite_mistuning_sweep` variants.
 The first diffusion-aware matched CPMG workflow is available as
 `run_matched_diffusion_cpmg`, with `run_matched_diffusion_q_sweep` for compact
@@ -152,9 +154,10 @@ python examples\untuned_cpmg_train.py --numpts 101 --num-echoes 8
 python examples\matched_cpmg_train.py --numpts 101 --num-echoes 8
 ```
 
-Run a matched-probe CPMG inversion-recovery finite train:
+Run a CPMG inversion-recovery finite train:
 
 ```powershell
+python examples\matched_cpmg_ir_train.py --probe ideal --numpts 21 --num-echoes 4 --num-tau 4
 python examples\matched_cpmg_ir_train.py --numpts 21 --num-echoes 4 --num-tau 4
 ```
 

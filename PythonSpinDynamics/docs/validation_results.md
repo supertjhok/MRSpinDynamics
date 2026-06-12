@@ -58,6 +58,9 @@ skips matched-probe files when `fmincon` is unavailable.
 | `spin_dynamics.workflows.run_tuned_cpmg_train` | `Sim_CPMG/sim_cpmg_tuned_probe_img.m` assembly pattern without phase encoding | `run_tuned_cpmg_train_*.csv` | Passed |
 | `spin_dynamics.workflows.run_untuned_cpmg_train` | Python analogue of tuned finite-train assembly with untuned pulse and receiver models | `run_untuned_cpmg_train_*.csv` | Passed |
 | `spin_dynamics.workflows.run_matched_cpmg_train` | `Sim_CPMG/sim_cpmg_matched_probe_img.m` assembly pattern without phase encoding | `run_matched_cpmg_train_*.csv` | Passed |
+| `spin_dynamics.workflows.run_ideal_cpmg_ir_train` | Python analogue of matched CPMG-IR assembly with ideal pulses | workflow shape, finite-output, and tau-parallel equality smoke tests | Passed |
+| `spin_dynamics.workflows.run_tuned_cpmg_ir_train` | Python analogue of matched CPMG-IR assembly with tuned pulse and receiver models | workflow shape and finite-output smoke test | Passed |
+| `spin_dynamics.workflows.run_untuned_cpmg_ir_train` | Python analogue of matched CPMG-IR assembly with untuned pulse and receiver models | workflow shape and finite-output smoke test | Passed |
 | `spin_dynamics.workflows.run_matched_cpmg_ir_train` | `Sim_CPMG_IR/sim_cpmg_ir_matched_probe_relax4.m` | workflow shape, finite-output, and tau-parallel equality smoke tests | Passed |
 | `spin_dynamics.workflows.run_*_finite_q_sweep` | Python-native wrappers around finite train runners | workflow shape and finite-output smoke tests | Passed |
 | `spin_dynamics.workflows.run_*_finite_mistuning_sweep` | Python-native wrappers around finite train runners | workflow shape, finite-output, and sweep-parallel equality smoke tests | Passed |
@@ -106,6 +109,9 @@ The public CPMG runners are also tested for result-container shape and metadata:
 - `run_untuned_cpmg_train`
 - `run_matched_cpmg`
 - `run_matched_cpmg_train`
+- `run_ideal_cpmg_ir_train`
+- `run_tuned_cpmg_ir_train`
+- `run_untuned_cpmg_ir_train`
 - `run_matched_cpmg_ir_train`
 - `run_tuned_finite_q_sweep`
 - `run_untuned_finite_q_sweep`

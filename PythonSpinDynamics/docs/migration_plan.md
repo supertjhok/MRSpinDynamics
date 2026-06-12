@@ -91,9 +91,10 @@ their inputs and outputs are small, array-based, and close to NumPy's strengths.
   `run_matched_cpmg_train` provide public finite probe CPMG trains with probe
   pulse shaping, receiver filtering, relaxation, direct-summed echoes, and echo
   integrals.
-- `run_matched_cpmg_ir_train` extends the finite matched-probe train into an
-  inversion-recovery workflow over `tauvect`, following
-  `Sim_CPMG_IR/sim_cpmg_ir_matched_probe_relax4.m`.
+- `run_ideal_cpmg_ir_train`, `run_tuned_cpmg_ir_train`,
+  `run_untuned_cpmg_ir_train`, and `run_matched_cpmg_ir_train` extend finite
+  CPMG trains into inversion-recovery workflows over `tauvect`, following the
+  assembly pattern in `Sim_CPMG_IR/sim_cpmg_ir_matched_probe_relax4.m`.
 - Finite train workflows now estimate isochromat-grid rephasing time, warn or
   raise when the grid is too coarse, optionally refine `numpts` before building
   pulse matrices, and pass long isochromat vectors through the chunked backend
@@ -117,7 +118,7 @@ their inputs and outputs are small, array-based, and close to NumPy's strengths.
 - `examples/ideal_time_varying_cpmg.py` provides a compact non-plot smoke path
   for ideal time-varying-field amplitude sweeps.
 - `examples/matched_cpmg_ir_train.py` provides a compact non-plot smoke path
-  for matched-probe CPMG-IR echo-integral arrays.
+  for CPMG-IR echo-integral arrays.
 - `examples/finite_probe_train_sweeps.py` provides a compact non-plot smoke
   path for finite-train Q and mistuning sweep arrays.
 - Keep workflow-level APIs returning small typed result containers, following

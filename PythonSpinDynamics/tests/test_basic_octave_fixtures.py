@@ -82,6 +82,7 @@ from spin_dynamics.workflows import (
     calc_macq_untuned_probe_relax4,
     run_ideal_cpmg,
     run_ideal_cpmg_imaging,
+    run_ideal_cpmg_ir_train,
     run_ideal_cpmg_train,
     run_ideal_time_varying_amplitude_sweep,
     run_ideal_time_varying_cpmg_final,
@@ -98,12 +99,14 @@ from spin_dynamics.workflows import (
     run_matched_z_magnetization_q_sweep,
     run_tuned_cpmg,
     run_tuned_cpmg_imaging,
+    run_tuned_cpmg_ir_train,
     run_tuned_cpmg_train,
     run_tuned_finite_mistuning_sweep,
     run_tuned_finite_q_sweep,
     run_tuned_mistuning_sweep,
     run_tuned_q_sweep,
     run_untuned_cpmg,
+    run_untuned_cpmg_ir_train,
     run_untuned_cpmg_train,
     run_untuned_finite_mistuning_sweep,
     run_untuned_finite_q_sweep,
@@ -1461,6 +1464,53 @@ class OctaveFixtureTests(unittest.TestCase):
         self.assertEqual(result.echo_integrals.shape, (2, 2))
         self.assertEqual(result.sequence_time.shape, (2,))
         self.assertTrue(np.all(np.isfinite(result.echo_integrals)))
+
+    def test_nonmatched_cpmg_ir_train_returns_expected_shapes(self) -> None:
+        for runner, probe in [
+            (run_ideal_cpmg_ir_train, "ideal"),
+            (run_tuned_cpmg_ir_train, "tuned"),
+            (run_untuned_cpmg_ir_train, "untuned"),
+        ]:
+            with self.subTest(probe=probe):
+                result = runner(
+                    num_echoes=2,
+                    tauvect=[0.5e-3, 1.0e-3],
+                    numpts=9,
+                    maxoffs=4,
+                    rephase_action="ignore",
+                )
+                self.assertEqual(result.probe, probe)
+                self.assertEqual(result.mrx.shape, (2, 2, result.del_w.size))
+                self.assertEqual(result.echo.shape[:2], (2, 2))
+                self.assertEqual(result.echo.shape[2], result.tvect.size)
+                self.assertEqual(result.echo_integrals.shape, (2, 2))
+                self.assertEqual(result.sequence_time.shape, (2,))
+                self.assertTrue(np.all(np.isfinite(result.echo_integrals)))
+
+    def test_ideal_cpmg_ir_train_tau_parallel_matches_serial(self) -> None:
+        serial = run_ideal_cpmg_ir_train(
+            num_echoes=2,
+            tauvect=[0.5e-3, 1.0e-3],
+            numpts=9,
+            tau_workers=1,
+            rephase_action="ignore",
+        )
+        parallel = run_ideal_cpmg_ir_train(
+            num_echoes=2,
+            tauvect=[0.5e-3, 1.0e-3],
+            numpts=9,
+            tau_workers=2,
+            rephase_action="ignore",
+        )
+        np.testing.assert_allclose(parallel.tauvect, serial.tauvect)
+        np.testing.assert_allclose(parallel.mrx, serial.mrx, rtol=1e-13, atol=1e-13)
+        np.testing.assert_allclose(parallel.echo, serial.echo, rtol=1e-13, atol=1e-13)
+        np.testing.assert_allclose(
+            parallel.echo_integrals,
+            serial.echo_integrals,
+            rtol=1e-13,
+            atol=1e-13,
+        )
 
     def test_matched_cpmg_ir_train_tau_parallel_matches_serial(self) -> None:
         serial = run_matched_cpmg_ir_train(

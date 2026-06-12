@@ -20,7 +20,8 @@ Ported and validated:
 - public finite ideal CPMG echo-train workflow;
 - public finite tuned-probe CPMG echo-train workflow;
 - public finite untuned- and matched-probe CPMG echo-train workflows;
-- matched-probe CPMG inversion-recovery finite train over `tauvect`;
+- ideal, tuned, untuned, and matched CPMG inversion-recovery finite trains over
+  `tauvect`;
 - tuned and matched Q/mistuning sweep workflows;
 - Python-native finite-train Q/mistuning sweeps for tuned, untuned, and
   matched probes;
