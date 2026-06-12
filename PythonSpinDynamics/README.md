@@ -79,6 +79,7 @@ across CPU cores with `num_workers`.
 | Finite CPMG trains, finite Q/mistuning sweeps, and matched CPMG-IR | Validated plus smoke-tested | Includes serial/parallel equality checks where applicable. |
 | Matched diffusion CPMG | Compact validation and smoke-tested | Very high-Q diffusion cases remain a known stiffness target. |
 | Ideal, tuned, and matched CPMG imaging | Fixture validated | MATLAB-generated k-space fixtures plus visual plotting examples. |
+| Pulse-shape helpers | Fixture validated | JMR rectangular pulse responses, phase quantization, and untuned segment adjustment. |
 | OCT/SPA optimization | Not yet ported | Planned after the validated workflow kernels stay stable. |
 
 See `docs/validation_results.md` for fixture details, run logs, and tolerance

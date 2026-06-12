@@ -19,6 +19,7 @@ The full fixture suite is generated with MATLAB by:
 ```powershell
 matlab -batch "run('validation/octave/generate_basic_fixtures.m')"
 matlab -batch "run('validation/octave/generate_imaging_fixtures.m')"
+matlab -batch "run('validation/octave/generate_pulse_fixtures.m')"
 ```
 
 Most fixtures can also be generated with Octave by:
@@ -66,6 +67,11 @@ skips matched-probe files when `fmincon` is unavailable.
 | `spin_dynamics.workflows.run_ideal_cpmg_imaging` | `Imaging_demo/imaging_example_ideal.m`, `Sim_CPMG/sim_cpmg_ideal_probe_img.m` | `run_ideal_cpmg_imaging_kspace.csv`, workflow shape, and phase-parallel equality tests | Passed |
 | `spin_dynamics.workflows.run_tuned_cpmg_imaging` | `Sim_CPMG/sim_cpmg_tuned_probe_img.m` | `run_tuned_cpmg_imaging_kspace.csv`, workflow shape, and phase-parallel equality tests | Passed |
 | `spin_dynamics.workflows.run_matched_cpmg_imaging` | `Sim_CPMG/sim_cpmg_matched_probe_img.m` | `run_matched_cpmg_imaging_kspace.csv` and workflow shape tests | Passed |
+| `spin_dynamics.pulses.tuned_rectangular_pulse_response` | `Pulse Shape/tunedPulse.m` | `pulse_tuned_rectangular.csv` | Passed |
+| `spin_dynamics.pulses.untuned_rectangular_pulse_response` | `Pulse Shape/untunedPulse.m` | `pulse_untuned_rectangular.csv` | Passed |
+| `spin_dynamics.pulses.matched_rectangular_pulse_response` | `Pulse Shape/matchedPulse.m` | `pulse_matched_rectangular.csv` | Passed |
+| `spin_dynamics.pulses.quantize_phase` | `opt_pulse/quantize_phase.m` | `pulse_quantize_phase.csv` | Passed |
+| `spin_dynamics.pulses.adjust_untuned_segment_lengths` | `opt_pulse/untuned_pulse_adjust.m` | `pulse_untuned_segment_adjust*.csv` | Passed |
 | `spin_dynamics.workflows.run_tuned_q_sweep` | `CompareQ/sim_tuned_probe_coil_Q.m` | workflow shape and finite-output smoke test | Passed |
 | `spin_dynamics.workflows.run_matched_q_sweep` | `CompareQ/sim_matched_probe_coil_Q.m` | workflow shape and finite-output smoke test | Passed |
 | `spin_dynamics.workflows.run_tuned_mistuning_sweep` | `CompareMistuned/tuned_probe/sim_tuned_probe_mistuned.m` | workflow shape and finite-output smoke test | Passed |
@@ -267,6 +273,17 @@ Validated all three Python imaging workflows against the fixture k-space arrays.
 The matched-probe network design now uses the analytic positive-capacitance
 match solution, and the matched transient solver substeps stiff RF intervals.
 Ran 51 Python unittest comparisons and workflow smoke tests.
+Result: OK
+```
+
+2026-06-11:
+
+```text
+Added fixture-validated pulse-shape utilities for JMR tuned, untuned, and
+matched rectangular pulse responses, phase quantization, and untuned pulse
+segment-length adjustment. The MATLAB pulse fixture generator writes compact
+sampled response arrays and timing metadata.
+Ran 61 Python unittest comparisons and workflow smoke tests.
 Result: OK
 ```
 

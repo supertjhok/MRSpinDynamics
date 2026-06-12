@@ -109,3 +109,19 @@ These functions mirror the original/reference matched-probe CPMG path used by
 `CPMG_Asymp_Examples/MatchedProbeEffects_CPMG_Asymp.m`. The Python port uses
 a NumPy-only Newton solve and fixed-step RK4 probe response so it does not need
 SciPy.
+
+## Pulse Utilities
+
+```python
+from spin_dynamics.pulses import (
+    adjust_untuned_segment_lengths,
+    matched_rectangular_pulse_response,
+    quantize_phase,
+    tuned_rectangular_pulse_response,
+    untuned_rectangular_pulse_response,
+)
+```
+
+These helpers mirror the non-plotting array outputs from `Pulse Shape/*.m` and
+the timing core of `opt_pulse/untuned_pulse_adjust.m`. They are intended as the
+validated pulse layer for later WURST, OCT, and SPA work.

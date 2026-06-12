@@ -27,15 +27,20 @@ Ported and validated:
 - first matched-probe diffusion CPMG workflow and compact diffusion Q sweep;
 - fixture-validated ideal, tuned, and matched CPMG imaging and k-space
   reconstruction;
+- fixture-validated pulse-shape utilities for JMR rectangular pulse responses,
+  phase quantization, and untuned segment adjustment;
 - matched-probe z-magnetization Q sweep workflow;
 - ideal time-varying-field CPMG final-echo and amplitude-sweep workflows;
 - public CPMG workflow runners returning `CPMGResult`.
 
 Not yet ported:
 
-- newer tuned-probe helper variants outside the original/reference path;
-- newer untuned-probe helper variants outside the original/reference path;
-- newer matched-probe helper variants outside the original/reference path;
+- newer tuned-probe helper variants outside the original/reference and JMR
+  rectangular-pulse paths;
+- newer untuned-probe helper variants outside the original/reference and JMR
+  rectangular-pulse paths;
+- newer matched-probe helper variants outside the original/reference and JMR
+  rectangular-pulse paths;
 - inversion-recovery finite-train variants for ideal, tuned, or untuned probes;
 - time-varying-field workflows for tuned, untuned, or matched probes;
 - broad/high-Q diffusion sweep validation and additional diffusion variants;

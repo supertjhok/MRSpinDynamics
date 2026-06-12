@@ -527,6 +527,86 @@ def set_params_tuned_orig(
     return params, sp, pp
 
 
+def set_params_tuned_jmr(
+    numpts: int = 10_000,
+) -> tuple[TunedSystemParameters, TunedPulseParameters]:
+    """Construct JMR-paper tuned-probe parameters.
+
+    Mirrors MATLAB `Params/set_params_tuned_JMR.m`.
+    """
+
+    gamma = 42.577e6 * 2 * np.pi
+    f0 = 0.5e6
+    fin = 0.5e6
+    w0 = 2 * np.pi * fin
+    L = 10e-6
+    Q = 50.0
+    T_90 = 25e-6
+    T_180 = 2 * T_90
+    pre_delay = 75e-6
+    post_delay = 75e-6
+    Vs = 1.0
+    sens = ((np.pi / 2) / T_90) * (2 * w0 * L) / (gamma * Vs)
+
+    sp = TunedSystemParameters(
+        k=1.381e-23,
+        T=300.0,
+        gamma=gamma,
+        f0=f0,
+        fin=fin,
+        w0=w0,
+        L=L,
+        Q=Q,
+        R=2 * np.pi * f0 * L / Q,
+        C=1 / ((2 * np.pi * f0) ** 2 * L),
+        Rs=2.0,
+        Vs=Vs,
+        Rin=1e6,
+        Cin=5e-12,
+        Rd=1e6,
+        NF=1.0,
+        vn=0.5e-9,
+        in_=2e-15,
+        m0=1.0,
+        mth=1.0,
+        numpts=int(numpts),
+        maxoffs=10.0,
+        del_w=np.linspace(-10.0, 10.0, int(numpts)),
+        mf_type=2,
+        plt_tx=0,
+        plt_rx=1,
+        plt_sequence=0,
+        plt_axis=0,
+        plt_mn=0,
+        plt_echo=0,
+        sens=sens,
+    )
+    pp = TunedPulseParameters(
+        w=w0,
+        N=32,
+        T_90=T_90,
+        T_180=T_180,
+        psi=0.0,
+        preDelay=pre_delay,
+        postDelay=post_delay,
+        texc=np.array([T_90], dtype=np.float64),
+        pexc=np.array([np.pi / 2], dtype=np.float64),
+        aexc=np.array([1.0], dtype=np.float64),
+        tcorr=-(2 / np.pi) * T_90,
+        tqs=1e-6,
+        trd=2e-6,
+        tref=np.array([pre_delay, T_180, post_delay], dtype=np.float64),
+        pref=np.array([0.0, 0.0, 0.0], dtype=np.float64),
+        aref=np.array([0.0, 1.0, 0.0], dtype=np.float64),
+        Rsref=np.array([2.0, 2.0, 20.0], dtype=np.float64),
+        pcycle=1,
+        tacq=np.array([3 * T_180], dtype=np.float64),
+        tdw=0.5e-6,
+        amp_zero=1e-4,
+    )
+    return sp, pp
+
+
 def set_params_untuned_orig(
     numpts: int = 10_000,
 ) -> tuple[UntunedOrigParameters, UntunedSystemParameters, UntunedPulseParameters]:
@@ -633,6 +713,93 @@ def set_params_untuned_orig(
     return params, sp, pp
 
 
+def set_params_untuned_jmr(
+    numpts: int = 2000,
+) -> tuple[UntunedSystemParameters, UntunedPulseParameters]:
+    """Construct JMR-paper untuned-probe parameters.
+
+    Mirrors MATLAB `Params/set_params_untuned_JMR.m`.
+    """
+
+    gamma = 2 * np.pi * 42.577e6
+    f0 = 0.5e6
+    fin = 0.5e6
+    w0 = 2 * np.pi * fin
+    L = 10e-6
+    Q = 50.0
+    T_90 = 25e-6
+    T_180 = 2 * T_90
+    Vs = 1.0
+    L1 = 75e-6
+    R1 = 0.26
+    Nrx = 4.0
+    sens = ((np.pi / 2) / T_90) * (2 * w0 * L) / (gamma * Vs)
+
+    sp = UntunedSystemParameters(
+        k=1.381e-23,
+        T=300.0,
+        gamma=gamma,
+        f0=f0,
+        fin=fin,
+        w0=w0,
+        L=L,
+        Q=Q,
+        R=2 * np.pi * f0 * L / Q,
+        C=1 / ((2 * np.pi * 10 * f0) ** 2 * L),
+        Rs=2.0,
+        Vs=Vs,
+        Rin=1e6,
+        Cin=5e-12,
+        Rd=1e6,
+        Rdup=0.2,
+        Nrx=Nrx,
+        krx=0.9996,
+        L1=L1,
+        R1=R1,
+        L2=1250e-6,
+        R2=0.91,
+        NF=1.0,
+        vn=0.45e-9,
+        in_=2e-15,
+        m0=1.0,
+        mth=1.0,
+        numpts=int(numpts),
+        maxoffs=10.0,
+        del_w=np.linspace(-10.0, 10.0, int(numpts)),
+        mf_type=2,
+        plt_tx=0,
+        plt_rx=1,
+        plt_sequence=1,
+        plt_axis=1,
+        plt_mn=1,
+        plt_echo=1,
+        sens=sens,
+    )
+    pp = UntunedPulseParameters(
+        w=w0,
+        N=32,
+        T_90=T_90,
+        T_180=T_180,
+        psi=0.0,
+        preDelay=20e-6,
+        postDelay=50e-6,
+        texc=np.array([T_90], dtype=np.float64),
+        pexc=np.array([np.pi / 2], dtype=np.float64),
+        aexc=np.array([1.0], dtype=np.float64),
+        tcorr=-(2 / np.pi) * T_90,
+        tqs=8e-6,
+        trd=8e-6,
+        tref=np.array([20e-6, T_180, 50e-6], dtype=np.float64),
+        pref=np.array([0.0, 0.0, 0.0], dtype=np.float64),
+        aref=np.array([0.0, 1.0, 0.0], dtype=np.float64),
+        Rsref=np.array([2.0, 2.0, 20.0], dtype=np.float64),
+        tacq=np.array([5 * T_180], dtype=np.float64),
+        tdw=0.5e-6,
+        amp_zero=1e-4,
+    )
+    return sp, pp
+
+
 def set_params_matched_orig(
     numpts: int = 10_000,
 ) -> tuple[MatchedSystemParameters, MatchedPulseParameters]:
@@ -694,6 +861,68 @@ def set_params_matched_orig(
         pref=np.array([0.0, 0.0, 0.0], dtype=np.float64),
         aref=np.array([0.0, 1.0, 0.0], dtype=np.float64),
         tacq=np.array([3 * T_180], dtype=np.float64),
+        tdw=0.5e-6,
+        amp_zero=1e-4,
+    )
+    return sp, pp
+
+
+def set_params_matched_jmr(
+    numpts: int = 2000,
+) -> tuple[MatchedSystemParameters, MatchedPulseParameters]:
+    """Construct JMR-paper matched-probe parameters.
+
+    Mirrors MATLAB `Params/set_params_matched_JMR.m`.
+    """
+
+    f0 = 0.5e6
+    L = 10e-6
+    Q = 50.0
+    T_90 = 25e-6
+    T_180 = 2 * T_90
+    sp = MatchedSystemParameters(
+        k=1.381e-23,
+        T=300.0,
+        gamma=2 * np.pi * 42.6e6,
+        grad=1.0,
+        D=2e-12,
+        f0=f0,
+        fin=f0,
+        L=L,
+        Q=Q,
+        R=2 * np.pi * f0 * L / Q,
+        Rs=50.0,
+        Rin=50.0,
+        NF=1.0,
+        m0=1.0,
+        mth=1.0,
+        numpts=int(numpts),
+        maxoffs=10.0,
+        del_w=np.linspace(-10.0, 10.0, int(numpts)),
+        mf_type=2,
+        plt_tx=0,
+        plt_rx=1,
+        plt_sequence=0,
+        plt_axis=0,
+        plt_mn=0,
+        plt_echo=1,
+    )
+    pp = MatchedPulseParameters(
+        N=32,
+        T_90=T_90,
+        T_180=T_180,
+        psi=0.0,
+        preDelay=20e-6,
+        postDelay=70e-6,
+        texc=np.array([T_90], dtype=np.float64),
+        pexc=np.array([np.pi / 2], dtype=np.float64),
+        aexc=np.array([1.0], dtype=np.float64),
+        tcorr=-(2 / np.pi) * T_90,
+        trd=3 * T_90,
+        tref=np.array([20e-6, T_180, 70e-6], dtype=np.float64),
+        pref=np.array([0.0, 0.0, 0.0], dtype=np.float64),
+        aref=np.array([0.0, 1.0, 0.0], dtype=np.float64),
+        tacq=np.array([5 * T_180], dtype=np.float64),
         tdw=0.5e-6,
         amp_zero=1e-4,
     )

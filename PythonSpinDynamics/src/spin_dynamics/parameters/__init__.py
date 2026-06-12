@@ -15,8 +15,11 @@ from spin_dynamics.parameters.constructors import (
     UntunedSystemParameters,
     set_params_ideal_fid,
     set_params_ideal,
+    set_params_matched_jmr,
     set_params_matched_orig,
+    set_params_tuned_jmr,
     set_params_tuned_orig,
+    set_params_untuned_jmr,
     set_params_untuned_orig,
 )
 
@@ -35,7 +38,10 @@ __all__ = [
     "UntunedSystemParameters",
     "set_params_ideal",
     "set_params_ideal_fid",
+    "set_params_matched_jmr",
     "set_params_matched_orig",
+    "set_params_tuned_jmr",
     "set_params_tuned_orig",
+    "set_params_untuned_jmr",
     "set_params_untuned_orig",
 ]

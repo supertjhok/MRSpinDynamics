@@ -13,7 +13,7 @@
 - The same script can be run from MATLAB or Octave.
 - MATLAB-generated fixtures are used for matched-probe cases that require
   optimization toolbox behavior not available in a stock Octave install.
-- The current Python test suite contains 51 checks against fixtures, public
+- The current Python test suite contains 61 checks against fixtures, public
   workflow result shapes, compatibility helpers, and example smoke paths.
 
 ## Completed Phase 2: Low-Level Numerical Helpers
@@ -144,6 +144,9 @@ their inputs and outputs are small, array-based, and close to NumPy's strengths.
   matched CPMG imaging workflows end to end.
 - `examples/plot_ideal_imaging.py` plots the flower phantom, CPMG k-space, and
   reconstructed image for ideal, tuned, or matched probe models.
+- `spin_dynamics.pulses` provides fixture-validated JMR rectangular pulse
+  responses for tuned, untuned, and matched probes, phase quantization, and the
+  untuned segment-length adjustment used before OCT/SPA pulse work.
 - Port OCT/SPA optimization last; these workflows depend on fast, trusted
   kernels.
 

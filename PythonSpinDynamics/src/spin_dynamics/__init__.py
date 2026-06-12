@@ -3,6 +3,7 @@
 __all__ = [
     "core",
     "parameters",
+    "pulses",
     "probes",
     "sequences",
     "workflows",

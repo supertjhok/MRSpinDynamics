@@ -8,6 +8,7 @@ Generate fixtures from `PythonSpinDynamics`:
 ```powershell
 matlab -batch "run('validation/octave/generate_basic_fixtures.m')"
 matlab -batch "run('validation/octave/generate_imaging_fixtures.m')"
+matlab -batch "run('validation/octave/generate_pulse_fixtures.m')"
 ```
 
 or:
@@ -48,6 +49,8 @@ The current fixture suite checks:
 - matched-probe original/reference matching network and coil current;
 - matched-probe original/reference CPMG asymptotic and received spectra;
 - ideal, tuned, and matched CPMG imaging k-space arrays;
+- JMR rectangular pulse responses, phase quantization, and untuned segment
+  adjustment;
 - NumPy compatibility helpers used by public workflows;
 - example scripts and plot-example command-line interfaces;
 - public CPMG workflow result shapes for ideal, tuned, untuned, and matched

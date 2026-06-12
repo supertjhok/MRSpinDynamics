@@ -32,9 +32,19 @@ from spin_dynamics.core.rotations import (
 from spin_dynamics.parameters import (
     set_params_ideal,
     set_params_ideal_fid,
+    set_params_matched_jmr,
     set_params_matched_orig,
+    set_params_tuned_jmr,
     set_params_tuned_orig,
+    set_params_untuned_jmr,
     set_params_untuned_orig,
+)
+from spin_dynamics.pulses import (
+    adjust_untuned_segment_lengths,
+    matched_rectangular_pulse_response,
+    quantize_phase,
+    tuned_rectangular_pulse_response,
+    untuned_rectangular_pulse_response,
 )
 from spin_dynamics.probes.tuned import (
     calc_masy_tuned_probe_lp_orig,
@@ -456,6 +466,21 @@ class OctaveFixtureTests(unittest.TestCase):
         )
 
         np.testing.assert_allclose(actual, values, rtol=1e-14, atol=1e-14)
+
+    def test_jmr_parameter_constructors_return_expected_defaults(self) -> None:
+        tuned_sp, tuned_pp = set_params_tuned_jmr(numpts=17)
+        untuned_sp, untuned_pp = set_params_untuned_jmr(numpts=17)
+        matched_sp, matched_pp = set_params_matched_jmr(numpts=17)
+
+        self.assertEqual(tuned_sp.numpts, 17)
+        self.assertEqual(untuned_sp.numpts, 17)
+        self.assertEqual(matched_sp.numpts, 17)
+        np.testing.assert_allclose(tuned_pp.tref, [75e-6, 50e-6, 75e-6])
+        np.testing.assert_allclose(untuned_pp.tref, [20e-6, 50e-6, 50e-6])
+        np.testing.assert_allclose(matched_pp.tref, [20e-6, 50e-6, 70e-6])
+        self.assertEqual(tuned_sp.f0, 0.5e6)
+        self.assertEqual(untuned_sp.vn, 0.45e-9)
+        self.assertEqual(matched_sp.Rs, 50.0)
 
     def test_calc_rotation_matrix_matches_octave(self) -> None:
         table = np.loadtxt(FIXTURES / "calc_rotation_matrix.csv", delimiter=",")
@@ -955,6 +980,66 @@ class OctaveFixtureTests(unittest.TestCase):
         np.testing.assert_allclose(masy, masy_ref, rtol=8e-2, atol=2e-2)
         np.testing.assert_allclose(mrx, mrx_ref, rtol=8e-2, atol=2e-2)
         np.testing.assert_allclose(snr, snr_ref, rtol=8e-2, atol=2e-2)
+
+    def test_quantize_phase_matches_matlab(self) -> None:
+        table = np.loadtxt(FIXTURES / "pulse_quantize_phase.csv", delimiter=",")
+        actual = quantize_phase(table[:, 0], num_phases=8)
+        np.testing.assert_allclose(actual, table[:, 1], rtol=1e-14, atol=1e-14)
+
+    def test_untuned_segment_adjustment_matches_matlab(self) -> None:
+        table = np.loadtxt(FIXTURES / "pulse_untuned_segment_adjust.csv", delimiter=",")
+        meta = np.loadtxt(FIXTURES / "pulse_untuned_segment_adjust_meta.csv", delimiter=",")
+
+        result = adjust_untuned_segment_lengths(table[:, 0], table[:, 1], num_phases=8)
+
+        np.testing.assert_allclose(result.segment_lengths, table[:, 2], rtol=1e-14, atol=1e-14)
+        np.testing.assert_allclose(result.phases, table[:, 3], rtol=1e-14, atol=1e-14)
+        np.testing.assert_allclose(result.phase_rotation, meta[0], rtol=1e-14, atol=1e-14)
+        np.testing.assert_allclose(result.clock_period, meta[1], rtol=1e-14, atol=1e-14)
+        np.testing.assert_allclose(result.steady_state_phase, meta[2], rtol=1e-14, atol=1e-14)
+
+    def test_tuned_rectangular_pulse_response_matches_matlab(self) -> None:
+        self._assert_pulse_response_fixture(
+            "pulse_tuned_rectangular",
+            tuned_rectangular_pulse_response(numpts=17),
+            rtol=1e-13,
+            atol=1e-13,
+        )
+
+    def test_untuned_rectangular_pulse_response_matches_matlab(self) -> None:
+        self._assert_pulse_response_fixture(
+            "pulse_untuned_rectangular",
+            untuned_rectangular_pulse_response(numpts=17),
+            rtol=1e-13,
+            atol=1e-13,
+        )
+
+    def test_matched_rectangular_pulse_response_matches_matlab(self) -> None:
+        table = np.loadtxt(FIXTURES / "pulse_matched_rectangular.csv", delimiter=",")
+        result = matched_rectangular_pulse_response(numpts=17)
+        rot_idx = self._fixture_sample_indices(result.rotating_time.size)
+        tf_idx = table[:, 3]
+        tf_idx = tf_idx[np.isfinite(tf_idx)].astype(int) - 1
+
+        np.testing.assert_allclose(result.rotating_time[rot_idx], table[: rot_idx.size, 0], rtol=1e-13, atol=1e-13)
+        np.testing.assert_allclose(
+            result.rotating_current[rot_idx],
+            table[: rot_idx.size, 1] + 1j * table[: rot_idx.size, 2],
+            rtol=7e-3,
+            atol=7e-4,
+        )
+        np.testing.assert_allclose(
+            result.receiver_tf[tf_idx],
+            table[: tf_idx.size, 4] + 1j * table[: tf_idx.size, 5],
+            rtol=2e-6,
+            atol=1e-6,
+        )
+        np.testing.assert_allclose(
+            result.receiver_tf_signal[tf_idx],
+            table[: tf_idx.size, 6] + 1j * table[: tf_idx.size, 7],
+            rtol=2e-6,
+            atol=1e-6,
+        )
 
     def test_cpmg_workflow_result_shapes(self) -> None:
         runners = [
@@ -1507,6 +1592,44 @@ class OctaveFixtureTests(unittest.TestCase):
         )
 
         np.testing.assert_allclose(result.kspace, kspace_ref, rtol=rtol, atol=atol)
+
+    def _assert_pulse_response_fixture(
+        self,
+        fixture_stem: str,
+        result,
+        rtol: float,
+        atol: float,
+    ) -> None:
+        table = np.loadtxt(FIXTURES / f"{fixture_stem}.csv", delimiter=",")
+        rot_idx = self._fixture_sample_indices(result.rotating_time.size)
+        raw_idx = self._fixture_sample_indices(result.raw_time.size)
+        tf_idx = table[:, 6]
+        tf_idx = tf_idx[np.isfinite(tf_idx)].astype(int) - 1
+
+        np.testing.assert_allclose(result.rotating_time[rot_idx], table[: rot_idx.size, 0], rtol=rtol, atol=atol)
+        np.testing.assert_allclose(
+            result.rotating_current[rot_idx],
+            table[: rot_idx.size, 1] + 1j * table[: rot_idx.size, 2],
+            rtol=rtol,
+            atol=atol,
+        )
+        np.testing.assert_allclose(result.raw_time[raw_idx], table[: raw_idx.size, 3], rtol=rtol, atol=atol)
+        np.testing.assert_allclose(
+            result.raw_current[raw_idx],
+            table[: raw_idx.size, 4] + 1j * table[: raw_idx.size, 5],
+            rtol=rtol,
+            atol=atol,
+        )
+        np.testing.assert_allclose(
+            result.receiver_tf[tf_idx],
+            table[: tf_idx.size, 7] + 1j * table[: tf_idx.size, 8],
+            rtol=rtol,
+            atol=atol,
+        )
+
+    @staticmethod
+    def _fixture_sample_indices(size: int) -> np.ndarray:
+        return np.unique(np.rint(np.linspace(1, size, min(8, size))).astype(int)) - 1
 
 
 if __name__ == "__main__":
