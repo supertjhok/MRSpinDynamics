@@ -149,10 +149,10 @@ their inputs and outputs are small, array-based, and close to NumPy's strengths.
   untuned segment-length adjustment used before OCT/SPA pulse work.
 - `spin_dynamics.optimization` provides the fixed SPA refocusing pulse catalog
   and MATLAB-style normalized SNR/FOM metric bookkeeping used by the
-  `SPA_optimization_*` scripts. It also includes non-plotting tuned and
-  untuned arbitrary-refocusing evaluators mirroring
-  `plot_masy_arbref_tuned.m` and `plot_masy_arbref_untuned.m`. The matched
-  evaluator variant and optimizer loops remain MATLAB reference-only.
+  `SPA_optimization_*` scripts. It also includes non-plotting tuned, untuned,
+  and matched arbitrary-refocusing evaluators mirroring the
+  `plot_masy_arbref_*` MATLAB helpers. The optimizer loops remain MATLAB
+  reference-only.
 - Port OCT/SPA optimization last; these workflows depend on fast, trusted
   kernels.
 

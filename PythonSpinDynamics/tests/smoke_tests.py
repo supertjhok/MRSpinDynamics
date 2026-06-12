@@ -23,6 +23,7 @@ FAST_FIXTURE_TESTS = [
     "test_jmr_parameter_constructors_return_expected_defaults",
     "test_tuned_spa_parameter_constructor_matches_matlab_defaults",
     "test_untuned_spa_parameter_constructor_matches_matlab_defaults",
+    "test_matched_spa_parameter_constructor_matches_matlab_defaults",
     "test_quantize_phase_matches_matlab",
     "test_tuned_rectangular_pulse_response_matches_matlab",
     "test_spa_pulse_catalog_matches_matlab",

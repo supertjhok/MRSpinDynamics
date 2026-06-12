@@ -3,8 +3,10 @@
 from spin_dynamics.optimization.spa import (
     SPAMetrics,
     SPAPulse,
+    MatchedRefocusingEvaluation,
     TunedRefocusingEvaluation,
     UntunedRefocusingEvaluation,
+    evaluate_matched_refocusing_pulse,
     evaluate_spa_metrics,
     evaluate_tuned_refocusing_pulse,
     evaluate_untuned_refocusing_pulse,
@@ -15,8 +17,10 @@ from spin_dynamics.optimization.spa import (
 __all__ = [
     "SPAMetrics",
     "SPAPulse",
+    "MatchedRefocusingEvaluation",
     "TunedRefocusingEvaluation",
     "UntunedRefocusingEvaluation",
+    "evaluate_matched_refocusing_pulse",
     "evaluate_spa_metrics",
     "evaluate_tuned_refocusing_pulse",
     "evaluate_untuned_refocusing_pulse",

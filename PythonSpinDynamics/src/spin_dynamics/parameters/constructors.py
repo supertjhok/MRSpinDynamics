@@ -1064,6 +1064,72 @@ def set_params_matched_orig(
     return sp, pp
 
 
+def set_params_matched_spa(
+    numpts: int = 5_000,
+) -> tuple[MatchedSystemParameters, MatchedPulseParameters]:
+    """Construct matched-probe SPA pulse-evaluation parameters.
+
+    Mirrors MATLAB `Params/set_params_matched_SPA.m`.
+    """
+
+    gamma = 2 * np.pi * 42.577e6
+    f0 = 8e6
+    L = 10e-6 * (1e6 / f0)
+    Q = 50.0
+    T_90 = 24e-6
+    T_180 = 2 * T_90
+    pre_delay = 144e-6
+    post_delay = 144e-6
+
+    sp = MatchedSystemParameters(
+        k=1.381e-23,
+        T=300.0,
+        gamma=gamma,
+        grad=1.0,
+        D=2e-12,
+        f0=f0,
+        fin=f0,
+        L=L,
+        Q=Q,
+        R=2 * np.pi * f0 * L / Q,
+        Rs=50.0,
+        Rin=50.0,
+        NF=1.0,
+        m0=1.0,
+        mth=1.0,
+        numpts=int(numpts),
+        maxoffs=10.0,
+        del_w=np.linspace(-10.0, 10.0, int(numpts)),
+        mf_type=2,
+        plt_tx=0,
+        plt_rx=0,
+        plt_sequence=0,
+        plt_axis=0,
+        plt_mn=0,
+        plt_echo=0,
+    )
+    pp = MatchedPulseParameters(
+        N=32,
+        T_90=T_90,
+        T_180=T_180,
+        psi=0.0,
+        preDelay=pre_delay,
+        postDelay=post_delay,
+        texc=np.array([T_90], dtype=np.float64),
+        pexc=np.array([np.pi / 2], dtype=np.float64),
+        aexc=np.array([1.0], dtype=np.float64),
+        tcorr=-(2 / np.pi) * T_90,
+        trd=3 * T_90,
+        tref=np.array([pre_delay, T_180, post_delay], dtype=np.float64),
+        pref=np.array([0.0, 0.0, 0.0], dtype=np.float64),
+        aref=np.array([0.0, 1.0, 0.0], dtype=np.float64),
+        tacq=np.array([4 * T_180], dtype=np.float64),
+        tdw=0.5e-6,
+        amp_zero=1e-4,
+    )
+    return sp, pp
+
+
 def set_params_matched_jmr(
     numpts: int = 2000,
 ) -> tuple[MatchedSystemParameters, MatchedPulseParameters]:

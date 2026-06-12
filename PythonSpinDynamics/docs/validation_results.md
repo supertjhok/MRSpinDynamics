@@ -76,6 +76,7 @@ skips matched-probe files when `fmincon` is unavailable.
 | `spin_dynamics.optimization.evaluate_spa_metrics` | `OCT_Pulse_Examples/SPA_optimization_*.m` metric formulas | direct normalization check | Passed |
 | `spin_dynamics.optimization.evaluate_tuned_refocusing_pulse` | `opt_pulse/plot_masy_arbref_tuned.m` | lower-level tuned asymptotic equivalence and SPA pulse smoke tests | Passed |
 | `spin_dynamics.optimization.evaluate_untuned_refocusing_pulse` | `opt_pulse/plot_masy_arbref_untuned.m` | lower-level untuned asymptotic equivalence and SPA pulse smoke tests | Passed |
+| `spin_dynamics.optimization.evaluate_matched_refocusing_pulse` | `opt_pulse/plot_masy_arbref_matched.m` | lower-level matched asymptotic equivalence and SPA pulse smoke tests | Passed |
 | `spin_dynamics.workflows.run_tuned_q_sweep` | `CompareQ/sim_tuned_probe_coil_Q.m` | workflow shape and finite-output smoke test | Passed |
 | `spin_dynamics.workflows.run_matched_q_sweep` | `CompareQ/sim_matched_probe_coil_Q.m` | workflow shape and finite-output smoke test | Passed |
 | `spin_dynamics.workflows.run_tuned_mistuning_sweep` | `CompareMistuned/tuned_probe/sim_tuned_probe_mistuned.m` | workflow shape and finite-output smoke test | Passed |
