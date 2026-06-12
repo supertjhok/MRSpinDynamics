@@ -39,6 +39,11 @@ from spin_dynamics.parameters import (
     set_params_untuned_jmr,
     set_params_untuned_orig,
 )
+from spin_dynamics.optimization import (
+    evaluate_spa_metrics,
+    rectangular_refocusing_lengths,
+    spa_pulse_list,
+)
 from spin_dynamics.pulses import (
     adjust_untuned_segment_lengths,
     matched_rectangular_pulse_response,
@@ -1040,6 +1045,33 @@ class OctaveFixtureTests(unittest.TestCase):
             rtol=2e-6,
             atol=1e-6,
         )
+
+    def test_spa_pulse_catalog_matches_matlab(self) -> None:
+        pulses = spa_pulse_list()
+        self.assertEqual(len(pulses), 10)
+        self.assertEqual([pulse.phases.size for pulse in pulses], [9, 10, 13, 20, 21, 31, 35, 39, 47, 55])
+        np.testing.assert_allclose(pulses[0].phases / np.pi, [1, 1, 0, 1, 0, 1, 0, 1, 1])
+        np.testing.assert_allclose(pulses[-1].pulse_length_t180, 5.5)
+        np.testing.assert_allclose(rectangular_refocusing_lengths(), [0.6, 0.8, 1.0])
+
+    def test_spa_metrics_match_matlab_normalization(self) -> None:
+        spa_snr = np.linspace(0.7, 1.6, 10)
+        rect_snr = np.array([0.75, 0.9, 1.0])
+        metrics = evaluate_spa_metrics(spa_snr, rect_snr)
+
+        expected_lengths = np.array([0.6, 0.8, 0.9, 1.0, 1.3, 2.0, 2.1, 3.1, 3.5, 3.9, 4.7, 5.5])
+        expected_echo = 6.0 + expected_lengths
+        expected_snr = np.concatenate([rect_snr[:2], spa_snr])
+        expected_fom_time = expected_echo / expected_snr**2 / 7.0
+        expected_fom_energy = expected_echo * expected_lengths / expected_snr**2 / 7.0
+
+        np.testing.assert_allclose(metrics.pulse_length_t180, expected_lengths)
+        np.testing.assert_allclose(metrics.echo_spacing_t180, expected_echo)
+        np.testing.assert_allclose(metrics.snr, expected_snr)
+        np.testing.assert_allclose(metrics.fom_time, expected_fom_time)
+        np.testing.assert_allclose(metrics.fom_energy, expected_fom_energy)
+        self.assertEqual(metrics.labels[0], "rect0.6")
+        self.assertEqual(metrics.labels[-1], "spa10")
 
     def test_cpmg_workflow_result_shapes(self) -> None:
         runners = [

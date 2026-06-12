@@ -29,6 +29,7 @@ Ported and validated:
   reconstruction;
 - fixture-validated pulse-shape utilities for JMR rectangular pulse responses,
   phase quantization, and untuned segment adjustment;
+- SPA refocusing pulse catalog and normalized SNR/FOM metric bookkeeping;
 - matched-probe z-magnetization Q sweep workflow;
 - ideal time-varying-field CPMG final-echo and amplitude-sweep workflows;
 - public CPMG workflow runners returning `CPMGResult`.

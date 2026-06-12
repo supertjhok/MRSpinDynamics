@@ -147,6 +147,10 @@ their inputs and outputs are small, array-based, and close to NumPy's strengths.
 - `spin_dynamics.pulses` provides fixture-validated JMR rectangular pulse
   responses for tuned, untuned, and matched probes, phase quantization, and the
   untuned segment-length adjustment used before OCT/SPA pulse work.
+- `spin_dynamics.optimization` provides the fixed SPA refocusing pulse catalog
+  and MATLAB-style normalized SNR/FOM metric bookkeeping used by the
+  `SPA_optimization_*` scripts. The expensive pulse evaluation and optimizer
+  loops remain MATLAB reference-only.
 - Port OCT/SPA optimization last; these workflows depend on fast, trusted
   kernels.
 

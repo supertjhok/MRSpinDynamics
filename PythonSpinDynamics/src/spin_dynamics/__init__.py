@@ -4,6 +4,7 @@ __all__ = [
     "core",
     "parameters",
     "pulses",
+    "optimization",
     "probes",
     "sequences",
     "workflows",
