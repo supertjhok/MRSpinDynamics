@@ -12,8 +12,9 @@ from dataclasses import dataclass
 import numpy as np
 
 from spin_dynamics.core.echo import calc_time_domain_echo
-from spin_dynamics.parameters import set_params_tuned_spa
+from spin_dynamics.parameters import set_params_tuned_spa, set_params_untuned_spa
 from spin_dynamics.probes.tuned import calc_masy_tuned_probe_lp_orig
+from spin_dynamics.probes.untuned import calc_masy_untuned_probe_lp
 
 
 @dataclass(frozen=True)
@@ -52,6 +53,20 @@ class SPAMetrics:
 @dataclass(frozen=True)
 class TunedRefocusingEvaluation:
     """Non-plotting tuned-probe arbitrary-refocusing-pulse evaluation."""
+
+    del_w: np.ndarray
+    mrx: np.ndarray
+    masy: np.ndarray
+    echo: np.ndarray
+    tvect: np.ndarray
+    snr: float
+    pulse_length_t180: float
+    phases: np.ndarray
+
+
+@dataclass(frozen=True)
+class UntunedRefocusingEvaluation:
+    """Non-plotting untuned-probe arbitrary-refocusing-pulse evaluation."""
 
     del_w: np.ndarray
     mrx: np.ndarray
@@ -140,6 +155,59 @@ def evaluate_tuned_refocusing_pulse(
     mrx, masy, snr = calc_masy_tuned_probe_lp_orig(params, sp, pp)
     echo, tvect = calc_time_domain_echo(mrx, sp.del_w)
     return TunedRefocusingEvaluation(
+        del_w=sp.del_w,
+        mrx=mrx,
+        masy=masy,
+        echo=echo,
+        tvect=tvect,
+        snr=snr,
+        pulse_length_t180=float(segment_fraction) * phase_arr.size,
+        phases=phase_arr,
+    )
+
+
+def evaluate_untuned_refocusing_pulse(
+    phases: np.ndarray | list[float],
+    *,
+    segment_fraction: float = 0.1,
+    numpts: int = 101,
+    excitation_amplitude: float = 6.0,
+) -> UntunedRefocusingEvaluation:
+    """Evaluate a fixed-amplitude untuned-probe refocusing phase program.
+
+    This ports the non-plotting core of MATLAB
+    `opt_pulse/plot_masy_arbref_untuned.m` using the SPA parameter defaults.
+    """
+
+    phase_arr = np.asarray(phases, dtype=np.float64).reshape(-1)
+    if phase_arr.size == 0:
+        raise ValueError("phases must not be empty")
+    if segment_fraction <= 0:
+        raise ValueError("segment_fraction must be positive")
+    if excitation_amplitude <= 0:
+        raise ValueError("excitation_amplitude must be positive")
+
+    params, sp, pp = set_params_untuned_spa(numpts=numpts)
+    texc = pp.T_90 / float(excitation_amplitude)
+    params = params.__class__(
+        **{
+            **params.__dict__,
+            "aexc": np.array([float(excitation_amplitude)], dtype=np.float64),
+            "texc": np.array([texc], dtype=np.float64),
+            "pref": phase_arr,
+            "aref": np.ones(phase_arr.size, dtype=np.float64),
+            "tref": pp.T_180 * float(segment_fraction) * np.ones(
+                phase_arr.size,
+                dtype=np.float64,
+            ),
+        }
+    )
+    pp = pp.__class__(**{**pp.__dict__, "tcorr": -(2 / np.pi) * texc})
+    sp = sp.__class__(**{**sp.__dict__, "plt_axis": 0, "plt_tx": 0, "plt_rx": 0})
+
+    mrx, masy, snr = calc_masy_untuned_probe_lp(params, sp, pp)
+    echo, tvect = calc_time_domain_echo(mrx, sp.del_w)
+    return UntunedRefocusingEvaluation(
         del_w=sp.del_w,
         mrx=mrx,
         masy=masy,

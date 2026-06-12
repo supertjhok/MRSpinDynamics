@@ -237,14 +237,19 @@ components.
 ## Pulse Evaluation
 
 The SPA/OCT bridge currently includes the fixed SPA phase catalog, normalized
-SNR/FOM bookkeeping, and a tuned-probe non-plotting refocusing-pulse evaluator:
+SNR/FOM bookkeeping, and tuned/untuned non-plotting refocusing-pulse evaluators:
 
 ```python
-from spin_dynamics.optimization import evaluate_tuned_refocusing_pulse, spa_pulse_list
+from spin_dynamics.optimization import (
+    evaluate_tuned_refocusing_pulse,
+    evaluate_untuned_refocusing_pulse,
+    spa_pulse_list,
+)
 
 pulse = spa_pulse_list()[0]
-result = evaluate_tuned_refocusing_pulse(pulse.phases, numpts=101)
+tuned = evaluate_tuned_refocusing_pulse(pulse.phases, numpts=101)
+untuned = evaluate_untuned_refocusing_pulse(pulse.phases, numpts=101)
 ```
 
-Untuned and matched evaluator variants are the next porting targets before the
-optimizer loops.
+The matched evaluator variant is the next porting target before the optimizer
+loops.

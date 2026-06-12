@@ -22,6 +22,7 @@ from spin_dynamics.parameters.constructors import (
     set_params_tuned_spa,
     set_params_untuned_jmr,
     set_params_untuned_orig,
+    set_params_untuned_spa,
 )
 
 __all__ = [
@@ -46,4 +47,5 @@ __all__ = [
     "set_params_tuned_spa",
     "set_params_untuned_jmr",
     "set_params_untuned_orig",
+    "set_params_untuned_spa",
 ]
