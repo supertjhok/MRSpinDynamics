@@ -39,6 +39,7 @@ def _case(q_value: float, args: argparse.Namespace) -> dict[str, str | float | i
                 numpts=args.numpts,
                 apply_receiver=args.apply_receiver,
                 num_workers=args.workers,
+                q_stability_action="ignore",
             )
         except Exception as exc:  # noqa: BLE001
             return {

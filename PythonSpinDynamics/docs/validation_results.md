@@ -246,6 +246,8 @@ For a 17-offset, 2-echo smoke case, Q values 20-100 remained finite and
 Q >= 200 produced non-finite transient outputs with RuntimeWarnings.
 Added a least-squares fallback for singular matching-network Newton steps so
 extreme-Q cases are recorded as transient failures rather than design failures.
+The public matched-diffusion workflow exposes the finite-through-Q=100
+solver-validation boundary through a warning/raise helper.
 Ran 48 Python unittest comparisons, workflow smoke tests, and example smoke tests.
 Result: OK
 Detailed results are in benchmarks/README.md and benchmarks/results/.

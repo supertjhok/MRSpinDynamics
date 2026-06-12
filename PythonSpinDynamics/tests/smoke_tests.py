@@ -26,6 +26,7 @@ FAST_FIXTURE_TESTS = [
     "test_spa_pulse_catalog_matches_matlab",
     "test_ideal_time_varying_cpmg_final_returns_expected_shapes",
     "test_matched_cpmg_ir_train_returns_expected_shapes",
+    "test_matched_diffusion_q_stability_boundary",
 ]
 
 FAST_EXAMPLE_TESTS = [

@@ -6,6 +6,7 @@ from collections.abc import Iterable, Mapping
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any
+import warnings
 
 import numpy as np
 
@@ -19,6 +20,9 @@ from spin_dynamics.parameters import set_params_matched_orig
 from spin_dynamics.probes.matched import matching_network_design2
 from spin_dynamics.workflows.acquisition import _apply_receiver, _as_vector, _field
 from spin_dynamics.workflows.cpmg import _calc_matched_pulse_shape, _echo_train_from_spectra
+
+
+VALIDATED_MATCHED_DIFFUSION_Q_MAX = 100.0
 
 
 @dataclass(frozen=True)
@@ -56,6 +60,36 @@ class MatchedDiffusionQSweepResult:
     dz: float
     probe: str
     sweep: str
+
+
+def check_matched_diffusion_q_stability(
+    q_value: float,
+    *,
+    action: str = "warn",
+) -> bool:
+    """Check the compact matched-diffusion Q validation boundary.
+
+    Benchmarks of the current NumPy fixed-step matched transient solver remain
+    finite through Q=100 and become unstable for Q>=200 in the compact
+    validation case. This helper exposes that solver-validation boundary without
+    treating it as a physical limit.
+    """
+
+    if q_value <= VALIDATED_MATCHED_DIFFUSION_Q_MAX:
+        return True
+    message = (
+        "matched diffusion CPMG is only solver-validated through "
+        f"Q={VALIDATED_MATCHED_DIFFUSION_Q_MAX:g}; higher-Q cases may become "
+        "non-finite with the current fixed-step matched transient solver"
+    )
+    if action == "ignore":
+        return False
+    if action == "warn":
+        warnings.warn(message, RuntimeWarning, stacklevel=2)
+        return False
+    if action == "raise":
+        raise RuntimeError(message)
+    raise ValueError("action must be 'ignore', 'warn', or 'raise'")
 
 
 def calc_macq_matched_probe_relax_diffusion(
@@ -115,6 +149,7 @@ def run_matched_diffusion_cpmg(
     numpts: int = 101,
     apply_receiver: bool = False,
     num_workers: int | None = 1,
+    q_stability_action: str = "warn",
 ) -> MatchedDiffusionCPMGResult:
     """Run a compact matched-probe diffusion-aware CPMG train.
 
@@ -133,6 +168,7 @@ def run_matched_diffusion_cpmg(
         raise ValueError("dz and t90_seconds must be positive; diffusion_time must be non-negative")
     if q_value <= 0:
         raise ValueError("q_value must be positive")
+    check_matched_diffusion_q_stability(q_value, action=q_stability_action)
 
     sp0, pp0 = set_params_matched_orig(numpts=numpts)
     pp0 = pp0.__class__(
@@ -282,6 +318,7 @@ def run_matched_diffusion_q_sweep(
     numpts: int = 101,
     num_workers: int | None = 1,
     sweep_workers: int | None = 1,
+    q_stability_action: str = "warn",
 ) -> MatchedDiffusionQSweepResult:
     """Sweep matched-probe Q for the compact diffusion CPMG workflow."""
 
@@ -298,6 +335,7 @@ def run_matched_diffusion_q_sweep(
             numpts=numpts,
             apply_receiver=False,
             num_workers=num_workers,
+            q_stability_action=q_stability_action,
         )
 
     workers = 1 if sweep_workers is None else int(sweep_workers)

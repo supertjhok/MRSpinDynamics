@@ -97,6 +97,8 @@ from spin_dynamics.workflows import (
     run_untuned_cpmg_train,
     run_untuned_finite_mistuning_sweep,
     run_untuned_finite_q_sweep,
+    VALIDATED_MATCHED_DIFFUSION_Q_MAX,
+    check_matched_diffusion_q_stability,
     sinusoidal_field_waveform,
 )
 from spin_dynamics.workflows.fid import sim_fid_ideal
@@ -1384,6 +1386,13 @@ class OctaveFixtureTests(unittest.TestCase):
         self.assertEqual(result.echo.shape[1], result.tvect.size)
         self.assertEqual(result.echo_integrals.shape, (2,))
         self.assertTrue(np.all(np.isfinite(result.echo_integrals)))
+
+    def test_matched_diffusion_q_stability_boundary(self) -> None:
+        self.assertTrue(check_matched_diffusion_q_stability(VALIDATED_MATCHED_DIFFUSION_Q_MAX))
+        with self.assertWarns(RuntimeWarning):
+            self.assertFalse(check_matched_diffusion_q_stability(200))
+        with self.assertRaises(RuntimeError):
+            check_matched_diffusion_q_stability(200, action="raise")
 
     def test_matched_diffusion_q_sweep_parallel_matches_serial(self) -> None:
         serial = run_matched_diffusion_q_sweep(

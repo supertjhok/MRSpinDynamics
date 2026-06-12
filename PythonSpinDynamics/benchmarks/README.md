@@ -93,6 +93,11 @@ to a least-squares step if the finite-difference Jacobian is singular, so the
 validation script records high-Q transient instability instead of aborting at
 network design.
 
+The public workflow exposes this as a solver-validation boundary through
+`check_matched_diffusion_q_stability`. Calls above Q=100 warn by default, can
+raise with `q_stability_action="raise"`, or can bypass the early warning with
+`q_stability_action="ignore"` for exploratory benchmark sweeps.
+
 These results are a solver-validation boundary, not a physics conclusion. The
 current pure-Python matched transient calculation uses fixed-step RK4, while
 the MATLAB reference uses adaptive ODE tooling. Broad or very high-Q diffusion
