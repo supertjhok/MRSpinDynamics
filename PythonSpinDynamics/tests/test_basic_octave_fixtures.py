@@ -36,10 +36,12 @@ from spin_dynamics.parameters import (
     set_params_matched_orig,
     set_params_tuned_jmr,
     set_params_tuned_orig,
+    set_params_tuned_spa,
     set_params_untuned_jmr,
     set_params_untuned_orig,
 )
 from spin_dynamics.optimization import (
+    evaluate_tuned_refocusing_pulse,
     evaluate_spa_metrics,
     rectangular_refocusing_lengths,
     spa_pulse_list,
@@ -488,6 +490,21 @@ class OctaveFixtureTests(unittest.TestCase):
         self.assertEqual(tuned_sp.f0, 0.5e6)
         self.assertEqual(untuned_sp.vn, 0.45e-9)
         self.assertEqual(matched_sp.Rs, 50.0)
+
+    def test_tuned_spa_parameter_constructor_matches_matlab_defaults(self) -> None:
+        params, sp, pp = set_params_tuned_spa(numpts=17)
+
+        self.assertEqual(sp.numpts, 17)
+        self.assertEqual(sp.f0, 8e6)
+        self.assertEqual(sp.fin, 8e6)
+        self.assertEqual(sp.Q, 50.0)
+        np.testing.assert_allclose(sp.L, 10e-6 * (1e6 / 8e6))
+        np.testing.assert_allclose(pp.T_90, 24e-6)
+        np.testing.assert_allclose(pp.preDelay, 144e-6)
+        np.testing.assert_allclose(pp.postDelay, 144e-6)
+        np.testing.assert_allclose(pp.tacq, [4 * pp.T_180])
+        np.testing.assert_allclose(params.tfp, pp.preDelay)
+        np.testing.assert_allclose(params.Rs, [2.0, 2.0, 20.0])
 
     def test_calc_rotation_matrix_matches_octave(self) -> None:
         table = np.loadtxt(FIXTURES / "calc_rotation_matrix.csv", delimiter=",")
@@ -1074,6 +1091,44 @@ class OctaveFixtureTests(unittest.TestCase):
         np.testing.assert_allclose(metrics.fom_energy, expected_fom_energy)
         self.assertEqual(metrics.labels[0], "rect0.6")
         self.assertEqual(metrics.labels[-1], "spa10")
+
+    def test_tuned_refocusing_evaluation_matches_lower_level_call(self) -> None:
+        result = evaluate_tuned_refocusing_pulse(np.zeros(6), numpts=17)
+        params, sp, pp = set_params_tuned_spa(numpts=17)
+        texc = pp.T_90 / 6.0
+        params = params.__class__(
+            **{
+                **params.__dict__,
+                "aexc": np.array([6.0], dtype=np.float64),
+                "texc": np.array([texc], dtype=np.float64),
+                "pref": np.zeros(6),
+                "aref": np.ones(6),
+                "tref": pp.T_180 * 0.1 * np.ones(6),
+            }
+        )
+        pp = pp.__class__(**{**pp.__dict__, "tcorr": -(2 / np.pi) * texc})
+        expected_mrx, expected_masy, expected_snr = calc_masy_tuned_probe_lp_orig(
+            params,
+            sp,
+            pp,
+        )
+
+        np.testing.assert_allclose(result.del_w, sp.del_w)
+        np.testing.assert_allclose(result.mrx, expected_mrx, rtol=1e-13, atol=1e-13)
+        np.testing.assert_allclose(result.masy, expected_masy, rtol=1e-13, atol=1e-13)
+        np.testing.assert_allclose(result.snr, expected_snr, rtol=1e-13, atol=1e-13)
+        np.testing.assert_allclose(result.pulse_length_t180, 0.6)
+        self.assertEqual(result.echo.shape, result.tvect.shape)
+
+    def test_tuned_refocusing_evaluation_accepts_spa_catalog_pulse(self) -> None:
+        pulse = spa_pulse_list()[0]
+        result = evaluate_tuned_refocusing_pulse(pulse.phases, numpts=17)
+
+        self.assertEqual(result.mrx.shape, (17,))
+        self.assertEqual(result.masy.shape, (17,))
+        self.assertTrue(np.isfinite(result.snr))
+        self.assertGreater(result.snr, 0)
+        np.testing.assert_allclose(result.pulse_length_t180, pulse.pulse_length_t180)
 
     def test_cpmg_workflow_result_shapes(self) -> None:
         runners = [

@@ -233,3 +233,18 @@ python examples\plot_probe_cpmg.py --numpts 101 --output results\probe_cpmg.png
 The probe comparison plot shows asymptotic magnetization magnitude by default;
 use `--masy-component real`, `imag`, or `phase` to inspect phase-sensitive
 components.
+
+## Pulse Evaluation
+
+The SPA/OCT bridge currently includes the fixed SPA phase catalog, normalized
+SNR/FOM bookkeeping, and a tuned-probe non-plotting refocusing-pulse evaluator:
+
+```python
+from spin_dynamics.optimization import evaluate_tuned_refocusing_pulse, spa_pulse_list
+
+pulse = spa_pulse_list()[0]
+result = evaluate_tuned_refocusing_pulse(pulse.phases, numpts=101)
+```
+
+Untuned and matched evaluator variants are the next porting targets before the
+optimizer loops.

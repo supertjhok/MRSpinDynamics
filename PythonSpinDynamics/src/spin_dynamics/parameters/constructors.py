@@ -527,6 +527,100 @@ def set_params_tuned_orig(
     return params, sp, pp
 
 
+def set_params_tuned_spa(
+    numpts: int = 5_000,
+) -> tuple[TunedOrigParameters, TunedSystemParameters, TunedPulseParameters]:
+    """Construct tuned-probe SPA pulse-evaluation parameters.
+
+    Mirrors MATLAB `Params/set_params_tuned_SPA.m`.
+    """
+
+    gamma = 2 * np.pi * 42.577e6
+    f0 = 8e6
+    fin = 8e6
+    w0 = 2 * np.pi * fin
+    L = 10e-6 * (1e6 / f0)
+    Q = 50.0
+    T_90 = 24e-6
+    T_180 = 2 * T_90
+    pre_delay = 144e-6
+    post_delay = 144e-6
+    Vs = 1.0
+    sens = ((np.pi / 2) / T_90) * (2 * w0 * L) / (gamma * Vs)
+
+    sp = TunedSystemParameters(
+        k=1.381e-23,
+        T=300.0,
+        gamma=gamma,
+        f0=f0,
+        fin=fin,
+        w0=w0,
+        L=L,
+        Q=Q,
+        R=2 * np.pi * f0 * L / Q,
+        C=1 / ((2 * np.pi * f0) ** 2 * L),
+        Rs=1.0,
+        Vs=Vs,
+        Rin=1e6,
+        Cin=5e-12,
+        Rd=1e6,
+        NF=1.0,
+        vn=0.5e-9,
+        in_=2e-15,
+        m0=1.0,
+        mth=1.0,
+        numpts=int(numpts),
+        maxoffs=10.0,
+        del_w=np.linspace(-10.0, 10.0, int(numpts)),
+        mf_type=2,
+        plt_tx=1,
+        plt_rx=0,
+        plt_sequence=0,
+        plt_axis=0,
+        plt_mn=0,
+        plt_echo=1,
+        sens=sens,
+    )
+    pp = TunedPulseParameters(
+        w=w0,
+        N=32,
+        T_90=T_90,
+        T_180=T_180,
+        psi=0.0,
+        preDelay=pre_delay,
+        postDelay=post_delay,
+        texc=np.array([T_90], dtype=np.float64),
+        pexc=np.array([np.pi / 2], dtype=np.float64),
+        aexc=np.array([1.0], dtype=np.float64),
+        tcorr=-(2 / np.pi) * T_90,
+        tqs=8e-6,
+        trd=8e-6,
+        tref=np.array([pre_delay, T_180, post_delay], dtype=np.float64),
+        pref=np.array([0.0, 0.0, 0.0], dtype=np.float64),
+        aref=np.array([0.0, 1.0, 0.0], dtype=np.float64),
+        Rsref=np.array([2.0, 2.0, 20.0], dtype=np.float64),
+        pcycle=1,
+        tacq=np.array([4 * T_180], dtype=np.float64),
+        tdw=0.5e-6,
+        amp_zero=1e-4,
+    )
+    params = TunedOrigParameters(
+        texc=pp.texc,
+        pexc=pp.pexc,
+        aexc=pp.aexc,
+        trd=pp.trd,
+        tref=np.array([pp.tref[1]], dtype=np.float64),
+        pref=np.array([pp.pref[1]], dtype=np.float64),
+        aref=np.array([pp.aref[1]], dtype=np.float64),
+        tfp=pp.preDelay,
+        tqs=pp.tqs,
+        tacq=pp.tacq,
+        Rs=np.array([pp.Rsref[0], pp.Rsref[1], pp.Rsref[2]], dtype=np.float64),
+        pcycle=1,
+    )
+    return params, sp, pp
+
+
 def set_params_tuned_jmr(
     numpts: int = 10_000,
 ) -> tuple[TunedSystemParameters, TunedPulseParameters]:
