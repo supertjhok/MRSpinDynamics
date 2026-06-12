@@ -103,6 +103,24 @@ python -m pip install -e .
 
 Use the bundled Codex Python executable explicitly if `python` is not on PATH.
 
+## Tests
+
+Run the fast smoke tier during normal edit loops:
+
+```powershell
+python -m unittest tests.smoke_tests
+```
+
+Run the full validation suite before committing numerical or workflow changes:
+
+```powershell
+python -m unittest discover -s tests
+```
+
+On Codex desktop workspaces where `python` resolves to the Microsoft Store
+shim, use the bundled Python runtime path reported by the workspace dependency
+tool instead.
+
 Run a small ideal FID workflow similarly:
 
 ```powershell
