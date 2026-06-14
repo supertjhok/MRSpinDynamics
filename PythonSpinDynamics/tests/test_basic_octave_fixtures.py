@@ -4,6 +4,8 @@ import unittest
 from pathlib import Path
 import sys
 from dataclasses import replace
+import importlib.util
+from types import SimpleNamespace
 
 import numpy as np
 
@@ -43,12 +45,23 @@ from spin_dynamics.parameters import (
     set_params_untuned_spa,
 )
 from spin_dynamics.optimization import (
+    evaluate_tuned_excitation_pulse,
+    evaluate_tuned_inverse_excitation_pulse,
     evaluate_matched_refocusing_pulse,
     evaluate_tuned_refocusing_pulse,
     evaluate_untuned_refocusing_pulse,
     evaluate_spa_metrics,
+    optimize_matched_refocusing_phases,
     optimize_spa_phase_program,
+    optimize_tuned_excitation_phases,
+    optimize_tuned_inverse_excitation_phases,
+    optimize_tuned_refocusing_phases,
+    optimize_untuned_refocusing_phases,
+    random_phase_starts,
     rectangular_refocusing_lengths,
+    run_tuned_excitation_multistart,
+    run_tuned_inverse_excitation_multistart,
+    run_tuned_refocusing_multistart,
     spa_pulse_list,
     summarize_matched_spa_refocusing,
     summarize_tuned_spa_refocusing,
@@ -61,6 +74,9 @@ from spin_dynamics.pulses import (
     tuned_rectangular_pulse_response,
     untuned_rectangular_pulse_response,
 )
+import spin_dynamics.optimization.drivers as driver_module
+import spin_dynamics.optimization.excitation as excitation_module
+import spin_dynamics.optimization.refocusing as refocusing_module
 from spin_dynamics.probes.tuned import (
     calc_masy_tuned_probe_lp_orig,
     tuned_probe_lp_orig,
@@ -1294,6 +1310,580 @@ class OctaveFixtureTests(unittest.TestCase):
         self.assertGreater(result.best_score, result.history_scores[0])
         self.assertTrue(result.improved)
         self.assertGreater(result.iterations, 0)
+
+    def test_tuned_refocusing_phase_optimizer_runs_small_search(self) -> None:
+        initial = np.array([0.0, 0.35])
+        result = optimize_tuned_refocusing_phases(
+            initial,
+            numpts=7,
+            initial_step=0.2,
+            max_passes=1,
+            optimizer="pattern",
+        )
+
+        self.assertEqual(result.probe, "tuned")
+        self.assertEqual(result.optimizer_method, "pattern")
+        self.assertTrue(result.optimizer_success)
+        self.assertEqual(result.best_phases.shape, initial.shape)
+        self.assertEqual(result.best_evaluation.phases.shape, initial.shape)
+        self.assertGreaterEqual(result.best_score, result.initial_score)
+        self.assertEqual(result.history_scores.size, result.iterations + 1)
+        self.assertGreater(result.iterations, 0)
+        self.assertTrue(np.all(np.isfinite(result.history_scores)))
+        np.testing.assert_allclose(result.best_score, result.best_evaluation.snr)
+
+    def test_untuned_refocusing_phase_optimizer_respects_bounds(self) -> None:
+        result = optimize_untuned_refocusing_phases(
+            [-10.0, 10.0],
+            numpts=7,
+            bounds=(-0.5, 0.5),
+            initial_step=0.2,
+            max_passes=1,
+            optimizer="pattern",
+        )
+
+        self.assertEqual(result.probe, "untuned")
+        self.assertEqual(result.optimizer_method, "pattern")
+        self.assertGreaterEqual(result.best_score, result.initial_score)
+        self.assertTrue(np.all(result.best_phases >= -0.5))
+        self.assertTrue(np.all(result.best_phases <= 0.5))
+        np.testing.assert_allclose(result.bounds, (-0.5, 0.5))
+
+    def test_matched_refocusing_phase_optimizer_runs_tiny_search(self) -> None:
+        original = refocusing_module.evaluate_matched_refocusing_pulse
+
+        def fake_evaluator(phases: np.ndarray, **kwargs: object) -> SimpleNamespace:
+            phase_arr = np.asarray(phases, dtype=np.float64)
+            return SimpleNamespace(
+                phases=phase_arr,
+                snr=1.0 - float(np.sum((phase_arr - 0.1) ** 2)),
+            )
+
+        refocusing_module.evaluate_matched_refocusing_pulse = fake_evaluator
+        try:
+            result = optimize_matched_refocusing_phases(
+                [0.0],
+                numpts=5,
+                initial_step=0.1,
+                max_passes=1,
+                optimizer="pattern",
+            )
+        finally:
+            refocusing_module.evaluate_matched_refocusing_pulse = original
+
+        self.assertEqual(result.probe, "matched")
+        self.assertEqual(result.optimizer_method, "pattern")
+        self.assertEqual(result.best_phases.shape, (1,))
+        self.assertEqual(result.best_evaluation.phases.shape, (1,))
+        self.assertGreaterEqual(result.best_score, result.initial_score)
+        self.assertEqual(result.history_scores.size, result.iterations + 1)
+        self.assertGreater(result.iterations, 0)
+        self.assertTrue(np.all(np.isfinite(result.history_scores)))
+        np.testing.assert_allclose(result.best_score, result.best_evaluation.snr)
+
+    def test_tuned_excitation_evaluation_returns_finite_snr(self) -> None:
+        del_w = np.linspace(-10.0, 10.0, 7)
+        neff = calc_rot_axis_arba3(np.array([np.pi]), np.array([0.0]), np.ones(1), del_w)
+        result = evaluate_tuned_excitation_pulse([0.0], neff, numpts=7)
+
+        self.assertEqual(result.del_w.shape, (7,))
+        self.assertEqual(result.mrx.shape, (7,))
+        self.assertEqual(result.masy.shape, (7,))
+        self.assertEqual(result.phases.shape, (1,))
+        self.assertEqual(result.echo.shape, result.tvect.shape)
+        self.assertTrue(np.isfinite(result.snr))
+        np.testing.assert_allclose(result.pulse_length_t180, 0.1)
+        np.testing.assert_allclose(result.neff, neff)
+
+    def test_tuned_excitation_phase_shift_matches_matlab_fixture(self) -> None:
+        table = np.loadtxt(
+            FIXTURES / "optimization_tuned_excitation_phase_shift.csv",
+            delimiter=",",
+        )
+        del_w = table[:, 0]
+        neff = calc_rot_axis_arba3(np.array([np.pi]), np.array([0.0]), np.ones(1), del_w)
+        phases = np.array([0.2, 1.1, 2.4])
+        shifted_phases = np.mod(phases + np.pi, 2 * np.pi)
+
+        result = evaluate_tuned_excitation_pulse(phases, neff, numpts=del_w.size)
+        shifted = evaluate_tuned_excitation_pulse(
+            shifted_phases,
+            neff,
+            numpts=del_w.size,
+        )
+        mrx_ref = table[:, 3] + 1j * table[:, 4]
+        shifted_mrx_ref = table[:, 7] + 1j * table[:, 8]
+
+        np.testing.assert_allclose(result.del_w, del_w)
+        np.testing.assert_allclose(
+            result.masy,
+            table[:, 1] + 1j * table[:, 2],
+            rtol=1e-13,
+            atol=1e-13,
+        )
+        np.testing.assert_allclose(result.mrx, mrx_ref, rtol=1e-13, atol=1e-13)
+        np.testing.assert_allclose(result.snr, table[0, 9], rtol=1e-14, atol=1e-14)
+        np.testing.assert_allclose(
+            shifted.masy,
+            table[:, 5] + 1j * table[:, 6],
+            rtol=1e-13,
+            atol=1e-13,
+        )
+        np.testing.assert_allclose(
+            shifted.mrx,
+            shifted_mrx_ref,
+            rtol=1e-13,
+            atol=1e-13,
+        )
+        np.testing.assert_allclose(shifted.snr, table[0, 10], rtol=1e-14, atol=1e-14)
+        residual_ratio = trapezoid(np.abs(result.mrx + shifted.mrx), del_w)
+        residual_ratio /= trapezoid(np.abs(result.mrx), del_w)
+        self.assertGreater(residual_ratio, 1.0)
+
+    def test_tuned_excitation_optimizer_matches_compact_matlab_result(self) -> None:
+        table = np.loadtxt(
+            FIXTURES / "optimization_tuned_excitation_result.csv",
+            delimiter=",",
+        )
+        del_w = np.linspace(-10.0, 10.0, 9)
+        neff = calc_rot_axis_arba3(np.array([np.pi]), np.array([0.0]), np.ones(1), del_w)
+        initial_phases = table[0, 2:]
+        matlab_best_phases = table[1, 2:]
+
+        initial_eval = evaluate_tuned_excitation_pulse(
+            initial_phases,
+            neff,
+            numpts=del_w.size,
+        )
+        matlab_best_eval = evaluate_tuned_excitation_pulse(
+            matlab_best_phases,
+            neff,
+            numpts=del_w.size,
+        )
+        result = optimize_tuned_excitation_phases(
+            initial_phases,
+            neff,
+            numpts=del_w.size,
+            optimizer="pattern",
+            max_passes=8,
+        )
+
+        np.testing.assert_allclose(initial_eval.snr, table[0, 1], rtol=1e-13, atol=1e-13)
+        np.testing.assert_allclose(
+            matlab_best_eval.snr,
+            table[1, 1],
+            rtol=1e-13,
+            atol=1e-13,
+        )
+        self.assertGreater(matlab_best_eval.snr, initial_eval.snr)
+        self.assertGreater(result.best_score, result.initial_score)
+        self.assertGreaterEqual(result.best_score, table[1, 1] - 2e-4)
+
+    def test_tuned_inverse_optimizer_matches_compact_matlab_objective(self) -> None:
+        exc_table = np.loadtxt(
+            FIXTURES / "optimization_tuned_excitation_result.csv",
+            delimiter=",",
+        )
+        inv_table = np.loadtxt(
+            FIXTURES / "optimization_tuned_inverse_result.csv",
+            delimiter=",",
+        )
+        del_w = np.linspace(-10.0, 10.0, 9)
+        neff = calc_rot_axis_arba3(np.array([np.pi]), np.array([0.0]), np.ones(1), del_w)
+        target = evaluate_tuned_excitation_pulse(
+            exc_table[1, 2:],
+            neff,
+            numpts=del_w.size,
+        )
+        initial_phases = inv_table[0, 4:]
+        matlab_best_phases = inv_table[1, 4:]
+
+        initial_eval = evaluate_tuned_inverse_excitation_pulse(
+            initial_phases,
+            neff,
+            target.mrx,
+            target.snr,
+            numpts=del_w.size,
+        )
+        matlab_best_eval = evaluate_tuned_inverse_excitation_pulse(
+            matlab_best_phases,
+            neff,
+            target.mrx,
+            target.snr,
+            numpts=del_w.size,
+        )
+        result = optimize_tuned_inverse_excitation_phases(
+            initial_phases,
+            neff,
+            target.mrx,
+            target.snr,
+            numpts=del_w.size,
+            optimizer="pattern",
+            max_passes=8,
+        )
+
+        initial_ratio = trapezoid(np.abs(target.mrx + initial_eval.excitation.mrx), del_w)
+        initial_ratio /= trapezoid(np.abs(target.mrx), del_w)
+        matlab_best_ratio = trapezoid(
+            np.abs(target.mrx + matlab_best_eval.excitation.mrx),
+            del_w,
+        )
+        matlab_best_ratio /= trapezoid(np.abs(target.mrx), del_w)
+
+        np.testing.assert_allclose(
+            initial_eval.mismatch,
+            inv_table[0, 1],
+            rtol=1e-13,
+            atol=1e-13,
+        )
+        np.testing.assert_allclose(initial_ratio, inv_table[0, 2], rtol=1e-13, atol=1e-13)
+        np.testing.assert_allclose(
+            matlab_best_eval.mismatch,
+            inv_table[1, 1],
+            rtol=1e-13,
+            atol=1e-13,
+        )
+        np.testing.assert_allclose(
+            matlab_best_ratio,
+            inv_table[1, 2],
+            rtol=1e-13,
+            atol=1e-13,
+        )
+        self.assertLess(matlab_best_eval.mismatch, initial_eval.mismatch)
+        self.assertLess(result.best_evaluation.mismatch, initial_eval.mismatch)
+        self.assertLessEqual(result.best_evaluation.mismatch, inv_table[1, 1] + 2e-3)
+
+    def test_tuned_inverse_excitation_evaluation_matches_objective(self) -> None:
+        del_w = np.linspace(-10.0, 10.0, 7)
+        neff = calc_rot_axis_arba3(np.array([np.pi]), np.array([0.0]), np.ones(1), del_w)
+        target = evaluate_tuned_excitation_pulse([0.0], neff, numpts=7)
+        result = evaluate_tuned_inverse_excitation_pulse(
+            [np.pi],
+            neff,
+            target.mrx,
+            target.snr,
+            numpts=7,
+        )
+        expected = trapezoid(np.abs(target.mrx + result.excitation.mrx), result.excitation.del_w)
+        expected += 0.8 * abs(result.snr - target.snr)
+
+        self.assertEqual(result.phases.shape, (1,))
+        self.assertEqual(result.target_mrx.shape, (7,))
+        self.assertTrue(np.isfinite(result.mismatch))
+        np.testing.assert_allclose(result.mismatch, expected)
+        np.testing.assert_allclose(result.neff, neff)
+
+    def test_tuned_excitation_phase_optimizer_runs_small_search(self) -> None:
+        original = excitation_module.evaluate_tuned_excitation_pulse
+
+        def fake_evaluator(
+            phases: np.ndarray,
+            neff: np.ndarray,
+            **kwargs: object,
+        ) -> SimpleNamespace:
+            phase_arr = np.asarray(phases, dtype=np.float64)
+            return SimpleNamespace(
+                phases=phase_arr,
+                neff=np.asarray(neff, dtype=np.complex128),
+                snr=1.0 - float(np.sum((phase_arr - 0.2) ** 2)),
+            )
+
+        excitation_module.evaluate_tuned_excitation_pulse = fake_evaluator
+        try:
+            neff = np.zeros((3, 5), dtype=np.float64)
+            neff[0, :] = 1.0
+            result = optimize_tuned_excitation_phases(
+                [0.0],
+                neff,
+                numpts=5,
+                initial_step=0.2,
+                max_passes=1,
+                optimizer="pattern",
+            )
+        finally:
+            excitation_module.evaluate_tuned_excitation_pulse = original
+
+        self.assertEqual(result.probe, "tuned")
+        self.assertEqual(result.optimizer_method, "pattern")
+        self.assertEqual(result.best_phases.shape, (1,))
+        self.assertEqual(result.best_evaluation.phases.shape, (1,))
+        self.assertGreaterEqual(result.best_score, result.initial_score)
+        self.assertEqual(result.history_scores.size, result.iterations + 1)
+        self.assertGreater(result.iterations, 0)
+        self.assertTrue(np.all(np.isfinite(result.history_scores)))
+        np.testing.assert_allclose(result.best_score, result.best_evaluation.snr)
+
+    def test_tuned_inverse_excitation_optimizer_runs_small_search(self) -> None:
+        original = excitation_module.evaluate_tuned_inverse_excitation_pulse
+
+        def fake_evaluator(
+            phases: np.ndarray,
+            neff: np.ndarray,
+            target_mrx: np.ndarray,
+            target_snr: float,
+            **kwargs: object,
+        ) -> SimpleNamespace:
+            phase_arr = np.asarray(phases, dtype=np.float64)
+            return SimpleNamespace(
+                phases=phase_arr,
+                neff=np.asarray(neff, dtype=np.complex128),
+                target_mrx=np.asarray(target_mrx, dtype=np.complex128),
+                target_snr=float(target_snr),
+                snr=1.0,
+                mismatch=float(np.sum((phase_arr - 0.3) ** 2)),
+            )
+
+        excitation_module.evaluate_tuned_inverse_excitation_pulse = fake_evaluator
+        try:
+            neff = np.zeros((3, 5), dtype=np.float64)
+            neff[0, :] = 1.0
+            result = optimize_tuned_inverse_excitation_phases(
+                [0.0],
+                neff,
+                np.zeros(5, dtype=np.complex128),
+                1.0,
+                numpts=5,
+                initial_step=0.3,
+                max_passes=1,
+                optimizer="pattern",
+            )
+        finally:
+            excitation_module.evaluate_tuned_inverse_excitation_pulse = original
+
+        self.assertEqual(result.probe, "tuned")
+        self.assertEqual(result.optimizer_method, "pattern")
+        self.assertGreaterEqual(result.best_score, result.initial_score)
+        np.testing.assert_allclose(result.best_phases, [0.3])
+        np.testing.assert_allclose(result.best_score, -result.best_evaluation.mismatch)
+
+    def test_tuned_excitation_optimizer_rejects_invalid_inputs(self) -> None:
+        neff = np.zeros((3, 5), dtype=np.float64)
+        with self.assertRaises(ValueError):
+            optimize_tuned_excitation_phases([], neff, numpts=5)
+        with self.assertRaises(ValueError):
+            optimize_tuned_excitation_phases([0.0], neff, numpts=5, bounds=(1.0, 1.0))
+        with self.assertRaises(ValueError):
+            optimize_tuned_excitation_phases([0.0], np.zeros((3, 5)), numpts=4)
+        with self.assertRaises(ValueError):
+            optimize_tuned_inverse_excitation_phases(
+                [0.0],
+                neff,
+                np.zeros(4, dtype=np.complex128),
+                1.0,
+                numpts=5,
+            )
+
+    def test_scipy_optimizer_backend_requires_optional_dependency(self) -> None:
+        if importlib.util.find_spec("scipy") is not None:
+            self.skipTest("SciPy is installed in this environment")
+        with self.assertRaises(ImportError):
+            optimize_tuned_refocusing_phases(
+                [0.0],
+                numpts=7,
+                optimizer="scipy",
+            )
+
+    def test_random_phase_starts_are_seeded_and_bounded(self) -> None:
+        starts_a = random_phase_starts(3, 2, bounds=(-0.25, 0.5), seed=123)
+        starts_b = random_phase_starts(3, 2, bounds=(-0.25, 0.5), seed=123)
+        default_starts = random_phase_starts(8, 3, seed=456)
+
+        self.assertEqual(starts_a.shape, (3, 2))
+        np.testing.assert_allclose(starts_a, starts_b)
+        self.assertTrue(np.all(starts_a >= -0.25))
+        self.assertTrue(np.all(starts_a <= 0.5))
+        self.assertTrue(np.all(default_starts >= 0.0))
+        self.assertTrue(np.all(default_starts <= 2 * np.pi))
+        with self.assertRaises(ValueError):
+            random_phase_starts(0, 2)
+        with self.assertRaises(ValueError):
+            random_phase_starts(1, 2, seed=1, rng=np.random.default_rng(1))
+
+    def test_tuned_refocusing_multistart_selects_best_result(self) -> None:
+        original = driver_module.refocusing_module.optimize_tuned_refocusing_phases
+
+        def fake_optimizer(phases: np.ndarray, **kwargs: object) -> SimpleNamespace:
+            phase_arr = np.asarray(phases, dtype=np.float64)
+            return SimpleNamespace(
+                best_score=float(np.sum(phase_arr)),
+                best_phases=phase_arr,
+                bounds=kwargs["bounds"],
+            )
+
+        driver_module.refocusing_module.optimize_tuned_refocusing_phases = fake_optimizer
+        try:
+            starts = np.array([[0.0, 0.1], [0.3, 0.4], [-0.1, 0.2]])
+            result = run_tuned_refocusing_multistart(
+                2,
+                initial_phases=starts,
+                bounds=(-1.0, 1.0),
+            )
+        finally:
+            driver_module.refocusing_module.optimize_tuned_refocusing_phases = original
+
+        self.assertEqual(result.pulse_kind, "refocusing")
+        self.assertEqual(result.probe, "tuned")
+        self.assertEqual(result.best_index, 1)
+        self.assertEqual(len(result.results), 3)
+        np.testing.assert_allclose(result.initial_phases, starts)
+        np.testing.assert_allclose(result.best_score, 0.7)
+        np.testing.assert_allclose(result.best_result.best_phases, starts[1])
+
+    def test_tuned_excitation_multistart_forwards_neff_and_selects_best(self) -> None:
+        original = driver_module.excitation_module.optimize_tuned_excitation_phases
+        calls = []
+
+        def fake_optimizer(
+            phases: np.ndarray,
+            neff: np.ndarray,
+            **kwargs: object,
+        ) -> SimpleNamespace:
+            phase_arr = np.asarray(phases, dtype=np.float64)
+            calls.append(np.asarray(neff, dtype=np.complex128).copy())
+            return SimpleNamespace(
+                best_score=-float(np.sum((phase_arr - 0.2) ** 2)),
+                best_phases=phase_arr,
+                bounds=kwargs["bounds"],
+            )
+
+        driver_module.excitation_module.optimize_tuned_excitation_phases = fake_optimizer
+        try:
+            neff = np.zeros((3, 5), dtype=np.float64)
+            neff[0, :] = 1.0
+            starts = np.array([[0.0], [0.2], [0.5]])
+            result = run_tuned_excitation_multistart(
+                1,
+                neff,
+                initial_phases=starts,
+                bounds=(-1.0, 1.0),
+                numpts=5,
+            )
+        finally:
+            driver_module.excitation_module.optimize_tuned_excitation_phases = original
+
+        self.assertEqual(result.pulse_kind, "excitation")
+        self.assertEqual(result.probe, "tuned")
+        self.assertEqual(result.best_index, 1)
+        np.testing.assert_allclose(result.bounds, (-1.0, 1.0))
+        self.assertEqual(len(calls), 3)
+        np.testing.assert_allclose(calls[0], neff)
+        np.testing.assert_allclose(result.best_result.best_phases, [0.2])
+
+    def test_tuned_excitation_multistart_defaults_to_matlab_phase_bounds(self) -> None:
+        original = driver_module.excitation_module.optimize_tuned_excitation_phases
+
+        def fake_optimizer(
+            phases: np.ndarray,
+            neff: np.ndarray,
+            **kwargs: object,
+        ) -> SimpleNamespace:
+            phase_arr = np.asarray(phases, dtype=np.float64)
+            return SimpleNamespace(
+                best_score=float(phase_arr[0]),
+                best_phases=phase_arr,
+                bounds=kwargs["bounds"],
+            )
+
+        driver_module.excitation_module.optimize_tuned_excitation_phases = fake_optimizer
+        try:
+            neff = np.zeros((3, 5), dtype=np.float64)
+            neff[0, :] = 1.0
+            result = run_tuned_excitation_multistart(
+                1,
+                neff,
+                num_starts=2,
+                seed=321,
+                numpts=5,
+            )
+        finally:
+            driver_module.excitation_module.optimize_tuned_excitation_phases = original
+
+        np.testing.assert_allclose(result.bounds, (0.0, 2 * np.pi))
+        self.assertTrue(np.all(result.initial_phases >= 0.0))
+        self.assertTrue(np.all(result.initial_phases <= 2 * np.pi))
+
+    def test_tuned_inverse_excitation_multistart_tracks_best_seed(self) -> None:
+        original = driver_module.excitation_module.optimize_tuned_inverse_excitation_phases
+        calls = []
+        target = np.arange(5, dtype=np.float64).astype(np.complex128)
+
+        def fake_optimizer(
+            phases: np.ndarray,
+            neff: np.ndarray,
+            target_mrx: np.ndarray,
+            target_snr: float,
+            **kwargs: object,
+        ) -> SimpleNamespace:
+            phase_arr = np.asarray(phases, dtype=np.float64)
+            calls.append(
+                (
+                    phase_arr.copy(),
+                    np.asarray(neff, dtype=np.complex128).copy(),
+                    np.asarray(target_mrx, dtype=np.complex128).copy(),
+                    float(target_snr),
+                    kwargs["bounds"],
+                )
+            )
+            return SimpleNamespace(
+                best_score=float(len(calls)),
+                best_phases=phase_arr + 0.1,
+                bounds=kwargs["bounds"],
+            )
+
+        driver_module.excitation_module.optimize_tuned_inverse_excitation_phases = (
+            fake_optimizer
+        )
+        try:
+            neff = np.zeros((3, 5), dtype=np.float64)
+            neff[0, :] = 1.0
+            result = run_tuned_inverse_excitation_multistart(
+                1,
+                neff,
+                target,
+                2.0,
+                [0.25],
+                num_starts=3,
+                random_fraction=0.0,
+                bounds=(-10.0, 10.0),
+                numpts=5,
+            )
+        finally:
+            driver_module.excitation_module.optimize_tuned_inverse_excitation_phases = (
+                original
+            )
+
+        self.assertEqual(result.pulse_kind, "inverse_excitation")
+        self.assertEqual(result.probe, "tuned")
+        self.assertEqual(result.best_index, 2)
+        self.assertEqual(len(calls), 3)
+        expected_first = np.mod(np.pi + 0.25, 2 * np.pi)
+        np.testing.assert_allclose(calls[0][0], [expected_first])
+        np.testing.assert_allclose(calls[1][0], [expected_first + 0.1])
+        np.testing.assert_allclose(calls[2][0], [expected_first + 0.2])
+        np.testing.assert_allclose(calls[0][1], neff)
+        np.testing.assert_allclose(calls[0][2], target)
+        self.assertEqual(calls[0][3], 2.0)
+        self.assertEqual(calls[0][4], (-10.0, 10.0))
+        np.testing.assert_allclose(result.best_result.best_phases, [expected_first + 0.3])
+        with self.assertRaises(ValueError):
+            run_tuned_inverse_excitation_multistart(
+                1,
+                neff,
+                target,
+                2.0,
+                [0.25],
+                random_fraction=1.5,
+            )
+
+    def test_refocusing_phase_optimizer_rejects_invalid_options(self) -> None:
+        with self.assertRaises(ValueError):
+            optimize_tuned_refocusing_phases([], numpts=7)
+        with self.assertRaises(ValueError):
+            optimize_tuned_refocusing_phases([0.0], numpts=7, bounds=(1.0, 1.0))
+        with self.assertRaises(ValueError):
+            optimize_tuned_refocusing_phases([0.0], numpts=7, step_decay=1.0)
+        with self.assertRaises(ValueError):
+            optimize_tuned_refocusing_phases([0.0], numpts=7, optimizer="unknown")
 
     def test_cpmg_workflow_result_shapes(self) -> None:
         runners = [

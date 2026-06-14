@@ -8,6 +8,8 @@ Generate fixtures from `PythonSpinDynamics`:
 ```powershell
 matlab -batch "run('validation/octave/generate_basic_fixtures.m')"
 matlab -batch "run('validation/octave/generate_imaging_fixtures.m')"
+matlab -batch "run('validation/octave/generate_optimization_fixtures.m')"
+matlab -batch "run('validation/octave/generate_optimization_result_fixtures.m')"
 matlab -batch "run('validation/octave/generate_pulse_fixtures.m')"
 ```
 

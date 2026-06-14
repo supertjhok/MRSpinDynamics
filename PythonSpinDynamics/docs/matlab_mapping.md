@@ -30,7 +30,7 @@ The recommended MATLAB source tree is:
 | `time_varying_field` | `spin_dynamics.workflows.time_varying` | Ideal time-varying-field CPMG final-echo and amplitude-sweep workflows. |
 | `FID_Example`, `Sim_FID` | `spin_dynamics.workflows.fid` | Ideal FID should be an early workflow. |
 | `Sim_CPMG`, `Imaging_demo` | `spin_dynamics.workflows.imaging` | Ideal, tuned, and matched CPMG imaging are available as compact array-returning workflows. |
-| `OCT_Pulse_Examples`, `opt_pulse` | `spin_dynamics.optimization` later | Defer until kernels are fast and trusted. |
+| `OCT_Pulse_Examples`, `opt_pulse` | `spin_dynamics.optimization` | Fixed SPA catalog, SNR/FOM summaries, pulse-evaluation wrappers, bounded refocusing/tuned-excitation/inverse-excitation optimizers with optional SciPy backend, compact MATLAB optimizer-result fixtures, and array-returning multi-start driver scaffolds are available. MATLAB-equivalent file/result parity remains future work. |
 
 ## Initial Port Candidates and Status
 
@@ -67,7 +67,7 @@ available for direct-sum echoes from arbitrary acquired magnetization.
 | Ideal time-varying-field CPMG | `run_ideal_time_varying_cpmg_final`, `run_ideal_time_varying_amplitude_sweep`, and `sinusoidal_field_waveform` are available. |
 | Matched diffusion CPMG | `sim_spin_dynamics_arb10_diffusion`, `calc_macq_matched_probe_relax_diffusion`, `run_matched_diffusion_cpmg`, and `run_matched_diffusion_q_sweep` are available as first Python diffusion paths. |
 | CPMG imaging | `run_ideal_cpmg_imaging`, `run_tuned_cpmg_imaging`, `run_matched_cpmg_imaging`, and `reconstruct_image_from_kspace` are available. |
-| OCT/SPA | Still MATLAB reference-only. |
+| OCT/SPA | Fixed SPA pulse catalog, summary metrics, tuned/untuned/matched refocusing evaluators, bounded refocusing/tuned-excitation/inverse-excitation optimizers with optional SciPy backend, compact optimizer-result fixtures, and multi-start drivers are available. MATLAB-equivalent file/result parity remains reference-only. |
 
 ## Naming Conventions
 

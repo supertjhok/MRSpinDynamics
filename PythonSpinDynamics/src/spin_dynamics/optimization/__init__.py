@@ -1,5 +1,29 @@
 """Optimization support utilities for pulse-design workflows."""
 
+from spin_dynamics.optimization.drivers import (
+    MultiStartOptimizationResult,
+    random_phase_starts,
+    run_matched_refocusing_multistart,
+    run_tuned_excitation_multistart,
+    run_tuned_inverse_excitation_multistart,
+    run_tuned_refocusing_multistart,
+    run_untuned_refocusing_multistart,
+)
+from spin_dynamics.optimization.excitation import (
+    ExcitationOptimizationResult,
+    TunedExcitationEvaluation,
+    TunedInverseExcitationEvaluation,
+    evaluate_tuned_excitation_pulse,
+    evaluate_tuned_inverse_excitation_pulse,
+    optimize_tuned_excitation_phases,
+    optimize_tuned_inverse_excitation_phases,
+)
+from spin_dynamics.optimization.refocusing import (
+    RefocusingOptimizationResult,
+    optimize_matched_refocusing_phases,
+    optimize_tuned_refocusing_phases,
+    optimize_untuned_refocusing_phases,
+)
 from spin_dynamics.optimization.spa import (
     MatchedRefocusingEvaluation,
     SPAOptimizationResult,
@@ -22,19 +46,37 @@ from spin_dynamics.optimization.spa import (
 )
 
 __all__ = [
+    "ExcitationOptimizationResult",
     "MatchedRefocusingEvaluation",
+    "MultiStartOptimizationResult",
+    "RefocusingOptimizationResult",
     "SPAOptimizationResult",
     "SPAMetrics",
     "SPAPulse",
     "SPASummary",
+    "TunedExcitationEvaluation",
+    "TunedInverseExcitationEvaluation",
     "TunedRefocusingEvaluation",
     "UntunedRefocusingEvaluation",
     "evaluate_matched_refocusing_pulse",
     "evaluate_spa_metrics",
+    "evaluate_tuned_excitation_pulse",
+    "evaluate_tuned_inverse_excitation_pulse",
     "evaluate_tuned_refocusing_pulse",
     "evaluate_untuned_refocusing_pulse",
+    "optimize_matched_refocusing_phases",
     "optimize_spa_phase_program",
+    "optimize_tuned_excitation_phases",
+    "optimize_tuned_inverse_excitation_phases",
+    "optimize_tuned_refocusing_phases",
+    "optimize_untuned_refocusing_phases",
+    "random_phase_starts",
     "rectangular_refocusing_lengths",
+    "run_matched_refocusing_multistart",
+    "run_tuned_excitation_multistart",
+    "run_tuned_inverse_excitation_multistart",
+    "run_tuned_refocusing_multistart",
+    "run_untuned_refocusing_multistart",
     "spa_pulse_list",
     "summarize_matched_spa_refocusing",
     "summarize_spa_refocusing",

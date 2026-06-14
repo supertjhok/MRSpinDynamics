@@ -39,6 +39,17 @@ class ExampleSmokeTests(unittest.TestCase):
             ("examples/finite_probe_train_sweeps.py", "--numpts", "9", "--num-echoes", "2"),
             ("examples/matched_diffusion_cpmg.py", "--numpts", "17", "--num-echoes", "2"),
             ("examples/probe_parameter_sweeps.py", "--numpts", "9"),
+            (
+                "examples/diagnose_optimization_backends.py",
+                "--numpts",
+                "9",
+                "--segments",
+                "2",
+                "--random-samples",
+                "4",
+                "--backend",
+                "pattern",
+            ),
         ]
         for command in commands:
             with self.subTest(command=command[0]):
@@ -67,6 +78,11 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_ideal_imaging.py",
             "examples/plot_probe_cpmg.py",
             "examples/plot_probe_parameter_sweep.py",
+            "examples/plot_optimization_workflows.py",
+            "examples/diagnose_optimization_backends.py",
+            "examples/plot_finite_train_workflows.py",
+            "examples/plot_diffusion_sweep.py",
+            "examples/plot_time_varying_sweep.py",
         ]
         for script in scripts:
             with self.subTest(script=script):
@@ -76,6 +92,17 @@ class ExampleSmokeTests(unittest.TestCase):
         self.assertIn("--masy-component", result.stdout)
         result = run_example("examples/plot_probe_parameter_sweep.py", "--help")
         self.assertIn("--workers", result.stdout)
+        result = run_example("examples/plot_optimization_workflows.py", "--help")
+        self.assertIn("--optimizer", result.stdout)
+        self.assertIn("--inverse-starts", result.stdout)
+        result = run_example("examples/diagnose_optimization_backends.py", "--help")
+        self.assertIn("--backend", result.stdout)
+        result = run_example("examples/plot_finite_train_workflows.py", "--help")
+        self.assertIn("--probes", result.stdout)
+        result = run_example("examples/plot_diffusion_sweep.py", "--help")
+        self.assertIn("--q-values", result.stdout)
+        result = run_example("examples/plot_time_varying_sweep.py", "--help")
+        self.assertIn("--amplitudes", result.stdout)
 
 
 if __name__ == "__main__":
