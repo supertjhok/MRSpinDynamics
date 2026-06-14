@@ -35,6 +35,11 @@ Optional:
 
 - Matplotlib, only for `examples/plot_ideal_workflows.py` and
   `examples/plot_probe_cpmg.py`
+- SciPy, for `optimizer="scipy"` in pulse-optimization helpers. Install with:
+
+```powershell
+python -m pip install -e .[opt]
+```
 
 The package metadata is in `pyproject.toml`. The port is not yet published as a
 wheel or conda package.

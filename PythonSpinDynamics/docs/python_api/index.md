@@ -39,9 +39,22 @@ The validated Python API currently covers:
 - ideal FID acquisition and time-domain trace construction;
 - ideal-probe finite acquisition with relaxation through
   `calc_macq_ideal_probe_relax4`;
+- SPA refocusing pulse catalog, normalized SNR/FOM metric bookkeeping,
+  tuned/untuned/matched fixed-refocusing evaluators, lightweight discrete
+  phase-search scaffold, bounded refocusing phase optimizers, and tuned
+  excitation-pulse evaluation/phase search for supplied refocusing axes,
+  diagnostic tuned inverse-excitation search for target spectra, with optional
+  SciPy continuous optimization backend;
+- array-returning multi-start optimization driver scaffolds for repeated
+  refocusing, tuned excitation, and phase-flipped tuned inverse-excitation
+  searches;
+- plotting examples for CPMG comparisons, finite trains, parameter sweeps,
+  diffusion, time-varying fields, imaging, and compact optimization workflows;
 - low-level rotation matrix and effective-axis helpers;
 - the current `sim_spin_dynamics_arb10` kernel;
 - the legacy-compatible `sim_spin_dynamics_arb7` path needed by ideal FID;
 - original/reference tuned, untuned, and matched probe CPMG paths.
 
-OCT/SPA optimization workflows are still MATLAB reference-only.
+MATLAB `.mat` result-file compatibility, strong inverse excitation
+cancellation parity, and broad `fmincon` parity validation are still
+reference-only beyond the compact optimization fixtures.

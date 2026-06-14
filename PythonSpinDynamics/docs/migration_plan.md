@@ -154,10 +154,25 @@ their inputs and outputs are small, array-based, and close to NumPy's strengths.
   and matched arbitrary-refocusing evaluators mirroring the
   `plot_masy_arbref_*` MATLAB helpers, plus array-returning SPA summary
   workflows for tuned, untuned, and matched probes. A lightweight discrete
-  phase-program optimizer scaffold is available for small candidate searches;
-  full continuous OCT/SPA optimizer loops remain MATLAB reference-only.
-- Port OCT/SPA optimization last; these workflows depend on fast, trusted
-  kernels.
+  phase-program optimizer scaffold is available for small candidate searches.
+  Bounded refocusing phase optimizer wrappers are available around the existing
+  tuned, untuned, and matched SNR evaluators; full MATLAB-equivalent OCT/SPA
+  optimizer loops remain reference-only. Tuned excitation-pulse evaluation and
+  bounded phase optimization are available for supplied refocusing axes.
+  Array-returning multi-start driver scaffolds provide seeded repeated starts
+  and best-result selection for the available refocusing, tuned excitation, and
+  tuned inverse-excitation optimizers. The inverse driver starts from the
+  phase-flipped target, then follows the MATLAB repeat workflow by perturbing
+  the current best inverse pulse. The phase optimizers support an optional SciPy
+  continuous bounded backend through the `opt` package extra, with a NumPy
+  pattern-search fallback for minimal installations. Default phase bounds and
+  random starts follow the MATLAB `0` to `2*pi` convention. Tuned
+  inverse-excitation evaluation and bounded phase optimization are available
+  for target received spectra, with compact MATLAB optimizer-result fixtures
+  covering objective improvement. Strong inverse-cancellation workflows remain
+  a validation target.
+- Keep MATLAB `.mat` result-file compatibility and broad MATLAB `fmincon`
+  result parity as later validation steps.
 
 ## Later Phase 9: Acceleration
 

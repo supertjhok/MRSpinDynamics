@@ -82,7 +82,7 @@ across CPU cores with `num_workers`.
 | Matched diffusion CPMG | Compact validation and smoke-tested | Very high-Q diffusion cases remain a known stiffness target. |
 | Ideal, tuned, and matched CPMG imaging | Fixture validated | MATLAB-generated k-space fixtures plus visual plotting examples. |
 | Pulse-shape helpers | Fixture validated | JMR rectangular pulse responses, phase quantization, and untuned segment adjustment. |
-| OCT/SPA optimization | Not yet ported | Planned after the validated workflow kernels stay stable. |
+| OCT/SPA pulse evaluation | Partly ported and validated | Fixed SPA catalog, SNR/FOM summaries, tuned/untuned/matched refocusing evaluators, lightweight search scaffolds, and bounded phase optimizers are available. MATLAB-equivalent optimizer loops remain deferred. |
 
 See `docs/validation_results.md` for fixture details, run logs, and tolerance
 notes.
@@ -237,17 +237,65 @@ The probe comparison plot shows asymptotic magnetization magnitude by default;
 use `--masy-component real`, `imag`, or `phase` to inspect phase-sensitive
 components.
 
+Plot compact tuned-probe optimization workflows if Matplotlib is installed:
+
+```powershell
+python examples\plot_optimization_workflows.py --numpts 11 --segments 2 --starts 2 --inverse-starts 4 --output results\optimization_workflows.png
+```
+
+The optimization plot builds an excitation target first, then probes the
+inverse-excitation objective with a MATLAB-style multi-start search that starts
+from the phase-flipped target and refines around the best inverse found so far.
+Treat that inverse panel as a diagnostic until MATLAB parity is validated for a
+stronger inverse-cancellation workflow.
+
+Compare optimization backends without plotting:
+
+```powershell
+python examples\diagnose_optimization_backends.py --backend all --numpts 21 --segments 3
+```
+
+On WSL2, use a virtual environment and install SciPy through the optional
+optimization extra first:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e ".[opt]"
+python examples/diagnose_optimization_backends.py --backend all --numpts 21 --segments 3
+```
+
+Plot finite echo trains, diffusion sweeps, and time-varying-field sweeps:
+
+```powershell
+python examples\plot_finite_train_workflows.py --numpts 17 --num-echoes 4 --output results\finite_trains.png
+python examples\plot_diffusion_sweep.py --numpts 17 --num-echoes 3 --output results\diffusion_sweep.png
+python examples\plot_time_varying_sweep.py --numpts 51 --num-echoes 12 --output results\time_varying_sweep.png
+```
+
 ## Pulse Evaluation
 
 The SPA/OCT bridge currently includes the fixed SPA phase catalog, normalized
 SNR/FOM bookkeeping, and tuned/untuned/matched non-plotting refocusing-pulse
-evaluators:
+evaluators. Fixed-amplitude refocusing phases can also be optimized with small
+bounded pattern-search wrappers. Tuned excitation and inverse-excitation pulse
+evaluation/search are available when a refocusing axis and, for inverse pulses,
+a target received spectrum are supplied. Multi-start driver scaffolds can run
+repeated seeded starts and return ranked results:
 
 ```python
+import numpy as np
+
+from spin_dynamics.core.rotations import calc_rot_axis_arba3
 from spin_dynamics.optimization import (
     evaluate_matched_refocusing_pulse,
     evaluate_tuned_refocusing_pulse,
     evaluate_untuned_refocusing_pulse,
+    optimize_tuned_refocusing_phases,
+    run_tuned_excitation_multistart,
+    run_tuned_inverse_excitation_multistart,
+    run_tuned_refocusing_multistart,
     summarize_tuned_spa_refocusing,
     spa_pulse_list,
 )
@@ -257,14 +305,36 @@ tuned = evaluate_tuned_refocusing_pulse(pulse.phases, numpts=101)
 untuned = evaluate_untuned_refocusing_pulse(pulse.phases, numpts=101)
 matched = evaluate_matched_refocusing_pulse(pulse.phases, numpts=9)
 summary = summarize_tuned_spa_refocusing(numpts=101)
+optimum = optimize_tuned_refocusing_phases(pulse.phases[:6], numpts=21)
+repeated = run_tuned_refocusing_multistart(6, num_starts=4, seed=123, numpts=21)
+del_w = np.linspace(-10.0, 10.0, 21)
+neff = calc_rot_axis_arba3(np.array([np.pi]), np.array([0.0]), np.ones(1), del_w)
+target = run_tuned_excitation_multistart(3, neff, num_starts=4, seed=123, numpts=21)
+inverse = run_tuned_inverse_excitation_multistart(
+    3,
+    neff,
+    target.best_result.best_evaluation.mrx,
+    target.best_result.best_evaluation.snr,
+    target.best_result.best_phases,
+    num_starts=4,
+    seed=123,
+    numpts=21,
+)
 ```
 
 The optimization module also includes `summarize_tuned_spa_refocusing`,
 `summarize_untuned_spa_refocusing`, and `summarize_matched_spa_refocusing`,
 which return MATLAB-style normalized SNR and FOM arrays for rectangular and SPA
 catalog pulses. A lightweight `optimize_spa_phase_program` discrete search
-scaffold is available for small phase-state experiments.
+scaffold is available for small phase-state experiments. The phase optimizers
+accept `optimizer="auto"`, `"pattern"`, or `"scipy"`: `auto` uses SciPy's
+bounded continuous optimizer when the optional `opt` extra is installed and
+falls back to the dependency-light NumPy pattern search otherwise. The
+default phase bounds and random starts match the MATLAB `0` to `2*pi`
+convention. The multi-start drivers are array-returning Python scaffolds rather
+than MATLAB `.mat` result-file writers.
 
-Full continuous OCT/SPA optimizer loops are still deferred.
+MATLAB `.mat` result-file compatibility and broad `fmincon` parity are still
+deferred beyond the compact optimization fixtures.
 The matched evaluator uses the matched-network transient solver and is much
 slower than the tuned and untuned evaluators, so start with small offset grids.

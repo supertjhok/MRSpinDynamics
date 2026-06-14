@@ -19,6 +19,8 @@ The full fixture suite is generated with MATLAB by:
 ```powershell
 matlab -batch "run('validation/octave/generate_basic_fixtures.m')"
 matlab -batch "run('validation/octave/generate_imaging_fixtures.m')"
+matlab -batch "run('validation/octave/generate_optimization_fixtures.m')"
+matlab -batch "run('validation/octave/generate_optimization_result_fixtures.m')"
 matlab -batch "run('validation/octave/generate_pulse_fixtures.m')"
 ```
 
@@ -82,6 +84,15 @@ skips matched-probe files when `fmincon` is unavailable.
 | `spin_dynamics.optimization.evaluate_matched_refocusing_pulse` | `opt_pulse/plot_masy_arbref_matched.m` | lower-level matched asymptotic equivalence and SPA pulse smoke tests | Passed |
 | `spin_dynamics.optimization.summarize_*_spa_refocusing` | `OCT_Pulse_Examples/SPA_optimization_*.m` summary structure | tuned/untuned fast checks and selected matched-catalog slow check | Passed |
 | `spin_dynamics.optimization.optimize_spa_phase_program` | Python optimizer scaffold beyond MATLAB fixed-catalog summary | synthetic objective improvement check | Passed |
+| `spin_dynamics.optimization.optimize_*_refocusing_phases` | `opt_pulse/opt_ref_pulse_tuned.m`, `opt_pulse/opt_ref_pulse_untuned.m`, `opt_pulse/opt_ref_pulse_matched.m` objective shape | small bounded-search smoke tests | Passed |
+| `spin_dynamics.optimization.evaluate_tuned_excitation_pulse` | `opt_pulse/opt_exc_pulse_tuned.m` objective shape | compact finite-output check with supplied refocusing axis | Passed |
+| tuned excitation phase-shift behavior | direct MATLAB excitation fixture with supplied refocusing axis | Python matches MATLAB for base and `phase + pi` spectra; phase shift is not a cancellation in this setup | Passed |
+| `spin_dynamics.optimization.optimize_tuned_excitation_phases` | `opt_pulse/opt_exc_pulse_tuned.m` objective shape and compact MATLAB fmincon result | small bounded-search smoke test plus compact optimizer-result comparison | Passed |
+| `spin_dynamics.optimization.evaluate_tuned_inverse_excitation_pulse` | `opt_pulse/opt_exc_pulse_tuned_inv.m` objective shape | compact objective-formula check with target spectrum | Passed |
+| `spin_dynamics.optimization.optimize_tuned_inverse_excitation_phases` | `opt_pulse/opt_exc_pulse_tuned_inv.m` objective shape and compact MATLAB fmincon result | small bounded-search smoke test plus compact objective-improvement comparison; strong cancellation remains workflow-dependent | Passed |
+| `spin_dynamics.optimization` optimizer backend selector | Python extension beyond MATLAB | NumPy pattern backend and missing-SciPy error-path checks | Passed |
+| `spin_dynamics.optimization.run_*_multistart` | `opt_pulse/opt_ref_pulse_*_repeat.m`, `opt_pulse/opt_exc_pulse_tuned_repeat.m`, `opt_pulse/opt_exc_pulse_tuned_inv_repeat.m` scaffold shape | seeded-start, inverse phase-flip seeding, forwarding, and best-result selection tests | Passed |
+| Plotting examples | Python workflow visualization layer | CLI/help smoke tests without Matplotlib | Passed |
 | `spin_dynamics.workflows.run_tuned_q_sweep` | `CompareQ/sim_tuned_probe_coil_Q.m` | workflow shape and finite-output smoke test | Passed |
 | `spin_dynamics.workflows.run_matched_q_sweep` | `CompareQ/sim_matched_probe_coil_Q.m` | workflow shape and finite-output smoke test | Passed |
 | `spin_dynamics.workflows.run_tuned_mistuning_sweep` | `CompareMistuned/tuned_probe/sim_tuned_probe_mistuned.m` | workflow shape and finite-output smoke test | Passed |

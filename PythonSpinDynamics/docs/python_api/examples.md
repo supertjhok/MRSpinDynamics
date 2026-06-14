@@ -127,3 +127,69 @@ The asymptotic magnetization panel shows magnitude by default because tuned and
 untuned probe responses can rotate most of the signal into the imaginary
 component. Use `--masy-component real`, `imag`, or `phase` to inspect a specific
 component.
+
+## Plot Optimization Workflows
+
+This example requires Matplotlib. It runs compact tuned-probe refocusing and
+target-excitation optimization diagnostics, then probes the current
+inverse-excitation objective. The inverse stage starts from the phase-flipped
+target pulse, then uses a MATLAB-style multi-start strategy that perturbs the
+best inverse found so far. Treat the inverse panel as a parity diagnostic, not
+as a validated inverse pulse-design recipe yet.
+
+```powershell
+python examples\plot_optimization_workflows.py --numpts 11 --segments 2 --starts 2 --inverse-starts 4 --output results\optimization_workflows.png
+```
+
+The defaults are intentionally small. Increase `--numpts`, `--segments`,
+`--starts`, `--excitation-segments`, `--inverse-starts`, and the optimizer
+settings when using it as the start of a real pulse-design study.
+
+## Diagnose Optimization Backends
+
+This non-plotting diagnostic compares the NumPy pattern-search fallback, the
+optional SciPy backend, and a random inverse-candidate baseline. It prints
+objective values and residual/target area ratios so optimizer behavior can be
+debugged without relying on plots.
+
+```powershell
+python examples\diagnose_optimization_backends.py --backend all --numpts 21 --segments 3
+```
+
+On WSL2, create a virtual environment and install the optional SciPy backend
+before running the comparison:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e ".[opt]"
+python examples/diagnose_optimization_backends.py --backend all --numpts 21 --segments 3
+```
+
+## Plot Finite Train Workflows
+
+This example requires Matplotlib. It compares finite CPMG echo trains across
+ideal, tuned, untuned, and matched probe models.
+
+```powershell
+python examples\plot_finite_train_workflows.py --numpts 17 --num-echoes 4 --output results\finite_trains.png
+```
+
+## Plot Diffusion Sweep
+
+This example requires Matplotlib. It plots a compact matched-probe diffusion
+CPMG Q sweep, including echo-integral decay and a Q-by-echo heatmap.
+
+```powershell
+python examples\plot_diffusion_sweep.py --numpts 17 --num-echoes 3 --output results\diffusion_sweep.png
+```
+
+## Plot Time-Varying Field Sweep
+
+This example requires Matplotlib. It visualizes the ideal time-varying-field
+CPMG amplitude sweep, including the B0 waveform and final echoes.
+
+```powershell
+python examples\plot_time_varying_sweep.py --numpts 51 --num-echoes 12 --output results\time_varying_sweep.png
+```
