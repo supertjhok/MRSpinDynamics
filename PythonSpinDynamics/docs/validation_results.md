@@ -101,6 +101,8 @@ skips matched-probe files when `fmincon` is unavailable.
 | `spin_dynamics.workflows.run_matched_z_magnetization_q_sweep` | `z_mag/z_Mag_Q.m` | workflow shape and finite-output smoke test | Passed |
 | `spin_dynamics.workflows.run_ideal_time_varying_cpmg_final` | `time_varying_field/sim_cpmg_ideal_tv_final.m` | workflow shape and finite-output smoke test | Passed |
 | `spin_dynamics.workflows.run_ideal_time_varying_amplitude_sweep` | `time_varying_field/compare_cpmg_results_ideal_tv.m` | serial/parallel equality and finite-output smoke test | Passed |
+| `spin_dynamics.workflows.run_*_time_varying_cpmg_final` | Python analogue of ideal time-varying final-echo assembly with tuned, untuned, and matched probe models | workflow shape and finite-output smoke tests | Passed |
+| `spin_dynamics.workflows.run_*_time_varying_amplitude_sweep` | Python-native wrappers around probe-aware time-varying final-echo runners | serial/parallel equality and finite-output smoke tests | Passed |
 | `spin_dynamics.workflows.fid.sim_fid_ideal` | `Sim_FID/simFID_ideal.m` via `calc_macq_fid`/`calc_FID_time_domain` | `sim_fid_ideal_macq.csv`, `sim_fid_ideal_echo.csv` | Passed |
 | `spin_dynamics.probes.tuned.tuned_probe_lp_orig` | `circuit_simulation/tuned_probe/tuned_probe_lp_Orig.m` | `tuned_probe_lp_orig.csv` | Passed |
 | `spin_dynamics.probes.tuned.calc_masy_tuned_probe_lp_orig` | `calc_masy/calc_masy_tuned_probe_lp_Orig.m` | `calc_masy_tuned_probe_lp_orig.csv` | Passed |
@@ -142,6 +144,12 @@ The public CPMG runners are also tested for result-container shape and metadata:
 - `run_matched_z_magnetization_q_sweep`
 - `run_ideal_time_varying_cpmg_final`
 - `run_ideal_time_varying_amplitude_sweep`
+- `run_tuned_time_varying_cpmg_final`
+- `run_untuned_time_varying_cpmg_final`
+- `run_matched_time_varying_cpmg_final`
+- `run_tuned_time_varying_amplitude_sweep`
+- `run_untuned_time_varying_amplitude_sweep`
+- `run_matched_time_varying_amplitude_sweep`
 
 The finite ideal train is also tested for `auto_refine_grid=True`.
 

@@ -27,7 +27,7 @@ The recommended MATLAB source tree is:
 | `CPMG_Asymp_Examples` | `spin_dynamics.workflows.cpmg` | Canonical smoke tests and examples. |
 | `Sim_CPMG_IR` | `spin_dynamics.workflows.cpmg_ir` | Ideal, tuned, untuned, and matched inversion-recovery CPMG finite trains over tau values. |
 | `CompareQ`, `CompareMistuned`, `z_mag` | `spin_dynamics.workflows.sweeps` | Probe Q, tuning/matching frequency, and z-magnetization sweeps returning array results. |
-| `time_varying_field` | `spin_dynamics.workflows.time_varying` | Ideal time-varying-field CPMG final-echo and amplitude-sweep workflows. |
+| `time_varying_field` | `spin_dynamics.workflows.time_varying` | Ideal and probe-aware time-varying-field CPMG final-echo and amplitude-sweep workflows. |
 | `FID_Example`, `Sim_FID` | `spin_dynamics.workflows.fid` | Ideal FID should be an early workflow. |
 | `Sim_CPMG`, `Imaging_demo` | `spin_dynamics.workflows.imaging` | Ideal, tuned, and matched CPMG imaging are available as compact array-returning workflows. |
 | `OCT_Pulse_Examples`, `opt_pulse` | `spin_dynamics.optimization` | Fixed SPA catalog, SNR/FOM summaries, pulse-evaluation wrappers, bounded refocusing/tuned-excitation/inverse-excitation optimizers with optional SciPy backend, compact MATLAB optimizer-result fixtures, and array-returning multi-start driver scaffolds are available. MATLAB-equivalent file/result parity remains future work. |
@@ -64,7 +64,7 @@ available for direct-sum echoes from arbitrary acquired magnetization.
 | Probe Q/mistuning sweeps | `run_tuned_q_sweep`, `run_matched_q_sweep`, `run_tuned_mistuning_sweep`, and `run_matched_mistuning_sweep` are available. |
 | Finite-train probe sweeps | Python-native wrappers `run_tuned_finite_q_sweep`, `run_untuned_finite_q_sweep`, `run_matched_finite_q_sweep`, and corresponding finite mistuning sweeps are available. |
 | Matched z-magnetization Q sweep | `calc_masy_matched_nut` and `run_matched_z_magnetization_q_sweep` are available. |
-| Ideal time-varying-field CPMG | `run_ideal_time_varying_cpmg_final`, `run_ideal_time_varying_amplitude_sweep`, and `sinusoidal_field_waveform` are available. |
+| Time-varying-field CPMG | `run_ideal_time_varying_cpmg_final`, probe-aware `run_*_time_varying_cpmg_final`, amplitude-sweep wrappers, and `sinusoidal_field_waveform` are available. |
 | Matched diffusion CPMG | `sim_spin_dynamics_arb10_diffusion`, `calc_macq_matched_probe_relax_diffusion`, `run_matched_diffusion_cpmg`, and `run_matched_diffusion_q_sweep` are available as first Python diffusion paths. |
 | CPMG imaging | `run_ideal_phase_encoded_cpmg_imaging`, `run_tuned_phase_encoded_cpmg_imaging`, `run_matched_phase_encoded_cpmg_imaging`, compatibility `run_*_cpmg_imaging` aliases, and `reconstruct_image_from_kspace` are available. |
 | OCT/SPA | Fixed SPA pulse catalog, summary metrics, tuned/untuned/matched refocusing evaluators, bounded refocusing/tuned-excitation/inverse-excitation optimizers with optional SciPy backend, compact optimizer-result fixtures, and multi-start drivers are available. MATLAB-equivalent file/result parity remains reference-only. |
