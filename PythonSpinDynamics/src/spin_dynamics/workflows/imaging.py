@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
@@ -33,6 +34,9 @@ class IdealCPMGImagingResult:
     rho: np.ndarray
     t1_map: np.ndarray
     t2_map: np.ndarray
+    b0_map: np.ndarray
+    b1_tx_map: np.ndarray
+    b1_rx_map: np.ndarray
     kspace: np.ndarray
     image: np.ndarray
     magnitude: np.ndarray
@@ -51,6 +55,9 @@ class ProbeCPMGImagingResult:
     rho: np.ndarray
     t1_map: np.ndarray
     t2_map: np.ndarray
+    b0_map: np.ndarray
+    b1_tx_map: np.ndarray
+    b1_rx_map: np.ndarray
     kspace: np.ndarray
     image: np.ndarray
     magnitude: np.ndarray
@@ -62,27 +69,71 @@ class ProbeCPMGImagingResult:
     probe: str
 
 
+IdealPhaseEncodedCPMGImagingResult = IdealCPMGImagingResult
+ProbePhaseEncodedCPMGImagingResult = ProbeCPMGImagingResult
+
+
+@dataclass(frozen=True)
+class ImagingFieldMaps:
+    """Spatial sample and field maps for CPMG imaging workflows.
+
+    `b0_map` contains normalized off-resonance offsets added to the generated
+    isochromat offset axis. `b1_tx_map` and `b1_rx_map` are relative transmit
+    and receive sensitivity maps. All maps are two-dimensional and share the
+    same shape as `rho`.
+    """
+
+    rho: np.ndarray
+    t1_map: np.ndarray
+    t2_map: np.ndarray
+    b0_map: np.ndarray
+    b1_tx_map: np.ndarray
+    b1_rx_map: np.ndarray
+    del_wx: np.ndarray
+    del_wz: np.ndarray
+
+    def kernel_maps(self, ny: int, maxoffs: float) -> dict[str, np.ndarray]:
+        """Return flattened arrays consumed by the arbitrary-pulse kernels."""
+
+        if ny <= 0:
+            raise ValueError("ny must be positive")
+        rho = self.rho
+        reps = int(ny)
+        del_w0y = np.linspace(-float(maxoffs), float(maxoffs), reps)
+        b0 = self.b0_map.reshape(-1)
+        return {
+            "del_w": np.concatenate([offset + b0 for offset in del_w0y]),
+            "del_wx": np.tile(self.del_wx.reshape(-1), reps),
+            "del_wz": np.tile(self.del_wz.reshape(-1), reps),
+            "w_1": np.tile(self.b1_tx_map.reshape(-1), reps),
+            "w_1r": np.tile(self.b1_rx_map.reshape(-1), reps),
+            "m0": np.tile(rho.reshape(-1), reps),
+            "mth": np.tile(rho.reshape(-1), reps),
+            "T1": np.tile(self.t1_map.reshape(-1), reps),
+            "T2": np.tile(self.t2_map.reshape(-1), reps),
+        }
+
+
 def _as_map(value: Iterable[float] | np.ndarray, name: str) -> np.ndarray:
     arr = np.asarray(value, dtype=np.float64)
     if arr.ndim != 2:
         raise ValueError(f"{name} must be a 2D array")
     if arr.size == 0:
         raise ValueError(f"{name} must not be empty")
+    if not np.all(np.isfinite(arr)):
+        raise ValueError(f"{name} must be finite")
     return arr
 
 
-def _field_maps(
-    rho: np.ndarray,
-    t1_map: np.ndarray,
-    t2_map: np.ndarray,
-    ny: int,
-    maxoffs: float,
-) -> dict[str, np.ndarray]:
-    nx, nz = rho.shape
-    del_w0y = np.linspace(-float(maxoffs), float(maxoffs), int(ny))
-    del_wgx = np.tile(np.linspace(-1, 1, nx)[:, np.newaxis], (1, nz))
-    del_wgz = np.tile(np.linspace(-1, 1, nz)[np.newaxis, :], (nx, 1))
+def _default_gradient_maps(shape: tuple[int, int]) -> tuple[np.ndarray, np.ndarray]:
+    nx, nz = shape
+    del_wx = np.tile(np.linspace(-1, 1, nx)[:, np.newaxis], (1, nz))
+    del_wz = np.tile(np.linspace(-1, 1, nz)[np.newaxis, :], (nx, 1))
+    return del_wx, del_wz
 
+
+def _default_b1_map(shape: tuple[int, int]) -> np.ndarray:
+    nx, nz = shape
     x = np.arange(1, nx + 1, dtype=np.float64)
     z = np.arange(1, nz + 1, dtype=np.float64)
     zz, xx = np.meshgrid(z, x)
@@ -95,19 +146,150 @@ def _field_maps(
             + ((zz - round(nz / 2)) / sigma_z) ** 2
         )
     )
-    rf = rf / np.max(rf)
+    return rf / np.max(rf)
 
-    reps = int(ny)
-    return {
-        "del_w": np.repeat(del_w0y, nx * nz),
-        "del_wx": np.tile(del_wgx.reshape(-1), reps),
-        "del_wz": np.tile(del_wgz.reshape(-1), reps),
-        "w_1": np.tile(rf.reshape(-1), reps),
-        "m0": np.tile(rho.reshape(-1), reps),
-        "mth": np.tile(rho.reshape(-1), reps),
-        "T1": np.tile(t1_map.reshape(-1), reps),
-        "T2": np.tile(t2_map.reshape(-1), reps),
-    }
+
+def make_imaging_field_maps(
+    rho: Iterable[float] | np.ndarray,
+    *,
+    t1_map: Iterable[float] | np.ndarray | None = None,
+    t2_map: Iterable[float] | np.ndarray | None = None,
+    b0_map: Iterable[float] | np.ndarray | None = None,
+    b1_tx_map: Iterable[float] | np.ndarray | None = None,
+    b1_rx_map: Iterable[float] | np.ndarray | None = None,
+    del_wx: Iterable[float] | np.ndarray | None = None,
+    del_wz: Iterable[float] | np.ndarray | None = None,
+) -> ImagingFieldMaps:
+    """Validate and assemble spatial maps for CPMG imaging.
+
+    `b0_map` is a normalized angular offset map. If omitted, zero additional
+    off-resonance is used. If `b1_tx_map` is omitted, the same synthetic
+    single-sided map used by the existing imaging examples is generated.
+    `b1_rx_map` defaults to `b1_tx_map`.
+    """
+
+    rho_arr = _as_map(rho, "rho")
+    shape = rho_arr.shape
+    t1_arr = 5e-3 * np.ones_like(rho_arr) if t1_map is None else _as_map(t1_map, "t1_map")
+    t2_arr = 5e-3 * np.ones_like(rho_arr) if t2_map is None else _as_map(t2_map, "t2_map")
+    b0_arr = np.zeros_like(rho_arr) if b0_map is None else _as_map(b0_map, "b0_map")
+    b1_tx_arr = (
+        _default_b1_map(shape)
+        if b1_tx_map is None
+        else _as_map(b1_tx_map, "b1_tx_map")
+    )
+    b1_rx_arr = b1_tx_arr.copy() if b1_rx_map is None else _as_map(b1_rx_map, "b1_rx_map")
+    del_wx_arr, del_wz_arr = _default_gradient_maps(shape)
+    if del_wx is not None:
+        del_wx_arr = _as_map(del_wx, "del_wx")
+    if del_wz is not None:
+        del_wz_arr = _as_map(del_wz, "del_wz")
+
+    for name, arr in [
+        ("t1_map", t1_arr),
+        ("t2_map", t2_arr),
+        ("b0_map", b0_arr),
+        ("b1_tx_map", b1_tx_arr),
+        ("b1_rx_map", b1_rx_arr),
+        ("del_wx", del_wx_arr),
+        ("del_wz", del_wz_arr),
+    ]:
+        if arr.shape != shape:
+            raise ValueError(f"{name} must have the same shape as rho")
+    if np.any(b1_tx_arr < 0) or np.any(b1_rx_arr < 0):
+        raise ValueError("B1 maps must be non-negative")
+    if np.any(t1_arr <= 0) or np.any(t2_arr <= 0):
+        raise ValueError("t1_map and t2_map must be positive")
+
+    return ImagingFieldMaps(
+        rho=rho_arr,
+        t1_map=t1_arr,
+        t2_map=t2_arr,
+        b0_map=b0_arr,
+        b1_tx_map=b1_tx_arr,
+        b1_rx_map=b1_rx_arr,
+        del_wx=del_wx_arr,
+        del_wz=del_wz_arr,
+    )
+
+
+def load_imaging_field_maps_npz(
+    path: str | Path,
+    *,
+    rho_key: str = "rho",
+    t1_key: str = "t1_map",
+    t2_key: str = "t2_map",
+    b0_key: str = "b0_map",
+    b1_tx_key: str = "b1_tx_map",
+    b1_rx_key: str = "b1_rx_map",
+    del_wx_key: str = "del_wx",
+    del_wz_key: str = "del_wz",
+) -> ImagingFieldMaps:
+    """Load imaging field maps from a NumPy `.npz` archive."""
+
+    with np.load(Path(path)) as archive:
+
+        def optional(key: str) -> np.ndarray | None:
+            return archive[key] if key in archive.files else None
+
+        if rho_key not in archive.files:
+            raise ValueError(f"NPZ archive must contain '{rho_key}'")
+        return make_imaging_field_maps(
+            archive[rho_key],
+            t1_map=optional(t1_key),
+            t2_map=optional(t2_key),
+            b0_map=optional(b0_key),
+            b1_tx_map=optional(b1_tx_key),
+            b1_rx_map=optional(b1_rx_key),
+            del_wx=optional(del_wx_key),
+            del_wz=optional(del_wz_key),
+        )
+
+
+def _field_maps(
+    rho: np.ndarray,
+    t1_map: np.ndarray,
+    t2_map: np.ndarray,
+    ny: int,
+    maxoffs: float,
+) -> dict[str, np.ndarray]:
+    return make_imaging_field_maps(
+        rho,
+        t1_map=t1_map,
+        t2_map=t2_map,
+    ).kernel_maps(ny, maxoffs)
+
+
+def _coerce_field_maps(
+    rho: Iterable[float] | np.ndarray | ImagingFieldMaps,
+    t1_map: Iterable[float] | np.ndarray | None,
+    t2_map: Iterable[float] | np.ndarray | None,
+    field_maps: ImagingFieldMaps | None,
+) -> ImagingFieldMaps:
+    if isinstance(rho, ImagingFieldMaps):
+        if field_maps is not None or t1_map is not None or t2_map is not None:
+            raise ValueError(
+                "do not provide t1_map, t2_map, or field_maps when rho is ImagingFieldMaps"
+            )
+        return rho
+    if field_maps is not None:
+        rho_arr = _as_map(rho, "rho")
+        if t1_map is not None or t2_map is not None:
+            raise ValueError("t1_map and t2_map are supplied by field_maps")
+        if rho_arr.shape != field_maps.rho.shape:
+            raise ValueError("rho must have the same shape as field_maps.rho")
+        if not np.allclose(rho_arr, field_maps.rho):
+            raise ValueError("rho must match field_maps.rho")
+        return field_maps
+    return make_imaging_field_maps(rho, t1_map=t1_map, t2_map=t2_map)
+
+
+def _field_maps_from_container(
+    maps: ImagingFieldMaps,
+    ny: int,
+    maxoffs: float,
+) -> dict[str, np.ndarray]:
+    return maps.kernel_maps(ny, maxoffs)
 
 
 def reconstruct_image_from_kspace(kspace: np.ndarray, echo_index: int = 0) -> np.ndarray:
@@ -120,38 +302,24 @@ def reconstruct_image_from_kspace(kspace: np.ndarray, echo_index: int = 0) -> np
 
 
 def _validate_imaging_inputs(
-    rho: Iterable[float] | np.ndarray,
+    rho: Iterable[float] | np.ndarray | ImagingFieldMaps,
     t1_map: Iterable[float] | np.ndarray | None,
     t2_map: Iterable[float] | np.ndarray | None,
     num_echoes: int,
     ny: int,
     fov: tuple[float, float] | Iterable[float],
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    rho_arr = _as_map(rho, "rho")
-    if t1_map is None:
-        t1_arr = 5e-3 * np.ones_like(rho_arr)
-    else:
-        t1_arr = _as_map(t1_map, "t1_map")
-    if t2_map is None:
-        t2_arr = 5e-3 * np.ones_like(rho_arr)
-    else:
-        t2_arr = _as_map(t2_map, "t2_map")
-    if t1_arr.shape != rho_arr.shape or t2_arr.shape != rho_arr.shape:
-        raise ValueError("rho, t1_map, and t2_map must have the same shape")
+) -> tuple[ImagingFieldMaps, np.ndarray]:
     if num_echoes <= 0 or ny <= 0:
         raise ValueError("num_echoes and ny must be positive")
-
     fov_arr = np.asarray(tuple(fov), dtype=np.float64).reshape(-1)
     if fov_arr.size != 2 or np.any(fov_arr <= 0):
         raise ValueError("fov must contain two positive values")
-    return rho_arr, t1_arr, t2_arr, fov_arr
+    return _coerce_field_maps(rho, t1_map, t2_map, None), fov_arr
 
 
 def _finish_imaging_result(
     result_type,
-    rho: np.ndarray,
-    t1_map: np.ndarray,
-    t2_map: np.ndarray,
+    field_maps: ImagingFieldMaps,
     kspace: np.ndarray,
     gradx: np.ndarray,
     gradz: np.ndarray,
@@ -164,9 +332,12 @@ def _finish_imaging_result(
         axis=2,
     )
     return result_type(
-        rho=rho,
-        t1_map=t1_map,
-        t2_map=t2_map,
+        rho=field_maps.rho,
+        t1_map=field_maps.t1_map,
+        t2_map=field_maps.t2_map,
+        b0_map=field_maps.b0_map,
+        b1_tx_map=field_maps.b1_tx_map,
+        b1_rx_map=field_maps.b1_rx_map,
         kspace=kspace,
         image=image,
         magnitude=np.abs(image),
@@ -337,8 +508,8 @@ def _calc_tuned_imaging_pulse_shape(
     )
 
 
-def run_ideal_cpmg_imaging(
-    rho: Iterable[float] | np.ndarray,
+def run_ideal_phase_encoded_cpmg_imaging(
+    rho: Iterable[float] | np.ndarray | ImagingFieldMaps,
     *,
     t1_map: Iterable[float] | np.ndarray | None = None,
     t2_map: Iterable[float] | np.ndarray | None = None,
@@ -351,13 +522,13 @@ def run_ideal_cpmg_imaging(
     num_workers: int | None = 1,
     phase_workers: int | None = 1,
 ) -> IdealCPMGImagingResult:
-    """Run a compact ideal-probe CPMG imaging simulation.
+    """Run a compact ideal-probe phase-encoded CPMG imaging simulation.
 
     Mirrors the sequence assembly in MATLAB
     `Sim_CPMG/sim_cpmg_ideal_probe_img.m`, but returns arrays without plotting.
     """
 
-    rho_arr, t1_arr, t2_arr, fov_arr = _validate_imaging_inputs(
+    field_maps, fov_arr = _validate_imaging_inputs(
         rho,
         t1_map,
         t2_map,
@@ -365,6 +536,7 @@ def run_ideal_cpmg_imaging(
         ny,
         fov,
     )
+    rho_arr = field_maps.rho
 
     sp0, pp0 = set_params_ideal(numpts=1)
     t90 = float(pp0.T_90)
@@ -376,7 +548,7 @@ def run_ideal_cpmg_imaging(
     else:
         tacq_seconds = float(np.ravel(pp0.tacq)[0])
 
-    maps = _field_maps(rho_arr, t1_arr, t2_arr, ny, maxoffs)
+    maps = _field_maps_from_container(field_maps, ny, maxoffs)
     del_w = maps["del_w"]
     w_1 = maps["w_1"]
     sp = {
@@ -477,9 +649,7 @@ def run_ideal_cpmg_imaging(
     sequence_time = echo_spacing_seconds * (np.arange(int(num_echoes), dtype=np.float64) + 1)
     return _finish_imaging_result(
         IdealCPMGImagingResult,
-        rho_arr,
-        t1_arr,
-        t2_arr,
+        field_maps,
         kspace,
         gradx,
         gradz,
@@ -489,8 +659,39 @@ def run_ideal_cpmg_imaging(
     )
 
 
+def run_ideal_cpmg_imaging(
+    rho: Iterable[float] | np.ndarray | ImagingFieldMaps,
+    *,
+    t1_map: Iterable[float] | np.ndarray | None = None,
+    t2_map: Iterable[float] | np.ndarray | None = None,
+    num_echoes: int = 2,
+    echo_spacing_seconds: float = 0.2e-3,
+    gradient_duration_seconds: float = 0.5e-3,
+    fov: tuple[float, float] | Iterable[float] = (20.0, 20.0),
+    ny: int = 9,
+    maxoffs: float = 5.0,
+    num_workers: int | None = 1,
+    phase_workers: int | None = 1,
+) -> IdealCPMGImagingResult:
+    """Compatibility alias for `run_ideal_phase_encoded_cpmg_imaging`."""
+
+    return run_ideal_phase_encoded_cpmg_imaging(
+        rho,
+        t1_map=t1_map,
+        t2_map=t2_map,
+        num_echoes=num_echoes,
+        echo_spacing_seconds=echo_spacing_seconds,
+        gradient_duration_seconds=gradient_duration_seconds,
+        fov=fov,
+        ny=ny,
+        maxoffs=maxoffs,
+        num_workers=num_workers,
+        phase_workers=phase_workers,
+    )
+
+
 def _probe_imaging(
-    rho: Iterable[float] | np.ndarray,
+    rho: Iterable[float] | np.ndarray | ImagingFieldMaps,
     *,
     probe: str,
     t1_map: Iterable[float] | np.ndarray | None,
@@ -504,7 +705,7 @@ def _probe_imaging(
     num_workers: int | None,
     phase_workers: int | None,
 ) -> ProbeCPMGImagingResult:
-    rho_arr, t1_arr, t2_arr, fov_arr = _validate_imaging_inputs(
+    field_maps, fov_arr = _validate_imaging_inputs(
         rho,
         t1_map,
         t2_map,
@@ -512,6 +713,7 @@ def _probe_imaging(
         ny,
         fov,
     )
+    rho_arr = field_maps.rho
 
     if probe == "tuned":
         sp0, pp0 = _set_params_tuned_jmr()
@@ -526,7 +728,7 @@ def _probe_imaging(
         raise ValueError("echo_spacing_seconds must be longer than T_180")
     tacq_seconds = min(float(np.ravel(pp0.tacq)[0]), echo_spacing_seconds - t180)
 
-    maps = _field_maps(rho_arr, t1_arr, t2_arr, ny, maxoffs)
+    maps = _field_maps_from_container(field_maps, ny, maxoffs)
     del_w = maps["del_w"]
     w_1 = maps["w_1"]
     sp = {
@@ -536,7 +738,7 @@ def _probe_imaging(
         "del_w": del_w,
         "del_wg": np.zeros_like(del_w),
         "w_1": w_1,
-        "w_1r": w_1,
+        "w_1r": maps["w_1r"],
         "T1": maps["T1"],
         "T2": maps["T2"],
         "m0": maps["m0"],
@@ -674,9 +876,7 @@ def _probe_imaging(
     sequence_time = echo_spacing_seconds * (np.arange(int(num_echoes), dtype=np.float64) + 1)
     return _finish_imaging_result(
         ProbeCPMGImagingResult,
-        rho_arr,
-        t1_arr,
-        t2_arr,
+        field_maps,
         kspace,
         gradx,
         gradz,
@@ -686,8 +886,8 @@ def _probe_imaging(
     )
 
 
-def run_tuned_cpmg_imaging(
-    rho: Iterable[float] | np.ndarray,
+def run_tuned_phase_encoded_cpmg_imaging(
+    rho: Iterable[float] | np.ndarray | ImagingFieldMaps,
     *,
     t1_map: Iterable[float] | np.ndarray | None = None,
     t2_map: Iterable[float] | np.ndarray | None = None,
@@ -700,7 +900,7 @@ def run_tuned_cpmg_imaging(
     num_workers: int | None = 1,
     phase_workers: int | None = 1,
 ) -> ProbeCPMGImagingResult:
-    """Run a compact tuned-probe CPMG imaging simulation."""
+    """Run a compact tuned-probe phase-encoded CPMG imaging simulation."""
 
     return _probe_imaging(
         rho,
@@ -718,8 +918,8 @@ def run_tuned_cpmg_imaging(
     )
 
 
-def run_matched_cpmg_imaging(
-    rho: Iterable[float] | np.ndarray,
+def run_tuned_cpmg_imaging(
+    rho: Iterable[float] | np.ndarray | ImagingFieldMaps,
     *,
     t1_map: Iterable[float] | np.ndarray | None = None,
     t2_map: Iterable[float] | np.ndarray | None = None,
@@ -732,11 +932,73 @@ def run_matched_cpmg_imaging(
     num_workers: int | None = 1,
     phase_workers: int | None = 1,
 ) -> ProbeCPMGImagingResult:
-    """Run a compact matched-probe CPMG imaging simulation."""
+    """Compatibility alias for `run_tuned_phase_encoded_cpmg_imaging`."""
+
+    return run_tuned_phase_encoded_cpmg_imaging(
+        rho,
+        t1_map=t1_map,
+        t2_map=t2_map,
+        num_echoes=num_echoes,
+        echo_spacing_seconds=echo_spacing_seconds,
+        gradient_duration_seconds=gradient_duration_seconds,
+        fov=fov,
+        ny=ny,
+        maxoffs=maxoffs,
+        num_workers=num_workers,
+        phase_workers=phase_workers,
+    )
+
+
+def run_matched_phase_encoded_cpmg_imaging(
+    rho: Iterable[float] | np.ndarray | ImagingFieldMaps,
+    *,
+    t1_map: Iterable[float] | np.ndarray | None = None,
+    t2_map: Iterable[float] | np.ndarray | None = None,
+    num_echoes: int = 2,
+    echo_spacing_seconds: float = 0.2e-3,
+    gradient_duration_seconds: float = 0.5e-3,
+    fov: tuple[float, float] | Iterable[float] = (20.0, 20.0),
+    ny: int = 9,
+    maxoffs: float = 5.0,
+    num_workers: int | None = 1,
+    phase_workers: int | None = 1,
+) -> ProbeCPMGImagingResult:
+    """Run a compact matched-probe phase-encoded CPMG imaging simulation."""
 
     return _probe_imaging(
         rho,
         probe="matched",
+        t1_map=t1_map,
+        t2_map=t2_map,
+        num_echoes=num_echoes,
+        echo_spacing_seconds=echo_spacing_seconds,
+        gradient_duration_seconds=gradient_duration_seconds,
+        fov=fov,
+        ny=ny,
+        maxoffs=maxoffs,
+        num_workers=num_workers,
+        phase_workers=phase_workers,
+    )
+
+
+def run_matched_cpmg_imaging(
+    rho: Iterable[float] | np.ndarray | ImagingFieldMaps,
+    *,
+    t1_map: Iterable[float] | np.ndarray | None = None,
+    t2_map: Iterable[float] | np.ndarray | None = None,
+    num_echoes: int = 2,
+    echo_spacing_seconds: float = 0.2e-3,
+    gradient_duration_seconds: float = 0.5e-3,
+    fov: tuple[float, float] | Iterable[float] = (20.0, 20.0),
+    ny: int = 9,
+    maxoffs: float = 5.0,
+    num_workers: int | None = 1,
+    phase_workers: int | None = 1,
+) -> ProbeCPMGImagingResult:
+    """Compatibility alias for `run_matched_phase_encoded_cpmg_imaging`."""
+
+    return run_matched_phase_encoded_cpmg_imaging(
+        rho,
         t1_map=t1_map,
         t2_map=t2_map,
         num_echoes=num_echoes,

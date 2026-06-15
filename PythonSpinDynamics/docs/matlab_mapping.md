@@ -25,7 +25,7 @@ The recommended MATLAB source tree is:
 | `circuit_simulation/tuned_probe` | `spin_dynamics.probes.tuned` | Tuned transmit/receive helpers. |
 | `circuit_simulation/untuned_probe` | `spin_dynamics.probes.untuned` | Untuned transmit/receive helpers. |
 | `CPMG_Asymp_Examples` | `spin_dynamics.workflows.cpmg` | Canonical smoke tests and examples. |
-| `Sim_CPMG_IR` | `spin_dynamics.workflows.cpmg_ir` | Matched-probe inversion-recovery CPMG finite train over tau values. |
+| `Sim_CPMG_IR` | `spin_dynamics.workflows.cpmg_ir` | Ideal, tuned, untuned, and matched inversion-recovery CPMG finite trains over tau values. |
 | `CompareQ`, `CompareMistuned`, `z_mag` | `spin_dynamics.workflows.sweeps` | Probe Q, tuning/matching frequency, and z-magnetization sweeps returning array results. |
 | `time_varying_field` | `spin_dynamics.workflows.time_varying` | Ideal time-varying-field CPMG final-echo and amplitude-sweep workflows. |
 | `FID_Example`, `Sim_FID` | `spin_dynamics.workflows.fid` | Ideal FID should be an early workflow. |
@@ -53,7 +53,7 @@ available for direct-sum echoes from arbitrary acquired magnetization.
 | Finite tuned CPMG | `run_tuned_cpmg_train` is available for homogeneous finite tuned-probe echo trains with tuned pulse shaping, receiver filtering, and relaxation. |
 | Finite untuned CPMG | `run_untuned_cpmg_train` is available for homogeneous finite untuned-probe echo trains with untuned pulse shaping, receiver filtering, and relaxation. |
 | Finite matched CPMG | `run_matched_cpmg_train` is available for homogeneous finite matched-probe echo trains with matching-network pulse shaping, receiver filtering, and relaxation. |
-| Matched CPMG-IR finite train | `run_matched_cpmg_ir_train` is available for homogeneous matched-probe inversion-recovery echo trains over `tauvect`. |
+| CPMG-IR finite trains | `run_ideal_cpmg_ir_train`, `run_tuned_cpmg_ir_train`, `run_untuned_cpmg_ir_train`, and `run_matched_cpmg_ir_train` are available for homogeneous inversion-recovery echo trains over `tauvect`. |
 | Ideal FID | `set_params_ideal_fid`, `calc_macq_fid`, `sim_spin_dynamics_arb7`, `calc_fid_time_domain`, and `sim_fid_ideal` are available. |
 | Ideal finite acquisition | `calc_macq_ideal_probe_relax4` is available for assembled arbitrary sequences with relaxation during free precession. |
 | Probe finite-acquisition wrappers | `calc_macq_tuned_probe_relax4`, `calc_macq_untuned_probe_relax4`, and `calc_macq_matched_probe_relax4` are available. Tuned and matched are MATLAB-fixture validated; untuned follows the same receiver-map contract. |
@@ -66,7 +66,7 @@ available for direct-sum echoes from arbitrary acquired magnetization.
 | Matched z-magnetization Q sweep | `calc_masy_matched_nut` and `run_matched_z_magnetization_q_sweep` are available. |
 | Ideal time-varying-field CPMG | `run_ideal_time_varying_cpmg_final`, `run_ideal_time_varying_amplitude_sweep`, and `sinusoidal_field_waveform` are available. |
 | Matched diffusion CPMG | `sim_spin_dynamics_arb10_diffusion`, `calc_macq_matched_probe_relax_diffusion`, `run_matched_diffusion_cpmg`, and `run_matched_diffusion_q_sweep` are available as first Python diffusion paths. |
-| CPMG imaging | `run_ideal_cpmg_imaging`, `run_tuned_cpmg_imaging`, `run_matched_cpmg_imaging`, and `reconstruct_image_from_kspace` are available. |
+| CPMG imaging | `run_ideal_phase_encoded_cpmg_imaging`, `run_tuned_phase_encoded_cpmg_imaging`, `run_matched_phase_encoded_cpmg_imaging`, compatibility `run_*_cpmg_imaging` aliases, and `reconstruct_image_from_kspace` are available. |
 | OCT/SPA | Fixed SPA pulse catalog, summary metrics, tuned/untuned/matched refocusing evaluators, bounded refocusing/tuned-excitation/inverse-excitation optimizers with optional SciPy backend, compact optimizer-result fixtures, and multi-start drivers are available. MATLAB-equivalent file/result parity remains reference-only. |
 
 ## Naming Conventions

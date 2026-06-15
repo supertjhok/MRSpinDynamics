@@ -12,9 +12,9 @@ from _source_path import add_src_to_path
 add_src_to_path()
 
 from spin_dynamics.workflows import (  # noqa: E402
-    run_ideal_cpmg_imaging,
-    run_matched_cpmg_imaging,
-    run_tuned_cpmg_imaging,
+    run_ideal_phase_encoded_cpmg_imaging,
+    run_matched_phase_encoded_cpmg_imaging,
+    run_tuned_phase_encoded_cpmg_imaging,
 )
 
 
@@ -124,9 +124,9 @@ def main() -> None:
     rho = _load_phantom(args.image, args.pixels, invert=not args.raw_image)
 
     runners = {
-        "ideal": run_ideal_cpmg_imaging,
-        "tuned": run_tuned_cpmg_imaging,
-        "matched": run_matched_cpmg_imaging,
+        "ideal": run_ideal_phase_encoded_cpmg_imaging,
+        "tuned": run_tuned_phase_encoded_cpmg_imaging,
+        "matched": run_matched_phase_encoded_cpmg_imaging,
     }
     # The imaging runner returns k-space and reconstructed image arrays for
     # every echo. Small pixel counts are deliberate because this scales steeply.

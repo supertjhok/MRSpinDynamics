@@ -137,8 +137,10 @@ their inputs and outputs are small, array-based, and close to NumPy's strengths.
 - Keep broad/high-Q diffusion sweeps behind additional solver validation,
   because the current NumPy matched-probe transient solver can become stiff for
   very high Q values.
-- `run_ideal_cpmg_imaging`, `run_tuned_cpmg_imaging`, and
-  `run_matched_cpmg_imaging` port the compact CPMG imaging workflows from
+- `run_ideal_phase_encoded_cpmg_imaging`,
+  `run_tuned_phase_encoded_cpmg_imaging`, and
+  `run_matched_phase_encoded_cpmg_imaging` port the compact phase-encoded CPMG
+  imaging workflows from
   `Imaging_demo/imaging_example_ideal.m` and `Sim_CPMG/*_probe_img.m` into
   array-returning APIs.
 - Compact MATLAB-generated k-space fixtures validate the ideal, tuned, and

@@ -29,8 +29,8 @@ The validated Python API currently covers:
 - Python-native finite-train Q/mistuning sweeps for tuned, untuned, and
   matched probes;
 - first matched-probe diffusion CPMG workflow and compact diffusion Q sweep;
-- fixture-validated ideal, tuned, and matched CPMG imaging and k-space
-  reconstruction;
+- fixture-validated ideal, tuned, and matched CPMG imaging, k-space
+  reconstruction, and arbitrary B0/B1 field-map loading helpers;
 - fixture-validated pulse-shape utilities for JMR rectangular pulse responses,
   phase quantization, and untuned segment adjustment;
 - tuned and matched CPMG Q/mistuning sweep workflows;

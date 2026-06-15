@@ -69,9 +69,9 @@ skips matched-probe files when `fmincon` is unavailable.
 | `spin_dynamics.core.kernels.sim_spin_dynamics_arb10_diffusion` | `sim_spin_dynamics_arb/sim_spin_dynamics_arb_relax_diff.m` design, modernized to `arb10` structure | zero-diffusion equality with `arb10` and chunked equality tests | Passed |
 | `spin_dynamics.workflows.run_matched_diffusion_cpmg` | `Sim_Diffusion/sim_dif_matched_CPMG_noRx.m` | workflow shape and finite-output smoke test | Passed |
 | `spin_dynamics.workflows.run_matched_diffusion_q_sweep` | `DIffusion_Example/Diff_Echo_Q.m` | workflow shape and sweep-parallel equality smoke test | Passed |
-| `spin_dynamics.workflows.run_ideal_cpmg_imaging` | `Imaging_demo/imaging_example_ideal.m`, `Sim_CPMG/sim_cpmg_ideal_probe_img.m` | `run_ideal_cpmg_imaging_kspace.csv`, workflow shape, and phase-parallel equality tests | Passed |
-| `spin_dynamics.workflows.run_tuned_cpmg_imaging` | `Sim_CPMG/sim_cpmg_tuned_probe_img.m` | `run_tuned_cpmg_imaging_kspace.csv`, workflow shape, and phase-parallel equality tests | Passed |
-| `spin_dynamics.workflows.run_matched_cpmg_imaging` | `Sim_CPMG/sim_cpmg_matched_probe_img.m` | `run_matched_cpmg_imaging_kspace.csv` and workflow shape tests | Passed |
+| `spin_dynamics.workflows.run_ideal_phase_encoded_cpmg_imaging` | `Imaging_demo/imaging_example_ideal.m`, `Sim_CPMG/sim_cpmg_ideal_probe_img.m` | `run_ideal_cpmg_imaging_kspace.csv`, workflow shape, arbitrary field-map helper, and phase-parallel equality tests | Passed |
+| `spin_dynamics.workflows.run_tuned_phase_encoded_cpmg_imaging` | `Sim_CPMG/sim_cpmg_tuned_probe_img.m` | `run_tuned_cpmg_imaging_kspace.csv`, workflow shape, and phase-parallel equality tests | Passed |
+| `spin_dynamics.workflows.run_matched_phase_encoded_cpmg_imaging` | `Sim_CPMG/sim_cpmg_matched_probe_img.m` | `run_matched_cpmg_imaging_kspace.csv` and workflow shape tests | Passed |
 | `spin_dynamics.pulses.tuned_rectangular_pulse_response` | `Pulse Shape/tunedPulse.m` | `pulse_tuned_rectangular.csv` | Passed |
 | `spin_dynamics.pulses.untuned_rectangular_pulse_response` | `Pulse Shape/untunedPulse.m` | `pulse_untuned_rectangular.csv` | Passed |
 | `spin_dynamics.pulses.matched_rectangular_pulse_response` | `Pulse Shape/matchedPulse.m` | `pulse_matched_rectangular.csv` | Passed |
@@ -132,9 +132,9 @@ The public CPMG runners are also tested for result-container shape and metadata:
 - `run_matched_finite_mistuning_sweep`
 - `run_matched_diffusion_cpmg`
 - `run_matched_diffusion_q_sweep`
-- `run_ideal_cpmg_imaging`
-- `run_tuned_cpmg_imaging`
-- `run_matched_cpmg_imaging`
+- `run_ideal_phase_encoded_cpmg_imaging`
+- `run_tuned_phase_encoded_cpmg_imaging`
+- `run_matched_phase_encoded_cpmg_imaging`
 - `run_tuned_q_sweep`
 - `run_matched_q_sweep`
 - `run_tuned_mistuning_sweep`

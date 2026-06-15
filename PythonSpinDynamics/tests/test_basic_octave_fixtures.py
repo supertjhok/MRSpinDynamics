@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import tempfile
 import unittest
 from pathlib import Path
 import sys
 from dataclasses import replace
 import importlib.util
 from types import SimpleNamespace
+from unittest.mock import patch
 
 import numpy as np
 
@@ -77,6 +79,7 @@ from spin_dynamics.pulses import (
 import spin_dynamics.optimization.drivers as driver_module
 import spin_dynamics.optimization.excitation as excitation_module
 import spin_dynamics.optimization.refocusing as refocusing_module
+import spin_dynamics.workflows.imaging as imaging_module
 from spin_dynamics.probes.tuned import (
     calc_masy_tuned_probe_lp_orig,
     tuned_probe_lp_orig,
@@ -96,15 +99,19 @@ from spin_dynamics.workflows import (
     calc_macq_matched_probe_relax4,
     calc_macq_tuned_probe_relax4,
     calc_macq_untuned_probe_relax4,
+    load_imaging_field_maps_npz,
+    make_imaging_field_maps,
     run_ideal_cpmg,
     run_ideal_cpmg_imaging,
     run_ideal_cpmg_ir_train,
+    run_ideal_phase_encoded_cpmg_imaging,
     run_ideal_cpmg_train,
     run_ideal_time_varying_amplitude_sweep,
     run_ideal_time_varying_cpmg_final,
     run_matched_cpmg,
     run_matched_cpmg_imaging,
     run_matched_cpmg_ir_train,
+    run_matched_phase_encoded_cpmg_imaging,
     run_matched_cpmg_train,
     run_matched_diffusion_cpmg,
     run_matched_diffusion_q_sweep,
@@ -116,6 +123,7 @@ from spin_dynamics.workflows import (
     run_tuned_cpmg,
     run_tuned_cpmg_imaging,
     run_tuned_cpmg_ir_train,
+    run_tuned_phase_encoded_cpmg_imaging,
     run_tuned_cpmg_train,
     run_tuned_finite_mistuning_sweep,
     run_tuned_finite_q_sweep,
@@ -2288,6 +2296,161 @@ class OctaveFixtureTests(unittest.TestCase):
         self.assertEqual(result.echo_integrals.shape, (3, 3, 1))
         self.assertTrue(np.all(np.isfinite(result.kspace)))
         self.assertTrue(np.all(np.isfinite(result.magnitude)))
+
+    def test_phase_encoded_imaging_names_match_legacy_aliases(self) -> None:
+        rho = np.eye(2, dtype=np.float64)
+        sentinel = object()
+
+        self.assertIs(
+            run_ideal_phase_encoded_cpmg_imaging,
+            imaging_module.run_ideal_phase_encoded_cpmg_imaging,
+        )
+        with patch.object(
+            imaging_module,
+            "run_ideal_phase_encoded_cpmg_imaging",
+            return_value=sentinel,
+        ) as canonical:
+            self.assertIs(run_ideal_cpmg_imaging(rho, num_echoes=1), sentinel)
+            canonical.assert_called_once()
+
+        self.assertIs(
+            run_tuned_phase_encoded_cpmg_imaging,
+            imaging_module.run_tuned_phase_encoded_cpmg_imaging,
+        )
+        with patch.object(
+            imaging_module,
+            "run_tuned_phase_encoded_cpmg_imaging",
+            return_value=sentinel,
+        ) as canonical:
+            self.assertIs(run_tuned_cpmg_imaging(rho, num_echoes=1), sentinel)
+            canonical.assert_called_once()
+
+        self.assertIs(
+            run_matched_phase_encoded_cpmg_imaging,
+            imaging_module.run_matched_phase_encoded_cpmg_imaging,
+        )
+        with patch.object(
+            imaging_module,
+            "run_matched_phase_encoded_cpmg_imaging",
+            return_value=sentinel,
+        ) as canonical:
+            self.assertIs(run_matched_cpmg_imaging(rho, num_echoes=1), sentinel)
+            canonical.assert_called_once()
+
+    def test_make_imaging_field_maps_accepts_custom_b0_b1_maps(self) -> None:
+        rho = np.array([[1.0, 0.5], [0.25, 0.75]], dtype=np.float64)
+        b0_map = np.array([[0.1, -0.2], [0.0, 0.3]], dtype=np.float64)
+        b1_tx_map = np.array([[1.0, 0.8], [0.6, 0.4]], dtype=np.float64)
+        b1_rx_map = np.array([[0.9, 0.7], [0.5, 0.3]], dtype=np.float64)
+
+        maps = make_imaging_field_maps(
+            rho,
+            b0_map=b0_map,
+            b1_tx_map=b1_tx_map,
+            b1_rx_map=b1_rx_map,
+        )
+        kernel = maps.kernel_maps(ny=3, maxoffs=2.0)
+
+        np.testing.assert_allclose(maps.b0_map, b0_map)
+        np.testing.assert_allclose(maps.b1_tx_map, b1_tx_map)
+        np.testing.assert_allclose(maps.b1_rx_map, b1_rx_map)
+        self.assertEqual(kernel["del_w"].shape, (12,))
+        np.testing.assert_allclose(
+            kernel["del_w"],
+            np.concatenate([offset + b0_map.reshape(-1) for offset in [-2.0, 0.0, 2.0]]),
+        )
+        np.testing.assert_allclose(kernel["w_1"][:4], b1_tx_map.reshape(-1))
+        np.testing.assert_allclose(kernel["w_1r"][:4], b1_rx_map.reshape(-1))
+
+    def test_make_imaging_field_maps_rejects_invalid_maps(self) -> None:
+        rho = np.ones((2, 2), dtype=np.float64)
+        with self.assertRaises(ValueError):
+            make_imaging_field_maps(rho, b1_tx_map=-np.ones_like(rho))
+        with self.assertRaises(ValueError):
+            make_imaging_field_maps(rho, b0_map=np.ones((2, 3)))
+
+    def test_load_imaging_field_maps_npz_round_trips_custom_maps(self) -> None:
+        rho = np.array([[1.0, 0.0], [0.5, 0.25]], dtype=np.float64)
+        b0_map = np.array([[0.0, 0.2], [-0.1, 0.4]], dtype=np.float64)
+        b1_tx_map = np.array([[1.0, 0.9], [0.7, 0.5]], dtype=np.float64)
+        b1_rx_map = np.array([[0.8, 0.6], [0.4, 0.2]], dtype=np.float64)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "field_maps.npz"
+            np.savez(
+                path,
+                rho=rho,
+                b0_map=b0_map,
+                b1_tx_map=b1_tx_map,
+                b1_rx_map=b1_rx_map,
+            )
+            maps = load_imaging_field_maps_npz(path)
+
+        np.testing.assert_allclose(maps.rho, rho)
+        np.testing.assert_allclose(maps.b0_map, b0_map)
+        np.testing.assert_allclose(maps.b1_tx_map, b1_tx_map)
+        np.testing.assert_allclose(maps.b1_rx_map, b1_rx_map)
+
+    def test_ideal_cpmg_imaging_accepts_custom_field_maps(self) -> None:
+        rho = np.array([[1.0, 0.0], [0.5, 0.25]], dtype=np.float64)
+        b0_map = np.array([[0.0, 0.1], [-0.1, 0.2]], dtype=np.float64)
+        b1_tx_map = np.array([[1.0, 0.8], [0.6, 0.4]], dtype=np.float64)
+        maps = make_imaging_field_maps(rho, b0_map=b0_map, b1_tx_map=b1_tx_map)
+
+        result = run_ideal_cpmg_imaging(
+            maps,
+            num_echoes=1,
+            ny=3,
+            num_workers=1,
+            phase_workers=1,
+        )
+
+        self.assertEqual(result.kspace.shape, (2, 2, 1))
+        np.testing.assert_allclose(result.rho, rho)
+        np.testing.assert_allclose(result.b0_map, b0_map)
+        np.testing.assert_allclose(result.b1_tx_map, b1_tx_map)
+        np.testing.assert_allclose(result.b1_rx_map, b1_tx_map)
+        self.assertTrue(np.all(np.isfinite(result.kspace)))
+
+    def test_matched_cpmg_imaging_applies_custom_receive_map(self) -> None:
+        rho = np.ones((1, 1), dtype=np.float64)
+        maps = make_imaging_field_maps(
+            rho,
+            b1_tx_map=np.ones_like(rho),
+            b1_rx_map=np.zeros_like(rho),
+        )
+
+        result = run_matched_cpmg_imaging(
+            maps,
+            num_echoes=1,
+            ny=1,
+            num_workers=1,
+            phase_workers=1,
+        )
+
+        np.testing.assert_allclose(result.kspace, 0.0, atol=1e-14)
+        np.testing.assert_allclose(result.echo_integrals, 0.0, atol=1e-14)
+
+    def test_ideal_cpmg_imaging_field_maps_match_legacy_inputs(self) -> None:
+        rho = np.array([[0.0, 1.0], [1.0, 0.0]], dtype=np.float64)
+        maps = make_imaging_field_maps(rho)
+        legacy = run_ideal_cpmg_imaging(
+            rho,
+            num_echoes=1,
+            ny=3,
+            num_workers=1,
+            phase_workers=1,
+        )
+        container = run_ideal_cpmg_imaging(
+            maps,
+            num_echoes=1,
+            ny=3,
+            num_workers=1,
+            phase_workers=1,
+        )
+
+        np.testing.assert_allclose(container.kspace, legacy.kspace, rtol=1e-13, atol=1e-13)
+        np.testing.assert_allclose(container.image, legacy.image, rtol=1e-13, atol=1e-13)
 
     def test_ideal_cpmg_imaging_phase_parallel_matches_serial(self) -> None:
         rho = np.array(

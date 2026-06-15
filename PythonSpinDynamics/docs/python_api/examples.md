@@ -71,6 +71,16 @@ PNG.
 python examples\plot_ideal_imaging.py --pixels 6 --ny 7 --output results\ideal_imaging.png
 ```
 
+## Plot Custom Imaging Fields
+
+This example builds a small synthetic phantom with custom B0, transmit-B1, and
+receive-B1 maps, then plots the input maps, k-space, and reconstruction. It
+requires Matplotlib.
+
+```powershell
+python examples\plot_custom_imaging_fields.py --pixels 8 --ny 7 --output results\custom_imaging_fields.png
+```
+
 ## Tuned-Probe CPMG
 
 ```powershell

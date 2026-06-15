@@ -168,7 +168,7 @@ MATLAB references:
 - `time_varying_field/compare_cpmg_results_ideal_tv.m`
 - `time_varying_field/compare_cpmg_results_ideal_v0crit.m`
 
-## Matched CPMG-IR Finite Train
+## CPMG-IR Finite Trains
 
 ```python
 from spin_dynamics.workflows import run_matched_cpmg_ir_train
@@ -184,7 +184,10 @@ result = run_matched_cpmg_ir_train(
 )
 ```
 
-`run_matched_cpmg_ir_train` returns `MatchedCPMGIRTrainResult` with:
+`run_ideal_cpmg_ir_train`, `run_tuned_cpmg_ir_train`,
+`run_untuned_cpmg_ir_train`, and `run_matched_cpmg_ir_train` run homogeneous
+inversion-recovery CPMG trains over `tauvect`. They return CPMG-IR result
+containers with:
 
 - `tauvect`: inversion-delay vector in seconds;
 - `del_w`: normalized offset grid;
@@ -295,28 +298,66 @@ MATLAB references:
 ```python
 import numpy as np
 
-from spin_dynamics.workflows import run_ideal_cpmg_imaging, run_tuned_cpmg_imaging
+from spin_dynamics.workflows import (
+    load_imaging_field_maps_npz,
+    make_imaging_field_maps,
+    run_ideal_phase_encoded_cpmg_imaging,
+    run_tuned_phase_encoded_cpmg_imaging,
+)
 
 rho = np.eye(4)
-result = run_ideal_cpmg_imaging(
+result = run_ideal_phase_encoded_cpmg_imaging(
     rho,
     num_echoes=2,
     ny=7,
     phase_workers=2,
 )
-tuned = run_tuned_cpmg_imaging(rho, num_echoes=1, ny=5)
+tuned = run_tuned_phase_encoded_cpmg_imaging(rho, num_echoes=1, ny=5)
+
+field_maps = make_imaging_field_maps(
+    rho,
+    b0_map=np.zeros_like(rho),
+    b1_tx_map=np.ones_like(rho),
+    b1_rx_map=np.ones_like(rho),
+)
+custom = run_tuned_phase_encoded_cpmg_imaging(field_maps, num_echoes=1, ny=5)
+from_npz = run_tuned_phase_encoded_cpmg_imaging(load_imaging_field_maps_npz("field_maps.npz"))
 ```
 
-`run_ideal_cpmg_imaging`, `run_tuned_cpmg_imaging`, and
-`run_matched_cpmg_imaging` return imaging result containers with:
+`run_ideal_phase_encoded_cpmg_imaging`,
+`run_tuned_phase_encoded_cpmg_imaging`, and
+`run_matched_phase_encoded_cpmg_imaging` return imaging result containers with:
 
 - `rho`, `t1_map`, `t2_map`: sample maps;
+- `b0_map`, `b1_tx_map`, `b1_rx_map`: off-resonance, transmit, and receive
+  field maps used by the run;
 - `kspace`: complex phase-encoded echo integrals with shape
   `(px, pz, num_echoes)`;
 - `image` and `magnitude`: reconstructed image arrays from each echo;
 - `gradx`, `gradz`: phase-encoding gradient steps;
 - `del_w`: flattened normalized offset grid;
 - `sequence_time`: echo-center times in seconds.
+
+Each runner accepts either a spin-density array or an `ImagingFieldMaps`
+container. `make_imaging_field_maps` validates arbitrary two-dimensional
+`rho`, `t1_map`, `t2_map`, normalized `b0_map`, relative `b1_tx_map`,
+`b1_rx_map`, `del_wx`, and `del_wz` arrays. Missing relaxation maps default to
+5 ms, missing B0 defaults to zero off-resonance, and missing B1 maps use the
+legacy single-sided synthetic sensitivity map. `load_imaging_field_maps_npz`
+loads the same fields from a NumPy archive using keys such as `rho`, `b0_map`,
+`b1_tx_map`, and `b1_rx_map`.
+
+`b1_tx_map` scales the pulse field used by the isochromat kernels. The matched
+probe imaging path also applies `b1_rx_map` through its receiver calculation.
+The tuned compact imaging path keeps the MATLAB fixture's raw-current display
+convention, so receive-map weighting there should be treated as a follow-on
+validation item rather than a validated correction.
+
+The shorter names `run_ideal_cpmg_imaging`, `run_tuned_cpmg_imaging`, and
+`run_matched_cpmg_imaging` remain compatibility aliases for these phase-encoded
+workflows. New imaging code should include the encoding mode in the function
+name so later frequency-encoded or hybrid acquisitions can be added without
+overloading "imaging".
 
 All three imaging runners are checked against compact MATLAB-generated k-space
 fixtures in `validation/fixtures`.

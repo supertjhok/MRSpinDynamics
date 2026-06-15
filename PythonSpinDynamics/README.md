@@ -61,8 +61,12 @@ simulation grids. Python-native finite-train sweep wrappers are available as
 The first diffusion-aware matched CPMG workflow is available as
 `run_matched_diffusion_cpmg`, with `run_matched_diffusion_q_sweep` for compact
 Q studies. Compact ideal, tuned, and matched CPMG imaging workflows are
-available as `run_ideal_cpmg_imaging`, `run_tuned_cpmg_imaging`, and
-`run_matched_cpmg_imaging`.
+available as `run_ideal_phase_encoded_cpmg_imaging`,
+`run_tuned_phase_encoded_cpmg_imaging`, and
+`run_matched_phase_encoded_cpmg_imaging`. The older
+`run_*_cpmg_imaging` names remain compatibility aliases. Imaging runs can also
+consume arbitrary two-dimensional B0, transmit-B1, and receive-B1 maps through
+`make_imaging_field_maps` or `load_imaging_field_maps_npz`.
 
 The validated lower-level workflow surface also includes
 `calc_macq_ideal_probe_relax4`, `calc_macq_tuned_probe_relax4`,
@@ -80,7 +84,7 @@ across CPU cores with `num_workers`.
 | Ideal, tuned, untuned, and matched reference CPMG | Fixture validated | Matched-probe paths use practical tolerances because Python uses an independent NumPy solver. |
 | Finite CPMG trains, finite Q/mistuning sweeps, and matched CPMG-IR | Validated plus smoke-tested | Includes serial/parallel equality checks where applicable. |
 | Matched diffusion CPMG | Compact validation and smoke-tested | Very high-Q diffusion cases remain a known stiffness target. |
-| Ideal, tuned, and matched CPMG imaging | Fixture validated | MATLAB-generated k-space fixtures plus visual plotting examples. |
+| Ideal, tuned, and matched CPMG imaging | Fixture validated | MATLAB-generated k-space fixtures, arbitrary B0/B1 map helpers, and visual plotting examples. |
 | Pulse-shape helpers | Fixture validated | JMR rectangular pulse responses, phase quantization, and untuned segment adjustment. |
 | OCT/SPA pulse evaluation | Partly ported and validated | Fixed SPA catalog, SNR/FOM summaries, tuned/untuned/matched refocusing evaluators, lightweight search scaffolds, and bounded phase optimizers are available. MATLAB-equivalent optimizer loops remain deferred. |
 
@@ -201,6 +205,12 @@ python examples\plot_ideal_imaging.py --pixels 6 --ny 7 --output results\ideal_i
 ```
 
 Use `--probe tuned` or `--probe matched` to run the probe-aware imaging paths.
+To inspect custom B0, transmit-B1, and receive-B1 maps in the same workflow,
+run:
+
+```powershell
+python examples\plot_custom_imaging_fields.py --pixels 8 --ny 7 --output results\custom_imaging_fields.png
+```
 
 Run the original/reference tuned-probe CPMG comparison:
 
