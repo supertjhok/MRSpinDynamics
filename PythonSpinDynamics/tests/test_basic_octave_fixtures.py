@@ -119,6 +119,8 @@ from spin_dynamics.workflows import (
     run_matched_finite_q_sweep,
     run_matched_mistuning_sweep,
     run_matched_q_sweep,
+    run_matched_time_varying_amplitude_sweep,
+    run_matched_time_varying_cpmg_final,
     run_matched_z_magnetization_q_sweep,
     run_tuned_cpmg,
     run_tuned_cpmg_imaging,
@@ -129,11 +131,15 @@ from spin_dynamics.workflows import (
     run_tuned_finite_q_sweep,
     run_tuned_mistuning_sweep,
     run_tuned_q_sweep,
+    run_tuned_time_varying_amplitude_sweep,
+    run_tuned_time_varying_cpmg_final,
     run_untuned_cpmg,
     run_untuned_cpmg_ir_train,
     run_untuned_cpmg_train,
     run_untuned_finite_mistuning_sweep,
     run_untuned_finite_q_sweep,
+    run_untuned_time_varying_amplitude_sweep,
+    run_untuned_time_varying_cpmg_final,
     VALIDATED_MATCHED_DIFFUSION_Q_MAX,
     check_matched_diffusion_q_stability,
     sinusoidal_field_waveform,
@@ -2048,6 +2054,57 @@ class OctaveFixtureTests(unittest.TestCase):
             rtol=1e-13,
             atol=1e-13,
         )
+
+    def test_probe_time_varying_cpmg_final_returns_expected_shapes(self) -> None:
+        waveform = sinusoidal_field_waveform(2)
+        for runner, probe in [
+            (run_tuned_time_varying_cpmg_final, "tuned"),
+            (run_untuned_time_varying_cpmg_final, "untuned"),
+            (run_matched_time_varying_cpmg_final, "matched"),
+        ]:
+            with self.subTest(probe=probe):
+                result = runner(
+                    0.25 * waveform,
+                    numpts=9,
+                    maxoffs=4,
+                    num_workers=1,
+                )
+                self.assertEqual(result.probe, probe)
+                self.assertEqual(result.field_offsets.shape, (2,))
+                self.assertEqual(result.mrx.shape, (9,))
+                self.assertEqual(result.echo.shape, result.tvect.shape)
+                self.assertTrue(np.isfinite(result.echo_integral))
+
+    def test_probe_time_varying_amplitude_sweep_parallel_matches_serial(self) -> None:
+        waveform = sinusoidal_field_waveform(2)
+        for runner, probe in [
+            (run_tuned_time_varying_amplitude_sweep, "tuned"),
+            (run_untuned_time_varying_amplitude_sweep, "untuned"),
+            (run_matched_time_varying_amplitude_sweep, "matched"),
+        ]:
+            with self.subTest(probe=probe):
+                serial = runner(
+                    amplitudes=[0.0, 0.25],
+                    waveform=waveform,
+                    numpts=9,
+                    maxoffs=4,
+                    num_workers=1,
+                )
+                parallel = runner(
+                    amplitudes=[0.0, 0.25],
+                    waveform=waveform,
+                    numpts=9,
+                    maxoffs=4,
+                    num_workers=2,
+                )
+                np.testing.assert_allclose(parallel.amplitudes, serial.amplitudes)
+                np.testing.assert_allclose(parallel.echo, serial.echo, rtol=1e-13, atol=1e-13)
+                np.testing.assert_allclose(
+                    parallel.matched_signal,
+                    serial.matched_signal,
+                    rtol=1e-13,
+                    atol=1e-13,
+                )
 
     def test_matched_cpmg_ir_train_returns_expected_shapes(self) -> None:
         result = run_matched_cpmg_ir_train(

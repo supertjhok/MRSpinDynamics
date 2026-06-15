@@ -113,6 +113,10 @@ their inputs and outputs are small, array-based, and close to NumPy's strengths.
   `run_ideal_time_varying_amplitude_sweep` port the ideal time-varying-field
   final-echo workflow from `time_varying_field/sim_cpmg_ideal_tv_final.m` and
   its comparison scripts into array-returning APIs.
+- `run_tuned_time_varying_cpmg_final`, `run_untuned_time_varying_cpmg_final`,
+  and `run_matched_time_varying_cpmg_final` extend the same final-echo
+  assembly to probe-shaped refocusing pulses and receiver transfer functions,
+  with matching amplitude-sweep wrappers.
 - `examples/probe_parameter_sweeps.py` provides a compact non-plot smoke path
   for the sweep APIs.
 - `examples/ideal_time_varying_cpmg.py` provides a compact non-plot smoke path

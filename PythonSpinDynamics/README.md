@@ -48,9 +48,12 @@ The currently validated public runners are `run_ideal_cpmg`,
 `run_tuned_q_sweep`, `run_matched_q_sweep`, `run_tuned_mistuning_sweep`, and
 `run_matched_mistuning_sweep`. The matched-probe excitation/nutation sweep
 `run_matched_z_magnetization_q_sweep` mirrors the MATLAB `z_Mag_Q` workflow.
-The ideal time-varying-field workflow is available as
-`run_ideal_time_varying_cpmg_final`, with
-`run_ideal_time_varying_amplitude_sweep` for compact fluctuation-amplitude
+Time-varying-field workflows are available as
+`run_ideal_time_varying_cpmg_final`,
+`run_tuned_time_varying_cpmg_final`,
+`run_untuned_time_varying_cpmg_final`, and
+`run_matched_time_varying_cpmg_final`, with matching
+`*_time_varying_amplitude_sweep` wrappers for compact fluctuation-amplitude
 studies. CPMG inversion-recovery finite trains are available as
 `run_ideal_cpmg_ir_train`, `run_tuned_cpmg_ir_train`,
 `run_untuned_cpmg_ir_train`, and `run_matched_cpmg_ir_train`; these sweep an

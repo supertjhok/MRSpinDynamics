@@ -140,11 +140,12 @@ MATLAB references:
 - `time_varying_field/sim_cpmg_ideal_tv.m`
 - `calc_macq/calc_macq_ideal_probe_relax4.m`
 
-## Ideal Time-Varying-Field CPMG
+## Time-Varying-Field CPMG
 
 ```python
 from spin_dynamics.workflows import (
     run_ideal_time_varying_amplitude_sweep,
+    run_matched_time_varying_cpmg_final,
     sinusoidal_field_waveform,
 )
 
@@ -154,6 +155,11 @@ result = run_ideal_time_varying_amplitude_sweep(
     waveform=waveform,
     numpts=101,
 )
+matched_final = run_matched_time_varying_cpmg_final(
+    0.5 * waveform,
+    numpts=51,
+    q_value=50,
+)
 ```
 
 `run_ideal_time_varying_cpmg_final` returns the final echo for a supplied
@@ -161,6 +167,15 @@ per-echo normalized B0 offset waveform. The amplitude sweep wrapper returns
 `IdealTimeVaryingSweepResult` with echoes, echo integrals, and matched-filter
 signals versus fluctuation amplitude. Field offsets use MATLAB's normalized
 `w_0t = gamma * B_0t / w_1n` convention.
+
+Probe-aware variants are available as `run_tuned_time_varying_cpmg_final`,
+`run_untuned_time_varying_cpmg_final`, and
+`run_matched_time_varying_cpmg_final`, with matching
+`run_*_time_varying_amplitude_sweep` wrappers. These use the same per-echo B0
+offset assembly as the ideal path, but build the refocusing rotations from the
+tuned, untuned, or matched pulse responses and apply the corresponding receiver
+transfer functions. The probe-aware result containers include `probe`,
+`q_value`, and `mistuning_offset` metadata.
 
 MATLAB references:
 
