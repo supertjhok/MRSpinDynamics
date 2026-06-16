@@ -160,6 +160,56 @@ def run_tuned_refocusing_multistart(
     )
 
 
+def run_ideal_v0crit_refocusing_multistart(
+    num_segments: int,
+    *,
+    num_starts: int = 24,
+    seed: int | None = None,
+    rng: np.random.Generator | None = None,
+    initial_phases: np.ndarray | list[list[float]] | None = None,
+    bounds: tuple[float, float] = (0.0, 2 * np.pi),
+    **optimizer_kwargs: Any,
+) -> MultiStartOptimizationResult:
+    """Run repeated random-start ideal v0crit refocusing phase searches."""
+
+    return _run_refocusing_multistart(
+        "ideal_v0crit",
+        refocusing_module.optimize_ideal_v0crit_refocusing_phases,
+        num_segments,
+        num_starts=num_starts,
+        seed=seed,
+        rng=rng,
+        initial_phases=initial_phases,
+        bounds=bounds,
+        optimizer_kwargs=optimizer_kwargs,
+    )
+
+
+def run_ideal_time_varying_refocusing_multistart(
+    num_segments: int,
+    *,
+    num_starts: int = 24,
+    seed: int | None = None,
+    rng: np.random.Generator | None = None,
+    initial_phases: np.ndarray | list[list[float]] | None = None,
+    bounds: tuple[float, float] = (0.0, 2 * np.pi),
+    **optimizer_kwargs: Any,
+) -> MultiStartOptimizationResult:
+    """Run repeated random-start ideal time-varying refocusing searches."""
+
+    return _run_refocusing_multistart(
+        "ideal_time_varying",
+        refocusing_module.optimize_ideal_time_varying_refocusing_phases,
+        num_segments,
+        num_starts=num_starts,
+        seed=seed,
+        rng=rng,
+        initial_phases=initial_phases,
+        bounds=bounds,
+        optimizer_kwargs=optimizer_kwargs,
+    )
+
+
 def run_untuned_refocusing_multistart(
     num_segments: int,
     *,

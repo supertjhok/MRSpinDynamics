@@ -28,6 +28,7 @@ from spin_dynamics.core.kernels import (
 )
 from spin_dynamics.core.numerics import trapezoid
 from spin_dynamics.core.rotations import (
+    calc_v0crit,
     calc_rotation_matrix,
     calc_rot_axis_arba3,
     calc_rot_axis_arba4,
@@ -47,12 +48,16 @@ from spin_dynamics.parameters import (
     set_params_untuned_spa,
 )
 from spin_dynamics.optimization import (
+    evaluate_ideal_time_varying_refocusing_pulse,
+    evaluate_ideal_v0crit_refocusing_pulse,
     evaluate_tuned_excitation_pulse,
     evaluate_tuned_inverse_excitation_pulse,
     evaluate_matched_refocusing_pulse,
     evaluate_tuned_refocusing_pulse,
     evaluate_untuned_refocusing_pulse,
     evaluate_spa_metrics,
+    optimize_ideal_time_varying_refocusing_phases,
+    optimize_ideal_v0crit_refocusing_phases,
     optimize_matched_refocusing_phases,
     optimize_spa_phase_program,
     optimize_tuned_excitation_phases,
@@ -61,9 +66,14 @@ from spin_dynamics.optimization import (
     optimize_untuned_refocusing_phases,
     random_phase_starts,
     rectangular_refocusing_lengths,
+    multistart_summary_arrays,
+    multistart_to_matlab_results,
+    run_ideal_time_varying_refocusing_multistart,
+    run_ideal_v0crit_refocusing_multistart,
     run_tuned_excitation_multistart,
     run_tuned_inverse_excitation_multistart,
     run_tuned_refocusing_multistart,
+    save_multistart_results_npz,
     spa_pulse_list,
     summarize_matched_spa_refocusing,
     summarize_tuned_spa_refocusing,
@@ -869,6 +879,21 @@ class OctaveFixtureTests(unittest.TestCase):
         np.testing.assert_allclose(n4, n4_ref, rtol=1e-13, atol=1e-13)
         np.testing.assert_allclose(alpha, alpha_ref, rtol=1e-13, atol=1e-13)
 
+    def test_calc_v0crit_returns_centered_axis_derivative(self) -> None:
+        del_w = np.linspace(-2.0, 2.0, 9)
+        neff, alpha = calc_rot_axis_arba4(
+            np.array([0.2, np.pi, 0.2]),
+            np.array([0.0, 0.3, 0.0]),
+            np.array([0.0, 1.0, 0.0]),
+            del_w,
+        )
+
+        v0crit = calc_v0crit(del_w, neff, alpha)
+
+        self.assertEqual(v0crit.shape, del_w.shape)
+        self.assertTrue(np.all(np.isfinite(v0crit)))
+        self.assertTrue(np.all(v0crit > 0))
+
     def test_calc_masy_ideal_matches_octave(self) -> None:
         table = np.loadtxt(FIXTURES / "calc_masy_ideal.csv", delimiter=",")
         masy_ref = table[:, 0] + 1j * table[:, 1]
@@ -1395,6 +1420,92 @@ class OctaveFixtureTests(unittest.TestCase):
         self.assertTrue(np.all(np.isfinite(result.history_scores)))
         np.testing.assert_allclose(result.best_score, result.best_evaluation.snr)
 
+    def test_ideal_v0crit_refocusing_evaluation_returns_metrics(self) -> None:
+        phases = np.array([0.0, np.pi / 2, np.pi])
+        result = evaluate_ideal_v0crit_refocusing_pulse(
+            phases,
+            numpts=21,
+            segment_fraction=0.2,
+        )
+
+        self.assertEqual(result.del_w.shape, (21,))
+        self.assertEqual(result.neff.shape, (3, 21))
+        self.assertEqual(result.alpha.shape, (21,))
+        self.assertEqual(result.v0crit.shape, (21,))
+        self.assertEqual(result.masy.shape, (21,))
+        self.assertEqual(result.phases.shape, phases.shape)
+        self.assertGreater(result.axis_rms, 0)
+        self.assertTrue(np.isfinite(result.v0crit_average))
+        np.testing.assert_allclose(
+            result.score,
+            result.axis_rms + result.v0crit_average,
+        )
+        np.testing.assert_allclose(result.snr, result.score)
+        np.testing.assert_allclose(result.pulse_length_t180, 0.6)
+
+    def test_ideal_v0crit_refocusing_optimizer_runs_small_search(self) -> None:
+        initial = np.array([0.0, np.pi])
+        result = optimize_ideal_v0crit_refocusing_phases(
+            initial,
+            numpts=21,
+            segment_fraction=0.2,
+            initial_step=0.2,
+            max_passes=1,
+            optimizer="pattern",
+        )
+
+        self.assertEqual(result.probe, "ideal_v0crit")
+        self.assertEqual(result.optimizer_method, "pattern")
+        self.assertTrue(result.optimizer_success)
+        self.assertEqual(result.best_phases.shape, initial.shape)
+        self.assertEqual(result.best_evaluation.phases.shape, initial.shape)
+        self.assertGreaterEqual(result.best_score, result.initial_score)
+        self.assertEqual(result.history_scores.size, result.iterations + 1)
+        self.assertTrue(np.all(np.isfinite(result.history_scores)))
+        np.testing.assert_allclose(result.best_score, result.best_evaluation.score)
+
+    def test_ideal_time_varying_refocusing_evaluation_returns_metrics(self) -> None:
+        phases = np.array([0.0, np.pi / 2])
+        result = evaluate_ideal_time_varying_refocusing_pulse(
+            phases,
+            field_offsets=np.array([0.0, 0.5, 0.0]),
+            numpts=9,
+            segment_fraction=0.5,
+        )
+
+        self.assertEqual(result.del_w.shape, (9,))
+        self.assertEqual(result.field_offsets.shape, (3,))
+        self.assertEqual(result.mrx.shape, (9,))
+        self.assertEqual(result.echo.shape, result.tvect.shape)
+        self.assertEqual(result.reference_echo.shape, result.tvect.shape)
+        self.assertEqual(result.phases.shape, phases.shape)
+        self.assertTrue(np.isfinite(result.score))
+        self.assertTrue(np.isfinite(result.matched_signal))
+        np.testing.assert_allclose(result.snr, result.score)
+        np.testing.assert_allclose(result.pulse_length_t180, 1.0)
+
+    def test_ideal_time_varying_refocusing_optimizer_runs_small_search(self) -> None:
+        initial = np.array([0.0, np.pi])
+        result = optimize_ideal_time_varying_refocusing_phases(
+            initial,
+            field_offsets=np.array([0.0, 0.5, 0.0]),
+            numpts=9,
+            segment_fraction=0.5,
+            initial_step=0.2,
+            max_passes=1,
+            optimizer="pattern",
+        )
+
+        self.assertEqual(result.probe, "ideal_time_varying")
+        self.assertEqual(result.optimizer_method, "pattern")
+        self.assertTrue(result.optimizer_success)
+        self.assertEqual(result.best_phases.shape, initial.shape)
+        self.assertEqual(result.best_evaluation.phases.shape, initial.shape)
+        self.assertGreaterEqual(result.best_score, result.initial_score)
+        self.assertEqual(result.history_scores.size, result.iterations + 1)
+        self.assertTrue(np.all(np.isfinite(result.history_scores)))
+        np.testing.assert_allclose(result.best_score, result.best_evaluation.score)
+
     def test_tuned_excitation_evaluation_returns_finite_snr(self) -> None:
         del_w = np.linspace(-10.0, 10.0, 7)
         neff = calc_rot_axis_arba3(np.array([np.pi]), np.array([0.0]), np.ones(1), del_w)
@@ -1742,6 +1853,185 @@ class OctaveFixtureTests(unittest.TestCase):
         np.testing.assert_allclose(result.initial_phases, starts)
         np.testing.assert_allclose(result.best_score, 0.7)
         np.testing.assert_allclose(result.best_result.best_phases, starts[1])
+
+    def test_ideal_v0crit_refocusing_multistart_selects_best_result(self) -> None:
+        original = driver_module.refocusing_module.optimize_ideal_v0crit_refocusing_phases
+
+        def fake_optimizer(phases: np.ndarray, **kwargs: object) -> SimpleNamespace:
+            phase_arr = np.asarray(phases, dtype=np.float64)
+            return SimpleNamespace(
+                best_score=-float(np.sum((phase_arr - 0.4) ** 2)),
+                best_phases=phase_arr,
+                bounds=kwargs["bounds"],
+            )
+
+        driver_module.refocusing_module.optimize_ideal_v0crit_refocusing_phases = (
+            fake_optimizer
+        )
+        try:
+            starts = np.array([[0.0], [0.4], [0.8]])
+            result = run_ideal_v0crit_refocusing_multistart(
+                1,
+                initial_phases=starts,
+                bounds=(-1.0, 1.0),
+            )
+        finally:
+            driver_module.refocusing_module.optimize_ideal_v0crit_refocusing_phases = (
+                original
+            )
+
+        self.assertEqual(result.pulse_kind, "refocusing")
+        self.assertEqual(result.probe, "ideal_v0crit")
+        self.assertEqual(result.best_index, 1)
+        np.testing.assert_allclose(result.bounds, (-1.0, 1.0))
+        np.testing.assert_allclose(result.best_result.best_phases, [0.4])
+
+    def test_ideal_time_varying_refocusing_multistart_selects_best_result(self) -> None:
+        original = (
+            driver_module.refocusing_module.optimize_ideal_time_varying_refocusing_phases
+        )
+
+        def fake_optimizer(phases: np.ndarray, **kwargs: object) -> SimpleNamespace:
+            phase_arr = np.asarray(phases, dtype=np.float64)
+            return SimpleNamespace(
+                best_score=-float(np.sum((phase_arr - 0.25) ** 2)),
+                best_phases=phase_arr,
+                bounds=kwargs["bounds"],
+            )
+
+        driver_module.refocusing_module.optimize_ideal_time_varying_refocusing_phases = (
+            fake_optimizer
+        )
+        try:
+            starts = np.array([[0.0], [0.25], [0.5]])
+            result = run_ideal_time_varying_refocusing_multistart(
+                1,
+                initial_phases=starts,
+                bounds=(-1.0, 1.0),
+            )
+        finally:
+            driver_module.refocusing_module.optimize_ideal_time_varying_refocusing_phases = (
+                original
+            )
+
+        self.assertEqual(result.pulse_kind, "refocusing")
+        self.assertEqual(result.probe, "ideal_time_varying")
+        self.assertEqual(result.best_index, 1)
+        np.testing.assert_allclose(result.bounds, (-1.0, 1.0))
+        np.testing.assert_allclose(result.best_result.best_phases, [0.25])
+
+    def test_multistart_refocusing_export_uses_matlab_cell_shape(self) -> None:
+        results = (
+            SimpleNamespace(
+                best_score=1.0,
+                best_phases=np.array([0.1, 0.2]),
+                initial_phases=np.array([0.0, 0.0]),
+                best_evaluation=SimpleNamespace(pulse_length_t180=0.4),
+                bounds=(0.0, 2 * np.pi),
+                history_scores=np.array([0.5, 1.0]),
+                optimizer_method="pattern",
+                optimizer_success=True,
+                optimizer_message="ok",
+            ),
+            SimpleNamespace(
+                best_score=2.0,
+                best_phases=np.array([0.3, 0.4]),
+                initial_phases=np.array([0.2, 0.2]),
+                best_evaluation=SimpleNamespace(pulse_length_t180=0.4),
+                bounds=(0.0, 2 * np.pi),
+                history_scores=np.array([1.5, 2.0]),
+                optimizer_method="pattern",
+                optimizer_success=True,
+                optimizer_message="ok",
+            ),
+        )
+        multistart = SimpleNamespace(
+            pulse_kind="refocusing",
+            probe="ideal_v0crit",
+            initial_phases=np.array([[0.0, 0.0], [0.2, 0.2]]),
+            results=results,
+            best_index=1,
+            best_result=results[1],
+            best_score=2.0,
+            bounds=(0.0, 2 * np.pi),
+        )
+
+        cells = multistart_to_matlab_results(multistart, free_precession_t180=1.5)
+        summary = multistart_summary_arrays(multistart)
+
+        self.assertEqual(cells.shape, (2, 1))
+        self.assertEqual(cells[0, 0].shape, (1, 7))
+        np.testing.assert_allclose(cells[0, 0][0, 0], [1.5, 0.2, 0.2, 1.5])
+        np.testing.assert_allclose(cells[0, 0][0, 1], [0.0, 0.1, 0.2, 0.0])
+        self.assertEqual(cells[1, 0][0, 4]["best_index"], 2)
+        np.testing.assert_allclose(summary["scores"], [1.0, 2.0])
+        np.testing.assert_allclose(summary["best_phases"], [0.3, 0.4])
+
+    def test_multistart_npz_export_round_trips_matlab_cells(self) -> None:
+        result = SimpleNamespace(
+            best_score=1.25,
+            best_phases=np.array([0.6]),
+            initial_phases=np.array([0.5]),
+            best_evaluation=SimpleNamespace(pulse_length_t180=0.1),
+            bounds=(0.0, 2 * np.pi),
+            history_scores=np.array([1.0, 1.25]),
+            optimizer_method="pattern",
+            optimizer_success=True,
+            optimizer_message="ok",
+        )
+        multistart = SimpleNamespace(
+            pulse_kind="refocusing",
+            probe="tuned",
+            initial_phases=np.array([[0.5]]),
+            results=(result,),
+            best_index=0,
+            best_result=result,
+            best_score=1.25,
+            bounds=(0.0, 2 * np.pi),
+        )
+        outdir = ROOT / ".tmp" / "tests"
+        outfile = outdir / "multistart_export_test.npz"
+
+        save_multistart_results_npz(multistart, outfile)
+        loaded = np.load(outfile, allow_pickle=True)
+
+        self.assertIn("results", loaded.files)
+        self.assertEqual(loaded["results"].shape, (1, 1))
+        np.testing.assert_allclose(loaded["scores"], [1.25])
+        np.testing.assert_allclose(loaded["best_phases"], [0.6])
+        self.assertEqual(str(loaded["pulse_kind"][0]), "refocusing")
+        self.assertEqual(str(loaded["probe"][0]), "tuned")
+
+    def test_multistart_excitation_export_uses_ten_cell_layout(self) -> None:
+        result = SimpleNamespace(
+            best_score=0.75,
+            best_phases=np.array([0.1, 0.9]),
+            initial_phases=np.array([0.0, 0.8]),
+            best_evaluation=SimpleNamespace(pulse_length_t180=0.2),
+            bounds=(0.0, 2 * np.pi),
+            history_scores=np.array([0.5, 0.75]),
+            optimizer_method="pattern",
+            optimizer_success=True,
+            optimizer_message="ok",
+        )
+        multistart = SimpleNamespace(
+            pulse_kind="excitation",
+            probe="tuned",
+            initial_phases=np.array([[0.0, 0.8]]),
+            results=(result,),
+            best_index=0,
+            best_result=result,
+            best_score=0.75,
+            bounds=(0.0, 2 * np.pi),
+        )
+
+        cells = multistart_to_matlab_results(multistart, free_precession_t180=1.0)
+
+        self.assertEqual(cells.shape, (1, 1))
+        self.assertEqual(cells[0, 0].shape, (1, 10))
+        np.testing.assert_allclose(cells[0, 0][0, 0], [0.1, 0.1])
+        np.testing.assert_allclose(cells[0, 0][0, 1], [0.1, 0.9])
+        self.assertEqual(float(cells[0, 0][0, 6]), 0.75)
 
     def test_tuned_excitation_multistart_forwards_neff_and_selects_best(self) -> None:
         original = driver_module.excitation_module.optimize_tuned_excitation_phases
@@ -2312,9 +2602,9 @@ class OctaveFixtureTests(unittest.TestCase):
     def test_matched_diffusion_q_stability_boundary(self) -> None:
         self.assertTrue(check_matched_diffusion_q_stability(VALIDATED_MATCHED_DIFFUSION_Q_MAX))
         with self.assertWarns(RuntimeWarning):
-            self.assertFalse(check_matched_diffusion_q_stability(200))
+            self.assertFalse(check_matched_diffusion_q_stability(2500))
         with self.assertRaises(RuntimeError):
-            check_matched_diffusion_q_stability(200, action="raise")
+            check_matched_diffusion_q_stability(2500, action="raise")
 
     def test_matched_diffusion_q_sweep_parallel_matches_serial(self) -> None:
         serial = run_matched_diffusion_q_sweep(

@@ -66,35 +66,36 @@ workflow across coil Q values and records whether the echo arrays remain finite:
 
 ```powershell
 python -B benchmarks\diffusion_high_q_validation.py `
-  --q-values 20,50,80,100,200,500,1000,5000 `
+  --q-values 20,50,80,100,200,500,1000,2000,2500,5000 `
   --numpts 17 `
   --num-echoes 2 `
-  --output benchmarks\results\diffusion_high_q_validation_2026-06-09.csv
+  --output benchmarks\results\diffusion_high_q_validation_2026-06-16.csv
 ```
 
-On 2026-06-09, the small validation case remained finite through Q=100 and
-became non-finite at Q=200 and above:
+On 2026-06-16, after the analytic positive-capacitance match solution and
+matched transient substepping updates, the small validation case remained
+finite through Q=2000 and became non-finite at Q=2500 and above:
 
 | Q | Finite | Runtime | Warnings | Peak \|integral\| |
 | ---: | :---: | ---: | ---: | ---: |
-| 20 | yes | 1.497 s | 0 | 8.034 |
-| 50 | yes | 1.726 s | 0 | 17.253 |
-| 80 | yes | 2.382 s | 0 | 17.097 |
-| 100 | yes | 2.486 s | 0 | 16.979 |
-| 200 | no | 2.537 s | 1054 | NaN |
-| 500 | no | 2.721 s | 1026 | NaN |
-| 1,000 | no | 2.695 s | 1026 | NaN |
-| 5,000 | no | 2.671 s | 1026 | NaN |
+| 20 | yes | 11.863 s | 0 | 17.397 |
+| 50 | yes | 12.793 s | 0 | 17.257 |
+| 80 | yes | 12.607 s | 0 | 17.097 |
+| 100 | yes | 8.265 s | 0 | 16.980 |
+| 200 | yes | 9.519 s | 0 | 16.304 |
+| 500 | yes | 13.837 s | 0 | 15.133 |
+| 1,000 | yes | 11.235 s | 0 | 14.339 |
+| 2,000 | yes | 10.560 s | 0 | 11.550 |
+| 2,500 | no | 10.468 s | 1177 | NaN |
+| 3,000 | no | 10.120 s | 1039 | NaN |
+| 5,000 | no | 9.992 s | 1024 | NaN |
 
-A MATLAB-like tiny sweep over Q = 50, 500, 5000, 50000, and 500000 confirmed
-the same pattern: Q=50 remained finite, while larger Q values produced
-non-finite transient outputs. The matching-network Newton solve now falls back
-to a least-squares step if the finite-difference Jacobian is singular, so the
-validation script records high-Q transient instability instead of aborting at
-network design.
+A slightly larger smoke case with 33 offsets and 3 echoes also remained finite
+through Q=2000. The older 2026-06-09 result file remains in
+`benchmarks/results` as a historical record of the previous Q=100 boundary.
 
 The public workflow exposes this as a solver-validation boundary through
-`check_matched_diffusion_q_stability`. Calls above Q=100 warn by default, can
+`check_matched_diffusion_q_stability`. Calls above Q=2000 warn by default, can
 raise with `q_stability_action="raise"`, or can bypass the early warning with
 `q_stability_action="ignore"` for exploratory benchmark sweeps.
 

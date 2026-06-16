@@ -235,6 +235,63 @@ def calc_rot_axis_arba3(
     return n
 
 
+def _interp_linear_extrap(
+    x: np.ndarray,
+    xp: np.ndarray,
+    fp: np.ndarray,
+) -> np.ndarray:
+    """One-dimensional linear interpolation with MATLAB-style extrapolation."""
+
+    out = np.interp(x, xp, fp)
+    if xp.size == 1:
+        return np.full_like(x, fp[0], dtype=np.float64)
+
+    left = x < xp[0]
+    if np.any(left):
+        slope = (fp[1] - fp[0]) / (xp[1] - xp[0])
+        out[left] = fp[0] + slope * (x[left] - xp[0])
+
+    right = x > xp[-1]
+    if np.any(right):
+        slope = (fp[-1] - fp[-2]) / (xp[-1] - xp[-2])
+        out[right] = fp[-1] + slope * (x[right] - xp[-1])
+
+    return out
+
+
+def calc_v0crit(
+    del_w: np.ndarray,
+    n: np.ndarray,
+    alpha: np.ndarray,
+) -> np.ndarray:
+    """Calculate the critical-velocity parameter for a refocusing cycle.
+
+    Mirrors MATLAB `calc_rot/calc_v0crit.m`, with plotting removed. Inputs
+    `n` and `alpha` are the effective rotation axis and angle returned by
+    `calc_rot_axis_arba4`.
+    """
+
+    del_w = np.asarray(del_w, dtype=np.float64).reshape(-1)
+    n = np.asarray(n, dtype=np.float64)
+    alpha = np.asarray(alpha, dtype=np.float64).reshape(-1)
+    if del_w.size < 2:
+        raise ValueError("del_w must contain at least two offsets")
+    if n.shape != (3, del_w.size):
+        raise ValueError("n must have shape (3, len(del_w))")
+    if alpha.shape != (del_w.size,):
+        raise ValueError("alpha must have shape (len(del_w),)")
+
+    del_w_step = np.diff(del_w)
+    del_w_center = 0.5 * (del_w[:-1] + del_w[1:])
+    alpha_center = 0.5 * (alpha[:-1] + alpha[1:])
+
+    cross = np.cross(n[:, :-1].T, n[:, 1:].T)
+    ncross = np.sqrt(np.sum(cross * cross, axis=1))
+    with np.errstate(divide="ignore", invalid="ignore"):
+        v0crit_center = alpha_center * del_w_step / ncross
+    return _interp_linear_extrap(del_w, del_w_center, v0crit_center)
+
+
 def calc_rotation_matrix(
     del_w: np.ndarray,
     w_1: np.ndarray | float,

@@ -138,9 +138,9 @@ their inputs and outputs are small, array-based, and close to NumPy's strengths.
   first compact matched-probe diffusion CPMG workflows, following
   `DIffusion_Example/Diff_Echo_Q.m` and
   `Sim_Diffusion/sim_dif_matched_CPMG_noRx.m`.
-- Keep broad/high-Q diffusion sweeps behind additional solver validation,
-  because the current NumPy matched-probe transient solver can become stiff for
-  very high Q values.
+- Keep broad diffusion sweeps and Q>2000 cases behind additional solver
+  validation, because the current NumPy matched-probe transient solver can
+  become stiff for very high Q values.
 - `run_ideal_phase_encoded_cpmg_imaging`,
   `run_tuned_phase_encoded_cpmg_imaging`, and
   `run_matched_phase_encoded_cpmg_imaging` port the compact phase-encoded CPMG
@@ -161,6 +161,10 @@ their inputs and outputs are small, array-based, and close to NumPy's strengths.
   `plot_masy_arbref_*` MATLAB helpers, plus array-returning SPA summary
   workflows for tuned, untuned, and matched probes. A lightweight discrete
   phase-program optimizer scaffold is available for small candidate searches.
+  The ideal no-probe `v0crit` and time-varying-field refocusing objectives
+  from `opt_ref_pulse_ideal_v0crit*.m` and `opt_ref_pulse_ideal_tv*.m` are
+  available as array-returning evaluators, bounded phase optimizers, and
+  multi-start drivers.
   Bounded refocusing phase optimizer wrappers are available around the existing
   tuned, untuned, and matched SNR evaluators; full MATLAB-equivalent OCT/SPA
   optimizer loops remain reference-only. Tuned excitation-pulse evaluation and
@@ -177,8 +181,10 @@ their inputs and outputs are small, array-based, and close to NumPy's strengths.
   for target received spectra, with compact MATLAB optimizer-result fixtures
   covering objective improvement. Strong inverse-cancellation workflows remain
   a validation target.
-- Keep MATLAB `.mat` result-file compatibility and broad MATLAB `fmincon`
-  result parity as later validation steps.
+- MATLAB-style result-cell conversion, `.npz` archive export, and optional
+  SciPy-backed `.mat` export are available for multi-start outputs. Keep exact
+  historical script-specific `params`/`sp`/`pp` parity and broad MATLAB
+  `fmincon` result parity as later validation steps.
 
 ## Later Phase 9: Acceleration
 

@@ -84,6 +84,11 @@ skips matched-probe files when `fmincon` is unavailable.
 | `spin_dynamics.optimization.evaluate_matched_refocusing_pulse` | `opt_pulse/plot_masy_arbref_matched.m` | lower-level matched asymptotic equivalence and SPA pulse smoke tests | Passed |
 | `spin_dynamics.optimization.summarize_*_spa_refocusing` | `OCT_Pulse_Examples/SPA_optimization_*.m` summary structure | tuned/untuned fast checks and selected matched-catalog slow check | Passed |
 | `spin_dynamics.optimization.optimize_spa_phase_program` | Python optimizer scaffold beyond MATLAB fixed-catalog summary | synthetic objective improvement check | Passed |
+| `spin_dynamics.core.rotations.calc_v0crit` | `calc_rot/calc_v0crit.m` | direct finite-output and shape test from effective-axis calculation | Passed |
+| `spin_dynamics.optimization.evaluate_ideal_v0crit_refocusing_pulse` | `opt_pulse/opt_ref_pulse_ideal_v0crit*.m` objective shape | compact finite-output metric test | Passed |
+| `spin_dynamics.optimization.optimize_ideal_v0crit_refocusing_phases` | `opt_pulse/opt_ref_pulse_ideal_v0crit.m` objective shape | small bounded-search smoke test | Passed |
+| `spin_dynamics.optimization.evaluate_ideal_time_varying_refocusing_pulse` | `opt_pulse/opt_ref_pulse_ideal_tv.m` objective shape | compact finite-output matched-filter metric test | Passed |
+| `spin_dynamics.optimization.optimize_ideal_time_varying_refocusing_phases` | `opt_pulse/opt_ref_pulse_ideal_tv.m` objective shape | small bounded-search smoke test | Passed |
 | `spin_dynamics.optimization.optimize_*_refocusing_phases` | `opt_pulse/opt_ref_pulse_tuned.m`, `opt_pulse/opt_ref_pulse_untuned.m`, `opt_pulse/opt_ref_pulse_matched.m` objective shape | small bounded-search smoke tests | Passed |
 | `spin_dynamics.optimization.evaluate_tuned_excitation_pulse` | `opt_pulse/opt_exc_pulse_tuned.m` objective shape | compact finite-output check with supplied refocusing axis | Passed |
 | tuned excitation phase-shift behavior | direct MATLAB excitation fixture with supplied refocusing axis | Python matches MATLAB for base and `phase + pi` spectra; phase shift is not a cancellation in this setup | Passed |
@@ -92,6 +97,8 @@ skips matched-probe files when `fmincon` is unavailable.
 | `spin_dynamics.optimization.optimize_tuned_inverse_excitation_phases` | `opt_pulse/opt_exc_pulse_tuned_inv.m` objective shape and compact MATLAB fmincon result | small bounded-search smoke test plus compact objective-improvement comparison; strong cancellation remains workflow-dependent | Passed |
 | `spin_dynamics.optimization` optimizer backend selector | Python extension beyond MATLAB | NumPy pattern backend and missing-SciPy error-path checks | Passed |
 | `spin_dynamics.optimization.run_*_multistart` | `opt_pulse/opt_ref_pulse_*_repeat.m`, `opt_pulse/opt_exc_pulse_tuned_repeat.m`, `opt_pulse/opt_exc_pulse_tuned_inv_repeat.m` scaffold shape | seeded-start, inverse phase-flip seeding, forwarding, and best-result selection tests | Passed |
+| `spin_dynamics.optimization.multistart_to_matlab_results` | `opt_pulse/*_repeat.m` result-cell shape | synthetic refocusing and excitation result-cell shape tests | Passed |
+| `spin_dynamics.optimization.save_multistart_results_npz` | Python archive companion to MATLAB repeat result files | synthetic multi-start archive round-trip test | Passed |
 | Plotting examples | Python workflow visualization layer | CLI/help smoke tests without Matplotlib | Passed |
 | `spin_dynamics.workflows.run_tuned_q_sweep` | `CompareQ/sim_tuned_probe_coil_Q.m` | workflow shape and finite-output smoke test | Passed |
 | `spin_dynamics.workflows.run_matched_q_sweep` | `CompareQ/sim_matched_probe_coil_Q.m` | workflow shape and finite-output smoke test | Passed |
@@ -318,6 +325,48 @@ matched rectangular pulse responses, phase quantization, and untuned pulse
 segment-length adjustment. The MATLAB pulse fixture generator writes compact
 sampled response arrays and timing metadata.
 Ran 61 Python unittest comparisons and workflow smoke tests.
+Result: OK
+```
+
+2026-06-16:
+
+```text
+Reran the matched diffusion high-Q validation benchmark after the analytic
+positive-capacitance matched-network design and matched transient substepping
+updates.
+For the 17-offset, 2-echo compact case, Q values 20-2000 remained finite with
+no RuntimeWarnings; Q >= 2500 produced non-finite transient outputs.
+A 33-offset, 3-echo smoke case also remained finite through Q=2000.
+The public matched-diffusion workflow now exposes the finite-through-Q=2000
+solver-validation boundary through the warning/raise helper.
+```
+
+2026-06-16:
+
+```text
+Added `calc_v0crit` plus an ideal no-probe v0crit refocusing evaluator,
+bounded phase optimizer, and multi-start driver following the objective shape
+of `opt_ref_pulse_ideal_v0crit*.m`.
+Ran focused rotation and optimization tests plus the fast smoke suite.
+Result: OK
+```
+
+2026-06-16:
+
+```text
+Added an ideal no-probe time-varying-field refocusing evaluator, bounded phase
+optimizer, and multi-start driver following the objective shape of
+`opt_ref_pulse_ideal_tv*.m`.
+Ran focused optimization tests plus the fast smoke suite.
+Result: OK
+```
+
+2026-06-16:
+
+```text
+Added MATLAB-style optimization result-cell conversion plus `.npz` export and
+optional SciPy-backed `.mat` export for multi-start driver outputs.
+Ran focused exporter tests plus the fast smoke suite.
 Result: OK
 ```
 

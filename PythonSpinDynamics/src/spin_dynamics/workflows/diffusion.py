@@ -22,7 +22,7 @@ from spin_dynamics.workflows.acquisition import _apply_receiver, _as_vector, _fi
 from spin_dynamics.workflows.cpmg import _calc_matched_pulse_shape, _echo_train_from_spectra
 
 
-VALIDATED_MATCHED_DIFFUSION_Q_MAX = 100.0
+VALIDATED_MATCHED_DIFFUSION_Q_MAX = 2000.0
 
 
 @dataclass(frozen=True)
@@ -70,7 +70,7 @@ def check_matched_diffusion_q_stability(
     """Check the compact matched-diffusion Q validation boundary.
 
     Benchmarks of the current NumPy fixed-step matched transient solver remain
-    finite through Q=100 and become unstable for Q>=200 in the compact
+    finite through Q=2000 and become unstable at Q=2500 in the compact
     validation case. This helper exposes that solver-validation boundary without
     treating it as a physical limit.
     """
