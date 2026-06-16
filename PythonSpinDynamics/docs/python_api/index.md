@@ -43,13 +43,16 @@ The validated Python API currently covers:
   `calc_macq_ideal_probe_relax4`;
 - SPA refocusing pulse catalog, normalized SNR/FOM metric bookkeeping,
   tuned/untuned/matched fixed-refocusing evaluators, lightweight discrete
-  phase-search scaffold, bounded refocusing phase optimizers, and tuned
+  phase-search scaffold, ideal v0crit and time-varying-field refocusing
+  evaluation/search, bounded refocusing phase optimizers, and tuned
   excitation-pulse evaluation/phase search for supplied refocusing axes,
   diagnostic tuned inverse-excitation search for target spectra, with optional
   SciPy continuous optimization backend;
 - array-returning multi-start optimization driver scaffolds for repeated
-  refocusing, tuned excitation, and phase-flipped tuned inverse-excitation
-  searches;
+  ideal/tuned/untuned/matched refocusing, tuned excitation, and phase-flipped
+  tuned inverse-excitation searches;
+- MATLAB-style optimization result-cell conversion, `.npz` archive export, and
+  optional SciPy-backed `.mat` export for multi-start results;
 - plotting examples for CPMG comparisons, finite trains, parameter sweeps,
   diffusion, time-varying fields, imaging, and compact optimization workflows;
 - low-level rotation matrix and effective-axis helpers;
@@ -57,6 +60,6 @@ The validated Python API currently covers:
 - the legacy-compatible `sim_spin_dynamics_arb7` path needed by ideal FID;
 - original/reference tuned, untuned, and matched probe CPMG paths.
 
-MATLAB `.mat` result-file compatibility, strong inverse excitation
+Full script-specific MATLAB `.mat` result parity, strong inverse excitation
 cancellation parity, and broad `fmincon` parity validation are still
 reference-only beyond the compact optimization fixtures.

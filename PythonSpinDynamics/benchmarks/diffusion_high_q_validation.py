@@ -78,7 +78,7 @@ def _case(q_value: float, args: argparse.Namespace) -> dict[str, str | float | i
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--q-values", default="20,50,80,100,200,500,1000,5000")
+    parser.add_argument("--q-values", default="20,50,80,100,200,500,1000,2000,2500,5000")
     parser.add_argument("--numpts", type=int, default=17)
     parser.add_argument("--num-echoes", type=int, default=2)
     parser.add_argument("--workers", type=int, default=1)

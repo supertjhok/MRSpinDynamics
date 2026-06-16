@@ -86,7 +86,7 @@ across CPU cores with `num_workers`.
 | Core rotations, echo conversion, FID, and `arb10` kernel | Fixture validated | Tight MATLAB/Octave CSV comparisons. |
 | Ideal, tuned, untuned, and matched reference CPMG | Fixture validated | Matched-probe paths use practical tolerances because Python uses an independent NumPy solver. |
 | Finite CPMG trains, finite Q/mistuning sweeps, and matched CPMG-IR | Validated plus smoke-tested | Includes serial/parallel equality checks where applicable. |
-| Matched diffusion CPMG | Compact validation and smoke-tested | Very high-Q diffusion cases remain a known stiffness target. |
+| Matched diffusion CPMG | Compact validation and smoke-tested | Solver-validated through Q=2000 for compact cases; higher-Q diffusion cases remain a stiffness target. |
 | Ideal, tuned, and matched CPMG imaging | Fixture validated | MATLAB-generated k-space fixtures, arbitrary B0/B1 map helpers, and visual plotting examples. |
 | Pulse-shape helpers | Fixture validated | JMR rectangular pulse responses, phase quantization, and untuned segment adjustment. |
 | OCT/SPA pulse evaluation | Partly ported and validated | Fixed SPA catalog, SNR/FOM summaries, tuned/untuned/matched refocusing evaluators, lightweight search scaffolds, and bounded phase optimizers are available. MATLAB-equivalent optimizer loops remain deferred. |
@@ -291,21 +291,30 @@ python examples\plot_time_varying_sweep.py --numpts 51 --num-echoes 12 --output 
 
 The SPA/OCT bridge currently includes the fixed SPA phase catalog, normalized
 SNR/FOM bookkeeping, and tuned/untuned/matched non-plotting refocusing-pulse
-evaluators. Fixed-amplitude refocusing phases can also be optimized with small
-bounded pattern-search wrappers. Tuned excitation and inverse-excitation pulse
-evaluation/search are available when a refocusing axis and, for inverse pulses,
-a target received spectrum are supplied. Multi-start driver scaffolds can run
-repeated seeded starts and return ranked results:
+evaluators. The ideal no-probe v0crit and time-varying-field refocusing
+objectives are also available as array-returning evaluators, bounded phase
+optimizers, and multi-start drivers. Fixed-amplitude refocusing phases can also
+be optimized with small bounded pattern-search wrappers. Tuned excitation and
+inverse-excitation pulse evaluation/search are available when a refocusing axis
+and, for inverse pulses, a target received spectrum are supplied. Multi-start
+driver scaffolds can run repeated seeded starts and return ranked results:
 
 ```python
 import numpy as np
 
 from spin_dynamics.core.rotations import calc_rot_axis_arba3
 from spin_dynamics.optimization import (
+    evaluate_ideal_time_varying_refocusing_pulse,
+    evaluate_ideal_v0crit_refocusing_pulse,
     evaluate_matched_refocusing_pulse,
     evaluate_tuned_refocusing_pulse,
     evaluate_untuned_refocusing_pulse,
+    optimize_ideal_time_varying_refocusing_phases,
+    optimize_ideal_v0crit_refocusing_phases,
     optimize_tuned_refocusing_phases,
+    run_ideal_time_varying_refocusing_multistart,
+    run_ideal_v0crit_refocusing_multistart,
+    save_multistart_results_npz,
     run_tuned_excitation_multistart,
     run_tuned_inverse_excitation_multistart,
     run_tuned_refocusing_multistart,
@@ -314,6 +323,26 @@ from spin_dynamics.optimization import (
 )
 
 pulse = spa_pulse_list()[0]
+ideal_v0crit = evaluate_ideal_v0crit_refocusing_pulse(pulse.phases[:6], numpts=101)
+ideal_optimum = optimize_ideal_v0crit_refocusing_phases(pulse.phases[:6], numpts=21)
+ideal_repeated = run_ideal_v0crit_refocusing_multistart(
+    6,
+    num_starts=4,
+    seed=123,
+    numpts=21,
+)
+ideal_tv = evaluate_ideal_time_varying_refocusing_pulse(pulse.phases[:6], numpts=21)
+ideal_tv_optimum = optimize_ideal_time_varying_refocusing_phases(
+    pulse.phases[:6],
+    numpts=21,
+)
+ideal_tv_repeated = run_ideal_time_varying_refocusing_multistart(
+    6,
+    num_starts=4,
+    seed=123,
+    numpts=21,
+)
+save_multistart_results_npz(ideal_tv_repeated, "results/ideal_tv_multistart.npz")
 tuned = evaluate_tuned_refocusing_pulse(pulse.phases, numpts=101)
 untuned = evaluate_untuned_refocusing_pulse(pulse.phases, numpts=101)
 matched = evaluate_matched_refocusing_pulse(pulse.phases, numpts=9)
@@ -344,10 +373,11 @@ accept `optimizer="auto"`, `"pattern"`, or `"scipy"`: `auto` uses SciPy's
 bounded continuous optimizer when the optional `opt` extra is installed and
 falls back to the dependency-light NumPy pattern search otherwise. The
 default phase bounds and random starts match the MATLAB `0` to `2*pi`
-convention. The multi-start drivers are array-returning Python scaffolds rather
-than MATLAB `.mat` result-file writers.
+convention. Multi-start outputs can be converted to MATLAB-style cell arrays
+and saved as `.npz` archives, or as `.mat` files when SciPy is installed.
 
-MATLAB `.mat` result-file compatibility and broad `fmincon` parity are still
-deferred beyond the compact optimization fixtures.
+Full script-specific MATLAB `.mat` parity, including exact historical
+`params`/`sp`/`pp` structures, and broad `fmincon` parity are still deferred
+beyond the compact optimization fixtures.
 The matched evaluator uses the matched-network transient solver and is much
 slower than the tuned and untuned evaluators, so start with small offset grids.

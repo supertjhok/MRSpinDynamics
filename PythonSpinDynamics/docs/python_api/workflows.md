@@ -299,7 +299,8 @@ echo arrays and echo integrals stacked over Q. This path uses
 MATLAB's diffusion-aware kernel that keeps precomputed RF matrices and omits
 the older acquisition-window convolution. Very high-Q diffusion sweeps should
 be treated as a validation target because the current NumPy matched-probe
-transient solver can become stiff.
+transient solver can become stiff; the compact matched-diffusion workflow is
+currently solver-validated through Q=2000.
 
 MATLAB references:
 
