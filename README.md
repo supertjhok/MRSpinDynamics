@@ -84,12 +84,10 @@ variants, and future compiled-kernel targets, see
 
 ## Python port
 
-An in-progress Python port lives in
-[`PythonSpinDynamics`](PythonSpinDynamics/README.md). It currently validates
-ideal CPMG, ideal FID, and original/reference tuned, untuned, and matched probe
-CPMG paths against small MATLAB/Octave fixtures. The Python API documentation
-starts at
-[`PythonSpinDynamics/docs/python_api/index.md`](PythonSpinDynamics/docs/python_api/index.md).
+The Python port now lives in the sibling repository
+[`../PythonSpinDynamics`](../PythonSpinDynamics/README.md). Its own README and
+API docs track Python-specific validation status, examples, and installation
+notes.
 
 ## Contact information
 

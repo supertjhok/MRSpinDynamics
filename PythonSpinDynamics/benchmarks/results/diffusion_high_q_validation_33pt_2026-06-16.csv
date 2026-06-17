@@ -1,5 +1,0 @@
-q,finite,runtime_seconds,num_warnings,peak_abs_integral,num_offsets,num_echoes,first_bad_echo_index,error_type,error_message
-100.0,True,10.953844599993317,0,19.697190532894865,33,3,,,
-500.0,True,8.209972700002254,0,19.598458078818698,33,3,,,
-1000.0,True,9.98803439999756,0,16.98722788213635,33,3,,,
-2000.0,True,10.304058100002294,0,13.546831810918322,33,3,,,
