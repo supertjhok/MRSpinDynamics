@@ -69,7 +69,11 @@ available as `run_ideal_phase_encoded_cpmg_imaging`,
 `run_matched_phase_encoded_cpmg_imaging`. The older
 `run_*_cpmg_imaging` names remain compatibility aliases. Imaging runs can also
 consume arbitrary two-dimensional B0, transmit-B1, and receive-B1 maps through
-`make_imaging_field_maps` or `load_imaging_field_maps_npz`.
+`make_imaging_field_maps` or `load_imaging_field_maps_npz`, then form selected
+echo, echo-summed, fitted-rho, or fitted-T2 images from the returned echo
+stack. `run_t1_encoded_phase_encoded_cpmg_imaging` adds an ideal
+inversion-recovery preparation before the phase-encoded CPMG train for T1
+contrast experiments.
 
 The validated lower-level workflow surface also includes
 `calc_macq_ideal_probe_relax4`, `calc_macq_tuned_probe_relax4`,
@@ -208,6 +212,10 @@ python examples\plot_ideal_imaging.py --pixels 6 --ny 7 --output results\ideal_i
 ```
 
 Use `--probe tuned` or `--probe matched` to run the probe-aware imaging paths.
+Use `--image-mode single`, `echo-sum`, `fit-rho`, or `fit-t2` to choose how
+the echo stack is converted into the displayed image.
+Use `--t1-encoded --inversion-time 5e-4` with the ideal probe path to add an
+inversion-recovery T1 preparation before phase encoding and CPMG.
 To inspect custom B0, transmit-B1, and receive-B1 maps in the same workflow,
 run:
 

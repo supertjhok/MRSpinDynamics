@@ -29,6 +29,8 @@ Ported and validated:
 - fixture-validated ideal, tuned, and matched CPMG imaging, k-space
   reconstruction, arbitrary B0/B1 field-map loading helpers, and tuned
   receive-weighted imaging mode;
+- ideal inversion-recovery T1-prepared phase-encoded CPMG imaging with
+  selected-echo, echo-summed, fitted-rho, and fitted-T2 image formation;
 - fixture-validated pulse-shape utilities for JMR rectangular pulse responses,
   phase quantization, and untuned segment adjustment;
 - SPA refocusing pulse catalog and normalized SNR/FOM metric bookkeeping;
@@ -70,6 +72,7 @@ Not yet ported:
   rectangular-pulse paths;
 - newer matched-probe helper variants outside the original/reference and JMR
   rectangular-pulse paths;
+- probe-shaped T1-prepared imaging for tuned or matched inversion pulses;
 - broad diffusion sweeps, Q>2000 diffusion validation, and additional
   diffusion variants;
 - full historical MATLAB `.mat` result-file parity, broad `fmincon` parity

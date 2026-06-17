@@ -315,9 +315,12 @@ MATLAB references:
 import numpy as np
 
 from spin_dynamics.workflows import (
+    fit_imaging_echo_decay,
+    form_imaging_image,
     load_imaging_field_maps_npz,
     make_imaging_field_maps,
     run_ideal_phase_encoded_cpmg_imaging,
+    run_t1_encoded_phase_encoded_cpmg_imaging,
     run_tuned_phase_encoded_cpmg_imaging,
 )
 
@@ -338,10 +341,20 @@ field_maps = make_imaging_field_maps(
 )
 custom = run_tuned_phase_encoded_cpmg_imaging(
     field_maps,
-    num_echoes=1,
+    num_echoes=4,
     ny=5,
     receive_mode="weighted",
 )
+rho_weighted = form_imaging_image(custom, mode="single", echo_index=0)
+t2_weighted = form_imaging_image(custom, mode="echo_sum")
+fit = fit_imaging_echo_decay(custom)
+t1_prepared = run_t1_encoded_phase_encoded_cpmg_imaging(
+    field_maps,
+    inversion_time_seconds=0.5e-3,
+    num_echoes=4,
+    ny=5,
+)
+t1_t2_weighted = form_imaging_image(t1_prepared, mode="echo_sum")
 from_npz = run_tuned_phase_encoded_cpmg_imaging(load_imaging_field_maps_npz("field_maps.npz"))
 ```
 
@@ -358,6 +371,30 @@ from_npz = run_tuned_phase_encoded_cpmg_imaging(load_imaging_field_maps_npz("fie
 - `gradx`, `gradz`: phase-encoding gradient steps;
 - `del_w`: flattened normalized offset grid;
 - `sequence_time`: echo-center times in seconds.
+
+The raw reconstruction stack is one image per echo. Image formation is a
+separate post-processing step:
+
+- `form_imaging_image(result, mode="single", echo_index=0)` returns one
+  reconstructed echo image. Echo 1 is the closest rho-weighted display, while
+  later echoes include stronger T2 attenuation.
+- `form_imaging_image(result, mode="echo_sum")` sums echo magnitudes. This can
+  improve SNR, but produces a rho-plus-T2-weighted image of the form
+  `sum_n A_n exp(-t_n / T2)`.
+- `fit_imaging_echo_decay(result)` fits each voxel magnitude to
+  `rho_app * exp(-t / T2)` and returns apparent `rho_map` and `t2_map`
+  arrays. `rho_app` includes B1, receive, and probe scaling unless those are
+  separately calibrated out.
+
+`run_t1_encoded_phase_encoded_cpmg_imaging` adds an ideal 180-degree inversion
+pulse and an inversion delay before the usual phase encoding and CPMG train.
+The approximate preparation factor is
+`rho * (1 - 2 exp(-TI / T1))` before the excitation pulse, so the same image
+formation modes can produce T1-weighted selected-echo images, T1-plus-T2
+weighted echo sums, or fitted apparent-rho/T2 maps from a T1-prepared echo
+stack. The shorter `run_t1_encoded_cpmg_imaging` name is a compatibility alias.
+Probe-shaped inversion preparation for tuned or matched receive models is not
+part of this ideal T1-prep helper.
 
 Each runner accepts either a spin-density array or an `ImagingFieldMaps`
 container. `make_imaging_field_maps` validates arbitrary two-dimensional

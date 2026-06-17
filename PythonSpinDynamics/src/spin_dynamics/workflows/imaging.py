@@ -69,6 +69,18 @@ class ProbeCPMGImagingResult:
     probe: str
 
 
+@dataclass(frozen=True)
+class ImagingEchoFitResult:
+    """Voxel-wise mono-exponential fit of reconstructed echo magnitudes."""
+
+    rho_map: np.ndarray
+    t2_map: np.ndarray
+    fitted_magnitude: np.ndarray
+    residual_norm: np.ndarray
+    mask: np.ndarray
+    echo_times: np.ndarray
+
+
 IdealPhaseEncodedCPMGImagingResult = IdealCPMGImagingResult
 ProbePhaseEncodedCPMGImagingResult = ProbeCPMGImagingResult
 
@@ -301,6 +313,104 @@ def reconstruct_image_from_kspace(kspace: np.ndarray, echo_index: int = 0) -> np
     return np.fft.ifftshift(np.fft.ifft2(kspace[:, :, int(echo_index)]))
 
 
+def fit_imaging_echo_decay(
+    result: IdealCPMGImagingResult | ProbeCPMGImagingResult,
+    *,
+    echo_times: Iterable[float] | np.ndarray | None = None,
+    min_signal: float = 0.0,
+) -> ImagingEchoFitResult:
+    """Fit each voxel magnitude to `rho * exp(-t / T2)`.
+
+    `rho_map` is an apparent spin-density map at zero echo time. It still
+    includes B1, receive, and probe-dependent scaling present in the image
+    stack.
+    """
+
+    magnitude = np.asarray(result.magnitude, dtype=np.float64)
+    if magnitude.ndim != 3:
+        raise ValueError("result.magnitude must have shape (px, pz, num_echoes)")
+    num_echoes = magnitude.shape[2]
+    if num_echoes < 2:
+        raise ValueError("at least two echoes are required to fit T2")
+
+    times = (
+        np.asarray(result.sequence_time, dtype=np.float64)
+        if echo_times is None
+        else np.asarray(tuple(echo_times), dtype=np.float64)
+    ).reshape(-1)
+    if times.size != num_echoes:
+        raise ValueError("echo_times must have one value per echo")
+    if np.any(~np.isfinite(times)) or np.any(times <= 0):
+        raise ValueError("echo_times must contain positive finite values")
+    if float(min_signal) < 0:
+        raise ValueError("min_signal must be non-negative")
+
+    signal_mask = np.all(magnitude > float(min_signal), axis=2)
+    finite_mask = np.all(np.isfinite(magnitude), axis=2)
+    mask = signal_mask & finite_mask
+    safe_magnitude = np.where(mask[:, :, np.newaxis], magnitude, 1.0)
+    log_signal = np.log(safe_magnitude)
+
+    n_echo = float(num_echoes)
+    sum_t = float(np.sum(times))
+    sum_t2 = float(np.sum(times**2))
+    denom = n_echo * sum_t2 - sum_t**2
+    if denom <= 0:
+        raise ValueError("echo_times must not all be equal")
+
+    sum_y = np.sum(log_signal, axis=2)
+    sum_ty = np.sum(log_signal * times.reshape(1, 1, -1), axis=2)
+    slope = (n_echo * sum_ty - sum_t * sum_y) / denom
+    intercept = (sum_y - slope * sum_t) / n_echo
+
+    rho_map = np.zeros(magnitude.shape[:2], dtype=np.float64)
+    t2_map = np.full(magnitude.shape[:2], np.nan, dtype=np.float64)
+    decay_mask = mask & (slope < 0)
+    rho_map[decay_mask] = np.exp(intercept[decay_mask])
+    t2_map[decay_mask] = -1.0 / slope[decay_mask]
+
+    fitted = rho_map[:, :, np.newaxis] * np.exp(
+        -times.reshape(1, 1, -1) / t2_map[:, :, np.newaxis]
+    )
+    fitted = np.where(decay_mask[:, :, np.newaxis], fitted, 0.0)
+    residual = np.linalg.norm(
+        np.where(decay_mask[:, :, np.newaxis], magnitude - fitted, 0.0),
+        axis=2,
+    )
+    return ImagingEchoFitResult(
+        rho_map=rho_map,
+        t2_map=t2_map,
+        fitted_magnitude=fitted,
+        residual_norm=residual,
+        mask=decay_mask,
+        echo_times=times,
+    )
+
+
+def form_imaging_image(
+    result: IdealCPMGImagingResult | ProbeCPMGImagingResult,
+    *,
+    mode: str = "single",
+    echo_index: int = 0,
+    min_signal: float = 0.0,
+) -> np.ndarray:
+    """Return a display-ready image from an imaging echo stack.
+
+    Modes are `single`, `echo_sum`, `fit_rho`, and `fit_t2`.
+    """
+
+    mode_key = str(mode).replace("-", "_")
+    if mode_key == "single":
+        return result.magnitude[:, :, int(echo_index)]
+    if mode_key == "echo_sum":
+        return np.sum(result.magnitude, axis=2)
+    if mode_key == "fit_rho":
+        return fit_imaging_echo_decay(result, min_signal=min_signal).rho_map
+    if mode_key == "fit_t2":
+        return fit_imaging_echo_decay(result, min_signal=min_signal).t2_map
+    raise ValueError("mode must be 'single', 'echo_sum', 'fit_rho', or 'fit_t2'")
+
+
 def _validate_imaging_inputs(
     rho: Iterable[float] | np.ndarray | ImagingFieldMaps,
     t1_map: Iterable[float] | np.ndarray | None,
@@ -528,6 +638,106 @@ def run_ideal_phase_encoded_cpmg_imaging(
     `Sim_CPMG/sim_cpmg_ideal_probe_img.m`, but returns arrays without plotting.
     """
 
+    return _ideal_phase_encoded_cpmg_imaging(
+        rho,
+        t1_map=t1_map,
+        t2_map=t2_map,
+        num_echoes=num_echoes,
+        echo_spacing_seconds=echo_spacing_seconds,
+        gradient_duration_seconds=gradient_duration_seconds,
+        fov=fov,
+        ny=ny,
+        maxoffs=maxoffs,
+        num_workers=num_workers,
+        phase_workers=phase_workers,
+        inversion_time_seconds=None,
+    )
+
+
+def run_t1_encoded_phase_encoded_cpmg_imaging(
+    rho: Iterable[float] | np.ndarray | ImagingFieldMaps,
+    *,
+    inversion_time_seconds: float,
+    t1_map: Iterable[float] | np.ndarray | None = None,
+    t2_map: Iterable[float] | np.ndarray | None = None,
+    num_echoes: int = 2,
+    echo_spacing_seconds: float = 0.2e-3,
+    gradient_duration_seconds: float = 0.5e-3,
+    fov: tuple[float, float] | Iterable[float] = (20.0, 20.0),
+    ny: int = 9,
+    maxoffs: float = 5.0,
+    num_workers: int | None = 1,
+    phase_workers: int | None = 1,
+) -> IdealCPMGImagingResult:
+    """Run ideal phase-encoded CPMG imaging with inversion-recovery T1 prep."""
+
+    return _ideal_phase_encoded_cpmg_imaging(
+        rho,
+        t1_map=t1_map,
+        t2_map=t2_map,
+        num_echoes=num_echoes,
+        echo_spacing_seconds=echo_spacing_seconds,
+        gradient_duration_seconds=gradient_duration_seconds,
+        fov=fov,
+        ny=ny,
+        maxoffs=maxoffs,
+        num_workers=num_workers,
+        phase_workers=phase_workers,
+        inversion_time_seconds=inversion_time_seconds,
+    )
+
+
+def run_t1_encoded_cpmg_imaging(
+    rho: Iterable[float] | np.ndarray | ImagingFieldMaps,
+    *,
+    inversion_time_seconds: float,
+    t1_map: Iterable[float] | np.ndarray | None = None,
+    t2_map: Iterable[float] | np.ndarray | None = None,
+    num_echoes: int = 2,
+    echo_spacing_seconds: float = 0.2e-3,
+    gradient_duration_seconds: float = 0.5e-3,
+    fov: tuple[float, float] | Iterable[float] = (20.0, 20.0),
+    ny: int = 9,
+    maxoffs: float = 5.0,
+    num_workers: int | None = 1,
+    phase_workers: int | None = 1,
+) -> IdealCPMGImagingResult:
+    """Compatibility alias for `run_t1_encoded_phase_encoded_cpmg_imaging`."""
+
+    return run_t1_encoded_phase_encoded_cpmg_imaging(
+        rho,
+        inversion_time_seconds=inversion_time_seconds,
+        t1_map=t1_map,
+        t2_map=t2_map,
+        num_echoes=num_echoes,
+        echo_spacing_seconds=echo_spacing_seconds,
+        gradient_duration_seconds=gradient_duration_seconds,
+        fov=fov,
+        ny=ny,
+        maxoffs=maxoffs,
+        num_workers=num_workers,
+        phase_workers=phase_workers,
+    )
+
+
+def _ideal_phase_encoded_cpmg_imaging(
+    rho: Iterable[float] | np.ndarray | ImagingFieldMaps,
+    *,
+    t1_map: Iterable[float] | np.ndarray | None,
+    t2_map: Iterable[float] | np.ndarray | None,
+    num_echoes: int,
+    echo_spacing_seconds: float,
+    gradient_duration_seconds: float,
+    fov: tuple[float, float] | Iterable[float],
+    ny: int,
+    maxoffs: float,
+    num_workers: int | None,
+    phase_workers: int | None,
+    inversion_time_seconds: float | None,
+) -> IdealCPMGImagingResult:
+    if inversion_time_seconds is not None and inversion_time_seconds <= 0:
+        raise ValueError("inversion_time_seconds must be positive")
+
     field_maps, fov_arr = _validate_imaging_inputs(
         rho,
         t1_map,
@@ -567,6 +777,31 @@ def run_ideal_phase_encoded_cpmg_imaging(
         calc_rotation_matrix(del_w, w_1, np.array([np.pi]), np.array([0.0]), np.array([1.0])),
         calc_rotation_matrix(del_w, w_1, np.array([np.pi]), np.array([np.pi / 2]), np.array([1.0])),
     ]
+    inversion_pulse = None
+    if inversion_time_seconds is not None:
+        inversion_pulse = len(rtot) + 1
+        rtot.append(
+            calc_rotation_matrix(
+                del_w,
+                w_1,
+                np.array([np.pi]),
+                np.array([0.0]),
+                np.array([1.0]),
+            )
+        )
+
+    prep_t = np.array([], dtype=np.float64)
+    prep_a = np.array([], dtype=np.float64)
+    prep_p = np.array([], dtype=np.int64)
+    prep_acq = np.array([], dtype=np.int64)
+    prep_grad = np.array([], dtype=np.float64)
+    if inversion_time_seconds is not None:
+        tinv_delay = (np.pi / 2) * float(inversion_time_seconds) / t90
+        prep_t = np.array([np.pi, tinv_delay], dtype=np.float64)
+        prep_a = np.array([1.0, 0.0], dtype=np.float64)
+        prep_p = np.array([int(inversion_pulse), 0], dtype=np.int64)
+        prep_acq = np.array([0, 0], dtype=np.int64)
+        prep_grad = np.array([0.0, 0.0], dtype=np.float64)
 
     texc = np.array([np.pi / 2, -1.0], dtype=np.float64)
     aexc = np.array([1.0, 0.0], dtype=np.float64)
@@ -593,16 +828,16 @@ def run_ideal_phase_encoded_cpmg_imaging(
 
     pp_common = {
         "T_90": t90,
-        "tp": np.concatenate([texc, tenc, tref]),
-        "amp": np.concatenate([aexc, aenc, aref]),
-        "acq": np.concatenate([acq_exc, acq_enc, acq_ref]),
-        "grad": np.concatenate([grad_exc, grad_enc, grad_ref]),
+        "tp": np.concatenate([prep_t, texc, tenc, tref]),
+        "amp": np.concatenate([prep_a, aexc, aenc, aref]),
+        "acq": np.concatenate([prep_acq, acq_exc, acq_enc, acq_ref]),
+        "grad": np.concatenate([prep_grad, grad_exc, grad_enc, grad_ref]),
         "Rtot": rtot,
     }
-    pul1 = np.concatenate([pexc1, penc1, pref1])
-    pul2 = np.concatenate([pexc2, penc1, pref1])
-    pul3 = np.concatenate([pexc1, penc2, pref2])
-    pul4 = np.concatenate([pexc2, penc2, pref2])
+    pul1 = np.concatenate([prep_p, pexc1, penc1, pref1])
+    pul2 = np.concatenate([prep_p, pexc2, penc1, pref1])
+    pul3 = np.concatenate([prep_p, pexc1, penc2, pref2])
+    pul4 = np.concatenate([prep_p, pexc2, penc2, pref2])
 
     px, pz = rho_arr.shape
     wxmax = np.pi * px**2 / (2 * fov_arr[0] * tgradn)

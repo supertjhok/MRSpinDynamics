@@ -128,6 +128,8 @@ from spin_dynamics.workflows import (
     calc_macq_matched_probe_relax4,
     calc_macq_tuned_probe_relax4,
     calc_macq_untuned_probe_relax4,
+    fit_imaging_echo_decay,
+    form_imaging_image,
     load_imaging_field_maps_npz,
     make_imaging_field_maps,
     run_ideal_cpmg,
@@ -137,6 +139,7 @@ from spin_dynamics.workflows import (
     run_ideal_cpmg_train,
     run_ideal_time_varying_amplitude_sweep,
     run_ideal_time_varying_cpmg_final,
+    run_t1_encoded_phase_encoded_cpmg_imaging,
     run_matched_cpmg,
     run_matched_cpmg_imaging,
     run_matched_cpmg_ir_train,
@@ -3429,6 +3432,71 @@ class OctaveFixtureTests(unittest.TestCase):
         self.assertTrue(np.all(np.isfinite(result.kspace)))
         self.assertTrue(np.all(np.isfinite(result.magnitude)))
 
+    def test_imaging_echo_formation_modes_use_expected_weighting(self) -> None:
+        echo_times = np.array([0.1e-3, 0.2e-3, 0.3e-3], dtype=np.float64)
+        rho = np.array([[2.0, 4.0], [1.5, 3.0]], dtype=np.float64)
+        t2 = np.array([[0.8e-3, 1.2e-3], [1.6e-3, 2.4e-3]], dtype=np.float64)
+        magnitude = rho[:, :, np.newaxis] * np.exp(
+            -echo_times.reshape(1, 1, -1) / t2[:, :, np.newaxis]
+        )
+        result = SimpleNamespace(
+            image=magnitude.astype(np.complex128),
+            magnitude=magnitude,
+            sequence_time=echo_times,
+        )
+
+        np.testing.assert_allclose(
+            form_imaging_image(result, mode="single", echo_index=1),
+            magnitude[:, :, 1],
+        )
+        np.testing.assert_allclose(
+            form_imaging_image(result, mode="echo_sum"),
+            np.sum(magnitude, axis=2),
+        )
+        np.testing.assert_allclose(
+            form_imaging_image(result, mode="fit_rho"),
+            rho,
+            rtol=1e-13,
+            atol=1e-13,
+        )
+        np.testing.assert_allclose(
+            form_imaging_image(result, mode="fit_t2"),
+            t2,
+            rtol=1e-13,
+            atol=1e-13,
+        )
+
+    def test_imaging_echo_decay_fit_reports_maps_and_rejects_bad_inputs(self) -> None:
+        echo_times = np.array([0.1e-3, 0.2e-3, 0.3e-3], dtype=np.float64)
+        rho = np.array([[2.0]], dtype=np.float64)
+        t2 = np.array([[0.8e-3]], dtype=np.float64)
+        magnitude = rho[:, :, np.newaxis] * np.exp(
+            -echo_times.reshape(1, 1, -1) / t2[:, :, np.newaxis]
+        )
+        result = SimpleNamespace(
+            image=magnitude.astype(np.complex128),
+            magnitude=magnitude,
+            sequence_time=echo_times,
+        )
+
+        fit = fit_imaging_echo_decay(result)
+
+        np.testing.assert_allclose(fit.rho_map, rho, rtol=1e-13, atol=1e-13)
+        np.testing.assert_allclose(fit.t2_map, t2, rtol=1e-13, atol=1e-13)
+        np.testing.assert_allclose(fit.fitted_magnitude, magnitude, rtol=1e-13, atol=1e-13)
+        np.testing.assert_allclose(fit.residual_norm, 0.0, atol=1e-13)
+        self.assertTrue(bool(fit.mask[0, 0]))
+        with self.assertRaises(ValueError):
+            fit_imaging_echo_decay(
+                SimpleNamespace(
+                    image=magnitude[:, :, :1].astype(np.complex128),
+                    magnitude=magnitude[:, :, :1],
+                    sequence_time=echo_times[:1],
+                )
+            )
+        with self.assertRaises(ValueError):
+            form_imaging_image(result, mode="unknown")
+
     def test_phase_encoded_imaging_names_match_legacy_aliases(self) -> None:
         rho = np.eye(2, dtype=np.float64)
         sentinel = object()
@@ -3543,6 +3611,88 @@ class OctaveFixtureTests(unittest.TestCase):
         np.testing.assert_allclose(result.b1_tx_map, b1_tx_map)
         np.testing.assert_allclose(result.b1_rx_map, b1_tx_map)
         self.assertTrue(np.all(np.isfinite(result.kspace)))
+
+    def test_t1_encoded_cpmg_imaging_adds_synthetic_t1_contrast(self) -> None:
+        short_t1 = make_imaging_field_maps(
+            np.ones((1, 1), dtype=np.float64),
+            t1_map=0.25e-3 * np.ones((1, 1), dtype=np.float64),
+            t2_map=50e-3 * np.ones((1, 1), dtype=np.float64),
+            b1_tx_map=np.ones((1, 1), dtype=np.float64),
+            b1_rx_map=np.ones((1, 1), dtype=np.float64),
+        )
+        near_null_t1 = make_imaging_field_maps(
+            np.ones((1, 1), dtype=np.float64),
+            t1_map=0.72e-3 * np.ones((1, 1), dtype=np.float64),
+            t2_map=50e-3 * np.ones((1, 1), dtype=np.float64),
+            b1_tx_map=np.ones((1, 1), dtype=np.float64),
+            b1_rx_map=np.ones((1, 1), dtype=np.float64),
+        )
+        short_result = run_t1_encoded_phase_encoded_cpmg_imaging(
+            short_t1,
+            inversion_time_seconds=0.5e-3,
+            num_echoes=3,
+            ny=1,
+            maxoffs=0.0,
+            num_workers=1,
+            phase_workers=1,
+        )
+        near_null_result = run_t1_encoded_phase_encoded_cpmg_imaging(
+            near_null_t1,
+            inversion_time_seconds=0.5e-3,
+            num_echoes=3,
+            ny=1,
+            maxoffs=0.0,
+            num_workers=1,
+            phase_workers=1,
+        )
+        short_signal = float(form_imaging_image(short_result, mode="single")[0, 0])
+        near_null_signal = float(form_imaging_image(near_null_result, mode="single")[0, 0])
+
+        self.assertGreater(short_signal, 100 * near_null_signal)
+
+        rho = np.ones((2, 2), dtype=np.float64)
+        t1_map = np.array(
+            [
+                [0.25e-3, 0.72e-3],
+                [0.25e-3, 0.72e-3],
+            ],
+            dtype=np.float64,
+        )
+        t2_map = 50e-3 * np.ones_like(rho)
+        maps = make_imaging_field_maps(
+            rho,
+            t1_map=t1_map,
+            t2_map=t2_map,
+            b1_tx_map=np.ones_like(rho),
+            b1_rx_map=np.ones_like(rho),
+        )
+
+        encoded = run_t1_encoded_phase_encoded_cpmg_imaging(
+            maps,
+            inversion_time_seconds=0.5e-3,
+            num_echoes=3,
+            ny=3,
+            num_workers=1,
+            phase_workers=1,
+        )
+        encoded_single = form_imaging_image(encoded, mode="single", echo_index=0)
+        encoded_echo_sum = form_imaging_image(encoded, mode="echo_sum")
+        encoded_fit = fit_imaging_echo_decay(encoded)
+
+        self.assertEqual(encoded_single.shape, rho.shape)
+        self.assertEqual(encoded_echo_sum.shape, rho.shape)
+        self.assertEqual(encoded_fit.rho_map.shape, rho.shape)
+        self.assertEqual(encoded_fit.t2_map.shape, rho.shape)
+        self.assertGreater(float(np.max(encoded_single)), float(np.min(encoded_single)))
+        self.assertTrue(np.all(np.isfinite(encoded_echo_sum)))
+        self.assertTrue(np.any(encoded_fit.mask))
+        with self.assertRaises(ValueError):
+            run_t1_encoded_phase_encoded_cpmg_imaging(
+                maps,
+                inversion_time_seconds=0.0,
+                num_echoes=1,
+                ny=1,
+            )
 
     def test_matched_cpmg_imaging_applies_custom_receive_map(self) -> None:
         rho = np.ones((1, 1), dtype=np.float64)

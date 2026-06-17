@@ -12,9 +12,11 @@ from _source_path import add_src_to_path
 add_src_to_path()
 
 from spin_dynamics.workflows import (  # noqa: E402
+    form_imaging_image,
     make_imaging_field_maps,
     run_ideal_phase_encoded_cpmg_imaging,
     run_matched_phase_encoded_cpmg_imaging,
+    run_t1_encoded_phase_encoded_cpmg_imaging,
     run_tuned_phase_encoded_cpmg_imaging,
 )
 
@@ -100,6 +102,29 @@ def main() -> None:
     )
     parser.add_argument("--phase-workers", type=int, default=1, help="Parallel phase-encode workers.")
     parser.add_argument("--workers", type=int, default=1, help="Isochromat workers per phase point.")
+    parser.add_argument(
+        "--image-mode",
+        choices=["single", "echo-sum", "fit-rho", "fit-t2"],
+        default="single",
+        help="Image formation mode: selected echo, echo-summed magnitude, fitted rho, or fitted T2.",
+    )
+    parser.add_argument(
+        "--echo-index",
+        type=int,
+        default=1,
+        help="One-based echo index for --image-mode single and the k-space panel.",
+    )
+    parser.add_argument(
+        "--t1-encoded",
+        action="store_true",
+        help="Use an ideal inversion-recovery preparation before phase encoding and CPMG.",
+    )
+    parser.add_argument(
+        "--inversion-time",
+        type=float,
+        default=0.5e-3,
+        help="Inversion delay in seconds for --t1-encoded.",
+    )
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT, help="Output image path.")
     args = parser.parse_args()
 
@@ -117,17 +142,25 @@ def main() -> None:
         "tuned": run_tuned_phase_encoded_cpmg_imaging,
         "matched": run_matched_phase_encoded_cpmg_imaging,
     }
-    result = runners[args.probe](
+    if args.t1_encoded and args.probe != "ideal":
+        raise SystemExit("--t1-encoded is currently available only with --probe ideal")
+    runner = run_t1_encoded_phase_encoded_cpmg_imaging if args.t1_encoded else runners[args.probe]
+    runner_kwargs = {"inversion_time_seconds": args.inversion_time} if args.t1_encoded else {}
+    result = runner(
         field_maps,
         num_echoes=args.num_echoes,
         ny=args.ny,
         num_workers=args.workers,
         phase_workers=args.phase_workers,
+        **runner_kwargs,
     )
 
-    echo_index = min(args.num_echoes - 1, 0)
+    echo_index = args.echo_index - 1
+    if echo_index < 0 or echo_index >= args.num_echoes:
+        raise SystemExit("--echo-index must be between 1 and --num-echoes")
     kspace = result.kspace[:, :, echo_index]
-    recon = result.magnitude[:, :, echo_index]
+    recon = form_imaging_image(result, mode=args.image_mode, echo_index=echo_index)
+    image_label = args.image_mode.replace("-", " ").title()
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     panels = [
@@ -136,7 +169,7 @@ def main() -> None:
         (result.b1_tx_map, "Transmit B1", "viridis"),
         (result.b1_rx_map, "Receive B1", "viridis"),
         (np.log1p(np.abs(kspace)), "log |k-space|", "magma"),
-        (recon, "Reconstruction", "gray"),
+        (recon, image_label, "gray"),
     ]
     if plt is None:
         _save_with_pillow(args.output, [(data, title) for data, title, _ in panels])
@@ -153,7 +186,11 @@ def main() -> None:
 
     print(f"saved: {args.output}")
     print(f"probe: {result.probe}")
+    if args.t1_encoded:
+        print(f"T1 encoded: inversion time {args.inversion_time:.6g} s")
     print(f"kspace shape: {result.kspace.shape}")
+    print(f"image mode: {args.image_mode}")
+    print(f"k-space echo plotted: {echo_index + 1}")
     print(f"B0 range: {np.min(result.b0_map):.3g} to {np.max(result.b0_map):.3g}")
     print(f"transmit B1 range: {np.min(result.b1_tx_map):.3g} to {np.max(result.b1_tx_map):.3g}")
     print(f"receive B1 range: {np.min(result.b1_rx_map):.3g} to {np.max(result.b1_rx_map):.3g}")

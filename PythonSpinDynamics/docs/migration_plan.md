@@ -150,6 +150,9 @@ their inputs and outputs are small, array-based, and close to NumPy's strengths.
 - Tuned imaging preserves the MATLAB raw-current k-space convention by default
   and also exposes a receive-weighted mode that applies the tuned receiver
   transfer function and `b1_rx_map`.
+- Ideal T1-prepared phase-encoded imaging adds an inversion-recovery
+  preparation before phase encoding and CPMG, with post-processing helpers for
+  selected-echo, echo-summed, fitted-rho, and fitted-T2 image formation.
 - Compact MATLAB-generated k-space fixtures validate the ideal, tuned, and
   matched CPMG imaging workflows end to end.
 - `examples/plot_ideal_imaging.py` plots the flower phantom, CPMG k-space, and

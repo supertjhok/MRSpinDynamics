@@ -71,6 +71,12 @@ PNG.
 python examples\plot_ideal_imaging.py --pixels 6 --ny 7 --output results\ideal_imaging.png
 ```
 
+Use `--image-mode single`, `echo-sum`, `fit-rho`, or `fit-t2` to choose how
+the echo stack is converted into the displayed image. The fitting modes require
+at least two echoes.
+Use `--t1-encoded --inversion-time 5e-4` with the ideal probe path to add an
+inversion-recovery preparation before phase encoding and CPMG.
+
 ## Plot Custom Imaging Fields
 
 This example builds a small synthetic phantom with custom B0, transmit-B1, and
@@ -80,6 +86,11 @@ requires Matplotlib.
 ```powershell
 python examples\plot_custom_imaging_fields.py --pixels 8 --ny 7 --output results\custom_imaging_fields.png
 ```
+
+The same `--image-mode` option is available here for comparing selected-echo,
+echo-summed, fitted-rho, and fitted-T2 displays under custom field maps.
+The same ideal-probe `--t1-encoded` option can be combined with those display
+modes for synthetic T1 contrast examples.
 
 ## Tuned-Probe CPMG
 

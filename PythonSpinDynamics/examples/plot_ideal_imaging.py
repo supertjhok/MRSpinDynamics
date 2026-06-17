@@ -12,8 +12,10 @@ from _source_path import add_src_to_path
 add_src_to_path()
 
 from spin_dynamics.workflows import (  # noqa: E402
+    form_imaging_image,
     run_ideal_phase_encoded_cpmg_imaging,
     run_matched_phase_encoded_cpmg_imaging,
+    run_t1_encoded_phase_encoded_cpmg_imaging,
     run_tuned_phase_encoded_cpmg_imaging,
 )
 
@@ -72,15 +74,14 @@ def _normalize_panel(arr: np.ndarray) -> np.ndarray:
     return (255 * arr).clip(0, 255).astype(np.uint8)
 
 
-def _save_with_pillow(output: Path, panels: list[np.ndarray]) -> None:
+def _save_with_pillow(output: Path, panels: list[tuple[np.ndarray, str]]) -> None:
     from PIL import Image, ImageDraw
 
     # Pillow fallback keeps the plotting example usable in minimal environments
     # where Matplotlib is not installed.
     scale = 36
-    labels = ["Spin-density phantom", "log |k-space|", "Reconstruction"]
     images = []
-    for panel, label in zip(panels, labels):
+    for panel, label in panels:
         img = Image.fromarray(_normalize_panel(panel), mode="L").resize(
             (panel.shape[1] * scale, panel.shape[0] * scale),
             Image.Resampling.NEAREST,
@@ -111,6 +112,29 @@ def main() -> None:
     )
     parser.add_argument("--phase-workers", type=int, default=1, help="Parallel phase-encode workers.")
     parser.add_argument("--workers", type=int, default=1, help="Isochromat workers per phase point.")
+    parser.add_argument(
+        "--image-mode",
+        choices=["single", "echo-sum", "fit-rho", "fit-t2"],
+        default="single",
+        help="Image formation mode: selected echo, echo-summed magnitude, fitted rho, or fitted T2.",
+    )
+    parser.add_argument(
+        "--echo-index",
+        type=int,
+        default=None,
+        help="One-based echo index for --image-mode single. Defaults to echo 2 when available.",
+    )
+    parser.add_argument(
+        "--t1-encoded",
+        action="store_true",
+        help="Use an ideal inversion-recovery preparation before phase encoding and CPMG.",
+    )
+    parser.add_argument(
+        "--inversion-time",
+        type=float,
+        default=0.5e-3,
+        help="Inversion delay in seconds for --t1-encoded.",
+    )
     parser.add_argument("--image", type=Path, default=DEFAULT_IMAGE, help="Input phantom image.")
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT, help="Output image path.")
     parser.add_argument(
@@ -128,27 +152,46 @@ def main() -> None:
         "tuned": run_tuned_phase_encoded_cpmg_imaging,
         "matched": run_matched_phase_encoded_cpmg_imaging,
     }
+    if args.t1_encoded and args.probe != "ideal":
+        raise SystemExit("--t1-encoded is currently available only with --probe ideal")
+    runner = run_t1_encoded_phase_encoded_cpmg_imaging if args.t1_encoded else runners[args.probe]
+    runner_kwargs = {"inversion_time_seconds": args.inversion_time} if args.t1_encoded else {}
     # The imaging runner returns k-space and reconstructed image arrays for
     # every echo. Small pixel counts are deliberate because this scales steeply.
     # Bright backgrounds can dominate the FOV and alias in compact demos, so the
     # default loader inverts the source bitmap before using it as spin density.
-    result = runners[args.probe](
+    result = runner(
         rho,
         num_echoes=args.num_echoes,
         ny=args.ny,
         num_workers=args.workers,
         phase_workers=args.phase_workers,
+        **runner_kwargs,
     )
     # Echo 2 is the MATLAB demo's default display target; fall back to echo 1
     # when the user asks for a single-echo run.
-    echo_index = min(1, args.num_echoes - 1)
+    echo_index = min(1, args.num_echoes - 1) if args.echo_index is None else args.echo_index - 1
+    if echo_index < 0 or echo_index >= args.num_echoes:
+        raise SystemExit("--echo-index must be between 1 and --num-echoes")
     kspace = result.kspace[:, :, echo_index]
-    recon = result.magnitude[:, :, echo_index]
+    image_label = args.image_mode.replace("-", " ").title()
+    recon = form_imaging_image(
+        result,
+        mode=args.image_mode,
+        echo_index=echo_index,
+    )
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     if plt is None:
         # Minimal dependency path: create a simple three-panel PNG with Pillow.
-        _save_with_pillow(args.output, [result.rho, np.log1p(np.abs(kspace)), recon])
+        _save_with_pillow(
+            args.output,
+            [
+                (result.rho, "Spin-density phantom"),
+                (np.log1p(np.abs(kspace)), "log |k-space|"),
+                (recon, image_label),
+            ],
+        )
     else:
         # Matplotlib path: show the same three panels with scientific colormaps.
         fig, axes = plt.subplots(1, 3, figsize=(10, 3.4), constrained_layout=True)
@@ -157,7 +200,7 @@ def main() -> None:
         axes[1].imshow(np.log1p(np.abs(kspace)), cmap="magma")
         axes[1].set_title("log |k-space|")
         axes[2].imshow(recon, cmap="gray")
-        axes[2].set_title("Reconstruction")
+        axes[2].set_title(image_label)
         for axis in axes:
             axis.set_xticks([])
             axis.set_yticks([])
@@ -166,9 +209,12 @@ def main() -> None:
         fig.savefig(args.output, dpi=150)
     print(f"saved: {args.output}")
     print(f"probe: {result.probe}")
+    if args.t1_encoded:
+        print(f"T1 encoded: inversion time {args.inversion_time:.6g} s")
     print(f"kspace shape: {result.kspace.shape}")
     print(f"image shape: {result.image.shape}")
-    print(f"echo plotted: {echo_index + 1}")
+    print(f"image mode: {args.image_mode}")
+    print(f"k-space echo plotted: {echo_index + 1}")
     if args.raw_image:
         print("note: using raw source-image contrast; bright backgrounds may alias in small FOVs.")
     else:
