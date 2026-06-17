@@ -79,6 +79,7 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_probe_cpmg.py",
             "examples/plot_probe_parameter_sweep.py",
             "examples/plot_optimization_workflows.py",
+            "examples/plot_optimization_pipeline.py",
             "examples/diagnose_optimization_backends.py",
             "examples/plot_finite_train_workflows.py",
             "examples/plot_diffusion_sweep.py",
@@ -94,6 +95,9 @@ class ExampleSmokeTests(unittest.TestCase):
         self.assertIn("--workers", result.stdout)
         result = run_example("examples/plot_optimization_workflows.py", "--help")
         self.assertIn("--optimizer", result.stdout)
+        self.assertIn("--inverse-starts", result.stdout)
+        result = run_example("examples/plot_optimization_pipeline.py", "--help")
+        self.assertIn("--refocusing-starts", result.stdout)
         self.assertIn("--inverse-starts", result.stdout)
         result = run_example("examples/diagnose_optimization_backends.py", "--help")
         self.assertIn("--backend", result.stdout)

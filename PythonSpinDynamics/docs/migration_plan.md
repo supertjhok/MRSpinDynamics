@@ -147,6 +147,9 @@ their inputs and outputs are small, array-based, and close to NumPy's strengths.
   imaging workflows from
   `Imaging_demo/imaging_example_ideal.m` and `Sim_CPMG/*_probe_img.m` into
   array-returning APIs.
+- Tuned imaging preserves the MATLAB raw-current k-space convention by default
+  and also exposes a receive-weighted mode that applies the tuned receiver
+  transfer function and `b1_rx_map`.
 - Compact MATLAB-generated k-space fixtures validate the ideal, tuned, and
   matched CPMG imaging workflows end to end.
 - `examples/plot_ideal_imaging.py` plots the flower phantom, CPMG k-space, and
@@ -161,10 +164,12 @@ their inputs and outputs are small, array-based, and close to NumPy's strengths.
   `plot_masy_arbref_*` MATLAB helpers, plus array-returning SPA summary
   workflows for tuned, untuned, and matched probes. A lightweight discrete
   phase-program optimizer scaffold is available for small candidate searches.
-  The ideal no-probe `v0crit` and time-varying-field refocusing objectives
-  from `opt_ref_pulse_ideal_v0crit*.m` and `opt_ref_pulse_ideal_tv*.m` are
-  available as array-returning evaluators, bounded phase optimizers, and
-  multi-start drivers.
+  The ideal no-probe `v0crit`, excitation-aware `v0crit`, and
+  time-varying-field refocusing objectives from
+  `opt_ref_pulse_ideal_v0crit*.m` and `opt_ref_pulse_ideal_tv*.m` are available
+  as array-returning evaluators, bounded phase optimizers, and multi-start
+  drivers. The excitation-aware path includes the default ideal excitation
+  vector preparation from `opt_ref_pulse_ideal_v0crit_exc_repeat.m`.
   Bounded refocusing phase optimizer wrappers are available around the existing
   tuned, untuned, and matched SNR evaluators; full MATLAB-equivalent OCT/SPA
   optimizer loops remain reference-only. Tuned excitation-pulse evaluation and
@@ -180,10 +185,15 @@ their inputs and outputs are small, array-based, and close to NumPy's strengths.
   inverse-excitation evaluation and bounded phase optimization are available
   for target received spectra, with compact MATLAB optimizer-result fixtures
   covering objective improvement. Strong inverse-cancellation workflows remain
-  a validation target.
-- MATLAB-style result-cell conversion, `.npz` archive export, and optional
-  SciPy-backed `.mat` export are available for multi-start outputs. Keep exact
-  historical script-specific `params`/`sp`/`pp` parity and broad MATLAB
+  a validation target. A plotting-free pipeline helper now connects selected
+  refocusing results to tuned excitation and inverse-excitation multi-start
+  searches.
+- MATLAB-style result-cell conversion, `.npz` archive load/export,
+  script-aware `plot_opt_*_results.m` layout analysis, selected
+  score/program/metadata inspection, tuned original/inverse result-pair
+  comparison, and optional SciPy-backed `.mat` import/export are available for
+  multi-start outputs. Keep broader real MATLAB optimizer-result fixture
+  coverage, exact historical `params`/`sp`/`pp` file parity, and broad MATLAB
   `fmincon` result parity as later validation steps.
 
 ## Later Phase 9: Acceleration

@@ -17,6 +17,7 @@ or:
 
 ```powershell
 & 'C:\Program Files\GNU Octave\Octave-11.3.0\mingw64\bin\octave-cli.exe' --quiet validation\octave\generate_basic_fixtures.m
+& 'C:\Program Files\GNU Octave\Octave-11.3.0\mingw64\bin\octave-cli.exe' --no-gui --quiet --eval "run('validation/octave/generate_optimization_result_fixtures.m')"
 ```
 
 Run tests:

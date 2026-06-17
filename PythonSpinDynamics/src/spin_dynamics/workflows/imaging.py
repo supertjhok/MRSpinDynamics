@@ -694,6 +694,7 @@ def _probe_imaging(
     rho: Iterable[float] | np.ndarray | ImagingFieldMaps,
     *,
     probe: str,
+    tuned_receive_mode: str = "raw",
     t1_map: Iterable[float] | np.ndarray | None,
     t2_map: Iterable[float] | np.ndarray | None,
     num_echoes: int,
@@ -721,6 +722,8 @@ def _probe_imaging(
         sp0, pp0 = _set_params_matched_imaging()
     else:
         raise ValueError("probe must be 'tuned' or 'matched'")
+    if probe == "tuned" and tuned_receive_mode not in {"raw", "weighted"}:
+        raise ValueError("receive_mode must be 'raw' or 'weighted'")
 
     t90 = float(pp0.T_90)
     t180 = float(pp0.T_180)
@@ -851,8 +854,12 @@ def _probe_imaging(
         macq3, mrx3 = calc_macq(sp_case, pp3, num_workers=num_workers)
         _macq4, mrx4 = calc_macq(sp_case, pp4, num_workers=num_workers)
         if probe == "tuned":
-            echo_x = isoc @ macq1.T
-            echo_y = isoc @ macq3.T
+            if tuned_receive_mode == "raw":
+                echo_x = isoc @ macq1.T
+                echo_y = isoc @ macq3.T
+            else:
+                echo_x = isoc @ mrx1.T
+                echo_y = isoc @ mrx3.T
         else:
             echo_x = isoc @ (mrx1 - mrx2).T
             echo_y = isoc @ (mrx3 - mrx4).T
@@ -899,12 +906,19 @@ def run_tuned_phase_encoded_cpmg_imaging(
     maxoffs: float = 5.0,
     num_workers: int | None = 1,
     phase_workers: int | None = 1,
+    receive_mode: str = "raw",
 ) -> ProbeCPMGImagingResult:
-    """Run a compact tuned-probe phase-encoded CPMG imaging simulation."""
+    """Run a compact tuned-probe phase-encoded CPMG imaging simulation.
+
+    `receive_mode="raw"` preserves the MATLAB imaging script's raw-current
+    display convention. `receive_mode="weighted"` uses the tuned receiver
+    output, including the tuned transfer function and `b1_rx_map`.
+    """
 
     return _probe_imaging(
         rho,
         probe="tuned",
+        tuned_receive_mode=receive_mode,
         t1_map=t1_map,
         t2_map=t2_map,
         num_echoes=num_echoes,
@@ -931,6 +945,7 @@ def run_tuned_cpmg_imaging(
     maxoffs: float = 5.0,
     num_workers: int | None = 1,
     phase_workers: int | None = 1,
+    receive_mode: str = "raw",
 ) -> ProbeCPMGImagingResult:
     """Compatibility alias for `run_tuned_phase_encoded_cpmg_imaging`."""
 
@@ -946,6 +961,7 @@ def run_tuned_cpmg_imaging(
         maxoffs=maxoffs,
         num_workers=num_workers,
         phase_workers=phase_workers,
+        receive_mode=receive_mode,
     )
 
 
@@ -968,6 +984,7 @@ def run_matched_phase_encoded_cpmg_imaging(
     return _probe_imaging(
         rho,
         probe="matched",
+        tuned_receive_mode="raw",
         t1_map=t1_map,
         t2_map=t2_map,
         num_echoes=num_echoes,

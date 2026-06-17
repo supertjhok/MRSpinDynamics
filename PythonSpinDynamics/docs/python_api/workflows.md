@@ -336,7 +336,12 @@ field_maps = make_imaging_field_maps(
     b1_tx_map=np.ones_like(rho),
     b1_rx_map=np.ones_like(rho),
 )
-custom = run_tuned_phase_encoded_cpmg_imaging(field_maps, num_echoes=1, ny=5)
+custom = run_tuned_phase_encoded_cpmg_imaging(
+    field_maps,
+    num_echoes=1,
+    ny=5,
+    receive_mode="weighted",
+)
 from_npz = run_tuned_phase_encoded_cpmg_imaging(load_imaging_field_maps_npz("field_maps.npz"))
 ```
 
@@ -364,10 +369,12 @@ loads the same fields from a NumPy archive using keys such as `rho`, `b0_map`,
 `b1_tx_map`, and `b1_rx_map`.
 
 `b1_tx_map` scales the pulse field used by the isochromat kernels. The matched
-probe imaging path also applies `b1_rx_map` through its receiver calculation.
-The tuned compact imaging path keeps the MATLAB fixture's raw-current display
-convention, so receive-map weighting there should be treated as a follow-on
-validation item rather than a validated correction.
+probe imaging path applies `b1_rx_map` through its receiver calculation. The
+tuned compact imaging path defaults to `receive_mode="raw"`, which preserves
+the MATLAB fixture's raw-current display convention and ignores receive-map
+weighting in the final k-space composition. Use `receive_mode="weighted"` to
+compose tuned k-space from the receiver-filtered spectra, including the tuned
+transfer function and `b1_rx_map`.
 
 The shorter names `run_ideal_cpmg_imaging`, `run_tuned_cpmg_imaging`, and
 `run_matched_cpmg_imaging` remain compatibility aliases for these phase-encoded

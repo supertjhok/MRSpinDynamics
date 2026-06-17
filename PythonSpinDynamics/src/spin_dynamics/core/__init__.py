@@ -8,6 +8,7 @@ from spin_dynamics.core.isochromats import (
     recommended_numpts_for_rephasing,
 )
 from spin_dynamics.core.kernels import sim_spin_dynamics_arb10_chunked
+from spin_dynamics.core.rotations import sim_spin_dynamics_exc
 
 __all__ = [
     "RephasingAnalysis",
@@ -16,4 +17,5 @@ __all__ = [
     "estimate_rephase_time",
     "recommended_numpts_for_rephasing",
     "sim_spin_dynamics_arb10_chunked",
+    "sim_spin_dynamics_exc",
 ]

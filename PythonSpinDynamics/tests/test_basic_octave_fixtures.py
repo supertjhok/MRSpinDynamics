@@ -33,6 +33,7 @@ from spin_dynamics.core.rotations import (
     calc_rot_axis_arba3,
     calc_rot_axis_arba4,
     sim_spin_dynamics_asymp_mag3,
+    sim_spin_dynamics_exc,
 )
 from spin_dynamics.parameters import (
     set_params_ideal,
@@ -48,7 +49,12 @@ from spin_dynamics.parameters import (
     set_params_untuned_spa,
 )
 from spin_dynamics.optimization import (
+    analyze_matlab_optimization_results,
+    analyze_optimization_result_file,
+    analyze_tuned_inverse_result_files,
+    analyze_tuned_inverse_result_pair,
     evaluate_ideal_time_varying_refocusing_pulse,
+    evaluate_ideal_v0crit_excited_refocusing_pulse,
     evaluate_ideal_v0crit_refocusing_pulse,
     evaluate_tuned_excitation_pulse,
     evaluate_tuned_inverse_excitation_pulse,
@@ -56,7 +62,9 @@ from spin_dynamics.optimization import (
     evaluate_tuned_refocusing_pulse,
     evaluate_untuned_refocusing_pulse,
     evaluate_spa_metrics,
+    ideal_time_varying_excitation_vector,
     optimize_ideal_time_varying_refocusing_phases,
+    optimize_ideal_v0crit_excited_refocusing_phases,
     optimize_ideal_v0crit_refocusing_phases,
     optimize_matched_refocusing_phases,
     optimize_spa_phase_program,
@@ -66,15 +74,25 @@ from spin_dynamics.optimization import (
     optimize_untuned_refocusing_phases,
     random_phase_starts,
     rectangular_refocusing_lengths,
+    get_matlab_result_layout,
+    load_optimization_results,
+    load_matlab_results_mat,
+    load_multistart_results_npz,
+    matlab_result_layouts,
     multistart_summary_arrays,
     multistart_to_matlab_results,
     run_ideal_time_varying_refocusing_multistart,
+    run_ideal_v0crit_excited_refocusing_multistart,
     run_ideal_v0crit_refocusing_multistart,
+    run_tuned_excitation_inverse_pipeline,
     run_tuned_excitation_multistart,
     run_tuned_inverse_excitation_multistart,
     run_tuned_refocusing_multistart,
+    save_multistart_results_mat,
     save_multistart_results_npz,
+    select_matlab_result_program,
     spa_pulse_list,
+    summarize_matlab_results,
     summarize_matched_spa_refocusing,
     summarize_tuned_spa_refocusing,
     summarize_untuned_spa_refocusing,
@@ -88,6 +106,7 @@ from spin_dynamics.pulses import (
 )
 import spin_dynamics.optimization.drivers as driver_module
 import spin_dynamics.optimization.excitation as excitation_module
+import spin_dynamics.optimization.pipeline as pipeline_module
 import spin_dynamics.optimization.refocusing as refocusing_module
 import spin_dynamics.workflows.imaging as imaging_module
 from spin_dynamics.probes.tuned import (
@@ -221,6 +240,22 @@ class OctaveFixtureTests(unittest.TestCase):
         masy = sim_spin_dynamics_asymp_mag3(tp, phi, amp, neff, del_w, t_acq)
 
         np.testing.assert_allclose(masy, masy_ref, rtol=1e-13, atol=1e-13)
+
+    def test_sim_spin_dynamics_exc_returns_excitation_vector(self) -> None:
+        del_w = np.linspace(-2.0, 2.0, 9)
+        mvect = sim_spin_dynamics_exc(
+            np.array([np.pi / 4, -0.5]),
+            np.array([np.pi / 2, 0.0]),
+            np.array([2.0, 0.0]),
+            del_w,
+        )
+
+        self.assertEqual(mvect.shape, (3, 9))
+        self.assertTrue(np.all(np.isfinite(mvect)))
+        center = mvect[:, del_w.size // 2]
+        np.testing.assert_allclose(center[0], 1.0, atol=1e-14)
+        np.testing.assert_allclose(center[1], 0.0, atol=1e-14)
+        np.testing.assert_allclose(center[2], 0.0, atol=1e-14)
 
     def test_set_params_ideal_matches_octave(self) -> None:
         values = np.loadtxt(FIXTURES / "set_params_ideal.csv", delimiter=",")
@@ -1274,11 +1309,9 @@ class OctaveFixtureTests(unittest.TestCase):
                 "aexc": np.array([6.0], dtype=np.float64),
                 "texc": np.array([texc], dtype=np.float64),
                 "tcorr": -(2 / np.pi) * texc,
-                "pref": np.concatenate([[0.0], np.zeros(6), [0.0]]),
-                "aref": np.concatenate([[0.0], np.ones(6), [0.0]]),
-                "tref": np.concatenate(
-                    [[pp.preDelay], pp.T_180 * 0.1 * np.ones(6), [pp.postDelay]]
-                ),
+                "pref": np.zeros(6, dtype=np.float64),
+                "aref": np.ones(6, dtype=np.float64),
+                "tref": pp.T_180 * 0.1 * np.ones(6, dtype=np.float64),
             }
         )
         expected_mrx, expected_masy, expected_snr = calc_masy_matched_probe_orig(sp, pp)
@@ -1443,6 +1476,57 @@ class OctaveFixtureTests(unittest.TestCase):
         np.testing.assert_allclose(result.snr, result.score)
         np.testing.assert_allclose(result.pulse_length_t180, 0.6)
 
+    def test_ideal_time_varying_excitation_vector_returns_shape(self) -> None:
+        mexc = ideal_time_varying_excitation_vector(numpts=21, maxoffs=4.0)
+
+        self.assertEqual(mexc.shape, (3, 21))
+        self.assertTrue(np.all(np.isfinite(mexc)))
+        self.assertGreater(float(np.max(np.abs(mexc[0, :]))), 0.5)
+
+    def test_ideal_v0crit_excited_refocusing_evaluation_returns_metrics(self) -> None:
+        phases = np.array([0.0, np.pi / 2, np.pi])
+        result = evaluate_ideal_v0crit_excited_refocusing_pulse(
+            phases,
+            numpts=21,
+            segment_fraction=0.2,
+        )
+        mexc = ideal_time_varying_excitation_vector(numpts=21, maxoffs=4.0)
+        baseline = evaluate_ideal_v0crit_refocusing_pulse(
+            phases,
+            numpts=21,
+            maxoffs=4.0,
+            segment_fraction=0.2,
+            excitation_vector=mexc,
+        )
+
+        self.assertEqual(result.del_w.shape, (21,))
+        self.assertEqual(result.neff.shape, (3, 21))
+        self.assertEqual(result.masy.shape, (21,))
+        self.assertGreater(result.axis_rms, 0)
+        self.assertTrue(np.isfinite(result.v0crit_average))
+        np.testing.assert_allclose(result.masy, baseline.masy)
+        np.testing.assert_allclose(result.score, baseline.score)
+
+    def test_ideal_v0crit_excited_refocusing_uses_matlab_dot_convention(
+        self,
+    ) -> None:
+        phases = np.array([0.0, np.pi / 2])
+        mexc = np.ones((3, 9), dtype=np.complex128)
+        mexc[0, :] += 1j * np.linspace(-1.0, 1.0, 9)
+        result = evaluate_ideal_v0crit_refocusing_pulse(
+            phases,
+            numpts=9,
+            maxoffs=2.0,
+            segment_fraction=0.25,
+            excitation_vector=mexc,
+        )
+        window = refocusing_module._normalized_sinc_window(result.del_w, 3 * np.pi)
+        transverse = result.neff[0, :] + 1j * result.neff[1, :]
+        expected_raw = np.sum(np.conj(mexc) * result.neff, axis=0) * transverse
+        expected = np.convolve(expected_raw, window, mode="same")
+
+        np.testing.assert_allclose(result.masy, expected)
+
     def test_ideal_v0crit_refocusing_optimizer_runs_small_search(self) -> None:
         initial = np.array([0.0, np.pi])
         result = optimize_ideal_v0crit_refocusing_phases(
@@ -1455,6 +1539,27 @@ class OctaveFixtureTests(unittest.TestCase):
         )
 
         self.assertEqual(result.probe, "ideal_v0crit")
+        self.assertEqual(result.optimizer_method, "pattern")
+        self.assertTrue(result.optimizer_success)
+        self.assertEqual(result.best_phases.shape, initial.shape)
+        self.assertEqual(result.best_evaluation.phases.shape, initial.shape)
+        self.assertGreaterEqual(result.best_score, result.initial_score)
+        self.assertEqual(result.history_scores.size, result.iterations + 1)
+        self.assertTrue(np.all(np.isfinite(result.history_scores)))
+        np.testing.assert_allclose(result.best_score, result.best_evaluation.score)
+
+    def test_ideal_v0crit_excited_refocusing_optimizer_runs_small_search(self) -> None:
+        initial = np.array([0.0, np.pi])
+        result = optimize_ideal_v0crit_excited_refocusing_phases(
+            initial,
+            numpts=21,
+            segment_fraction=0.2,
+            initial_step=0.2,
+            max_passes=1,
+            optimizer="pattern",
+        )
+
+        self.assertEqual(result.probe, "ideal_v0crit_excited")
         self.assertEqual(result.optimizer_method, "pattern")
         self.assertTrue(result.optimizer_success)
         self.assertEqual(result.best_phases.shape, initial.shape)
@@ -1886,6 +1991,43 @@ class OctaveFixtureTests(unittest.TestCase):
         np.testing.assert_allclose(result.bounds, (-1.0, 1.0))
         np.testing.assert_allclose(result.best_result.best_phases, [0.4])
 
+    def test_ideal_v0crit_excited_refocusing_multistart_selects_best_result(
+        self,
+    ) -> None:
+        original = (
+            driver_module.refocusing_module
+            .optimize_ideal_v0crit_excited_refocusing_phases
+        )
+
+        def fake_optimizer(phases: np.ndarray, **kwargs: object) -> SimpleNamespace:
+            phase_arr = np.asarray(phases, dtype=np.float64)
+            return SimpleNamespace(
+                best_score=-float(np.sum((phase_arr - 0.4) ** 2)),
+                best_phases=phase_arr,
+                bounds=kwargs["bounds"],
+            )
+
+        driver_module.refocusing_module.optimize_ideal_v0crit_excited_refocusing_phases = (
+            fake_optimizer
+        )
+        try:
+            starts = np.array([[0.0], [0.4], [0.8]])
+            result = run_ideal_v0crit_excited_refocusing_multistart(
+                1,
+                initial_phases=starts,
+                bounds=(-1.0, 1.0),
+            )
+        finally:
+            driver_module.refocusing_module.optimize_ideal_v0crit_excited_refocusing_phases = (
+                original
+            )
+
+        self.assertEqual(result.pulse_kind, "refocusing")
+        self.assertEqual(result.probe, "ideal_v0crit_excited")
+        self.assertEqual(result.best_index, 1)
+        np.testing.assert_allclose(result.bounds, (-1.0, 1.0))
+        np.testing.assert_allclose(result.best_result.best_phases, [0.4])
+
     def test_ideal_time_varying_refocusing_multistart_selects_best_result(self) -> None:
         original = (
             driver_module.refocusing_module.optimize_ideal_time_varying_refocusing_phases
@@ -1926,7 +2068,10 @@ class OctaveFixtureTests(unittest.TestCase):
                 best_score=1.0,
                 best_phases=np.array([0.1, 0.2]),
                 initial_phases=np.array([0.0, 0.0]),
-                best_evaluation=SimpleNamespace(pulse_length_t180=0.4),
+                best_evaluation=SimpleNamespace(
+                    pulse_length_t180=0.4,
+                    v0crit_average=10.0,
+                ),
                 bounds=(0.0, 2 * np.pi),
                 history_scores=np.array([0.5, 1.0]),
                 optimizer_method="pattern",
@@ -1937,7 +2082,10 @@ class OctaveFixtureTests(unittest.TestCase):
                 best_score=2.0,
                 best_phases=np.array([0.3, 0.4]),
                 initial_phases=np.array([0.2, 0.2]),
-                best_evaluation=SimpleNamespace(pulse_length_t180=0.4),
+                best_evaluation=SimpleNamespace(
+                    pulse_length_t180=0.4,
+                    v0crit_average=20.0,
+                ),
                 bounds=(0.0, 2 * np.pi),
                 history_scores=np.array([1.5, 2.0]),
                 optimizer_method="pattern",
@@ -1960,12 +2108,370 @@ class OctaveFixtureTests(unittest.TestCase):
         summary = multistart_summary_arrays(multistart)
 
         self.assertEqual(cells.shape, (2, 1))
-        self.assertEqual(cells[0, 0].shape, (1, 7))
+        self.assertEqual(cells[0, 0].shape, (1, 8))
         np.testing.assert_allclose(cells[0, 0][0, 0], [1.5, 0.2, 0.2, 1.5])
         np.testing.assert_allclose(cells[0, 0][0, 1], [0.0, 0.1, 0.2, 0.0])
-        self.assertEqual(cells[1, 0][0, 4]["best_index"], 2)
+        self.assertEqual(float(cells[1, 0][0, 4]), 20.0)
+        self.assertEqual(cells[1, 0][0, 5]["best_index"], 2)
         np.testing.assert_allclose(summary["scores"], [1.0, 2.0])
         np.testing.assert_allclose(summary["best_phases"], [0.3, 0.4])
+
+        cell_summary = summarize_matlab_results(cells, pulse_number=1)
+        selected = select_matlab_result_program(cells, pulse_number=2)
+        np.testing.assert_allclose(cell_summary.scores, [1.0, 2.0])
+        np.testing.assert_allclose(cell_summary.secondary_scores, [10.0, 20.0])
+        self.assertEqual(cell_summary.best_index, 1)
+        self.assertEqual(cell_summary.selected_index, 0)
+        self.assertEqual(selected.pulse_kind, "refocusing")
+        self.assertEqual(selected.pulse_number, 2)
+        self.assertEqual(selected.score, 2.0)
+        self.assertEqual(selected.secondary_score, 20.0)
+        self.assertIsNone(selected.excitation)
+        self.assertIsNotNone(selected.refocusing)
+        np.testing.assert_allclose(selected.refocusing.phases, [0.0, 0.3, 0.4, 0.0])
+
+    def test_matlab_result_layout_catalog_maps_plot_scripts(self) -> None:
+        layouts = matlab_result_layouts()
+        tuned = get_matlab_result_layout("plot_opt_ref_results_tuned.m")
+        v0crit = get_matlab_result_layout("ideal_v0crit")
+        excitation = get_matlab_result_layout("plot_opt_exc_results_tuned")
+
+        self.assertIn("tuned_refocusing", layouts)
+        self.assertEqual(tuned.score_index, 3)
+        self.assertEqual(tuned.params_index, 4)
+        self.assertEqual(v0crit.secondary_index, 4)
+        self.assertEqual(v0crit.params_index, 5)
+        self.assertEqual(excitation.pulse_kind, "excitation")
+        self.assertEqual(excitation.score_index, 6)
+
+    def test_analyze_matlab_optimization_results_uses_script_layout(self) -> None:
+        cell1 = np.empty((1, 8), dtype=object)
+        cell1[0, 0] = np.array([0.0, 0.1, 0.1, 0.0])
+        cell1[0, 1] = np.array([0.0, 0.2, 0.4, 0.0])
+        cell1[0, 2] = np.array([0.0, 1.0, 1.0, 0.0])
+        cell1[0, 3] = 1.5
+        cell1[0, 4] = 9.0
+        cell1[0, 5] = {"params": "first"}
+        cell1[0, 6] = {"sp": "first"}
+        cell1[0, 7] = {"pp": "first"}
+        cell2 = np.empty((1, 8), dtype=object)
+        cell2[0, 0] = np.array([0.0, 0.2, 0.2, 0.0])
+        cell2[0, 1] = np.array([0.0, 0.3, 0.5, 0.0])
+        cell2[0, 2] = np.array([0.0, 1.0, 1.0, 0.0])
+        cell2[0, 3] = 2.5
+        cell2[0, 4] = 12.0
+        cell2[0, 5] = {"params": "selected"}
+        cell2[0, 6] = {"sp": "selected"}
+        cell2[0, 7] = {"pp": "selected"}
+        cells = np.empty((2, 1), dtype=object)
+        cells[0, 0] = cell1
+        cells[1, 0] = cell2
+
+        analysis = analyze_matlab_optimization_results(
+            cells,
+            layout="plot_opt_ref_results_ideal_v0crit.m",
+            pulse_number=2,
+        )
+
+        self.assertEqual(analysis.layout.name, "ideal_v0crit_refocusing")
+        self.assertEqual(analysis.score_label, "Optimized SNR")
+        self.assertEqual(analysis.secondary_label, "Average v0crit")
+        self.assertEqual(analysis.summary.best_index, 1)
+        self.assertEqual(analysis.selected_program.pulse_number, 2)
+        self.assertEqual(analysis.selected_program.score, 2.5)
+        self.assertEqual(analysis.selected_program.secondary_score, 12.0)
+        self.assertEqual(analysis.params["params"], "selected")
+        self.assertEqual(analysis.sp["sp"], "selected")
+        self.assertEqual(analysis.pp["pp"], "selected")
+        np.testing.assert_allclose(
+            analysis.selected_program.refocusing.phases,
+            [0.0, 0.3, 0.5, 0.0],
+        )
+
+    def test_matlab_tuned_excitation_result_fixture_matches_csv(self) -> None:
+        if importlib.util.find_spec("scipy") is None:
+            self.skipTest("SciPy is not installed in this environment")
+        table = np.loadtxt(
+            FIXTURES / "optimization_tuned_excitation_result.csv",
+            delimiter=",",
+        )
+
+        analysis = analyze_optimization_result_file(
+            FIXTURES / "optimization_tuned_excitation_results.mat",
+            layout="plot_opt_exc_results_tuned.m",
+        )
+
+        np.testing.assert_allclose(analysis.summary.scores, table[:, 1])
+        self.assertEqual(analysis.summary.best_index, 1)
+        self.assertEqual(analysis.selected_program.pulse_number, 2)
+        self.assertEqual(analysis.selected_program.score, table[1, 1])
+        self.assertIsNotNone(analysis.selected_program.excitation)
+        np.testing.assert_allclose(
+            analysis.selected_program.excitation.phases,
+            table[1, 2:],
+        )
+
+    def test_matlab_tuned_inverse_result_pair_fixture_matches_csv(self) -> None:
+        if importlib.util.find_spec("scipy") is None:
+            self.skipTest("SciPy is not installed in this environment")
+        exc_table = np.loadtxt(
+            FIXTURES / "optimization_tuned_excitation_result.csv",
+            delimiter=",",
+        )
+        inv_table = np.loadtxt(
+            FIXTURES / "optimization_tuned_inverse_result.csv",
+            delimiter=",",
+        )
+
+        pair = analyze_tuned_inverse_result_files(
+            FIXTURES / "optimization_tuned_excitation_results.mat",
+        )
+
+        np.testing.assert_allclose(pair.original.summary.scores, exc_table[:, 1])
+        np.testing.assert_allclose(pair.inverse.summary.scores, inv_table[:, 1])
+        self.assertEqual(pair.original.selected_program.pulse_number, 2)
+        self.assertEqual(pair.inverse.selected_program.pulse_number, 2)
+        self.assertEqual(pair.original_score, exc_table[1, 1])
+        self.assertEqual(pair.inverse_score, inv_table[1, 1])
+        self.assertLess(pair.inverse_score, inv_table[0, 1])
+        self.assertIsNotNone(pair.inverse.selected_program.excitation)
+        np.testing.assert_allclose(
+            pair.inverse.selected_program.excitation.phases,
+            inv_table[1, 4:],
+        )
+
+    def test_matlab_tuned_inverse_fixture_matches_residual_spectra(self) -> None:
+        if importlib.util.find_spec("scipy") is None:
+            self.skipTest("SciPy is not installed in this environment")
+        inv_table = np.loadtxt(
+            FIXTURES / "optimization_tuned_inverse_result.csv",
+            delimiter=",",
+        )
+        spectra = np.loadtxt(
+            FIXTURES / "optimization_tuned_inverse_spectra.csv",
+            delimiter=",",
+        )
+
+        del_w = spectra[:, 0]
+        target_mrx = spectra[:, 1] + 1j * spectra[:, 2]
+        initial_mrx = spectra[:, 3] + 1j * spectra[:, 4]
+        optimized_mrx = spectra[:, 5] + 1j * spectra[:, 6]
+        neff = calc_rot_axis_arba3(np.array([np.pi]), np.array([0.0]), np.ones(1), del_w)
+        pair = analyze_tuned_inverse_result_files(
+            FIXTURES / "optimization_tuned_excitation_results.mat",
+        )
+
+        target_eval = evaluate_tuned_excitation_pulse(
+            pair.original.selected_program.excitation.phases,
+            neff,
+            numpts=del_w.size,
+        )
+        initial_eval = evaluate_tuned_inverse_excitation_pulse(
+            inv_table[0, 4:],
+            neff,
+            target_eval.mrx,
+            target_eval.snr,
+            numpts=del_w.size,
+        )
+        optimized_eval = evaluate_tuned_inverse_excitation_pulse(
+            pair.inverse.selected_program.excitation.phases,
+            neff,
+            target_eval.mrx,
+            target_eval.snr,
+            numpts=del_w.size,
+        )
+
+        np.testing.assert_allclose(target_eval.mrx, target_mrx, rtol=1e-13, atol=1e-13)
+        np.testing.assert_allclose(
+            initial_eval.excitation.mrx,
+            initial_mrx,
+            rtol=1e-13,
+            atol=1e-13,
+        )
+        np.testing.assert_allclose(
+            optimized_eval.excitation.mrx,
+            optimized_mrx,
+            rtol=1e-13,
+            atol=1e-13,
+        )
+
+        target_norm = trapezoid(np.abs(target_eval.mrx), del_w)
+        initial_ratio = (
+            trapezoid(np.abs(target_eval.mrx + initial_eval.excitation.mrx), del_w)
+            / target_norm
+        )
+        optimized_ratio = (
+            trapezoid(np.abs(target_eval.mrx + optimized_eval.excitation.mrx), del_w)
+            / target_norm
+        )
+        np.testing.assert_allclose(initial_eval.mismatch, inv_table[0, 1])
+        np.testing.assert_allclose(optimized_eval.mismatch, inv_table[1, 1])
+        np.testing.assert_allclose(initial_ratio, inv_table[0, 2])
+        np.testing.assert_allclose(optimized_ratio, inv_table[1, 2])
+        self.assertLess(optimized_eval.mismatch, initial_eval.mismatch)
+        self.assertLess(optimized_ratio, initial_ratio)
+
+    def test_matlab_ideal_v0crit_result_fixture_exposes_secondary_metric(self) -> None:
+        if importlib.util.find_spec("scipy") is None:
+            self.skipTest("SciPy is not installed in this environment")
+
+        analysis = analyze_optimization_result_file(
+            FIXTURES / "optimization_ideal_v0crit_results.mat",
+            layout="plot_opt_ref_results_ideal_v0crit.m",
+        )
+
+        self.assertEqual(analysis.layout.name, "ideal_v0crit_refocusing")
+        self.assertEqual(analysis.summary.scores.shape, (2,))
+        self.assertTrue(np.all(np.isfinite(analysis.summary.secondary_scores)))
+        self.assertEqual(analysis.selected_program.pulse_kind, "refocusing")
+        self.assertIsNotNone(analysis.selected_program.refocusing)
+        self.assertIsNotNone(analysis.selected_program.secondary_score)
+        np.testing.assert_allclose(
+            analysis.selected_program.secondary_score,
+            analysis.summary.secondary_scores[analysis.summary.selected_index],
+        )
+
+    def test_matlab_tuned_refocusing_result_fixture_matches_python_eval(self) -> None:
+        if importlib.util.find_spec("scipy") is None:
+            self.skipTest("SciPy is not installed in this environment")
+
+        analysis = analyze_optimization_result_file(
+            FIXTURES / "optimization_tuned_refocusing_results.mat",
+            layout="plot_opt_ref_results_tuned.m",
+        )
+
+        self.assertEqual(analysis.layout.name, "tuned_refocusing")
+        self.assertEqual(analysis.summary.scores.shape, (2,))
+        self.assertEqual(analysis.summary.best_index, 0)
+        self.assertEqual(analysis.selected_program.pulse_number, 1)
+        self.assertIsNone(analysis.selected_program.secondary_score)
+        self.assertIsNotNone(analysis.selected_program.refocusing)
+        np.testing.assert_allclose(
+            analysis.selected_program.refocusing.phases,
+            [0.1, 0.4],
+        )
+        evaluated = evaluate_tuned_refocusing_pulse(
+            analysis.selected_program.refocusing.phases,
+            numpts=9,
+        )
+        np.testing.assert_allclose(
+            evaluated.snr,
+            analysis.selected_program.score,
+            rtol=1e-5,
+            atol=1e-6,
+        )
+
+    def test_matlab_untuned_refocusing_result_fixture_matches_python_eval(self) -> None:
+        if importlib.util.find_spec("scipy") is None:
+            self.skipTest("SciPy is not installed in this environment")
+
+        analysis = analyze_optimization_result_file(
+            FIXTURES / "optimization_untuned_refocusing_results.mat",
+            layout="plot_opt_ref_results_untuned.m",
+        )
+
+        self.assertEqual(analysis.layout.name, "untuned_refocusing")
+        self.assertEqual(analysis.summary.scores.shape, (2,))
+        self.assertEqual(analysis.summary.best_index, 0)
+        self.assertEqual(analysis.selected_program.pulse_number, 1)
+        self.assertIsNone(analysis.selected_program.secondary_score)
+        self.assertIsNotNone(analysis.selected_program.refocusing)
+        np.testing.assert_allclose(
+            analysis.selected_program.refocusing.phases,
+            [0.1, 0.4],
+        )
+        evaluated = evaluate_untuned_refocusing_pulse(
+            analysis.selected_program.refocusing.phases,
+            numpts=9,
+        )
+        np.testing.assert_allclose(
+            evaluated.snr,
+            analysis.selected_program.score,
+            rtol=1e-5,
+            atol=1e-6,
+        )
+
+    def test_matlab_matched_refocusing_result_fixture_matches_python_eval(self) -> None:
+        if importlib.util.find_spec("scipy") is None:
+            self.skipTest("SciPy is not installed in this environment")
+
+        analysis = analyze_optimization_result_file(
+            FIXTURES / "optimization_matched_refocusing_results.mat",
+            layout="plot_opt_ref_results_matched.m",
+        )
+
+        self.assertEqual(analysis.layout.name, "matched_refocusing")
+        self.assertEqual(analysis.summary.scores.shape, (2,))
+        self.assertEqual(analysis.summary.best_index, 0)
+        self.assertEqual(analysis.selected_program.pulse_number, 1)
+        self.assertIsNone(analysis.selected_program.secondary_score)
+        self.assertIsNotNone(analysis.selected_program.refocusing)
+        np.testing.assert_allclose(
+            analysis.selected_program.refocusing.phases,
+            [0.1, 0.4],
+        )
+        evaluated = evaluate_matched_refocusing_pulse(
+            analysis.selected_program.refocusing.phases,
+            numpts=9,
+        )
+        np.testing.assert_allclose(
+            evaluated.snr,
+            analysis.selected_program.score,
+            rtol=1e-5,
+            atol=1e-6,
+        )
+
+    def test_matlab_matched_refocusing_csv_fixture_matches_python_eval(self) -> None:
+        table = np.loadtxt(
+            FIXTURES / "optimization_matched_refocusing_result.csv",
+            delimiter=",",
+        )
+        selected = table[0]
+
+        self.assertEqual(int(selected[0]), 0)
+        np.testing.assert_allclose(selected[2:], [0.1, 0.4])
+        evaluated = evaluate_matched_refocusing_pulse(selected[2:], numpts=9)
+        np.testing.assert_allclose(
+            evaluated.snr,
+            selected[1],
+            rtol=1e-5,
+            atol=1e-6,
+        )
+
+    def test_matlab_ideal_time_varying_result_fixture_matches_python_eval(self) -> None:
+        if importlib.util.find_spec("scipy") is None:
+            self.skipTest("SciPy is not installed in this environment")
+
+        analysis = analyze_optimization_result_file(
+            FIXTURES / "optimization_ideal_tv_results.mat",
+            layout="plot_opt_ref_results_ideal_tv.m",
+        )
+
+        self.assertEqual(analysis.layout.name, "ideal_time_varying_refocusing")
+        self.assertEqual(analysis.summary.scores.shape, (2,))
+        self.assertEqual(analysis.summary.best_index, 0)
+        self.assertEqual(analysis.selected_program.pulse_number, 1)
+        self.assertIsNone(analysis.selected_program.secondary_score)
+        self.assertIsNotNone(analysis.selected_program.refocusing)
+        np.testing.assert_allclose(
+            analysis.selected_program.refocusing.phases,
+            [0.0, 0.1, 0.4, 0.0],
+        )
+        full_cycle_offsets = 1.5 * np.sin(2 * np.pi * np.linspace(0, 1, 16))
+        evaluated = evaluate_ideal_time_varying_refocusing_pulse(
+            analysis.selected_program.refocusing.phases[1:-1],
+            field_offsets=full_cycle_offsets,
+            numpts=9,
+            maxoffs=0.1,
+            num_echoes=16,
+            num_workers=1,
+        )
+        np.testing.assert_allclose(
+            evaluated.score,
+            analysis.selected_program.score,
+            rtol=1e-5,
+            atol=1e-10,
+        )
 
     def test_multistart_npz_export_round_trips_matlab_cells(self) -> None:
         result = SimpleNamespace(
@@ -1993,14 +2499,73 @@ class OctaveFixtureTests(unittest.TestCase):
         outfile = outdir / "multistart_export_test.npz"
 
         save_multistart_results_npz(multistart, outfile)
-        loaded = np.load(outfile, allow_pickle=True)
+        loaded = load_multistart_results_npz(outfile)
 
-        self.assertIn("results", loaded.files)
+        self.assertIn("results", loaded)
         self.assertEqual(loaded["results"].shape, (1, 1))
         np.testing.assert_allclose(loaded["scores"], [1.25])
         np.testing.assert_allclose(loaded["best_phases"], [0.6])
         self.assertEqual(str(loaded["pulse_kind"][0]), "refocusing")
         self.assertEqual(str(loaded["probe"][0]), "tuned")
+
+        loaded_cells = load_optimization_results(outfile)
+        self.assertEqual(loaded_cells.shape, (1, 1))
+        np.testing.assert_allclose(loaded_cells[0, 0][0, 1], [0.0, 0.6, 0.0])
+        with self.assertRaises(ValueError):
+            load_optimization_results(outfile.with_suffix(".txt"))
+
+    def test_matlab_result_loader_requires_scipy_for_mat_files(self) -> None:
+        if importlib.util.find_spec("scipy") is not None:
+            self.skipTest("SciPy is installed in this environment")
+        with self.assertRaises(ImportError):
+            load_matlab_results_mat(ROOT / ".tmp" / "missing_results.mat")
+        with self.assertRaises(ImportError):
+            save_multistart_results_mat(SimpleNamespace(), ROOT / ".tmp" / "out.mat")
+
+    def test_matlab_result_mat_round_trip_when_scipy_is_available(self) -> None:
+        if importlib.util.find_spec("scipy") is None:
+            self.skipTest("SciPy is not installed in this environment")
+        result = SimpleNamespace(
+            best_score=2.5,
+            best_phases=np.array([0.2, 0.4]),
+            initial_phases=np.array([0.1, 0.3]),
+            best_evaluation=SimpleNamespace(
+                pulse_length_t180=0.2,
+                v0crit_average=11.0,
+            ),
+            bounds=(0.0, 2 * np.pi),
+            history_scores=np.array([1.0, 2.5]),
+            optimizer_method="pattern",
+            optimizer_success=True,
+            optimizer_message="ok",
+        )
+        multistart = SimpleNamespace(
+            pulse_kind="refocusing",
+            probe="ideal_v0crit",
+            initial_phases=np.array([[0.1, 0.3]]),
+            results=(result,),
+            best_index=0,
+            best_result=result,
+            best_score=2.5,
+            bounds=(0.0, 2 * np.pi),
+        )
+        outfile = ROOT / ".tmp" / "tests" / "mat_round_trip.mat"
+
+        save_multistart_results_mat(
+            multistart,
+            outfile,
+            free_precession_t180=1.5,
+        )
+        cells = load_optimization_results(outfile)
+        summary = summarize_matlab_results(cells)
+        selected = select_matlab_result_program(cells)
+
+        self.assertEqual(cells.shape, (1, 1))
+        self.assertEqual(summary.best_score, 2.5)
+        self.assertEqual(selected.secondary_score, 11.0)
+        self.assertIsNotNone(selected.refocusing)
+        np.testing.assert_allclose(selected.refocusing.times, [1.5, 0.1, 0.1, 1.5])
+        np.testing.assert_allclose(selected.refocusing.phases, [0.0, 0.2, 0.4, 0.0])
 
     def test_multistart_excitation_export_uses_ten_cell_layout(self) -> None:
         result = SimpleNamespace(
@@ -2032,6 +2597,226 @@ class OctaveFixtureTests(unittest.TestCase):
         np.testing.assert_allclose(cells[0, 0][0, 0], [0.1, 0.1])
         np.testing.assert_allclose(cells[0, 0][0, 1], [0.1, 0.9])
         self.assertEqual(float(cells[0, 0][0, 6]), 0.75)
+
+        summary = summarize_matlab_results(cells)
+        selected = select_matlab_result_program(cells)
+        self.assertEqual(summary.pulse_kind, "excitation")
+        self.assertEqual(summary.best_index, 0)
+        self.assertEqual(selected.pulse_kind, "excitation")
+        self.assertEqual(selected.pulse_number, 1)
+        self.assertEqual(selected.score, 0.75)
+        self.assertIsNotNone(selected.excitation)
+        self.assertIsNotNone(selected.refocusing)
+        np.testing.assert_allclose(selected.excitation.phases, [0.1, 0.9])
+        np.testing.assert_allclose(selected.refocusing.times, [1.0, 1.0])
+
+    def test_analyze_tuned_inverse_result_pair_uses_matching_pulse_number(self) -> None:
+        def excitation_cell(score: float, phases: np.ndarray, label: str) -> np.ndarray:
+            cell = np.empty((1, 10), dtype=object)
+            cell[0, 0] = np.array([0.1, 0.1])
+            cell[0, 1] = phases
+            cell[0, 2] = np.ones(2)
+            cell[0, 3] = np.array([0.0, 0.2, 0.2, 0.0])
+            cell[0, 4] = np.array([0.0, 0.3, 0.4, 0.0])
+            cell[0, 5] = np.array([0.0, 1.0, 1.0, 0.0])
+            cell[0, 6] = score
+            cell[0, 7] = {"params": label}
+            cell[0, 8] = {"sp": label}
+            cell[0, 9] = {"pp": label}
+            return cell
+
+        original = np.empty((2, 1), dtype=object)
+        inverse = np.empty((2, 1), dtype=object)
+        original[0, 0] = excitation_cell(0.5, np.array([0.1, 0.2]), "orig-1")
+        original[1, 0] = excitation_cell(1.2, np.array([0.3, 0.4]), "orig-2")
+        inverse[0, 0] = excitation_cell(0.8, np.array([3.1, 3.2]), "inv-1")
+        inverse[1, 0] = excitation_cell(0.9, np.array([3.3, 3.4]), "inv-2")
+
+        pair = analyze_tuned_inverse_result_pair(
+            original,
+            inverse,
+            pulse_number=2,
+        )
+
+        self.assertEqual(pair.original.layout.name, "tuned_excitation")
+        self.assertEqual(pair.inverse.layout.name, "tuned_inverse_excitation")
+        self.assertEqual(pair.original.selected_program.pulse_kind, "excitation")
+        self.assertEqual(
+            pair.inverse.selected_program.pulse_kind,
+            "inverse_excitation",
+        )
+        self.assertEqual(pair.original_score, 1.2)
+        self.assertEqual(pair.inverse_score, 0.9)
+        self.assertAlmostEqual(pair.score_difference, -0.3)
+        self.assertEqual(pair.original.params["params"], "orig-2")
+        self.assertEqual(pair.inverse.params["params"], "inv-2")
+        np.testing.assert_allclose(
+            pair.inverse.selected_program.excitation.phases,
+            [3.3, 3.4],
+        )
+
+    def test_tuned_excitation_inverse_pipeline_uses_refocusing_neff(self) -> None:
+        original_exc = pipeline_module.drivers.run_tuned_excitation_multistart
+        original_inv = pipeline_module.drivers.run_tuned_inverse_excitation_multistart
+        del_w = np.linspace(-1.0, 1.0, 5)
+        neff = np.zeros((3, 5), dtype=np.complex128)
+        neff[0, :] = 1.0
+        refocusing = SimpleNamespace(
+            pulse_kind="refocusing",
+            probe="ideal_v0crit",
+            results=(
+                SimpleNamespace(
+                    best_score=1.0,
+                    best_phases=np.array([0.1, 0.2]),
+                    best_evaluation=SimpleNamespace(del_w=del_w, neff=neff),
+                ),
+            ),
+            best_index=0,
+        )
+        refocusing.best_result = refocusing.results[0]
+
+        def fake_excitation(
+            num_segments: int,
+            neff_arg: np.ndarray,
+            **kwargs: object,
+        ) -> SimpleNamespace:
+            self.assertEqual(num_segments, 2)
+            np.testing.assert_allclose(neff_arg, neff)
+            self.assertEqual(kwargs["numpts"], 5)
+            target = SimpleNamespace(
+                del_w=del_w,
+                mrx=np.ones(5, dtype=np.complex128),
+                snr=1.0,
+                phases=np.array([0.3, 0.4]),
+            )
+            result = SimpleNamespace(best_evaluation=target, best_score=2.0)
+            return SimpleNamespace(
+                pulse_kind="excitation",
+                probe="tuned",
+                results=(result,),
+                best_index=0,
+                best_result=result,
+                best_score=2.0,
+            )
+
+        def fake_inverse(
+            num_segments: int,
+            neff_arg: np.ndarray,
+            target_mrx: np.ndarray,
+            target_snr: float,
+            reference_phases: np.ndarray,
+            **kwargs: object,
+        ) -> SimpleNamespace:
+            self.assertEqual(num_segments, 2)
+            np.testing.assert_allclose(neff_arg, neff)
+            np.testing.assert_allclose(target_mrx, np.ones(5))
+            self.assertEqual(target_snr, 1.0)
+            np.testing.assert_allclose(reference_phases, [0.3, 0.4])
+            inverse_evals = (
+                SimpleNamespace(excitation=SimpleNamespace(mrx=-0.2 * np.ones(5))),
+                SimpleNamespace(excitation=SimpleNamespace(mrx=-1.0 * np.ones(5))),
+            )
+            results = tuple(
+                SimpleNamespace(best_evaluation=evaluation, best_score=float(index))
+                for index, evaluation in enumerate(inverse_evals)
+            )
+            return SimpleNamespace(
+                pulse_kind="inverse_excitation",
+                probe="tuned",
+                results=results,
+                best_index=1,
+                best_result=results[1],
+                best_score=1.0,
+            )
+
+        pipeline_module.drivers.run_tuned_excitation_multistart = fake_excitation
+        pipeline_module.drivers.run_tuned_inverse_excitation_multistart = fake_inverse
+        try:
+            result = run_tuned_excitation_inverse_pipeline(
+                refocusing,
+                excitation_segments=2,
+                excitation_starts=1,
+                inverse_starts=2,
+                seed=5,
+                numpts=5,
+            )
+        finally:
+            pipeline_module.drivers.run_tuned_excitation_multistart = original_exc
+            pipeline_module.drivers.run_tuned_inverse_excitation_multistart = (
+                original_inv
+            )
+
+        self.assertIsNone(result.selected_refocusing)
+        np.testing.assert_allclose(result.del_w, del_w)
+        np.testing.assert_allclose(result.neff, neff)
+        np.testing.assert_allclose(result.inverse_residual_ratios, [0.8, 0.0])
+        self.assertEqual(result.residual_best_index, 1)
+        self.assertEqual(result.residual_best_ratio, 0.0)
+
+    def test_tuned_excitation_inverse_pipeline_reconstructs_cell_refocusing_axis(
+        self,
+    ) -> None:
+        original_exc = pipeline_module.drivers.run_tuned_excitation_multistart
+        original_inv = pipeline_module.drivers.run_tuned_inverse_excitation_multistart
+        cell = np.empty((1, 7), dtype=object)
+        cell[0, 0] = np.array([0.2, 0.2])
+        cell[0, 1] = np.array([0.0, np.pi / 2])
+        cell[0, 2] = np.ones(2)
+        cell[0, 3] = 1.0
+        cell[0, 4] = {}
+        cell[0, 5] = {}
+        cell[0, 6] = {}
+        cells = np.empty((1, 1), dtype=object)
+        cells[0, 0] = cell
+
+        def fake_excitation(
+            _num_segments: int,
+            neff_arg: np.ndarray,
+            **kwargs: object,
+        ) -> SimpleNamespace:
+            self.assertEqual(neff_arg.shape, (3, 7))
+            self.assertEqual(kwargs["numpts"], 7)
+            target = SimpleNamespace(
+                del_w=np.linspace(-2.0, 2.0, 7),
+                mrx=np.ones(7, dtype=np.complex128),
+                snr=1.0,
+                phases=np.array([0.1]),
+            )
+            result = SimpleNamespace(best_evaluation=target, best_score=1.0)
+            return SimpleNamespace(results=(result,), best_result=result, best_score=1.0)
+
+        def fake_inverse(*_args: object, **_kwargs: object) -> SimpleNamespace:
+            evaluation = SimpleNamespace(
+                excitation=SimpleNamespace(mrx=-np.ones(7, dtype=np.complex128))
+            )
+            result = SimpleNamespace(best_evaluation=evaluation, best_score=1.0)
+            return SimpleNamespace(
+                results=(result,),
+                best_index=0,
+                best_result=result,
+                best_score=1.0,
+            )
+
+        pipeline_module.drivers.run_tuned_excitation_multistart = fake_excitation
+        pipeline_module.drivers.run_tuned_inverse_excitation_multistart = fake_inverse
+        try:
+            result = run_tuned_excitation_inverse_pipeline(
+                cells,
+                excitation_segments=1,
+                numpts=7,
+                maxoffs=2.0,
+            )
+        finally:
+            pipeline_module.drivers.run_tuned_excitation_multistart = original_exc
+            pipeline_module.drivers.run_tuned_inverse_excitation_multistart = (
+                original_inv
+            )
+
+        self.assertIsNotNone(result.selected_refocusing)
+        self.assertEqual(result.selected_refocusing.pulse_number, 1)
+        np.testing.assert_allclose(result.del_w, np.linspace(-2.0, 2.0, 7))
+        self.assertEqual(result.neff.shape, (3, 7))
+        self.assertEqual(result.residual_best_ratio, 0.0)
 
     def test_tuned_excitation_multistart_forwards_neff_and_selects_best(self) -> None:
         original = driver_module.excitation_module.optimize_tuned_excitation_phases
@@ -2777,6 +3562,66 @@ class OctaveFixtureTests(unittest.TestCase):
 
         np.testing.assert_allclose(result.kspace, 0.0, atol=1e-14)
         np.testing.assert_allclose(result.echo_integrals, 0.0, atol=1e-14)
+
+    def test_tuned_cpmg_imaging_raw_receive_mode_matches_matlab_convention(self) -> None:
+        rho = np.ones((1, 1), dtype=np.float64)
+        zero_rx = make_imaging_field_maps(
+            rho,
+            b1_tx_map=np.ones_like(rho),
+            b1_rx_map=np.zeros_like(rho),
+        )
+        one_rx = make_imaging_field_maps(
+            rho,
+            b1_tx_map=np.ones_like(rho),
+            b1_rx_map=np.ones_like(rho),
+        )
+
+        zero_result = run_tuned_cpmg_imaging(
+            zero_rx,
+            num_echoes=1,
+            ny=1,
+            num_workers=1,
+            phase_workers=1,
+        )
+        one_result = run_tuned_cpmg_imaging(
+            one_rx,
+            num_echoes=1,
+            ny=1,
+            num_workers=1,
+            phase_workers=1,
+        )
+
+        np.testing.assert_allclose(zero_result.kspace, one_result.kspace, rtol=1e-13, atol=1e-13)
+        self.assertGreater(float(np.max(np.abs(zero_result.kspace))), 0.0)
+
+    def test_tuned_cpmg_imaging_weighted_receive_mode_applies_receive_map(self) -> None:
+        rho = np.ones((1, 1), dtype=np.float64)
+        maps = make_imaging_field_maps(
+            rho,
+            b1_tx_map=np.ones_like(rho),
+            b1_rx_map=np.zeros_like(rho),
+        )
+
+        result = run_tuned_cpmg_imaging(
+            maps,
+            num_echoes=1,
+            ny=1,
+            num_workers=1,
+            phase_workers=1,
+            receive_mode="weighted",
+        )
+
+        np.testing.assert_allclose(result.kspace, 0.0, atol=1e-14)
+        np.testing.assert_allclose(result.echo_integrals, 0.0, atol=1e-14)
+
+    def test_tuned_cpmg_imaging_rejects_unknown_receive_mode(self) -> None:
+        with self.assertRaises(ValueError):
+            run_tuned_cpmg_imaging(
+                np.ones((1, 1), dtype=np.float64),
+                num_echoes=1,
+                ny=1,
+                receive_mode="receiver",
+            )
 
     def test_ideal_cpmg_imaging_field_maps_match_legacy_inputs(self) -> None:
         rho = np.array([[0.0, 1.0], [1.0, 0.0]], dtype=np.float64)

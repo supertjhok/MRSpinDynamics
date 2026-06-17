@@ -194,6 +194,14 @@ def maximize_bounded(
 
     if optimizer not in {"auto", "pattern", "scipy"}:
         raise ValueError("optimizer must be 'auto', 'pattern', or 'scipy'")
+    if max_passes <= 0:
+        raise ValueError("max_passes must be positive")
+    if initial_step <= 0:
+        raise ValueError("initial_step must be positive")
+    if min_step <= 0:
+        raise ValueError("min_step must be positive")
+    if not 0 < step_decay < 1:
+        raise ValueError("step_decay must be between 0 and 1")
     if optimizer == "scipy":
         return scipy_maximize(
             score_fn,

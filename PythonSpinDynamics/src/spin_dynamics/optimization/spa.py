@@ -315,19 +315,13 @@ def evaluate_matched_refocusing_pulse(
             "aexc": np.array([float(excitation_amplitude)], dtype=np.float64),
             "texc": np.array([texc], dtype=np.float64),
             "tcorr": -(2 / np.pi) * texc,
-            "pref": np.concatenate([[0.0], phase_arr, [0.0]]),
-            "aref": np.concatenate(
-                [[0.0], np.ones(phase_arr.size, dtype=np.float64), [0.0]]
-            ),
-            "tref": np.concatenate(
-                [
-                    [pp.preDelay],
-                    pp.T_180 * float(segment_fraction) * np.ones(
-                        phase_arr.size,
-                        dtype=np.float64,
-                    ),
-                    [pp.postDelay],
-                ]
+            "pref": phase_arr,
+            "aref": np.ones(phase_arr.size, dtype=np.float64),
+            "tref": pp.T_180
+            * float(segment_fraction)
+            * np.ones(
+                phase_arr.size,
+                dtype=np.float64,
             ),
         }
     )

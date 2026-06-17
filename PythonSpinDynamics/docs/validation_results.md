@@ -28,6 +28,7 @@ Most fixtures can also be generated with Octave by:
 
 ```powershell
 & 'C:\Program Files\GNU Octave\Octave-11.3.0\mingw64\bin\octave-cli.exe' --quiet validation\octave\generate_basic_fixtures.m
+& 'C:\Program Files\GNU Octave\Octave-11.3.0\mingw64\bin\octave-cli.exe' --no-gui --quiet --eval "run('validation/octave/generate_optimization_result_fixtures.m')"
 ```
 
 The script writes CSV fixtures under `validation/fixtures`. Octave generation
@@ -70,7 +71,7 @@ skips matched-probe files when `fmincon` is unavailable.
 | `spin_dynamics.workflows.run_matched_diffusion_cpmg` | `Sim_Diffusion/sim_dif_matched_CPMG_noRx.m` | workflow shape and finite-output smoke test | Passed |
 | `spin_dynamics.workflows.run_matched_diffusion_q_sweep` | `DIffusion_Example/Diff_Echo_Q.m` | workflow shape and sweep-parallel equality smoke test | Passed |
 | `spin_dynamics.workflows.run_ideal_phase_encoded_cpmg_imaging` | `Imaging_demo/imaging_example_ideal.m`, `Sim_CPMG/sim_cpmg_ideal_probe_img.m` | `run_ideal_cpmg_imaging_kspace.csv`, workflow shape, arbitrary field-map helper, and phase-parallel equality tests | Passed |
-| `spin_dynamics.workflows.run_tuned_phase_encoded_cpmg_imaging` | `Sim_CPMG/sim_cpmg_tuned_probe_img.m` | `run_tuned_cpmg_imaging_kspace.csv`, workflow shape, and phase-parallel equality tests | Passed |
+| `spin_dynamics.workflows.run_tuned_phase_encoded_cpmg_imaging` | `Sim_CPMG/sim_cpmg_tuned_probe_img.m` | `run_tuned_cpmg_imaging_kspace.csv`, workflow shape, phase-parallel equality, raw receive-mode parity, and tuned receive-weighted mode tests | Passed |
 | `spin_dynamics.workflows.run_matched_phase_encoded_cpmg_imaging` | `Sim_CPMG/sim_cpmg_matched_probe_img.m` | `run_matched_cpmg_imaging_kspace.csv` and workflow shape tests | Passed |
 | `spin_dynamics.pulses.tuned_rectangular_pulse_response` | `Pulse Shape/tunedPulse.m` | `pulse_tuned_rectangular.csv` | Passed |
 | `spin_dynamics.pulses.untuned_rectangular_pulse_response` | `Pulse Shape/untunedPulse.m` | `pulse_untuned_rectangular.csv` | Passed |
@@ -85,8 +86,11 @@ skips matched-probe files when `fmincon` is unavailable.
 | `spin_dynamics.optimization.summarize_*_spa_refocusing` | `OCT_Pulse_Examples/SPA_optimization_*.m` summary structure | tuned/untuned fast checks and selected matched-catalog slow check | Passed |
 | `spin_dynamics.optimization.optimize_spa_phase_program` | Python optimizer scaffold beyond MATLAB fixed-catalog summary | synthetic objective improvement check | Passed |
 | `spin_dynamics.core.rotations.calc_v0crit` | `calc_rot/calc_v0crit.m` | direct finite-output and shape test from effective-axis calculation | Passed |
+| `spin_dynamics.core.rotations.sim_spin_dynamics_exc` | `sim_spin_dynamics_asymp/sim_spin_dynamics_exc.m` | compact ideal excitation-vector shape and center-value test | Passed |
 | `spin_dynamics.optimization.evaluate_ideal_v0crit_refocusing_pulse` | `opt_pulse/opt_ref_pulse_ideal_v0crit*.m` objective shape | compact finite-output metric test | Passed |
 | `spin_dynamics.optimization.optimize_ideal_v0crit_refocusing_phases` | `opt_pulse/opt_ref_pulse_ideal_v0crit.m` objective shape | small bounded-search smoke test | Passed |
+| `spin_dynamics.optimization.evaluate_ideal_v0crit_excited_refocusing_pulse` | `opt_pulse/opt_ref_pulse_ideal_v0crit_exc.m` objective shape | compact excitation-vector, MATLAB-dot-convention, and finite-output metric tests | Passed |
+| `spin_dynamics.optimization.optimize_ideal_v0crit_excited_refocusing_phases` | `opt_pulse/opt_ref_pulse_ideal_v0crit_exc.m` objective shape | small bounded-search smoke test | Passed |
 | `spin_dynamics.optimization.evaluate_ideal_time_varying_refocusing_pulse` | `opt_pulse/opt_ref_pulse_ideal_tv.m` objective shape | compact finite-output matched-filter metric test | Passed |
 | `spin_dynamics.optimization.optimize_ideal_time_varying_refocusing_phases` | `opt_pulse/opt_ref_pulse_ideal_tv.m` objective shape | small bounded-search smoke test | Passed |
 | `spin_dynamics.optimization.optimize_*_refocusing_phases` | `opt_pulse/opt_ref_pulse_tuned.m`, `opt_pulse/opt_ref_pulse_untuned.m`, `opt_pulse/opt_ref_pulse_matched.m` objective shape | small bounded-search smoke tests | Passed |
@@ -94,12 +98,15 @@ skips matched-probe files when `fmincon` is unavailable.
 | tuned excitation phase-shift behavior | direct MATLAB excitation fixture with supplied refocusing axis | Python matches MATLAB for base and `phase + pi` spectra; phase shift is not a cancellation in this setup | Passed |
 | `spin_dynamics.optimization.optimize_tuned_excitation_phases` | `opt_pulse/opt_exc_pulse_tuned.m` objective shape and compact MATLAB fmincon result | small bounded-search smoke test plus compact optimizer-result comparison | Passed |
 | `spin_dynamics.optimization.evaluate_tuned_inverse_excitation_pulse` | `opt_pulse/opt_exc_pulse_tuned_inv.m` objective shape | compact objective-formula check with target spectrum | Passed |
-| `spin_dynamics.optimization.optimize_tuned_inverse_excitation_phases` | `opt_pulse/opt_exc_pulse_tuned_inv.m` objective shape and compact MATLAB fmincon result | small bounded-search smoke test plus compact objective-improvement comparison; strong cancellation remains workflow-dependent | Passed |
-| `spin_dynamics.optimization` optimizer backend selector | Python extension beyond MATLAB | NumPy pattern backend and missing-SciPy error-path checks | Passed |
+| `spin_dynamics.optimization.optimize_tuned_inverse_excitation_phases` | `opt_pulse/opt_exc_pulse_tuned_inv.m` objective shape and compact MATLAB fmincon result | small bounded-search smoke test plus compact objective-improvement and residual-spectrum comparison; strong cancellation remains workflow-dependent | Passed |
+| `spin_dynamics.optimization` optimizer backend selector | Python extension beyond MATLAB | NumPy pattern backend, SciPy-backed option validation, and missing-SciPy error-path checks | Passed |
 | `spin_dynamics.optimization.run_*_multistart` | `opt_pulse/opt_ref_pulse_*_repeat.m`, `opt_pulse/opt_exc_pulse_tuned_repeat.m`, `opt_pulse/opt_exc_pulse_tuned_inv_repeat.m` scaffold shape | seeded-start, inverse phase-flip seeding, forwarding, and best-result selection tests | Passed |
-| `spin_dynamics.optimization.multistart_to_matlab_results` | `opt_pulse/*_repeat.m` result-cell shape | synthetic refocusing and excitation result-cell shape tests | Passed |
-| `spin_dynamics.optimization.save_multistart_results_npz` | Python archive companion to MATLAB repeat result files | synthetic multi-start archive round-trip test | Passed |
-| Plotting examples | Python workflow visualization layer | CLI/help smoke tests without Matplotlib | Passed |
+| `spin_dynamics.optimization.run_tuned_excitation_inverse_pipeline` | `opt_pulse/opt_exc_pulse_tuned_repeat.m` and `opt_exc_pulse_tuned_inv_repeat.m` workflow handoff | synthetic selected-refocusing to excitation/inverse pipeline tests with direct `neff` and result-cell axis reconstruction | Passed |
+| `spin_dynamics.optimization.multistart_to_matlab_results` | `opt_pulse/*_repeat.m` result-cell shape | synthetic refocusing, v0crit `1 x 8`, and excitation result-cell shape tests | Passed |
+| `spin_dynamics.optimization.summarize_matlab_results` / `select_matlab_result_program` / `analyze_matlab_optimization_results` | `opt_pulse/plot_opt_*_results.m` non-plotting result inspection | synthetic score-summary, selected-pulse extraction, script-aware layout, selected `params`/`sp`/`pp` metadata tests, and MATLAB/Octave-authored result fixtures for tuned excitation, tuned/untuned/matched refocusing, ideal time-varying refocusing, and ideal v0crit | Passed |
+| `spin_dynamics.optimization.analyze_tuned_inverse_result_pair` / `analyze_tuned_inverse_result_files` | `opt_pulse/plot_opt_exc_results_tuned_inv.m` original/inverse result pairing | synthetic tuned excitation and inverse-excitation result-pair score/metadata tests plus MATLAB-authored `.mat` result-pair fixture comparison against compact CSV scores and residual spectra | Passed |
+| `spin_dynamics.optimization.load_optimization_results` / `save_multistart_results_npz` / `save_multistart_results_mat` | Python archive companion to MATLAB repeat result files | synthetic multi-start `.npz` and SciPy-backed `.mat` round-trip tests | Passed |
+| Plotting examples | Python workflow visualization layer | CLI/help smoke tests without Matplotlib, including optimization pipeline plot CLI | Passed |
 | `spin_dynamics.workflows.run_tuned_q_sweep` | `CompareQ/sim_tuned_probe_coil_Q.m` | workflow shape and finite-output smoke test | Passed |
 | `spin_dynamics.workflows.run_matched_q_sweep` | `CompareQ/sim_matched_probe_coil_Q.m` | workflow shape and finite-output smoke test | Passed |
 | `spin_dynamics.workflows.run_tuned_mistuning_sweep` | `CompareMistuned/tuned_probe/sim_tuned_probe_mistuned.m` | workflow shape and finite-output smoke test | Passed |
@@ -364,10 +371,136 @@ Result: OK
 2026-06-16:
 
 ```text
-Added MATLAB-style optimization result-cell conversion plus `.npz` export and
-optional SciPy-backed `.mat` export for multi-start driver outputs.
+Added MATLAB-style optimization result-cell conversion, `.npz` archive export,
+and optional SciPy-backed `.mat` export for multi-start driver outputs.
 Ran focused exporter tests plus the fast smoke suite.
 Result: OK
+```
+
+2026-06-16:
+
+```text
+Added `sim_spin_dynamics_exc`, an ideal time-varying excitation-vector helper,
+and explicit excited-v0crit refocusing evaluator, optimizer, and multi-start
+driver wrappers for `opt_ref_pulse_ideal_v0crit_exc*.m`.
+Ran focused optimization tests plus the fast smoke suite.
+Result: OK
+```
+
+2026-06-16:
+
+```text
+Added `.npz` optimization-result loading, MATLAB-style score summaries,
+selected pulse-program extraction, v0crit `1 x 8` result-cell preservation,
+and SciPy-backed `.mat` load/save round-trip coverage for result-inspection
+parity with `plot_opt_*_results.m`.
+Ran focused result-helper tests plus fast smoke suites under the bundled Python
+runtime and the local Conda/SciPy environment.
+Result: OK
+```
+
+2026-06-16:
+
+```text
+Added `run_tuned_excitation_inverse_pipeline`, a plotting-free handoff from a
+selected refocusing optimization result or MATLAB-style result cell to tuned
+excitation and inverse-excitation multi-start searches.
+Ran focused pipeline tests plus fast smoke suites under the bundled Python
+runtime and the local Conda/SciPy environment.
+Result: OK
+```
+
+2026-06-16:
+
+```text
+Added script-aware MATLAB optimization result layouts for
+`plot_opt_ref_results_*.m`, `plot_opt_exc_results_tuned.m`, and
+`plot_opt_exc_results_tuned_inv.m`, plus selected `params`/`sp`/`pp` metadata
+inspection and tuned original/inverse result-pair analysis.
+Ran focused result-analysis tests plus fast smoke suites under the bundled
+Python runtime and the external Conda/SciPy environment.
+Result: OK (external smoke: 29 passed; bundled smoke: 29 passed, 1 skipped)
+```
+
+2026-06-16:
+
+```text
+Added Octave/MATLAB-compatible `.mat` optimization result-cell fixtures for
+tuned excitation, tuned inverse excitation, and ideal v0crit refocusing. The
+Octave generator now reuses committed compact MATLAB optimizer CSV fixtures
+when `fmincon` is unavailable and writes MATLAB v7 binary `.mat` cells for
+SciPy-backed loader tests.
+Ran focused fixture-backed result-analysis tests plus fast smoke suites under
+the bundled Python runtime and the external Conda/SciPy environment.
+Result: OK (external smoke: 30 passed; bundled smoke: 30 passed, 2 skipped)
+```
+
+2026-06-16:
+
+```text
+Extended the optimization result-cell fixtures with tuned and untuned
+refocusing `.mat` files using the MATLAB `plot_masy_arbref_*` evaluation path
+and the `plot_opt_ref_results_tuned.m` / `plot_opt_ref_results_untuned.m`
+`1 x 7` result-cell layout. The fixtures now verify script-aware result
+selection and Python re-evaluation of selected refocusing phases.
+Ran focused tuned/untuned refocusing fixture tests plus fast smoke suites under
+the bundled Python runtime and the external Conda/SciPy environment.
+Result: OK (external smoke: 31 passed; bundled smoke: 31 passed, 3 skipped)
+```
+
+2026-06-16:
+
+```text
+Added an ideal time-varying refocusing `.mat` result-cell fixture for
+`plot_opt_ref_results_ideal_tv.m`. The fixture follows the MATLAB repeat
+script's full-cycle sinusoidal field waveform and compact 9-offset, 16-echo
+setup, then validates Python result loading and explicit-waveform re-evaluation
+of the selected phase program.
+Ran the focused ideal-time-varying result fixture test plus fast smoke suites
+under the bundled Python runtime and the external Conda/SciPy environment.
+Result: OK (external smoke: 32 passed; bundled smoke: 32 passed, 4 skipped)
+```
+
+2026-06-17:
+
+```text
+Added a compact matched-refocusing MATLAB result-cell fixture for
+`plot_opt_ref_results_matched.m` plus a CSV sidecar for non-SciPy validation.
+Aligned the Python matched refocusing evaluator with the MATLAB active-segment
+`plot_masy_arbref_matched.m` convention and the broadband excitation setup from
+`SPA_optimization_matched.m`.
+Ran focused matched fixture tests, the fast smoke suite, and full unittest
+discovery under the bundled Python runtime.
+Result: OK (focused matched: 2 passed; smoke: 32 passed, 4 skipped; full:
+137 passed, 8 skipped)
+```
+
+2026-06-17:
+
+```text
+Added a compact tuned inverse-excitation residual-spectrum fixture that stores
+the MATLAB target, initial inverse, and optimized inverse received spectra used
+by the tuned excitation/inverse result-cell pair. The Python test now loads the
+MATLAB result cells with SciPy, re-evaluates the selected pulses, compares the
+complex spectra, and verifies the residual-ratio improvement trend.
+Moved bounded-optimizer option validation above backend selection so invalid
+pattern-search options are rejected consistently with or without SciPy.
+Ran focused SciPy result-fixture tests plus full unittest discovery under both
+the external Conda/SciPy runtime and the bundled non-SciPy runtime.
+Result: OK (SciPy fixture slice: 9 passed; Conda full: 138 passed, 2 skipped;
+bundled full: 138 passed, 9 skipped)
+```
+
+2026-06-17:
+
+```text
+Added an explicit tuned imaging receive mode: `raw` preserves the MATLAB
+raw-current k-space convention, while `weighted` composes k-space from the
+tuned receiver-filtered spectra and applies `b1_rx_map`.
+Ran focused imaging tests and full unittest discovery under the external
+Conda/SciPy runtime and the bundled non-SciPy runtime.
+Result: OK (focused imaging: 17 passed; Conda full: 141 passed, 2 skipped;
+bundled full: 141 passed, 9 skipped)
 ```
 
 Matched-probe fixtures are generated by MATLAB. Octave skips them when
