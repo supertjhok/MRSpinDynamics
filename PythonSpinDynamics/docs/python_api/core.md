@@ -29,12 +29,15 @@ from spin_dynamics.core.rotations import (
     calc_rot_axis_arba4,
     calc_v0crit,
     sim_spin_dynamics_asymp_mag3,
+    sim_spin_dynamics_exc,
 )
 ```
 
 These functions port the current Version 2 rotation and asymptotic-magnetization
 helpers used by the ideal CPMG path. `calc_v0crit` mirrors
-`calc_rot/calc_v0crit.m` for ideal refocusing-pulse optimization.
+`calc_rot/calc_v0crit.m` for ideal refocusing-pulse optimization, and
+`sim_spin_dynamics_exc` mirrors the excitation-vector helper used by the
+v0crit-plus-excitation optimization scripts.
 
 ## Kernels
 

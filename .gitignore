@@ -1,1 +1,4 @@
 [Dd]esktop.ini
+PythonSpinDynamics/.conda-env/
+PythonSpinDynamics/.venv/
+PythonSpinDynamics/src/*.egg-info/

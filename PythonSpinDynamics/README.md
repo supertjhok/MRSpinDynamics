@@ -89,7 +89,7 @@ across CPU cores with `num_workers`.
 | Matched diffusion CPMG | Compact validation and smoke-tested | Solver-validated through Q=2000 for compact cases; higher-Q diffusion cases remain a stiffness target. |
 | Ideal, tuned, and matched CPMG imaging | Fixture validated | MATLAB-generated k-space fixtures, arbitrary B0/B1 map helpers, and visual plotting examples. |
 | Pulse-shape helpers | Fixture validated | JMR rectangular pulse responses, phase quantization, and untuned segment adjustment. |
-| OCT/SPA pulse evaluation | Partly ported and validated | Fixed SPA catalog, SNR/FOM summaries, tuned/untuned/matched refocusing evaluators, lightweight search scaffolds, and bounded phase optimizers are available. MATLAB-equivalent optimizer loops remain deferred. |
+| OCT/SPA pulse evaluation and optimization | Partly ported and validated | Fixed SPA catalog, SNR/FOM summaries, tuned/untuned/matched refocusing evaluators, ideal v0crit/excited-v0crit/time-varying objectives, bounded phase optimizers, multi-start drivers, and MATLAB-style result load/export/inspection helpers are available. Broad `fmincon` parity remains deferred. |
 
 See `docs/validation_results.md` for fixture details, run logs, and tolerance
 notes.
@@ -254,13 +254,17 @@ Plot compact tuned-probe optimization workflows if Matplotlib is installed:
 
 ```powershell
 python examples\plot_optimization_workflows.py --numpts 11 --segments 2 --starts 2 --inverse-starts 4 --output results\optimization_workflows.png
+python examples\plot_optimization_pipeline.py --numpts 11 --refocusing-segments 2 --refocusing-starts 2 --excitation-segments 2 --excitation-starts 2 --inverse-starts 3 --output results\optimization_pipeline.png
 ```
 
 The optimization plot builds an excitation target first, then probes the
 inverse-excitation objective with a MATLAB-style multi-start search that starts
 from the phase-flipped target and refines around the best inverse found so far.
 Treat that inverse panel as a diagnostic until MATLAB parity is validated for a
-stronger inverse-cancellation workflow.
+stronger inverse-cancellation workflow. The pipeline plot adds the newer
+selected-refocusing handoff: it runs a compact ideal-v0crit refocusing search,
+converts the result to MATLAB-style cells, reconstructs the selected
+refocusing axis, then runs tuned excitation and inverse-excitation searches.
 
 Compare optimization backends without plotting:
 
@@ -268,15 +272,24 @@ Compare optimization backends without plotting:
 python examples\diagnose_optimization_backends.py --backend all --numpts 21 --segments 3
 ```
 
-On WSL2, use a virtual environment and install SciPy through the optional
-optimization extra first:
+On WSL2, use a virtual environment in the Linux filesystem and install SciPy
+through the optional optimization extra first. On Windows/OneDrive checkouts,
+prefer an external unsynced environment such as
+`C:\Users\smandal\codex-envs\python-spin-dynamics`.
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
+python3 -m venv ~/venvs/python-spin-dynamics
+source ~/venvs/python-spin-dynamics/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -e ".[opt]"
 python examples/diagnose_optimization_backends.py --backend all --numpts 21 --segments 3
+```
+
+On Windows with Conda, keep the environment outside the OneDrive checkout:
+
+```powershell
+conda create -p "C:\Users\smandal\codex-envs\python-spin-dynamics" python=3.11 numpy scipy matplotlib -y
+conda run -p "C:\Users\smandal\codex-envs\python-spin-dynamics" python -m pip install -e .
 ```
 
 Plot finite echo trains, diffusion sweeps, and time-varying-field sweeps:
@@ -293,28 +306,42 @@ The SPA/OCT bridge currently includes the fixed SPA phase catalog, normalized
 SNR/FOM bookkeeping, and tuned/untuned/matched non-plotting refocusing-pulse
 evaluators. The ideal no-probe v0crit and time-varying-field refocusing
 objectives are also available as array-returning evaluators, bounded phase
-optimizers, and multi-start drivers. Fixed-amplitude refocusing phases can also
-be optimized with small bounded pattern-search wrappers. Tuned excitation and
-inverse-excitation pulse evaluation/search are available when a refocusing axis
-and, for inverse pulses, a target received spectrum are supplied. Multi-start
-driver scaffolds can run repeated seeded starts and return ranked results:
+optimizers, and multi-start drivers. The v0crit objective also has an
+excitation-aware wrapper that simulates the default ideal time-varying
+excitation vector from `opt_ref_pulse_ideal_v0crit_exc_repeat.m`.
+Fixed-amplitude refocusing phases can also be optimized with small bounded
+pattern-search wrappers. Tuned excitation and inverse-excitation pulse
+evaluation/search are available when a refocusing axis and, for inverse pulses,
+a target received spectrum are supplied. Multi-start driver scaffolds can run
+repeated seeded starts and return ranked results:
 
 ```python
 import numpy as np
 
 from spin_dynamics.core.rotations import calc_rot_axis_arba3
 from spin_dynamics.optimization import (
+    analyze_matlab_optimization_results,
+    analyze_tuned_inverse_result_pair,
     evaluate_ideal_time_varying_refocusing_pulse,
+    evaluate_ideal_v0crit_excited_refocusing_pulse,
     evaluate_ideal_v0crit_refocusing_pulse,
     evaluate_matched_refocusing_pulse,
     evaluate_tuned_refocusing_pulse,
     evaluate_untuned_refocusing_pulse,
+    ideal_time_varying_excitation_vector,
+    load_optimization_results,
+    multistart_to_matlab_results,
     optimize_ideal_time_varying_refocusing_phases,
+    optimize_ideal_v0crit_excited_refocusing_phases,
     optimize_ideal_v0crit_refocusing_phases,
     optimize_tuned_refocusing_phases,
     run_ideal_time_varying_refocusing_multistart,
+    run_ideal_v0crit_excited_refocusing_multistart,
     run_ideal_v0crit_refocusing_multistart,
+    run_tuned_excitation_inverse_pipeline,
     save_multistart_results_npz,
+    select_matlab_result_program,
+    summarize_matlab_results,
     run_tuned_excitation_multistart,
     run_tuned_inverse_excitation_multistart,
     run_tuned_refocusing_multistart,
@@ -331,6 +358,22 @@ ideal_repeated = run_ideal_v0crit_refocusing_multistart(
     seed=123,
     numpts=21,
 )
+excitation_vector = ideal_time_varying_excitation_vector(numpts=21)
+ideal_excited = evaluate_ideal_v0crit_excited_refocusing_pulse(
+    pulse.phases[:6],
+    numpts=21,
+)
+ideal_excited_optimum = optimize_ideal_v0crit_excited_refocusing_phases(
+    pulse.phases[:6],
+    numpts=21,
+)
+ideal_excited_repeated = run_ideal_v0crit_excited_refocusing_multistart(
+    6,
+    num_starts=4,
+    seed=123,
+    numpts=21,
+    excitation_vector=excitation_vector,
+)
 ideal_tv = evaluate_ideal_time_varying_refocusing_pulse(pulse.phases[:6], numpts=21)
 ideal_tv_optimum = optimize_ideal_time_varying_refocusing_phases(
     pulse.phases[:6],
@@ -343,6 +386,22 @@ ideal_tv_repeated = run_ideal_time_varying_refocusing_multistart(
     numpts=21,
 )
 save_multistart_results_npz(ideal_tv_repeated, "results/ideal_tv_multistart.npz")
+matlab_cells = multistart_to_matlab_results(ideal_tv_repeated)
+loaded_cells = load_optimization_results("results/ideal_tv_multistart.npz")
+score_summary = summarize_matlab_results(loaded_cells)
+selected_pulse = select_matlab_result_program(matlab_cells)
+result_analysis = analyze_matlab_optimization_results(
+    matlab_cells,
+    layout="plot_opt_ref_results_ideal_tv.m",
+)
+pipeline = run_tuned_excitation_inverse_pipeline(
+    ideal_repeated,
+    excitation_segments=3,
+    excitation_starts=4,
+    inverse_starts=4,
+    seed=123,
+    numpts=21,
+)
 tuned = evaluate_tuned_refocusing_pulse(pulse.phases, numpts=101)
 untuned = evaluate_untuned_refocusing_pulse(pulse.phases, numpts=101)
 matched = evaluate_matched_refocusing_pulse(pulse.phases, numpts=9)
@@ -362,6 +421,10 @@ inverse = run_tuned_inverse_excitation_multistart(
     seed=123,
     numpts=21,
 )
+inverse_pair = analyze_tuned_inverse_result_pair(
+    multistart_to_matlab_results(target),
+    multistart_to_matlab_results(inverse),
+)
 ```
 
 The optimization module also includes `summarize_tuned_spa_refocusing`,
@@ -373,10 +436,15 @@ accept `optimizer="auto"`, `"pattern"`, or `"scipy"`: `auto` uses SciPy's
 bounded continuous optimizer when the optional `opt` extra is installed and
 falls back to the dependency-light NumPy pattern search otherwise. The
 default phase bounds and random starts match the MATLAB `0` to `2*pi`
-convention. Multi-start outputs can be converted to MATLAB-style cell arrays
-and saved as `.npz` archives, or as `.mat` files when SciPy is installed.
+convention. Multi-start outputs can be converted to MATLAB-style cell arrays,
+summarized, analyzed with script-aware `plot_opt_*_results.m` layouts,
+inspected for selected pulse programs and `params`/`sp`/`pp` metadata, and
+saved as `.npz` archives, or as `.mat` files when SciPy is installed.
+`run_tuned_excitation_inverse_pipeline` provides the plotting-free workflow
+handoff from selected refocusing result to tuned excitation and inverse
+excitation searches.
 
-Full script-specific MATLAB `.mat` parity, including exact historical
+Full historical MATLAB `.mat` file parity, including exact historical
 `params`/`sp`/`pp` structures, and broad `fmincon` parity are still deferred
 beyond the compact optimization fixtures.
 The matched evaluator uses the matched-network transient solver and is much

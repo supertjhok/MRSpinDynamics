@@ -144,6 +144,55 @@ def sim_spin_dynamics_asymp_mag3(
     return np.convolve(trans, window, mode="same")
 
 
+def sim_spin_dynamics_exc(
+    tp: np.ndarray,
+    phi: np.ndarray,
+    amp: np.ndarray,
+    del_w: np.ndarray,
+) -> np.ndarray:
+    """Calculate the magnetization vector after an excitation pulse.
+
+    Mirrors MATLAB `sim_spin_dynamics_asymp/sim_spin_dynamics_exc.m`.
+    Pulse times are normalized to the nominal nutation frequency, matching the
+    optimization scripts that call this helper.
+    """
+
+    tp = np.asarray(tp, dtype=np.float64).reshape(-1)
+    phi = np.asarray(phi, dtype=np.float64).reshape(-1)
+    amp = np.asarray(amp, dtype=np.float64).reshape(-1)
+    del_w = np.asarray(del_w, dtype=np.float64).reshape(-1)
+    if not (tp.size == phi.size == amp.size):
+        raise ValueError("tp, phi, and amp must have the same length")
+    if tp.size == 0:
+        raise ValueError("excitation pulse sequence must be non-empty")
+
+    mvect = np.zeros((3, del_w.size), dtype=np.complex128)
+    mvect[0, :] = 1.0
+
+    for tp_j, phi_j, amp_j in zip(tp, phi, amp):
+        if amp_j > 0:
+            mat = rf_matrix_elements(del_w, float(amp_j), float(tp_j), float(phi_j))
+        else:
+            mat = free_precession_matrix_elements(del_w, float(tp_j))
+
+        tmp = mvect.copy()
+        mvect[0, :] = (
+            mat.R_00 * tmp[0, :] + mat.R_0m * tmp[1, :] + mat.R_0p * tmp[2, :]
+        )
+        mvect[1, :] = (
+            mat.R_m0 * tmp[0, :] + mat.R_mm * tmp[1, :] + mat.R_mp * tmp[2, :]
+        )
+        mvect[2, :] = (
+            mat.R_p0 * tmp[0, :] + mat.R_pm * tmp[1, :] + mat.R_pp * tmp[2, :]
+        )
+
+    tmp = mvect.copy()
+    mvect[0, :] = 0.5 * (tmp[2, :] + tmp[1, :])
+    mvect[1, :] = -0.5j * (tmp[2, :] - tmp[1, :])
+    mvect[2, :] = tmp[0, :]
+    return mvect
+
+
 def calc_rot_axis_arba4(
     tp: np.ndarray,
     phi: np.ndarray,

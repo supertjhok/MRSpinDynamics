@@ -155,6 +155,22 @@ The defaults are intentionally small. Increase `--numpts`, `--segments`,
 `--starts`, `--excitation-segments`, `--inverse-starts`, and the optimizer
 settings when using it as the start of a real pulse-design study.
 
+## Plot Optimization Pipeline
+
+This example requires Matplotlib. It runs a compact ideal-v0crit refocusing
+multi-start, converts that result to MATLAB-style cells, reconstructs the
+selected refocusing axis, and then calls the plotting-free tuned
+excitation/inverse-excitation pipeline helper. The figure shows the selected
+refocusing pulse, objective histories, received spectra, and echo magnitudes.
+
+```powershell
+python examples\plot_optimization_pipeline.py --numpts 11 --refocusing-segments 2 --refocusing-starts 2 --excitation-segments 2 --excitation-starts 2 --inverse-starts 3 --output results\optimization_pipeline.png
+```
+
+Use this example when checking the end-to-end optimization handoff. The inverse
+stage still reports both objective-best and residual-best inverse candidates
+because strong inverse-cancellation parity remains under validation.
+
 ## Diagnose Optimization Backends
 
 This non-plotting diagnostic compares the NumPy pattern-search fallback, the
@@ -166,15 +182,24 @@ debugged without relying on plots.
 python examples\diagnose_optimization_backends.py --backend all --numpts 21 --segments 3
 ```
 
-On WSL2, create a virtual environment and install the optional SciPy backend
-before running the comparison:
+On WSL2, create a virtual environment in the Linux filesystem and install the
+optional SciPy backend before running the comparison. On Windows/OneDrive
+checkouts, prefer an external unsynced environment such as
+`C:\Users\smandal\codex-envs\python-spin-dynamics`.
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
+python3 -m venv ~/venvs/python-spin-dynamics
+source ~/venvs/python-spin-dynamics/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -e ".[opt]"
 python examples/diagnose_optimization_backends.py --backend all --numpts 21 --segments 3
+```
+
+On Windows with Conda, keep the environment outside the OneDrive checkout:
+
+```powershell
+conda create -p "C:\Users\smandal\codex-envs\python-spin-dynamics" python=3.11 numpy scipy matplotlib -y
+conda run -p "C:\Users\smandal\codex-envs\python-spin-dynamics" python -m pip install -e .
 ```
 
 ## Plot Finite Train Workflows

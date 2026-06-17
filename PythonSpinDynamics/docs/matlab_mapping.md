@@ -30,7 +30,7 @@ The recommended MATLAB source tree is:
 | `time_varying_field` | `spin_dynamics.workflows.time_varying` | Ideal and probe-aware time-varying-field CPMG final-echo and amplitude-sweep workflows. |
 | `FID_Example`, `Sim_FID` | `spin_dynamics.workflows.fid` | Ideal FID should be an early workflow. |
 | `Sim_CPMG`, `Imaging_demo` | `spin_dynamics.workflows.imaging` | Ideal, tuned, and matched CPMG imaging are available as compact array-returning workflows. |
-| `OCT_Pulse_Examples`, `opt_pulse` | `spin_dynamics.optimization` | Fixed SPA catalog, SNR/FOM summaries, pulse-evaluation wrappers, ideal v0crit and time-varying refocusing search, bounded refocusing/tuned-excitation/inverse-excitation optimizers with optional SciPy backend, compact MATLAB optimizer-result fixtures, array-returning multi-start driver scaffolds, and MATLAB-style result export helpers are available. Exact MATLAB file/result parity remains future work. |
+| `OCT_Pulse_Examples`, `opt_pulse` | `spin_dynamics.optimization` | Fixed SPA catalog, SNR/FOM summaries, pulse-evaluation wrappers, ideal v0crit, excited-v0crit, and time-varying refocusing search, bounded refocusing/tuned-excitation/inverse-excitation optimizers with optional SciPy backend, compact MATLAB optimizer-result fixtures, array-returning multi-start driver scaffolds, selected-refocusing to tuned excitation/inverse pipeline handoff, and MATLAB-style result load/export/inspection helpers are available. Exact MATLAB file/result parity remains future work. |
 
 ## Initial Port Candidates and Status
 
@@ -66,8 +66,8 @@ available for direct-sum echoes from arbitrary acquired magnetization.
 | Matched z-magnetization Q sweep | `calc_masy_matched_nut` and `run_matched_z_magnetization_q_sweep` are available. |
 | Time-varying-field CPMG | `run_ideal_time_varying_cpmg_final`, probe-aware `run_*_time_varying_cpmg_final`, amplitude-sweep wrappers, and `sinusoidal_field_waveform` are available. |
 | Matched diffusion CPMG | `sim_spin_dynamics_arb10_diffusion`, `calc_macq_matched_probe_relax_diffusion`, `run_matched_diffusion_cpmg`, and `run_matched_diffusion_q_sweep` are available as first Python diffusion paths. |
-| CPMG imaging | `run_ideal_phase_encoded_cpmg_imaging`, `run_tuned_phase_encoded_cpmg_imaging`, `run_matched_phase_encoded_cpmg_imaging`, compatibility `run_*_cpmg_imaging` aliases, and `reconstruct_image_from_kspace` are available. |
-| OCT/SPA | Fixed SPA pulse catalog, summary metrics, ideal v0crit/time-varying refocusing evaluators and optimizers, tuned/untuned/matched refocusing evaluators, bounded refocusing/tuned-excitation/inverse-excitation optimizers with optional SciPy backend, compact optimizer-result fixtures, multi-start drivers, and result export helpers are available. Exact MATLAB file/result parity remains reference-only. |
+| CPMG imaging | `run_ideal_phase_encoded_cpmg_imaging`, `run_tuned_phase_encoded_cpmg_imaging`, `run_matched_phase_encoded_cpmg_imaging`, compatibility `run_*_cpmg_imaging` aliases, tuned raw/receive-weighted modes, and `reconstruct_image_from_kspace` are available. |
+| OCT/SPA | Fixed SPA pulse catalog, summary metrics, ideal v0crit/excited-v0crit/time-varying refocusing evaluators and optimizers, tuned/untuned/matched refocusing evaluators, bounded refocusing/tuned-excitation/inverse-excitation optimizers with optional SciPy backend, compact optimizer-result fixtures, multi-start drivers, selected-refocusing to excitation/inverse pipeline handoff, and result load/export/inspection helpers are available. Exact MATLAB file/result parity remains reference-only. |
 
 ## Naming Conventions
 

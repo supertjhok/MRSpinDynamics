@@ -9,12 +9,17 @@ MATLAB references:
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import numpy as np
 
 from spin_dynamics.core.numerics import trapezoid
-from spin_dynamics.core.rotations import calc_rotation_matrix, calc_rot_axis_arba4, calc_v0crit
+from spin_dynamics.core.rotations import (
+    calc_rotation_matrix,
+    calc_rot_axis_arba4,
+    calc_v0crit,
+    sim_spin_dynamics_exc,
+)
 from spin_dynamics.optimization._bounded import maximize_bounded, validate_bounds
 from spin_dynamics.optimization.spa import (
     MatchedRefocusingEvaluation,
@@ -132,6 +137,42 @@ def _normalized_sinc_window(del_w: np.ndarray, tacq: float) -> np.ndarray:
     return window / total
 
 
+def ideal_time_varying_excitation_vector(
+    *,
+    numpts: int = 101,
+    maxoffs: float = 4.0,
+    pulse_times: np.ndarray | list[float] | None = None,
+    pulse_phases: np.ndarray | list[float] | None = None,
+    pulse_amplitudes: np.ndarray | list[float] | None = None,
+) -> np.ndarray:
+    """Return the ideal excitation vector used by v0crit-excitation searches.
+
+    This is the non-plotting excitation-preparation part of MATLAB
+    `opt_ref_pulse_ideal_v0crit_exc_repeat.m`, using the excitation pulse from
+    `Params/set_params_ideal_tv_exc.m`.
+    """
+
+    if numpts < 2:
+        raise ValueError("numpts must be at least 2")
+    del_w = np.linspace(-float(maxoffs), float(maxoffs), int(numpts))
+    tp = (
+        np.array([np.pi / 4, -0.5], dtype=np.float64)
+        if pulse_times is None
+        else np.asarray(pulse_times, dtype=np.float64).reshape(-1)
+    )
+    phi = (
+        np.array([np.pi / 2, 0.0], dtype=np.float64)
+        if pulse_phases is None
+        else np.asarray(pulse_phases, dtype=np.float64).reshape(-1)
+    )
+    amp = (
+        np.array([2.0, 0.0], dtype=np.float64)
+        if pulse_amplitudes is None
+        else np.asarray(pulse_amplitudes, dtype=np.float64).reshape(-1)
+    )
+    return sim_spin_dynamics_exc(tp, phi, amp, del_w)
+
+
 def evaluate_ideal_v0crit_refocusing_pulse(
     phases: np.ndarray | list[float],
     *,
@@ -198,7 +239,7 @@ def evaluate_ideal_v0crit_refocusing_pulse(
         mexc = np.asarray(excitation_vector, dtype=np.complex128)
         if mexc.shape != neff.shape:
             raise ValueError("excitation_vector must have shape (3, numpts)")
-        masy_raw = np.sum(mexc * neff, axis=0) * transverse_axis
+        masy_raw = np.sum(np.conj(mexc) * neff, axis=0) * transverse_axis
     masy = np.convolve(masy_raw, window, mode="same")
     axis_rms = float(np.real(trapezoid(np.abs(masy) ** 2, del_w)))
     with np.errstate(divide="ignore", invalid="ignore"):
@@ -221,6 +262,42 @@ def evaluate_ideal_v0crit_refocusing_pulse(
         score=score,
         pulse_length_t180=float(segment_fraction) * phase_arr.size,
         phases=phase_arr,
+    )
+
+
+def evaluate_ideal_v0crit_excited_refocusing_pulse(
+    phases: np.ndarray | list[float],
+    *,
+    segment_fraction: float = 0.1,
+    free_precession_t180: float = 1.5,
+    numpts: int = 101,
+    maxoffs: float = 4.0,
+    acquisition_time_normalized: float | None = None,
+    excitation_vector: np.ndarray | list[list[complex]] | None = None,
+    v0crit_weight: float = 100.0,
+) -> IdealV0CritRefocusingEvaluation:
+    """Evaluate ideal v0crit refocusing with a supplied excitation spectrum.
+
+    This mirrors the objective core in MATLAB
+    `opt_pulse/opt_ref_pulse_ideal_v0crit_exc.m`. When `excitation_vector` is
+    omitted, the default excitation pulse from `set_params_ideal_tv_exc.m` is
+    simulated on the same offset grid.
+    """
+
+    mexc = (
+        ideal_time_varying_excitation_vector(numpts=numpts, maxoffs=maxoffs)
+        if excitation_vector is None
+        else excitation_vector
+    )
+    return evaluate_ideal_v0crit_refocusing_pulse(
+        phases,
+        segment_fraction=segment_fraction,
+        free_precession_t180=free_precession_t180,
+        numpts=numpts,
+        maxoffs=maxoffs,
+        acquisition_time_normalized=acquisition_time_normalized,
+        excitation_vector=mexc,
+        v0crit_weight=v0crit_weight,
     )
 
 
@@ -632,6 +709,53 @@ def optimize_ideal_v0crit_refocusing_phases(
         optimizer_success=run.success,
         optimizer_message=run.message,
     )
+
+
+def optimize_ideal_v0crit_excited_refocusing_phases(
+    initial_phases: np.ndarray | list[float],
+    *,
+    segment_fraction: float = 0.1,
+    free_precession_t180: float = 1.5,
+    numpts: int = 101,
+    maxoffs: float = 4.0,
+    acquisition_time_normalized: float | None = None,
+    excitation_vector: np.ndarray | list[list[complex]] | None = None,
+    v0crit_weight: float = 100.0,
+    bounds: tuple[float, float] = (0.0, 2 * np.pi),
+    initial_step: float = np.pi / 2,
+    step_decay: float = 0.5,
+    min_step: float = 1e-3,
+    max_passes: int = 8,
+    optimizer: str = "auto",
+    scipy_method: str = "L-BFGS-B",
+    scipy_options: dict[str, object] | None = None,
+) -> RefocusingOptimizationResult:
+    """Optimize ideal v0crit refocusing phases after a fixed excitation pulse."""
+
+    mexc = (
+        ideal_time_varying_excitation_vector(numpts=numpts, maxoffs=maxoffs)
+        if excitation_vector is None
+        else np.asarray(excitation_vector, dtype=np.complex128)
+    )
+    result = optimize_ideal_v0crit_refocusing_phases(
+        initial_phases,
+        segment_fraction=segment_fraction,
+        free_precession_t180=free_precession_t180,
+        numpts=numpts,
+        maxoffs=maxoffs,
+        acquisition_time_normalized=acquisition_time_normalized,
+        excitation_vector=mexc,
+        v0crit_weight=v0crit_weight,
+        bounds=bounds,
+        initial_step=initial_step,
+        step_decay=step_decay,
+        min_step=min_step,
+        max_passes=max_passes,
+        optimizer=optimizer,
+        scipy_method=scipy_method,
+        scipy_options=scipy_options,
+    )
+    return replace(result, probe="ideal_v0crit_excited")
 
 
 def optimize_ideal_time_varying_refocusing_phases(

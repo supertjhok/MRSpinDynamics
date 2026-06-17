@@ -7,6 +7,22 @@ an editable install from `PythonSpinDynamics`:
 python -m pip install -e .
 ```
 
+On Windows, avoid creating virtual environments inside a OneDrive-synced
+checkout. Put the environment in a local, unsynced directory and install the
+package from the source tree:
+
+```powershell
+cd "C:\Users\smandal\OneDrive - Brookhaven National Laboratory\Codex\NMR\MATLABSpinDynamics\PythonSpinDynamics"
+conda create -p "C:\Users\smandal\codex-envs\python-spin-dynamics" python=3.11 numpy scipy matplotlib -y
+conda run -p "C:\Users\smandal\codex-envs\python-spin-dynamics" python -m pip install -e .
+```
+
+Then run tests or examples with:
+
+```powershell
+& "C:\Users\smandal\codex-envs\python-spin-dynamics\python.exe" -m unittest tests.smoke_tests
+```
+
 You can also run examples directly from the source tree. The scripts in
 `examples/` add `../src` to `sys.path` automatically, so this works from either
 `PythonSpinDynamics` or `PythonSpinDynamics/examples`:
@@ -24,6 +40,10 @@ python -m unittest discover -s tests
 If the system `python` does not have NumPy installed, use an environment that
 does. In Codex, the bundled Python runtime has NumPy available.
 
+If an older `.venv` or `.conda-env` was created inside the checkout, verify the
+external environment first, then remove the in-tree environment to avoid
+OneDrive sync and file-lock overhead.
+
 ## Dependencies
 
 Required:
@@ -33,8 +53,7 @@ Required:
 
 Optional:
 
-- Matplotlib, only for `examples/plot_ideal_workflows.py` and
-  `examples/plot_probe_cpmg.py`
+- Matplotlib, for plotting examples. Install with `python -m pip install -e .[plot]`.
 - SciPy, for `optimizer="scipy"` in pulse-optimization helpers. Install with:
 
 ```powershell
