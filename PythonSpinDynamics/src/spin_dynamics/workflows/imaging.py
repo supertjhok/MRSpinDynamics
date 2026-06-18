@@ -7,11 +7,13 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, replace as dataclass_replace
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Literal
 
 import numpy as np
 
 from spin_dynamics.core.numerics import trapezoid
 from spin_dynamics.core.rotations import calc_rotation_matrix
+from spin_dynamics.motion import transverse_b1_magnitude
 from spin_dynamics.noise import (
     NoiseMetadata,
     NoiseSpec,
@@ -136,23 +138,39 @@ class ImagingFieldMaps:
     del_wx: np.ndarray
     del_wz: np.ndarray
 
-    def kernel_maps(self, ny: int, maxoffs: float) -> dict[str, np.ndarray]:
-        """Return flattened arrays consumed by the arbitrary-pulse kernels."""
+    def kernel_maps(
+        self,
+        ny: int,
+        maxoffs: float,
+        *,
+        density_normalization: Literal["legacy", "preserve"] = "legacy",
+    ) -> dict[str, np.ndarray]:
+        """Return flattened arrays consumed by the arbitrary-pulse kernels.
+
+        `density_normalization="legacy"` matches the MATLAB-parity imaging
+        path by assigning each auxiliary offset sample the full voxel density.
+        `density_normalization="preserve"` divides density by the number of
+        auxiliary samples so the total represented spin density is unchanged.
+        """
 
         if ny <= 0:
             raise ValueError("ny must be positive")
+        if density_normalization not in {"legacy", "preserve"}:
+            raise ValueError("density_normalization must be 'legacy' or 'preserve'")
         rho = self.rho
         reps = int(ny)
         del_w0y = np.linspace(-float(maxoffs), float(maxoffs), reps)
         b0 = self.b0_map.reshape(-1)
+        density_scale = 1.0 if density_normalization == "legacy" else 1.0 / reps
+        density = density_scale * rho.reshape(-1)
         return {
             "del_w": np.concatenate([offset + b0 for offset in del_w0y]),
             "del_wx": np.tile(self.del_wx.reshape(-1), reps),
             "del_wz": np.tile(self.del_wz.reshape(-1), reps),
             "w_1": np.tile(self.b1_tx_map.reshape(-1), reps),
             "w_1r": np.tile(self.b1_rx_map.reshape(-1), reps),
-            "m0": np.tile(rho.reshape(-1), reps),
-            "mth": np.tile(rho.reshape(-1), reps),
+            "m0": np.tile(density, reps),
+            "mth": np.tile(density, reps),
             "T1": np.tile(self.t1_map.reshape(-1), reps),
             "T2": np.tile(self.t2_map.reshape(-1), reps),
         }
@@ -199,8 +217,11 @@ def make_imaging_field_maps(
     t1_map: Iterable[float] | np.ndarray | None = None,
     t2_map: Iterable[float] | np.ndarray | None = None,
     b0_map: Iterable[float] | np.ndarray | None = None,
+    b0_vector_map: Iterable[float] | np.ndarray | None = None,
     b1_tx_map: Iterable[float] | np.ndarray | None = None,
+    b1_tx_vector_map: Iterable[float] | np.ndarray | None = None,
     b1_rx_map: Iterable[float] | np.ndarray | None = None,
+    b1_rx_vector_map: Iterable[float] | np.ndarray | None = None,
     del_wx: Iterable[float] | np.ndarray | None = None,
     del_wz: Iterable[float] | np.ndarray | None = None,
 ) -> ImagingFieldMaps:
@@ -209,20 +230,47 @@ def make_imaging_field_maps(
     `b0_map` is a normalized angular offset map. If omitted, zero additional
     off-resonance is used. If `b1_tx_map` is omitted, the same synthetic
     single-sided map used by the existing imaging examples is generated.
-    `b1_rx_map` defaults to `b1_tx_map`.
+    `b1_rx_map` defaults to `b1_tx_map`. If vector B1 maps are supplied, they
+    are projected perpendicular to the local `b0_vector_map` direction before
+    conversion to scalar transmit/receive sensitivity maps.
     """
 
     rho_arr = _as_map(rho, "rho")
     shape = rho_arr.shape
-    t1_arr = 5e-3 * np.ones_like(rho_arr) if t1_map is None else _as_map(t1_map, "t1_map")
-    t2_arr = 5e-3 * np.ones_like(rho_arr) if t2_map is None else _as_map(t2_map, "t2_map")
+    t1_arr = (
+        5e-3 * np.ones_like(rho_arr)
+        if t1_map is None
+        else _as_map(t1_map, "t1_map")
+    )
+    t2_arr = (
+        5e-3 * np.ones_like(rho_arr)
+        if t2_map is None
+        else _as_map(t2_map, "t2_map")
+    )
     b0_arr = np.zeros_like(rho_arr) if b0_map is None else _as_map(b0_map, "b0_map")
+    if b1_tx_map is not None and b1_tx_vector_map is not None:
+        raise ValueError("provide either b1_tx_map or b1_tx_vector_map, not both")
+    if b1_rx_map is not None and b1_rx_vector_map is not None:
+        raise ValueError("provide either b1_rx_map or b1_rx_vector_map, not both")
     b1_tx_arr = (
         _default_b1_map(shape)
         if b1_tx_map is None
         else _as_map(b1_tx_map, "b1_tx_map")
     )
-    b1_rx_arr = b1_tx_arr.copy() if b1_rx_map is None else _as_map(b1_rx_map, "b1_rx_map")
+    if b1_tx_vector_map is not None:
+        if b0_vector_map is None:
+            raise ValueError("b1_tx_vector_map requires b0_vector_map")
+        b1_tx_arr = transverse_b1_magnitude(b0_vector_map, b1_tx_vector_map)
+    if b1_rx_vector_map is not None:
+        if b0_vector_map is None:
+            raise ValueError("b1_rx_vector_map requires b0_vector_map")
+        b1_rx_arr = transverse_b1_magnitude(b0_vector_map, b1_rx_vector_map)
+    else:
+        b1_rx_arr = (
+            b1_tx_arr.copy()
+            if b1_rx_map is None
+            else _as_map(b1_rx_map, "b1_rx_map")
+        )
     del_wx_arr, del_wz_arr = _default_gradient_maps(shape)
     if del_wx is not None:
         del_wx_arr = _as_map(del_wx, "del_wx")
@@ -264,8 +312,11 @@ def load_imaging_field_maps_npz(
     t1_key: str = "t1_map",
     t2_key: str = "t2_map",
     b0_key: str = "b0_map",
+    b0_vector_key: str = "b0_vector_map",
     b1_tx_key: str = "b1_tx_map",
+    b1_tx_vector_key: str = "b1_tx_vector_map",
     b1_rx_key: str = "b1_rx_map",
+    b1_rx_vector_key: str = "b1_rx_vector_map",
     del_wx_key: str = "del_wx",
     del_wz_key: str = "del_wz",
 ) -> ImagingFieldMaps:
@@ -283,8 +334,11 @@ def load_imaging_field_maps_npz(
             t1_map=optional(t1_key),
             t2_map=optional(t2_key),
             b0_map=optional(b0_key),
+            b0_vector_map=optional(b0_vector_key),
             b1_tx_map=optional(b1_tx_key),
+            b1_tx_vector_map=optional(b1_tx_vector_key),
             b1_rx_map=optional(b1_rx_key),
+            b1_rx_vector_map=optional(b1_rx_vector_key),
             del_wx=optional(del_wx_key),
             del_wz=optional(del_wz_key),
         )
@@ -332,8 +386,14 @@ def _field_maps_from_container(
     maps: ImagingFieldMaps,
     ny: int,
     maxoffs: float,
+    *,
+    density_normalization: Literal["legacy", "preserve"] = "legacy",
 ) -> dict[str, np.ndarray]:
-    return maps.kernel_maps(ny, maxoffs)
+    return maps.kernel_maps(
+        ny,
+        maxoffs,
+        density_normalization=density_normalization,
+    )
 
 
 def _indexed_noise_spec(
@@ -811,6 +871,7 @@ def run_ideal_phase_encoded_cpmg_imaging(
     maxoffs: float = 5.0,
     num_workers: int | None = 1,
     phase_workers: int | None = 1,
+    density_normalization: Literal["legacy", "preserve"] = "legacy",
     noise: NoiseSpec | Mapping[str, object] | float | int | None = None,
 ) -> IdealCPMGImagingResult:
     """Run a compact ideal-probe phase-encoded CPMG imaging simulation.
@@ -831,6 +892,7 @@ def run_ideal_phase_encoded_cpmg_imaging(
         maxoffs=maxoffs,
         num_workers=num_workers,
         phase_workers=phase_workers,
+        density_normalization=density_normalization,
         inversion_time_seconds=None,
         noise=noise,
     )
@@ -850,6 +912,7 @@ def run_t1_encoded_phase_encoded_cpmg_imaging(
     maxoffs: float = 5.0,
     num_workers: int | None = 1,
     phase_workers: int | None = 1,
+    density_normalization: Literal["legacy", "preserve"] = "legacy",
     noise: NoiseSpec | Mapping[str, object] | float | int | None = None,
 ) -> IdealCPMGImagingResult:
     """Run ideal phase-encoded CPMG imaging with inversion-recovery T1 prep."""
@@ -866,6 +929,7 @@ def run_t1_encoded_phase_encoded_cpmg_imaging(
         maxoffs=maxoffs,
         num_workers=num_workers,
         phase_workers=phase_workers,
+        density_normalization=density_normalization,
         inversion_time_seconds=inversion_time_seconds,
         noise=noise,
     )
@@ -885,6 +949,7 @@ def run_t1_encoded_cpmg_imaging(
     maxoffs: float = 5.0,
     num_workers: int | None = 1,
     phase_workers: int | None = 1,
+    density_normalization: Literal["legacy", "preserve"] = "legacy",
     noise: NoiseSpec | Mapping[str, object] | float | int | None = None,
 ) -> IdealCPMGImagingResult:
     """Compatibility alias for `run_t1_encoded_phase_encoded_cpmg_imaging`."""
@@ -902,6 +967,7 @@ def run_t1_encoded_cpmg_imaging(
         maxoffs=maxoffs,
         num_workers=num_workers,
         phase_workers=phase_workers,
+        density_normalization=density_normalization,
         noise=noise,
     )
 
@@ -919,6 +985,7 @@ def _ideal_phase_encoded_cpmg_imaging(
     maxoffs: float,
     num_workers: int | None,
     phase_workers: int | None,
+    density_normalization: Literal["legacy", "preserve"],
     inversion_time_seconds: float | None,
     noise: NoiseSpec | Mapping[str, object] | float | int | None,
 ) -> IdealCPMGImagingResult:
@@ -945,7 +1012,12 @@ def _ideal_phase_encoded_cpmg_imaging(
     else:
         tacq_seconds = float(np.ravel(pp0.tacq)[0])
 
-    maps = _field_maps_from_container(field_maps, ny, maxoffs)
+    maps = _field_maps_from_container(
+        field_maps,
+        ny,
+        maxoffs,
+        density_normalization=density_normalization,
+    )
     del_w = maps["del_w"]
     w_1 = maps["w_1"]
     sp = {
@@ -1095,6 +1167,7 @@ def run_ideal_cpmg_imaging(
     maxoffs: float = 5.0,
     num_workers: int | None = 1,
     phase_workers: int | None = 1,
+    density_normalization: Literal["legacy", "preserve"] = "legacy",
     noise: NoiseSpec | Mapping[str, object] | float | int | None = None,
 ) -> IdealCPMGImagingResult:
     """Compatibility alias for `run_ideal_phase_encoded_cpmg_imaging`."""
@@ -1111,6 +1184,7 @@ def run_ideal_cpmg_imaging(
         maxoffs=maxoffs,
         num_workers=num_workers,
         phase_workers=phase_workers,
+        density_normalization=density_normalization,
         noise=noise,
     )
 
@@ -1130,6 +1204,7 @@ def _probe_imaging(
     maxoffs: float,
     num_workers: int | None,
     phase_workers: int | None,
+    density_normalization: Literal["legacy", "preserve"],
     noise: NoiseSpec | Mapping[str, object] | float | int | None,
 ) -> ProbeCPMGImagingResult:
     field_maps, fov_arr = _validate_imaging_inputs(
@@ -1161,7 +1236,12 @@ def _probe_imaging(
         raise ValueError("echo_spacing_seconds must be longer than T_180")
     tacq_seconds = min(float(np.ravel(pp0.tacq)[0]), echo_spacing_seconds - t180)
 
-    maps = _field_maps_from_container(field_maps, ny, maxoffs)
+    maps = _field_maps_from_container(
+        field_maps,
+        ny,
+        maxoffs,
+        density_normalization=density_normalization,
+    )
     del_w = maps["del_w"]
     w_1 = maps["w_1"]
     sp = {
@@ -1404,6 +1484,7 @@ def run_tuned_phase_encoded_cpmg_imaging(
     num_workers: int | None = 1,
     phase_workers: int | None = 1,
     receive_mode: str = "raw",
+    density_normalization: Literal["legacy", "preserve"] = "legacy",
     noise: NoiseSpec | Mapping[str, object] | float | int | None = None,
 ) -> ProbeCPMGImagingResult:
     """Run a compact tuned-probe phase-encoded CPMG imaging simulation.
@@ -1427,6 +1508,7 @@ def run_tuned_phase_encoded_cpmg_imaging(
         maxoffs=maxoffs,
         num_workers=num_workers,
         phase_workers=phase_workers,
+        density_normalization=density_normalization,
         noise=noise,
     )
 
@@ -1445,6 +1527,7 @@ def run_tuned_cpmg_imaging(
     num_workers: int | None = 1,
     phase_workers: int | None = 1,
     receive_mode: str = "raw",
+    density_normalization: Literal["legacy", "preserve"] = "legacy",
     noise: NoiseSpec | Mapping[str, object] | float | int | None = None,
 ) -> ProbeCPMGImagingResult:
     """Compatibility alias for `run_tuned_phase_encoded_cpmg_imaging`."""
@@ -1462,6 +1545,7 @@ def run_tuned_cpmg_imaging(
         num_workers=num_workers,
         phase_workers=phase_workers,
         receive_mode=receive_mode,
+        density_normalization=density_normalization,
         noise=noise,
     )
 
@@ -1479,6 +1563,7 @@ def run_matched_phase_encoded_cpmg_imaging(
     maxoffs: float = 5.0,
     num_workers: int | None = 1,
     phase_workers: int | None = 1,
+    density_normalization: Literal["legacy", "preserve"] = "legacy",
     noise: NoiseSpec | Mapping[str, object] | float | int | None = None,
 ) -> ProbeCPMGImagingResult:
     """Run a compact matched-probe phase-encoded CPMG imaging simulation."""
@@ -1497,6 +1582,7 @@ def run_matched_phase_encoded_cpmg_imaging(
         maxoffs=maxoffs,
         num_workers=num_workers,
         phase_workers=phase_workers,
+        density_normalization=density_normalization,
         noise=noise,
     )
 
@@ -1514,6 +1600,7 @@ def run_matched_cpmg_imaging(
     maxoffs: float = 5.0,
     num_workers: int | None = 1,
     phase_workers: int | None = 1,
+    density_normalization: Literal["legacy", "preserve"] = "legacy",
     noise: NoiseSpec | Mapping[str, object] | float | int | None = None,
 ) -> ProbeCPMGImagingResult:
     """Compatibility alias for `run_matched_phase_encoded_cpmg_imaging`."""
@@ -1530,5 +1617,6 @@ def run_matched_cpmg_imaging(
         maxoffs=maxoffs,
         num_workers=num_workers,
         phase_workers=phase_workers,
+        density_normalization=density_normalization,
         noise=noise,
     )

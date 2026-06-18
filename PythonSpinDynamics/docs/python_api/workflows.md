@@ -154,11 +154,13 @@ result = run_ideal_time_varying_amplitude_sweep(
     amplitudes=[0, 0.5, 1.0, 2.0],
     waveform=waveform,
     numpts=101,
+    auto_refine_grid=True,
 )
 matched_final = run_matched_time_varying_cpmg_final(
     0.5 * waveform,
     numpts=51,
     q_value=50,
+    auto_refine_grid=True,
 )
 ```
 
@@ -176,6 +178,12 @@ offset assembly as the ideal path, but build the refocusing rotations from the
 tuned, untuned, or matched pulse responses and apply the corresponding receiver
 transfer functions. The probe-aware result containers include `probe`,
 `q_value`, and `mistuning_offset` metadata.
+
+These fixed-grid final-echo workflows support the same rephasing controls as
+the finite CPMG train APIs: `rephase_action`, `rephase_safety_factor`, and
+`auto_refine_grid`. Enable `auto_refine_grid=True` for long echo trains or
+large offset spans so the grid is refined before the per-offset RF matrices are
+built.
 
 MATLAB references:
 
@@ -281,6 +289,7 @@ result = run_matched_diffusion_q_sweep(
     q_values=[20, 50],
     num_echoes=3,
     numpts=21,
+    auto_refine_grid=True,
     sweep_workers=2,
 )
 ```
@@ -302,12 +311,91 @@ be treated as a validation target because the current NumPy matched-probe
 transient solver can become stiff; the compact matched-diffusion workflow is
 currently solver-validated through Q=2000.
 
+Because the diffusion workflow also uses a uniform fixed offset grid, it
+accepts `rephase_action`, `rephase_safety_factor`, and `auto_refine_grid`.
+The Q sweep forwards those options to each matched-diffusion CPMG run.
+
 MATLAB references:
 
 - `DIffusion_Example/Diff_Echo_Q.m`
 - `Sim_Diffusion/sim_dif_matched_CPMG_noRx.m`
 - `calc_macq_diff/calc_macq_matched_probe_relax_diff_noRx.m`
 - `sim_spin_dynamics_arb/sim_spin_dynamics_arb_relax_diff.m`
+
+## WURST Inversion and CPMG
+
+```python
+from spin_dynamics.workflows import (
+    run_ideal_wurst_inversion,
+    run_matched_wurst_cpmg,
+    run_matched_wurst_inversion,
+)
+
+ideal = run_ideal_wurst_inversion(numpts=101)
+matched = run_matched_wurst_inversion(numpts=51, num_steps=64)
+echoes = run_matched_wurst_cpmg(
+    num_echoes=2,
+    numpts=51,
+    num_steps=64,
+    rephase_action="ignore",
+)
+```
+
+`run_ideal_wurst_inversion` is a fast reference path that propagates the WURST
+amplitude envelope and integrated chirp phase directly on an ideal RF channel.
+`run_matched_wurst_inversion` routes the same pulse through the matched-probe
+transmit response, returning the demodulated coil current and receiver transfer
+function along with the final magnetization. `run_matched_wurst_cpmg` uses the
+matched WURST pulse as the excitation block before a finite rectangular
+matched-probe CPMG train and returns received spectra, direct-summed echoes,
+and echo integrals.
+
+The WURST pulse parameters use explicit physical units where possible:
+`duration_seconds`, `sweep_width_normalized` relative to nominal `w1`,
+`num_steps`, envelope `order`, and peak `amplitude`. The matched CPMG workflow
+also accepts the finite-grid rephasing controls `rephase_action`,
+`rephase_safety_factor`, and `auto_refine_grid`.
+
+MATLAB references:
+
+- `Wurst_Inversion/create_WURST.m`
+- `Wurst_Inversion/calc_macq_matched_probe_WURST.m`
+- `Wurst_Inversion/sim_inv_matched_probe_WURST*.m`
+- `circuit_simulation/matched_probe/find_coil_current_WURST.m`
+- `calc_masy/calc_masy_matched_probe_WURST.m`
+
+## Moving-Isochromat Sequences
+
+```python
+from spin_dynamics.motion import initialize_ensemble_from_density, make_motion_field_maps_2d
+from spin_dynamics.sequences.motion import run_motion_cpmg_sequence
+
+fields = make_motion_field_maps_2d([-1, 1], [-1, 1])
+ensemble = initialize_ensemble_from_density([[1.0]], [0.0], [0.0])
+result = run_motion_cpmg_sequence(
+    ensemble,
+    fields,
+    num_echoes=4,
+    echo_spacing=0.08,
+    excitation_duration=0.002,
+    refocusing_duration=0.004,
+    gradient=(35.0, 0.0),
+    substeps_per_interval=8,
+)
+```
+
+`spin_dynamics.sequences.motion` is the first workflow-oriented layer for
+Lagrangian advection/diffusion physics. It accepts a moving `ParticleEnsemble`,
+samples B0/B1 maps at the current particle positions, substeps RF and
+free-precession intervals, and records receive samples during acquisition
+windows. The generic `run_motion_sequence` driver takes explicit
+`MotionSequenceStep` intervals; `run_motion_cpmg_sequence` builds a compact
+rectangular-pulse CPMG train with one receive sample per echo.
+
+This path is not a MATLAB fixture-parity replacement for the fixed-grid
+`arb10` kernels. It is intended for physical motion studies where spins move
+through field maps, such as advection through inside-out B1 profiles or
+diffusion-driven CPMG attenuation in static gradients.
 
 ## CPMG Imaging
 
@@ -412,6 +500,20 @@ container. `make_imaging_field_maps` validates arbitrary two-dimensional
 legacy single-sided synthetic sensitivity map. `load_imaging_field_maps_npz`
 loads the same fields from a NumPy archive using keys such as `rho`, `b0_map`,
 `b1_tx_map`, and `b1_rx_map`.
+
+Scalar `b1_tx_map` and `b1_rx_map` inputs are interpreted as already-transverse
+relative sensitivities. Archives or constructors may instead provide
+`b0_vector_map` plus `b1_tx_vector_map` and/or `b1_rx_vector_map`, each with
+shape `(..., 3)`. In that case the scalar B1 maps are computed as the magnitude
+of the B1 component perpendicular to the local B0 direction. This is the
+preferred path for field exports that contain laboratory-frame vector fields.
+
+Imaging workflows and
+`ImagingFieldMaps.kernel_maps(..., density_normalization="legacy")` preserve
+the MATLAB-parity convention where each auxiliary off-resonance sample receives
+the full voxel density. Use `density_normalization="preserve"` for physical
+map-to-isochromat conversion: voxel density is divided over the auxiliary
+samples so the total represented spin density remains equal to `sum(rho)`.
 
 `b1_tx_map` scales the pulse field used by the isochromat kernels. The matched
 probe imaging path applies `b1_rx_map` through its receiver calculation. The

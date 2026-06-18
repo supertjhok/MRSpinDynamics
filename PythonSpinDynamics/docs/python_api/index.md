@@ -1,8 +1,10 @@
 # Python API Documentation
 
 This directory documents the Python port as it exists today. The MATLAB
-implementation under `../MATLABSpinDynamics/SpinDynamicsUpdated/Version_2/code` remains the
-reference implementation during migration.
+implementation under `../MATLABSpinDynamics/SpinDynamicsUpdated/Version_2/code`
+remains the reference implementation, but the major Version 2 workflow port is
+now mostly complete; remaining work is mainly validation depth, specialized
+variants, packaging, and performance.
 
 ## Start Here
 
@@ -39,6 +41,8 @@ The validated Python API currently covers:
 - matched-probe z-magnetization Q sweep workflow;
 - ideal, tuned, untuned, and matched time-varying-field CPMG final-echo and
   amplitude-sweep workflows;
+- WURST pulse construction, matched-probe WURST transmit response, ideal and
+  matched WURST inversion, and matched WURST-CPMG workflows;
 - ideal FID acquisition and time-domain trace construction;
 - 1D and separable 2D inverse Laplace analysis helpers for T1, T2, T1-T2, and
   D-T2 kernels with manual or SNR-selected Tikhonov regularization;
@@ -64,7 +68,8 @@ The validated Python API currently covers:
   comparison, and optional SciPy-backed `.mat` import/export for multi-start
   results;
 - plotting examples for CPMG comparisons, finite trains, parameter sweeps,
-  diffusion, time-varying fields, imaging, and compact optimization workflows;
+  diffusion, time-varying fields, imaging, motion, WURST, inverse Laplace, and
+  compact optimization workflows;
 - low-level rotation matrix and effective-axis helpers;
 - the current `sim_spin_dynamics_arb10` kernel;
 - the legacy-compatible `sim_spin_dynamics_arb7` path needed by ideal FID;

@@ -297,6 +297,164 @@ def find_coil_current(
     return tvec2 / wp, yr2, tf1, tf2
 
 
+def find_coil_current_wurst(
+    sp: Mapping[str, Any] | Any,
+    pp: Mapping[str, Any] | Any,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Find matched-probe current for a frequency-swept WURST RF block.
+
+    This ports the non-plotting core of MATLAB `find_coil_current_WURST.m`.
+    Segment frequencies are supplied as angular offsets in `pp.freq`, added to
+    the input carrier before solving the matched-network transient response.
+    """
+
+    L = float(_field(sp, "L"))
+    Q = float(_field(sp, "Q"))
+    f0 = float(_field(sp, "f0"))
+    Rs = float(_field(sp, "Rs"))
+    C1 = float(_field(sp, "C1"))
+    C2 = float(_field(sp, "C2"))
+    fin = float(_field(sp, "fin"))
+
+    n = C1 / C2
+    Z0 = np.sqrt(L / C1)
+    wp = 1 / np.sqrt(L * C1)
+    wR = (2 * np.pi * fin) / wp
+    Rc = (2 * np.pi * f0 * L) / Q
+    c1 = n * Z0 / Rs
+    c2 = (Rc / Rs) * (n + 1) + 1
+    c3 = Rc / Z0 + (Z0 / Rs) * (n + 1)
+    Vs0_base = 2 * np.sqrt(Rc / Rs)
+
+    tp = wp * _as_vector(_field(pp, "tp"))
+    phi = _as_vector(_field(pp, "phi"))
+    amp = _as_vector(_field(pp, "amp"))
+    freq = _as_vector(_field(pp, "freq"))
+    if not (tp.size == phi.size == amp.size == freq.size):
+        raise ValueError("tp, phi, amp, and freq must have the same length")
+    N = int(_field(pp, "N"))
+    if N <= 0:
+        raise ValueError("pp.N must be positive")
+    psi = float(_field(pp, "psi"))
+    del_w = _as_vector(_field(sp, "del_w"))
+    wn = (2 * np.pi * fin + freq) / wp
+
+    ttot = float(np.sum(tp))
+    if ttot <= 0:
+        raise ValueError("total pulse duration must be positive")
+    delt = 2 * np.pi / (wR * N)
+    ntot = int(np.floor(ttot / delt)) + 1
+    if ntot < 2:
+        raise ValueError("WURST pulse is too short for the RF quantization grid")
+    tvec = np.linspace(0, ttot, ntot)
+    h = tvec[1] - tvec[0]
+    y_imp = _impulse_response(c1, c2, c3, Vs0_base, np.arange(ntot) * h)
+
+    ysin = np.zeros((ntot, 3), dtype=np.float64)
+    ycos = np.zeros((ntot, 3), dtype=np.float64)
+    ysin_imp = np.zeros(ntot, dtype=np.float64)
+    ycos_imp = np.zeros(ntot, dtype=np.float64)
+    max_rk4_step = min(h, 0.05)
+
+    time_el = 0.0
+    ind_last = 0
+    ycos_state = np.zeros(3, dtype=np.float64)
+    ysin_state = np.zeros(3, dtype=np.float64)
+    ind2 = 0
+
+    for idx, (tp_i, phi_i, amp_i, wn_i) in enumerate(zip(tp, phi, amp, wn)):
+        if idx > 0:
+            ind_last = ind2
+            ycos_state = ycos[ind_last, :].copy()
+            ysin_state = ysin[ind_last, :].copy()
+        ind = np.nonzero((tvec >= time_el) & (tvec <= time_el + tp_i))[0]
+        if ind.size == 0:
+            time_el += tp_i
+            continue
+        ind1 = ind_last
+        ind2 = int(ind[-1])
+        Vs0 = float(amp_i) * Vs0_base
+
+        def rhs_cos(t: float, y: np.ndarray) -> np.ndarray:
+            return np.array(
+                [
+                    y[1],
+                    y[2],
+                    -c3 * y[2]
+                    - c2 * y[1]
+                    - c1 * y[0]
+                    - Vs0 * wn_i * np.sin(wn_i * t + phi_i + psi),
+                ],
+                dtype=np.float64,
+            )
+
+        def rhs_sin(t: float, y: np.ndarray) -> np.ndarray:
+            return np.array(
+                [
+                    y[1],
+                    y[2],
+                    -c3 * y[2]
+                    - c2 * y[1]
+                    - c1 * y[0]
+                    + Vs0 * wn_i * np.cos(wn_i * t + phi_i + psi),
+                ],
+                dtype=np.float64,
+            )
+
+        ycos[ind1, :] = ycos_state
+        ysin[ind1, :] = ysin_state
+        for pos in range(ind1 + 1, ind2 + 1):
+            ycos[pos, :] = _rk4_advance(
+                ycos[pos - 1, :],
+                tvec[pos - 1],
+                h,
+                rhs_cos,
+                max_rk4_step,
+            )
+            ysin[pos, :] = _rk4_advance(
+                ysin[pos - 1, :],
+                tvec[pos - 1],
+                h,
+                rhs_sin,
+                max_rk4_step,
+            )
+
+        ysin_imp[ind1:ntot] += amp_i * np.sin(wn_i * tvec[ind1] + phi_i + psi) * y_imp[
+            : ntot - ind1
+        ]
+        ysin_imp[ind2:ntot] -= amp_i * np.sin(wn_i * tvec[ind2] + phi_i + psi) * y_imp[
+            : ntot - ind2
+        ]
+        ycos_imp[ind1:ntot] += amp_i * np.cos(wn_i * tvec[ind1] + phi_i + psi) * y_imp[
+            : ntot - ind1
+        ]
+        ycos_imp[ind2:ntot] -= amp_i * np.cos(wn_i * tvec[ind2] + phi_i + psi) * y_imp[
+            : ntot - ind2
+        ]
+
+        time_el += tp_i
+
+    y = ycos[:, 0] + 1j * ysin[:, 0] + ycos_imp + 1j * ysin_imp
+    yr = y * np.exp(-1j * wR * tvec) * np.exp(-1j * psi)
+
+    window = max(1, N // 2)
+    ntot2 = int(np.floor(ntot / window))
+    tvec2 = np.zeros(ntot2, dtype=np.float64)
+    yr2 = np.zeros(ntot2, dtype=np.complex128)
+    for idx in range(ntot2):
+        ind = slice(idx * window, (idx + 1) * window)
+        tvec2[idx] = np.mean(tvec[ind])
+        yr2[idx] = np.mean(yr[ind])
+
+    wv = (2 * np.pi * f0 + (np.pi / (2 * float(_field(pp, "T_90")))) * del_w) / wp
+    s = 1j * wv
+    den = s**3 + c3 * s**2 + c2 * s + c1
+    tf1 = s / den
+    tf2 = -1j * s**3 / den
+
+    return tvec2 / wp, yr2, tf1, tf2
+
+
 def calc_rot_axis_matched_probe(
     sp: Mapping[str, Any] | Any,
     pp: Mapping[str, Any] | Any,

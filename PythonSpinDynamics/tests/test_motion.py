@@ -19,6 +19,7 @@ from spin_dynamics.motion import (
     make_motion_field_maps_2d,
     move_ensemble,
     receive_signal,
+    transverse_b1_magnitude,
 )
 
 
@@ -40,6 +41,40 @@ class MotionTests(unittest.TestCase):
         np.testing.assert_allclose(sampled["b0"], [1.5, 3.0])
         np.testing.assert_allclose(sampled["b1_tx"], [2.0, 2.0])
         np.testing.assert_allclose(sampled["b1_rx"], [2.0, 2.0])
+
+    def test_vector_b1_maps_are_projected_perpendicular_to_local_b0(self) -> None:
+        b0_vector = np.array(
+            [
+                [[0.0, 0.0, 1.0], [1.0, 0.0, 0.0]],
+                [[0.0, 1.0, 0.0], [1.0, 1.0, 0.0]],
+            ],
+            dtype=np.float64,
+        )
+        b1_vector = np.array(
+            [
+                [[3.0, 4.0, 5.0], [2.0, 6.0, 0.0]],
+                [[1.0, 7.0, 2.0], [3.0, 1.0, 4.0]],
+            ],
+            dtype=np.float64,
+        )
+
+        transverse = transverse_b1_magnitude(b0_vector, b1_vector)
+        fields = make_motion_field_maps_2d(
+            [0.0, 1.0],
+            [0.0, 1.0],
+            b0_vector_map=b0_vector,
+            b1_tx_vector_map=b1_vector,
+        )
+
+        np.testing.assert_allclose(
+            transverse,
+            [
+                [5.0, 6.0],
+                [np.sqrt(5.0), np.sqrt(18.0)],
+            ],
+        )
+        np.testing.assert_allclose(fields.b1_tx_map, transverse)
+        np.testing.assert_allclose(fields.b1_rx_map, transverse)
 
     def test_density_initialization_preserves_total_weight(self) -> None:
         rho = np.array([[1.0, 2.0], [0.0, 3.0]], dtype=np.float64)

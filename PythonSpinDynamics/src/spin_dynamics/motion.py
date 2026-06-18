@@ -94,8 +94,11 @@ def make_motion_field_maps_2d(
     z_axis: Iterable[float] | np.ndarray,
     *,
     b0_map: Iterable[float] | np.ndarray | None = None,
+    b0_vector_map: Iterable[float] | np.ndarray | None = None,
     b1_tx_map: Iterable[float] | np.ndarray | None = None,
+    b1_tx_vector_map: Iterable[float] | np.ndarray | None = None,
     b1_rx_map: Iterable[float] | np.ndarray | None = None,
+    b1_rx_vector_map: Iterable[float] | np.ndarray | None = None,
 ) -> MotionFieldMaps2D:
     """Validate and assemble two-dimensional field maps."""
 
@@ -107,12 +110,27 @@ def make_motion_field_maps_2d(
         if b0_map is None
         else _map2d(b0_map, "b0_map")
     )
+    if b0_vector_map is not None:
+        _vector_map(b0_vector_map, "b0_vector_map")
+    if b1_tx_map is not None and b1_tx_vector_map is not None:
+        raise ValueError("provide either b1_tx_map or b1_tx_vector_map, not both")
+    if b1_rx_map is not None and b1_rx_vector_map is not None:
+        raise ValueError("provide either b1_rx_map or b1_rx_vector_map, not both")
     b1_tx = (
         np.ones(shape, dtype=np.float64)
         if b1_tx_map is None
         else _map2d(b1_tx_map, "b1_tx_map")
     )
-    b1_rx = b1_tx.copy() if b1_rx_map is None else _map2d(b1_rx_map, "b1_rx_map")
+    if b1_tx_vector_map is not None:
+        if b0_vector_map is None:
+            raise ValueError("b1_tx_vector_map requires b0_vector_map")
+        b1_tx = transverse_b1_magnitude(b0_vector_map, b1_tx_vector_map)
+    if b1_rx_vector_map is not None:
+        if b0_vector_map is None:
+            raise ValueError("b1_rx_vector_map requires b0_vector_map")
+        b1_rx = transverse_b1_magnitude(b0_vector_map, b1_rx_vector_map)
+    else:
+        b1_rx = b1_tx.copy() if b1_rx_map is None else _map2d(b1_rx_map, "b1_rx_map")
     for name, arr in {
         "b0_map": b0,
         "b1_tx_map": b1_tx,
@@ -123,6 +141,32 @@ def make_motion_field_maps_2d(
     if np.any(b1_tx < 0.0) or np.any(b1_rx < 0.0):
         raise ValueError("B1 maps must be non-negative")
     return MotionFieldMaps2D(x, z, b0, b1_tx, b1_rx)
+
+
+def transverse_b1_magnitude(
+    b0_vector_map: Iterable[float] | np.ndarray,
+    b1_vector_map: Iterable[float] | np.ndarray,
+) -> np.ndarray:
+    """Return the local B1 magnitude perpendicular to the local B0 direction.
+
+    The last axis contains vector components. B0 vectors are real-valued field
+    directions; B1 vectors may be real or complex. The returned scalar map is
+    `|B1 - (B1 dot b0_hat) b0_hat|`.
+    """
+
+    b0 = _vector_map(b0_vector_map, "b0_vector_map").astype(np.float64)
+    b1 = np.asarray(b1_vector_map)
+    if b1.shape != b0.shape:
+        raise ValueError("b1_vector_map must have the same shape as b0_vector_map")
+    if not np.all(np.isfinite(b1)):
+        raise ValueError("b1_vector_map must contain finite values")
+    b0_norm = np.linalg.norm(b0, axis=-1)
+    if np.any(b0_norm <= 0.0):
+        raise ValueError("b0_vector_map must not contain zero vectors")
+    b0_hat = b0 / b0_norm[..., np.newaxis]
+    parallel = np.sum(b1 * b0_hat, axis=-1)
+    perpendicular = b1 - parallel[..., np.newaxis] * b0_hat
+    return np.sqrt(np.sum(np.abs(perpendicular) ** 2, axis=-1)).astype(np.float64)
 
 
 def initialize_ensemble_from_density(
@@ -448,6 +492,17 @@ def _map2d(values: Iterable[float] | np.ndarray, name: str) -> np.ndarray:
     arr = np.asarray(values, dtype=np.float64)
     if arr.ndim != 2:
         raise ValueError(f"{name} must be a two-dimensional array")
+    if arr.size == 0:
+        raise ValueError(f"{name} must not be empty")
+    if not np.all(np.isfinite(arr)):
+        raise ValueError(f"{name} must contain finite values")
+    return arr
+
+
+def _vector_map(values: Iterable[float] | np.ndarray, name: str) -> np.ndarray:
+    arr = np.asarray(values)
+    if arr.ndim < 2 or arr.shape[-1] != 3:
+        raise ValueError(f"{name} must have shape (..., 3)")
     if arr.size == 0:
         raise ValueError(f"{name} must not be empty")
     if not np.all(np.isfinite(arr)):

@@ -12,10 +12,10 @@ from _source_path import add_src_to_path
 add_src_to_path()
 
 from spin_dynamics.motion import (
-    advect_diffuse_positions,
     initialize_ensemble_from_density,
     make_motion_field_maps_2d,
 )
+from spin_dynamics.sequences.motion import run_motion_cpmg_sequence
 
 
 def _load_matplotlib():
@@ -50,6 +50,18 @@ def _parse_args() -> argparse.Namespace:
         type=float,
         default=45.0,
         help="Static x gradient.",
+    )
+    parser.add_argument(
+        "--excitation-duration",
+        type=float,
+        default=0.002,
+        help="Rectangular 90-degree pulse duration.",
+    )
+    parser.add_argument(
+        "--refocusing-duration",
+        type=float,
+        default=0.004,
+        help="Rectangular 180-degree pulse duration.",
     )
     parser.add_argument(
         "--diffusion",
@@ -103,36 +115,6 @@ def _initialize_walkers(num_particles: int, diffusion: float, seed: int):
     return ensemble.with_updates(magnetization=magnetization)
 
 
-def _propagate_phase_interval(
-    positions: np.ndarray,
-    phase: np.ndarray,
-    diffusion: np.ndarray,
-    bounds,
-    duration: float,
-    substeps: int,
-    rng: np.random.Generator,
-    gradient: float,
-    sign: float,
-):
-    dt = float(duration) / int(substeps)
-    current_positions = positions
-    current_phase = phase
-    for _ in range(int(substeps)):
-        current_positions = advect_diffuse_positions(
-            current_positions,
-            dt,
-            diffusion_coefficient=diffusion,
-            rng=rng,
-            bounds=bounds,
-            boundary="reflect",
-        )
-        current_phase = (
-            current_phase
-            + float(sign) * float(gradient) * current_positions[:, 0] * dt
-        )
-    return current_positions, current_phase
-
-
 def _run_case(args: argparse.Namespace, diffusion: float, fields, case_index: int):
     rng = np.random.default_rng(args.seed + 1009 * case_index)
     ensemble = _initialize_walkers(
@@ -141,46 +123,24 @@ def _run_case(args: argparse.Namespace, diffusion: float, fields, case_index: in
         args.seed + case_index,
     )
     start_positions = ensemble.positions.copy()
-    echo_values = np.zeros(args.num_echoes, dtype=np.complex128)
-    echo_times = args.echo_spacing * (np.arange(args.num_echoes, dtype=np.float64) + 1)
-    positions = ensemble.positions.copy()
-    phase = np.zeros(ensemble.num_particles, dtype=np.float64)
-    half_echo = 0.5 * args.echo_spacing
-    for echo_index in range(args.num_echoes):
-        # The ideal CPMG toggling function flips static-gradient phase at every
-        # 180-degree pulse. Fixed particles refocus exactly at the echo;
-        # diffusing particles do not retrace the same field history.
-        sign = 1.0 if echo_index % 2 == 0 else -1.0
-        positions, phase = _propagate_phase_interval(
-            positions,
-            phase,
-            ensemble.diffusion_coefficient,
-            fields.bounds,
-            half_echo,
-            args.substeps,
-            rng,
-            args.gradient,
-            sign,
-        )
-        positions, phase = _propagate_phase_interval(
-            positions,
-            phase,
-            ensemble.diffusion_coefficient,
-            fields.bounds,
-            half_echo,
-            args.substeps,
-            rng,
-            args.gradient,
-            -sign,
-        )
-        echo_values[echo_index] = np.sum(ensemble.weights * np.exp(-1j * phase))
+    result = run_motion_cpmg_sequence(
+        ensemble,
+        fields,
+        num_echoes=args.num_echoes,
+        echo_spacing=args.echo_spacing,
+        excitation_duration=args.excitation_duration,
+        refocusing_duration=args.refocusing_duration,
+        gradient=(args.gradient, 0.0),
+        rng=rng,
+        substeps_per_interval=args.substeps,
+    )
 
     return {
         "diffusion": float(diffusion),
-        "echo_times": echo_times,
-        "echo_values": echo_values,
+        "echo_times": result.sample_times,
+        "echo_values": result.signal,
         "start_positions": start_positions,
-        "end_positions": positions.copy(),
+        "end_positions": result.final_ensemble.positions.copy(),
     }
 
 
@@ -190,6 +150,12 @@ def main() -> None:
         raise SystemExit("--num-echoes and --echo-spacing must be positive")
     if args.substeps <= 0:
         raise SystemExit("--substeps must be positive")
+    if args.excitation_duration <= 0.0 or args.refocusing_duration <= 0.0:
+        raise SystemExit(
+            "--excitation-duration and --refocusing-duration must be positive"
+        )
+    if args.echo_spacing < args.refocusing_duration:
+        raise SystemExit("--echo-spacing must be at least --refocusing-duration")
     if any(value < 0.0 for value in args.diffusion):
         raise SystemExit("--diffusion values must be non-negative")
 

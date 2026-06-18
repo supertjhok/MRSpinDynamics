@@ -9,6 +9,7 @@ from typing import Any
 
 import numpy as np
 
+from spin_dynamics.core.isochromats import check_rephasing
 from spin_dynamics.core.numerics import trapezoid
 from spin_dynamics.core.rotations import calc_rotation_matrix
 from spin_dynamics.parameters import (
@@ -30,6 +31,7 @@ from spin_dynamics.workflows.cpmg import (
     _calc_matched_pulse_shape,
     _calc_tuned_pulse_shape,
     _calc_untuned_pulse_shape,
+    _maybe_refine_numpts,
 )
 
 
@@ -103,6 +105,33 @@ def _offset_grid(numpts: int, maxoffs: float) -> np.ndarray:
     return np.linspace(-float(maxoffs), float(maxoffs), int(numpts))
 
 
+def _checked_offset_grid(
+    numpts: int,
+    maxoffs: float,
+    max_time: float,
+    *,
+    auto_refine_grid: bool,
+    rephase_safety_factor: float,
+    rephase_action: str,
+) -> np.ndarray:
+    numpts = _maybe_refine_numpts(
+        numpts,
+        maxoffs,
+        max_time,
+        rephase_safety_factor,
+        auto_refine_grid,
+    )
+    del_w = _offset_grid(numpts, maxoffs)
+    if rephase_action != "ignore":
+        check_rephasing(
+            del_w,
+            max_time=max_time,
+            safety_factor=rephase_safety_factor,
+            action=rephase_action,
+        )
+    return del_w
+
+
 def _pulse_definition(name: str, t_180: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     if name == "rect180":
         return (
@@ -155,6 +184,9 @@ def run_ideal_time_varying_cpmg_final(
     t1_seconds: float = 1e8,
     t2_seconds: float = 1e8,
     num_workers: int | None = 1,
+    auto_refine_grid: bool = False,
+    rephase_safety_factor: float = 1.25,
+    rephase_action: str = "warn",
 ) -> IdealTimeVaryingCPMGResult:
     """Run the final echo of an ideal CPMG train with per-echo B0 offsets.
 
@@ -171,7 +203,6 @@ def run_ideal_time_varying_cpmg_final(
         raise ValueError("t1_seconds and t2_seconds must be positive")
 
     sp0, pp0 = set_params_ideal(numpts=numpts)
-    del_w = _offset_grid(numpts, maxoffs)
     w1n = (np.pi / 2) / pp0.T_90
     ref_tp_seconds, ref_phi, ref_amp = _pulse_definition(pulse_name, pp0.T_180)
     ref_duration = float(np.sum(ref_tp_seconds))
@@ -182,6 +213,19 @@ def run_ideal_time_varying_cpmg_final(
     ref_pre = (echo_period - ref_duration) / 2
     ref_post = echo_period - ref_duration - ref_pre
     ref_tp_norm = w1n * ref_tp_seconds
+    max_time = float(
+        np.pi / 2
+        + w1n * pp0.tcorr
+        + num_echoes * (w1n * ref_pre + float(np.sum(ref_tp_norm)) + w1n * ref_post)
+    )
+    del_w = _checked_offset_grid(
+        numpts,
+        maxoffs,
+        max_time,
+        auto_refine_grid=auto_refine_grid,
+        rephase_safety_factor=rephase_safety_factor,
+        rephase_action=rephase_action,
+    )
 
     rtot = [
         calc_rotation_matrix(del_w, np.ones_like(del_w), w1n * pp0.texc, pp0.pexc, pp0.aexc),
@@ -267,6 +311,11 @@ def _prepare_probe_parameters(
     maxoffs: float,
     q_value: float | None,
     mistuning_offset: float | None,
+    *,
+    num_echoes_for_rephase: int | None = None,
+    auto_refine_grid: bool = False,
+    rephase_safety_factor: float = 1.25,
+    rephase_action: str = "warn",
 ) -> tuple[dict[str, Any], Any]:
     if probe == "tuned":
         _params, sp0, pp0 = set_params_tuned_orig(numpts=numpts)
@@ -315,7 +364,24 @@ def _prepare_probe_parameters(
     else:
         raise ValueError("probe must be 'tuned', 'untuned', or 'matched'")
 
-    del_w = _offset_grid(numpts, maxoffs)
+    if num_echoes_for_rephase is None:
+        del_w = _offset_grid(numpts, maxoffs)
+    else:
+        tfp = (np.pi / 2) * (pp0.preDelay + pp0.postDelay) / (2 * pp0.T_90)
+        max_time = float(
+            np.pi / 2
+            + (np.pi / 2) * pp0.tcorr / pp0.T_90
+            + int(num_echoes_for_rephase) * (tfp + np.pi + tfp)
+        )
+        del_w = _checked_offset_grid(
+            numpts,
+            maxoffs,
+            max_time,
+            auto_refine_grid=auto_refine_grid,
+            rephase_safety_factor=rephase_safety_factor,
+            rephase_action=rephase_action,
+        )
+        numpts = int(del_w.size)
     sp = {
         **sp0.__dict__,
         "numpts": int(numpts),
@@ -388,6 +454,9 @@ def _run_probe_time_varying_cpmg_final(
     q_value: float | None = None,
     mistuning_offset: float | None = None,
     num_workers: int | None = 1,
+    auto_refine_grid: bool = False,
+    rephase_safety_factor: float = 1.25,
+    rephase_action: str = "warn",
 ) -> ProbeTimeVaryingCPMGResult:
     field_offsets = np.asarray(field_offsets, dtype=np.float64).reshape(-1)
     num_echoes = field_offsets.size
@@ -396,7 +465,17 @@ def _run_probe_time_varying_cpmg_final(
     if t1_seconds <= 0 or t2_seconds <= 0:
         raise ValueError("t1_seconds and t2_seconds must be positive")
 
-    sp, pp0 = _prepare_probe_parameters(probe, numpts, maxoffs, q_value, mistuning_offset)
+    sp, pp0 = _prepare_probe_parameters(
+        probe,
+        numpts,
+        maxoffs,
+        q_value,
+        mistuning_offset,
+        num_echoes_for_rephase=num_echoes,
+        auto_refine_grid=auto_refine_grid,
+        rephase_safety_factor=rephase_safety_factor,
+        rephase_action=rephase_action,
+    )
     del_w = sp["del_w"]
     sp["T1"] = t1_seconds * np.ones_like(del_w)
     sp["T2"] = t2_seconds * np.ones_like(del_w)
@@ -512,6 +591,9 @@ def run_ideal_time_varying_amplitude_sweep(
     maxoffs: float = 10.0,
     pulse_name: str = "rect180",
     num_workers: int | None = 1,
+    auto_refine_grid: bool = False,
+    rephase_safety_factor: float = 1.25,
+    rephase_action: str = "warn",
 ) -> IdealTimeVaryingSweepResult:
     """Sweep normalized B0 fluctuation amplitude for ideal CPMG final echoes."""
 
@@ -536,6 +618,9 @@ def run_ideal_time_varying_amplitude_sweep(
             maxoffs=maxoffs,
             pulse_name=pulse_name,
             num_workers=1,
+            auto_refine_grid=auto_refine_grid,
+            rephase_safety_factor=rephase_safety_factor,
+            rephase_action=rephase_action,
         )
 
     workers = 1 if num_workers is None else int(num_workers)
@@ -551,6 +636,9 @@ def run_ideal_time_varying_amplitude_sweep(
         maxoffs=maxoffs,
         pulse_name=pulse_name,
         num_workers=1,
+        auto_refine_grid=auto_refine_grid,
+        rephase_safety_factor=rephase_safety_factor,
+        rephase_action=rephase_action,
     )
     norm = np.sqrt(trapezoid(np.abs(reference.echo) ** 2, reference.tvect))
     matched_filter = np.conj(reference.echo) / norm
@@ -583,6 +671,9 @@ def _run_probe_time_varying_amplitude_sweep(
     q_value: float | None = None,
     mistuning_offset: float | None = None,
     num_workers: int | None = 1,
+    auto_refine_grid: bool = False,
+    rephase_safety_factor: float = 1.25,
+    rephase_action: str = "warn",
 ) -> ProbeTimeVaryingSweepResult:
     amp_values = np.asarray(
         np.linspace(0, 3, 16) if amplitudes is None else amplitudes,
@@ -609,6 +700,9 @@ def _run_probe_time_varying_amplitude_sweep(
             q_value=q_value,
             mistuning_offset=mistuning_offset,
             num_workers=1,
+            auto_refine_grid=auto_refine_grid,
+            rephase_safety_factor=rephase_safety_factor,
+            rephase_action=rephase_action,
         )
 
     workers = 1 if num_workers is None else int(num_workers)
@@ -628,6 +722,9 @@ def _run_probe_time_varying_amplitude_sweep(
         q_value=q_value,
         mistuning_offset=mistuning_offset,
         num_workers=1,
+        auto_refine_grid=auto_refine_grid,
+        rephase_safety_factor=rephase_safety_factor,
+        rephase_action=rephase_action,
     )
     norm = np.sqrt(trapezoid(np.abs(reference.echo) ** 2, reference.tvect))
     matched_filter = np.conj(reference.echo) / norm

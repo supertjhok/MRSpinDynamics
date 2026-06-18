@@ -6,6 +6,18 @@
 - Keep `SpinDynamicsUpdated/Version_1` and `SpinDynamics` as legacy references.
 - Do not move or rewrite MATLAB files as part of the Python port.
 
+## Current Assessment
+
+As of the WURST-flow port, the major MATLAB-to-Python migration phase is mostly
+closed for the active Version 2 workflow set. The Python package now covers the
+core spin kernels, ideal/tuned/untuned/matched CPMG paths, finite trains,
+CPMG-IR, probe sweeps, diffusion, imaging including T1 preparation, noise,
+inverse Laplace analysis, moving-isochromat sequence primitives, optimization
+scaffolds, and the WURST inversion/CPMG flow. Remaining work is better treated
+as stabilization: broader validation, specialized helper variants, performance
+backends, packaging, and exact historical `.mat`/`fmincon` parity where those
+artifacts are still useful references.
+
 ## Completed Phase 1: Baseline and Fixtures
 
 - Small reference outputs are stored under `validation/fixtures`.
@@ -13,7 +25,7 @@
 - The same script can be run from MATLAB or Octave.
 - MATLAB-generated fixtures are used for matched-probe cases that require
   optimization toolbox behavior not available in a stock Octave install.
-- The current Python test suite contains 167 checks against fixtures, public
+- The current Python test suite contains 184 checks against fixtures, public
   workflow result shapes, compatibility helpers, optional SciPy-backed result
   loaders, imaging modes, and example smoke paths.
 
@@ -118,6 +130,9 @@ their inputs and outputs are small, array-based, and close to NumPy's strengths.
   and `run_matched_time_varying_cpmg_final` extend the same final-echo
   assembly to probe-shaped refocusing pulses and receiver transfer functions,
   with matching amplitude-sweep wrappers.
+- Time-varying final-echo workflows and amplitude sweeps now share the finite
+  train rephasing controls: `rephase_action`, `rephase_safety_factor`, and
+  optional `auto_refine_grid` before RF matrix construction.
 - `examples/probe_parameter_sweeps.py` provides a compact non-plot smoke path
   for the sweep APIs.
 - `examples/ideal_time_varying_cpmg.py` provides a compact non-plot smoke path
@@ -139,6 +154,9 @@ their inputs and outputs are small, array-based, and close to NumPy's strengths.
   first compact matched-probe diffusion CPMG workflows, following
   `DIffusion_Example/Diff_Echo_Q.m` and
   `Sim_Diffusion/sim_dif_matched_CPMG_noRx.m`.
+- Matched-diffusion CPMG and Q sweeps now expose the same fixed-grid
+  rephasing warning, raising, and optional auto-refinement controls as finite
+  homogeneous CPMG trains.
 - Keep broad diffusion sweeps and Q>2000 cases behind additional solver
   validation, because the current NumPy matched-probe transient solver can
   become stiff for very high Q values.
@@ -161,6 +179,12 @@ their inputs and outputs are small, array-based, and close to NumPy's strengths.
 - `spin_dynamics.pulses` provides fixture-validated JMR rectangular pulse
   responses for tuned, untuned, and matched probes, phase quantization, and the
   untuned segment-length adjustment used before OCT/SPA pulse work.
+- `spin_dynamics.pulses.create_wurst_pulse`,
+  `spin_dynamics.probes.matched.find_coil_current_wurst`, and
+  `spin_dynamics.workflows.wurst` port the main WURST flow with ideal
+  inversion, matched-probe WURST inversion, and matched WURST-CPMG workflows.
+  The Python API keeps the exploratory MATLAB scripts as references but
+  exposes array-returning result containers and a plotting example.
 - `spin_dynamics.optimization` provides the fixed SPA refocusing pulse catalog
   and MATLAB-style normalized SNR/FOM metric bookkeeping used by the
   `SPA_optimization_*` scripts. It also includes non-plotting tuned, untuned,
@@ -276,12 +300,23 @@ their inputs and outputs are small, array-based, and close to NumPy's strengths.
   advection, seeded Brownian diffusion, simple boundary handling, RF rotation
   with local B1 scaling, free precession through sampled B0, and receive-signal
   summation through local receive sensitivity.
+- `spin_dynamics.sequences.motion` adds the first sequence-level driver for
+  moving isochromats. It substeps explicit sequence intervals, samples B0/B1
+  maps along particle trajectories, applies rectangular RF or free-precession
+  updates, and records receive samples during acquisition windows. A compact
+  rectangular-pulse CPMG convenience runner demonstrates static-gradient
+  refocusing and diffusion-driven attenuation.
+- Scalar B1 maps are interpreted as already-transverse sensitivity maps.
+  Imaging and motion map constructors can also accept B0/B1 vector maps and
+  convert B1 to the local component perpendicular to B0. Fixed-grid imaging
+  map conversion now exposes a density-preserving mode that divides voxel spin
+  density over auxiliary offset samples instead of duplicating it.
 - This lays the groundwork for physically correct diffusion/advection imaging:
   spins should move through the B0/B1 maps and sample fields at their current
   positions, instead of using fixed per-voxel `del_w` and B1 arrays.
-- Follow-on work should add sequence-level motion drivers that substep RF,
-  gradient, and acquisition intervals, then connect those drivers to CPMG,
-  imaging, and diffusion workflows.
+- Follow-on work should connect the sequence driver to image reconstruction,
+  phase/frequency encoding, probe-shaped pulses, and broader diffusion
+  validation workflows.
 
 ## Later Phase 12: Acceleration
 

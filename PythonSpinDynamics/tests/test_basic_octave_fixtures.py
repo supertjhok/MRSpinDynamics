@@ -104,8 +104,10 @@ from spin_dynamics.optimization import (
     summarize_untuned_spa_refocusing,
 )
 from spin_dynamics.pulses import (
+    create_wurst_pulse,
     adjust_untuned_segment_lengths,
     matched_rectangular_pulse_response,
+    matched_wurst_pulse_response,
     quantize_phase,
     tuned_rectangular_pulse_response,
     untuned_rectangular_pulse_response,
@@ -146,6 +148,7 @@ from spin_dynamics.workflows import (
     run_ideal_cpmg_train,
     run_ideal_time_varying_amplitude_sweep,
     run_ideal_time_varying_cpmg_final,
+    run_ideal_wurst_inversion,
     run_t1_encoded_phase_encoded_cpmg_imaging,
     run_matched_cpmg,
     run_matched_cpmg_imaging,
@@ -160,6 +163,8 @@ from spin_dynamics.workflows import (
     run_matched_q_sweep,
     run_matched_time_varying_amplitude_sweep,
     run_matched_time_varying_cpmg_final,
+    run_matched_wurst_cpmg,
+    run_matched_wurst_inversion,
     run_matched_z_magnetization_q_sweep,
     run_tuned_cpmg,
     run_tuned_cpmg_imaging,
@@ -1349,6 +1354,82 @@ class OctaveFixtureTests(unittest.TestCase):
             rtol=2e-6,
             atol=1e-6,
         )
+
+    def test_create_wurst_pulse_returns_symmetric_envelope_and_chirp(self) -> None:
+        pulse = create_wurst_pulse(
+            duration_seconds=200e-6,
+            sweep_width_rad_per_s=2 * np.pi * 100e3,
+            num_steps=33,
+            order=20,
+        )
+
+        self.assertEqual(pulse.duration.shape, (33,))
+        self.assertAlmostEqual(float(np.sum(pulse.duration)), 200e-6)
+        self.assertAlmostEqual(float(pulse.amplitude[0]), 0.0)
+        self.assertAlmostEqual(float(pulse.amplitude[-1]), 0.0)
+        self.assertAlmostEqual(float(np.max(pulse.amplitude)), 1.0)
+        np.testing.assert_allclose(pulse.amplitude, pulse.amplitude[::-1])
+        self.assertLess(pulse.frequency_offset[0], 0.0)
+        self.assertGreater(pulse.frequency_offset[-1], 0.0)
+        self.assertTrue(np.all(np.diff(pulse.frequency_offset) > 0))
+        self.assertTrue(np.all(np.isfinite(pulse.phase)))
+
+    def test_matched_wurst_pulse_response_returns_finite_current(self) -> None:
+        pulse = create_wurst_pulse(
+            duration_seconds=80e-6,
+            sweep_width_rad_per_s=2 * np.pi * 50e3,
+            num_steps=16,
+        )
+        result = matched_wurst_pulse_response(pulse, numpts=17)
+
+        self.assertEqual(result.probe, "matched_wurst")
+        self.assertGreater(result.rotating_time.size, pulse.duration.size)
+        self.assertEqual(result.rotating_current.shape, result.rotating_time.shape)
+        self.assertEqual(result.receiver_tf.shape, (17,))
+        self.assertEqual(result.receiver_tf_signal.shape, (17,))
+        self.assertTrue(np.all(np.isfinite(result.rotating_current)))
+
+    def test_ideal_wurst_inversion_has_central_inversion_band(self) -> None:
+        result = run_ideal_wurst_inversion(numpts=41, maxoffs=10, num_steps=128)
+        center = result.mz[result.mz.size // 2]
+
+        self.assertEqual(result.probe, "ideal")
+        self.assertLess(center, -0.5)
+        self.assertGreater(result.mz[0], 0.5)
+        self.assertGreater(result.mz[-1], 0.5)
+        self.assertTrue(np.all(np.isfinite(result.transverse)))
+
+    def test_matched_wurst_inversion_returns_finite_maps(self) -> None:
+        result = run_matched_wurst_inversion(
+            numpts=17,
+            num_steps=16,
+            duration_seconds=80e-6,
+            sweep_width_normalized=8,
+        )
+
+        self.assertEqual(result.probe, "matched")
+        self.assertEqual(result.mz.shape, (17,))
+        self.assertGreater(result.rotating_current.size, 0)
+        self.assertEqual(result.receiver_tf_signal.shape, (17,))
+        self.assertTrue(np.all(np.isfinite(result.mz)))
+
+    def test_matched_wurst_cpmg_returns_expected_shapes(self) -> None:
+        result = run_matched_wurst_cpmg(
+            num_echoes=1,
+            numpts=17,
+            num_steps=16,
+            duration_seconds=80e-6,
+            sweep_width_normalized=8,
+            rephase_action="ignore",
+        )
+
+        self.assertEqual(result.probe, "matched_wurst")
+        self.assertEqual(result.mrx.shape, (1, 17))
+        self.assertEqual(result.echo.shape[0], 1)
+        self.assertEqual(result.echo.shape[1], result.tvect.size)
+        self.assertEqual(result.echo_integrals.shape, (1,))
+        self.assertGreater(result.rotating_current.size, 0)
+        self.assertTrue(np.all(np.isfinite(result.echo_integrals)))
 
     def test_spa_pulse_catalog_matches_matlab(self) -> None:
         pulses = spa_pulse_list()
@@ -3255,11 +3336,46 @@ class OctaveFixtureTests(unittest.TestCase):
             0.5 * waveform,
             numpts=17,
             pulse_name="rect180",
+            rephase_action="ignore",
         )
         self.assertEqual(result.field_offsets.shape, (4,))
         self.assertEqual(result.mrx.shape, (17,))
         self.assertEqual(result.echo.shape, result.tvect.shape)
         self.assertTrue(np.isfinite(result.echo_integral))
+
+    def test_time_varying_cpmg_rephasing_checks_and_refines(self) -> None:
+        waveform = np.zeros(2)
+        with self.assertRaises(RuntimeError):
+            run_ideal_time_varying_cpmg_final(
+                waveform,
+                numpts=5,
+                maxoffs=1,
+                rephase_action="raise",
+            )
+        refined = run_ideal_time_varying_cpmg_final(
+            waveform,
+            numpts=5,
+            maxoffs=1,
+            auto_refine_grid=True,
+            rephase_action="raise",
+        )
+        self.assertGreater(refined.del_w.size, 5)
+
+        with self.assertRaises(RuntimeError):
+            run_tuned_time_varying_cpmg_final(
+                waveform,
+                numpts=5,
+                maxoffs=1,
+                rephase_action="raise",
+            )
+        refined_probe = run_tuned_time_varying_cpmg_final(
+            waveform,
+            numpts=5,
+            maxoffs=1,
+            auto_refine_grid=True,
+            rephase_action="raise",
+        )
+        self.assertGreater(refined_probe.del_w.size, 5)
 
     def test_ideal_time_varying_amplitude_sweep_parallel_matches_serial(self) -> None:
         waveform = sinusoidal_field_waveform(4)
@@ -3268,12 +3384,14 @@ class OctaveFixtureTests(unittest.TestCase):
             waveform=waveform,
             numpts=17,
             num_workers=1,
+            rephase_action="ignore",
         )
         parallel = run_ideal_time_varying_amplitude_sweep(
             amplitudes=[0.0, 0.5],
             waveform=waveform,
             numpts=17,
             num_workers=2,
+            rephase_action="ignore",
         )
         np.testing.assert_allclose(parallel.amplitudes, serial.amplitudes)
         np.testing.assert_allclose(parallel.echo, serial.echo, rtol=1e-13, atol=1e-13)
@@ -3283,6 +3401,26 @@ class OctaveFixtureTests(unittest.TestCase):
             rtol=1e-13,
             atol=1e-13,
         )
+
+    def test_time_varying_amplitude_sweep_forwards_rephasing_options(self) -> None:
+        waveform = np.zeros(2)
+        with self.assertRaises(RuntimeError):
+            run_ideal_time_varying_amplitude_sweep(
+                amplitudes=[0.0],
+                waveform=waveform,
+                numpts=5,
+                maxoffs=1,
+                rephase_action="raise",
+            )
+        refined = run_ideal_time_varying_amplitude_sweep(
+            amplitudes=[0.0],
+            waveform=waveform,
+            numpts=5,
+            maxoffs=1,
+            auto_refine_grid=True,
+            rephase_action="raise",
+        )
+        self.assertGreater(refined.del_w.size, 5)
 
     def test_probe_time_varying_cpmg_final_returns_expected_shapes(self) -> None:
         waveform = sinusoidal_field_waveform(2)
@@ -3297,6 +3435,7 @@ class OctaveFixtureTests(unittest.TestCase):
                     numpts=9,
                     maxoffs=4,
                     num_workers=1,
+                    rephase_action="ignore",
                 )
                 self.assertEqual(result.probe, probe)
                 self.assertEqual(result.field_offsets.shape, (2,))
@@ -3318,6 +3457,7 @@ class OctaveFixtureTests(unittest.TestCase):
                     numpts=9,
                     maxoffs=4,
                     num_workers=1,
+                    rephase_action="ignore",
                 )
                 parallel = runner(
                     amplitudes=[0.0, 0.25],
@@ -3325,6 +3465,7 @@ class OctaveFixtureTests(unittest.TestCase):
                     numpts=9,
                     maxoffs=4,
                     num_workers=2,
+                    rephase_action="ignore",
                 )
                 np.testing.assert_allclose(parallel.amplitudes, serial.amplitudes)
                 np.testing.assert_allclose(parallel.echo, serial.echo, rtol=1e-13, atol=1e-13)
@@ -3531,12 +3672,38 @@ class OctaveFixtureTests(unittest.TestCase):
         )
 
     def test_matched_diffusion_cpmg_returns_expected_shapes(self) -> None:
-        result = run_matched_diffusion_cpmg(num_echoes=2, numpts=17, q_value=20)
+        result = run_matched_diffusion_cpmg(
+            num_echoes=2,
+            numpts=17,
+            q_value=20,
+            rephase_action="ignore",
+        )
         self.assertEqual(result.mrx.shape, (2, 17))
         self.assertEqual(result.echo.shape[0], 2)
         self.assertEqual(result.echo.shape[1], result.tvect.size)
         self.assertEqual(result.echo_integrals.shape, (2,))
         self.assertTrue(np.all(np.isfinite(result.echo_integrals)))
+
+    def test_matched_diffusion_cpmg_rephasing_checks_and_refines(self) -> None:
+        with self.assertRaises(RuntimeError):
+            run_matched_diffusion_cpmg(
+                num_echoes=1,
+                numpts=5,
+                dz=1e-4,
+                q_value=20,
+                rephase_action="raise",
+                q_stability_action="ignore",
+            )
+        refined = run_matched_diffusion_cpmg(
+            num_echoes=1,
+            numpts=5,
+            dz=1e-4,
+            q_value=20,
+            auto_refine_grid=True,
+            rephase_action="raise",
+            q_stability_action="ignore",
+        )
+        self.assertGreater(refined.del_w.size, 5)
 
     def test_matched_diffusion_q_stability_boundary(self) -> None:
         self.assertTrue(check_matched_diffusion_q_stability(VALIDATED_MATCHED_DIFFUSION_Q_MAX))
@@ -3551,12 +3718,14 @@ class OctaveFixtureTests(unittest.TestCase):
             num_echoes=2,
             numpts=17,
             sweep_workers=1,
+            rephase_action="ignore",
         )
         parallel = run_matched_diffusion_q_sweep(
             [20, 50],
             num_echoes=2,
             numpts=17,
             sweep_workers=2,
+            rephase_action="ignore",
         )
         np.testing.assert_allclose(parallel.values, serial.values)
         np.testing.assert_allclose(parallel.echo, serial.echo, rtol=1e-13, atol=1e-13)
@@ -3566,6 +3735,25 @@ class OctaveFixtureTests(unittest.TestCase):
             rtol=1e-13,
             atol=1e-13,
         )
+
+    def test_matched_diffusion_q_sweep_forwards_rephasing_options(self) -> None:
+        with self.assertRaises(RuntimeError):
+            run_matched_diffusion_q_sweep(
+                [20],
+                num_echoes=1,
+                numpts=5,
+                rephase_action="raise",
+                q_stability_action="ignore",
+            )
+        refined = run_matched_diffusion_q_sweep(
+            [20],
+            num_echoes=1,
+            numpts=5,
+            auto_refine_grid=True,
+            rephase_action="raise",
+            q_stability_action="ignore",
+        )
+        self.assertGreater(refined.del_w.size, 5)
 
     def test_ideal_cpmg_imaging_returns_expected_shapes(self) -> None:
         rho = np.eye(3)
@@ -3841,6 +4029,48 @@ class OctaveFixtureTests(unittest.TestCase):
         )
         np.testing.assert_allclose(kernel["w_1"][:4], b1_tx_map.reshape(-1))
         np.testing.assert_allclose(kernel["w_1r"][:4], b1_rx_map.reshape(-1))
+        preserve = maps.kernel_maps(
+            ny=3,
+            maxoffs=2.0,
+            density_normalization="preserve",
+        )
+        self.assertAlmostEqual(float(np.sum(preserve["m0"])), float(np.sum(rho)))
+        self.assertAlmostEqual(float(np.sum(preserve["mth"])), float(np.sum(rho)))
+        self.assertAlmostEqual(float(np.sum(kernel["m0"])), 3.0 * float(np.sum(rho)))
+        with self.assertRaises(ValueError):
+            maps.kernel_maps(ny=3, maxoffs=2.0, density_normalization="bad")
+
+    def test_imaging_vector_b1_maps_are_projected_transverse_to_b0(self) -> None:
+        rho = np.ones((2, 2), dtype=np.float64)
+        b0_vector = np.array(
+            [
+                [[0.0, 0.0, 1.0], [1.0, 0.0, 0.0]],
+                [[0.0, 1.0, 0.0], [1.0, 1.0, 0.0]],
+            ],
+            dtype=np.float64,
+        )
+        b1_tx_vector = np.array(
+            [
+                [[3.0, 4.0, 5.0], [2.0, 6.0, 0.0]],
+                [[1.0, 7.0, 2.0], [3.0, 1.0, 4.0]],
+            ],
+            dtype=np.float64,
+        )
+        b1_rx_vector = 2.0 * b1_tx_vector
+
+        maps = make_imaging_field_maps(
+            rho,
+            b0_vector_map=b0_vector,
+            b1_tx_vector_map=b1_tx_vector,
+            b1_rx_vector_map=b1_rx_vector,
+        )
+
+        expected = np.array(
+            [[5.0, 6.0], [np.sqrt(5.0), np.sqrt(18.0)]],
+            dtype=np.float64,
+        )
+        np.testing.assert_allclose(maps.b1_tx_map, expected)
+        np.testing.assert_allclose(maps.b1_rx_map, 2.0 * expected)
 
     def test_make_imaging_field_maps_rejects_invalid_maps(self) -> None:
         rho = np.ones((2, 2), dtype=np.float64)
@@ -3848,6 +4078,17 @@ class OctaveFixtureTests(unittest.TestCase):
             make_imaging_field_maps(rho, b1_tx_map=-np.ones_like(rho))
         with self.assertRaises(ValueError):
             make_imaging_field_maps(rho, b0_map=np.ones((2, 3)))
+        with self.assertRaises(ValueError):
+            make_imaging_field_maps(
+                rho,
+                b1_tx_map=np.ones_like(rho),
+                b1_tx_vector_map=np.ones((2, 2, 3), dtype=np.float64),
+            )
+        with self.assertRaises(ValueError):
+            make_imaging_field_maps(
+                rho,
+                b1_tx_vector_map=np.ones((2, 2, 3), dtype=np.float64),
+            )
 
     def test_load_imaging_field_maps_npz_round_trips_custom_maps(self) -> None:
         rho = np.array([[1.0, 0.0], [0.5, 0.25]], dtype=np.float64)
@@ -3871,6 +4112,30 @@ class OctaveFixtureTests(unittest.TestCase):
         np.testing.assert_allclose(maps.b1_tx_map, b1_tx_map)
         np.testing.assert_allclose(maps.b1_rx_map, b1_rx_map)
 
+    def test_load_imaging_field_maps_npz_projects_vector_b1_maps(self) -> None:
+        rho = np.ones((1, 2), dtype=np.float64)
+        b0_vector = np.array(
+            [[[0.0, 0.0, 1.0], [1.0, 0.0, 0.0]]],
+            dtype=np.float64,
+        )
+        b1_tx_vector = np.array(
+            [[[3.0, 4.0, 5.0], [2.0, 6.0, 0.0]]],
+            dtype=np.float64,
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "field_maps.npz"
+            np.savez(
+                path,
+                rho=rho,
+                b0_vector_map=b0_vector,
+                b1_tx_vector_map=b1_tx_vector,
+            )
+            maps = load_imaging_field_maps_npz(path)
+
+        np.testing.assert_allclose(maps.b1_tx_map, [[5.0, 6.0]])
+        np.testing.assert_allclose(maps.b1_rx_map, [[5.0, 6.0]])
+
     def test_ideal_cpmg_imaging_accepts_custom_field_maps(self) -> None:
         rho = np.array([[1.0, 0.0], [0.5, 0.25]], dtype=np.float64)
         b0_map = np.array([[0.0, 0.1], [-0.1, 0.2]], dtype=np.float64)
@@ -3891,6 +4156,26 @@ class OctaveFixtureTests(unittest.TestCase):
         np.testing.assert_allclose(result.b1_tx_map, b1_tx_map)
         np.testing.assert_allclose(result.b1_rx_map, b1_tx_map)
         self.assertTrue(np.all(np.isfinite(result.kspace)))
+
+    def test_ideal_cpmg_imaging_can_preserve_density_across_aux_offsets(self) -> None:
+        rho = np.array([[1.0, 0.5], [0.25, 0.75]], dtype=np.float64)
+        legacy = run_ideal_cpmg_imaging(
+            rho,
+            num_echoes=1,
+            ny=3,
+            num_workers=1,
+            phase_workers=1,
+        )
+        preserve = run_ideal_cpmg_imaging(
+            rho,
+            num_echoes=1,
+            ny=3,
+            num_workers=1,
+            phase_workers=1,
+            density_normalization="preserve",
+        )
+
+        np.testing.assert_allclose(preserve.kspace, legacy.kspace / 3.0)
 
     def test_t1_encoded_cpmg_imaging_adds_synthetic_t1_contrast(self) -> None:
         short_t1 = make_imaging_field_maps(

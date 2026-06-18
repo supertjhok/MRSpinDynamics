@@ -31,6 +31,10 @@ repository-level `docs` folder, especially:
 See `docs/migration_plan.md` and `docs/matlab_mapping.md` for the current
 conversion status and remaining roadmap.
 
+The main Version 2 workflow port is now mostly complete. Remaining work is
+primarily broader validation, specialized helper variants, packaging/API
+reference polish, and acceleration backends.
+
 The Python API documentation starts at `docs/python_api/index.md`.
 
 Application code should prefer the public CPMG workflow runners:
@@ -74,6 +78,9 @@ echo, echo-summed, fitted-rho, or fitted-T2 images from the returned echo
 stack. `run_t1_encoded_phase_encoded_cpmg_imaging` adds an ideal
 inversion-recovery preparation before the phase-encoded CPMG train for T1
 contrast experiments.
+WURST workflows are available as `run_ideal_wurst_inversion`,
+`run_matched_wurst_inversion`, and `run_matched_wurst_cpmg`, with pulse
+construction and matched transmit-response helpers in `spin_dynamics.pulses`.
 The `spin_dynamics.analysis` package provides SciPy-backed inverse Laplace
 post-processing helpers for T1, T2, T1-T2, and D-T2 kernels with adjustable
 Tikhonov regularization and SNR-informed automatic strength selection.
@@ -96,7 +103,9 @@ across CPU cores with `num_workers`.
 | Matched diffusion CPMG | Compact validation and smoke-tested | Solver-validated through Q=2000 for compact cases; higher-Q diffusion cases remain a stiffness target. |
 | Ideal, tuned, and matched CPMG imaging | Fixture validated | MATLAB-generated k-space fixtures, arbitrary B0/B1 map helpers, and visual plotting examples. |
 | Inverse Laplace analysis | Unit tested and example-backed | 1D T1/T2 and separable 2D T1-T2/D-T2 kernels with manual or SNR-selected regularization; non-negative solves use optional SciPy. |
+| Moving isochromat physics | Unit tested and example-backed | Field-map sampling, deterministic advection, seeded Brownian diffusion, receive summation, and rectangular CPMG motion sequence driver. |
 | Pulse-shape helpers | Fixture validated | JMR rectangular pulse responses, phase quantization, and untuned segment adjustment. |
+| WURST inversion/CPMG | Unit tested and example-backed | WURST envelope/chirp construction, matched-probe transmit response, ideal/matched inversion, and matched WURST-CPMG finite-output checks. |
 | OCT/SPA pulse evaluation and optimization | Partly ported and validated | Fixed SPA catalog, SNR/FOM summaries, tuned/untuned/matched refocusing evaluators, ideal v0crit/excited-v0crit/time-varying objectives, bounded phase optimizers, multi-start drivers, and MATLAB-style result load/export/inspection helpers are available. Broad `fmincon` parity remains deferred. |
 
 See `docs/validation_results.md` for fixture details, run logs, and tolerance
@@ -322,6 +331,12 @@ Plot finite echo trains, diffusion sweeps, and time-varying-field sweeps:
 python examples\plot_finite_train_workflows.py --numpts 17 --num-echoes 4 --output results\finite_trains.png
 python examples\plot_diffusion_sweep.py --numpts 17 --num-echoes 3 --output results\diffusion_sweep.png
 python examples\plot_time_varying_sweep.py --numpts 51 --num-echoes 12 --output results\time_varying_sweep.png
+```
+
+Plot WURST inversion and matched WURST-CPMG behavior:
+
+```powershell
+python examples\plot_wurst_flow.py --numpts 41 --num-steps 64 --output results\wurst_flow.png
 ```
 
 ## Pulse Evaluation

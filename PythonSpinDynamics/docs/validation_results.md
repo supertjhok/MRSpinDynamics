@@ -73,12 +73,15 @@ skips matched-probe files when `fmincon` is unavailable.
 | `spin_dynamics.workflows.run_ideal_phase_encoded_cpmg_imaging` | `Imaging_demo/imaging_example_ideal.m`, `Sim_CPMG/sim_cpmg_ideal_probe_img.m` | `run_ideal_cpmg_imaging_kspace.csv`, workflow shape, arbitrary field-map helper, image-formation helper, and phase-parallel equality tests | Passed |
 | `spin_dynamics.workflows.run_t1_encoded_phase_encoded_cpmg_imaging` | Python extension of ideal phase-encoded CPMG imaging with inversion-recovery preparation | synthetic zero-offset T1 contrast, multi-pixel T1-prepared image stack, and image-formation mode tests | Passed |
 | `spin_dynamics.analysis` inverse Laplace helpers | Python analysis extension beyond MATLAB parity workflows | named kernel checks, unconstrained NumPy solve, SciPy-backed 1D T1/T2 peak recovery, compact 2D T1-T2/D-T2 peak recovery, and SNR-based regularization selection tests | Passed |
-| `spin_dynamics.motion` moving-isochromat helpers | Python extension for Lagrangian advection/diffusion physics | field-map interpolation, density-to-walker initialization, seeded diffusion, boundary handling, RF rotation, free precession, and receive-signal tests | Passed |
+| `spin_dynamics.motion` moving-isochromat helpers and sequence drivers | Python extension for Lagrangian advection/diffusion physics | field-map interpolation, density-to-walker initialization, seeded diffusion, boundary handling, RF rotation, free precession, receive-signal tests, explicit sequence samples, and rectangular CPMG motion tests | Passed |
 | `spin_dynamics.workflows.run_tuned_phase_encoded_cpmg_imaging` | `Sim_CPMG/sim_cpmg_tuned_probe_img.m` | `run_tuned_cpmg_imaging_kspace.csv`, workflow shape, phase-parallel equality, raw receive-mode parity, and tuned receive-weighted mode tests | Passed |
 | `spin_dynamics.workflows.run_matched_phase_encoded_cpmg_imaging` | `Sim_CPMG/sim_cpmg_matched_probe_img.m` | `run_matched_cpmg_imaging_kspace.csv` and workflow shape tests | Passed |
 | `spin_dynamics.pulses.tuned_rectangular_pulse_response` | `Pulse Shape/tunedPulse.m` | `pulse_tuned_rectangular.csv` | Passed |
 | `spin_dynamics.pulses.untuned_rectangular_pulse_response` | `Pulse Shape/untunedPulse.m` | `pulse_untuned_rectangular.csv` | Passed |
 | `spin_dynamics.pulses.matched_rectangular_pulse_response` | `Pulse Shape/matchedPulse.m` | `pulse_matched_rectangular.csv` | Passed |
+| `spin_dynamics.pulses.create_wurst_pulse` | `Wurst_Inversion/create_WURST.m`, corrected to a standard symmetric WURST envelope | direct envelope/chirp/phase finite-output tests | Passed |
+| `spin_dynamics.pulses.matched_wurst_pulse_response` | `circuit_simulation/matched_probe/find_coil_current_WURST.m` | matched-probe frequency-swept current and receiver-transfer finite-output tests | Passed |
+| `spin_dynamics.workflows.run_*_wurst_*` | `Wurst_Inversion/sim_inv_matched_probe_WURST*.m`, `calc_masy/calc_masy_matched_probe_WURST.m` | ideal inversion contrast, matched inversion finite-output, and matched WURST-CPMG workflow shape tests | Passed |
 | `spin_dynamics.pulses.quantize_phase` | `opt_pulse/quantize_phase.m` | `pulse_quantize_phase.csv` | Passed |
 | `spin_dynamics.pulses.adjust_untuned_segment_lengths` | `opt_pulse/untuned_pulse_adjust.m` | `pulse_untuned_segment_adjust*.csv` | Passed |
 | `spin_dynamics.optimization.spa_pulse_list` | `OCT_Pulse_Examples/SPA_pulse_list.m` | direct catalog check | Passed |
@@ -168,8 +171,13 @@ The public CPMG runners are also tested for result-container shape and metadata:
 - `run_tuned_time_varying_amplitude_sweep`
 - `run_untuned_time_varying_amplitude_sweep`
 - `run_matched_time_varying_amplitude_sweep`
+- `run_ideal_wurst_inversion`
+- `run_matched_wurst_inversion`
+- `run_matched_wurst_cpmg`
 
-The finite ideal train is also tested for `auto_refine_grid=True`.
+The finite ideal train, time-varying final-echo workflows, time-varying
+amplitude sweeps, matched-diffusion CPMG workflow, and matched-diffusion Q
+sweep are also tested for rephasing checks and `auto_refine_grid=True`.
 
 ## Run Log
 
@@ -597,6 +605,59 @@ and diffusion-driven CPMG echo attenuation in a static gradient.
 Ran focused motion/example tests and full unittest discovery under the external
 Conda/SciPy runtime.
 Result: OK (motion/examples: 10 passed; Conda full: 167 passed, 2 skipped)
+```
+
+2026-06-18:
+
+```text
+Added `spin_dynamics.sequences.motion`, a sequence-level driver for moving
+isochromats. Sequence steps support duration, rectangular RF amplitude/phase,
+static gradients, acquisition sampling, and per-step substeps. The driver moves
+particles through B0/B1 maps, samples fields along the trajectories, applies RF
+or free-precession updates, and records receive samples. Added a
+rectangular-pulse CPMG convenience runner and updated the diffusion/CPMG
+plotting example to use it directly.
+Ran focused motion-sequence tests, example smoke checks, compile checks, and
+full unittest discovery under the external Conda/SciPy runtime.
+Result: OK (motion sequence: 4 passed; focused motion/examples: 14 passed;
+Conda full: 171 passed, 2 skipped)
+```
+
+2026-06-18:
+
+```text
+Added physics checks for field-map conversion. Scalar B1 maps remain
+interpreted as already-transverse relative sensitivities for MATLAB parity.
+Vector B0/B1 maps can now be supplied to motion and imaging map constructors;
+the resulting scalar B1 map is the magnitude of the component perpendicular to
+local B0. Imaging kernel-map conversion also exposes
+`density_normalization="preserve"` so auxiliary offset samples share voxel spin
+density instead of duplicating it.
+Ran focused motion/imaging map tests under the external Conda/SciPy runtime.
+Result: OK (focused map checks: 13 passed; Conda full: 175 passed, 2 skipped)
+```
+
+2026-06-18:
+
+```text
+Added rephasing checks and optional auto-refinement to the remaining fixed-grid
+time-varying final-echo and matched-diffusion workflows, including their sweep
+wrappers.
+Ran focused rephasing workflow tests, compile checks, and full unittest
+discovery under the external Conda/SciPy runtime.
+Result: OK (focused rephasing workflow checks: 10 passed; Conda full: 179
+passed, 2 skipped)
+```
+
+2026-06-18:
+
+```text
+Added WURST pulse construction, matched-probe frequency-swept transmit
+response, ideal WURST inversion, matched WURST inversion, matched WURST-CPMG
+workflow, and a plotting example.
+Ran focused WURST workflow/example tests, compile checks, plot smoke output,
+and full unittest discovery under the external Conda/SciPy runtime.
+Result: OK (focused WURST checks: 6 passed; Conda full: 184 passed, 2 skipped)
 ```
 
 Matched-probe fixtures are generated by MATLAB. Octave skips them when

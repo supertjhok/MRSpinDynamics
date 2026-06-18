@@ -89,6 +89,13 @@ from spin_dynamics.workflows.time_varying import (
     run_untuned_time_varying_cpmg_final,
     sinusoidal_field_waveform,
 )
+from spin_dynamics.workflows.wurst import (
+    MatchedWURSTCPMGResult,
+    WURSTInversionResult,
+    run_ideal_wurst_inversion,
+    run_matched_wurst_cpmg,
+    run_matched_wurst_inversion,
+)
 
 __all__ = [
     "CPMGResult",
@@ -110,7 +117,9 @@ __all__ = [
     "MatchedCPMGIRTrainResult",
     "MatchedDiffusionCPMGResult",
     "MatchedDiffusionQSweepResult",
+    "MatchedWURSTCPMGResult",
     "VALIDATED_MATCHED_DIFFUSION_Q_MAX",
+    "WURSTInversionResult",
     "ZMagnetizationSweepResult",
     "calc_macq_ideal_probe_relax4",
     "calc_macq_matched_probe_relax_diffusion",
@@ -129,6 +138,7 @@ __all__ = [
     "run_ideal_cpmg_train",
     "run_ideal_time_varying_amplitude_sweep",
     "run_ideal_time_varying_cpmg_final",
+    "run_ideal_wurst_inversion",
     "run_t1_encoded_cpmg_imaging",
     "run_t1_encoded_phase_encoded_cpmg_imaging",
     "run_matched_cpmg",
@@ -144,6 +154,8 @@ __all__ = [
     "run_matched_q_sweep",
     "run_matched_time_varying_amplitude_sweep",
     "run_matched_time_varying_cpmg_final",
+    "run_matched_wurst_cpmg",
+    "run_matched_wurst_inversion",
     "run_matched_z_magnetization_q_sweep",
     "run_tuned_cpmg",
     "run_tuned_cpmg_imaging",
