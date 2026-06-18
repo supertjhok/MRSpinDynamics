@@ -3,6 +3,7 @@
 __all__ = [
     "analysis",
     "core",
+    "motion",
     "noise",
     "parameters",
     "pulses",

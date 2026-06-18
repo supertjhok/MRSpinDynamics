@@ -86,6 +86,8 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_diffusion_sweep.py",
             "examples/plot_time_varying_sweep.py",
             "examples/plot_inverse_laplace.py",
+            "examples/plot_motion_linear.py",
+            "examples/plot_motion_diffusion_cpmg.py",
         ]
         for script in scripts:
             with self.subTest(script=script):
@@ -113,6 +115,10 @@ class ExampleSmokeTests(unittest.TestCase):
         self.assertIn("--snr-levels", result.stdout)
         self.assertIn("--regularization", result.stdout)
         self.assertIn("--auto-regularization", result.stdout)
+        result = run_example("examples/plot_motion_linear.py", "--help")
+        self.assertIn("--velocity", result.stdout)
+        result = run_example("examples/plot_motion_diffusion_cpmg.py", "--help")
+        self.assertIn("--diffusion", result.stdout)
 
 
 if __name__ == "__main__":

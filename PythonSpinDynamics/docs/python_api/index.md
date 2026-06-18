@@ -42,6 +42,8 @@ The validated Python API currently covers:
 - ideal FID acquisition and time-domain trace construction;
 - 1D and separable 2D inverse Laplace analysis helpers for T1, T2, T1-T2, and
   D-T2 kernels with manual or SNR-selected Tikhonov regularization;
+- opt-in moving-isochromat motion helpers for B0/B1 field-map sampling,
+  deterministic advection, seeded diffusion, and receive summation;
 - ideal-probe finite acquisition with relaxation through
   `calc_macq_ideal_probe_relax4`;
 - SPA refocusing pulse catalog, normalized SNR/FOM metric bookkeeping,
