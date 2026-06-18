@@ -6,25 +6,25 @@
 %   plots signal maps, and exports figures for manuscript-style output.
 %
 % Inputs
-%   This script takes no function arguments. Qvec and export paths are defined
-%   directly in the script.
+%   This script takes no function arguments. Qvec and local export paths are
+%   defined directly in the script.
 %
 % Outputs
-%   Creates figures for abs(mrx), abs(echo_rx), and SNR. Exports figures using
-%   export_fig. Leaves Qvec, SNR, echo_rx, tvect, mrx, sp, and pp in the
-%   workspace.
+%   Creates figures for abs(mrx), abs(echo_rx), and SNR. Exports figures when
+%   export_fig is installed. Leaves Qvec, SNR, echo_rx, tvect, mrx, sp, and pp
+%   in the workspace.
 %
 % Key functions
-%   set_params_matched, calc_masy_matched_probe, export_fig.
+%   set_params_matched, calc_masy_matched_probe, safe_export_fig.
 %
 % Notes
-%   The hard-coded export paths may need editing before running on another
-%   machine.
+%   Figures export to ./results when export_fig is available.
 %
 % Written by: Soumyajit Mandal, 03/28/19
 % -------------------------------------------------------------------------
 
 [sp, pp] = set_params_matched; % Define system parameters
+export_dir = fullfile(pwd, 'results');
 
 Qvec = linspace(10,100,100); % Vary coil Q
 
@@ -53,7 +53,7 @@ title('M_{rx} (magnitude)');
 whiteBg
 font
 setSize
-export_fig('F:\Dropbox\Apps\Overleaf\Portable and Autonomous Magnetic Resonance\Figures\SpecQMatched.pdf')
+safe_export_fig(fullfile(export_dir, 'SpecQMatched.pdf'));
 
 %-----------------------
 figure;
@@ -68,7 +68,7 @@ title('Echo (magnitude)');
 whiteBg
 font
 setSize
-export_fig('F:\Dropbox\Apps\Overleaf\Portable and Autonomous Magnetic Resonance\Figures\EchoQMatched.pdf')
+safe_export_fig(fullfile(export_dir, 'EchoQMatched.pdf'));
 
 %-----------------------
 figure;
@@ -79,5 +79,4 @@ set(gca,'FontSize',14);
 whiteBg
 font
 setSize
-% export_fig D:\Dropbox\TuneMatchJMR\Figures\Updated\TunedQ\SNRtuned.pdf
-export_fig('F:\Dropbox\Apps\Overleaf\Portable and Autonomous Magnetic Resonance\Figures\SNRQMatched.pdf')
+safe_export_fig(fullfile(export_dir, 'SNRQMatched.pdf'));

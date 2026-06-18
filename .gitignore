@@ -11,3 +11,14 @@ PythonSpinDynamics/src/*.egg-info/
 PythonSpinDynamics/**/__pycache__/
 PythonSpinDynamics/**/*.py[cod]
 PythonSpinDynamics/**/*.npz
+PythonSpinDynamics/docs/*.aux
+PythonSpinDynamics/docs/*.log
+PythonSpinDynamics/docs/*.out
+PythonSpinDynamics/docs/*.toc
+MATLABSpinDynamics/.tmp/
+MATLABSpinDynamics/docs/*.aux
+MATLABSpinDynamics/docs/*.log
+MATLABSpinDynamics/docs/*.out
+MATLABSpinDynamics/docs/*.toc
+MATLABSpinDynamics/**/*.asv
+MATLABSpinDynamics/**/*~

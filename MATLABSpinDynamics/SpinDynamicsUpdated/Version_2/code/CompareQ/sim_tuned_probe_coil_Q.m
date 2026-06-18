@@ -6,25 +6,25 @@
 %   plots signal maps, and exports figures for manuscript-style output.
 %
 % Inputs
-%   This script takes no function arguments. Qvec and export paths are defined
-%   directly in the script.
+%   This script takes no function arguments. Qvec and local export paths are
+%   defined directly in the script.
 %
 % Outputs
-%   Creates figures for abs(mrx), abs(echo_rx), and SNR. Exports figures using
-%   export_fig. Leaves Qvec, SNR, echo_rx, tvect, mrx, sp, and pp in the
-%   workspace.
+%   Creates figures for abs(mrx), abs(echo_rx), and SNR. Exports figures when
+%   export_fig is installed. Leaves Qvec, SNR, echo_rx, tvect, mrx, sp, and pp
+%   in the workspace.
 %
 % Key functions
-%   set_params_tuned_JMR, calc_masy_tuned_probe_Qsweep, export_fig.
+%   set_params_tuned_JMR, calc_masy_tuned_probe_Qsweep, safe_export_fig.
 %
 % Notes
-%   The hard-coded export paths may need editing before running on another
-%   machine.
+%   Figures export to ./results when export_fig is available.
 %
 % Written by: Soumyajit Mandal, 03/28/19
 % -------------------------------------------------------------------------
 close all
 [sp, pp] = set_params_tuned_JMR; % Define system parameters
+export_dir = fullfile(pwd, 'results');
 
 Qvec = linspace(1,100,100); % Vary coil Q
 
@@ -54,8 +54,7 @@ xlabel('\Delta\omega_{0}');
 whiteBg
 font
 setSize
-export_fig('F:\Dropbox\Apps\Overleaf\Portable and Autonomous Magnetic Resonance\Figures\SpecQTuned.pdf')
-% export_fig D:\Dropbox\TuneMatchJMR\Figures\Updated\TunedQ\absMRXTuned.pdf
+safe_export_fig(fullfile(export_dir, 'SpecQTuned.pdf'));
 
 %-----------------------
 figure;
@@ -69,8 +68,7 @@ title('Echo (magnitude)');
 whiteBg
 font
 setSize
-export_fig('F:\Dropbox\Apps\Overleaf\Portable and Autonomous Magnetic Resonance\Figures\EchoQTuned.pdf')
-% export_fig D:\Dropbox\TuneMatchJMR\Figures\Updated\TunedQ\absEchoTuned.pdf
+safe_export_fig(fullfile(export_dir, 'EchoQTuned.pdf'));
 
 
 %-----------------------
@@ -82,5 +80,4 @@ ylabel('SNR of asymptotic echo');
 whiteBg
 font
 setSize
-% export_fig D:\Dropbox\TuneMatchJMR\Figures\Updated\TunedQ\SNRtuned.pdf
-export_fig('F:\Dropbox\Apps\Overleaf\Portable and Autonomous Magnetic Resonance\Figures\SNRQTuned.pdf')
+safe_export_fig(fullfile(export_dir, 'SNRQTuned.pdf'));
