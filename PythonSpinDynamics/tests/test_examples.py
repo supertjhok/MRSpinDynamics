@@ -88,6 +88,7 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_inverse_laplace.py",
             "examples/plot_motion_linear.py",
             "examples/plot_motion_diffusion_cpmg.py",
+            "examples/plot_wurst_flow.py",
         ]
         for script in scripts:
             with self.subTest(script=script):
@@ -119,6 +120,8 @@ class ExampleSmokeTests(unittest.TestCase):
         self.assertIn("--velocity", result.stdout)
         result = run_example("examples/plot_motion_diffusion_cpmg.py", "--help")
         self.assertIn("--diffusion", result.stdout)
+        result = run_example("examples/plot_wurst_flow.py", "--help")
+        self.assertIn("--sweep-width", result.stdout)
 
 
 if __name__ == "__main__":

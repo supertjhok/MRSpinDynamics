@@ -79,6 +79,12 @@ from spin_dynamics.motion import (
     initialize_ensemble_from_density,
     make_motion_field_maps_2d,
     receive_signal,
+    transverse_b1_magnitude,
+)
+from spin_dynamics.sequences.motion import (
+    MotionSequenceStep,
+    run_motion_cpmg_sequence,
+    run_motion_sequence,
 )
 ```
 
@@ -90,6 +96,19 @@ fields update positions through advection, diffusion adds seeded Brownian
 steps, and field maps are sampled at the particles' current positions before
 magnetization updates. Long sequence intervals should be split into smaller
 steps when fields or velocities vary strongly in space.
+
+Scalar B1 maps are treated as already perpendicular to local B0. When field
+exports contain vector maps, pass `b0_vector_map` and `b1_*_vector_map` to
+`make_motion_field_maps_2d`, or call `transverse_b1_magnitude` directly, to
+compute the local transverse B1 sensitivity.
+
+`spin_dynamics.sequences.motion` adds the first sequence-level driver on top of
+those primitives. A `MotionSequenceStep` can combine duration, rectangular RF
+amplitude/phase, gradient, acquisition sampling, and substep count. The driver
+moves particles through B0/B1 maps, samples the local fields, updates
+magnetization, and records receive samples at requested acquisition times.
+`run_motion_cpmg_sequence` builds and runs a rectangular-pulse CPMG train with
+one receive sample per echo.
 
 ## Tuned Probe
 
@@ -141,7 +160,9 @@ SciPy.
 ```python
 from spin_dynamics.pulses import (
     adjust_untuned_segment_lengths,
+    create_wurst_pulse,
     matched_rectangular_pulse_response,
+    matched_wurst_pulse_response,
     quantize_phase,
     tuned_rectangular_pulse_response,
     untuned_rectangular_pulse_response,
@@ -150,4 +171,7 @@ from spin_dynamics.pulses import (
 
 These helpers mirror the non-plotting array outputs from `Pulse Shape/*.m` and
 the timing core of `opt_pulse/untuned_pulse_adjust.m`. They are intended as the
-validated pulse layer for later WURST, OCT, and SPA work.
+validated pulse layer for WURST, OCT, and SPA work. `create_wurst_pulse`
+returns the WURST amplitude envelope, angular frequency sweep, and integrated
+rotating-frame phase. `matched_wurst_pulse_response` applies the matched-probe
+transmit model to that frequency-swept RF block.

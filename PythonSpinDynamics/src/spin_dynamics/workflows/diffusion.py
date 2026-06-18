@@ -10,6 +10,7 @@ import warnings
 
 import numpy as np
 
+from spin_dynamics.core.isochromats import check_rephasing
 from spin_dynamics.core.kernels import (
     sim_spin_dynamics_arb10_diffusion,
     sim_spin_dynamics_arb10_diffusion_chunked,
@@ -19,7 +20,11 @@ from spin_dynamics.core.rotations import calc_rotation_matrix
 from spin_dynamics.parameters import set_params_matched_orig
 from spin_dynamics.probes.matched import matching_network_design2
 from spin_dynamics.workflows.acquisition import _apply_receiver, _as_vector, _field
-from spin_dynamics.workflows.cpmg import _calc_matched_pulse_shape, _echo_train_from_spectra
+from spin_dynamics.workflows.cpmg import (
+    _calc_matched_pulse_shape,
+    _echo_train_from_spectra,
+    _maybe_refine_numpts,
+)
 
 
 VALIDATED_MATCHED_DIFFUSION_Q_MAX = 2000.0
@@ -150,6 +155,9 @@ def run_matched_diffusion_cpmg(
     apply_receiver: bool = False,
     num_workers: int | None = 1,
     q_stability_action: str = "warn",
+    auto_refine_grid: bool = False,
+    rephase_safety_factor: float = 1.25,
+    rephase_action: str = "warn",
 ) -> MatchedDiffusionCPMGResult:
     """Run a compact matched-probe diffusion-aware CPMG train.
 
@@ -182,7 +190,34 @@ def run_matched_diffusion_cpmg(
     gradient = float(sp0.grad)
     w1 = np.pi / (2 * t90_seconds)
     maxoffs = sp0.gamma * gradient * dz / w1
+    t_180 = 2 * t90_seconds
+    encoding_gap = (np.pi / 2) * (
+        diffusion_time - 0.5 * t90_seconds - 0.5 * t_180
+    ) / t90_seconds
+    if encoding_gap < 0:
+        raise ValueError("diffusion_time is too short for the encoding pulse block")
+    tfp = (np.pi / 2) * (echo_spacing_seconds - t_180) / (2 * t90_seconds)
+    max_time = float(
+        np.pi / 2
+        + 2 * encoding_gap
+        + np.pi
+        + int(num_echoes) * (tfp + np.pi + tfp)
+    )
+    numpts = _maybe_refine_numpts(
+        numpts,
+        maxoffs,
+        max_time,
+        rephase_safety_factor,
+        auto_refine_grid,
+    )
     del_w = np.linspace(-maxoffs, maxoffs, int(numpts))
+    if rephase_action != "ignore":
+        check_rephasing(
+            del_w,
+            max_time=max_time,
+            safety_factor=rephase_safety_factor,
+            action=rephase_action,
+        )
     c1, c2 = matching_network_design2(sp0.L, q_value, sp0.f0, sp0.Rs)
     sp = {
         **sp0.__dict__,
@@ -243,23 +278,15 @@ def run_matched_diffusion_cpmg(
     acq_exc = np.array([0, 0], dtype=np.int64)
     grad_exc = np.array([0.0, 0.0], dtype=np.float64)
 
-    t_180 = 2 * t90_seconds
     tenc = np.array(
-        [
-            (np.pi / 2) * (diffusion_time - 0.5 * t90_seconds - 0.5 * t_180) / t90_seconds,
-            np.pi,
-            (np.pi / 2) * (diffusion_time - 0.5 * t90_seconds - 0.5 * t_180) / t90_seconds,
-        ],
+        [encoding_gap, np.pi, encoding_gap],
         dtype=np.float64,
     )
-    if np.any(tenc[[0, 2]] < 0):
-        raise ValueError("diffusion_time is too short for the encoding pulse block")
     penc = np.array([0, 3, 0], dtype=np.int64)
     aenc = np.array([0.0, 1.0, 0.0], dtype=np.float64)
     acq_enc = np.array([0, 0, 0], dtype=np.int64)
     grad_enc = np.array([0.0, 0.0, 0.0], dtype=np.float64)
 
-    tfp = (np.pi / 2) * (echo_spacing_seconds - t_180) / (2 * t90_seconds)
     tref = np.tile(np.array([tfp, np.pi, tfp], dtype=np.float64), int(num_echoes))
     pref = np.tile(np.array([0, 3, 0], dtype=np.int64), int(num_echoes))
     aref = np.tile(np.array([0.0, 1.0, 0.0], dtype=np.float64), int(num_echoes))
@@ -319,6 +346,9 @@ def run_matched_diffusion_q_sweep(
     num_workers: int | None = 1,
     sweep_workers: int | None = 1,
     q_stability_action: str = "warn",
+    auto_refine_grid: bool = False,
+    rephase_safety_factor: float = 1.25,
+    rephase_action: str = "warn",
 ) -> MatchedDiffusionQSweepResult:
     """Sweep matched-probe Q for the compact diffusion CPMG workflow."""
 
@@ -336,6 +366,9 @@ def run_matched_diffusion_q_sweep(
             apply_receiver=False,
             num_workers=num_workers,
             q_stability_action=q_stability_action,
+            auto_refine_grid=auto_refine_grid,
+            rephase_safety_factor=rephase_safety_factor,
+            rephase_action=rephase_action,
         )
 
     workers = 1 if sweep_workers is None else int(sweep_workers)
