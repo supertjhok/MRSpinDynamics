@@ -70,6 +70,27 @@ These helpers estimate angular-grid rephasing at approximately
 `2*pi / spacing`. Finite CPMG train workflows use them to warn, raise, or refine
 the offset grid before long simulations.
 
+## Moving Isochromats
+
+```python
+from spin_dynamics.motion import (
+    advect_diffuse_positions,
+    free_precession_with_motion_step,
+    initialize_ensemble_from_density,
+    make_motion_field_maps_2d,
+    receive_signal,
+)
+```
+
+`spin_dynamics.motion` is an opt-in Lagrangian layer for advection and
+diffusion physics. It keeps the validated fixed-isochromat kernels unchanged,
+but adds reusable building blocks for particle/walker simulations where spins
+move through B0, transmit-B1, and receive-B1 maps. Deterministic velocity
+fields update positions through advection, diffusion adds seeded Brownian
+steps, and field maps are sampled at the particles' current positions before
+magnetization updates. Long sequence intervals should be split into smaller
+steps when fields or velocities vary strongly in space.
+
 ## Tuned Probe
 
 ```python

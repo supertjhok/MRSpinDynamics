@@ -13,7 +13,7 @@
 - The same script can be run from MATLAB or Octave.
 - MATLAB-generated fixtures are used for matched-probe cases that require
   optimization toolbox behavior not available in a stock Octave install.
-- The current Python test suite contains 161 checks against fixtures, public
+- The current Python test suite contains 167 checks against fixtures, public
   workflow result shapes, compatibility helpers, optional SciPy-backed result
   loaders, imaging modes, and example smoke paths.
 
@@ -266,7 +266,24 @@ their inputs and outputs are small, array-based, and close to NumPy's strengths.
   selection and real workflow handoffs from CPMG-IR, imaging echo stacks, and
   diffusion acquisitions.
 
-## Later Phase 11: Acceleration
+## Started Phase 11: Lagrangian Motion Physics
+
+- `spin_dynamics.motion` introduces a new opt-in moving-isochromat layer for
+  advection and diffusion physics. It does not replace the validated fixed-grid
+  `arb10` kernels.
+- The first layer includes two-dimensional B0/B1 field-map interpolation,
+  particle/walker initialization from spin-density maps, deterministic
+  advection, seeded Brownian diffusion, simple boundary handling, RF rotation
+  with local B1 scaling, free precession through sampled B0, and receive-signal
+  summation through local receive sensitivity.
+- This lays the groundwork for physically correct diffusion/advection imaging:
+  spins should move through the B0/B1 maps and sample fields at their current
+  positions, instead of using fixed per-voxel `del_w` and B1 arrays.
+- Follow-on work should add sequence-level motion drivers that substep RF,
+  gradient, and acquisition intervals, then connect those drivers to CPMG,
+  imaging, and diffusion workflows.
+
+## Later Phase 12: Acceleration
 
 - Start with NumPy/SciPy.
 - Add Numba, Cython, compiled C/C++, or GPU backends only behind the same public

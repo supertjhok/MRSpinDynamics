@@ -266,3 +266,20 @@ CPMG amplitude sweep, including the B0 waveform and final echoes.
 ```powershell
 python examples\plot_time_varying_sweep.py --numpts 51 --num-echoes 12 --output results\time_varying_sweep.png
 ```
+
+## Plot Moving Isochromats
+
+These examples require Matplotlib and exercise the `spin_dynamics.motion`
+helpers. The first moves a transverse spin packet linearly through static B0
+and inside-out-style receive-B1 maps.
+
+```powershell
+python examples\plot_motion_linear.py --output results\motion_linear.png
+```
+
+The second runs a simple idealized CPMG loop while Brownian walkers diffuse in
+a static gradient.
+
+```powershell
+python examples\plot_motion_diffusion_cpmg.py --output results\motion_diffusion_cpmg.png
+```
