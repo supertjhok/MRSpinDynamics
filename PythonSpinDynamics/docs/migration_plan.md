@@ -13,7 +13,7 @@
 - The same script can be run from MATLAB or Octave.
 - MATLAB-generated fixtures are used for matched-probe cases that require
   optimization toolbox behavior not available in a stock Octave install.
-- The current Python test suite contains 152 checks against fixtures, public
+- The current Python test suite contains 161 checks against fixtures, public
   workflow result shapes, compatibility helpers, optional SciPy-backed result
   loaders, imaging modes, and example smoke paths.
 
@@ -242,7 +242,31 @@ their inputs and outputs are small, array-based, and close to NumPy's strengths.
   example. Follow-on validation should add broader repeated-trial checks over
   fitted rho/T2 variance.
 
-## Later Phase 10: Acceleration
+## Started Phase 10: Analysis and Inverse Laplace Processing
+
+- `spin_dynamics.analysis` adds post-processing helpers rather than changing
+  simulator parity paths. The first analysis surface covers 1D T1/T2 and
+  separable 2D T1-T2/D-T2 inverse Laplace transforms.
+- Kernels are explicit and reusable: T2 decay, T1 saturation recovery, T1
+  inversion recovery, and diffusion attenuation. Generic 1D and 2D solvers can
+  also accept precomputed kernel matrices.
+- Tikhonov regularization is adjustable by strength and penalty order, with
+  per-axis strengths for 2D distributions. SNR-informed selector helpers scan
+  candidate strengths and apply a discrepancy-principle rule against the
+  expected noise residual. Non-negative solves use SciPy's `nnls`;
+  unconstrained least-squares remains NumPy-only for minimal installations.
+- `examples/plot_inverse_laplace.py` generates synthetic T1, T2, T1-T2, and
+  D-T2 data, adds Gaussian noise at configurable SNR levels, and plots the
+  recovered distributions with either manual or automatically selected
+  regularization.
+- Current validation covers kernel values, unconstrained NumPy solves, compact
+  SciPy-backed non-negative 1D peak recovery, compact 2D T1-T2 and D-T2 peak
+  recovery, SNR-based regularization selection, and CLI exposure for the
+  plotting example. Follow-on work should add L-curve/GCV regularization
+  selection and real workflow handoffs from CPMG-IR, imaging echo stacks, and
+  diffusion acquisitions.
+
+## Later Phase 11: Acceleration
 
 - Start with NumPy/SciPy.
 - Add Numba, Cython, compiled C/C++, or GPU backends only behind the same public

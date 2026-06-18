@@ -31,6 +31,10 @@ Ported and validated:
   receive-weighted imaging mode;
 - ideal inversion-recovery T1-prepared phase-encoded CPMG imaging with
   selected-echo, echo-summed, fitted-rho, and fitted-T2 image formation;
+- 1D and separable 2D inverse Laplace transform helpers for T1, T2, T1-T2, and
+  D-T2 synthetic analysis, with adjustable Tikhonov regularization and
+  SNR-informed automatic strength selection plus SciPy-backed non-negative
+  solves;
 - fixture-validated pulse-shape utilities for JMR rectangular pulse responses,
   phase quantization, and untuned segment adjustment;
 - SPA refocusing pulse catalog and normalized SNR/FOM metric bookkeeping;

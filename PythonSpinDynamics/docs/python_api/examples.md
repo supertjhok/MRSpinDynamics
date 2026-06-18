@@ -140,6 +140,21 @@ python examples\received_signal_noise.py --numpts 51
 Use `--save-npz results\received_signal_noise.npz` to save selected clean and
 noisy CPMG echoes plus imaging k-space arrays.
 
+## Plot Inverse Laplace Examples
+
+This example requires SciPy and Matplotlib. It generates synthetic T1, T2,
+T1-T2, and D-T2 data, adds Gaussian noise at several requested SNR levels, and
+plots the regularized non-negative inverse Laplace recoveries.
+
+```powershell
+python examples\plot_inverse_laplace.py --output results\inverse_laplace.png
+```
+
+Use `--snr-levels`, `--regularization`, `--regularization-order`, `--cases`,
+and `--t1-mode` to compare conditioning and T1 preparation choices. Add
+`--auto-regularization` to select a separate regularization strength for each
+panel from its SNR estimate.
+
 ## Plot Probe Parameter Sweep
 
 This example requires Matplotlib.

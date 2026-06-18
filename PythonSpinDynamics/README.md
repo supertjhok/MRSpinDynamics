@@ -74,6 +74,9 @@ echo, echo-summed, fitted-rho, or fitted-T2 images from the returned echo
 stack. `run_t1_encoded_phase_encoded_cpmg_imaging` adds an ideal
 inversion-recovery preparation before the phase-encoded CPMG train for T1
 contrast experiments.
+The `spin_dynamics.analysis` package provides SciPy-backed inverse Laplace
+post-processing helpers for T1, T2, T1-T2, and D-T2 kernels with adjustable
+Tikhonov regularization and SNR-informed automatic strength selection.
 
 The validated lower-level workflow surface also includes
 `calc_macq_ideal_probe_relax4`, `calc_macq_tuned_probe_relax4`,
@@ -92,6 +95,7 @@ across CPU cores with `num_workers`.
 | Finite CPMG trains, finite Q/mistuning sweeps, and matched CPMG-IR | Validated plus smoke-tested | Includes serial/parallel equality checks where applicable. |
 | Matched diffusion CPMG | Compact validation and smoke-tested | Solver-validated through Q=2000 for compact cases; higher-Q diffusion cases remain a stiffness target. |
 | Ideal, tuned, and matched CPMG imaging | Fixture validated | MATLAB-generated k-space fixtures, arbitrary B0/B1 map helpers, and visual plotting examples. |
+| Inverse Laplace analysis | Unit tested and example-backed | 1D T1/T2 and separable 2D T1-T2/D-T2 kernels with manual or SNR-selected regularization; non-negative solves use optional SciPy. |
 | Pulse-shape helpers | Fixture validated | JMR rectangular pulse responses, phase quantization, and untuned segment adjustment. |
 | OCT/SPA pulse evaluation and optimization | Partly ported and validated | Fixed SPA catalog, SNR/FOM summaries, tuned/untuned/matched refocusing evaluators, ideal v0crit/excited-v0crit/time-varying objectives, bounded phase optimizers, multi-start drivers, and MATLAB-style result load/export/inspection helpers are available. Broad `fmincon` parity remains deferred. |
 
@@ -188,6 +192,12 @@ Run opt-in received-signal noise examples:
 
 ```powershell
 python examples\received_signal_noise.py --numpts 51
+```
+
+Plot synthetic inverse Laplace recoveries at several SNR levels:
+
+```powershell
+python examples\plot_inverse_laplace.py --output results\inverse_laplace.png
 ```
 
 Compare the currently validated workflows:
