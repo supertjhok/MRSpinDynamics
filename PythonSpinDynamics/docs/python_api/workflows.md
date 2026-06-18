@@ -385,6 +385,14 @@ separate post-processing step:
   `rho_app * exp(-t / T2)` and returns apparent `rho_map` and `t2_map`
   arrays. `rho_app` includes B1, receive, and probe scaling unless those are
   separately calibrated out.
+- When an imaging result was generated with `noise=...`, use
+  `form_imaging_image(..., use_noisy=True)` or
+  `fit_imaging_echo_decay(..., use_noisy=True)` to process the noisy image
+  stack. The default remains the deterministic stack for backwards-compatible
+  fixture parity.
+- `summarize_imaging_noise_trials([...])` compares repeated noisy imaging
+  results in image space and reports the mean noisy image, per-pixel noise
+  standard deviation, background noise RMS, signal mean, and image SNR.
 
 `run_t1_encoded_phase_encoded_cpmg_imaging` adds an ideal 180-degree inversion
 pulse and an inversion delay before the usual phase encoding and CPMG train.
@@ -421,6 +429,18 @@ overloading "imaging".
 
 All three imaging runners are checked against compact MATLAB-generated k-space
 fixtures in `validation/fixtures`.
+
+Noise-aware workflows can pass `NoiseSpec(domain="time")` to CPMG echo
+workflows to add white noise directly to the time-domain echo samples instead
+of the received spectrum. Probe-colored noise remains spectrum-domain because
+it is defined from receiver output noise density. Noise metadata records the
+requested model/domain, clean signal RMS, realized noise RMS, and realized SNR.
+
+Use `spin_dynamics.noise.estimate_matched_filter_snr` to compare repeated noisy
+spectra against the analytical matched-filter SNR predicted by a probe
+`pnoise` density. Pass the same offset axis used for the received spectrum as
+`sample_axis` when generating probe noise and as `offsets` when estimating SNR
+so the discrete noise variance matches the numerical matched-filter integral.
 
 `phase_workers` parallelizes independent phase-encoding points. `num_workers`
 is passed through to the chunked isochromat backend inside each acquisition.

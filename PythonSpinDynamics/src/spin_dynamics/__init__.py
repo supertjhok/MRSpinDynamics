@@ -2,6 +2,7 @@
 
 __all__ = [
     "core",
+    "noise",
     "parameters",
     "pulses",
     "optimization",

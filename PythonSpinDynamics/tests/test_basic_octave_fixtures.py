@@ -35,6 +35,12 @@ from spin_dynamics.core.rotations import (
     sim_spin_dynamics_asymp_mag3,
     sim_spin_dynamics_exc,
 )
+from spin_dynamics.noise import (
+    NoiseSpec,
+    add_received_noise,
+    estimate_matched_filter_snr,
+    tuned_probe_output_noise_density,
+)
 from spin_dynamics.parameters import (
     set_params_ideal,
     set_params_ideal_fid,
@@ -132,6 +138,7 @@ from spin_dynamics.workflows import (
     form_imaging_image,
     load_imaging_field_maps_npz,
     make_imaging_field_maps,
+    reconstruct_image_from_kspace,
     run_ideal_cpmg,
     run_ideal_cpmg_imaging,
     run_ideal_cpmg_ir_train,
@@ -175,6 +182,7 @@ from spin_dynamics.workflows import (
     VALIDATED_MATCHED_DIFFUSION_Q_MAX,
     check_matched_diffusion_q_stability,
     sinusoidal_field_waveform,
+    summarize_imaging_noise_trials,
 )
 from spin_dynamics.workflows.fid import sim_fid_ideal
 
@@ -187,6 +195,149 @@ class OctaveFixtureTests(unittest.TestCase):
         y = np.array([0.0, 1.0, 0.0])
         x = np.array([0.0, 0.5, 1.0])
         self.assertAlmostEqual(float(trapezoid(y, x)), 0.5)
+
+    def test_received_white_noise_is_seeded_and_scaled(self) -> None:
+        signal = np.zeros(20000, dtype=np.complex128)
+        spec = NoiseSpec(sigma=0.2, seed=123)
+
+        noisy1, metadata1 = add_received_noise(signal, spec)
+        noisy2, metadata2 = add_received_noise(signal, spec)
+
+        np.testing.assert_allclose(noisy1, noisy2)
+        self.assertEqual(metadata1, metadata2)
+        self.assertEqual(metadata1.model, "white")
+        self.assertEqual(metadata1.domain, "spectrum")
+        self.assertGreater(metadata1.noise_rms, 0.0)
+        self.assertEqual(metadata1.signal_rms, 0.0)
+        self.assertEqual(metadata1.realized_snr, 0.0)
+        self.assertAlmostEqual(float(np.std(np.real(noisy1))), 0.2, delta=0.01)
+        self.assertAlmostEqual(float(np.std(np.imag(noisy1))), 0.2, delta=0.01)
+
+    def test_cpmg_noise_preserves_clean_signal_and_repeats_with_seed(self) -> None:
+        clean = run_ideal_cpmg(numpts=33, maxoffs=5)
+        noisy1 = run_ideal_cpmg(
+            numpts=33,
+            maxoffs=5,
+            noise=NoiseSpec(sigma=1e-3, seed=123),
+        )
+        noisy2 = run_ideal_cpmg(
+            numpts=33,
+            maxoffs=5,
+            noise=NoiseSpec(sigma=1e-3, seed=123),
+        )
+
+        self.assertIsNone(clean.mrx_noisy)
+        self.assertIsNone(clean.echo_noisy)
+        np.testing.assert_allclose(noisy1.mrx, clean.mrx)
+        np.testing.assert_allclose(noisy1.echo, clean.echo)
+        self.assertIsNotNone(noisy1.mrx_noisy)
+        self.assertIsNotNone(noisy1.echo_noisy)
+        np.testing.assert_allclose(noisy1.mrx_noisy, noisy2.mrx_noisy)
+        np.testing.assert_allclose(noisy1.echo_noisy, noisy2.echo_noisy)
+        self.assertGreater(float(np.max(np.abs(noisy1.mrx_noisy - noisy1.mrx))), 0.0)
+        self.assertGreater(noisy1.noise.noise_rms, 0.0)
+        self.assertGreater(noisy1.noise.signal_rms, 0.0)
+        self.assertGreater(noisy1.noise.realized_snr, 0.0)
+
+    def test_cpmg_time_domain_noise_adds_echo_noise_only(self) -> None:
+        clean = run_ideal_cpmg(numpts=33, maxoffs=5)
+        noisy = run_ideal_cpmg(
+            numpts=33,
+            maxoffs=5,
+            noise=NoiseSpec(sigma=1e-3, seed=456, domain="time"),
+        )
+
+        np.testing.assert_allclose(noisy.mrx, clean.mrx)
+        np.testing.assert_allclose(noisy.echo, clean.echo)
+        self.assertIsNone(noisy.mrx_noisy)
+        self.assertIsNotNone(noisy.echo_noisy)
+        self.assertEqual(noisy.noise.domain, "time")
+        self.assertGreater(float(np.max(np.abs(noisy.echo_noisy - noisy.echo))), 0.0)
+
+        train = run_ideal_cpmg_train(
+            numpts=17,
+            maxoffs=4,
+            num_echoes=2,
+            rephase_action="ignore",
+            noise=NoiseSpec(sigma=1e-3, seed=456, domain="time"),
+        )
+        self.assertIsNone(train.mrx_noisy)
+        self.assertIsNotNone(train.echo_noisy)
+        self.assertIsNotNone(train.echo_integrals_noisy)
+        self.assertEqual(train.noise.domain, "time")
+        with self.assertRaises(ValueError):
+            run_tuned_cpmg(
+                numpts=17,
+                maxoffs=4,
+                noise=NoiseSpec(model="probe", target_snr=10.0, seed=1, domain="time"),
+            )
+
+    def test_probe_noise_uses_receiver_density_without_overwriting_clean_signal(self) -> None:
+        clean = run_tuned_cpmg(numpts=17, maxoffs=4)
+        noisy = run_tuned_cpmg(
+            numpts=17,
+            maxoffs=4,
+            noise=NoiseSpec(model="probe", target_snr=20.0, seed=4),
+        )
+
+        np.testing.assert_allclose(noisy.mrx, clean.mrx)
+        np.testing.assert_allclose(noisy.echo, clean.echo)
+        self.assertIsNotNone(noisy.mrx_noisy)
+        self.assertIsNotNone(noisy.echo_noisy)
+        self.assertEqual(noisy.noise.model, "probe")
+        self.assertGreater(float(np.max(np.abs(noisy.mrx_noisy - noisy.mrx))), 0.0)
+
+    def test_matched_filter_snr_estimate_matches_probe_noise_prediction(self) -> None:
+        numpts = 41
+        maxoffs = 6.0
+        clean = run_tuned_cpmg(numpts=numpts, maxoffs=maxoffs)
+        params, sp, pp = set_params_tuned_orig(numpts=numpts)
+        del_w = np.linspace(-maxoffs, maxoffs, numpts)
+        sp = replace(
+            sp,
+            numpts=numpts,
+            maxoffs=maxoffs,
+            del_w=del_w,
+            plt_tx=0,
+            plt_rx=0,
+            plt_echo=0,
+        )
+        pnoise, frequencies = tuned_probe_output_noise_density(sp, pp)
+
+        noisy_rows = []
+        noise_scale = None
+        for seed in range(300):
+            noisy, metadata = add_received_noise(
+                clean.mrx,
+                NoiseSpec(model="probe", target_snr=25.0, seed=seed),
+                pnoise=pnoise,
+                frequencies=frequencies,
+                sample_axis=clean.del_w,
+            )
+            noisy_rows.append(noisy)
+            noise_scale = metadata.scale
+
+        snr = estimate_matched_filter_snr(
+            clean.mrx,
+            np.asarray(noisy_rows),
+            pnoise=pnoise,
+            frequencies=frequencies,
+            offsets=clean.del_w,
+            noise_scale=noise_scale,
+        )
+
+        self.assertIsNotNone(snr.predicted_snr)
+        self.assertIsNotNone(snr.predicted_noise_rms)
+        self.assertGreater(snr.measured_snr, 0.0)
+        self.assertLess(
+            abs(snr.measured_noise_rms - snr.predicted_noise_rms)
+            / snr.predicted_noise_rms,
+            0.18,
+        )
+        self.assertLess(
+            abs(snr.measured_snr - snr.predicted_snr) / snr.predicted_snr,
+            0.18,
+        )
 
     def test_rephasing_analysis_recommends_finer_grid(self) -> None:
         del_w = np.linspace(-5, 5, 11)
@@ -3432,6 +3583,97 @@ class OctaveFixtureTests(unittest.TestCase):
         self.assertTrue(np.all(np.isfinite(result.kspace)))
         self.assertTrue(np.all(np.isfinite(result.magnitude)))
 
+    def test_ideal_cpmg_imaging_white_noise_is_added_in_kspace(self) -> None:
+        rho = np.eye(2)
+        clean = run_ideal_cpmg_imaging(
+            rho,
+            num_echoes=1,
+            ny=3,
+            num_workers=1,
+            phase_workers=1,
+        )
+        noisy1 = run_ideal_cpmg_imaging(
+            rho,
+            num_echoes=1,
+            ny=3,
+            num_workers=1,
+            phase_workers=1,
+            noise=NoiseSpec(sigma=1e-3, seed=9),
+        )
+        noisy2 = run_ideal_cpmg_imaging(
+            rho,
+            num_echoes=1,
+            ny=3,
+            num_workers=1,
+            phase_workers=1,
+            noise=NoiseSpec(sigma=1e-3, seed=9),
+        )
+
+        np.testing.assert_allclose(noisy1.kspace, clean.kspace)
+        np.testing.assert_allclose(noisy1.image, clean.image)
+        self.assertIsNotNone(noisy1.kspace_noisy)
+        self.assertIsNotNone(noisy1.image_noisy)
+        self.assertIsNotNone(noisy1.magnitude_noisy)
+        np.testing.assert_allclose(noisy1.kspace_noisy, noisy2.kspace_noisy)
+        np.testing.assert_allclose(noisy1.image_noisy, noisy2.image_noisy)
+        np.testing.assert_allclose(
+            noisy1.image_noisy[:, :, 0],
+            reconstruct_image_from_kspace(noisy1.kspace_noisy, echo_index=0),
+        )
+        self.assertGreater(
+            float(np.max(np.abs(noisy1.kspace_noisy - noisy1.kspace))),
+            0.0,
+        )
+        with self.assertRaises(ValueError):
+            run_ideal_cpmg_imaging(
+                rho,
+                num_echoes=1,
+                ny=3,
+                noise=NoiseSpec(model="probe", seed=1),
+            )
+        with self.assertRaises(ValueError):
+            run_ideal_cpmg_imaging(
+                rho,
+                num_echoes=1,
+                ny=3,
+                noise=NoiseSpec(sigma=1e-3, seed=1, domain="time"),
+            )
+
+    def test_imaging_noise_statistics_summarize_repeated_trials(self) -> None:
+        rho = np.array([[1.0, 0.0], [0.5, 0.0]], dtype=np.float64)
+        trials = [
+            run_ideal_cpmg_imaging(
+                rho,
+                num_echoes=1,
+                ny=3,
+                num_workers=1,
+                phase_workers=1,
+                noise=NoiseSpec(sigma=1e-3, seed=seed),
+            )
+            for seed in range(8)
+        ]
+        signal_mask = rho > 0
+        background_mask = rho == 0
+
+        stats = summarize_imaging_noise_trials(
+            trials,
+            mode="single",
+            signal_mask=signal_mask,
+            background_mask=background_mask,
+        )
+
+        self.assertEqual(stats.num_trials, 8)
+        self.assertEqual(stats.clean_image.shape, rho.shape)
+        self.assertEqual(stats.noisy_mean.shape, rho.shape)
+        self.assertEqual(stats.noise_std.shape, rho.shape)
+        self.assertGreater(stats.background_noise_rms, 0.0)
+        self.assertGreater(stats.signal_mean, 0.0)
+        self.assertGreater(stats.snr, 0.0)
+        with self.assertRaises(ValueError):
+            summarize_imaging_noise_trials([])
+        with self.assertRaises(ValueError):
+            summarize_imaging_noise_trials([run_ideal_cpmg_imaging(rho, num_echoes=1, ny=3)])
+
     def test_imaging_echo_formation_modes_use_expected_weighting(self) -> None:
         echo_times = np.array([0.1e-3, 0.2e-3, 0.3e-3], dtype=np.float64)
         rho = np.array([[2.0, 4.0], [1.5, 3.0]], dtype=np.float64)
@@ -3439,9 +3681,11 @@ class OctaveFixtureTests(unittest.TestCase):
         magnitude = rho[:, :, np.newaxis] * np.exp(
             -echo_times.reshape(1, 1, -1) / t2[:, :, np.newaxis]
         )
+        magnitude_noisy = 1.5 * magnitude
         result = SimpleNamespace(
             image=magnitude.astype(np.complex128),
             magnitude=magnitude,
+            magnitude_noisy=magnitude_noisy,
             sequence_time=echo_times,
         )
 
@@ -3465,6 +3709,32 @@ class OctaveFixtureTests(unittest.TestCase):
             rtol=1e-13,
             atol=1e-13,
         )
+        np.testing.assert_allclose(
+            form_imaging_image(result, mode="single", echo_index=1, use_noisy=True),
+            magnitude_noisy[:, :, 1],
+        )
+        np.testing.assert_allclose(
+            form_imaging_image(result, mode="echo_sum", use_noisy=True),
+            np.sum(magnitude_noisy, axis=2),
+        )
+        np.testing.assert_allclose(
+            form_imaging_image(result, mode="fit_rho", use_noisy=True),
+            1.5 * rho,
+            rtol=1e-13,
+            atol=1e-13,
+        )
+        np.testing.assert_allclose(
+            form_imaging_image(result, mode="fit_t2", use_noisy=True),
+            t2,
+            rtol=1e-13,
+            atol=1e-13,
+        )
+        with self.assertRaises(ValueError):
+            form_imaging_image(
+                SimpleNamespace(magnitude=magnitude, sequence_time=echo_times),
+                mode="single",
+                use_noisy=True,
+            )
 
     def test_imaging_echo_decay_fit_reports_maps_and_rejects_bad_inputs(self) -> None:
         echo_times = np.array([0.1e-3, 0.2e-3, 0.3e-3], dtype=np.float64)
@@ -3473,9 +3743,11 @@ class OctaveFixtureTests(unittest.TestCase):
         magnitude = rho[:, :, np.newaxis] * np.exp(
             -echo_times.reshape(1, 1, -1) / t2[:, :, np.newaxis]
         )
+        magnitude_noisy = 2.0 * magnitude
         result = SimpleNamespace(
             image=magnitude.astype(np.complex128),
             magnitude=magnitude,
+            magnitude_noisy=magnitude_noisy,
             sequence_time=echo_times,
         )
 
@@ -3486,6 +3758,9 @@ class OctaveFixtureTests(unittest.TestCase):
         np.testing.assert_allclose(fit.fitted_magnitude, magnitude, rtol=1e-13, atol=1e-13)
         np.testing.assert_allclose(fit.residual_norm, 0.0, atol=1e-13)
         self.assertTrue(bool(fit.mask[0, 0]))
+        noisy_fit = fit_imaging_echo_decay(result, use_noisy=True)
+        np.testing.assert_allclose(noisy_fit.rho_map, 2.0 * rho, rtol=1e-13, atol=1e-13)
+        np.testing.assert_allclose(noisy_fit.t2_map, t2, rtol=1e-13, atol=1e-13)
         with self.assertRaises(ValueError):
             fit_imaging_echo_decay(
                 SimpleNamespace(
@@ -3496,6 +3771,11 @@ class OctaveFixtureTests(unittest.TestCase):
             )
         with self.assertRaises(ValueError):
             form_imaging_image(result, mode="unknown")
+        with self.assertRaises(ValueError):
+            fit_imaging_echo_decay(
+                SimpleNamespace(magnitude=magnitude, sequence_time=echo_times),
+                use_noisy=True,
+            )
 
     def test_phase_encoded_imaging_names_match_legacy_aliases(self) -> None:
         rho = np.eye(2, dtype=np.float64)
@@ -3763,6 +4043,55 @@ class OctaveFixtureTests(unittest.TestCase):
 
         np.testing.assert_allclose(result.kspace, 0.0, atol=1e-14)
         np.testing.assert_allclose(result.echo_integrals, 0.0, atol=1e-14)
+
+    def test_tuned_cpmg_imaging_probe_noise_uses_weighted_receive_mode(self) -> None:
+        rho = np.ones((1, 1), dtype=np.float64)
+        clean = run_tuned_cpmg_imaging(
+            rho,
+            num_echoes=1,
+            ny=1,
+            num_workers=1,
+            phase_workers=1,
+            receive_mode="weighted",
+        )
+        noisy1 = run_tuned_cpmg_imaging(
+            rho,
+            num_echoes=1,
+            ny=1,
+            num_workers=1,
+            phase_workers=1,
+            receive_mode="weighted",
+            noise=NoiseSpec(model="probe", target_snr=15.0, seed=7),
+        )
+        noisy2 = run_tuned_cpmg_imaging(
+            rho,
+            num_echoes=1,
+            ny=1,
+            num_workers=1,
+            phase_workers=1,
+            receive_mode="weighted",
+            noise=NoiseSpec(model="probe", target_snr=15.0, seed=7),
+        )
+
+        np.testing.assert_allclose(noisy1.kspace, clean.kspace)
+        np.testing.assert_allclose(noisy1.image, clean.image)
+        self.assertIsNotNone(noisy1.kspace_noisy)
+        self.assertIsNotNone(noisy1.image_noisy)
+        self.assertEqual(noisy1.noise.model, "probe")
+        np.testing.assert_allclose(noisy1.kspace_noisy, noisy2.kspace_noisy)
+        self.assertGreater(
+            float(np.max(np.abs(noisy1.kspace_noisy - noisy1.kspace))),
+            0.0,
+        )
+        with self.assertRaises(ValueError):
+            run_tuned_cpmg_imaging(
+                rho,
+                num_echoes=1,
+                ny=1,
+                num_workers=1,
+                phase_workers=1,
+                noise=NoiseSpec(model="probe", seed=7),
+            )
 
     def test_tuned_cpmg_imaging_rejects_unknown_receive_mode(self) -> None:
         with self.assertRaises(ValueError):

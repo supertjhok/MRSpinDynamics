@@ -13,8 +13,9 @@
 - The same script can be run from MATLAB or Octave.
 - MATLAB-generated fixtures are used for matched-probe cases that require
   optimization toolbox behavior not available in a stock Octave install.
-- The current Python test suite contains 61 checks against fixtures, public
-  workflow result shapes, compatibility helpers, and example smoke paths.
+- The current Python test suite contains 152 checks against fixtures, public
+  workflow result shapes, compatibility helpers, optional SciPy-backed result
+  loaders, imaging modes, and example smoke paths.
 
 ## Completed Phase 2: Low-Level Numerical Helpers
 
@@ -199,7 +200,49 @@ their inputs and outputs are small, array-based, and close to NumPy's strengths.
   coverage, exact historical `params`/`sp`/`pp` file parity, and broad MATLAB
   `fmincon` result parity as later validation steps.
 
-## Later Phase 9: Acceleration
+## Started Phase 9: Receiver Noise Modeling
+
+- Keep all deterministic workflows backwards-compatible by making noise opt-in.
+  Existing result fields such as `mrx`, `echo`, `echo_integrals`, `kspace`, and
+  `echo_stack` should remain noiseless unless a noise configuration is passed.
+- `spin_dynamics.noise.NoiseSpec` carries the model name, absolute amplitude or
+  target SNR, complex-vs-real convention, scale factor, and a NumPy `Generator`
+  or seed. Seeded runs are reproducible without changing global random state.
+- Deterministic signal arrays are preserved, with noisy companions and metadata
+  added only when requested. CPMG results expose `mrx_noisy`, `echo_noisy`, and
+  optional noisy echo integrals; imaging results expose `kspace_noisy`,
+  `image_noisy`, and `magnitude_noisy`.
+- Ideal workflows support additive complex white Gaussian noise on the received
+  spectrum or k-space, with absolute standard deviation and target-SNR modes.
+- Tuned, untuned, and matched CPMG workflows can reuse the existing receiver
+  noise-power calculations already used by the matched-filter SNR routines.
+  These `pnoise` arrays are treated as output-referred spectral noise density
+  after resistor, amplifier, and probe transfer-function filtering. The
+  generated complex Gaussian spectral noise is then passed through the same
+  echo path as the noiseless signal.
+- Keep a later extension point for explicit source-level circuit noise. That
+  mode can generate independent Johnson or amplifier noise sources before the
+  receiver network and propagate them through each probe transfer function, but
+  the first implementation should use output-referred `pnoise` to stay aligned
+  with the current MATLAB SNR formulas.
+- For imaging, inject noise in k-space or per-echo k-space before
+  reconstruction so image noise, echo summation, and voxel-wise rho/T2 fitting
+  inherit the correct correlations. The current implementation supports white
+  k-space noise and probe-colored tuned/matched imaging noise generated from
+  receiver-output spectral density before echo integration. Tuned probe-colored
+  imaging noise requires `receive_mode="weighted"` because the default `raw`
+  mode is a MATLAB display convention rather than a physical receiver-output
+  signal.
+- Validation currently covers default zero-noise parity through the existing
+  fixtures, seeded reproducibility, measured white-noise variance, probe
+  spectral noise from receiver density, k-space imaging noise, probe-colored
+  tuned imaging noise, matched-filter SNR consistency against analytical
+  `pnoise`, direct time-domain echo noise, noisy image-formation helpers,
+  repeated-trial imaging statistics, and the user-facing received-noise
+  example. Follow-on validation should add broader repeated-trial checks over
+  fitted rho/T2 variance.
+
+## Later Phase 10: Acceleration
 
 - Start with NumPy/SciPy.
 - Add Numba, Cython, compiled C/C++, or GPU backends only behind the same public

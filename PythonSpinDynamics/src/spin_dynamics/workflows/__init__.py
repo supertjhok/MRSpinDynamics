@@ -40,6 +40,7 @@ from spin_dynamics.workflows.imaging import (
     IdealPhaseEncodedCPMGImagingResult,
     ImagingEchoFitResult,
     ImagingFieldMaps,
+    ImagingNoiseStatistics,
     ProbeCPMGImagingResult,
     ProbePhaseEncodedCPMGImagingResult,
     fit_imaging_echo_decay,
@@ -55,6 +56,7 @@ from spin_dynamics.workflows.imaging import (
     run_matched_phase_encoded_cpmg_imaging,
     run_tuned_cpmg_imaging,
     run_tuned_phase_encoded_cpmg_imaging,
+    summarize_imaging_noise_trials,
 )
 from spin_dynamics.workflows.sweeps import (
     CPMGFiniteParameterSweepResult,
@@ -100,6 +102,7 @@ __all__ = [
     "IdealPhaseEncodedCPMGImagingResult",
     "ImagingEchoFitResult",
     "ImagingFieldMaps",
+    "ImagingNoiseStatistics",
     "ProbeCPMGImagingResult",
     "ProbePhaseEncodedCPMGImagingResult",
     "ProbeTimeVaryingCPMGResult",
@@ -162,4 +165,5 @@ __all__ = [
     "run_untuned_time_varying_cpmg_final",
     "reconstruct_image_from_kspace",
     "sinusoidal_field_waveform",
+    "summarize_imaging_noise_trials",
 ]

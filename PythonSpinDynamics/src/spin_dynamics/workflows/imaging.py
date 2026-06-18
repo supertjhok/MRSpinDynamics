@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, replace as dataclass_replace
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -12,6 +12,14 @@ import numpy as np
 
 from spin_dynamics.core.numerics import trapezoid
 from spin_dynamics.core.rotations import calc_rotation_matrix
+from spin_dynamics.noise import (
+    NoiseMetadata,
+    NoiseSpec,
+    add_received_noise,
+    as_noise_spec,
+    matched_probe_output_noise_density,
+    tuned_probe_output_noise_density,
+)
 from spin_dynamics.parameters import (
     set_params_ideal,
 )
@@ -46,6 +54,10 @@ class IdealCPMGImagingResult:
     echo_integrals: np.ndarray
     sequence_time: np.ndarray
     probe: str
+    kspace_noisy: np.ndarray | None = None
+    image_noisy: np.ndarray | None = None
+    magnitude_noisy: np.ndarray | None = None
+    noise: NoiseMetadata | None = None
 
 
 @dataclass(frozen=True)
@@ -67,6 +79,10 @@ class ProbeCPMGImagingResult:
     echo_integrals: np.ndarray
     sequence_time: np.ndarray
     probe: str
+    kspace_noisy: np.ndarray | None = None
+    image_noisy: np.ndarray | None = None
+    magnitude_noisy: np.ndarray | None = None
+    noise: NoiseMetadata | None = None
 
 
 @dataclass(frozen=True)
@@ -79,6 +95,22 @@ class ImagingEchoFitResult:
     residual_norm: np.ndarray
     mask: np.ndarray
     echo_times: np.ndarray
+
+
+@dataclass(frozen=True)
+class ImagingNoiseStatistics:
+    """Repeated-trial image-domain noise summary."""
+
+    clean_image: np.ndarray
+    noisy_mean: np.ndarray
+    noise_bias: np.ndarray
+    noise_std: np.ndarray
+    background_noise_rms: float
+    signal_mean: float
+    snr: float
+    num_trials: int
+    mode: str
+    echo_index: int
 
 
 IdealPhaseEncodedCPMGImagingResult = IdealCPMGImagingResult
@@ -304,6 +336,18 @@ def _field_maps_from_container(
     return maps.kernel_maps(ny, maxoffs)
 
 
+def _indexed_noise_spec(
+    spec: NoiseSpec,
+    linear_index: int,
+    *,
+    acquisition_index: int = 0,
+) -> NoiseSpec:
+    if spec.seed is None:
+        return spec
+    seed = int(spec.seed) + 1000003 * int(linear_index) + 9176 * int(acquisition_index)
+    return dataclass_replace(spec, seed=seed, rng=None)
+
+
 def reconstruct_image_from_kspace(kspace: np.ndarray, echo_index: int = 0) -> np.ndarray:
     """Reconstruct an image from one echo of CPMG imaging k-space."""
 
@@ -318,6 +362,7 @@ def fit_imaging_echo_decay(
     *,
     echo_times: Iterable[float] | np.ndarray | None = None,
     min_signal: float = 0.0,
+    use_noisy: bool = False,
 ) -> ImagingEchoFitResult:
     """Fit each voxel magnitude to `rho * exp(-t / T2)`.
 
@@ -326,7 +371,13 @@ def fit_imaging_echo_decay(
     stack.
     """
 
-    magnitude = np.asarray(result.magnitude, dtype=np.float64)
+    if use_noisy:
+        magnitude_noisy = getattr(result, "magnitude_noisy", None)
+        if magnitude_noisy is None:
+            raise ValueError("result does not contain noisy image magnitudes")
+        magnitude = np.asarray(magnitude_noisy, dtype=np.float64)
+    else:
+        magnitude = np.asarray(result.magnitude, dtype=np.float64)
     if magnitude.ndim != 3:
         raise ValueError("result.magnitude must have shape (px, pz, num_echoes)")
     num_echoes = magnitude.shape[2]
@@ -393,22 +444,124 @@ def form_imaging_image(
     mode: str = "single",
     echo_index: int = 0,
     min_signal: float = 0.0,
+    use_noisy: bool = False,
 ) -> np.ndarray:
     """Return a display-ready image from an imaging echo stack.
 
     Modes are `single`, `echo_sum`, `fit_rho`, and `fit_t2`.
     """
 
+    if use_noisy:
+        magnitude_noisy = getattr(result, "magnitude_noisy", None)
+        if magnitude_noisy is None:
+            raise ValueError("result does not contain noisy image magnitudes")
+        magnitude = np.asarray(magnitude_noisy, dtype=np.float64)
+    else:
+        magnitude = np.asarray(result.magnitude, dtype=np.float64)
+
     mode_key = str(mode).replace("-", "_")
     if mode_key == "single":
-        return result.magnitude[:, :, int(echo_index)]
+        return magnitude[:, :, int(echo_index)]
     if mode_key == "echo_sum":
-        return np.sum(result.magnitude, axis=2)
+        return np.sum(magnitude, axis=2)
     if mode_key == "fit_rho":
-        return fit_imaging_echo_decay(result, min_signal=min_signal).rho_map
+        return fit_imaging_echo_decay(
+            result,
+            min_signal=min_signal,
+            use_noisy=use_noisy,
+        ).rho_map
     if mode_key == "fit_t2":
-        return fit_imaging_echo_decay(result, min_signal=min_signal).t2_map
+        return fit_imaging_echo_decay(
+            result,
+            min_signal=min_signal,
+            use_noisy=use_noisy,
+        ).t2_map
     raise ValueError("mode must be 'single', 'echo_sum', 'fit_rho', or 'fit_t2'")
+
+
+def summarize_imaging_noise_trials(
+    results: Iterable[IdealCPMGImagingResult | ProbeCPMGImagingResult],
+    *,
+    mode: str = "single",
+    echo_index: int = 0,
+    signal_mask: Iterable[bool] | np.ndarray | None = None,
+    background_mask: Iterable[bool] | np.ndarray | None = None,
+    min_signal: float = 0.0,
+) -> ImagingNoiseStatistics:
+    """Summarize repeated noisy imaging trials in image space."""
+
+    result_list = list(results)
+    if not result_list:
+        raise ValueError("at least one noisy imaging result is required")
+    clean_image = np.asarray(
+        form_imaging_image(
+            result_list[0],
+            mode=mode,
+            echo_index=echo_index,
+            min_signal=min_signal,
+            use_noisy=False,
+        ),
+        dtype=np.float64,
+    )
+    noisy_stack = np.stack(
+        [
+            np.asarray(
+                form_imaging_image(
+                    result,
+                    mode=mode,
+                    echo_index=echo_index,
+                    min_signal=min_signal,
+                    use_noisy=True,
+                ),
+                dtype=np.float64,
+            )
+            for result in result_list
+        ],
+        axis=0,
+    )
+    if noisy_stack.shape[1:] != clean_image.shape:
+        raise ValueError("all noisy images must match the clean image shape")
+
+    noise_stack = noisy_stack - clean_image[np.newaxis, :, :]
+    noisy_mean = np.mean(noisy_stack, axis=0)
+    noise_bias = noisy_mean - clean_image
+    noise_std = np.std(noise_stack, axis=0, ddof=1 if len(result_list) > 1 else 0)
+
+    if signal_mask is None:
+        signal = np.isfinite(clean_image)
+    else:
+        signal = np.asarray(signal_mask, dtype=bool)
+        if signal.shape != clean_image.shape:
+            raise ValueError("signal_mask must match image shape")
+    if background_mask is None:
+        background = np.isfinite(clean_image)
+    else:
+        background = np.asarray(background_mask, dtype=bool)
+        if background.shape != clean_image.shape:
+            raise ValueError("background_mask must match image shape")
+    if not np.any(signal):
+        raise ValueError("signal_mask selects no pixels")
+    if not np.any(background):
+        raise ValueError("background_mask selects no pixels")
+
+    background_noise_rms = float(
+        np.sqrt(np.mean(np.abs(noise_stack[:, background]) ** 2))
+    )
+    signal_mean = float(np.mean(np.abs(clean_image[signal])))
+    snr = np.inf if background_noise_rms == 0 else signal_mean / background_noise_rms
+
+    return ImagingNoiseStatistics(
+        clean_image=clean_image,
+        noisy_mean=noisy_mean,
+        noise_bias=noise_bias,
+        noise_std=noise_std,
+        background_noise_rms=background_noise_rms,
+        signal_mean=signal_mean,
+        snr=float(snr),
+        num_trials=len(result_list),
+        mode=str(mode),
+        echo_index=int(echo_index),
+    )
 
 
 def _validate_imaging_inputs(
@@ -436,11 +589,34 @@ def _finish_imaging_result(
     del_w: np.ndarray,
     sequence_time: np.ndarray,
     probe: str,
+    noise: NoiseSpec | Mapping[str, object] | float | int | None = None,
+    kspace_noisy: np.ndarray | None = None,
+    noise_metadata: NoiseMetadata | None = None,
 ):
     image = np.stack(
         [reconstruct_image_from_kspace(kspace, echo_index=idx) for idx in range(kspace.shape[2])],
         axis=2,
     )
+    spec = as_noise_spec(noise)
+    image_noisy = None
+    magnitude_noisy = None
+    if spec is not None:
+        if spec.domain == "time":
+            raise ValueError("time-domain imaging noise is not implemented; use spectrum-domain k-space noise")
+        if spec.model == "probe":
+            if kspace_noisy is None:
+                raise ValueError("probe imaging noise must be generated before reconstruction")
+        elif kspace_noisy is None:
+            kspace_noisy, noise_metadata = add_received_noise(kspace, spec)
+    if kspace_noisy is not None:
+        image_noisy = np.stack(
+            [
+                reconstruct_image_from_kspace(kspace_noisy, echo_index=idx)
+                for idx in range(kspace_noisy.shape[2])
+            ],
+            axis=2,
+        )
+        magnitude_noisy = np.abs(image_noisy)
     return result_type(
         rho=field_maps.rho,
         t1_map=field_maps.t1_map,
@@ -457,6 +633,10 @@ def _finish_imaging_result(
         echo_integrals=kspace,
         sequence_time=sequence_time,
         probe=probe,
+        kspace_noisy=kspace_noisy,
+        image_noisy=image_noisy,
+        magnitude_noisy=magnitude_noisy,
+        noise=noise_metadata,
     )
 
 
@@ -631,6 +811,7 @@ def run_ideal_phase_encoded_cpmg_imaging(
     maxoffs: float = 5.0,
     num_workers: int | None = 1,
     phase_workers: int | None = 1,
+    noise: NoiseSpec | Mapping[str, object] | float | int | None = None,
 ) -> IdealCPMGImagingResult:
     """Run a compact ideal-probe phase-encoded CPMG imaging simulation.
 
@@ -651,6 +832,7 @@ def run_ideal_phase_encoded_cpmg_imaging(
         num_workers=num_workers,
         phase_workers=phase_workers,
         inversion_time_seconds=None,
+        noise=noise,
     )
 
 
@@ -668,6 +850,7 @@ def run_t1_encoded_phase_encoded_cpmg_imaging(
     maxoffs: float = 5.0,
     num_workers: int | None = 1,
     phase_workers: int | None = 1,
+    noise: NoiseSpec | Mapping[str, object] | float | int | None = None,
 ) -> IdealCPMGImagingResult:
     """Run ideal phase-encoded CPMG imaging with inversion-recovery T1 prep."""
 
@@ -684,6 +867,7 @@ def run_t1_encoded_phase_encoded_cpmg_imaging(
         num_workers=num_workers,
         phase_workers=phase_workers,
         inversion_time_seconds=inversion_time_seconds,
+        noise=noise,
     )
 
 
@@ -701,6 +885,7 @@ def run_t1_encoded_cpmg_imaging(
     maxoffs: float = 5.0,
     num_workers: int | None = 1,
     phase_workers: int | None = 1,
+    noise: NoiseSpec | Mapping[str, object] | float | int | None = None,
 ) -> IdealCPMGImagingResult:
     """Compatibility alias for `run_t1_encoded_phase_encoded_cpmg_imaging`."""
 
@@ -717,6 +902,7 @@ def run_t1_encoded_cpmg_imaging(
         maxoffs=maxoffs,
         num_workers=num_workers,
         phase_workers=phase_workers,
+        noise=noise,
     )
 
 
@@ -734,6 +920,7 @@ def _ideal_phase_encoded_cpmg_imaging(
     num_workers: int | None,
     phase_workers: int | None,
     inversion_time_seconds: float | None,
+    noise: NoiseSpec | Mapping[str, object] | float | int | None,
 ) -> IdealCPMGImagingResult:
     if inversion_time_seconds is not None and inversion_time_seconds <= 0:
         raise ValueError("inversion_time_seconds must be positive")
@@ -891,6 +1078,7 @@ def _ideal_phase_encoded_cpmg_imaging(
         del_w,
         sequence_time,
         "ideal",
+        noise=noise,
     )
 
 
@@ -907,6 +1095,7 @@ def run_ideal_cpmg_imaging(
     maxoffs: float = 5.0,
     num_workers: int | None = 1,
     phase_workers: int | None = 1,
+    noise: NoiseSpec | Mapping[str, object] | float | int | None = None,
 ) -> IdealCPMGImagingResult:
     """Compatibility alias for `run_ideal_phase_encoded_cpmg_imaging`."""
 
@@ -922,6 +1111,7 @@ def run_ideal_cpmg_imaging(
         maxoffs=maxoffs,
         num_workers=num_workers,
         phase_workers=phase_workers,
+        noise=noise,
     )
 
 
@@ -940,6 +1130,7 @@ def _probe_imaging(
     maxoffs: float,
     num_workers: int | None,
     phase_workers: int | None,
+    noise: NoiseSpec | Mapping[str, object] | float | int | None,
 ) -> ProbeCPMGImagingResult:
     field_maps, fov_arr = _validate_imaging_inputs(
         rho,
@@ -959,6 +1150,10 @@ def _probe_imaging(
         raise ValueError("probe must be 'tuned' or 'matched'")
     if probe == "tuned" and tuned_receive_mode not in {"raw", "weighted"}:
         raise ValueError("receive_mode must be 'raw' or 'weighted'")
+    noise_spec = as_noise_spec(noise)
+    probe_noise = noise_spec is not None and noise_spec.model == "probe"
+    if probe_noise and probe == "tuned" and tuned_receive_mode == "raw":
+        raise ValueError("probe noise for tuned imaging requires receive_mode='weighted'")
 
     t90 = float(pp0.T_90)
     t180 = float(pp0.T_180)
@@ -1018,6 +1213,14 @@ def _probe_imaging(
         sp["tf1"] = tf1
         sp["tf2"] = tf2
 
+    pnoise = None
+    frequencies = None
+    if probe_noise:
+        if probe == "tuned":
+            pnoise, frequencies = tuned_probe_output_noise_density(sp, pp0)
+        else:
+            pnoise, frequencies = matched_probe_output_noise_density(sp, pp0)
+
     rtot = [
         calc_rotation_matrix(del_w, w_1, *exc_y),
         calc_rotation_matrix(del_w, w_1, *exc_minus_y),
@@ -1074,8 +1277,25 @@ def _probe_imaging(
     isoc = np.exp(1j * tvect[:, np.newaxis] * del_w[np.newaxis, :])
     calc_macq = calc_macq_tuned_probe_relax4 if probe == "tuned" else calc_macq_matched_probe_relax4
 
-    def run_point(index: tuple[int, int]) -> np.ndarray:
+    def add_probe_noise(spectrum: np.ndarray, linear_index: int, acquisition_index: int):
+        assert noise_spec is not None
+        assert pnoise is not None
+        assert frequencies is not None
+        return add_received_noise(
+            spectrum,
+            _indexed_noise_spec(
+                noise_spec,
+                linear_index,
+                acquisition_index=acquisition_index,
+            ),
+            pnoise=pnoise,
+            frequencies=frequencies,
+            sample_axis=del_w,
+        )
+
+    def run_point(index: tuple[int, int]) -> np.ndarray | tuple[np.ndarray, np.ndarray]:
         ix, iz = index
+        linear_index = ix * pz + iz
         sp_case = {
             **sp,
             "del_wg": gradx[ix] * maps["del_wx"] + gradz[iz] * maps["del_wz"],
@@ -1092,17 +1312,39 @@ def _probe_imaging(
             if tuned_receive_mode == "raw":
                 echo_x = isoc @ macq1.T
                 echo_y = isoc @ macq3.T
+                echo_xy_noisy = None
             else:
                 echo_x = isoc @ mrx1.T
                 echo_y = isoc @ mrx3.T
+                echo_xy_noisy = None
+                if probe_noise:
+                    mrx1_noisy, _metadata = add_probe_noise(mrx1, linear_index, 0)
+                    mrx3_noisy, _metadata = add_probe_noise(mrx3, linear_index, 1)
+                    echo_x_noisy = isoc @ mrx1_noisy.T
+                    echo_y_noisy = isoc @ mrx3_noisy.T
+                    echo_xy_noisy = np.imag(echo_x_noisy) - 1j * np.real(echo_y_noisy)
         else:
             echo_x = isoc @ (mrx1 - mrx2).T
             echo_y = isoc @ (mrx3 - mrx4).T
+            echo_xy_noisy = None
+            if probe_noise:
+                mrx1_noisy, _metadata = add_probe_noise(mrx1, linear_index, 0)
+                mrx2_noisy, _metadata = add_probe_noise(mrx2, linear_index, 1)
+                mrx3_noisy, _metadata = add_probe_noise(mrx3, linear_index, 2)
+                mrx4_noisy, _metadata = add_probe_noise(mrx4, linear_index, 3)
+                echo_x_noisy = isoc @ (mrx1_noisy - mrx2_noisy).T
+                echo_y_noisy = isoc @ (mrx3_noisy - mrx4_noisy).T
+                echo_xy_noisy = np.imag(echo_x_noisy) - 1j * np.real(echo_y_noisy)
         echo_xy = np.imag(echo_x) - 1j * np.real(echo_y)
         if probe == "tuned":
             # Match MATLAB's raw tuned-probe current phase convention.
             echo_xy = -echo_xy
-        return trapezoid(echo_xy, tvect, axis=0)
+            if echo_xy_noisy is not None:
+                echo_xy_noisy = -echo_xy_noisy
+        clean_row = trapezoid(echo_xy, tvect, axis=0)
+        if echo_xy_noisy is None:
+            return clean_row
+        return clean_row, trapezoid(echo_xy_noisy, tvect, axis=0)
 
     indices = [(ix, iz) for ix in range(px) for iz in range(pz)]
     workers = 1 if phase_workers is None else int(phase_workers)
@@ -1113,9 +1355,26 @@ def _probe_imaging(
             rows = list(executor.map(run_point, indices))
 
     kspace = np.zeros((px, pz, int(num_echoes)), dtype=np.complex128)
+    kspace_noisy = None
+    if probe_noise:
+        kspace_noisy = np.zeros_like(kspace)
     for (ix, iz), values in zip(indices, rows):
-        kspace[ix, iz, :] = values
+        if probe_noise:
+            clean_values, noisy_values = values
+            kspace[ix, iz, :] = clean_values
+            kspace_noisy[ix, iz, :] = noisy_values
+        else:
+            kspace[ix, iz, :] = values
     sequence_time = echo_spacing_seconds * (np.arange(int(num_echoes), dtype=np.float64) + 1)
+    noise_metadata = None
+    if probe_noise:
+        _dummy, noise_metadata = add_received_noise(
+            np.zeros((1, del_w.size), dtype=np.complex128),
+            _indexed_noise_spec(noise_spec, 0),
+            pnoise=pnoise,
+            frequencies=frequencies,
+            sample_axis=del_w,
+        )
     return _finish_imaging_result(
         ProbeCPMGImagingResult,
         field_maps,
@@ -1125,6 +1384,9 @@ def _probe_imaging(
         del_w,
         sequence_time,
         probe,
+        noise=noise,
+        kspace_noisy=kspace_noisy,
+        noise_metadata=noise_metadata,
     )
 
 
@@ -1142,6 +1404,7 @@ def run_tuned_phase_encoded_cpmg_imaging(
     num_workers: int | None = 1,
     phase_workers: int | None = 1,
     receive_mode: str = "raw",
+    noise: NoiseSpec | Mapping[str, object] | float | int | None = None,
 ) -> ProbeCPMGImagingResult:
     """Run a compact tuned-probe phase-encoded CPMG imaging simulation.
 
@@ -1164,6 +1427,7 @@ def run_tuned_phase_encoded_cpmg_imaging(
         maxoffs=maxoffs,
         num_workers=num_workers,
         phase_workers=phase_workers,
+        noise=noise,
     )
 
 
@@ -1181,6 +1445,7 @@ def run_tuned_cpmg_imaging(
     num_workers: int | None = 1,
     phase_workers: int | None = 1,
     receive_mode: str = "raw",
+    noise: NoiseSpec | Mapping[str, object] | float | int | None = None,
 ) -> ProbeCPMGImagingResult:
     """Compatibility alias for `run_tuned_phase_encoded_cpmg_imaging`."""
 
@@ -1197,6 +1462,7 @@ def run_tuned_cpmg_imaging(
         num_workers=num_workers,
         phase_workers=phase_workers,
         receive_mode=receive_mode,
+        noise=noise,
     )
 
 
@@ -1213,6 +1479,7 @@ def run_matched_phase_encoded_cpmg_imaging(
     maxoffs: float = 5.0,
     num_workers: int | None = 1,
     phase_workers: int | None = 1,
+    noise: NoiseSpec | Mapping[str, object] | float | int | None = None,
 ) -> ProbeCPMGImagingResult:
     """Run a compact matched-probe phase-encoded CPMG imaging simulation."""
 
@@ -1230,6 +1497,7 @@ def run_matched_phase_encoded_cpmg_imaging(
         maxoffs=maxoffs,
         num_workers=num_workers,
         phase_workers=phase_workers,
+        noise=noise,
     )
 
 
@@ -1246,6 +1514,7 @@ def run_matched_cpmg_imaging(
     maxoffs: float = 5.0,
     num_workers: int | None = 1,
     phase_workers: int | None = 1,
+    noise: NoiseSpec | Mapping[str, object] | float | int | None = None,
 ) -> ProbeCPMGImagingResult:
     """Compatibility alias for `run_matched_phase_encoded_cpmg_imaging`."""
 
@@ -1261,4 +1530,5 @@ def run_matched_cpmg_imaging(
         maxoffs=maxoffs,
         num_workers=num_workers,
         phase_workers=phase_workers,
+        noise=noise,
     )

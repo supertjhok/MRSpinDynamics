@@ -184,6 +184,12 @@ Run a compact matched-probe diffusion CPMG Q sweep:
 python examples\matched_diffusion_cpmg.py --numpts 21 --num-echoes 3
 ```
 
+Run opt-in received-signal noise examples:
+
+```powershell
+python examples\received_signal_noise.py --numpts 51
+```
+
 Compare the currently validated workflows:
 
 ```powershell

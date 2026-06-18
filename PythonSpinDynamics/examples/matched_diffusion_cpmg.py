@@ -19,8 +19,10 @@ def main() -> None:
     parser.add_argument("--sweep-workers", type=int, default=1, help="Parallel Q-value workers.")
     args = parser.parse_args()
 
-    # Keep the default Q list modest. Very high-Q diffusion cases need extra
-    # transient-solver validation before they are good teaching examples.
+    # Keep the default Q list modest. The diffusion path is most useful here as
+    # a compact sanity check that echo attenuation, probe response, and Q
+    # dependence stay finite. Very high-Q diffusion cases need extra transient
+    # solver validation before they are good teaching examples.
     result = run_matched_diffusion_q_sweep(
         q_values=[20, 50],
         num_echoes=args.num_echoes,
@@ -28,6 +30,8 @@ def main() -> None:
         num_workers=args.workers,
         sweep_workers=args.sweep_workers,
     )
+    # Results are stacked as (Q value, echo, time) for `echo` and
+    # (Q value, echo) for the integrated scalar summaries.
     print("Matched diffusion CPMG Q sweep")
     print(f"q values: {result.values.size}")
     print(f"num offsets: {result.del_w.size}")

@@ -38,6 +38,7 @@ class ExampleSmokeTests(unittest.TestCase):
             ("examples/matched_cpmg_ir_train.py", "--numpts", "9", "--num-echoes", "2", "--num-tau", "2"),
             ("examples/finite_probe_train_sweeps.py", "--numpts", "9", "--num-echoes", "2"),
             ("examples/matched_diffusion_cpmg.py", "--numpts", "17", "--num-echoes", "2"),
+            ("examples/received_signal_noise.py", "--numpts", "21"),
             ("examples/probe_parameter_sweeps.py", "--numpts", "9"),
             (
                 "examples/diagnose_optimization_backends.py",

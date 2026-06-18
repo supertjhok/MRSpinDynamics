@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
+from types import SimpleNamespace
 from typing import Any
 
 import numpy as np
@@ -22,6 +23,15 @@ from spin_dynamics.core.rotations import (
     calc_rot_axis_arba3,
     calc_rotation_matrix,
     sim_spin_dynamics_asymp_mag3,
+)
+from spin_dynamics.noise import (
+    NoiseMetadata,
+    NoiseSpec,
+    add_received_noise,
+    as_noise_spec,
+    matched_probe_output_noise_density,
+    tuned_probe_output_noise_density,
+    untuned_probe_output_noise_density,
 )
 from spin_dynamics.parameters import (
     set_params_ideal,
@@ -60,6 +70,9 @@ class CPMGResult:
     tvect: np.ndarray
     snr: float | None
     probe: str
+    mrx_noisy: np.ndarray | None = None
+    echo_noisy: np.ndarray | None = None
+    noise: NoiseMetadata | None = None
 
 
 @dataclass(frozen=True)
@@ -73,12 +86,106 @@ class CPMGTrainResult:
     echo_integrals: np.ndarray
     sequence_time: np.ndarray
     probe: str
+    mrx_noisy: np.ndarray | None = None
+    echo_noisy: np.ndarray | None = None
+    echo_integrals_noisy: np.ndarray | None = None
+    noise: NoiseMetadata | None = None
 
 
 def _field(obj: Mapping[str, Any] | Any, name: str) -> Any:
     if isinstance(obj, Mapping):
         return obj[name]
     return getattr(obj, name)
+
+
+def _with_fields(obj: Mapping[str, Any] | Any, **fields: Any) -> SimpleNamespace:
+    base = dict(obj) if isinstance(obj, Mapping) else dict(obj.__dict__)
+    base.update(fields)
+    return SimpleNamespace(**base)
+
+
+def _matched_excitation_tf1(
+    sp: Mapping[str, Any] | Any,
+    pp: Mapping[str, Any] | Any,
+) -> tuple[Any, np.ndarray]:
+    c1, c2 = matching_network_design2(
+        float(_field(sp, "L")),
+        float(_field(sp, "Q")),
+        float(_field(sp, "f0")),
+        float(_field(sp, "Rs")),
+    )
+    sp_match = _with_fields(sp, C1=c1, C2=c2)
+    pp_curr = _with_fields(
+        pp,
+        tp=np.concatenate([
+            np.asarray(_field(pp, "texc"), dtype=np.float64).reshape(-1),
+            [float(_field(pp, "trd"))],
+        ]),
+        phi=np.concatenate([
+            np.asarray(_field(pp, "pexc"), dtype=np.float64).reshape(-1),
+            [0.0],
+        ]),
+        amp=np.concatenate([
+            np.asarray(_field(pp, "aexc"), dtype=np.float64).reshape(-1),
+            [0.0],
+        ]),
+    )
+    _tvect, _icr, tf1, _tf2 = find_coil_current(sp_match, pp_curr)
+    return sp_match, tf1
+
+
+def _probe_noise_density(
+    probe: str,
+    sp: Mapping[str, Any] | Any,
+    pp: Mapping[str, Any] | Any,
+) -> tuple[np.ndarray, np.ndarray]:
+    if probe == "tuned":
+        return tuned_probe_output_noise_density(sp, pp)
+    if probe == "untuned":
+        return untuned_probe_output_noise_density(sp, pp)
+    if probe == "matched":
+        return matched_probe_output_noise_density(sp, pp)
+    raise ValueError("probe noise requires tuned, untuned, or matched probe")
+
+
+def _add_optional_spectrum_noise(
+    mrx: np.ndarray,
+    noise: NoiseSpec | Mapping[str, Any] | float | int | None,
+    *,
+    probe: str,
+    del_w: np.ndarray | None = None,
+    sp: Mapping[str, Any] | Any | None = None,
+    pp: Mapping[str, Any] | Any | None = None,
+) -> tuple[np.ndarray | None, NoiseMetadata | None]:
+    spec = as_noise_spec(noise)
+    if spec is None:
+        return None, None
+    if spec.domain == "time":
+        return None, None
+    if spec.model == "probe":
+        if sp is None or pp is None:
+            raise ValueError("probe noise requires spin and pulse parameters")
+        pnoise, frequencies = _probe_noise_density(probe, sp, pp)
+        return add_received_noise(
+            mrx,
+            spec,
+            pnoise=pnoise,
+            frequencies=frequencies,
+            sample_axis=del_w,
+        )
+    return add_received_noise(mrx, spec)
+
+
+def _add_optional_time_noise(
+    echo: np.ndarray,
+    noise: NoiseSpec | Mapping[str, Any] | float | int | None,
+) -> tuple[np.ndarray | None, NoiseMetadata | None]:
+    spec = as_noise_spec(noise)
+    if spec is None or spec.domain == "spectrum":
+        return None, None
+    if spec.model != "white":
+        raise ValueError("time-domain noise currently supports only white noise")
+    return add_received_noise(echo, spec)
 
 
 def calc_masy_ideal(sp: Mapping[str, Any] | Any, pp: Mapping[str, Any] | Any) -> np.ndarray:
@@ -156,6 +263,7 @@ def run_ideal_cpmg_train(
     auto_refine_grid: bool = False,
     rephase_safety_factor: float = 1.25,
     rephase_action: str = "warn",
+    noise: NoiseSpec | Mapping[str, Any] | float | int | None = None,
 ) -> CPMGTrainResult:
     """Run a finite ideal CPMG echo train with relaxation.
 
@@ -259,6 +367,25 @@ def run_ideal_cpmg_train(
     tacq = float((np.pi / 2) * np.ravel(pp0.tacq)[0] / pp0.T_90)
     tdw = float((np.pi / 2) * pp0.tdw / pp0.T_90)
     echo, tvect, echo_integrals = _echo_train_from_spectra(mrx, del_w, tacq, tdw)
+    mrx_noisy, noise_metadata = _add_optional_spectrum_noise(
+        mrx,
+        noise,
+        probe="ideal",
+        del_w=del_w,
+    )
+    echo_noisy = None
+    echo_integrals_noisy = None
+    if mrx_noisy is not None:
+        echo_noisy, _tvect_noisy, echo_integrals_noisy = _echo_train_from_spectra(
+            mrx_noisy,
+            del_w,
+            tacq,
+            tdw,
+        )
+    else:
+        echo_noisy, noise_metadata = _add_optional_time_noise(echo, noise)
+        if echo_noisy is not None:
+            echo_integrals_noisy = trapezoid(echo_noisy, tvect, axis=1)
     sequence_time = np.sum(pp0.tref) * (
         np.arange(int(num_echoes), dtype=np.float64) + 0.5
     )
@@ -271,6 +398,10 @@ def run_ideal_cpmg_train(
         echo_integrals=echo_integrals,
         sequence_time=sequence_time,
         probe="ideal",
+        mrx_noisy=mrx_noisy,
+        echo_noisy=echo_noisy,
+        echo_integrals_noisy=echo_integrals_noisy,
+        noise=noise_metadata,
     )
 
 
@@ -395,6 +526,7 @@ def run_tuned_cpmg_train(
     auto_refine_grid: bool = False,
     rephase_safety_factor: float = 1.25,
     rephase_action: str = "warn",
+    noise: NoiseSpec | Mapping[str, Any] | float | int | None = None,
 ) -> CPMGTrainResult:
     """Run a finite tuned-probe CPMG echo train with relaxation.
 
@@ -512,6 +644,27 @@ def run_tuned_cpmg_train(
     tacq = float((np.pi / 2) * np.ravel(pp0.tacq)[0] / pp0.T_90)
     tdw = float((np.pi / 2) * pp0.tdw / pp0.T_90)
     echo, tvect, echo_integrals = _echo_train_from_spectra(mrx, del_w, tacq, tdw)
+    mrx_noisy, noise_metadata = _add_optional_spectrum_noise(
+        mrx,
+        noise,
+        probe="tuned",
+        del_w=del_w,
+        sp=sp,
+        pp=pp0,
+    )
+    echo_noisy = None
+    echo_integrals_noisy = None
+    if mrx_noisy is not None:
+        echo_noisy, _tvect_noisy, echo_integrals_noisy = _echo_train_from_spectra(
+            mrx_noisy,
+            del_w,
+            tacq,
+            tdw,
+        )
+    else:
+        echo_noisy, noise_metadata = _add_optional_time_noise(echo, noise)
+        if echo_noisy is not None:
+            echo_integrals_noisy = trapezoid(echo_noisy, tvect, axis=1)
     sequence_time = np.sum(pp0.tref) * (
         np.arange(int(num_echoes), dtype=np.float64) + 0.5
     )
@@ -524,6 +677,10 @@ def run_tuned_cpmg_train(
         echo_integrals=echo_integrals,
         sequence_time=sequence_time,
         probe="tuned",
+        mrx_noisy=mrx_noisy,
+        echo_noisy=echo_noisy,
+        echo_integrals_noisy=echo_integrals_noisy,
+        noise=noise_metadata,
     )
 
 
@@ -540,6 +697,7 @@ def run_untuned_cpmg_train(
     auto_refine_grid: bool = False,
     rephase_safety_factor: float = 1.25,
     rephase_action: str = "warn",
+    noise: NoiseSpec | Mapping[str, Any] | float | int | None = None,
 ) -> CPMGTrainResult:
     """Run a finite untuned-probe CPMG echo train with relaxation."""
 
@@ -653,6 +811,27 @@ def run_untuned_cpmg_train(
     tacq = float((np.pi / 2) * np.ravel(pp0.tacq)[0] / pp0.T_90)
     tdw = float((np.pi / 2) * pp0.tdw / pp0.T_90)
     echo, tvect, echo_integrals = _echo_train_from_spectra(mrx, del_w, tacq, tdw)
+    mrx_noisy, noise_metadata = _add_optional_spectrum_noise(
+        mrx,
+        noise,
+        probe="untuned",
+        del_w=del_w,
+        sp=sp,
+        pp=pp0,
+    )
+    echo_noisy = None
+    echo_integrals_noisy = None
+    if mrx_noisy is not None:
+        echo_noisy, _tvect_noisy, echo_integrals_noisy = _echo_train_from_spectra(
+            mrx_noisy,
+            del_w,
+            tacq,
+            tdw,
+        )
+    else:
+        echo_noisy, noise_metadata = _add_optional_time_noise(echo, noise)
+        if echo_noisy is not None:
+            echo_integrals_noisy = trapezoid(echo_noisy, tvect, axis=1)
     sequence_time = np.sum(pp0.tref) * (
         np.arange(int(num_echoes), dtype=np.float64) + 0.5
     )
@@ -665,6 +844,10 @@ def run_untuned_cpmg_train(
         echo_integrals=echo_integrals,
         sequence_time=sequence_time,
         probe="untuned",
+        mrx_noisy=mrx_noisy,
+        echo_noisy=echo_noisy,
+        echo_integrals_noisy=echo_integrals_noisy,
+        noise=noise_metadata,
     )
 
 
@@ -681,6 +864,7 @@ def run_matched_cpmg_train(
     auto_refine_grid: bool = False,
     rephase_safety_factor: float = 1.25,
     rephase_action: str = "warn",
+    noise: NoiseSpec | Mapping[str, Any] | float | int | None = None,
 ) -> CPMGTrainResult:
     """Run a finite matched-probe CPMG echo train with relaxation."""
 
@@ -801,6 +985,27 @@ def run_matched_cpmg_train(
     tacq = float((np.pi / 2) * np.ravel(pp0.tacq)[0] / pp0.T_90)
     tdw = float((np.pi / 2) * pp0.tdw / pp0.T_90)
     echo, tvect, echo_integrals = _echo_train_from_spectra(mrx, del_w, tacq, tdw)
+    mrx_noisy, noise_metadata = _add_optional_spectrum_noise(
+        mrx,
+        noise,
+        probe="matched",
+        del_w=del_w,
+        sp=sp,
+        pp=pp0,
+    )
+    echo_noisy = None
+    echo_integrals_noisy = None
+    if mrx_noisy is not None:
+        echo_noisy, _tvect_noisy, echo_integrals_noisy = _echo_train_from_spectra(
+            mrx_noisy,
+            del_w,
+            tacq,
+            tdw,
+        )
+    else:
+        echo_noisy, noise_metadata = _add_optional_time_noise(echo, noise)
+        if echo_noisy is not None:
+            echo_integrals_noisy = trapezoid(echo_noisy, tvect, axis=1)
     sequence_time = np.sum(pp0.tref) * (
         np.arange(int(num_echoes), dtype=np.float64) + 0.5
     )
@@ -813,10 +1018,19 @@ def run_matched_cpmg_train(
         echo_integrals=echo_integrals,
         sequence_time=sequence_time,
         probe="matched",
+        mrx_noisy=mrx_noisy,
+        echo_noisy=echo_noisy,
+        echo_integrals_noisy=echo_integrals_noisy,
+        noise=noise_metadata,
     )
 
 
-def run_ideal_cpmg(numpts: int = 101, maxoffs: float = 10.0) -> CPMGResult:
+def run_ideal_cpmg(
+    numpts: int = 101,
+    maxoffs: float = 10.0,
+    *,
+    noise: NoiseSpec | Mapping[str, Any] | float | int | None = None,
+) -> CPMGResult:
     """Run the validated ideal no-probe CPMG workflow."""
 
     del_w = _offset_grid(numpts, maxoffs)
@@ -824,6 +1038,17 @@ def run_ideal_cpmg(numpts: int = 101, maxoffs: float = 10.0) -> CPMGResult:
     sp = replace(sp, maxoffs=float(maxoffs), del_w=del_w)
     masy = calc_masy_ideal(sp, pp)
     echo, tvect = calc_time_domain_echo(masy, del_w)
+    mrx_noisy, noise_metadata = _add_optional_spectrum_noise(
+        masy,
+        noise,
+        probe="ideal",
+        del_w=del_w,
+    )
+    echo_noisy = None
+    if mrx_noisy is not None:
+        echo_noisy, _tvect_noisy = calc_time_domain_echo(mrx_noisy, del_w)
+    else:
+        echo_noisy, noise_metadata = _add_optional_time_noise(echo, noise)
     return CPMGResult(
         del_w=del_w,
         masy=masy,
@@ -832,10 +1057,18 @@ def run_ideal_cpmg(numpts: int = 101, maxoffs: float = 10.0) -> CPMGResult:
         tvect=tvect,
         snr=None,
         probe="ideal",
+        mrx_noisy=mrx_noisy,
+        echo_noisy=echo_noisy,
+        noise=noise_metadata,
     )
 
 
-def run_tuned_cpmg(numpts: int = 101, maxoffs: float = 10.0) -> CPMGResult:
+def run_tuned_cpmg(
+    numpts: int = 101,
+    maxoffs: float = 10.0,
+    *,
+    noise: NoiseSpec | Mapping[str, Any] | float | int | None = None,
+) -> CPMGResult:
     """Run the original/reference tuned-probe CPMG workflow."""
 
     del_w = _offset_grid(numpts, maxoffs)
@@ -851,6 +1084,19 @@ def run_tuned_cpmg(numpts: int = 101, maxoffs: float = 10.0) -> CPMGResult:
     )
     mrx, masy, snr = calc_masy_tuned_probe_lp_orig(params, sp, pp)
     echo, tvect = calc_time_domain_echo(mrx, del_w)
+    mrx_noisy, noise_metadata = _add_optional_spectrum_noise(
+        mrx,
+        noise,
+        probe="tuned",
+        del_w=del_w,
+        sp=sp,
+        pp=pp,
+    )
+    echo_noisy = None
+    if mrx_noisy is not None:
+        echo_noisy, _tvect_noisy = calc_time_domain_echo(mrx_noisy, del_w)
+    else:
+        echo_noisy, noise_metadata = _add_optional_time_noise(echo, noise)
     return CPMGResult(
         del_w=del_w,
         masy=masy,
@@ -859,10 +1105,18 @@ def run_tuned_cpmg(numpts: int = 101, maxoffs: float = 10.0) -> CPMGResult:
         tvect=tvect,
         snr=snr,
         probe="tuned",
+        mrx_noisy=mrx_noisy,
+        echo_noisy=echo_noisy,
+        noise=noise_metadata,
     )
 
 
-def run_untuned_cpmg(numpts: int = 101, maxoffs: float = 10.0) -> CPMGResult:
+def run_untuned_cpmg(
+    numpts: int = 101,
+    maxoffs: float = 10.0,
+    *,
+    noise: NoiseSpec | Mapping[str, Any] | float | int | None = None,
+) -> CPMGResult:
     """Run the original/reference untuned-probe CPMG workflow."""
 
     del_w = _offset_grid(numpts, maxoffs)
@@ -879,6 +1133,19 @@ def run_untuned_cpmg(numpts: int = 101, maxoffs: float = 10.0) -> CPMGResult:
     )
     mrx, masy, snr = calc_masy_untuned_probe_lp(params, sp, pp)
     echo, tvect = calc_time_domain_echo(mrx, del_w)
+    mrx_noisy, noise_metadata = _add_optional_spectrum_noise(
+        mrx,
+        noise,
+        probe="untuned",
+        del_w=del_w,
+        sp=sp,
+        pp=pp,
+    )
+    echo_noisy = None
+    if mrx_noisy is not None:
+        echo_noisy, _tvect_noisy = calc_time_domain_echo(mrx_noisy, del_w)
+    else:
+        echo_noisy, noise_metadata = _add_optional_time_noise(echo, noise)
     return CPMGResult(
         del_w=del_w,
         masy=masy,
@@ -887,10 +1154,18 @@ def run_untuned_cpmg(numpts: int = 101, maxoffs: float = 10.0) -> CPMGResult:
         tvect=tvect,
         snr=snr,
         probe="untuned",
+        mrx_noisy=mrx_noisy,
+        echo_noisy=echo_noisy,
+        noise=noise_metadata,
     )
 
 
-def run_matched_cpmg(numpts: int = 101, maxoffs: float = 10.0) -> CPMGResult:
+def run_matched_cpmg(
+    numpts: int = 101,
+    maxoffs: float = 10.0,
+    *,
+    noise: NoiseSpec | Mapping[str, Any] | float | int | None = None,
+) -> CPMGResult:
     """Run the original/reference matched-probe CPMG workflow."""
 
     del_w = _offset_grid(numpts, maxoffs)
@@ -908,6 +1183,23 @@ def run_matched_cpmg(numpts: int = 101, maxoffs: float = 10.0) -> CPMGResult:
     )
     mrx, masy, snr = calc_masy_matched_probe_orig(sp, pp)
     echo, tvect = calc_time_domain_echo(mrx, del_w)
+    sp_noise = sp
+    if as_noise_spec(noise) is not None and as_noise_spec(noise).model == "probe":
+        sp_match, tf1 = _matched_excitation_tf1(sp, pp)
+        sp_noise = _with_fields(sp_match, tf1=tf1)
+    mrx_noisy, noise_metadata = _add_optional_spectrum_noise(
+        mrx,
+        noise,
+        probe="matched",
+        del_w=del_w,
+        sp=sp_noise,
+        pp=pp,
+    )
+    echo_noisy = None
+    if mrx_noisy is not None:
+        echo_noisy, _tvect_noisy = calc_time_domain_echo(mrx_noisy, del_w)
+    else:
+        echo_noisy, noise_metadata = _add_optional_time_noise(echo, noise)
     return CPMGResult(
         del_w=del_w,
         masy=masy,
@@ -916,4 +1208,7 @@ def run_matched_cpmg(numpts: int = 101, maxoffs: float = 10.0) -> CPMGResult:
         tvect=tvect,
         snr=snr,
         probe="matched",
+        mrx_noisy=mrx_noisy,
+        echo_noisy=echo_noisy,
+        noise=noise_metadata,
     )
