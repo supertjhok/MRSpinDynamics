@@ -31,7 +31,7 @@
 [params,sp,pp] = set_params_tuned_Orig; % Define system parameters
 [mrx,masy,SNR] = calc_masy_tuned_probe_lp_Orig(params,sp,pp);
 
-SNR
+disp(SNR);
 
 figure;
 plot(sp.del_w,real(masy),'LineWidth',1);

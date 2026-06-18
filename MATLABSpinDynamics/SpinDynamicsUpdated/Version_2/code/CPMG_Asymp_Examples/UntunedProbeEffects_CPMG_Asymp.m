@@ -29,7 +29,7 @@
 [params,sp,pp] = set_params_untuned_Orig; % Define system parameters
 [mrx,masy,SNR] = calc_masy_untuned_probe_lp(params,sp,pp);
 
-SNR
+disp(SNR);
 
 figure;
 plot(sp.del_w,real(masy),'LineWidth',1);

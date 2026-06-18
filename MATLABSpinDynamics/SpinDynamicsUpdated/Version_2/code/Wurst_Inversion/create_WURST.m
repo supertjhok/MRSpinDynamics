@@ -1,10 +1,24 @@
 function [ f0,amp,phase,time,acq ] = create_WURST( freq,numSteps )
-%CREATE_WURST Summary of this function goes here
+% CREATE_WURST Build a normalized WURST inversion pulse table.
+%
+% Signature
+%   [f0,amp,phase,time,acq] = create_WURST(freq,numSteps)
+%
+% Inputs
+%   freq - Sweep half-bandwidth in normalized frequency units.
+%   numSteps - Number of piecewise-constant pulse segments.
+%
+% Outputs
+%   f0 - Frequency sweep values from -freq to +freq.
+%   amp - WURST amplitude envelope.
+%   phase - RF phase for each segment.
+%   time - Normalized duration of each segment.
+%   acq - Acquisition flag vector; WURST pulse segments do not acquire.
+% -------------------------------------------------------------------------
 Nw = 2;
 
-%   Detailed explanation goes here
 f0 = linspace(-freq,freq,numSteps);
-tvecW = linspace(0,numSteps,numSteps)
+tvecW = linspace(0,numSteps,numSteps);
 
 amp = (1-abs(cos((pi.*tvecW)./(1))).^Nw);
 

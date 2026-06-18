@@ -23,7 +23,7 @@
 %   Run from a MATLAB path that includes the Version_2 code folders.
 % -------------------------------------------------------------------------
 close all;
-clear all;
+clearvars;
 
 [sp, pp] = set_params_ideal; % Define system parameters
 [masy] = calc_masy_ideal(sp,pp); % Simulate ideal system
