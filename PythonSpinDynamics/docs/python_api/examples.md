@@ -128,6 +128,18 @@ python examples\finite_probe_train_sweeps.py --numpts 21 --num-echoes 3
 python examples\matched_diffusion_cpmg.py --numpts 21 --num-echoes 3
 ```
 
+## Received Signal Noise
+
+This non-plotting example compares opt-in white noise and probe-colored
+receiver noise while preserving the clean deterministic result fields.
+
+```powershell
+python examples\received_signal_noise.py --numpts 51
+```
+
+Use `--save-npz results\received_signal_noise.npz` to save selected clean and
+noisy CPMG echoes plus imaging k-space arrays.
+
 ## Plot Probe Parameter Sweep
 
 This example requires Matplotlib.
