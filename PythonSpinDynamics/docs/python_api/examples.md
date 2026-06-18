@@ -140,6 +140,28 @@ python examples\received_signal_noise.py --numpts 51
 Use `--save-npz results\received_signal_noise.npz` to save selected clean and
 noisy CPMG echoes plus imaging k-space arrays.
 
+## Radiation Damping
+
+These examples couple deterministic radiation-damping back-action to tuned or
+matched probe parameters. The FID workflow also reports the analytic
+Section 10.2.5 envelope for direct comparison.
+
+```powershell
+python examples\radiation_damping_fid.py --probe matched --points 401
+python examples\radiation_damping_cpmg_train.py --probe tuned --numpts 21 --num-echoes 4
+python examples\plot_radiation_damping.py --output results\radiation_damping.png
+python examples\plot_radiation_damping_detuning.py --output results\rd_detuning.png
+python examples\plot_radiation_damping_cpmg_train.py --output results\rd_cpmg.png
+python examples\nmr_maser.py
+python examples\plot_nmr_maser.py --output results\nmr_maser.png
+```
+
+Use `--model circuit`, `--detuning`, and `--phase` on the FID example to inspect
+the finite-ringdown probe model. The maser examples use an inverted longitudinal
+pump and show the threshold where radiation damping becomes gain; the plotting
+example defaults include a strong `16x`-threshold pump so saturation and
+inversion depletion are visible.
+
 ## Plot Inverse Laplace Examples
 
 This example requires SciPy and Matplotlib. It generates synthetic T1, T2,

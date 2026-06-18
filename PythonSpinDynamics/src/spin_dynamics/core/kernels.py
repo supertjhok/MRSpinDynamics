@@ -17,6 +17,7 @@ from typing import Any
 import numpy as np
 
 from spin_dynamics.core.rotations import MatrixElements, rf_matrix_elements
+from spin_dynamics.radiation_damping import RadiationDampingSpec
 
 
 @dataclass(frozen=True)
@@ -189,6 +190,369 @@ def sim_spin_dynamics_arb10(params: Mapping[str, Any] | Arb10Parameters | Any) -
         mvect[0, :] = mat.R_00 * tmp[0, :] + mat.R_0m * tmp[1, :] + mat.R_0p * tmp[2, :] + mlong
         mvect[1, :] = mat.R_m0 * tmp[0, :] + mat.R_mm * tmp[1, :] + mat.R_mp * tmp[2, :]
         mvect[2, :] = mat.R_p0 * tmp[0, :] + mat.R_pm * tmp[1, :] + mat.R_pp * tmp[2, :]
+
+        if acq_j:
+            macq[acq_cnt, :] = mvect[1, :]
+            acq_cnt += 1
+
+    return macq
+
+
+def _validate_arb10_inputs(
+    params: Mapping[str, Any] | Arb10Parameters | Any,
+) -> tuple[
+    np.ndarray,
+    np.ndarray,
+    Sequence[MatrixElements],
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+]:
+    tp = _as_vector(_field(params, "tp"), np.float64)
+    pul = _as_vector(_field(params, "pul"), np.int64)
+    rtot = _field(params, "Rtot")
+    amp = _as_vector(_field(params, "amp"), np.float64)
+    acq = _as_vector(_field(params, "acq"), bool)
+    grad = _as_vector(_field(params, "grad"), np.float64)
+    del_w0 = _as_vector(_field(params, "del_w"), np.float64)
+    del_wg = _as_vector(_field(params, "del_wg"), np.float64)
+    t1n = _as_vector(_field(params, "T1n"), np.float64)
+    t2n = _as_vector(_field(params, "T2n"), np.float64)
+    m0 = _as_vector(_field(params, "m0"), np.complex128)
+    mth = _as_vector(_field(params, "mth"), np.complex128)
+
+    numpts = del_w0.size
+    if not (tp.size == pul.size == amp.size == acq.size == grad.size):
+        raise ValueError("tp, pul, amp, acq, and grad must have the same length")
+    for name, arr in {
+        "del_wg": del_wg,
+        "T1n": t1n,
+        "T2n": t2n,
+        "m0": m0,
+        "mth": mth,
+    }.items():
+        if arr.size != numpts:
+            raise ValueError(f"{name} must have length len(del_w)")
+    return tp, pul, rtot, amp, acq, grad, del_w0, del_wg, t1n, t2n, m0, mth
+
+
+def _apply_matrix_step(
+    mvect: np.ndarray,
+    mat: MatrixElements,
+    mlong: np.ndarray,
+) -> np.ndarray:
+    tmp = mvect.copy()
+    out = np.empty_like(mvect)
+    out[0, :] = mat.R_00 * tmp[0, :] + mat.R_0m * tmp[1, :] + mat.R_0p * tmp[2, :] + mlong
+    out[1, :] = mat.R_m0 * tmp[0, :] + mat.R_mm * tmp[1, :] + mat.R_mp * tmp[2, :]
+    out[2, :] = mat.R_p0 * tmp[0, :] + mat.R_pm * tmp[1, :] + mat.R_pp * tmp[2, :]
+    return out
+
+
+def _matrix_elements_power(mat: MatrixElements, exponent: float) -> MatrixElements:
+    size = mat.R_00.size
+    arrays = {
+        "R_00": np.empty(size, dtype=np.complex128),
+        "R_0m": np.empty(size, dtype=np.complex128),
+        "R_0p": np.empty(size, dtype=np.complex128),
+        "R_m0": np.empty(size, dtype=np.complex128),
+        "R_mm": np.empty(size, dtype=np.complex128),
+        "R_mp": np.empty(size, dtype=np.complex128),
+        "R_p0": np.empty(size, dtype=np.complex128),
+        "R_pm": np.empty(size, dtype=np.complex128),
+        "R_pp": np.empty(size, dtype=np.complex128),
+    }
+    for idx in range(size):
+        full = np.array(
+            [
+                [mat.R_00[idx], mat.R_0m[idx], mat.R_0p[idx]],
+                [mat.R_m0[idx], mat.R_mm[idx], mat.R_mp[idx]],
+                [mat.R_p0[idx], mat.R_pm[idx], mat.R_pp[idx]],
+            ],
+            dtype=np.complex128,
+        )
+        vals, vecs = np.linalg.eig(full)
+        powered = vecs @ np.diag(vals**exponent) @ np.linalg.inv(vecs)
+        arrays["R_00"][idx] = powered[0, 0]
+        arrays["R_0m"][idx] = powered[0, 1]
+        arrays["R_0p"][idx] = powered[0, 2]
+        arrays["R_m0"][idx] = powered[1, 0]
+        arrays["R_mm"][idx] = powered[1, 1]
+        arrays["R_mp"][idx] = powered[1, 2]
+        arrays["R_p0"][idx] = powered[2, 0]
+        arrays["R_pm"][idx] = powered[2, 1]
+        arrays["R_pp"][idx] = powered[2, 2]
+    return MatrixElements(**arrays)
+
+
+def _radiation_damping_weights(
+    spec: RadiationDampingSpec,
+    numpts: int,
+) -> np.ndarray:
+    if spec.weights is None:
+        return np.full(numpts, 1.0 / max(1, numpts), dtype=np.float64)
+    weights = _as_vector(spec.weights, np.float64)
+    if weights.size != numpts:
+        raise ValueError("radiation damping weights must match len(del_w)")
+    total = float(np.sum(weights))
+    if not np.isfinite(total) or total <= 0:
+        raise ValueError("radiation damping weights must sum to a positive value")
+    return weights / total
+
+
+def _radiation_damping_step_limit(
+    spec: RadiationDampingSpec,
+    t1n: np.ndarray,
+    t2n: np.ndarray,
+) -> float:
+    candidates = [spec.trd / 50.0]
+    if spec.model == "circuit":
+        candidates.append(spec.resonator_time_constant / 20.0)
+    finite_t1 = t1n[np.isfinite(t1n) & (t1n > 0)]
+    finite_t2 = t2n[np.isfinite(t2n) & (t2n > 0)]
+    if finite_t1.size:
+        candidates.append(float(np.min(finite_t1)) / 50.0)
+    if finite_t2.size:
+        candidates.append(float(np.min(finite_t2)) / 50.0)
+    if spec.max_step is not None:
+        if spec.max_step <= 0:
+            raise ValueError("radiation damping max_step must be positive")
+        candidates.append(float(spec.max_step))
+    step = min(candidates)
+    if step <= 0 or not np.isfinite(step):
+        raise ValueError("radiation damping step size must be finite and positive")
+    return step
+
+
+def _rd_free_rhs(
+    mvect: np.ndarray,
+    feedback: complex,
+    del_w: np.ndarray,
+    t1n: np.ndarray,
+    t2n: np.ndarray,
+    mth: np.ndarray,
+) -> np.ndarray:
+    deriv = np.empty_like(mvect)
+    mz = mvect[0, :]
+    mminus = mvect[1, :]
+    mplus = mvect[2, :]
+    deriv[0, :] = (mth - mz) / t1n - np.real(np.conj(mplus) * feedback)
+    deriv[1, :] = (-1j * del_w - 1.0 / t2n) * mminus + mz * np.conj(feedback)
+    deriv[2, :] = (1j * del_w - 1.0 / t2n) * mplus + mz * feedback
+    return deriv
+
+
+def _rd_feedback_rhs(
+    mvect: np.ndarray,
+    feedback: complex,
+) -> np.ndarray:
+    deriv = np.empty_like(mvect)
+    mz = mvect[0, :]
+    mplus = mvect[2, :]
+    deriv[0, :] = -np.real(np.conj(mplus) * feedback)
+    deriv[1, :] = mz * np.conj(feedback)
+    deriv[2, :] = mz * feedback
+    return deriv
+
+
+def _radiation_damping_target(
+    mvect: np.ndarray,
+    spec: RadiationDampingSpec,
+    weights: np.ndarray,
+) -> complex:
+    return (
+        np.exp(1j * spec.probe.phase)
+        * np.conj(np.sum(weights * mvect[2, :]))
+        / spec.trd
+    )
+
+
+def _feedback_rhs_pair(
+    mvect: np.ndarray,
+    feedback: complex,
+    spec: RadiationDampingSpec,
+    weights: np.ndarray,
+) -> tuple[np.ndarray, complex]:
+    if spec.model == "instant":
+        use_fb = _radiation_damping_target(mvect, spec, weights)
+        dfb = 0.0 + 0.0j
+    elif spec.model == "circuit":
+        use_fb = feedback
+        dfb = (
+            (_radiation_damping_target(mvect, spec, weights) - feedback)
+            / spec.resonator_time_constant
+            - 1j * spec.detuning * feedback
+        )
+    else:
+        raise ValueError("radiation damping model must be 'instant' or 'circuit'")
+    return _rd_feedback_rhs(mvect, use_fb), dfb
+
+
+def _advance_feedback_only_radiation_damping(
+    mvect: np.ndarray,
+    duration: float,
+    spec: RadiationDampingSpec,
+    weights: np.ndarray,
+    feedback: complex,
+    step_limit: float,
+) -> tuple[np.ndarray, complex]:
+    if duration == 0:
+        return mvect, feedback
+    steps = max(1, int(np.ceil(abs(duration) / step_limit)))
+    h = duration / steps
+    state = mvect
+    fb = complex(feedback)
+    for _ in range(steps):
+        k1, f1 = _feedback_rhs_pair(state, fb, spec, weights)
+        k2, f2 = _feedback_rhs_pair(state + h * k1 / 2.0, fb + h * f1 / 2.0, spec, weights)
+        k3, f3 = _feedback_rhs_pair(state + h * k2 / 2.0, fb + h * f2 / 2.0, spec, weights)
+        k4, f4 = _feedback_rhs_pair(state + h * k3, fb + h * f3, spec, weights)
+        state = state + h * (k1 + 2.0 * k2 + 2.0 * k3 + k4) / 6.0
+        fb = fb + h * (f1 + 2.0 * f2 + 2.0 * f3 + f4) / 6.0
+        if spec.model == "instant":
+            fb = _radiation_damping_target(state, spec, weights)
+    return state, fb
+
+
+def _advance_free_radiation_damping(
+    mvect: np.ndarray,
+    duration: float,
+    del_w: np.ndarray,
+    t1n: np.ndarray,
+    t2n: np.ndarray,
+    mth: np.ndarray,
+    spec: RadiationDampingSpec,
+    weights: np.ndarray,
+    feedback: complex,
+    step_limit: float,
+) -> tuple[np.ndarray, complex]:
+    if duration == 0:
+        return mvect, feedback
+    steps = max(1, int(np.ceil(abs(duration) / step_limit)))
+    h = duration / steps
+    state = mvect
+    fb = complex(feedback)
+
+    def rhs_pair(current: np.ndarray, current_fb: complex) -> tuple[np.ndarray, complex]:
+        if spec.model == "instant":
+            use_fb = _radiation_damping_target(current, spec, weights)
+            dfb = 0.0 + 0.0j
+        elif spec.model == "circuit":
+            use_fb = current_fb
+            dfb = (
+                (_radiation_damping_target(current, spec, weights) - current_fb)
+                / spec.resonator_time_constant
+                - 1j * spec.detuning * current_fb
+            )
+        else:
+            raise ValueError("radiation damping model must be 'instant' or 'circuit'")
+        return _rd_free_rhs(current, use_fb, del_w, t1n, t2n, mth), dfb
+
+    for _ in range(steps):
+        k1, f1 = rhs_pair(state, fb)
+        k2, f2 = rhs_pair(state + h * k1 / 2.0, fb + h * f1 / 2.0)
+        k3, f3 = rhs_pair(state + h * k2 / 2.0, fb + h * f2 / 2.0)
+        k4, f4 = rhs_pair(state + h * k3, fb + h * f3)
+        state = state + h * (k1 + 2.0 * k2 + 2.0 * k3 + k4) / 6.0
+        fb = fb + h * (f1 + 2.0 * f2 + 2.0 * f3 + f4) / 6.0
+        if spec.model == "instant":
+            fb = _radiation_damping_target(state, spec, weights)
+    return state, fb
+
+
+def _advance_pulse_matrix_with_radiation_damping(
+    mvect: np.ndarray,
+    mat: MatrixElements,
+    duration: float,
+    spec: RadiationDampingSpec,
+    weights: np.ndarray,
+    feedback: complex,
+    step_limit: float,
+) -> tuple[np.ndarray, complex]:
+    if duration == 0:
+        return _apply_matrix_step(
+            mvect,
+            mat,
+            np.zeros(mvect.shape[1], dtype=np.complex128),
+        ), feedback
+    steps = max(1, int(np.ceil(abs(duration) / step_limit)))
+    submat = _matrix_elements_power(mat, 1.0 / steps)
+    state = mvect
+    fb = feedback
+    zeros = np.zeros(mvect.shape[1], dtype=np.complex128)
+    h = duration / steps
+    for _ in range(steps):
+        state = _apply_matrix_step(state, submat, zeros)
+        state, fb = _advance_feedback_only_radiation_damping(
+            state,
+            h,
+            spec,
+            weights,
+            fb,
+            step_limit,
+        )
+    return state, fb
+
+
+def sim_spin_dynamics_arb10_radiation_damping(
+    params: Mapping[str, Any] | Arb10Parameters | Any,
+    radiation_damping: RadiationDampingSpec,
+) -> np.ndarray:
+    """Simulate `arb10` with ensemble radiation damping during free intervals.
+
+    RF pulse blocks continue to use the supplied precomputed matrices. This
+    first nonlinear bridge therefore captures receive-window and inter-pulse
+    back-action without perturbing the validated pulse-shape machinery.
+    """
+
+    tp, pul, rtot, amp, acq, grad, del_w0, del_wg, t1n, t2n, m0, mth = (
+        _validate_arb10_inputs(params)
+    )
+    numpts = del_w0.size
+    weights = _radiation_damping_weights(radiation_damping, numpts)
+    step_limit = _radiation_damping_step_limit(radiation_damping, t1n, t2n)
+
+    mvect = np.zeros((3, numpts), dtype=np.complex128)
+    mvect[0, :] = m0
+    macq = np.zeros((int(np.sum(acq)), numpts), dtype=np.complex128)
+    acq_cnt = 0
+    feedback = complex(radiation_damping.initial_feedback)
+
+    for tp_j, pul_j, amp_j, acq_j, grad_j in zip(tp, pul, amp, acq, grad):
+        del_w = del_w0 + grad_j * del_wg
+        if amp_j > 0 and not radiation_damping.apply_during_pulses:
+            mat = rtot[int(pul_j) - 1]
+            mlong = np.zeros(numpts, dtype=np.complex128)
+            mvect = _apply_matrix_step(mvect, mat, mlong)
+        elif amp_j > 0:
+            mvect, feedback = _advance_pulse_matrix_with_radiation_damping(
+                mvect,
+                rtot[int(pul_j) - 1],
+                float(tp_j),
+                radiation_damping,
+                weights,
+                feedback,
+                step_limit,
+            )
+        else:
+            mvect, feedback = _advance_free_radiation_damping(
+                mvect,
+                float(tp_j),
+                del_w,
+                t1n,
+                t2n,
+                mth,
+                radiation_damping,
+                weights,
+                feedback,
+                step_limit,
+            )
 
         if acq_j:
             macq[acq_cnt, :] = mvect[1, :]

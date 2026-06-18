@@ -35,6 +35,10 @@ from spin_dynamics.workflows.diffusion import (
     run_matched_diffusion_cpmg,
     run_matched_diffusion_q_sweep,
 )
+from spin_dynamics.workflows.fid import (
+    RadiationDampingFIDResult,
+    run_radiation_damping_fid,
+)
 from spin_dynamics.workflows.imaging import (
     IdealCPMGImagingResult,
     IdealPhaseEncodedCPMGImagingResult,
@@ -114,6 +118,7 @@ __all__ = [
     "ProbePhaseEncodedCPMGImagingResult",
     "ProbeTimeVaryingCPMGResult",
     "ProbeTimeVaryingSweepResult",
+    "RadiationDampingFIDResult",
     "MatchedCPMGIRTrainResult",
     "MatchedDiffusionCPMGResult",
     "MatchedDiffusionQSweepResult",
@@ -139,6 +144,7 @@ __all__ = [
     "run_ideal_time_varying_amplitude_sweep",
     "run_ideal_time_varying_cpmg_final",
     "run_ideal_wurst_inversion",
+    "run_radiation_damping_fid",
     "run_t1_encoded_cpmg_imaging",
     "run_t1_encoded_phase_encoded_cpmg_imaging",
     "run_matched_cpmg",

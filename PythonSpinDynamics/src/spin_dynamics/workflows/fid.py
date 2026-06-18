@@ -7,18 +7,48 @@ MATLAB reference folder:
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
 
 from spin_dynamics.core.echo import calc_fid_time_domain
 from spin_dynamics.core.kernels import sim_spin_dynamics_arb7
+from spin_dynamics.parameters import set_params_matched_orig, set_params_tuned_orig
+from spin_dynamics.radiation_damping import (
+    RadiationDampingProbe,
+    analytic_radiation_damping_envelope,
+    proton_thermal_magnetization_density,
+    radiation_damping_probe_from_matched,
+    radiation_damping_probe_from_tuned,
+    simulate_radiation_damping_fid,
+)
 
 
 def _field(obj: Mapping[str, Any] | Any, name: str) -> Any:
     if isinstance(obj, Mapping):
         return obj[name]
     return getattr(obj, name)
+
+
+@dataclass(frozen=True)
+class RadiationDampingFIDResult:
+    """Workflow result for an ideal hard-pulse FID with radiation damping."""
+
+    time_seconds: np.ndarray
+    normalized_time: np.ndarray
+    mxy: np.ndarray
+    mz: np.ndarray
+    feedback: np.ndarray
+    analytic_envelope: np.ndarray
+    probe: RadiationDampingProbe
+    model: str
+    flip_angle: float
+    pulse_phase: float
+
+    @property
+    def envelope(self) -> np.ndarray:
+        return np.abs(self.mxy)
 
 
 def calc_macq_fid(
@@ -93,3 +123,98 @@ def sim_fid_ideal(
         (np.pi / 2) * float(_field(pp, "tdw")) / T_90,
     )
     return macq, echo, tvect
+
+
+def run_radiation_damping_fid(
+    *,
+    probe: str = "matched",
+    fill_factor: float = 0.7,
+    equilibrium_magnetization: float | None = None,
+    field_tesla: float = 1.0,
+    proton_concentration_mol_per_liter: float = 111.0,
+    temperature_kelvin: float = 300.0,
+    polarization_scale: float = 1.0,
+    flip_angle: float = np.pi / 2,
+    pulse_phase: float = 0.0,
+    phase: float = 0.0,
+    detuning: float = 0.0,
+    duration_seconds: float | None = None,
+    num_points: int = 401,
+    t1_seconds: float = np.inf,
+    t2_seconds: float = np.inf,
+    model: str = "instant",
+) -> RadiationDampingFIDResult:
+    """Run an ideal hard-pulse FID with probe-coupled radiation damping.
+
+    This workflow is intentionally separate from `sim_fid_ideal`, which keeps
+    its MATLAB-compatible return contract. It is the analytic validation anchor
+    for the nonlinear radiation-damping machinery.
+    """
+
+    if num_points < 2:
+        raise ValueError("num_points must be at least 2")
+    if polarization_scale <= 0:
+        raise ValueError("polarization_scale must be positive")
+    if equilibrium_magnetization is None:
+        mth = proton_thermal_magnetization_density(
+            field_tesla,
+            proton_concentration_mol_per_liter=proton_concentration_mol_per_liter,
+            temperature_kelvin=temperature_kelvin,
+        )
+        mth *= float(polarization_scale)
+    else:
+        mth = float(equilibrium_magnetization)
+
+    if probe == "matched":
+        sp, pp = set_params_matched_orig(numpts=21)
+        rd_probe = radiation_damping_probe_from_matched(
+            sp,
+            fill_factor=fill_factor,
+            equilibrium_magnetization=mth,
+            phase=phase,
+            detuning=detuning,
+        )
+    elif probe == "tuned":
+        _params, sp, pp = set_params_tuned_orig(numpts=21)
+        rd_probe = radiation_damping_probe_from_tuned(
+            sp,
+            fill_factor=fill_factor,
+            equilibrium_magnetization=mth,
+            phase=phase,
+            detuning=detuning,
+        )
+    else:
+        raise ValueError("probe must be 'matched' or 'tuned'")
+
+    duration = 5.0 * rd_probe.trd if duration_seconds is None else float(duration_seconds)
+    if duration <= 0:
+        raise ValueError("duration_seconds must be positive")
+    time = np.linspace(0.0, duration, int(num_points), dtype=np.float64)
+    result = simulate_radiation_damping_fid(
+        time,
+        rd_probe,
+        flip_angle=flip_angle,
+        pulse_phase=pulse_phase,
+        t1=t1_seconds,
+        t2=t2_seconds,
+        model=model,
+    )
+    analytic = analytic_radiation_damping_envelope(
+        time,
+        flip_angle,
+        rd_probe.trd,
+        t2=t2_seconds,
+    )
+    normalized_time = (np.pi / 2) * time / float(_field(pp, "T_90"))
+    return RadiationDampingFIDResult(
+        time_seconds=time,
+        normalized_time=normalized_time,
+        mxy=result.mxy,
+        mz=result.mz,
+        feedback=result.feedback,
+        analytic_envelope=analytic,
+        probe=rd_probe,
+        model=model,
+        flip_angle=float(flip_angle),
+        pulse_phase=float(pulse_phase),
+    )

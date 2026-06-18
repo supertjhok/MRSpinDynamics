@@ -17,7 +17,9 @@ from spin_dynamics.core.isochromats import check_rephasing
 from spin_dynamics.core.kernels import (
     sim_spin_dynamics_arb10,
     sim_spin_dynamics_arb10_chunked,
+    sim_spin_dynamics_arb10_radiation_damping,
 )
+from spin_dynamics.radiation_damping import RadiationDampingSpec
 
 
 def _field(obj: Mapping[str, Any] | Any, name: str) -> Any:
@@ -38,6 +40,7 @@ def calc_macq_ideal_probe_relax4(
     rephase_max_time: float | None = None,
     rephase_safety_factor: float = 1.25,
     rephase_action: str = "ignore",
+    radiation_damping: RadiationDampingSpec | None = None,
 ) -> np.ndarray:
     """Calculate acquired spectra for an ideal-probe arbitrary sequence.
 
@@ -73,6 +76,8 @@ def calc_macq_ideal_probe_relax4(
             safety_factor=rephase_safety_factor,
             action=rephase_action,
         )
+    if radiation_damping is not None:
+        return sim_spin_dynamics_arb10_radiation_damping(params, radiation_damping)
     if num_workers is None or int(num_workers) > 1:
         return sim_spin_dynamics_arb10_chunked(params, num_workers=num_workers)
     return sim_spin_dynamics_arb10(params)
@@ -86,6 +91,7 @@ def _calc_macq_relax4(
     rephase_max_time: float | None = None,
     rephase_safety_factor: float = 1.25,
     rephase_action: str = "ignore",
+    radiation_damping: RadiationDampingSpec | None = None,
 ) -> np.ndarray:
     t_90 = float(_field(pp, "T_90"))
     t1n = (np.pi / 2) * _as_vector(_field(sp, "T1"), np.float64) / t_90
@@ -113,6 +119,8 @@ def _calc_macq_relax4(
             safety_factor=rephase_safety_factor,
             action=rephase_action,
         )
+    if radiation_damping is not None:
+        return sim_spin_dynamics_arb10_radiation_damping(params, radiation_damping)
     if num_workers is None or int(num_workers) > 1:
         return sim_spin_dynamics_arb10_chunked(params, num_workers=num_workers)
     return sim_spin_dynamics_arb10(params)
@@ -140,6 +148,7 @@ def calc_macq_tuned_probe_relax4(
     rephase_max_time: float | None = None,
     rephase_safety_factor: float = 1.25,
     rephase_action: str = "ignore",
+    radiation_damping: RadiationDampingSpec | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Calculate finite acquisition for a tuned probe.
 
@@ -155,6 +164,7 @@ def calc_macq_tuned_probe_relax4(
         rephase_max_time=rephase_max_time,
         rephase_safety_factor=rephase_safety_factor,
         rephase_action=rephase_action,
+        radiation_damping=radiation_damping,
     )
     mrx = _apply_receiver(macq, _field(sp, "tf"), _field(sp, "w_1r"))
     return macq, mrx
@@ -168,6 +178,7 @@ def calc_macq_untuned_probe_relax4(
     rephase_max_time: float | None = None,
     rephase_safety_factor: float = 1.25,
     rephase_action: str = "ignore",
+    radiation_damping: RadiationDampingSpec | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Calculate finite acquisition for an untuned probe.
 
@@ -183,6 +194,7 @@ def calc_macq_untuned_probe_relax4(
         rephase_max_time=rephase_max_time,
         rephase_safety_factor=rephase_safety_factor,
         rephase_action=rephase_action,
+        radiation_damping=radiation_damping,
     )
     mrx = _apply_receiver(macq, _field(sp, "tf"), _field(sp, "w_1r"))
     return macq, mrx
@@ -196,6 +208,7 @@ def calc_macq_matched_probe_relax4(
     rephase_max_time: float | None = None,
     rephase_safety_factor: float = 1.25,
     rephase_action: str = "ignore",
+    radiation_damping: RadiationDampingSpec | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Calculate finite acquisition for a tuned-and-matched probe.
 
@@ -211,6 +224,7 @@ def calc_macq_matched_probe_relax4(
         rephase_max_time=rephase_max_time,
         rephase_safety_factor=rephase_safety_factor,
         rephase_action=rephase_action,
+        radiation_damping=radiation_damping,
     )
     mrx = _apply_receiver(macq, _field(sp, "tf2"), _field(sp, "w_1r"))
     return macq, mrx

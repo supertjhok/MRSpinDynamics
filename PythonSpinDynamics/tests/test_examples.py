@@ -38,6 +38,9 @@ class ExampleSmokeTests(unittest.TestCase):
             ("examples/matched_cpmg_ir_train.py", "--numpts", "9", "--num-echoes", "2", "--num-tau", "2"),
             ("examples/finite_probe_train_sweeps.py", "--numpts", "9", "--num-echoes", "2"),
             ("examples/matched_diffusion_cpmg.py", "--numpts", "17", "--num-echoes", "2"),
+            ("examples/radiation_damping_fid.py", "--points", "41"),
+            ("examples/radiation_damping_cpmg_train.py", "--numpts", "9", "--num-echoes", "2"),
+            ("examples/nmr_maser.py", "--points", "41", "--duration-trd", "3"),
             ("examples/received_signal_noise.py", "--numpts", "21"),
             ("examples/probe_parameter_sweeps.py", "--numpts", "9"),
             (
@@ -89,6 +92,10 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_motion_linear.py",
             "examples/plot_motion_diffusion_cpmg.py",
             "examples/plot_wurst_flow.py",
+            "examples/plot_radiation_damping.py",
+            "examples/plot_radiation_damping_detuning.py",
+            "examples/plot_radiation_damping_cpmg_train.py",
+            "examples/plot_nmr_maser.py",
         ]
         for script in scripts:
             with self.subTest(script=script):
@@ -122,6 +129,15 @@ class ExampleSmokeTests(unittest.TestCase):
         self.assertIn("--diffusion", result.stdout)
         result = run_example("examples/plot_wurst_flow.py", "--help")
         self.assertIn("--sweep-width", result.stdout)
+        result = run_example("examples/plot_radiation_damping.py", "--help")
+        self.assertIn("--fill-factor", result.stdout)
+        result = run_example("examples/plot_radiation_damping_detuning.py", "--help")
+        self.assertIn("--max-detuning", result.stdout)
+        result = run_example("examples/plot_radiation_damping_cpmg_train.py", "--help")
+        self.assertIn("--apply-during-pulses", result.stdout)
+        result = run_example("examples/plot_nmr_maser.py", "--help")
+        self.assertIn("--t2-trd", result.stdout)
+        self.assertIn("--pump-multipliers", result.stdout)
 
 
 if __name__ == "__main__":

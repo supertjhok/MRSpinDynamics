@@ -54,6 +54,44 @@ angular offset grid may rephase before the train finishes. Set
 and set `num_workers=None` to use the available CPU count for chunked
 isochromat propagation.
 
+## Radiation Damping
+
+Radiation damping is available as an opt-in nonlinear probe back-action model.
+The FID workflow is the analytic validation anchor:
+
+```python
+from spin_dynamics.workflows import run_radiation_damping_fid
+
+fid = run_radiation_damping_fid(
+    probe="matched",
+    fill_factor=0.7,
+    equilibrium_magnetization=0.8,
+    flip_angle=1.0,
+)
+```
+
+Finite tuned and matched CPMG train workflows accept a `radiation_damping`
+mapping. This preserves the ordinary pulse-sequence API while adding nonlinear
+feedback during free windows, acquisition, and optionally RF pulse matrices:
+
+```python
+train = run_tuned_cpmg_train(
+    numpts=51,
+    num_echoes=8,
+    radiation_damping={
+        "fill_factor": 0.7,
+        "equilibrium_magnetization": 0.8,
+        "model": "circuit",
+        "detuning": 2.0e4,
+        "apply_during_pulses": True,
+    },
+)
+```
+
+See `docs/radiation_damping.md` for equations, sample presets, detuning
+controls, sensitivity weighting, validation notes, and the boundary with the
+existing received-noise layer.
+
 ## Probe Parameter Sweeps
 
 ```python

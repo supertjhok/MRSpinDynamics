@@ -51,6 +51,11 @@ from spin_dynamics.probes.untuned import (
     untuned_probe_lp,
     untuned_probe_rx_tf,
 )
+from spin_dynamics.radiation_damping import (
+    RadiationDampingSpec,
+    radiation_damping_probe_from_matched,
+    radiation_damping_probe_from_tuned,
+)
 from spin_dynamics.workflows.acquisition import (
     calc_macq_ideal_probe_relax4,
     calc_macq_matched_probe_relax4,
@@ -90,6 +95,7 @@ class CPMGTrainResult:
     echo_noisy: np.ndarray | None = None
     echo_integrals_noisy: np.ndarray | None = None
     noise: NoiseMetadata | None = None
+    radiation_damping: RadiationDampingSpec | None = None
 
 
 def _field(obj: Mapping[str, Any] | Any, name: str) -> Any:
@@ -102,6 +108,54 @@ def _with_fields(obj: Mapping[str, Any] | Any, **fields: Any) -> SimpleNamespace
     base = dict(obj) if isinstance(obj, Mapping) else dict(obj.__dict__)
     base.update(fields)
     return SimpleNamespace(**base)
+
+
+def _as_radiation_damping_spec(
+    radiation_damping: RadiationDampingSpec | Mapping[str, Any] | None,
+    *,
+    probe: str,
+    sp: Mapping[str, Any] | Any,
+    pp: Mapping[str, Any] | Any,
+) -> RadiationDampingSpec | None:
+    if radiation_damping is None:
+        return None
+    if isinstance(radiation_damping, RadiationDampingSpec):
+        return radiation_damping
+    if not isinstance(radiation_damping, Mapping):
+        raise TypeError(
+            "radiation_damping must be a RadiationDampingSpec, mapping, or None"
+        )
+    fill_factor = float(radiation_damping["fill_factor"])
+    equilibrium_magnetization = radiation_damping.get("equilibrium_magnetization")
+    phase = float(radiation_damping.get("phase", 0.0))
+    detuning = float(radiation_damping.get("detuning", 0.0))
+    if probe == "tuned":
+        rd_probe = radiation_damping_probe_from_tuned(
+            sp,
+            fill_factor=fill_factor,
+            equilibrium_magnetization=equilibrium_magnetization,
+            phase=phase,
+            detuning=detuning,
+        )
+    elif probe == "matched":
+        rd_probe = radiation_damping_probe_from_matched(
+            sp,
+            fill_factor=fill_factor,
+            equilibrium_magnetization=equilibrium_magnetization,
+            phase=phase,
+            detuning=detuning,
+        )
+    else:
+        raise ValueError("radiation damping is currently wired for tuned/matched probes")
+    return RadiationDampingSpec(
+        probe=rd_probe,
+        time_scale=(np.pi / 2) / float(_field(pp, "T_90")),
+        weights=radiation_damping.get("weights"),
+        model=str(radiation_damping.get("model", "instant")),
+        max_step=radiation_damping.get("max_step"),
+        apply_during_pulses=bool(radiation_damping.get("apply_during_pulses", False)),
+        initial_feedback=complex(radiation_damping.get("initial_feedback", 0.0 + 0.0j)),
+    )
 
 
 def _matched_excitation_tf1(
@@ -527,6 +581,7 @@ def run_tuned_cpmg_train(
     rephase_safety_factor: float = 1.25,
     rephase_action: str = "warn",
     noise: NoiseSpec | Mapping[str, Any] | float | int | None = None,
+    radiation_damping: RadiationDampingSpec | Mapping[str, Any] | None = None,
 ) -> CPMGTrainResult:
     """Run a finite tuned-probe CPMG echo train with relaxation.
 
@@ -635,10 +690,26 @@ def run_tuned_cpmg_train(
     }
 
     sp["tf"] = tuned_probe_rx_tf(sp, pp0)
+    rd_spec = _as_radiation_damping_spec(
+        radiation_damping,
+        probe="tuned",
+        sp=sp,
+        pp=pp0,
+    )
     pp1 = {**pp_common, "pul": np.concatenate([pexc1, pref])}
     pp2 = {**pp_common, "pul": np.concatenate([pexc2, pref])}
-    _macq1, mrx1 = calc_macq_tuned_probe_relax4(sp, pp1, num_workers=num_workers)
-    _macq2, mrx2 = calc_macq_tuned_probe_relax4(sp, pp2, num_workers=num_workers)
+    _macq1, mrx1 = calc_macq_tuned_probe_relax4(
+        sp,
+        pp1,
+        num_workers=num_workers,
+        radiation_damping=rd_spec,
+    )
+    _macq2, mrx2 = calc_macq_tuned_probe_relax4(
+        sp,
+        pp2,
+        num_workers=num_workers,
+        radiation_damping=rd_spec,
+    )
     mrx = (mrx1 - mrx2) / 2
 
     tacq = float((np.pi / 2) * np.ravel(pp0.tacq)[0] / pp0.T_90)
@@ -681,6 +752,7 @@ def run_tuned_cpmg_train(
         echo_noisy=echo_noisy,
         echo_integrals_noisy=echo_integrals_noisy,
         noise=noise_metadata,
+        radiation_damping=rd_spec,
     )
 
 
@@ -865,6 +937,7 @@ def run_matched_cpmg_train(
     rephase_safety_factor: float = 1.25,
     rephase_action: str = "warn",
     noise: NoiseSpec | Mapping[str, Any] | float | int | None = None,
+    radiation_damping: RadiationDampingSpec | Mapping[str, Any] | None = None,
 ) -> CPMGTrainResult:
     """Run a finite matched-probe CPMG echo train with relaxation."""
 
@@ -976,10 +1049,26 @@ def run_matched_cpmg_train(
 
     sp["tf1"] = tf1
     sp["tf2"] = tf2
+    rd_spec = _as_radiation_damping_spec(
+        radiation_damping,
+        probe="matched",
+        sp=sp,
+        pp=pp0,
+    )
     pp1 = {**pp_common, "pul": np.concatenate([pexc1, pref])}
     pp2 = {**pp_common, "pul": np.concatenate([pexc2, pref])}
-    _macq1, mrx1 = calc_macq_matched_probe_relax4(sp, pp1, num_workers=num_workers)
-    _macq2, mrx2 = calc_macq_matched_probe_relax4(sp, pp2, num_workers=num_workers)
+    _macq1, mrx1 = calc_macq_matched_probe_relax4(
+        sp,
+        pp1,
+        num_workers=num_workers,
+        radiation_damping=rd_spec,
+    )
+    _macq2, mrx2 = calc_macq_matched_probe_relax4(
+        sp,
+        pp2,
+        num_workers=num_workers,
+        radiation_damping=rd_spec,
+    )
     mrx = (mrx1 - mrx2) / 2
 
     tacq = float((np.pi / 2) * np.ravel(pp0.tacq)[0] / pp0.T_90)
@@ -1022,6 +1111,7 @@ def run_matched_cpmg_train(
         echo_noisy=echo_noisy,
         echo_integrals_noisy=echo_integrals_noisy,
         noise=noise_metadata,
+        radiation_damping=rd_spec,
     )
 
 
