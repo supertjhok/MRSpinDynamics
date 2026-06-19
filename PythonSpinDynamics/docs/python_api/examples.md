@@ -140,6 +140,22 @@ python examples\received_signal_noise.py --numpts 51
 Use `--save-npz results\received_signal_noise.npz` to save selected clean and
 noisy CPMG echoes plus imaging k-space arrays.
 
+## J-Coupling Examples
+
+These examples exercise the scalar-coupled spin-1/2 extension layer. The first
+prints a compact heteronuclear J-editing fit, while the plotting examples
+visualize mixture modulation curves, TANGO-B filter selectivity, and a two-spin
+SLIC dip.
+
+```powershell
+python examples\heteronuclear_j_editing.py --points 33
+python examples\coupled_isochromat_fields.py --points 21
+python examples\plot_j_editing_spectrum.py --output results\j_editing_spectrum.png
+python examples\plot_j_editing_field_spread.py --output results\j_editing_field_spread.png
+python examples\plot_tango_filter.py --target 160 --output results\tango_filter.png
+python examples\plot_slic_two_spin.py --j-hz 7 --delta-hz 0.7 --output results\slic_two_spin.png
+```
+
 ## Radiation Damping
 
 These examples couple deterministic radiation-damping back-action to tuned or

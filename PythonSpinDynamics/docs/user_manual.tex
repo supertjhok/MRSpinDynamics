@@ -106,9 +106,10 @@
 \vspace{0.45in}
 \begin{minipage}{0.78\linewidth}
 \large
-Simulation workflows for uncoupled spin-1/2 nuclear magnetization in
-possibly non-uniform and time-varying magnetic fields, with validated
-MATLAB-compatible kernels and Python-native analysis tools.
+Simulation workflows for spin-1/2 nuclear magnetization in possibly
+non-uniform and time-varying magnetic fields, with validated
+MATLAB-compatible Bloch kernels, Python-native analysis tools, and scoped
+scalar-coupled spin-1/2 extensions.
 \end{minipage}
 \vfill
 {\large June 2026\par}
@@ -122,33 +123,44 @@ MATLAB-compatible kernels and Python-native analysis tools.
 
 \chapter{Physical Scope and Assumptions}
 
-PythonSpinDynamics models a bath of uncoupled spin-1/2 nuclei evolving in a
-static, spatially non-uniform, or time-varying main field \(B_0(\mathbf{r},t)\)
-and applied RF fields. The elementary object is an isochromat: a subensemble of
-spin-1/2 nuclei that shares an offset, RF sensitivity, relaxation constants, and
-probe response.
+The MATLAB-compatible workflow layer in PythonSpinDynamics models a bath of
+uncoupled spin-1/2 nuclei evolving in a static, spatially non-uniform, or
+time-varying main field \(B_0(\mathbf{r},t)\) and applied RF fields. The
+elementary object in that layer is an isochromat: a subensemble of spin-1/2
+nuclei that shares an offset, RF sensitivity, relaxation constants, and probe
+response.
 
 \scopebox{Accent}{
-\textbf{Modeled directly.} Independent spin-1/2 magnetization vectors; offset
-distributions from \(B_0(\mathbf{r},t)\); RF rotations; free precession;
-phenomenological \(T_1\) and \(T_2\) relaxation; probe transmit and receive
-filtering; optional deterministic radiation damping; optional motion through
-field maps.
+\textbf{Modeled directly in the core Bloch workflows.} Independent spin-1/2
+magnetization vectors; offset distributions from \(B_0(\mathbf{r},t)\); RF
+rotations; free precession; phenomenological \(T_1\) and \(T_2\) relaxation;
+probe transmit and receive filtering; optional deterministic radiation damping;
+optional motion through field maps.
+}
+
+\scopebox{Accent}{
+\textbf{Scalar-coupling extension.} The \code{spin\_dynamics.coupling}
+namespace adds small dense spin-1/2 systems with scalar J couplings, analytic
+low-field J-editing models, ideal TANGO-B filter curves, and initial SLIC
+simulations. These models are intentionally scoped and are documented in
+Chapter~\ref{chap:jcoupling}.
 }
 
 \scopebox{AccentTwo}{
-\textbf{Not modeled explicitly.} Scalar or dipolar spin-spin coupling, J
-coupling networks, chemical exchange, quadrupolar spins with \(I>1/2\),
-multi-quantum coherences, density-matrix entanglement, shaped sample
-microstructure beyond the supplied field and density maps, and microscopic
-spin noise. Spin-spin effects enter only indirectly when represented by
-effective relaxation times such as \(T_2\) or \(T_2^*\).
+\textbf{Still outside the package scope.} Dipolar coupling networks, chemical
+exchange, quadrupolar spins with \(I>1/2\), arbitrary multi-quantum pulse
+sequences, shaped sample microstructure beyond the supplied field and density
+maps, microscopic spin noise, and large sparse coupled-spin simulations.
+Spin-spin effects enter the Bloch workflows only indirectly when represented
+by effective relaxation times such as \(T_2\) or \(T_2^*\).
 }
 
-This scope is deliberate. The package follows the MATLAB implementation's
-classical Bloch/isochromat viewpoint, which is appropriate for many pulse,
-probe, imaging, and relaxation studies where the spins can be treated as
-independent subensembles. It is not a general quantum spin Hamiltonian solver.
+This scope is deliberate. The main package follows MATLAB's classical
+Bloch/isochromat viewpoint, which is appropriate for many pulse, probe,
+imaging, and relaxation studies where the spins can be treated as independent
+subensembles. The coupled-spin namespace adds targeted quantum spin-1/2 tools
+for scalar J-coupling phenomena without turning the full package into a general
+quantum spin Hamiltonian framework.
 
 \section{Spin Bath Cartoon}
 
@@ -172,7 +184,7 @@ independent subensembles. It is not a general quantum spin Hamiltonian solver.
     (-0.1,2.65) -- (3.0,2.65);
   \node[AccentTwo] at (1.35,3.05) {RF pulse};
   \draw[Ink!45,dashed] (3.2,0.15) -- (7.3,1.85);
-  \node[Ink!55,align=center] at (5.75,2.15) {no explicit\\spin-spin links};
+  \node[Ink!55,align=center] at (5.75,2.15) {core workflows:\\no explicit links};
   \node[align=left,Ink] at (4.7,-0.05) {Independent isochromats sample the local field and RF sensitivity.};
 \end{tikzpicture}
 \end{center}
@@ -184,9 +196,10 @@ independent subensembles. It is not a general quantum spin Hamiltonian solver.
   spatially varying \(B_0\), transmit \(B_1\), and receive \(B_1\) effects.
   \item Use relaxation constants to represent ensemble dephasing and energy
   exchange that are outside the explicit isochromat model.
-  \item Do not use this package when the phenomenon depends on explicit
-  coupled-spin quantum dynamics, quadrupolar transitions, or multi-quantum
-  coherence pathways.
+  \item Use \code{spin\_dynamics.coupling} when a small spin-1/2 scalar
+  J-coupled model is the phenomenon of interest.
+  \item Do not use the package for quadrupolar transitions, chemical exchange,
+  large coupled-spin networks, or arbitrary multi-quantum coherence pathways.
 \end{itemize}
 
 \chapter{Overview}
@@ -201,7 +214,9 @@ The supported surface currently includes ideal, tuned, untuned, and matched
 probe CPMG workflows; finite echo trains; FID; phase-encoded imaging; diffusion
 CPMG; time-varying-field CPMG; WURST inversion and matched WURST-CPMG;
 radiation damping; moving-isochromat motion helpers; received-signal noise;
-inverse-Laplace analysis; and compact pulse-optimization scaffolds.
+inverse-Laplace analysis; compact pulse-optimization scaffolds; and small
+spin-1/2 scalar-coupling tools for low-field J-editing, TANGO-B filtering, and
+SLIC-style spin-lock response.
 
 \section{Package Layout}
 
@@ -414,6 +429,265 @@ The finite-sequence implementation can add feedback during free-precession and
 acquisition windows, and can optionally apply an operator-split approximation
 during RF pulse matrices.
 
+\chapter{Scalar J-Coupling Models}
+\label{chap:jcoupling}
+
+Scalar J coupling is field independent, so it can remain visible in weak or
+grossly inhomogeneous magnetic fields where chemical-shift resolution is
+compressed. The \code{spin\_dynamics.coupling} namespace adds a scoped set of
+spin-1/2 tools for these cases. It is separate from the MATLAB-compatible Bloch
+workflow layer: Bloch workflows propagate independent isochromats, while the
+coupling layer propagates small dense Hilbert-space systems or evaluates
+closed-form J-editing response curves.
+
+\scopebox{Accent}{
+\textbf{Use this layer for:} heteronuclear low-field J-editing curves,
+known-J spectrum fitting, ideal TANGO-B filter selectivity, and exploratory
+two-spin or few-spin scalar-coupled Hamiltonian simulations.
+}
+
+\scopebox{AccentTwo}{
+\textbf{Current limits:} spin-1/2 only; dense matrices only; no relaxation
+superoperators; no chemical exchange; no quadrupolar nuclei; no large sparse
+coupled-spin networks; no full pulse-sequence compiler for arbitrary
+multi-quantum pathways.
+}
+
+\section{J-Coupled Spin Cartoon}
+
+\begin{center}
+\begin{tikzpicture}[x=1cm,y=1cm,>=Latex]
+  \fill[SoftBlue] (-0.5,-0.45) rectangle (9.8,3.7);
+  \draw[Muted!35,->] (1.0,0.25) -- (1.0,2.9);
+  \draw[Muted!35,->] (3.0,0.25) -- (3.0,2.9);
+  \node[Muted] at (2.0,3.25) {$B_0(\mathbf{r},t)$ may be weak or non-uniform};
+  \fill[Accent!18] (1.0,1.35) circle (0.38);
+  \fill[AccentTwo!18] (3.0,1.35) circle (0.38);
+  \draw[Accent,very thick,->] (1.0,1.35) -- ++(70:0.75);
+  \draw[AccentTwo,very thick,->] (3.0,1.35) -- ++(120:0.75);
+  \node[Ink] at (1.0,0.75) {A};
+  \node[Ink] at (3.0,0.75) {B};
+  \draw[Ink!55,thick,decorate,decoration={snake,amplitude=1.3pt,segment length=6pt}]
+    (1.42,1.35) -- (2.58,1.35);
+  \node[Ink] at (2.0,1.75) {$J_{AB}$};
+  \draw[Ink,->] (4.5,0.75) -- (9.1,0.75) node[right] {$\tau$};
+  \draw[Accent,thick] (4.7,1.45) cos (5.55,0.75) sin (6.4,0.05)
+    cos (7.25,0.75) sin (8.1,1.45);
+  \node[Accent,align=center] at (6.4,2.2) {echo amplitude\\oscillates with \(J\)};
+  \node[Ink,align=left] at (6.95,-0.05) {coupling frequency is not set by \(B_0\)};
+\end{tikzpicture}
+\end{center}
+
+\section{Dense Spin-1/2 Hamiltonians}
+
+A coupled system is built from offsets \(\nu_i\) in hertz and symmetric scalar
+couplings \(J_{ij}\) in hertz:
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.coupling import (
+    coupled_spin_system,
+    isotropic_j_hamiltonian,
+    zeeman_hamiltonian,
+)
+
+system = coupled_spin_system(
+    offsets_hz=[-0.35, 0.35],
+    couplings_hz=[[0.0, 7.0], [7.0, 0.0]],
+    labels=["A", "B"],
+)
+hamiltonian = zeeman_hamiltonian(system) + isotropic_j_hamiltonian(system)
+\end{lstlisting}
+
+Hamiltonian builders return angular-frequency matrices in radians per second
+and use spin-1/2 operators with eigenvalues \(\pm 1/2\). The rotating-frame
+offset Hamiltonian is
+\[
+  H_Z = 2\pi \sum_i \nu_i I_{iz}.
+\]
+For weakly coupled systems, the secular scalar Hamiltonian is
+\[
+  H_J^{\mathrm{sec}} =
+    2\pi \sum_{i<j} J_{ij} I_{iz} I_{jz},
+\]
+while the isotropic scalar Hamiltonian is
+\[
+  H_J^{\mathrm{iso}} =
+    2\pi \sum_{i<j} J_{ij}
+      \left(I_{ix}I_{jx}+I_{iy}I_{jy}+I_{iz}I_{jz}\right).
+\]
+The dense propagator evaluates
+\[
+  \rho(t) = U(t)\rho(0)U^\dagger(t),
+  \qquad
+  U(t)=\exp\left(-\ii Ht\right),
+\]
+and is intended for small systems where dense matrices are acceptable.
+
+\section{Inhomogeneous B0/B1 Isochromats}
+
+The bridge between the coupled-spin layer and the Bloch workflow layer is a
+coupled isochromat ensemble. Each isochromat contains the same scalar-coupled
+spin network, but samples a different local field and receive weight. For
+isochromat \(k\), the local spin offsets are
+\[
+  \nu_{i,k} = \nu_i^{(0)} + s_i\,\Delta\nu_k ,
+\]
+where \(\nu_i^{(0)}\) is the base spin offset, \(\Delta\nu_k\) is the local
+B0 offset in hertz, and \(s_i\) is a per-spin offset scale. The default
+\(s_i=1\) adds the same field offset to every spin. Heteronuclear or
+carrier-specific models can supply different scales.
+
+During an RF or spin-lock interval, the nominal nutation frequency is scaled by
+the local transmit field:
+\[
+  \omega_{1,k} = b_{1,k}^{\mathrm{tx}} \omega_1 .
+\]
+The ensemble signal is accumulated as
+\[
+  S = \sum_k w_k b_{1,k}^{\mathrm{rx}}
+      \operatorname{Tr}\!\left(\rho_k D\right),
+\]
+where \(w_k\) is the isochromat weight, \(b_{1,k}^{\mathrm{rx}}\) is the local
+receive scale, and \(D\) is the detection operator.
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.coupling import (
+    coupled_isochromat_ensemble,
+    free_precession_step,
+    rf_step,
+    simulate_coupled_isochromat_sequence,
+)
+
+ensemble = coupled_isochromat_ensemble(
+    system,
+    b0_offsets_hz=[-2.0, 0.0, 2.0],
+    weights=[0.25, 0.5, 0.25],
+    b1_tx_scale=[0.9, 1.0, 1.1],
+    b1_rx_scale=[1.0, 1.0, 0.8],
+)
+
+result = simulate_coupled_isochromat_sequence(
+    ensemble,
+    [
+        rf_step(duration=0.25, nutation_hz=1.0, phase=1.5708),
+        free_precession_step(duration=0.01),
+    ],
+    initial_axis="x",
+    detect_axis="x",
+)
+\end{lstlisting}
+
+For time-varying fields, each sequence step may override the ensemble B0
+offsets or B1 transmit scale. This keeps the first implementation close to the
+existing isochromat approach: the coupled-spin Hilbert space is dense and small,
+while field inhomogeneity is represented by an outer ensemble sum.
+
+\section{Low-Field J-Editing}
+
+Analytic J-editing helpers model response curves as sums of field-independent
+cosine modulations:
+\[
+  s(\tau) =
+    b + \sum_m a_m
+      \cos^{p_m}\!\left(2\pi N J_m \tau\right),
+\]
+where \(\tau\) is the encoding time, \(N\) is the number of encoding cycles,
+\(J_m\) is a known or hypothesized coupling in hertz, \(a_m\) is its amplitude,
+and \(p_m\) is an optional multiplicity exponent. Proton-detected models use
+\(p_m=1\). Carbon-detected \(\mathrm{CH}_n\) groups use \(p_m=n\).
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.coupling import (
+    carbon_detected_j_modulation,
+    fit_known_j_spectrum,
+    j_modulation_curve,
+)
+
+signal = j_modulation_curve(
+    encoding_times,
+    couplings_hz=[125.0, 160.0],
+    amplitudes=[0.85, 0.15],
+)
+
+carbon_signal = carbon_detected_j_modulation(
+    encoding_times,
+    couplings_hz=[125.0, 160.0],
+    abundances=[0.85, 0.15],
+    proton_counts=[2, 1],
+)
+
+fit = fit_known_j_spectrum(
+    encoding_times,
+    signal,
+    couplings_hz=[125.0, 160.0],
+    include_background=False,
+)
+\end{lstlisting}
+
+\code{fit\_known\_j\_spectrum} solves a linear least-squares problem once the
+candidate \(J_m\) values are supplied. It returns amplitudes, optional
+background, fitted signal, residual, rank, and residual norm.
+
+\section{TANGO-B Filtering}
+
+The ideal TANGO-B helper evaluates the coupled-spin transverse filter envelope
+\[
+  A(J;t_d) = \sin^2\!\left(\pi J t_d\right).
+\]
+When a target coupling \(J_\star\) and positive odd order \(n\) are supplied,
+the delay is selected as
+\[
+  t_d = \frac{n}{2J_\star}.
+\]
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.coupling import tango_b_filter
+
+response = tango_b_filter(
+    couplings_hz,
+    target_coupling_hz=160.0,
+    order=3,
+)
+\end{lstlisting}
+
+This model is idealized: it reports the scalar-coupling selectivity envelope,
+not RF imperfections, relaxation, diffusion, or probe filtering.
+
+\section{SLIC Response}
+
+Spin-lock induced crossing (SLIC) is modeled by adding an RF spin-lock
+Hamiltonian to the static coupled-spin Hamiltonian:
+\[
+  H_{\mathrm{SLIC}} =
+    H_Z + H_J^{\mathrm{iso}}
+    + 2\pi \omega_1 \sum_i I_{ix}.
+\]
+The helper scans spin-lock nutation frequencies \(\omega_1\) in hertz and
+returns the remaining transverse magnetization and its corresponding dip:
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.coupling import (
+    coupled_spin_system,
+    simulate_slic_spectrum,
+    two_spin_slic_transfer_time,
+)
+
+system = coupled_spin_system(
+    offsets_hz=[-0.35, 0.35],
+    couplings_hz=[[0.0, 7.0], [7.0, 0.0]],
+)
+duration = two_spin_slic_transfer_time(offset_difference_hz=0.7)
+result = simulate_slic_spectrum(
+    system,
+    nutation_frequencies_hz,
+    spin_lock_time=duration,
+)
+\end{lstlisting}
+
+For a nearly equivalent two-spin system, the SLIC dip is expected near the
+coupling frequency. The helper is exploratory and dense; broad homonuclear
+networks will need sparse or specialized methods.
+
 \chapter{First Workflows}
 
 \section{CPMG}
@@ -615,6 +889,8 @@ python examples\finite_probe_train_sweeps.py --numpts 21 --num-echoes 3
 python examples\matched_diffusion_cpmg.py --numpts 21 --num-echoes 3
 python examples\radiation_damping_fid.py --probe matched --points 401
 python examples\nmr_maser.py
+python examples\heteronuclear_j_editing.py --points 33
+python examples\coupled_isochromat_fields.py --points 21
 \end{lstlisting}
 
 Plotting examples require Matplotlib:
@@ -625,6 +901,10 @@ python examples\plot_ideal_imaging.py --pixels 6 --ny 7 --output results\ideal_i
 python examples\plot_inverse_laplace.py --output results\inverse_laplace.png
 python examples\plot_radiation_damping.py --output results\radiation_damping.png
 python examples\plot_wurst_flow.py --numpts 41 --num-steps 64 --output results\wurst_flow.png
+python examples\plot_j_editing_spectrum.py --output results\j_editing_spectrum.png
+python examples\plot_j_editing_field_spread.py --output results\j_editing_field_spread.png
+python examples\plot_tango_filter.py --target 160 --output results\tango_filter.png
+python examples\plot_slic_two_spin.py --j-hz 7 --delta-hz 0.7 --output results\slic_two_spin.png
 \end{lstlisting}
 
 \chapter{Validation}
@@ -658,9 +938,12 @@ remain available for validation and porting. For application code, start with:
 spin_dynamics.workflows
 spin_dynamics.parameters
 spin_dynamics.analysis
+spin_dynamics.coupling
 \end{lstlisting}
 
 Drop into lower-level modules only when a building block is needed directly.
+Use \code{spin\_dynamics.coupling} for the scoped dense scalar-coupled
+spin-1/2 tools described in Chapter~\ref{chap:jcoupling}.
 
 \section{Workflow Results}
 
@@ -918,6 +1201,64 @@ from spin_dynamics.radiation_damping import (
 )
 \end{lstlisting}
 
+\section{Scalar Coupling API}
+
+\begin{lstlisting}
+from spin_dynamics.coupling import (
+    CoupledSpinSystem,
+    CoupledIsochromatEnsemble,
+    CoupledIsochromatStep,
+    CoupledIsochromatSequenceResult,
+    coupled_spin_system,
+    coupled_isochromat_ensemble,
+    free_precession_step,
+    rf_step,
+    simulate_coupled_isochromat_sequence,
+    spin_operator,
+    total_operator,
+    product_operator,
+    zeeman_hamiltonian,
+    secular_j_hamiltonian,
+    isotropic_j_hamiltonian,
+    rf_hamiltonian,
+    equilibrium_density,
+    evolve_density,
+    expectation,
+    j_modulation_curve,
+    proton_detected_j_modulation,
+    carbon_detected_j_modulation,
+    tango_b_filter,
+    fit_known_j_spectrum,
+    JEditingFitResult,
+    simulate_slic_spectrum,
+    two_spin_slic_transfer_time,
+    SLICSpectrumResult,
+)
+\end{lstlisting}
+
+\begin{longtable}{p{0.42\linewidth}p{0.50\linewidth}}
+\toprule
+Object & Purpose \\
+\midrule
+\code{CoupledSpinSystem} & Validated small spin-1/2 system with offsets and scalar couplings in hertz. \\
+\code{CoupledIsochromatEnsemble} & Ensemble of local B0/B1 field samples for one coupled-spin system. \\
+\code{free\_precession\_step}, \code{rf\_step} & Sequence-step builders with optional time-varying B0/B1 overrides. \\
+\code{simulate\_coupled\_isochromat\_sequence} & Dense coupled-spin sequence propagation over an isochromat ensemble. \\
+\code{spin\_operator}, \code{total\_operator}, \code{product\_operator} & Dense spin-1/2 operator builders. \\
+\code{zeeman\_hamiltonian} & Rotating-frame offset Hamiltonian in radians per second. \\
+\code{secular\_j\_hamiltonian} & Weak-coupling \(I_zI_z\) scalar Hamiltonian. \\
+\code{isotropic\_j\_hamiltonian} & Isotropic scalar Hamiltonian for strongly coupled spin-1/2 systems. \\
+\code{rf\_hamiltonian} & RF nutation Hamiltonian for selected spins. \\
+\code{equilibrium\_density}, \code{evolve\_density}, \code{expectation} & Minimal dense density-matrix utilities. \\
+\code{j\_modulation\_curve} & Sum of cosine J-modulation components. \\
+\code{proton\_detected\_j\_modulation} & Proton-detected low-field J-editing response. \\
+\code{carbon\_detected\_j\_modulation} & Carbon-detected \(\cos^n\) J-editing response for \(\mathrm{CH}_n\) groups. \\
+\code{tango\_b\_filter} & Ideal TANGO-B scalar-coupling filter envelope. \\
+\code{fit\_known\_j\_spectrum} & Least-squares amplitudes for supplied J-coupling positions. \\
+\code{simulate\_slic\_spectrum} & Spin-lock response scan for dense coupled-spin systems. \\
+\bottomrule
+\end{longtable}
+
 \section{Optimization API}
 
 \begin{lstlisting}
@@ -968,7 +1309,9 @@ strong inverse-excitation cancellation parity remain validation targets.
 The Python port is intentionally conservative where MATLAB parity still
 matters. The largest remaining gaps are broader high-Q matched-probe validation,
 full historical MATLAB \code{.mat} structure parity, broad \code{fmincon}
-parity, and acceleration backends beyond the current NumPy implementation.
+parity, paper-level scalar-coupling fixture comparisons, relaxation-aware
+coupled-spin pulse-sequence runners, and acceleration backends beyond the
+current NumPy implementation.
 
 New work should add small reference fixtures first, then a NumPy implementation,
 then optional acceleration or plotting once numerical behavior is pinned down.

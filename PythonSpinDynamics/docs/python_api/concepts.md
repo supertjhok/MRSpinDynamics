@@ -2,10 +2,15 @@
 
 The Python package preserves the MATLAB model:
 
-- spins are represented as uncoupled spin-1/2 magnetization vectors;
+- core Bloch workflows represent spins as uncoupled spin-1/2 magnetization
+  vectors;
 - the sample is represented by an offset grid of isochromats;
 - RF and free-precession intervals are applied as rotations in coherence space;
 - acquired spectra can be converted to time-domain echoes or FID traces.
+
+The separate `spin_dynamics.coupling` namespace adds scoped scalar-coupled
+spin-1/2 utilities for low-field J-editing, TANGO-B filtering, dense
+Hamiltonian propagation, and initial SLIC models.
 
 ## Coherence Ordering
 

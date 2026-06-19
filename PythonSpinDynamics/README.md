@@ -10,11 +10,15 @@ ideal, tuned, untuned, and matched-probe CPMG workflows; finite echo trains;
 FID, imaging, diffusion, time-varying-field, WURST, radiation-damping, motion,
 noise, inverse-Laplace analysis, and pulse-optimization helpers.
 
-The model assumes a bath of uncoupled spin-1/2 nuclei in a possibly
-non-uniform and time-varying \(B_0\) field. It does not explicitly model
-spin-spin coupling, \(I>1/2\) quadrupolar dynamics, or multi-quantum pathways;
-those effects only enter indirectly when represented by effective relaxation
-or field-map inputs.
+Most MATLAB-compatible Bloch workflows assume a bath of uncoupled spin-1/2
+nuclei in a possibly non-uniform and time-varying \(B_0\) field; spin-spin
+effects enter those workflows indirectly through effective relaxation or
+field-map inputs. The `spin_dynamics.coupling` namespace is the explicit
+extension for small scalar-coupled spin-1/2 systems, including low-field
+J-editing, ideal TANGO-B filtering, dense Hamiltonian propagation, B0/B1
+isochromat ensembles, and initial SLIC models. The package still does not
+attempt general \(I>1/2\) quadrupolar dynamics, chemical exchange, or arbitrary
+multi-quantum pulse-sequence simulation.
 
 ## Documentation
 
@@ -22,6 +26,8 @@ or field-map inputs.
   workflow examples, validation notes, and an API reference.
 - `docs/python_api/index.md` is the lightweight Markdown API index, including
   the generated `docs/python_api/api_reference.md` inventory.
+- `docs/python_api/j_coupling.md` describes the scalar-coupled spin-1/2
+  extension layer.
 - `docs/matlab_mapping.md` and `docs/migration_plan.md` track MATLAB-to-Python
   mapping and remaining porting work.
 - `docs/validation_results.md` records fixture comparisons and tolerance notes.

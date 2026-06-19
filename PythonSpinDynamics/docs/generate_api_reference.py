@@ -14,6 +14,13 @@ OUTPUT = ROOT / "docs" / "python_api" / "api_reference.md"
 MODULES = [
     "analysis.ilt",
     "analysis.regularization",
+    "coupling.evolution",
+    "coupling.hamiltonians",
+    "coupling.isochromats",
+    "coupling.j_editing",
+    "coupling.operators",
+    "coupling.slic",
+    "coupling.systems",
     "core.echo",
     "core.isochromats",
     "core.kernels",
