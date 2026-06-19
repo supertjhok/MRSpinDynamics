@@ -15,6 +15,8 @@ variants, packaging, and performance.
 - [Core Numerical Functions](core.md)
 - [Workflows](workflows.md)
 - [Analysis](analysis.md)
+- [API Reference](api_reference.md)
+- [Performance](performance.md)
 - [Validation](validation.md)
 - [Known Gaps](known_gaps.md)
 

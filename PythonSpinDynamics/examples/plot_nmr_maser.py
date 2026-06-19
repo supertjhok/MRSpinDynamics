@@ -7,7 +7,7 @@ from pathlib import Path
 
 import numpy as np
 
-from _source_path import add_src_to_path
+from _source_path import add_src_to_path, load_matplotlib
 
 add_src_to_path()
 
@@ -19,15 +19,6 @@ from spin_dynamics.radiation_damping import (
 )
 
 
-def _load_matplotlib():
-    try:
-        import matplotlib.pyplot as plt
-    except ModuleNotFoundError as exc:
-        raise SystemExit(
-            "matplotlib is required for this example. Install the optional "
-            "plot dependency, for example: pip install matplotlib"
-        ) from exc
-    return plt
 
 
 def _build_probe(
@@ -92,7 +83,7 @@ def main() -> None:
     if args.points < 2:
         raise SystemExit("--points must be at least 2")
 
-    plt = _load_matplotlib()
+    plt = load_matplotlib()
     probe = _build_probe(
         args.probe,
         fill_factor=args.fill_factor,

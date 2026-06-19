@@ -7,22 +7,13 @@ from pathlib import Path
 
 import numpy as np
 
-from _source_path import add_src_to_path
+from _source_path import add_src_to_path, load_matplotlib
 
 add_src_to_path()
 
 from spin_dynamics.workflows import run_matched_cpmg_train, run_tuned_cpmg_train
 
 
-def _load_matplotlib():
-    try:
-        import matplotlib.pyplot as plt
-    except ModuleNotFoundError as exc:
-        raise SystemExit(
-            "matplotlib is required for this example. Install the optional "
-            "plot dependency, for example: pip install matplotlib"
-        ) from exc
-    return plt
 
 
 def _runner(probe: str):
@@ -47,7 +38,7 @@ def main() -> None:
     parser.add_argument("--output", type=Path, default=None)
     args = parser.parse_args()
 
-    plt = _load_matplotlib()
+    plt = load_matplotlib()
     runner = _runner(args.probe)
     common = {
         "numpts": args.numpts,

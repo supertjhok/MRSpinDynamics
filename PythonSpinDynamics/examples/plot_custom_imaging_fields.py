@@ -7,7 +7,7 @@ from pathlib import Path
 
 import numpy as np
 
-from _source_path import add_src_to_path
+from _source_path import add_src_to_path, load_matplotlib
 
 add_src_to_path()
 
@@ -25,12 +25,6 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT = ROOT / "results" / "custom_imaging_fields.png"
 
 
-def _load_matplotlib():
-    try:
-        import matplotlib.pyplot as plt
-    except ModuleNotFoundError:
-        return None
-    return plt
 
 
 def _normalize_panel(arr: np.ndarray) -> np.ndarray:
@@ -128,7 +122,7 @@ def main() -> None:
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT, help="Output image path.")
     args = parser.parse_args()
 
-    plt = _load_matplotlib()
+    plt = load_matplotlib(required=False)
     rho, b0_map, b1_tx_map, b1_rx_map = _synthetic_maps(args.pixels)
     field_maps = make_imaging_field_maps(
         rho,

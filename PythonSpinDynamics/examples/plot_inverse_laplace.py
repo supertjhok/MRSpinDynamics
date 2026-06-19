@@ -7,21 +7,12 @@ from pathlib import Path
 
 import numpy as np
 
-from _source_path import add_src_to_path
+from _source_path import add_src_to_path, load_matplotlib
 
 
 add_src_to_path()
 
 
-def _load_matplotlib():
-    try:
-        import matplotlib.pyplot as plt
-    except ImportError as exc:  # pragma: no cover - depends on local environment
-        raise SystemExit(
-            "Matplotlib is required for this example. Install the plot extra "
-            "or run: python -m pip install matplotlib"
-        ) from exc
-    return plt
 
 
 def _check_scipy() -> None:
@@ -376,7 +367,7 @@ def _run_d_t2(snr: float, rng: np.random.Generator, args: argparse.Namespace):
 def main() -> None:
     args = _parse_args()
     _check_scipy()
-    plt = _load_matplotlib()
+    plt = load_matplotlib()
 
     rng = np.random.default_rng(args.seed)
     cases = list(dict.fromkeys(args.cases))

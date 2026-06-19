@@ -7,7 +7,7 @@ from pathlib import Path
 
 import numpy as np
 
-from _source_path import add_src_to_path
+from _source_path import add_src_to_path, load_matplotlib
 
 add_src_to_path()
 
@@ -49,12 +49,6 @@ CONTRAST_NOTE = (
 )
 
 
-def _load_matplotlib():
-    try:
-        import matplotlib.pyplot as plt
-    except ModuleNotFoundError as exc:
-        return None
-    return plt
 
 
 def _resize_nearest(image: np.ndarray, pixels: int) -> np.ndarray:
@@ -163,7 +157,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    plt = _load_matplotlib()
+    plt = load_matplotlib(required=False)
     rho = _load_phantom(args.image, args.pixels, invert=not args.raw_image)
 
     runners = {

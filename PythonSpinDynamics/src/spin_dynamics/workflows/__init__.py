@@ -1,4 +1,9 @@
-"""High-level workflow entry points mirroring canonical MATLAB examples."""
+"""High-level workflow entry points mirroring canonical MATLAB examples.
+
+The module keeps a broad re-export surface for compatibility with the porting
+workspace. New user code should prefer names listed in ``STABLE_WORKFLOW_API``
+or import specialized helpers from their workflow submodules.
+"""
 
 from spin_dynamics.workflows.acquisition import (
     calc_macq_ideal_probe_relax4,
@@ -101,6 +106,75 @@ from spin_dynamics.workflows.wurst import (
     run_matched_wurst_inversion,
 )
 
+STABLE_WORKFLOW_API = (
+    "CPMGResult",
+    "CPMGTrainResult",
+    "RadiationDampingFIDResult",
+    "run_ideal_cpmg",
+    "run_ideal_cpmg_train",
+    "run_matched_cpmg",
+    "run_matched_cpmg_train",
+    "run_radiation_damping_fid",
+    "run_tuned_cpmg",
+    "run_tuned_cpmg_train",
+    "run_untuned_cpmg",
+    "run_untuned_cpmg_train",
+)
+
+EXTENDED_WORKFLOW_API = (
+    "calc_macq_ideal_probe_relax4",
+    "calc_macq_matched_probe_relax4",
+    "calc_macq_tuned_probe_relax4",
+    "calc_macq_untuned_probe_relax4",
+    "check_matched_diffusion_q_stability",
+    "fit_imaging_echo_decay",
+    "form_imaging_image",
+    "load_imaging_field_maps_npz",
+    "make_imaging_field_maps",
+    "reconstruct_image_from_kspace",
+    "run_ideal_cpmg_imaging",
+    "run_ideal_cpmg_ir_train",
+    "run_ideal_phase_encoded_cpmg_imaging",
+    "run_ideal_time_varying_amplitude_sweep",
+    "run_ideal_time_varying_cpmg_final",
+    "run_ideal_wurst_inversion",
+    "run_matched_cpmg_imaging",
+    "run_matched_cpmg_ir_train",
+    "run_matched_diffusion_cpmg",
+    "run_matched_diffusion_q_sweep",
+    "run_matched_phase_encoded_cpmg_imaging",
+    "run_matched_time_varying_amplitude_sweep",
+    "run_matched_time_varying_cpmg_final",
+    "run_matched_wurst_cpmg",
+    "run_matched_wurst_inversion",
+    "run_matched_z_magnetization_q_sweep",
+    "run_t1_encoded_cpmg_imaging",
+    "run_t1_encoded_phase_encoded_cpmg_imaging",
+    "run_tuned_cpmg_imaging",
+    "run_tuned_cpmg_ir_train",
+    "run_tuned_phase_encoded_cpmg_imaging",
+    "run_tuned_time_varying_amplitude_sweep",
+    "run_tuned_time_varying_cpmg_final",
+    "run_untuned_cpmg_ir_train",
+    "run_untuned_time_varying_amplitude_sweep",
+    "run_untuned_time_varying_cpmg_final",
+    "sinusoidal_field_waveform",
+    "summarize_imaging_noise_trials",
+)
+
+LEGACY_SWEEP_API = (
+    "run_matched_finite_mistuning_sweep",
+    "run_matched_finite_q_sweep",
+    "run_matched_mistuning_sweep",
+    "run_matched_q_sweep",
+    "run_tuned_finite_mistuning_sweep",
+    "run_tuned_finite_q_sweep",
+    "run_tuned_mistuning_sweep",
+    "run_tuned_q_sweep",
+    "run_untuned_finite_mistuning_sweep",
+    "run_untuned_finite_q_sweep",
+)
+
 __all__ = [
     "CPMGResult",
     "CPMGIRTrainResult",
@@ -119,10 +193,13 @@ __all__ = [
     "ProbeTimeVaryingCPMGResult",
     "ProbeTimeVaryingSweepResult",
     "RadiationDampingFIDResult",
+    "EXTENDED_WORKFLOW_API",
+    "LEGACY_SWEEP_API",
     "MatchedCPMGIRTrainResult",
     "MatchedDiffusionCPMGResult",
     "MatchedDiffusionQSweepResult",
     "MatchedWURSTCPMGResult",
+    "STABLE_WORKFLOW_API",
     "VALIDATED_MATCHED_DIFFUSION_Q_MAX",
     "WURSTInversionResult",
     "ZMagnetizationSweepResult",

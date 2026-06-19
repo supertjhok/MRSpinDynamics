@@ -8,7 +8,7 @@ from pathlib import Path
 
 import numpy as np
 
-from _source_path import add_src_to_path
+from _source_path import add_src_to_path, load_matplotlib
 
 add_src_to_path()
 
@@ -18,15 +18,6 @@ from spin_dynamics.workflows.cpmg import calc_masy_ideal
 from spin_dynamics.workflows.fid import sim_fid_ideal
 
 
-def _load_matplotlib():
-    try:
-        import matplotlib.pyplot as plt
-    except ModuleNotFoundError as exc:
-        raise SystemExit(
-            "matplotlib is required for this example. Install the optional "
-            "plot dependency, for example: pip install matplotlib"
-        ) from exc
-    return plt
 
 
 def main() -> None:
@@ -46,7 +37,7 @@ def main() -> None:
     parser.add_argument("--output", type=Path, default=None, help="Optional output image path.")
     args = parser.parse_args()
 
-    plt = _load_matplotlib()
+    plt = load_matplotlib()
 
     # CPMG plot data: offset-domain asymptotic magnetization and its
     # time-domain echo.

@@ -7,7 +7,6 @@ MATLAB reference folder:
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import replace
 from typing import Any
 
 import numpy as np
@@ -214,6 +213,7 @@ def find_coil_current(
 
     time_el = 0.0
     ind_last = 0
+    ind2 = 0
     ycos_state = np.zeros(3, dtype=np.float64)
     ysin_state = np.zeros(3, dtype=np.float64)
 
@@ -358,9 +358,9 @@ def find_coil_current_wurst(
 
     time_el = 0.0
     ind_last = 0
+    ind2 = 0
     ycos_state = np.zeros(3, dtype=np.float64)
     ysin_state = np.zeros(3, dtype=np.float64)
-    ind2 = 0
 
     for idx, (tp_i, phi_i, amp_i, wn_i) in enumerate(zip(tp, phi, amp, wn)):
         if idx > 0:

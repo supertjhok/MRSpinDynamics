@@ -122,7 +122,7 @@ def main() -> None:
         "ideal imaging k-space noise RMS: "
         f"{_noise_rms(ideal_img.kspace_noisy, ideal_img.kspace):.12g}"
     )
-    print(f"tuned imaging receive mode: weighted")
+    print("tuned imaging receive mode: weighted")
     print(
         "tuned imaging probe-noise RMS: "
         f"{_noise_rms(tuned_img.kspace_noisy, tuned_img.kspace):.12g}"

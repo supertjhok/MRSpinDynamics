@@ -7,7 +7,7 @@ from pathlib import Path
 
 import numpy as np
 
-from _source_path import add_src_to_path
+from _source_path import add_src_to_path, load_matplotlib
 
 add_src_to_path()
 
@@ -20,15 +20,6 @@ from spin_dynamics.workflows import (  # noqa: E402
 )
 
 
-def _load_matplotlib():
-    try:
-        import matplotlib.pyplot as plt
-    except ModuleNotFoundError as exc:
-        raise SystemExit(
-            "matplotlib is required for this example. Install the optional "
-            "plot dependency, for example: pip install matplotlib"
-        ) from exc
-    return plt
 
 
 def _parse_values(text: str) -> np.ndarray:
@@ -109,7 +100,7 @@ def main() -> None:
     if args.range[2] <= 0:
         raise SystemExit("range COUNT must be positive")
 
-    plt = _load_matplotlib()
+    plt = load_matplotlib()
     result = _run_sweep(args)
 
     # Sort rows before imshow so the y-axis is monotonic even if explicit

@@ -9,6 +9,35 @@ Benchmark Python kernels against the active MATLAB benchmark suite:
 Start with correctness-oriented tiny cases. Add timing comparisons only after
 the NumPy implementation reproduces MATLAB output within agreed tolerances.
 
+## Benchmark Policy
+
+Benchmarks serve two different purposes in this repository:
+
+- **Validation benchmarks** record solver boundaries or numerical stability
+  behavior. Commit compact CSV outputs when they document a meaningful
+  validation boundary, such as the matched-diffusion high-Q limit.
+- **Performance benchmarks** compare runtime across implementation choices.
+  Treat these as host-specific measurements. Commit only summary CSVs that
+  support a documented recommendation, and include the date, Python runtime,
+  NumPy/SciPy versions, operating system, and CPU class in the surrounding
+  documentation.
+
+Use `benchmarks/results/` for curated results only. Scratch timing sweeps,
+profile dumps, and exploratory runs should stay outside the checkout or under
+`.tmp/`.
+
+Before changing performance-sensitive code, run a small baseline and save the
+command line. After the change, rerun the same command on the same machine.
+Prefer medians over single timings, and avoid comparing runs across different
+BLAS threading settings.
+
+Recommended quick checks:
+
+```powershell
+python -B benchmarks\long_cpmg_workers.py --sizes 1001,4001 --workers 1,2 --num-echoes 64 --repeats 2
+python -B benchmarks\diffusion_high_q_validation.py --q-values 100,1000,2000,2500 --numpts 17 --num-echoes 2
+```
+
 ## Long CPMG Isochromat Worker Sweep
 
 `long_cpmg_workers.py` benchmarks the public finite ideal CPMG train workflow

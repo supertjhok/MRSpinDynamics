@@ -7,7 +7,7 @@ from pathlib import Path
 
 import numpy as np
 
-from _source_path import add_src_to_path
+from _source_path import add_src_to_path, load_matplotlib
 
 add_src_to_path()
 
@@ -18,15 +18,6 @@ from spin_dynamics.motion import (
 from spin_dynamics.sequences.motion import run_motion_cpmg_sequence
 
 
-def _load_matplotlib():
-    try:
-        import matplotlib.pyplot as plt
-    except ModuleNotFoundError as exc:
-        raise SystemExit(
-            "matplotlib is required for this example. Install it with "
-            "`python -m pip install -e .[plot]`."
-        ) from exc
-    return plt
 
 
 def _parse_args() -> argparse.Namespace:
@@ -159,7 +150,7 @@ def main() -> None:
     if any(value < 0.0 for value in args.diffusion):
         raise SystemExit("--diffusion values must be non-negative")
 
-    plt = _load_matplotlib()
+    plt = load_matplotlib()
     fields = _make_fields()
     rows = [
         _run_case(args, diffusion, fields, idx)

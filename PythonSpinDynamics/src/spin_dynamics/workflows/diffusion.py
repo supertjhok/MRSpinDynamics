@@ -15,7 +15,6 @@ from spin_dynamics.core.kernels import (
     sim_spin_dynamics_arb10_diffusion,
     sim_spin_dynamics_arb10_diffusion_chunked,
 )
-from spin_dynamics.core.numerics import trapezoid
 from spin_dynamics.core.rotations import calc_rotation_matrix
 from spin_dynamics.parameters import set_params_matched_orig
 from spin_dynamics.probes.matched import matching_network_design2

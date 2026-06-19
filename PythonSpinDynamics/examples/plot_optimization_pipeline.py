@@ -13,7 +13,7 @@ from pathlib import Path
 
 import numpy as np
 
-from _source_path import add_src_to_path
+from _source_path import add_src_to_path, load_matplotlib
 
 add_src_to_path()
 
@@ -26,15 +26,6 @@ from spin_dynamics.optimization import (
 )
 
 
-def _load_matplotlib():
-    try:
-        import matplotlib.pyplot as plt
-    except ModuleNotFoundError as exc:
-        raise SystemExit(
-            "matplotlib is required for this example. Install it with "
-            "`python -m pip install -e .[plot]`."
-        ) from exc
-    return plt
 
 
 def _plot_history(ax, result, *, label: str, color: str | None = None) -> None:
@@ -129,7 +120,7 @@ def main() -> None:
     parser.add_argument("--output", type=Path, default=None, help="Optional output PNG path.")
     args = parser.parse_args()
 
-    plt = _load_matplotlib()
+    plt = load_matplotlib()
 
     refocusing = run_ideal_v0crit_refocusing_multistart(
         args.refocusing_segments,

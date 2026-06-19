@@ -17,7 +17,6 @@ from spin_dynamics.motion import (
     free_precession_with_motion_step,
     initialize_ensemble_from_density,
     make_motion_field_maps_2d,
-    move_ensemble,
     receive_signal,
     transverse_b1_magnitude,
 )

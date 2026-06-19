@@ -53,7 +53,8 @@ Required:
 
 Optional:
 
-- Matplotlib, for plotting examples. Install with `python -m pip install -e .[plot]`.
+- Matplotlib and Pillow, for plotting and image-phantom examples. Install with
+  `python -m pip install -e .[plot]`.
 - SciPy, for `optimizer="scipy"` in pulse-optimization helpers. Install with:
 
 ```powershell
