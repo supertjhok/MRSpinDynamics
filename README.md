@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/nmr_spin_dynamics_logo.svg" alt="NMRSpinDynamics: spin-1/2 simulations in inhomogeneous fields" width="760">
+</p>
+
 # NMR Spin Dynamics
 
 This repository contains two sibling workspaces for simulating NMR spin

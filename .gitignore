@@ -1,5 +1,6 @@
 [Dd]esktop.ini
 References/
+.tmp/
 
 PythonSpinDynamics/.conda-env/
 PythonSpinDynamics/.venv/
