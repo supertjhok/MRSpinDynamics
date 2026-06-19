@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="320" viewBox="0 0 1200 320" role="img" aria-labelledby="title desc">
+  <title id="title">PythonSpinDynamics logo option B: Field Pulse</title>
+  <desc id="desc">A field-map tile with B0 and B1 variation, pulse bars, and an echo trace beside the PythonSpinDynamics wordmark.</desc>
+  <defs>
+    <linearGradient id="mapGrad" x1="54" y1="58" x2="270" y2="270" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#EAF4FB"/>
+      <stop offset="0.42" stop-color="#9AD7D0"/>
+      <stop offset="1" stop-color="#FFE1C2"/>
+    </linearGradient>
+    <linearGradient id="traceGrad" x1="72" y1="202" x2="250" y2="202" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0077B6"/>
+      <stop offset="1" stop-color="#D95F02"/>
+    </linearGradient>
+    <filter id="softShadow" x="-10%" y="-20%" width="120%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#1B2430" flood-opacity="0.14"/>
+    </filter>
+  </defs>
+
+  <rect x="18" y="18" width="1164" height="284" rx="32" fill="#F8FAFC"/>
+  <rect x="18" y="18" width="1164" height="284" rx="32" fill="none" stroke="#D8E2EC" stroke-width="2"/>
+
+  <g filter="url(#softShadow)">
+    <rect x="56" y="58" width="214" height="214" rx="28" fill="#FFFFFF"/>
+    <rect x="76" y="78" width="174" height="174" rx="20" fill="url(#mapGrad)"/>
+    <path d="M95 104 C126 85 157 126 188 106 C215 89 229 100 246 89" fill="none" stroke="#0077B6" stroke-width="5" stroke-linecap="round" stroke-opacity="0.65"/>
+    <path d="M83 151 C121 132 152 174 190 151 C218 134 235 146 250 134" fill="none" stroke="#18A999" stroke-width="5" stroke-linecap="round" stroke-opacity="0.7"/>
+    <path d="M83 197 C123 174 152 217 190 199 C219 185 235 197 250 181" fill="none" stroke="#D95F02" stroke-width="5" stroke-linecap="round" stroke-opacity="0.7"/>
+    <g fill="#1B2430" opacity="0.42">
+      <circle cx="112" cy="117" r="4"/>
+      <circle cx="154" cy="140" r="4"/>
+      <circle cx="207" cy="120" r="4"/>
+      <circle cx="117" cy="198" r="4"/>
+      <circle cx="171" cy="205" r="4"/>
+      <circle cx="225" cy="178" r="4"/>
+    </g>
+    <path d="M94 232 C119 207 142 207 167 232 C192 257 216 257 241 232" fill="none" stroke="url(#traceGrad)" stroke-width="8" stroke-linecap="round"/>
+    <rect x="96" y="62" width="10" height="46" rx="5" fill="#0077B6"/>
+    <rect x="118" y="62" width="10" height="74" rx="5" fill="#18A999"/>
+    <rect x="140" y="62" width="10" height="58" rx="5" fill="#D95F02"/>
+  </g>
+
+  <g>
+    <text x="330" y="138" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="60" font-weight="750" letter-spacing="0" fill="#1B2430">PythonSpinDynamics</text>
+    <text x="333" y="184" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="24" font-weight="500" letter-spacing="0" fill="#5B6472">field maps, pulse trains, coupled spins, and measured echoes</text>
+    <g transform="translate(333 216)">
+      <rect x="0" y="0" width="96" height="48" rx="10" fill="#EAF4FB" stroke="#0077B6" stroke-width="2"/>
+      <rect x="116" y="0" width="96" height="48" rx="10" fill="#ECF8F5" stroke="#18A999" stroke-width="2"/>
+      <rect x="232" y="0" width="96" height="48" rx="10" fill="#FFF2E8" stroke="#D95F02" stroke-width="2"/>
+      <text x="20" y="31" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="20" font-weight="700" fill="#0077B6">B0</text>
+      <text x="136" y="31" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="20" font-weight="700" fill="#18A999">B1</text>
+      <text x="252" y="31" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="20" font-weight="700" fill="#D95F02">echo</text>
+      <text x="0" y="86" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="18" fill="#5B6472">Option B: Field Pulse</text>
+    </g>
+  </g>
+</svg>

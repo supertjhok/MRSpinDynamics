@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320" viewBox="0 0 320 320" role="img" aria-labelledby="title desc">
+  <title id="title">NMRSpinDynamics mark</title>
+  <desc id="desc">A compact spin precession orbit, pulse bars, and echo waveform mark for NMRSpinDynamics.</desc>
+  <defs>
+    <linearGradient id="orbitGrad" x1="58" y1="80" x2="280" y2="260" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0077B6"/>
+      <stop offset="0.55" stop-color="#18A999"/>
+      <stop offset="1" stop-color="#D95F02"/>
+    </linearGradient>
+  </defs>
+  <rect x="22" y="22" width="276" height="276" rx="56" fill="#F8FAFC"/>
+  <rect x="22" y="22" width="276" height="276" rx="56" fill="none" stroke="#D8E2EC" stroke-width="4"/>
+  <circle cx="160" cy="160" r="104" fill="#FFFFFF"/>
+  <circle cx="160" cy="160" r="86" fill="none" stroke="#D8E2EC" stroke-width="9"/>
+  <ellipse cx="160" cy="160" rx="97" ry="45" fill="none" stroke="url(#orbitGrad)" stroke-width="13" stroke-linecap="round" transform="rotate(-24 160 160)"/>
+  <ellipse cx="160" cy="160" rx="96" ry="40" fill="none" stroke="#0077B6" stroke-width="5" stroke-linecap="round" stroke-opacity="0.35" transform="rotate(28 160 160)"/>
+  <path d="M160 160 L226 102" fill="none" stroke="#1B2430" stroke-width="12" stroke-linecap="round"/>
+  <path d="M160 160 L122 219" fill="none" stroke="#18A999" stroke-width="10" stroke-linecap="round"/>
+  <circle cx="160" cy="160" r="13" fill="#1B2430"/>
+  <circle cx="232" cy="95" r="13" fill="#D95F02"/>
+  <path d="M75 236 C103 210 123 210 151 236 C179 262 201 262 229 236" fill="none" stroke="#D95F02" stroke-width="8" stroke-linecap="round"/>
+  <rect x="64" y="78" width="12" height="70" rx="6" fill="#0077B6"/>
+  <rect x="88" y="64" width="12" height="96" rx="6" fill="#18A999"/>
+  <rect x="112" y="94" width="12" height="52" rx="6" fill="#D95F02"/>
+</svg>
