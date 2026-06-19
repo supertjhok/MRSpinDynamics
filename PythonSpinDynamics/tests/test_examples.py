@@ -41,6 +41,8 @@ class ExampleSmokeTests(unittest.TestCase):
             ("examples/radiation_damping_fid.py", "--points", "41"),
             ("examples/radiation_damping_cpmg_train.py", "--numpts", "9", "--num-echoes", "2"),
             ("examples/nmr_maser.py", "--points", "41", "--duration-trd", "3"),
+            ("examples/heteronuclear_j_editing.py", "--points", "17"),
+            ("examples/coupled_isochromat_fields.py", "--points", "9"),
             ("examples/received_signal_noise.py", "--numpts", "21"),
             ("examples/probe_parameter_sweeps.py", "--numpts", "9"),
             (
@@ -96,6 +98,10 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_radiation_damping_detuning.py",
             "examples/plot_radiation_damping_cpmg_train.py",
             "examples/plot_nmr_maser.py",
+            "examples/plot_j_editing_spectrum.py",
+            "examples/plot_j_editing_field_spread.py",
+            "examples/plot_tango_filter.py",
+            "examples/plot_slic_two_spin.py",
         ]
         for script in scripts:
             with self.subTest(script=script):
@@ -138,6 +144,15 @@ class ExampleSmokeTests(unittest.TestCase):
         result = run_example("examples/plot_nmr_maser.py", "--help")
         self.assertIn("--t2-trd", result.stdout)
         self.assertIn("--pump-multipliers", result.stdout)
+        result = run_example("examples/plot_j_editing_spectrum.py", "--help")
+        self.assertIn("--max-time-ms", result.stdout)
+        result = run_example("examples/plot_j_editing_field_spread.py", "--help")
+        self.assertIn("--b0-spreads", result.stdout)
+        self.assertIn("--b1-spreads", result.stdout)
+        result = run_example("examples/plot_tango_filter.py", "--help")
+        self.assertIn("--target", result.stdout)
+        result = run_example("examples/plot_slic_two_spin.py", "--help")
+        self.assertIn("--delta-hz", result.stdout)
 
 
 if __name__ == "__main__":

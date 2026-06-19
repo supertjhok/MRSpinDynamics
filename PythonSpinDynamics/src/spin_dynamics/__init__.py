@@ -2,6 +2,7 @@
 
 __all__ = [
     "analysis",
+    "coupling",
     "core",
     "motion",
     "noise",

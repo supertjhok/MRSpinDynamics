@@ -36,6 +36,71 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `select_regularization_1d(signal: np.ndarray, sample_axis: np.ndarray, distribution_axis: np.ndarray, *, snr: float, kernel: KernelName | np.ndarray = 't2', strengths: Sequence[float] | None = None, regularization_order: int = 2, nonnegative: bool = True, target_multiplier: float = 1.0) -> RegularizationSelection1D` | Select a 1D regularization strength from an SNR estimate. |
 | function | `select_regularization_2d(data: np.ndarray, sample_axis1: np.ndarray, sample_axis2: np.ndarray, distribution_axis1: np.ndarray, distribution_axis2: np.ndarray, *, snr: float, kernel1: KernelName | np.ndarray, kernel2: KernelName | np.ndarray, strengths: Sequence[float] | None = None, axis_strength_ratio: tuple[float, float] = (1.0, 1.0), regularization_order: int | tuple[int, int] = 2, nonnegative: bool = True, target_multiplier: float = 1.0) -> RegularizationSelection2D` | Select a shared 2D regularization scale from an SNR estimate. |
 
+## `spin_dynamics.coupling.evolution`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `propagator(hamiltonian: np.ndarray, duration: float) -> np.ndarray` | Return ``exp(-i H duration)`` for a Hermitian Hamiltonian. |
+| function | `evolve_density(density: np.ndarray, hamiltonian: np.ndarray, duration: float) -> np.ndarray` | Evolve a density operator under a time-independent Hamiltonian. |
+| function | `propagate_density(density: np.ndarray, steps: list[tuple[np.ndarray, float]] | tuple[tuple[np.ndarray, float], ...]) -> np.ndarray` | Evolve a density operator through a sequence of Hamiltonian steps. |
+| function | `equilibrium_density(system: CoupledSpinSystem, axis: str = 'z') -> np.ndarray` | Return a high-temperature equilibrium density operator. |
+
+## `spin_dynamics.coupling.hamiltonians`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `zeeman_hamiltonian(system: CoupledSpinSystem) -> np.ndarray` | Return the rotating-frame offset Hamiltonian in radians per second. |
+| function | `secular_j_hamiltonian(system: CoupledSpinSystem) -> np.ndarray` | Return the weak-coupling secular scalar Hamiltonian. |
+| function | `isotropic_j_hamiltonian(system: CoupledSpinSystem) -> np.ndarray` | Return the isotropic scalar Hamiltonian for strongly coupled spins. |
+| function | `rf_hamiltonian(system: CoupledSpinSystem, nutation_hz: float | Iterable[float], *, phase: float = 0.0, indices: Iterable[int] | None = None) -> np.ndarray` | Return an RF Hamiltonian for selected spins in radians per second. |
+
+## `spin_dynamics.coupling.isochromats`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `CoupledIsochromatEnsemble` | Static field maps for a coupled-spin isochromat ensemble. |
+| class | `CoupledIsochromatStep` | One time-independent step for a coupled isochromat ensemble. |
+| class | `CoupledIsochromatSequenceResult` | Signal and final states from a coupled isochromat sequence. |
+| function | `coupled_isochromat_ensemble(base_system: CoupledSpinSystem, b0_offsets_hz: Iterable[float] | np.ndarray, *, weights: float | Iterable[float] | np.ndarray = 1.0, b1_tx_scale: float | Iterable[float] | np.ndarray = 1.0, b1_rx_scale: float | Iterable[float] | np.ndarray | None = None, offset_scales: Iterable[float] | np.ndarray | None = None) -> CoupledIsochromatEnsemble` | Build a coupled-spin isochromat ensemble. |
+| function | `free_precession_step(duration: float, *, b0_offsets_hz: float | Iterable[float] | np.ndarray | None = None) -> CoupledIsochromatStep` | Return a free-precession step with optional time-varying B0 offsets. |
+| function | `rf_step(duration: float, nutation_hz: float | Sequence[float], *, phase: float = 0.0, b0_offsets_hz: float | Iterable[float] | np.ndarray | None = None, b1_tx_scale: float | Iterable[float] | np.ndarray | None = None, indices: Sequence[int] | None = None) -> CoupledIsochromatStep` | Return an RF or spin-lock step with optional local B0/B1 overrides. |
+| function | `simulate_coupled_isochromat_sequence(ensemble: CoupledIsochromatEnsemble, steps: Sequence[CoupledIsochromatStep], *, initial_axis: str = 'x', detect_axis: str = 'x', j_mode: str = 'isotropic') -> CoupledIsochromatSequenceResult` | Propagate a coupled-spin sequence over an isochromat ensemble. |
+
+## `spin_dynamics.coupling.j_editing`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `JEditingFitResult` | Known-J least-squares fit of a J-modulation curve. |
+| function | `j_modulation_curve(encoding_times: Iterable[float] | np.ndarray, couplings_hz: Iterable[float] | np.ndarray, amplitudes: Iterable[float] | np.ndarray | None = None, *, cycles: int = 1, background: float = 0.0, powers: Iterable[int] | np.ndarray | None = None) -> np.ndarray` | Return a superposition of J-modulated cosine components. |
+| function | `carbon_detected_j_modulation(encoding_times: Iterable[float] | np.ndarray, couplings_hz: Iterable[float] | np.ndarray, abundances: Iterable[float] | np.ndarray, proton_counts: Iterable[int] | np.ndarray, *, cycles: int = 1, scale: float = 1.0) -> np.ndarray` | Return the carbon-detected low-field J-editing model. |
+| function | `proton_detected_j_modulation(encoding_times: Iterable[float] | np.ndarray, couplings_hz: Iterable[float] | np.ndarray, amplitudes: Iterable[float] | np.ndarray, *, cycles: int = 1, background: float = 0.0) -> np.ndarray` | Return the proton-detected J-editing model. |
+| function | `tango_b_filter(couplings_hz: Iterable[float] | np.ndarray, *, delay_seconds: float | None = None, target_coupling_hz: float | None = None, order: int = 1) -> np.ndarray` | Return the ideal TANGO-B coupled-spin transverse filter amplitude. |
+| function | `fit_known_j_spectrum(encoding_times: Iterable[float] | np.ndarray, signal: Iterable[float] | np.ndarray, couplings_hz: Iterable[float] | np.ndarray, *, cycles: int = 1, powers: Iterable[int] | np.ndarray | None = None, include_background: bool = True) -> JEditingFitResult` | Fit amplitudes for a known set of J-coupling frequencies. |
+
+## `spin_dynamics.coupling.operators`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `spin_operator(nspin: int, index: int, axis: str) -> np.ndarray` | Return a single-spin operator embedded in the full Hilbert space. |
+| function | `total_operator(nspin: int, axis: str, indices: Iterable[int] | None = None) -> np.ndarray` | Return the sum of selected spin operators along one axis. |
+| function | `product_operator(nspin: int, terms: Iterable[tuple[int, str]]) -> np.ndarray` | Return a product operator such as ``I1z I2z``. |
+
+## `spin_dynamics.coupling.slic`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `SLICSpectrumResult` | Simulated SLIC response as a function of spin-lock nutation frequency. |
+| function | `two_spin_slic_transfer_time(offset_difference_hz: float) -> float` | Return the ideal two-spin SLIC maximum-transfer time. |
+| function | `simulate_slic_spectrum(system: CoupledSpinSystem, nutation_frequencies_hz: Iterable[float] | np.ndarray, *, spin_lock_time: float, initial_axis: str = 'x', detect_axis: str = 'x') -> SLICSpectrumResult` | Simulate remaining transverse magnetization after a spin-lock pulse. |
+
+## `spin_dynamics.coupling.systems`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `SpinSite` | One spin-1/2 site in a coupled spin system. |
+| class | `CoupledSpinSystem` | Small dense spin-1/2 system with scalar couplings in hertz. |
+| function | `coupled_spin_system(offsets_hz: Iterable[float], couplings_hz: Iterable[Iterable[float]], *, labels: Sequence[str] | None = None, isotopes: Sequence[str] | None = None) -> CoupledSpinSystem` | Build a validated spin-1/2 system from offsets and couplings. |
+
 ## `spin_dynamics.core.echo`
 
 | Kind | Name | Summary |
