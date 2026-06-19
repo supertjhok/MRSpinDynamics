@@ -187,6 +187,73 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `matched_probe_output_noise_density(sp: Mapping[str, Any] | Any, pp: Mapping[str, Any] | Any, *, tf1: np.ndarray | None = None) -> tuple[np.ndarray, np.ndarray]` | Return matched-probe output-referred noise density and frequencies. |
 | function | `frequency_bin_width(frequencies: np.ndarray) -> float` | Estimate a representative frequency-bin width. |
 
+## `spin_dynamics.nqr.hamiltonians`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `quadrupole_hamiltonian(site: QuadrupolarSite) -> np.ndarray` | Return the zero-field quadrupole Hamiltonian in radians per second. |
+| function | `zeeman_hamiltonian(site: QuadrupolarSite, b0_vector_tesla_pas: np.ndarray | list[float] | tuple[float, float, float]) -> np.ndarray` | Return the Zeeman Hamiltonian in radians per second. |
+| function | `nqr_hamiltonian(site: QuadrupolarSite, b0_vector_tesla_pas: np.ndarray | list[float] | tuple[float, float, float] | None = None) -> np.ndarray` | Return the quadrupole plus optional Zeeman Hamiltonian. |
+| function | `diagonalize_site(site: QuadrupolarSite, b0_vector_tesla_pas: np.ndarray | list[float] | tuple[float, float, float] | None = None, *, strength_tolerance: float = 1e-12) -> NQREigensystem` | Diagonalize a site Hamiltonian and return transition metadata. |
+
+## `spin_dynamics.nqr.operators`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `validate_spin(spin: float) -> float` | Return a validated integer or half-integer spin quantum number. |
+| function | `spin_dimension(spin: float) -> int` | Return the Hilbert-space dimension for one spin. |
+| class | `SpinMatrices` | Dense single-spin angular momentum matrices. |
+| function | `spin_matrices(spin: float) -> SpinMatrices` | Return dense angular-momentum matrices for one spin. |
+
+## `spin_dynamics.nqr.orientations`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `spherical_direction(alpha: float, beta: float) -> np.ndarray` | Return a unit vector from azimuth `alpha` and polar angle `beta`. |
+| class | `OrientationSample` | One local EFG orientation relative to lab RF and static fields. |
+| function | `single_crystal_orientation(alpha: float, beta: float, *, b0_alpha: float | None = None, b0_beta: float | None = None) -> tuple[OrientationSample, ...]` | Return a one-sample orientation ensemble. |
+| function | `powder_average_grid(n_theta: int = 16, n_phi: int = 32) -> tuple[OrientationSample, ...]` | Return a normalized spherical powder-average grid. |
+| function | `normalize_orientations(orientations: tuple[OrientationSample, ...] | list[OrientationSample]) -> tuple[OrientationSample, ...]` | Return orientation samples with weights normalized to unity. |
+
+## `spin_dynamics.nqr.pulses`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `SelectivePulse` | A rectangular selective RF pulse applied to one NQR transition. |
+| function | `transition_drive_scale(transition: NQRTransition, b1_direction_pas: np.ndarray | list[float] | tuple[float, float, float]) -> float` | Return the relative RF coupling for a transition and B1 orientation. |
+| function | `selective_pulse_hamiltonian(dimension: int, transition: NQRTransition, *, nutation_hz: float, phase: float = 0.0, b1_direction_pas: np.ndarray | list[float] | tuple[float, float, float] = (1.0, 0.0, 0.0), detuning_hz: float = 0.0) -> np.ndarray` | Return an embedded two-level RF Hamiltonian in radians per second. |
+| function | `apply_selective_pulse(density: np.ndarray, transition: NQRTransition, pulse: SelectivePulse, *, b1_direction_pas: np.ndarray | list[float] | tuple[float, float, float] = (1.0, 0.0, 0.0)) -> np.ndarray` | Apply a selective pulse to a density matrix in the energy basis. |
+
+## `spin_dynamics.nqr.sequences`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `SLSESequence` | Spin-lock spin-echo detection sequence. |
+| function | `slse_sequence(transition_label: str, *, pulse_duration_seconds: float, nutation_hz: float, echo_spacing_seconds: float, num_echoes: int, phase: float = 0.0, rf_frequency_hz: float | None = None) -> SLSESequence` | Build a rectangular-pulse SLSE sequence. |
+
+## `spin_dynamics.nqr.simulation`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `SLSEResult` | Simulated SLSE echo train. |
+| class | `PopulationTransferResult` | Perturbation plus SLSE detection result. |
+| function | `equilibrium_density(levels_hz: np.ndarray) -> np.ndarray` | Return a trace-zero high-temperature density matrix in the energy basis. |
+| function | `transition_signal(density: np.ndarray, transition: NQRTransition, *, b1_direction_pas: np.ndarray | list[float] | tuple[float, float, float]) -> complex` | Return the complex single-coil signal for a transition coherence. |
+| function | `simulate_slse(site: QuadrupolarSite, sequence: SLSESequence, *, orientations: str | tuple[OrientationSample, ...] | list[OrientationSample] = 'powder', b0_tesla: float = 0.0, t2e_seconds: float = np.inf, initial_density: np.ndarray | None = None) -> SLSEResult` | Simulate a selective-pulse SLSE echo train. |
+| function | `simulate_population_transfer(site: QuadrupolarSite, perturbation: SelectivePulse, detection_sequence: SLSESequence, *, orientations: str | tuple[OrientationSample, ...] | list[OrientationSample] = 'powder', b0_tesla: float = 0.0, t2e_seconds: float = np.inf) -> PopulationTransferResult` | Simulate a perturbation pulse followed by SLSE detection. |
+
+## `spin_dynamics.nqr.systems`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `QuadrupolarSite` | One quadrupolar nucleus in its EFG principal-axis system. |
+| class | `NQRTransition` | One transition between quadrupolar energy eigenstates. |
+| class | `NQREigensystem` | Energy levels, eigenvectors, and allowed transitions for one site. |
+
+## `spin_dynamics.nqr.workflows`
+
+No public classes or functions found.
+
 ## `spin_dynamics.parameters.constructors`
 
 | Kind | Name | Summary |

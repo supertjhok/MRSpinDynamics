@@ -12,6 +12,11 @@ The separate `spin_dynamics.coupling` namespace adds scoped scalar-coupled
 spin-1/2 utilities for low-field J-editing, TANGO-B filtering, dense
 Hamiltonian propagation, and initial SLIC models.
 
+The separate `spin_dynamics.nqr` namespace adds early quadrupolar-spin helpers
+for pulsed NQR. Its initial workflows use dense single-site Hamiltonians and
+selective embedded two-level pulses, which is the usual narrowband-pulse limit
+for spin-1 nitrogen-14 NQR.
+
 ## Coherence Ordering
 
 Low-level kernels use MATLAB's coherence ordering:

@@ -114,7 +114,7 @@
 Simulation workflows for spin-1/2 nuclear magnetization in possibly
 non-uniform and time-varying magnetic fields, with validated
 MATLAB-compatible Bloch kernels, Python-native analysis tools, and scoped
-scalar-coupled spin-1/2 extensions.
+scalar-coupled spin-1/2 and pulsed NQR extensions.
 \end{minipage}
 \vfill
 {\large June 2026\par}
@@ -151,13 +151,21 @@ simulations. These models are intentionally scoped and are documented in
 Chapter~\ref{chap:jcoupling}.
 }
 
+\scopebox{Accent}{
+\textbf{Pulsed NQR extension.} The \code{spin\_dynamics.nqr} namespace adds
+dense single-site quadrupolar spin tools for selective pulsed NQR, including
+spin-1 transition metadata, single-crystal and powder orientation averages,
+SLSE echo trains, two-frequency population transfer, and weak-B0 perturbations.
+These models are documented in Chapter~\ref{chap:nqr}.
+}
+
 \scopebox{AccentTwo}{
 \textbf{Still outside the package scope.} Dipolar coupling networks, chemical
-exchange, quadrupolar spins with \(I>1/2\), arbitrary multi-quantum pulse
-sequences, shaped sample microstructure beyond the supplied field and density
-maps, microscopic spin noise, and large sparse coupled-spin simulations.
-Spin-spin effects enter the Bloch workflows only indirectly when represented
-by effective relaxation times such as \(T_2\) or \(T_2^*\).
+exchange, arbitrary nonselective multi-quantum pulse sequences, shaped sample
+microstructure beyond the supplied field and density maps, microscopic spin
+noise, and large sparse coupled-spin simulations. Spin-spin effects enter the
+Bloch workflows only indirectly when represented by effective relaxation times
+such as \(T_2\) or \(T_2^*\).
 }
 
 This scope is deliberate. The main package follows MATLAB's classical
@@ -203,8 +211,10 @@ quantum spin Hamiltonian framework.
   exchange that are outside the explicit isochromat model.
   \item Use \code{spin\_dynamics.coupling} when a small spin-1/2 scalar
   J-coupled model is the phenomenon of interest.
-  \item Do not use the package for quadrupolar transitions, chemical exchange,
-  large coupled-spin networks, or arbitrary multi-quantum coherence pathways.
+  \item Use \code{spin\_dynamics.nqr} when selective pulsed NQR of a small
+  quadrupolar site is the phenomenon of interest.
+  \item Do not use the package for chemical exchange, large coupled-spin
+  networks, or arbitrary nonselective multi-quantum coherence pathways.
 \end{itemize}
 
 \chapter{Overview}
@@ -221,7 +231,8 @@ CPMG; time-varying-field CPMG; WURST inversion and matched WURST-CPMG;
 radiation damping; moving-isochromat motion helpers; received-signal noise;
 inverse-Laplace analysis; compact pulse-optimization scaffolds; and small
 spin-1/2 scalar-coupling tools for low-field J-editing, TANGO-B filtering, and
-SLIC-style spin-lock response.
+SLIC-style spin-lock response; and early pulsed NQR helpers for quadrupolar
+sites, powder averaging, SLSE, and two-frequency population transfer.
 
 \section{Package Layout}
 
@@ -693,6 +704,187 @@ For a nearly equivalent two-spin system, the SLIC dip is expected near the
 coupling frequency. The helper is exploratory and dense; broad homonuclear
 networks will need sparse or specialized methods.
 
+\chapter{Pulsed NQR Models}
+\label{chap:nqr}
+
+Nuclear quadrupole resonance is driven by the interaction between a nuclear
+quadrupole moment and the local electric-field-gradient (EFG) tensor. The
+\code{spin\_dynamics.nqr} namespace adds a scoped quadrupolar extension for
+solid-state pulsed NQR experiments. It is intentionally separate from the
+spin-1/2 Bloch and scalar-coupling layers.
+
+\scopebox{Accent}{
+\textbf{Use this layer for:} selective pulsed NQR of one quadrupolar site,
+spin-1 nitrogen-14 transition metadata, fixed-orientation single-crystal
+calculations, powder averages over local EFG orientations, SLSE echo trains,
+two-frequency population transfer, and exploratory weak-B0 perturbations.
+}
+
+\scopebox{AccentTwo}{
+\textbf{Current limits:} dense single-site matrices only; selective RF pulses
+only; phenomenological echo decay rather than full relaxation superoperators;
+no simultaneous multi-frequency excitation; no full nonselective shaped-pulse
+Hamiltonian propagation; no multi-site coupling between quadrupolar nuclei.
+}
+
+\section{Quadrupolar Site Model}
+
+A quadrupolar site is described in the EFG principal-axis system. The zero-field
+Hamiltonian used by the Python helper is
+\[
+  H_Q = \frac{2\pi \nu_Q}{3}
+  \left[
+    3 I_z^2 - I(I+1)\mathbf{1}
+    + \eta\left(I_x^2 - I_y^2\right)
+  \right],
+\]
+where \(I\) is the spin quantum number, \(\nu_Q\) is the quadrupole-frequency
+parameter in hertz, and \(0 \le \eta \le 1\) is the EFG asymmetry parameter.
+Hamiltonians are represented in radians per second.
+
+Weak Zeeman perturbations can be added as
+\[
+  H_Z = -2\pi \gamma\, \mathbf{B}_0\cdot\mathbf{I},
+\]
+where \(\mathbf{B}_0\) is expressed in the EFG principal-axis system for the
+current crystallite orientation. The default is \(B_0=0\), which is the usual
+NQR case.
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.nqr import QuadrupolarSite, diagonalize_site
+
+site = QuadrupolarSite(
+    spin=1,
+    isotope="14N",
+    quadrupole_frequency_hz=900e3,
+    eta=0.3,
+)
+
+eigensystem = diagonalize_site(site)
+for transition in eigensystem.transitions:
+    print(transition.label, transition.frequency_hz)
+\end{lstlisting}
+
+For spin-1 at zero field, transitions are labeled by their dominant RF
+polarization in the EFG principal-axis system: \code{x}, \code{y}, and
+\code{z}. For the example above the line positions are approximately
+\(990\), \(810\), and \(180\) kHz.
+
+\section{Selective Pulse Approximation}
+
+Most practical pulsed NQR RF pulses are narrowband relative to the separation
+between quadrupolar transitions. The first NQR implementation uses this
+selective limit: one pulse addresses one transition and acts as an embedded
+two-level rotation inside the full \((2I+1)\)-level Hilbert space.
+
+For a transition \(|a\rangle \leftrightarrow |b\rangle\), the transition dipole
+vector is
+\[
+  \mathbf{d}_{ab} =
+  \left(
+    \langle a|I_x|b\rangle,
+    \langle a|I_y|b\rangle,
+    \langle a|I_z|b\rangle
+  \right).
+\]
+For a local RF direction \(\hat{\mathbf{b}}_1\), the complex drive projection
+is proportional to \(\hat{\mathbf{b}}_1\cdot\mathbf{d}_{ab}\). Preserving this
+signed complex projection is essential for powder averages because transmit
+and receive phases must pair consistently across crystallites.
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.nqr import SelectivePulse, apply_selective_pulse
+
+pulse = SelectivePulse(
+    "x",
+    duration_seconds=50e-6,
+    nutation_hz=10e3,
+)
+\end{lstlisting}
+
+The pulse helper also supports an optional RF frequency. If omitted, the RF is
+placed on the selected transition. If supplied, the difference between the RF
+frequency and transition frequency is treated as a two-level detuning.
+
+\section{Orientations and Powder Averages}
+
+NQR is a solid-state experiment, so the signal depends on the orientation of
+the RF field relative to the local EFG principal axes. A single crystal is one
+fixed orientation. A powder is represented by a normalized spherical quadrature
+grid:
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.nqr import powder_average_grid, single_crystal_orientation
+
+single = single_crystal_orientation(alpha=0.0, beta=1.57079632679)
+powder = powder_average_grid(n_theta=16, n_phi=32)
+\end{lstlisting}
+
+For weak-B0 calculations, each orientation may also specify the direction of
+\(B_0\) in the EFG frame. If no separate \(B_0\) direction is supplied, the
+current helper uses the local RF direction as the default field direction for
+that sample.
+
+\section{SLSE Detection}
+
+The spin-lock spin-echo (SLSE) sequence is the classic pulsed NQR detection
+sequence. The initial helper models it as repeated selective pulses on a
+detection transition and reports echo amplitudes at the requested echo spacing.
+Echo decay is represented phenomenologically by \(T_{2e}\).
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.nqr import simulate_slse, slse_sequence
+
+sequence = slse_sequence(
+    "x",
+    pulse_duration_seconds=25e-6,
+    nutation_hz=10e3,
+    echo_spacing_seconds=1e-3,
+    num_echoes=16,
+)
+
+result = simulate_slse(
+    site,
+    sequence,
+    orientations="powder",
+    t2e_seconds=20e-3,
+)
+\end{lstlisting}
+
+The returned \code{SLSEResult} includes echo times, powder-averaged echo
+amplitudes, per-orientation echo amplitudes, orientation weights, transition
+metadata, and the eigensystem used for the first orientation.
+
+\section{Two-Frequency Population Transfer}
+
+The two-frequency NQR workflow follows the perturbation-plus-detection idea
+used in 2D NQR. A selective pulse on one transition changes populations in the
+shared three-level spin-1 manifold; a later SLSE block detects the changed
+amplitude on another transition. The normalized diagnostic is
+\[
+  \Delta(p,q) = \frac{S(p,q)}{S_0(q)} - 1,
+\]
+where \(p\) is the perturbation transition and \(q\) is the detection
+transition.
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.nqr import SelectivePulse, simulate_population_transfer
+
+transfer = simulate_population_transfer(
+    site,
+    SelectivePulse("x", duration_seconds=50e-6, nutation_hz=10e3),
+    sequence,
+    orientations="powder",
+)
+
+print(transfer.normalized_difference)
+\end{lstlisting}
+
+The diagnostic plotting example constructs a compact \(3\times3\) map over the
+spin-1 \code{x}, \code{y}, and \code{z} transitions. Off-diagonal features
+indicate that perturbation and detection frequencies are connected through the
+same quadrupolar site.
+
 \chapter{First Workflows}
 
 \section{CPMG}
@@ -910,6 +1102,8 @@ python examples\plot_j_editing_spectrum.py --output results\j_editing_spectrum.p
 python examples\plot_j_editing_field_spread.py --output results\j_editing_field_spread.png
 python examples\plot_tango_filter.py --target 160 --output results\tango_filter.png
 python examples\plot_slic_two_spin.py --j-hz 7 --delta-hz 0.7 --output results\slic_two_spin.png
+python examples\plot_nqr_powder_nutation.py --output results\nqr_powder_nutation.png
+python examples\plot_nqr_population_transfer.py --output results\nqr_population_transfer.png
 \end{lstlisting}
 
 \chapter{Validation}
@@ -944,11 +1138,14 @@ spin_dynamics.workflows
 spin_dynamics.parameters
 spin_dynamics.analysis
 spin_dynamics.coupling
+spin_dynamics.nqr
 \end{lstlisting}
 
 Drop into lower-level modules only when a building block is needed directly.
 Use \code{spin\_dynamics.coupling} for the scoped dense scalar-coupled
-spin-1/2 tools described in Chapter~\ref{chap:jcoupling}.
+spin-1/2 tools described in Chapter~\ref{chap:jcoupling}. Use
+\code{spin\_dynamics.nqr} for the selective pulsed NQR tools described in
+Chapter~\ref{chap:nqr}.
 
 \section{Workflow Results}
 
@@ -971,6 +1168,8 @@ Class & Purpose \\
 \code{WURSTInversionResult} & WURST inversion profile and pulse metadata. \\
 \code{MatchedWURSTCPMGResult} & Matched WURST-CPMG echoes and spectra. \\
 \code{RadiationDampingFIDResult} & Radiation-damping FID simulation and analytic comparison fields. \\
+\code{SLSEResult} & NQR SLSE echo train, local orientation signals, and transition metadata. \\
+\code{PopulationTransferResult} & NQR perturbation-plus-SLSE signal, reference signal, and normalized difference. \\
 \bottomrule
 \end{longtable}
 
@@ -1264,6 +1463,52 @@ Object & Purpose \\
 \bottomrule
 \end{longtable}
 
+\section{NQR API}
+
+\begin{lstlisting}
+from spin_dynamics.nqr import (
+    QuadrupolarSite,
+    NQRTransition,
+    NQREigensystem,
+    spin_matrices,
+    quadrupole_hamiltonian,
+    zeeman_hamiltonian,
+    nqr_hamiltonian,
+    diagonalize_site,
+    OrientationSample,
+    single_crystal_orientation,
+    powder_average_grid,
+    SelectivePulse,
+    apply_selective_pulse,
+    transition_drive_scale,
+    slse_sequence,
+    simulate_slse,
+    simulate_population_transfer,
+    SLSEResult,
+    PopulationTransferResult,
+)
+\end{lstlisting}
+
+\begin{longtable}{p{0.42\linewidth}p{0.50\linewidth}}
+\toprule
+Object & Purpose \\
+\midrule
+\code{QuadrupolarSite} & One quadrupolar nucleus in the EFG principal-axis system. \\
+\code{spin\_matrices} & Dense angular-momentum operators for arbitrary integer or half-integer spin. \\
+\code{quadrupole\_hamiltonian} & Zero-field quadrupole Hamiltonian in radians per second. \\
+\code{zeeman\_hamiltonian} & Optional weak-B0 perturbation in radians per second. \\
+\code{diagonalize\_site} & Energy levels, transition frequencies, and transition dipole vectors. \\
+\code{OrientationSample} & One EFG orientation relative to lab RF and optional B0 fields. \\
+\code{single\_crystal\_orientation} & One fixed orientation sample. \\
+\code{powder\_average\_grid} & Normalized spherical powder quadrature grid. \\
+\code{SelectivePulse} & Rectangular selective pulse on one transition. \\
+\code{apply\_selective\_pulse} & Embedded two-level RF propagation in the energy basis. \\
+\code{slse\_sequence} & Convenience builder for SLSE detection. \\
+\code{simulate\_slse} & Selective-pulse SLSE echo train for a fixed orientation or powder. \\
+\code{simulate\_population\_transfer} & Perturbation pulse plus SLSE detection for 2D NQR diagnostics. \\
+\bottomrule
+\end{longtable}
+
 \section{Optimization API}
 
 \begin{lstlisting}
@@ -1315,8 +1560,9 @@ The Python port is intentionally conservative where MATLAB parity still
 matters. The largest remaining gaps are broader high-Q matched-probe validation,
 full historical MATLAB \code{.mat} structure parity, broad \code{fmincon}
 parity, paper-level scalar-coupling fixture comparisons, relaxation-aware
-coupled-spin pulse-sequence runners, and acceleration backends beyond the
-current NumPy implementation.
+coupled-spin pulse-sequence runners, full nonselective quadrupolar pulse
+propagation, experimental NQR fixture comparisons, and acceleration backends
+beyond the current NumPy implementation.
 
 New work should add small reference fixtures first, then a NumPy implementation,
 then optional acceleration or plotting once numerical behavior is pinned down.

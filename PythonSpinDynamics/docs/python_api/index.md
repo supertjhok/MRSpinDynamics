@@ -16,6 +16,7 @@ variants, packaging, and performance.
 - [Workflows](workflows.md)
 - [Analysis](analysis.md)
 - [J-Coupling Models](j_coupling.md)
+- [NQR Models](nqr.md)
 - [API Reference](api_reference.md)
 - [Performance](performance.md)
 - [Validation](validation.md)
@@ -74,6 +75,9 @@ The validated Python API currently covers:
   diffusion, time-varying fields, imaging, motion, WURST, inverse Laplace, and
   compact optimization workflows;
 - low-level rotation matrix and effective-axis helpers;
+- first pulsed NQR helpers for spin-1 quadrupolar sites, selective
+  transition pulses, single-crystal and powder orientations, SLSE echo trains,
+  and perturbation-plus-detection population-transfer experiments;
 - the current `sim_spin_dynamics_arb10` kernel;
 - the legacy-compatible `sim_spin_dynamics_arb7` path needed by ideal FID;
 - original/reference tuned, untuned, and matched probe CPMG paths.

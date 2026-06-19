@@ -16,8 +16,10 @@ effects enter those workflows indirectly through effective relaxation or
 field-map inputs. The `spin_dynamics.coupling` namespace is the explicit
 extension for small scalar-coupled spin-1/2 systems, including low-field
 J-editing, ideal TANGO-B filtering, dense Hamiltonian propagation, B0/B1
-isochromat ensembles, and initial SLIC models. The package still does not
-attempt general \(I>1/2\) quadrupolar dynamics, chemical exchange, or arbitrary
+isochromat ensembles, and initial SLIC models. The `spin_dynamics.nqr`
+namespace is the early quadrupolar extension for selective pulsed NQR, SLSE,
+powder averaging, and two-frequency population-transfer experiments. The
+package still does not attempt chemical exchange or arbitrary nonselective
 multi-quantum pulse-sequence simulation.
 
 ## Documentation
@@ -28,6 +30,8 @@ multi-quantum pulse-sequence simulation.
   the generated `docs/python_api/api_reference.md` inventory.
 - `docs/python_api/j_coupling.md` describes the scalar-coupled spin-1/2
   extension layer.
+- `docs/python_api/nqr.md` describes the pulsed NQR extension layer.
+- `docs/nqr_module_plan.md` tracks planned NQR milestones.
 - `docs/matlab_mapping.md` and `docs/migration_plan.md` track MATLAB-to-Python
   mapping and remaining porting work.
 - `docs/validation_results.md` records fixture comparisons and tolerance notes.
@@ -124,6 +128,23 @@ fid = run_radiation_damping_fid(
 )
 ```
 
+Pulsed NQR example:
+
+```python
+from spin_dynamics.nqr import QuadrupolarSite, simulate_slse, slse_sequence
+
+site = QuadrupolarSite(spin=1, quadrupole_frequency_hz=900e3, eta=0.3)
+sequence = slse_sequence(
+    "x",
+    pulse_duration_seconds=25e-6,
+    nutation_hz=10e3,
+    echo_spacing_seconds=1e-3,
+    num_echoes=8,
+)
+slse = simulate_slse(site, sequence, orientations="powder", t2e_seconds=20e-3)
+print(slse.echo_amplitudes.shape)
+```
+
 ## Examples
 
 Examples live in `examples/` and can be run from this directory:
@@ -135,6 +156,8 @@ python examples\probe_cpmg_compare.py --numpts 101
 python examples\matched_diffusion_cpmg.py --numpts 21 --num-echoes 3
 python examples\radiation_damping_fid.py --probe matched --points 401
 python examples\plot_inverse_laplace.py --output results\inverse_laplace.png
+python examples\plot_nqr_powder_nutation.py --output results\nqr_powder_nutation.png
+python examples\plot_nqr_population_transfer.py --output results\nqr_population_transfer.png
 ```
 
 See the user manual and `docs/python_api/examples.md` for the full example

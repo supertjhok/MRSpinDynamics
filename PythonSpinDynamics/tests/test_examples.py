@@ -102,6 +102,8 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_j_editing_field_spread.py",
             "examples/plot_tango_filter.py",
             "examples/plot_slic_two_spin.py",
+            "examples/plot_nqr_powder_nutation.py",
+            "examples/plot_nqr_population_transfer.py",
         ]
         for script in scripts:
             with self.subTest(script=script):
@@ -153,6 +155,10 @@ class ExampleSmokeTests(unittest.TestCase):
         self.assertIn("--target", result.stdout)
         result = run_example("examples/plot_slic_two_spin.py", "--help")
         self.assertIn("--delta-hz", result.stdout)
+        result = run_example("examples/plot_nqr_powder_nutation.py", "--help")
+        self.assertIn("--max-angle", result.stdout)
+        result = run_example("examples/plot_nqr_population_transfer.py", "--help")
+        self.assertIn("--perturb-angle", result.stdout)
 
 
 if __name__ == "__main__":

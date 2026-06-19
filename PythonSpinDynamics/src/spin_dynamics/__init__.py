@@ -6,6 +6,7 @@ __all__ = [
     "core",
     "motion",
     "noise",
+    "nqr",
     "parameters",
     "radiation_damping",
     "pulses",

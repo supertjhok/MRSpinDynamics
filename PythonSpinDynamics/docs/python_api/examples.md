@@ -156,6 +156,18 @@ python examples\plot_tango_filter.py --target 160 --output results\tango_filter.
 python examples\plot_slic_two_spin.py --j-hz 7 --delta-hz 0.7 --output results\slic_two_spin.png
 ```
 
+## NQR Examples
+
+These examples exercise the early quadrupolar extension. The powder nutation
+example sweeps the nominal SLSE detection pulse angle, while the population
+transfer example builds a compact two-frequency perturbation/detection map for
+the spin-1 `x`, `y`, and `z` transitions.
+
+```powershell
+python examples\plot_nqr_powder_nutation.py --output results\nqr_powder_nutation.png
+python examples\plot_nqr_population_transfer.py --output results\nqr_population_transfer.png
+```
+
 ## Radiation Damping
 
 These examples couple deterministic radiation-damping back-action to tuned or
