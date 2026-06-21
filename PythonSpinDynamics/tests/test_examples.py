@@ -104,6 +104,12 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_slic_two_spin.py",
             "examples/plot_nqr_powder_nutation.py",
             "examples/plot_nqr_population_transfer.py",
+            "examples/plot_nqr_slse_offset.py",
+            "examples/plot_nqr_slse_spacing.py",
+            "examples/plot_nqr_efg_broadening.py",
+            "examples/plot_nqr_temperature_broadening.py",
+            "examples/plot_nqr_slse_efg_broadening.py",
+            "examples/plot_nqr_weak_b0_spectrum.py",
         ]
         for script in scripts:
             with self.subTest(script=script):
@@ -157,8 +163,36 @@ class ExampleSmokeTests(unittest.TestCase):
         self.assertIn("--delta-hz", result.stdout)
         result = run_example("examples/plot_nqr_powder_nutation.py", "--help")
         self.assertIn("--max-angle", result.stdout)
+        self.assertIn("supports spin=1 only", result.stdout)
         result = run_example("examples/plot_nqr_population_transfer.py", "--help")
         self.assertIn("--perturb-angle", result.stdout)
+        self.assertIn("supports spin=1 only", result.stdout)
+        result = run_example("examples/plot_nqr_slse_offset.py", "--help")
+        self.assertIn("--max-offset-khz", result.stdout)
+        self.assertIn("--orientation", result.stdout)
+        self.assertIn("supports spin=1 only", result.stdout)
+        result = run_example("examples/plot_nqr_slse_spacing.py", "--help")
+        self.assertIn("--min-spacing-us", result.stdout)
+        self.assertIn("--orientation", result.stdout)
+        self.assertIn("supports spin=1 only", result.stdout)
+        result = run_example("examples/plot_nqr_efg_broadening.py", "--help")
+        self.assertIn("--nuq-std-khz", result.stdout)
+        self.assertIn("supports spin=1 only", result.stdout)
+        result = run_example("examples/plot_nqr_temperature_broadening.py", "--help")
+        self.assertIn("--nuq-slope-hz-per-k", result.stdout)
+        self.assertIn("supports spin=1 only", result.stdout)
+        result = run_example("examples/plot_nqr_slse_efg_broadening.py", "--help")
+        self.assertIn("--echo-spacing-us", result.stdout)
+        self.assertIn("--acq-us", result.stdout)
+        self.assertIn("--noise-snr", result.stdout)
+        self.assertIn("--deconvolve", result.stdout)
+        self.assertIn("--rephase-action", result.stdout)
+        self.assertIn("supports spin=1 only", result.stdout)
+        result = run_example("examples/plot_nqr_weak_b0_spectrum.py", "--help")
+        self.assertIn("--b0-mt", result.stdout)
+        self.assertIn("--n-chi", result.stdout)
+        self.assertIn("--b1-b0-angle", result.stdout)
+        self.assertIn("supports spin=1 and spin=3/2", result.stdout)
 
 
 if __name__ == "__main__":

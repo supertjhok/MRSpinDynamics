@@ -1,9 +1,9 @@
 # MATLABSpinDynamics
 
-MATLABSpinDynamics is the MATLAB reference implementation for the NMR
-spin-dynamics simulations in this workspace. It contains the original MATLAB
-functions, later Version 2 workflows, probe-circuit models, pulse-design
-helpers, imaging examples, and validation material used by the Python port.
+MATLABSpinDynamics is the MATLAB NMR reference implementation within the
+MRSpinDynamics repository. It contains the original MATLAB functions, later
+Version 2 workflows, probe-circuit models, pulse-design helpers, imaging
+examples, and validation material used by the Python port.
 
 The active implementation is in:
 

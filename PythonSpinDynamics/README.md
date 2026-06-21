@@ -1,26 +1,30 @@
 # PythonSpinDynamics
 
-PythonSpinDynamics is the Python port of the MATLAB spin-dynamics simulation
-package in `../MATLABSpinDynamics`. The MATLAB Version 2 code remains the
-numerical reference; this workspace contains the Python package, examples,
-validation fixtures, tests, and user documentation.
+PythonSpinDynamics is the Python package workspace within MRSpinDynamics. It
+began as the Python port of the MATLAB NMR spin-dynamics package in
+`../MATLABSpinDynamics`, and now also hosts Python-native quadrupolar NQR
+models. The MATLAB Version 2 code remains the numerical reference for the
+validated NMR Bloch workflows; this workspace contains the Python package,
+examples, validation fixtures, tests, and user documentation.
 
 The main Version 2 workflow port is mostly complete. The package includes
 ideal, tuned, untuned, and matched-probe CPMG workflows; finite echo trains;
 FID, imaging, diffusion, time-varying-field, WURST, radiation-damping, motion,
 noise, inverse-Laplace analysis, and pulse-optimization helpers.
 
-Most MATLAB-compatible Bloch workflows assume a bath of uncoupled spin-1/2
-nuclei in a possibly non-uniform and time-varying \(B_0\) field; spin-spin
-effects enter those workflows indirectly through effective relaxation or
-field-map inputs. The `spin_dynamics.coupling` namespace is the explicit
+Most MATLAB-compatible Bloch workflows still assume a bath of uncoupled
+spin-1/2 nuclei in a possibly non-uniform and time-varying \(B_0\) field;
+spin-spin effects enter those workflows indirectly through effective relaxation
+or field-map inputs. The `spin_dynamics.coupling` namespace is the explicit
 extension for small scalar-coupled spin-1/2 systems, including low-field
 J-editing, ideal TANGO-B filtering, dense Hamiltonian propagation, B0/B1
 isochromat ensembles, and initial SLIC models. The `spin_dynamics.nqr`
-namespace is the early quadrupolar extension for selective pulsed NQR, SLSE,
-powder averaging, and two-frequency population-transfer experiments. The
-package still does not attempt chemical exchange or arbitrary nonselective
-multi-quantum pulse-sequence simulation.
+namespace is the quadrupolar extension for selective pulsed NQR, SLSE, powder
+averaging, EFG inhomogeneity, weak-B0 spectra, and two-frequency
+population-transfer experiments. The Hamiltonian/transition layer includes
+spin-1 and spin-3/2 line metadata, while the current selective-pulse examples
+are spin-1 workflows. The package still does not attempt chemical exchange or
+arbitrary nonselective multi-quantum pulse-sequence simulation.
 
 ## Documentation
 
@@ -145,6 +149,14 @@ slse = simulate_slse(site, sequence, orientations="powder", t2e_seconds=20e-3)
 print(slse.echo_amplitudes.shape)
 ```
 
+Spin-3/2 nuclei such as `35Cl` and `37Cl` are supported at the Hamiltonian and
+transition-frequency metadata level. Full spin-3/2 pulsed SLSE response still
+requires a degenerate-doublet RF manifold model, so the bundled pulsed NQR
+examples state that they are spin-1 only.
+Weak static B0 line splitting is available for both spin-1 and spin-3/2 through
+`simulate_weak_b0_spectrum`, with an explicit `|gamma B0| / nu_ref` weak-field
+regime check.
+
 ## Examples
 
 Examples live in `examples/` and can be run from this directory:
@@ -158,7 +170,17 @@ python examples\radiation_damping_fid.py --probe matched --points 401
 python examples\plot_inverse_laplace.py --output results\inverse_laplace.png
 python examples\plot_nqr_powder_nutation.py --output results\nqr_powder_nutation.png
 python examples\plot_nqr_population_transfer.py --output results\nqr_population_transfer.png
+python examples\plot_nqr_slse_offset.py --output results\nqr_slse_offset.png
+python examples\plot_nqr_slse_spacing.py --output results\nqr_slse_spacing.png
+python examples\plot_nqr_efg_broadening.py --output results\nqr_efg_broadening.png
+python examples\plot_nqr_temperature_broadening.py --output results\nqr_temperature_broadening.png
+python examples\plot_nqr_slse_efg_broadening.py --output results\nqr_slse_efg_broadening.png
+python examples\plot_nqr_weak_b0_spectrum.py --output results\nqr_weak_b0_spectrum.png
 ```
+
+The SLSE EFG broadening plot forms its spectrum from a finite acquired echo
+window. Add `--noise-snr 20 --deconvolve` to inspect time-domain receiver noise
+and regularized finite-window deconvolution.
 
 See the user manual and `docs/python_api/examples.md` for the full example
 catalog.

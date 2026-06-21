@@ -97,6 +97,90 @@ def powder_average_grid(n_theta: int = 16, n_phi: int = 32) -> tuple[Orientation
     return tuple(samples)
 
 
+def _perpendicular_basis(direction: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    reference = (
+        np.array([0.0, 0.0, 1.0])
+        if abs(float(direction[2])) < 0.9
+        else np.array([1.0, 0.0, 0.0])
+    )
+    first = np.cross(direction, reference)
+    first = first / np.linalg.norm(first)
+    second = np.cross(direction, first)
+    return first, second
+
+
+def b0_b1_powder_average_grid(
+    n_theta: int = 12,
+    n_phi: int = 24,
+    n_chi: int = 8,
+    *,
+    b1_b0_angle: float = np.pi / 2.0,
+) -> tuple[OrientationSample, ...]:
+    """Return a powder grid with correlated lab B0 and RF B1 directions."""
+
+    n_theta = int(n_theta)
+    n_phi = int(n_phi)
+    n_chi = int(n_chi)
+    if n_theta <= 0 or n_phi <= 0 or n_chi <= 0:
+        raise ValueError("n_theta, n_phi, and n_chi must be positive")
+    b1_b0_angle = float(b1_b0_angle)
+    if not np.isfinite(b1_b0_angle):
+        raise ValueError("b1_b0_angle must be finite")
+
+    mu_values, mu_weights = np.polynomial.legendre.leggauss(n_theta)
+    samples: list[OrientationSample] = []
+    for mu, mu_weight in zip(mu_values, mu_weights):
+        beta = float(np.arccos(mu))
+        for phi_idx in range(n_phi):
+            alpha = 2.0 * np.pi * phi_idx / n_phi
+            b0_direction = spherical_direction(alpha, beta)
+            e1, e2 = _perpendicular_basis(b0_direction)
+            for chi_idx in range(n_chi):
+                chi = 2.0 * np.pi * chi_idx / n_chi
+                perpendicular = np.cos(chi) * e1 + np.sin(chi) * e2
+                b1_direction = (
+                    np.cos(b1_b0_angle) * b0_direction
+                    + np.sin(b1_b0_angle) * perpendicular
+                )
+                samples.append(
+                    OrientationSample(
+                        b1_direction_pas=b1_direction,
+                        b0_direction_pas=b0_direction,
+                        weight=float(mu_weight) / (2.0 * n_phi * n_chi),
+                    )
+                )
+    return tuple(samples)
+
+
+def b0_powder_average_grid(
+    n_theta: int = 16,
+    n_phi: int = 32,
+    *,
+    b1_direction_pas: np.ndarray | list[float] | tuple[float, float, float] = (1.0, 0.0, 0.0),
+) -> tuple[OrientationSample, ...]:
+    """Return a powder grid over static-field directions in the PAS."""
+
+    n_theta = int(n_theta)
+    n_phi = int(n_phi)
+    if n_theta <= 0 or n_phi <= 0:
+        raise ValueError("n_theta and n_phi must be positive")
+    b1_direction = _unit_vector(b1_direction_pas)
+    mu_values, mu_weights = np.polynomial.legendre.leggauss(n_theta)
+    samples: list[OrientationSample] = []
+    for mu, mu_weight in zip(mu_values, mu_weights):
+        beta = float(np.arccos(mu))
+        for phi_idx in range(n_phi):
+            alpha = 2.0 * np.pi * phi_idx / n_phi
+            samples.append(
+                OrientationSample(
+                    b1_direction_pas=b1_direction,
+                    b0_direction_pas=spherical_direction(alpha, beta),
+                    weight=float(mu_weight) / (2.0 * n_phi),
+                )
+            )
+    return tuple(samples)
+
+
 def normalize_orientations(
     orientations: tuple[OrientationSample, ...] | list[OrientationSample],
 ) -> tuple[OrientationSample, ...]:

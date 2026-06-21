@@ -158,14 +158,35 @@ python examples\plot_slic_two_spin.py --j-hz 7 --delta-hz 0.7 --output results\s
 
 ## NQR Examples
 
-These examples exercise the early quadrupolar extension. The powder nutation
-example sweeps the nominal SLSE detection pulse angle, while the population
-transfer example builds a compact two-frequency perturbation/detection map for
-the spin-1 `x`, `y`, and `z` transitions.
+These examples exercise the early quadrupolar extension. The current pulsed
+examples are explicitly spin-1 examples using the `x`, `y`, and `z` transition
+labels. The powder nutation example sweeps the nominal SLSE detection pulse
+angle, the population transfer example builds a compact two-frequency
+perturbation/detection map, and the SLSE relaxation examples sweep RF offset
+and pulse period with the Liouville-space relaxation model. The SLSE relaxation
+plots use powder averaging by default; pass `--orientation single` with
+`--alpha` and `--beta` to inspect one fixed EFG orientation. The EFG broadening
+examples use static isochromat distributions to show both the time-domain
+response and FFT spectrum. The SLSE broadening example keeps the RF carrier
+fixed at the central transition while summing detuned EFG variants; its
+spectrum panel is the FFT of the averaged echo over a finite acquisition window
+`T_acq`, avoiding the nonphysical echo-train FFT artifact. Use `--acq-us`,
+`--noise-snr`, and `--deconvolve` to explore receiver-window broadening,
+additive time-domain noise, and regularized deconvolution. The weak-B0 example
+is a static transition-spectrum example, not a pulsed simulation, and supports
+both spin-1 and spin-3/2 sites.
+Use `--n-chi` and `--b1-b0-angle` to control the correlated weak-field powder
+average between the static field and RF field.
 
 ```powershell
 python examples\plot_nqr_powder_nutation.py --output results\nqr_powder_nutation.png
 python examples\plot_nqr_population_transfer.py --output results\nqr_population_transfer.png
+python examples\plot_nqr_slse_offset.py --output results\nqr_slse_offset.png
+python examples\plot_nqr_slse_spacing.py --output results\nqr_slse_spacing.png
+python examples\plot_nqr_efg_broadening.py --output results\nqr_efg_broadening.png
+python examples\plot_nqr_temperature_broadening.py --output results\nqr_temperature_broadening.png
+python examples\plot_nqr_slse_efg_broadening.py --output results\nqr_slse_efg_broadening.png
+python examples\plot_nqr_weak_b0_spectrum.py --output results\nqr_weak_b0_spectrum.png
 ```
 
 ## Radiation Damping

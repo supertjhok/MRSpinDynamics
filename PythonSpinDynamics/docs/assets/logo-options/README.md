@@ -1,12 +1,12 @@
-# PythonSpinDynamics Logo Options
+# MRSpinDynamics Logo Options
 
 These are draft SVG logo candidates sized for README headers and manual title
 pages. They use the documentation palette already present in
 `docs/user_manual.tex`.
 
 The current preferred direction is Option A, revised as a project-level
-umbrella logo under `../../../docs/assets/nmr_spin_dynamics_logo.svg` with the
-wordmark `NMRSpinDynamics` and the subtitle "spin-1/2 simulations in
+umbrella logo under `../../../docs/assets/mr_spin_dynamics_logo.svg` with the
+wordmark `MRSpinDynamics` and the subtitle "NMR and NQR simulations in
 inhomogeneous fields."
 
 ## Option A: Echo Orbit

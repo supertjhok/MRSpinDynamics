@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="320" height="320" viewBox="0 0 320 320" role="img" aria-labelledby="title desc">
-  <title id="title">NMRSpinDynamics mark</title>
-  <desc id="desc">A compact spin precession orbit, pulse bars, and echo waveform mark for NMRSpinDynamics.</desc>
+  <title id="title">MRSpinDynamics mark</title>
+  <desc id="desc">A compact spin precession orbit, pulse bars, and echo waveform mark for MRSpinDynamics.</desc>
   <defs>
     <linearGradient id="orbitGrad" x1="58" y1="80" x2="280" y2="260" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#0077B6"/>

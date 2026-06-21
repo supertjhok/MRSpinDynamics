@@ -64,7 +64,7 @@
     \end{minipage}}
   \par\smallskip
 }
-\input{../docs/assets/nmr_spin_dynamics_logo_tikz.tex}
+\input{../docs/assets/mr_spin_dynamics_logo_tikz.tex}
 
 \titleformat{\chapter}[block]
   {\huge\bfseries\color{Ink}}
@@ -85,7 +85,7 @@
 
 \pagestyle{fancy}
 \fancyhf{}
-\lhead{\textcolor{Muted}{PythonSpinDynamics}}
+\lhead{\textcolor{Muted}{MRSpinDynamics Python}}
 \rhead{\textcolor{Muted}{User Manual}}
 \cfoot{\textcolor{Muted}{\thepage}}
 \renewcommand{\headrulewidth}{0.3pt}
@@ -98,23 +98,23 @@
 \color{Ink}
 \vspace*{0.55in}
 \begin{center}
-\NMRSpinDynamicsLogo[0.85]
+\MRSpinDynamicsLogo[0.85]
 \end{center}
 \vspace{0.45in}
-{\Huge\bfseries PythonSpinDynamics\par}
+{\Huge\bfseries MRSpinDynamics\par}
 \vspace{0.25in}
-{\Large User Manual\par}
+{\Large Python User Manual\par}
 \vspace{0.15in}
-{\large Python port of MATLABSpinDynamics\par}
+{\large Python magnetic-resonance spin-dynamics workspace\par}
 \vspace{0.45in}
 {\color{Accent}\rule{0.82\linewidth}{3pt}\par}
 \vspace{0.35in}
 \begin{minipage}{0.78\linewidth}
 \large
-Simulation workflows for spin-1/2 nuclear magnetization in possibly
-non-uniform and time-varying magnetic fields, with validated
-MATLAB-compatible Bloch kernels, Python-native analysis tools, and scoped
-scalar-coupled spin-1/2 and pulsed NQR extensions.
+Simulation workflows for magnetic-resonance spin dynamics in possibly
+non-uniform and time-varying fields, with validated MATLAB-compatible
+spin-1/2 NMR Bloch kernels, Python-native analysis tools, scoped
+scalar-coupled spin-1/2 models, and pulsed NQR extensions.
 \end{minipage}
 \vfill
 {\large June 2026\par}
@@ -154,9 +154,10 @@ Chapter~\ref{chap:jcoupling}.
 \scopebox{Accent}{
 \textbf{Pulsed NQR extension.} The \code{spin\_dynamics.nqr} namespace adds
 dense single-site quadrupolar spin tools for selective pulsed NQR, including
-spin-1 transition metadata, single-crystal and powder orientation averages,
-SLSE echo trains, two-frequency population transfer, and weak-B0 perturbations.
-These models are documented in Chapter~\ref{chap:nqr}.
+spin-1 and spin-3/2 transition metadata, single-crystal and powder orientation
+averages, SLSE echo trains, two-frequency population transfer, EFG
+inhomogeneity, finite-window SLSE spectra, and weak-B0 perturbations. These
+models are documented in Chapter~\ref{chap:nqr}.
 }
 
 \scopebox{AccentTwo}{
@@ -232,7 +233,8 @@ radiation damping; moving-isochromat motion helpers; received-signal noise;
 inverse-Laplace analysis; compact pulse-optimization scaffolds; and small
 spin-1/2 scalar-coupling tools for low-field J-editing, TANGO-B filtering, and
 SLIC-style spin-lock response; and early pulsed NQR helpers for quadrupolar
-sites, powder averaging, SLSE, and two-frequency population transfer.
+sites, powder averaging, SLSE, two-frequency population transfer, EFG
+inhomogeneity, spin-3/2 transition metadata, and weak-static-field spectra.
 
 \section{Package Layout}
 
@@ -714,16 +716,18 @@ solid-state pulsed NQR experiments. It is intentionally separate from the
 spin-1/2 Bloch and scalar-coupling layers.
 
 \scopebox{Accent}{
-\textbf{Use this layer for:} selective pulsed NQR of one quadrupolar site,
-spin-1 nitrogen-14 transition metadata, fixed-orientation single-crystal
-calculations, powder averages over local EFG orientations, SLSE echo trains,
-two-frequency population transfer, and exploratory weak-B0 perturbations.
+\textbf{Use this layer for:} selective pulsed NQR of one spin-1 quadrupolar
+site, spin-1 and spin-3/2 transition metadata, fixed-orientation
+single-crystal calculations, powder averages over local EFG orientations,
+SLSE echo trains, two-frequency population transfer, static EFG
+inhomogeneity, finite-window SLSE spectra, and weak-B0 line splitting.
 }
 
 \scopebox{AccentTwo}{
 \textbf{Current limits:} dense single-site matrices only; selective RF pulses
-only; phenomenological echo decay rather than full relaxation superoperators;
-no simultaneous multi-frequency excitation; no full nonselective shaped-pulse
+only; spin-3/2 pulsed dynamics pending a degenerate-doublet RF manifold model;
+phenomenological relaxation rather than microscopic Redfield/dipolar rates; no
+simultaneous multi-frequency excitation; no full nonselective shaped-pulse
 Hamiltonian propagation; no multi-site coupling between quadrupolar nuclei.
 }
 
@@ -732,7 +736,7 @@ Hamiltonian propagation; no multi-site coupling between quadrupolar nuclei.
 A quadrupolar site is described in the EFG principal-axis system. The zero-field
 Hamiltonian used by the Python helper is
 \[
-  H_Q = \frac{2\pi \nu_Q}{3}
+  H_Q = 2\pi \nu_{\mathrm{scale}}
   \left[
     3 I_z^2 - I(I+1)\mathbf{1}
     + \eta\left(I_x^2 - I_y^2\right)
@@ -740,7 +744,16 @@ Hamiltonian used by the Python helper is
 \]
 where \(I\) is the spin quantum number, \(\nu_Q\) is the quadrupole-frequency
 parameter in hertz, and \(0 \le \eta \le 1\) is the EFG asymmetry parameter.
-Hamiltonians are represented in radians per second.
+Hamiltonians are represented in radians per second. For spin-1, the package
+uses \(\nu_{\mathrm{scale}}=\nu_Q/3\), matching the nitrogen-14 convention
+where the zero-field lines are \(\nu_x=\nu_Q(1+\eta/3)\),
+\(\nu_y=\nu_Q(1-\eta/3)\), and \(\nu_z=2\eta\nu_Q/3\). For spin-3/2,
+\(\nu_{\mathrm{scale}}=\nu_Q/6\), so the zero-field chlorine-style NQR line is
+\[
+  \nu_{\mathrm{NQR}} = \nu_Q\sqrt{1+\eta^2/3}.
+\]
+Zero-frequency Kramers-doublet transitions are omitted from the transition
+inventory.
 
 Weak Zeeman perturbations can be added as
 \[
@@ -769,6 +782,22 @@ For spin-1 at zero field, transitions are labeled by their dominant RF
 polarization in the EFG principal-axis system: \code{x}, \code{y}, and
 \code{z}. For the example above the line positions are approximately
 \(990\), \(810\), and \(180\) kHz.
+
+Spin-3/2 transition metadata can be inspected with the same diagonalization
+helper:
+
+\begin{lstlisting}[language=Python]
+chlorine = QuadrupolarSite(
+    spin=1.5,
+    isotope="35Cl",
+    quadrupole_frequency_hz=30e6,
+    eta=0.1,
+    gamma_hz_per_t=4.171e6,
+)
+
+for transition in diagonalize_site(chlorine).transitions:
+    print(transition.frequency_hz)
+\end{lstlisting}
 
 \section{Selective Pulse Approximation}
 
@@ -806,6 +835,14 @@ The pulse helper also supports an optional RF frequency. If omitted, the RF is
 placed on the selected transition. If supplied, the difference between the RF
 frequency and transition frequency is treated as a two-level detuning.
 
+The selective-pulse propagation routines currently support spin-1 sites only.
+Spin-3/2 nuclei such as \({}^{35}\mathrm{Cl}\) and \({}^{37}\mathrm{Cl}\)
+have degenerate doublets at zero field; their pulsed response needs an RF model
+that acts on the full doublet manifold rather than an embedded two-level
+transition. Static spin-3/2 transition frequencies and weak-B0 spectra are
+available now, but spin-3/2 SLSE/FID pulse simulations deliberately raise a
+clear error.
+
 \section{Orientations and Powder Averages}
 
 NQR is a solid-state experiment, so the signal depends on the orientation of
@@ -825,12 +862,60 @@ For weak-B0 calculations, each orientation may also specify the direction of
 current helper uses the local RF direction as the default field direction for
 that sample.
 
+Weak-field spectra use a correlated powder grid for the static field and RF
+field directions. The helper \code{b0\_b1\_powder\_average\_grid} samples the
+orientation of \(B_0\) in the EFG frame and the rotation angle of \(B_1\)
+around \(B_0\), preserving a chosen lab-frame angle between the two fields.
+For a conventional transverse coil one uses \(B_1\perp B_0\).
+
+\section{Weak Static B0 Spectra}
+
+Weak static magnetic fields are modeled by exact diagonalization of
+\[
+  H = H_Q + H_Z, \qquad
+  H_Z = -2\pi\gamma\,\mathbf{B}_0\cdot\mathbf{I}.
+\]
+The helper is intended for the NQR regime
+\[
+  \epsilon_Z = \frac{|\gamma B_0|}{\nu_{\mathrm{ref}}} \ll 1,
+\]
+and reports the largest perturbation ratio in the result. It can warn or raise
+if the requested field is no longer weak compared with the selected NQR line.
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.nqr import simulate_weak_b0_spectrum
+
+weak = simulate_weak_b0_spectrum(
+    chlorine,
+    b0_tesla=1e-3,
+    orientations="powder",
+    broadening_hz=200.0,
+    weak_ratio_threshold=0.05,
+)
+
+print(weak.max_perturbation_ratio)
+\end{lstlisting}
+
+For each crystallite, the code diagonalizes \(H_Q+H_Z\), keeps transitions
+near the selected zero-field NQR line, and weights them by the RF projection
+\[
+  I_{ab} \propto w_k
+  \left|\hat{\mathbf{b}}_{1,k}\cdot\mathbf{d}_{ab,k}\right|^2,
+\]
+where \(w_k\) is the orientation weight. This RF projection is important for
+spin-3/2 in weak fields: the eigenvalue splitting can contain several nearby
+transitions, but transitions dark to the coil should not contribute to the
+plotted spectrum. In the axial limit \(\eta=0\), \(B_0\parallel z_{\mathrm{PAS}}\),
+and \(B_1\perp B_0\), a spin-3/2 site gives the expected pair
+\(\nu_Q\pm\gamma B_0\).
+
 \section{SLSE Detection}
 
 The spin-lock spin-echo (SLSE) sequence is the classic pulsed NQR detection
-sequence. The initial helper models it as repeated selective pulses on a
+sequence. The helper models it as repeated selective pulses on a spin-1
 detection transition and reports echo amplitudes at the requested echo spacing.
-Echo decay is represented phenomenologically by \(T_{2e}\).
+Echo decay can be represented by a scalar \(T_{2e}\) envelope or by a
+phenomenological Liouville-space relaxation model with \(T_1\) and \(T_2\).
 
 \begin{lstlisting}[language=Python]
 from spin_dynamics.nqr import simulate_slse, slse_sequence
@@ -853,7 +938,96 @@ result = simulate_slse(
 
 The returned \code{SLSEResult} includes echo times, powder-averaged echo
 amplitudes, per-orientation echo amplitudes, orientation weights, transition
-metadata, and the eigensystem used for the first orientation.
+metadata, and the eigensystem used for the first orientation. When a relaxation
+model is supplied, the result also reports local cycle eigenvalues and
+cycle-derived effective decay times.
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.nqr import NQRRelaxationModel
+
+relaxed = simulate_slse(
+    site,
+    sequence,
+    orientations="powder",
+    relaxation=NQRRelaxationModel(t1_seconds=1.0, t2_seconds=20e-3),
+)
+\end{lstlisting}
+
+Offset and pulse-period sweeps are available as compact diagnostics for the
+SLSE modulation:
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.nqr import simulate_slse_offset_sweep
+
+sweep = simulate_slse_offset_sweep(
+    site,
+    "x",
+    offsets_hz=[-2e3, 0.0, 2e3],
+    pulse_duration_seconds=25e-6,
+    nutation_hz=10e3,
+    echo_spacing_seconds=500e-6,
+    relaxation=NQRRelaxationModel(t2_seconds=20e-3),
+)
+\end{lstlisting}
+
+\section{EFG Inhomogeneity and SLSE Spectra}
+
+Static EFG disorder is modeled as an isochromat ensemble of independent
+quadrupolar sites. Each isochromat has its own \(\nu_Q\), \(\eta\), transition
+frequency, and normalized weight. This covers impurity-induced broadening,
+static temperature gradients, and other inhomogeneous mechanisms analogous to
+NMR isochromat broadening.
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.nqr import (
+    SelectivePulse,
+    gaussian_efg_distribution,
+    simulate_fid_efg_distribution,
+)
+import numpy as np
+
+distribution = gaussian_efg_distribution(
+    site,
+    quadrupole_std_hz=2e3,
+    samples=41,
+)
+
+fid = simulate_fid_efg_distribution(
+    distribution,
+    "x",
+    times_seconds=np.linspace(0.0, 20e-3, 512),
+    excitation=SelectivePulse("x", duration_seconds=2.5e-6, nutation_hz=100e3),
+)
+\end{lstlisting}
+
+The distribution simulators check whether a coarse EFG grid can artificially
+rephase within the simulated duration. Increase the number of isochromats when
+the warning appears, or pass \code{rephase\_action="ignore"} only after a
+convergence check.
+
+In an SLSE experiment, the spectrum is not the FFT of the echo train. It is the
+FFT of the averaged echo acquired over a receiver window \(T_{\mathrm{acq}}\)
+centered on a selected echo, with \(T_{\mathrm{acq}}\) shorter than the pulse
+spacing. The finite acquisition window itself broadens the spectrum:
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.nqr import simulate_slse_acquisition_spectrum
+
+slse_spectrum = simulate_slse_acquisition_spectrum(
+    distribution,
+    sequence,
+    acquisition_duration_seconds=200e-6,
+    acquisition_points=256,
+    echo_index=-1,
+    noise={"target_snr": 20.0, "seed": 123},
+    deconvolution_strength=1e-2,
+)
+\end{lstlisting}
+
+Noise is added to the complex time-domain acquisition before the FFT. The
+optional deconvolution performs a regularized inversion of the same finite-window
+FFT operator. It is useful for exploring acquisition-window broadening, but it
+can amplify noise and should be checked across plausible SNR values.
 
 \section{Two-Frequency Population Transfer}
 
@@ -923,6 +1097,41 @@ For long trains, use the rephasing checks or enable
 \code{auto\_refine\_grid=True} so the offset grid is refined before RF matrices
 are built.
 
+\subsection{CPMG-IR Trains}
+
+Finite inversion-recovery trains add an inversion delay axis before the CPMG
+readout:
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.workflows import run_matched_cpmg_ir_train
+
+ir = run_matched_cpmg_ir_train(
+    numpts=31,
+    num_echoes=4,
+    tauvect=[0.5e-3, 2e-3, 6e-3, 12e-3],
+    auto_refine_grid=True,
+)
+\end{lstlisting}
+
+The returned arrays are indexed by inversion delay first and echo number
+second. This makes the workflow useful for compact \(T_1\)-encoded echo-train
+tests without manually assembling the inversion pulse, delay, excitation, and
+refocusing blocks.
+
+\subsection{Probe Parameter Sweeps}
+
+Probe-aware CPMG workflows can also be swept over resonator \(Q\) or mistuning:
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.workflows import run_tuned_q_sweep
+
+sweep = run_tuned_q_sweep(q_values=[20, 50, 100], numpts=51)
+\end{lstlisting}
+
+Use the finite-train sweep variants when echo-to-echo evolution matters. The
+finite sweep results keep one \code{CPMGTrainResult} per parameter value and
+also stack echo integrals for quick heat-map style summaries.
+
 \section{FID}
 
 \begin{lstlisting}[language=Python]
@@ -963,6 +1172,34 @@ Imaging workflows return raw k-space, reconstructed per-echo images, field
 maps, relaxation maps, gradient metadata, and sequence timing. Image formation
 is intentionally separated from acquisition so selected-echo, echo-summed,
 fitted-\(\rho\), and fitted-\(T_2\) displays can be compared.
+\code{make\_imaging\_field\_maps} accepts spatial B0, transmit-B1, and
+receive-B1 maps, and the ideal imaging path can include an inversion-recovery
+preparation through \code{run\_t1\_encoded\_phase\_encoded\_cpmg\_imaging}.
+When \code{noise} is supplied, clean k-space and image fields remain in the
+result while noisy counterparts are stored in \code{kspace\_noisy},
+\code{image\_noisy}, and \code{magnitude\_noisy}.
+
+\section{Received-Signal Noise}
+
+Noise is opt-in and output-referred. High-level workflows accept a
+\code{NoiseSpec}, a mapping, or a scalar white-noise standard deviation:
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.noise import NoiseSpec
+from spin_dynamics.workflows import run_tuned_cpmg
+
+noisy = run_tuned_cpmg(
+    numpts=101,
+    noise=NoiseSpec(model="probe", target_snr=25.0, seed=3),
+)
+\end{lstlisting}
+
+\code{model="white"} adds flat complex receiver noise. \code{model="probe"}
+uses the probe output noise density where the workflow can supply it, which is
+important when the received spectrum is filtered by a tuned, untuned, or
+matched resonator. Result objects preserve clean deterministic fields and add
+noisy fields plus \code{NoiseMetadata} so repeated SNR studies remain
+reproducible.
 
 \section{Diffusion}
 
@@ -980,6 +1217,34 @@ sweep = run_matched_diffusion_q_sweep(
 The compact matched-probe diffusion workflow is solver-validated through
 \(Q=2000\). Higher-Q cases remain a stiffness target for the current NumPy
 matched-probe transient solver.
+
+\section{Moving Isochromats}
+
+The motion layer treats inhomogeneity in the same spirit as static
+isochromats, but the samples move through two-dimensional B0, transmit-B1, and
+receive-B1 maps:
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.motion import make_motion_field_maps_2d, initialize_ensemble_from_density
+from spin_dynamics.sequences.motion import run_motion_cpmg_sequence
+
+fields = make_motion_field_maps_2d([-1, 0, 1], [-1, 0, 1])
+ensemble = initialize_ensemble_from_density([[0, 1, 0], [1, 2, 1], [0, 1, 0]])
+motion = run_motion_cpmg_sequence(
+    ensemble,
+    fields,
+    num_echoes=4,
+    echo_spacing=1e-3,
+    excitation_duration=20e-6,
+    refocusing_duration=40e-6,
+    gradient=(0.0, 0.1),
+)
+\end{lstlisting}
+
+Lower-level helpers such as \code{free\_precession\_with\_motion\_step} are
+useful for custom trajectories. The sequence helpers split long intervals into
+substeps so field maps are sampled along the particle path rather than only at
+the beginning of an interval.
 
 \section{Time-Varying Fields}
 
@@ -1044,6 +1309,12 @@ train = run_tuned_cpmg_train(
 )
 \end{lstlisting}
 
+The CPMG train path is deterministic and keeps the radiation-damping feedback
+inside the finite acquisition model. For strongly inverted samples,
+\code{simulate\_nmr\_maser} uses the same feedback machinery with a pumped
+longitudinal magnetization; it is intended as an idealized threshold and
+saturation diagnostic rather than a full spectrometer-control model.
+
 \section{Inverse Laplace Analysis}
 
 \begin{lstlisting}[language=Python]
@@ -1071,6 +1342,27 @@ where \(D\) is the measured data, \(F\) is the unknown distribution, and
 \(K_1\), \(K_2\) are relaxation or diffusion kernels. Use
 \code{invert\_t1\_t2} or \code{invert\_d\_t2} for common NMR cases.
 
+\section{Optimization Workflows}
+
+The optimization package provides compact, plotting-free drivers for
+phase-program searches and result handoff:
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.optimization import run_tuned_refocusing_multistart
+
+opt = run_tuned_refocusing_multistart(
+    num_segments=3,
+    num_starts=4,
+    numpts=21,
+    max_passes=4,
+)
+\end{lstlisting}
+
+Use the optimization examples as diagnostics rather than turnkey production
+pulse design: they expose refocusing, target-excitation, and inverse-excitation
+objective behavior while the inverse-cancellation workflow remains under
+validation.
+
 \chapter{Examples}
 
 The example scripts can be run from \code{PythonSpinDynamics}; each script also
@@ -1081,13 +1373,22 @@ works from inside \code{examples/} by adding the local source tree to
 python examples\ideal_cpmg.py --numpts 101
 python examples\ideal_fid.py --numpts 101
 python examples\ideal_cpmg_train.py --numpts 101 --num-echoes 8
+python examples\ideal_time_varying_cpmg.py --numpts 101 --num-echoes 16
+python examples\compare_cpmg_fid.py --numpts 101
+python examples\export_validation_arrays.py results\validation_arrays.npz --numpts 101
+python examples\tuned_probe_cpmg.py --numpts 101
 python examples\probe_cpmg_compare.py --numpts 101
+python examples\probe_parameter_sweeps.py --numpts 101
+python examples\matched_cpmg_ir_train.py --numpts 21 --num-echoes 4 --num-tau 4
 python examples\finite_probe_train_sweeps.py --numpts 21 --num-echoes 3
 python examples\matched_diffusion_cpmg.py --numpts 21 --num-echoes 3
+python examples\received_signal_noise.py --numpts 51
 python examples\radiation_damping_fid.py --probe matched --points 401
+python examples\radiation_damping_cpmg_train.py --probe tuned --numpts 21 --num-echoes 4
 python examples\nmr_maser.py
 python examples\heteronuclear_j_editing.py --points 33
 python examples\coupled_isochromat_fields.py --points 21
+python examples\diagnose_optimization_backends.py --backend all --numpts 21 --segments 3
 \end{lstlisting}
 
 Plotting examples require Matplotlib:
@@ -1095,15 +1396,34 @@ Plotting examples require Matplotlib:
 \begin{lstlisting}[language=bash]
 python examples\plot_ideal_workflows.py --numpts 201 --output results\ideal_workflows.png
 python examples\plot_ideal_imaging.py --pixels 6 --ny 7 --output results\ideal_imaging.png
+python examples\plot_custom_imaging_fields.py --pixels 8 --ny 7 --output results\custom_imaging_fields.png
 python examples\plot_inverse_laplace.py --output results\inverse_laplace.png
+python examples\plot_probe_parameter_sweep.py --probe tuned --sweep q --output results\tuned_q_sweep.png
+python examples\plot_probe_cpmg.py --numpts 101 --output results\probe_cpmg.png
+python examples\plot_finite_train_workflows.py --numpts 17 --num-echoes 4 --output results\finite_trains.png
+python examples\plot_diffusion_sweep.py --numpts 17 --num-echoes 3 --output results\diffusion_sweep.png
+python examples\plot_time_varying_sweep.py --numpts 51 --num-echoes 12 --output results\time_varying_sweep.png
+python examples\plot_motion_linear.py --output results\motion_linear.png
+python examples\plot_motion_diffusion_cpmg.py --output results\motion_diffusion_cpmg.png
 python examples\plot_radiation_damping.py --output results\radiation_damping.png
+python examples\plot_radiation_damping_detuning.py --output results\rd_detuning.png
+python examples\plot_radiation_damping_cpmg_train.py --output results\rd_cpmg.png
+python examples\plot_nmr_maser.py --output results\nmr_maser.png
 python examples\plot_wurst_flow.py --numpts 41 --num-steps 64 --output results\wurst_flow.png
 python examples\plot_j_editing_spectrum.py --output results\j_editing_spectrum.png
 python examples\plot_j_editing_field_spread.py --output results\j_editing_field_spread.png
 python examples\plot_tango_filter.py --target 160 --output results\tango_filter.png
 python examples\plot_slic_two_spin.py --j-hz 7 --delta-hz 0.7 --output results\slic_two_spin.png
+python examples\plot_optimization_workflows.py --numpts 11 --segments 2 --starts 2 --inverse-starts 4 --output results\optimization_workflows.png
+python examples\plot_optimization_pipeline.py --numpts 11 --refocusing-segments 2 --refocusing-starts 2 --excitation-segments 2 --excitation-starts 2 --inverse-starts 3 --output results\optimization_pipeline.png
 python examples\plot_nqr_powder_nutation.py --output results\nqr_powder_nutation.png
 python examples\plot_nqr_population_transfer.py --output results\nqr_population_transfer.png
+python examples\plot_nqr_slse_offset.py --output results\nqr_slse_offset.png
+python examples\plot_nqr_slse_spacing.py --output results\nqr_slse_spacing.png
+python examples\plot_nqr_efg_broadening.py --output results\nqr_efg_broadening.png
+python examples\plot_nqr_temperature_broadening.py --output results\nqr_temperature_broadening.png
+python examples\plot_nqr_slse_efg_broadening.py --output results\nqr_slse_efg_broadening.png
+python examples\plot_nqr_weak_b0_spectrum.py --output results\nqr_weak_b0_spectrum.png
 \end{lstlisting}
 
 \chapter{Validation}
@@ -1139,6 +1459,10 @@ spin_dynamics.parameters
 spin_dynamics.analysis
 spin_dynamics.coupling
 spin_dynamics.nqr
+spin_dynamics.noise
+spin_dynamics.motion
+spin_dynamics.sequences.motion
+spin_dynamics.optimization
 \end{lstlisting}
 
 Drop into lower-level modules only when a building block is needed directly.
@@ -1156,6 +1480,7 @@ Class & Purpose \\
 \code{CPMGResult} & Asymptotic CPMG spectrum, echo, time vector, SNR, and probe label. \\
 \code{CPMGTrainResult} & Finite echo-train spectra, echoes, echo integrals, and sequence timing. \\
 \code{CPMGIRTrainResult} & Inversion-recovery finite trains over a \code{tauvect}. \\
+\code{MatchedCPMGIRTrainResult} & Matched-probe specialization of the CPMG-IR train result. \\
 \code{CPMGParameterSweepResult} & Asymptotic Q or mistuning sweeps. \\
 \code{CPMGFiniteParameterSweepResult} & Finite-train Q or mistuning sweeps. \\
 \code{ZMagnetizationSweepResult} & Matched-probe z-magnetization Q sweeps. \\
@@ -1163,12 +1488,24 @@ Class & Purpose \\
 \code{ProbeTimeVaryingCPMGResult} & Probe-aware time-varying-field CPMG result. \\
 \code{IdealCPMGImagingResult} & Ideal phase-encoded CPMG imaging result. \\
 \code{ProbeCPMGImagingResult} & Tuned or matched phase-encoded CPMG imaging result. \\
+\code{ImagingEchoFitResult} & Voxel-wise mono-exponential echo-stack fit. \\
+\code{ImagingNoiseStatistics} & Repeated-trial image-domain noise summary. \\
+\code{MotionSequenceResult} & Moving-isochromat sequence samples and final particle ensemble. \\
+\code{NoiseMetadata} & Generated received-noise parameters and realized SNR. \\
 \code{MatchedDiffusionCPMGResult} & Matched diffusion-aware CPMG train. \\
 \code{MatchedDiffusionQSweepResult} & Matched diffusion Q sweep. \\
 \code{WURSTInversionResult} & WURST inversion profile and pulse metadata. \\
 \code{MatchedWURSTCPMGResult} & Matched WURST-CPMG echoes and spectra. \\
 \code{RadiationDampingFIDResult} & Radiation-damping FID simulation and analytic comparison fields. \\
+\code{MultiStartOptimizationResult} & Repeated random-start pulse-optimization result. \\
+\code{RefocusingOptimizationResult} & Bounded fixed-amplitude refocusing phase optimization. \\
+\code{ExcitationOptimizationResult} & Bounded fixed-amplitude target-excitation or inverse-excitation optimization. \\
+\code{TunedExcitationInversePipelineResult} & Selected-refocusing to excitation/inverse-excitation pipeline result. \\
 \code{SLSEResult} & NQR SLSE echo train, local orientation signals, and transition metadata. \\
+\code{SLSESweepResult} & NQR SLSE selected-echo amplitudes and effective decay estimates across a sweep. \\
+\code{NQRFIDDistributionResult} & EFG-distribution FID, FFT spectrum, and isochromat metadata. \\
+\code{SLSEAcquisitionSpectrumResult} & Finite-window SLSE echo acquisition and spectrum, including optional noise and deconvolution metadata. \\
+\code{WeakB0SpectrumResult} & Static weak-B0 transition spectrum and perturbation-ratio metadata. \\
 \code{PopulationTransferResult} & NQR perturbation-plus-SLSE signal, reference signal, and normalized difference. \\
 \bottomrule
 \end{longtable}
@@ -1295,6 +1632,23 @@ invert_d_t2
 The \code{select\_regularization\_*} helpers choose Tikhonov strengths from an
 RMS SNR estimate.
 
+\section{Optimization Diagnostics}
+
+Optimization helpers expose compact NumPy/SciPy-compatible diagnostics for
+phase-program searches:
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.optimization import run_tuned_refocusing_multistart
+
+result = run_tuned_refocusing_multistart(num_segments=3, num_starts=4)
+\end{lstlisting}
+
+The plotting-free analysis helpers convert MATLAB-style result cells into
+score summaries, and the tuned excitation/inverse pipeline carries a selected
+refocusing candidate into bounded target-excitation and inverse-cancellation
+tests. The inverse stage is still best treated as a parity and diagnostics
+surface while strong inverse-pulse cancellation remains under validation.
+
 \section{Core Numerical API}
 
 \begin{lstlisting}
@@ -1371,6 +1725,8 @@ from spin_dynamics.pulses import (
 \begin{lstlisting}
 from spin_dynamics.noise import (
     NoiseSpec,
+    NoiseMetadata,
+    MatchedFilterSNRResult,
     add_received_noise,
     estimate_matched_filter_snr,
     ideal_noise_density,
@@ -1379,6 +1735,8 @@ from spin_dynamics.noise import (
     matched_probe_output_noise_density,
 )
 from spin_dynamics.motion import (
+    ParticleEnsemble,
+    MotionFieldMaps2D,
     make_motion_field_maps_2d,
     initialize_ensemble_from_density,
     advect_diffuse_positions,
@@ -1388,6 +1746,13 @@ from spin_dynamics.motion import (
     free_precession_with_motion_step,
     receive_signal,
     transverse_b1_magnitude,
+)
+from spin_dynamics.sequences.motion import (
+    MotionSequenceStep,
+    MotionSequenceResult,
+    make_motion_cpmg_sequence,
+    run_motion_sequence,
+    run_motion_cpmg_sequence,
 )
 from spin_dynamics.radiation_damping import (
     radiation_damping_time,
@@ -1471,6 +1836,7 @@ from spin_dynamics.nqr import (
     NQRTransition,
     NQREigensystem,
     spin_matrices,
+    quadrupole_frequency_scale_hz,
     quadrupole_hamiltonian,
     zeeman_hamiltonian,
     nqr_hamiltonian,
@@ -1478,14 +1844,27 @@ from spin_dynamics.nqr import (
     OrientationSample,
     single_crystal_orientation,
     powder_average_grid,
+    b0_b1_powder_average_grid,
+    b0_powder_average_grid,
     SelectivePulse,
     apply_selective_pulse,
     transition_drive_scale,
+    NQRRelaxationModel,
     slse_sequence,
     simulate_slse,
+    simulate_slse_offset_sweep,
+    simulate_slse_spacing_sweep,
+    gaussian_efg_distribution,
+    temperature_efg_distribution,
+    simulate_fid_efg_distribution,
+    simulate_slse_acquisition_spectrum,
+    simulate_weak_b0_spectrum,
+    weak_field_ratio,
+    zeeman_frequency_hz,
     simulate_population_transfer,
     SLSEResult,
     PopulationTransferResult,
+    WeakB0SpectrumResult,
 )
 \end{lstlisting}
 
@@ -1495,16 +1874,25 @@ Object & Purpose \\
 \midrule
 \code{QuadrupolarSite} & One quadrupolar nucleus in the EFG principal-axis system. \\
 \code{spin\_matrices} & Dense angular-momentum operators for arbitrary integer or half-integer spin. \\
+\code{quadrupole\_frequency\_scale\_hz} & Spin-dependent Hamiltonian scale for spin-1 and spin-3/2 frequency conventions. \\
 \code{quadrupole\_hamiltonian} & Zero-field quadrupole Hamiltonian in radians per second. \\
 \code{zeeman\_hamiltonian} & Optional weak-B0 perturbation in radians per second. \\
 \code{diagonalize\_site} & Energy levels, transition frequencies, and transition dipole vectors. \\
 \code{OrientationSample} & One EFG orientation relative to lab RF and optional B0 fields. \\
 \code{single\_crystal\_orientation} & One fixed orientation sample. \\
 \code{powder\_average\_grid} & Normalized spherical powder quadrature grid. \\
+\code{b0\_b1\_powder\_average\_grid} & Powder grid with correlated static-field and RF-field directions. \\
 \code{SelectivePulse} & Rectangular selective pulse on one transition. \\
 \code{apply\_selective\_pulse} & Embedded two-level RF propagation in the energy basis. \\
+\code{NQRRelaxationModel} & Phenomenological Liouville-space population/coherence relaxation rates. \\
 \code{slse\_sequence} & Convenience builder for SLSE detection. \\
 \code{simulate\_slse} & Selective-pulse SLSE echo train for a fixed orientation or powder. \\
+\code{simulate\_slse\_offset\_sweep}, \code{simulate\_slse\_spacing\_sweep} & SLSE diagnostics versus RF offset or pulse period. \\
+\code{gaussian\_efg\_distribution}, \code{temperature\_efg\_distribution} & Static EFG isochromat distributions. \\
+\code{simulate\_fid\_efg\_distribution} & Time-domain FID and FFT spectrum from an EFG distribution. \\
+\code{simulate\_slse\_acquisition\_spectrum} & Finite-window acquired SLSE echo and spectrum, with noise and optional deconvolution. \\
+\code{simulate\_weak\_b0\_spectrum} & Static weak-B0 transition spectrum for spin-1 or spin-3/2. \\
+\code{weak\_field\_ratio}, \code{zeeman\_frequency\_hz} & Weak-field regime checks based on \(|\gamma B_0|/\nu_{\mathrm{ref}}\). \\
 \code{simulate\_population\_transfer} & Perturbation pulse plus SLSE detection for 2D NQR diagnostics. \\
 \bottomrule
 \end{longtable}

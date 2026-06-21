@@ -1,4 +1,4 @@
-"""Plot a diagnostic two-frequency NQR population-transfer map."""
+"""Plot a diagnostic spin-1 two-frequency NQR population-transfer map."""
 
 from __future__ import annotations
 
@@ -22,7 +22,10 @@ from spin_dynamics.nqr import (  # noqa: E402
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        epilog="Spin support: this pulsed example currently supports spin=1 only.",
+    )
     parser.add_argument(
         "--eta",
         type=float,

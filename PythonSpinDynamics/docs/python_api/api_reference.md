@@ -191,10 +191,33 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 
 | Kind | Name | Summary |
 | --- | --- | --- |
+| function | `quadrupole_frequency_scale_hz(site: QuadrupolarSite) -> float` | Return the Hamiltonian scale matching the public frequency parameter. |
 | function | `quadrupole_hamiltonian(site: QuadrupolarSite) -> np.ndarray` | Return the zero-field quadrupole Hamiltonian in radians per second. |
 | function | `zeeman_hamiltonian(site: QuadrupolarSite, b0_vector_tesla_pas: np.ndarray | list[float] | tuple[float, float, float]) -> np.ndarray` | Return the Zeeman Hamiltonian in radians per second. |
 | function | `nqr_hamiltonian(site: QuadrupolarSite, b0_vector_tesla_pas: np.ndarray | list[float] | tuple[float, float, float] | None = None) -> np.ndarray` | Return the quadrupole plus optional Zeeman Hamiltonian. |
-| function | `diagonalize_site(site: QuadrupolarSite, b0_vector_tesla_pas: np.ndarray | list[float] | tuple[float, float, float] | None = None, *, strength_tolerance: float = 1e-12) -> NQREigensystem` | Diagonalize a site Hamiltonian and return transition metadata. |
+| function | `diagonalize_site(site: QuadrupolarSite, b0_vector_tesla_pas: np.ndarray | list[float] | tuple[float, float, float] | None = None, *, strength_tolerance: float = 1e-12, frequency_tolerance_hz: float = 1e-09) -> NQREigensystem` | Diagonalize a site Hamiltonian and return transition metadata. |
+
+## `spin_dynamics.nqr.inhomogeneity`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `EFGIsochromat` | One static EFG variant in an inhomogeneous NQR ensemble. |
+| class | `EFGDistribution` | Normalized collection of static quadrupolar-site variants. |
+| class | `NQRFIDDistributionResult` | Time-domain and spectral NQR signal from an EFG distribution. |
+| class | `SLSEDistributionResult` | SLSE echo train summed over a static EFG distribution. |
+| class | `WindowDeconvolutionResult` | Regularized deconvolution of a finite acquisition-window spectrum. |
+| class | `SLSEAcquisitionSpectrumResult` | Finite-window SLSE echo acquisition and spectrum. |
+| class | `EFGRephasingAnalysis` | Discretization estimate for a static EFG frequency grid. |
+| function | `analyze_efg_rephasing(frequencies_hz: np.ndarray | list[float] | tuple[float, ...], max_time_seconds: float, safety_factor: float = 1.25) -> EFGRephasingAnalysis` | Estimate whether an EFG isochromat grid may discretely rephase. |
+| function | `check_efg_rephasing(frequencies_hz: np.ndarray | list[float] | tuple[float, ...], max_time_seconds: float, safety_factor: float = 1.25, action: str = 'warn') -> EFGRephasingAnalysis` | Warn or raise when an EFG grid may produce rephasing artifacts. |
+| function | `gaussian_efg_distribution(base_site: QuadrupolarSite, *, quadrupole_std_hz: float = 0.0, eta_std: float = 0.0, samples: int = 31, sigma_span: float = 3.0) -> EFGDistribution` | Return a Gaussian static distribution of ``nu_Q`` and optionally ``eta``. |
+| function | `temperature_efg_distribution(base_site: QuadrupolarSite, temperatures_kelvin: np.ndarray | list[float] | tuple[float, ...], *, weights: np.ndarray | list[float] | tuple[float, ...] | None = None, reference_temperature_kelvin: float = 293.15, quadrupole_slope_hz_per_kelvin: float = 0.0, eta_slope_per_kelvin: float = 0.0) -> EFGDistribution` | Map a static temperature distribution onto ``nu_Q`` and ``eta`` shifts. |
+| function | `fid_spectrum(signal: np.ndarray, times: np.ndarray, *, zero_fill_factor: int = 2, window: str = 'hann') -> tuple[np.ndarray, np.ndarray]` | Return a centered FFT spectrum for a uniformly sampled complex FID. |
+| function | `deconvolve_acquisition_window(spectrum: np.ndarray, frequencies_hz: np.ndarray, acquisition_times_seconds: np.ndarray, *, regularization_strength: float = 0.01) -> WindowDeconvolutionResult` | Deconvolve the finite acquisition window with Tikhonov regularization. |
+| function | `efg_line_spectrum(distribution: EFGDistribution, transition_label: str, *, carrier_frequency_hz: float | None = None, amplitudes: np.ndarray | list[complex] | tuple[complex, ...] | None = None, linewidth_hz: float = 100.0, points: int = 1024, span_hz: float | None = None) -> tuple[np.ndarray, np.ndarray]` | Return a smoothed line spectrum for a static EFG distribution. |
+| function | `simulate_fid_efg_distribution(distribution: EFGDistribution, transition_label: str, times_seconds: np.ndarray | list[float] | tuple[float, ...], *, excitation: SelectivePulse, carrier_frequency_hz: float | None = None, orientations: OrientationInput = 'single', t2_seconds: float = np.inf, zero_fill_factor: int = 2, window: str = 'hann', rephase_action: str = 'warn', rephase_safety_factor: float = 1.25) -> NQRFIDDistributionResult` | Simulate a selective-pulse NQR FID from a static EFG distribution. |
+| function | `simulate_slse_efg_distribution(distribution: EFGDistribution, sequence, *, orientations: OrientationInput = 'powder', b0_tesla: float = 0.0, t2e_seconds: float = np.inf, relaxation = None, rephase_action: str = 'warn', rephase_safety_factor: float = 1.25) -> SLSEDistributionResult` | Simulate an SLSE echo train summed over a static EFG distribution. |
+| function | `simulate_slse_acquisition_spectrum(distribution: EFGDistribution, sequence, *, acquisition_duration_seconds: float, acquisition_points: int = 256, echo_index: int = -1, carrier_frequency_hz: float | None = None, orientations: OrientationInput = 'powder', b0_tesla: float = 0.0, t2e_seconds: float = np.inf, relaxation = None, zero_fill_factor: int = 2, spectrum_window: str = 'none', noise: NoiseSpec | Mapping | float | int | None = None, deconvolution_strength: float | None = None, rephase_action: str = 'warn', rephase_safety_factor: float = 1.25) -> SLSEAcquisitionSpectrumResult` | Simulate the spectrum of one finite-window acquired SLSE echo. |
 
 ## `spin_dynamics.nqr.operators`
 
@@ -213,6 +236,8 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `OrientationSample` | One local EFG orientation relative to lab RF and static fields. |
 | function | `single_crystal_orientation(alpha: float, beta: float, *, b0_alpha: float | None = None, b0_beta: float | None = None) -> tuple[OrientationSample, ...]` | Return a one-sample orientation ensemble. |
 | function | `powder_average_grid(n_theta: int = 16, n_phi: int = 32) -> tuple[OrientationSample, ...]` | Return a normalized spherical powder-average grid. |
+| function | `b0_b1_powder_average_grid(n_theta: int = 12, n_phi: int = 24, n_chi: int = 8, *, b1_b0_angle: float = np.pi / 2.0) -> tuple[OrientationSample, ...]` | Return a powder grid with correlated lab B0 and RF B1 directions. |
+| function | `b0_powder_average_grid(n_theta: int = 16, n_phi: int = 32, *, b1_direction_pas: np.ndarray | list[float] | tuple[float, float, float] = (1.0, 0.0, 0.0)) -> tuple[OrientationSample, ...]` | Return a powder grid over static-field directions in the PAS. |
 | function | `normalize_orientations(orientations: tuple[OrientationSample, ...] | list[OrientationSample]) -> tuple[OrientationSample, ...]` | Return orientation samples with weights normalized to unity. |
 
 ## `spin_dynamics.nqr.pulses`
@@ -223,6 +248,19 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `transition_drive_scale(transition: NQRTransition, b1_direction_pas: np.ndarray | list[float] | tuple[float, float, float]) -> float` | Return the relative RF coupling for a transition and B1 orientation. |
 | function | `selective_pulse_hamiltonian(dimension: int, transition: NQRTransition, *, nutation_hz: float, phase: float = 0.0, b1_direction_pas: np.ndarray | list[float] | tuple[float, float, float] = (1.0, 0.0, 0.0), detuning_hz: float = 0.0) -> np.ndarray` | Return an embedded two-level RF Hamiltonian in radians per second. |
 | function | `apply_selective_pulse(density: np.ndarray, transition: NQRTransition, pulse: SelectivePulse, *, b1_direction_pas: np.ndarray | list[float] | tuple[float, float, float] = (1.0, 0.0, 0.0)) -> np.ndarray` | Apply a selective pulse to a density matrix in the energy basis. |
+
+## `spin_dynamics.nqr.relaxation`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `NQRRelaxationModel` | Phenomenological relaxation model in the quadrupolar energy basis. |
+| function | `matrix_exponential(matrix: np.ndarray, duration: float = 1.0) -> np.ndarray` | Return ``exp(matrix * duration)`` for a small dense matrix. |
+| function | `liouville_hamiltonian(hamiltonian: np.ndarray) -> np.ndarray` | Return the commutator Liouvillian for column-stacked density matrices. |
+| function | `relaxation_superoperator(dimension: int, model: NQRRelaxationModel) -> np.ndarray` | Return a trace-preserving phenomenological relaxation superoperator. |
+| function | `liouville_superoperator(hamiltonian: np.ndarray, model: NQRRelaxationModel | None = None) -> np.ndarray` | Return Hamiltonian plus optional relaxation Liouvillian. |
+| function | `propagate_density_liouville(density: np.ndarray, hamiltonian: np.ndarray, duration: float, *, relaxation: NQRRelaxationModel | None = None) -> np.ndarray` | Propagate a density matrix with Hamiltonian and optional relaxation. |
+| function | `cycle_superoperator(steps: tuple[tuple[np.ndarray, float], ...] | list[tuple[np.ndarray, float]], *, relaxation: NQRRelaxationModel | None = None) -> np.ndarray` | Return the Liouville propagator for one repeated pulse-sequence cycle. |
+| function | `effective_decay_time(eigenvalues: np.ndarray, cycle_duration_seconds: float, *, steady_tolerance: float = 1e-10) -> float` | Estimate the dominant non-steady decay time from cycle eigenvalues. |
 
 ## `spin_dynamics.nqr.sequences`
 
@@ -237,10 +275,13 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | --- | --- | --- |
 | class | `SLSEResult` | Simulated SLSE echo train. |
 | class | `PopulationTransferResult` | Perturbation plus SLSE detection result. |
+| class | `SLSESweepResult` | SLSE response as one pulse-sequence parameter is swept. |
 | function | `equilibrium_density(levels_hz: np.ndarray) -> np.ndarray` | Return a trace-zero high-temperature density matrix in the energy basis. |
 | function | `transition_signal(density: np.ndarray, transition: NQRTransition, *, b1_direction_pas: np.ndarray | list[float] | tuple[float, float, float]) -> complex` | Return the complex single-coil signal for a transition coherence. |
-| function | `simulate_slse(site: QuadrupolarSite, sequence: SLSESequence, *, orientations: str | tuple[OrientationSample, ...] | list[OrientationSample] = 'powder', b0_tesla: float = 0.0, t2e_seconds: float = np.inf, initial_density: np.ndarray | None = None) -> SLSEResult` | Simulate a selective-pulse SLSE echo train. |
-| function | `simulate_population_transfer(site: QuadrupolarSite, perturbation: SelectivePulse, detection_sequence: SLSESequence, *, orientations: str | tuple[OrientationSample, ...] | list[OrientationSample] = 'powder', b0_tesla: float = 0.0, t2e_seconds: float = np.inf) -> PopulationTransferResult` | Simulate a perturbation pulse followed by SLSE detection. |
+| function | `simulate_slse(site: QuadrupolarSite, sequence: SLSESequence, *, orientations: OrientationInput = 'powder', b0_tesla: float = 0.0, t2e_seconds: float = np.inf, initial_density: np.ndarray | None = None, relaxation: NQRRelaxationModel | None = None) -> SLSEResult` | Simulate a selective-pulse SLSE echo train. |
+| function | `simulate_slse_offset_sweep(site: QuadrupolarSite, transition_label: str, offsets_hz: np.ndarray | list[float] | tuple[float, ...], *, pulse_duration_seconds: float, nutation_hz: float, echo_spacing_seconds: float, num_echoes: int = 16, phase: float = 0.0, orientations: OrientationInput = 'powder', b0_tesla: float = 0.0, t2e_seconds: float = np.inf, relaxation: NQRRelaxationModel | None = None, echo_index: int = -1) -> SLSESweepResult` | Sweep irradiation offset and return SLSE amplitude and decay estimates. |
+| function | `simulate_slse_spacing_sweep(site: QuadrupolarSite, transition_label: str, echo_spacing_seconds: np.ndarray | list[float] | tuple[float, ...], *, pulse_duration_seconds: float, nutation_hz: float, num_echoes: int = 16, phase: float = 0.0, rf_offset_hz: float = 0.0, orientations: OrientationInput = 'powder', b0_tesla: float = 0.0, t2e_seconds: float = np.inf, relaxation: NQRRelaxationModel | None = None, echo_index: int = -1) -> SLSESweepResult` | Sweep SLSE pulse period and return amplitude plus effective decay. |
+| function | `simulate_population_transfer(site: QuadrupolarSite, perturbation: SelectivePulse, detection_sequence: SLSESequence, *, orientations: OrientationInput = 'powder', b0_tesla: float = 0.0, t2e_seconds: float = np.inf) -> PopulationTransferResult` | Simulate a perturbation pulse followed by SLSE detection. |
 
 ## `spin_dynamics.nqr.systems`
 
@@ -249,6 +290,16 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `QuadrupolarSite` | One quadrupolar nucleus in its EFG principal-axis system. |
 | class | `NQRTransition` | One transition between quadrupolar energy eigenstates. |
 | class | `NQREigensystem` | Energy levels, eigenvectors, and allowed transitions for one site. |
+
+## `spin_dynamics.nqr.zeeman`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `WeakB0Transition` | One transition from an exact weak-field NQR diagonalization. |
+| class | `WeakB0SpectrumResult` | Powder/single-crystal weak-B0 transition spectrum. |
+| function | `zeeman_frequency_hz(site: QuadrupolarSite, b0_tesla: float | np.ndarray | Sequence[float]) -> float` | Return ``|gamma B0|`` in Hz for a scalar or vector static field. |
+| function | `weak_field_ratio(site: QuadrupolarSite, b0_tesla: float | np.ndarray | Sequence[float], *, reference_frequency_hz: float | None = None) -> float` | Return ``|gamma B0| / nu_ref`` for weak-field validity checks. |
+| function | `simulate_weak_b0_spectrum(site: QuadrupolarSite, b0_tesla: float, *, orientations: OrientationInput = 'single', transition_label: str | None = None, broadening_hz: float = 100.0, points: int = 1024, span_hz: float | None = None, selection_window_hz: float | None = None, intensity_tolerance: float = 1e-14, weak_ratio_action: str = 'warn', weak_ratio_threshold: float = 0.05) -> WeakB0SpectrumResult` | Return a broadened transition spectrum for ``H_Q + H_Z`` in weak B0. |
 
 ## `spin_dynamics.nqr.workflows`
 
