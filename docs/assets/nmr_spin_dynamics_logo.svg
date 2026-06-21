@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="320" viewBox="0 0 1200 320" role="img" aria-labelledby="title desc">
-  <title id="title">NMRSpinDynamics logo</title>
-  <desc id="desc">A spin precession orbit with RF pulse bars and an echo waveform beside the NMRSpinDynamics wordmark.</desc>
+  <title id="title">MRSpinDynamics logo</title>
+  <desc id="desc">A spin precession orbit with RF pulse bars and an echo waveform beside the MRSpinDynamics wordmark.</desc>
   <defs>
     <linearGradient id="orbitGrad" x1="58" y1="80" x2="280" y2="260" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#0077B6"/>
@@ -31,8 +31,8 @@
   </g>
 
   <g>
-    <text x="330" y="143" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="66" font-weight="750" letter-spacing="0" fill="#1B2430">NMRSpinDynamics</text>
-    <text x="333" y="191" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="27" font-weight="500" letter-spacing="0" fill="#5B6472">spin-1/2 simulations in inhomogeneous fields</text>
+    <text x="330" y="143" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="66" font-weight="750" letter-spacing="0" fill="#1B2430">MRSpinDynamics</text>
+    <text x="333" y="191" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="27" font-weight="500" letter-spacing="0" fill="#5B6472">NMR and NQR simulations in inhomogeneous fields</text>
     <g transform="translate(333 224)">
       <path d="M0 24 H118" stroke="#0077B6" stroke-width="8" stroke-linecap="round"/>
       <path d="M140 24 H258" stroke="#18A999" stroke-width="8" stroke-linecap="round"/>

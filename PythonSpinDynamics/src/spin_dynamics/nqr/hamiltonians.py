@@ -12,6 +12,21 @@ TAU = 2.0 * np.pi
 _AXES = ("x", "y", "z")
 
 
+def quadrupole_frequency_scale_hz(site: QuadrupolarSite) -> float:
+    """Return the Hamiltonian scale matching the public frequency parameter."""
+
+    spin = float(site.spin)
+    if np.isclose(spin, 1.0):
+        denominator = 3.0
+    elif np.isclose(spin, 1.5):
+        denominator = 6.0
+    else:
+        raise ValueError(
+            "quadrupole_frequency_hz is currently calibrated for spin=1 and spin=3/2"
+        )
+    return site.quadrupole_frequency_hz / denominator
+
+
 def quadrupole_hamiltonian(site: QuadrupolarSite) -> np.ndarray:
     """Return the zero-field quadrupole Hamiltonian in radians per second."""
 
@@ -22,7 +37,7 @@ def quadrupole_hamiltonian(site: QuadrupolarSite) -> np.ndarray:
         - spin * (spin + 1.0) * ops.identity
         + site.eta * (ops.ix @ ops.ix - ops.iy @ ops.iy)
     )
-    scale_hz = site.quadrupole_frequency_hz / 3.0
+    scale_hz = quadrupole_frequency_scale_hz(site)
     return TAU * scale_hz * quadrupole_operator
 
 
@@ -61,6 +76,7 @@ def diagonalize_site(
     b0_vector_tesla_pas: np.ndarray | list[float] | tuple[float, float, float] | None = None,
     *,
     strength_tolerance: float = 1e-12,
+    frequency_tolerance_hz: float = 1e-9,
 ) -> NQREigensystem:
     """Diagonalize a site Hamiltonian and return transition metadata."""
 
@@ -78,6 +94,8 @@ def diagonalize_site(
     for lower in range(site.dimension):
         for upper in range(lower + 1, site.dimension):
             frequency_hz = float(levels_hz[upper] - levels_hz[lower])
+            if frequency_hz <= frequency_tolerance_hz:
+                continue
             dipole = np.array(
                 [
                     vectors[:, lower].conj().T @ op @ vectors[:, upper]

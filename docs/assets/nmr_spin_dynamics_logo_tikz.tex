@@ -1,6 +1,6 @@
-% Shared NMRSpinDynamics logo for LaTeX manuals.
+% Shared MRSpinDynamics logo for LaTeX manuals.
 % Expects the manuals' color palette and tikz package to be loaded.
-\newcommand{\NMRSpinDynamicsLogo}[1][1]{%
+\newcommand{\MRSpinDynamicsLogo}[1][1]{%
   \begin{tikzpicture}[x=1cm,y=1cm,scale=#1,every node/.style={transform shape}]
     \fill[Soft] (0,0) rectangle (15.2,3.8);
     \draw[Accent!16,rounded corners=0.34cm,line width=0.7pt] (0,0) rectangle (15.2,3.8);
@@ -27,9 +27,9 @@
     \end{scope}
 
     \node[anchor=west,inner sep=0pt,text=Ink,font=\sffamily\bfseries\fontsize{30}{34}\selectfont]
-      at (3.65,2.25) {NMRSpinDynamics};
+      at (3.65,2.25) {MRSpinDynamics};
     \node[anchor=west,inner sep=0pt,text=Muted,font=\sffamily\fontsize{12}{14}\selectfont]
-      at (3.70,1.56) {spin-1/2 simulations in inhomogeneous fields};
+      at (3.70,1.56) {NMR and NQR simulations in inhomogeneous fields};
     \draw[Accent,line width=2.5pt,line cap=round] (3.72,0.92) -- (5.10,0.92);
     \draw[Accent!85!green,line width=2.5pt,line cap=round] (5.40,0.92) -- (6.78,0.92);
     \draw[AccentTwo,line width=2.5pt,line cap=round] (7.08,0.92) -- (8.46,0.92);

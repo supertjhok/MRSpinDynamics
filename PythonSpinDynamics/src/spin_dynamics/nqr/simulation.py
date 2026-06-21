@@ -12,9 +12,31 @@ from spin_dynamics.nqr.orientations import (
     normalize_orientations,
     powder_average_grid,
 )
-from spin_dynamics.nqr.pulses import SelectivePulse, apply_selective_pulse
+from spin_dynamics.nqr.pulses import (
+    SelectivePulse,
+    apply_selective_pulse,
+    selective_pulse_hamiltonian,
+)
+from spin_dynamics.nqr.relaxation import (
+    NQRRelaxationModel,
+    cycle_superoperator,
+    effective_decay_time,
+)
 from spin_dynamics.nqr.sequences import SLSESequence
 from spin_dynamics.nqr.systems import NQREigensystem, NQRTransition, QuadrupolarSite
+
+
+OrientationInput = str | tuple[OrientationSample, ...] | list[OrientationSample]
+
+
+def _require_spin_one_selective_pulse_site(site: QuadrupolarSite) -> None:
+    """Reject sites outside the current embedded two-level pulse model."""
+
+    if not np.isclose(site.spin, 1.0):
+        raise NotImplementedError(
+            "selective-pulse NQR workflows currently support spin=1 only; "
+            "spin=3/2 requires a degenerate-doublet manifold RF model"
+        )
 
 
 @dataclass(frozen=True)
@@ -27,6 +49,8 @@ class SLSEResult:
     orientation_weights: np.ndarray
     transition: NQRTransition
     eigensystem: NQREigensystem
+    local_effective_t2eff_seconds: np.ndarray | None = None
+    local_cycle_eigenvalues: np.ndarray | None = None
 
 
 @dataclass(frozen=True)
@@ -37,6 +61,18 @@ class PopulationTransferResult:
     reference: SLSEResult
     normalized_difference: np.ndarray
     perturbation: SelectivePulse
+
+
+@dataclass(frozen=True)
+class SLSESweepResult:
+    """SLSE response as one pulse-sequence parameter is swept."""
+
+    sweep_values: np.ndarray
+    selected_echo_amplitudes: np.ndarray
+    effective_t2eff_seconds: np.ndarray
+    results: tuple[SLSEResult, ...]
+    sweep_name: str
+    transition_label: str
 
 
 def equilibrium_density(levels_hz: np.ndarray) -> np.ndarray:
@@ -78,7 +114,7 @@ def _orientation_b0_vector(
 
 
 def _as_orientations(
-    orientations: str | tuple[OrientationSample, ...] | list[OrientationSample],
+    orientations: OrientationInput,
 ) -> tuple[OrientationSample, ...]:
     if isinstance(orientations, str):
         if orientations == "powder":
@@ -91,22 +127,92 @@ def _as_orientations(
     return normalize_orientations(tuple(orientations))
 
 
+def _pulse_detuning_hz(pulse: SelectivePulse, transition: NQRTransition) -> float:
+    rf_frequency_hz = (
+        transition.frequency_hz
+        if pulse.rf_frequency_hz is None
+        else pulse.rf_frequency_hz
+    )
+    return float(rf_frequency_hz - transition.frequency_hz)
+
+
+def _relaxing_slse_steps(
+    dimension: int,
+    transition: NQRTransition,
+    sequence: SLSESequence,
+    b1_direction_pas: np.ndarray | list[float] | tuple[float, float, float],
+) -> tuple[tuple[np.ndarray, float], ...]:
+    pulse = sequence.detection
+    detuning_hz = _pulse_detuning_hz(pulse, transition)
+    pulse_hamiltonian = selective_pulse_hamiltonian(
+        dimension,
+        transition,
+        nutation_hz=pulse.nutation_hz,
+        phase=pulse.phase,
+        b1_direction_pas=b1_direction_pas,
+        detuning_hz=detuning_hz,
+    )
+    free_hamiltonian = selective_pulse_hamiltonian(
+        dimension,
+        transition,
+        nutation_hz=0.0,
+        detuning_hz=detuning_hz,
+    )
+    free_duration = max(
+        sequence.echo_spacing_seconds - pulse.duration_seconds,
+        0.0,
+    )
+    steps = [(pulse_hamiltonian, pulse.duration_seconds)]
+    if free_duration > 0:
+        steps.append((free_hamiltonian, free_duration))
+    return tuple(steps)
+
+
+def _effective_t2eff_average(result: SLSEResult) -> float:
+    values = result.local_effective_t2eff_seconds
+    if values is None:
+        return np.inf
+    values = np.asarray(values, dtype=np.float64)
+    finite = np.isfinite(values)
+    if not np.any(finite):
+        return np.inf
+    weights = np.asarray(result.orientation_weights, dtype=np.float64)[finite]
+    total = float(np.sum(weights))
+    if total <= 0:
+        return float(np.mean(values[finite]))
+    return float(np.sum(weights * values[finite]) / total)
+
+
+def _selected_echo(echoes: np.ndarray, echo_index: int) -> complex:
+    echoes = np.asarray(echoes, dtype=np.complex128)
+    index = int(echo_index)
+    if index < 0:
+        index += echoes.size
+    if index < 0 or index >= echoes.size:
+        raise IndexError("echo_index is out of range")
+    return complex(echoes[index])
+
+
 def simulate_slse(
     site: QuadrupolarSite,
     sequence: SLSESequence,
     *,
-    orientations: str | tuple[OrientationSample, ...] | list[OrientationSample] = "powder",
+    orientations: OrientationInput = "powder",
     b0_tesla: float = 0.0,
     t2e_seconds: float = np.inf,
     initial_density: np.ndarray | None = None,
+    relaxation: NQRRelaxationModel | None = None,
 ) -> SLSEResult:
     """Simulate a selective-pulse SLSE echo train."""
 
+    _require_spin_one_selective_pulse_site(site)
     samples = _as_orientations(orientations)
     t2e_seconds = float(t2e_seconds)
     if t2e_seconds <= 0:
         raise ValueError("t2e_seconds must be positive")
     local: list[np.ndarray] = []
+    local_t2eff: list[float] = []
+    local_eigenvalues: list[np.ndarray] = []
     first_eigensystem: NQREigensystem | None = None
     first_transition: NQRTransition | None = None
 
@@ -124,18 +230,41 @@ def simulate_slse(
             else np.asarray(initial_density, dtype=np.complex128).copy()
         )
         echoes = np.zeros(sequence.num_echoes, dtype=np.complex128)
-        for echo_idx in range(sequence.num_echoes):
-            density = apply_selective_pulse(
-                density,
+        if relaxation is None:
+            for echo_idx in range(sequence.num_echoes):
+                density = apply_selective_pulse(
+                    density,
+                    transition,
+                    sequence.detection,
+                    b1_direction_pas=sample.b1_direction_pas,
+                )
+                echoes[echo_idx] = transition_signal(
+                    density,
+                    transition,
+                    b1_direction_pas=sample.b1_direction_pas,
+                )
+        else:
+            steps = _relaxing_slse_steps(
+                site.dimension,
                 transition,
-                sequence.detection,
-                b1_direction_pas=sample.b1_direction_pas,
+                sequence,
+                sample.b1_direction_pas,
             )
-            echoes[echo_idx] = transition_signal(
-                density,
-                transition,
-                b1_direction_pas=sample.b1_direction_pas,
+            cycle = cycle_superoperator(steps, relaxation=relaxation)
+            eigenvalues = np.linalg.eigvals(cycle)
+            local_eigenvalues.append(eigenvalues)
+            local_t2eff.append(
+                effective_decay_time(eigenvalues, sequence.echo_spacing_seconds)
             )
+            vector = density.reshape(-1, order="F")
+            for echo_idx in range(sequence.num_echoes):
+                vector = cycle @ vector
+                density = vector.reshape(density.shape, order="F")
+                echoes[echo_idx] = transition_signal(
+                    density,
+                    transition,
+                    b1_direction_pas=sample.b1_direction_pas,
+                )
         echoes = echoes * decay
         local.append(echoes)
         if first_eigensystem is None:
@@ -154,6 +283,136 @@ def simulate_slse(
         orientation_weights=weights,
         transition=first_transition,
         eigensystem=first_eigensystem,
+        local_effective_t2eff_seconds=(
+            np.asarray(local_t2eff, dtype=np.float64) if local_t2eff else None
+        ),
+        local_cycle_eigenvalues=(
+            np.asarray(local_eigenvalues, dtype=np.complex128)
+            if local_eigenvalues
+            else None
+        ),
+    )
+
+
+def simulate_slse_offset_sweep(
+    site: QuadrupolarSite,
+    transition_label: str,
+    offsets_hz: np.ndarray | list[float] | tuple[float, ...],
+    *,
+    pulse_duration_seconds: float,
+    nutation_hz: float,
+    echo_spacing_seconds: float,
+    num_echoes: int = 16,
+    phase: float = 0.0,
+    orientations: OrientationInput = "powder",
+    b0_tesla: float = 0.0,
+    t2e_seconds: float = np.inf,
+    relaxation: NQRRelaxationModel | None = None,
+    echo_index: int = -1,
+) -> SLSESweepResult:
+    """Sweep irradiation offset and return SLSE amplitude and decay estimates."""
+
+    offsets = np.asarray(offsets_hz, dtype=np.float64).reshape(-1)
+    if offsets.size == 0:
+        raise ValueError("offsets_hz must not be empty")
+    reference = diagonalize_site(site).transition(transition_label).frequency_hz
+    results: list[SLSEResult] = []
+    amplitudes = np.empty(offsets.size, dtype=np.complex128)
+    t2eff = np.empty(offsets.size, dtype=np.float64)
+
+    for idx, offset in enumerate(offsets):
+        sequence = SLSESequence(
+            detection=SelectivePulse(
+                transition_label,
+                duration_seconds=pulse_duration_seconds,
+                nutation_hz=nutation_hz,
+                phase=phase,
+                rf_frequency_hz=reference + float(offset),
+            ),
+            echo_spacing_seconds=echo_spacing_seconds,
+            num_echoes=num_echoes,
+        )
+        result = simulate_slse(
+            site,
+            sequence,
+            orientations=orientations,
+            b0_tesla=b0_tesla,
+            t2e_seconds=t2e_seconds,
+            relaxation=relaxation,
+        )
+        results.append(result)
+        amplitudes[idx] = _selected_echo(result.echo_amplitudes, echo_index)
+        t2eff[idx] = _effective_t2eff_average(result)
+
+    return SLSESweepResult(
+        sweep_values=offsets,
+        selected_echo_amplitudes=amplitudes,
+        effective_t2eff_seconds=t2eff,
+        results=tuple(results),
+        sweep_name="offset_hz",
+        transition_label=str(transition_label),
+    )
+
+
+def simulate_slse_spacing_sweep(
+    site: QuadrupolarSite,
+    transition_label: str,
+    echo_spacing_seconds: np.ndarray | list[float] | tuple[float, ...],
+    *,
+    pulse_duration_seconds: float,
+    nutation_hz: float,
+    num_echoes: int = 16,
+    phase: float = 0.0,
+    rf_offset_hz: float = 0.0,
+    orientations: OrientationInput = "powder",
+    b0_tesla: float = 0.0,
+    t2e_seconds: float = np.inf,
+    relaxation: NQRRelaxationModel | None = None,
+    echo_index: int = -1,
+) -> SLSESweepResult:
+    """Sweep SLSE pulse period and return amplitude plus effective decay."""
+
+    spacings = np.asarray(echo_spacing_seconds, dtype=np.float64).reshape(-1)
+    if spacings.size == 0:
+        raise ValueError("echo_spacing_seconds must not be empty")
+    if np.any(spacings < pulse_duration_seconds):
+        raise ValueError("echo spacings must be at least the pulse duration")
+    reference = diagonalize_site(site).transition(transition_label).frequency_hz
+    results: list[SLSEResult] = []
+    amplitudes = np.empty(spacings.size, dtype=np.complex128)
+    t2eff = np.empty(spacings.size, dtype=np.float64)
+
+    for idx, spacing in enumerate(spacings):
+        sequence = SLSESequence(
+            detection=SelectivePulse(
+                transition_label,
+                duration_seconds=pulse_duration_seconds,
+                nutation_hz=nutation_hz,
+                phase=phase,
+                rf_frequency_hz=reference + float(rf_offset_hz),
+            ),
+            echo_spacing_seconds=float(spacing),
+            num_echoes=num_echoes,
+        )
+        result = simulate_slse(
+            site,
+            sequence,
+            orientations=orientations,
+            b0_tesla=b0_tesla,
+            t2e_seconds=t2e_seconds,
+            relaxation=relaxation,
+        )
+        results.append(result)
+        amplitudes[idx] = _selected_echo(result.echo_amplitudes, echo_index)
+        t2eff[idx] = _effective_t2eff_average(result)
+
+    return SLSESweepResult(
+        sweep_values=spacings,
+        selected_echo_amplitudes=amplitudes,
+        effective_t2eff_seconds=t2eff,
+        results=tuple(results),
+        sweep_name="echo_spacing_seconds",
+        transition_label=str(transition_label),
     )
 
 
@@ -162,12 +421,13 @@ def simulate_population_transfer(
     perturbation: SelectivePulse,
     detection_sequence: SLSESequence,
     *,
-    orientations: str | tuple[OrientationSample, ...] | list[OrientationSample] = "powder",
+    orientations: OrientationInput = "powder",
     b0_tesla: float = 0.0,
     t2e_seconds: float = np.inf,
 ) -> PopulationTransferResult:
     """Simulate a perturbation pulse followed by SLSE detection."""
 
+    _require_spin_one_selective_pulse_site(site)
     samples = _as_orientations(orientations)
     perturbed_local_density: list[np.ndarray] = []
     for sample in samples:

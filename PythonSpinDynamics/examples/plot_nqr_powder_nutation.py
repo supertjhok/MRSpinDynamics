@@ -1,4 +1,4 @@
-"""Plot a diagnostic powder NQR nutation curve using one SLSE pulse."""
+"""Plot a spin-1 powder NQR nutation curve using one SLSE pulse."""
 
 from __future__ import annotations
 
@@ -32,7 +32,10 @@ def _spin_three_halves_bessel_curve(theta: np.ndarray) -> np.ndarray:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        epilog="Spin support: this pulsed example currently supports spin=1 only.",
+    )
     parser.add_argument(
         "--transition",
         choices=["x", "y", "z"],
