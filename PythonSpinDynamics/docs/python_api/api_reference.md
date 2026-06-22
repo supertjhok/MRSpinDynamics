@@ -154,6 +154,112 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `calc_v0crit(del_w: np.ndarray, n: np.ndarray, alpha: np.ndarray) -> np.ndarray` | Calculate the critical-velocity parameter for a refocusing cycle. |
 | function | `calc_rotation_matrix(del_w: np.ndarray, w_1: np.ndarray | float, tp: np.ndarray, phi: np.ndarray, amp: np.ndarray) -> MatrixElements` | Calculate the equivalent rotation matrix of a composite pulse. |
 
+## `spin_dynamics.esr.distributions`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `ESRDistributionSample` | One weighted ESR static-disorder sample. |
+| class | `ESRFieldDistributionResult` | Field-swept ESR spectrum averaged over static disorder samples. |
+| class | `ESRFrequencyDistributionResult` | Frequency-swept ESR spectrum averaged over static disorder samples. |
+| function | `normalize_distribution(samples: list[ESRDistributionSample] | tuple[ESRDistributionSample, ...]) -> tuple[ESRDistributionSample, ...]` | Return static-disorder samples with weights normalized to unity. |
+| function | `static_disorder_grid(system: ESRSpinSystem, *, g_std: float | np.ndarray | list[float] | tuple[float, ...] = 0.0, field_std_tesla: float = 0.0, g_points: int = 3, field_points: int = 5, n_sigma: float = 2.0) -> tuple[ESRDistributionSample, ...]` | Return weighted samples for diagonal ``g`` strain and field offsets. |
+| function | `simulate_field_sweep_distribution(samples: list[ESRDistributionSample] | tuple[ESRDistributionSample, ...], microwave_frequency_hz: float, *, orientations: OrientationInput = 'single', broadening_tesla: float = 0.0001, points: int = 1024, span_tesla: float | None = None, fields_tesla: np.ndarray | list[float] | tuple[float, ...] | None = None, lineshape: str = 'gaussian', detection_mode: str = 'absorption') -> ESRFieldDistributionResult` | Return a field-swept ESR spectrum averaged over static disorder. |
+| function | `simulate_frequency_spectrum_distribution(samples: list[ESRDistributionSample] | tuple[ESRDistributionSample, ...], b0_tesla: float, *, orientations: OrientationInput = 'single', broadening_hz: float = 1000000.0, points: int = 1024, span_hz: float | None = None, frequencies_hz: np.ndarray | list[float] | tuple[float, ...] | None = None, lineshape: str = 'gaussian', detection_mode: str = 'absorption') -> ESRFrequencyDistributionResult` | Return a frequency-swept ESR spectrum averaged over static disorder. |
+
+## `spin_dynamics.esr.hamiltonians`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `effective_g_vector(system: ESRSpinSystem, b0_direction_g: np.ndarray | Sequence[float]) -> np.ndarray` | Return ``g^T n`` for a unit static-field direction in the ``g`` frame. |
+| function | `effective_g_value(system: ESRSpinSystem, b0_direction_g: np.ndarray | Sequence[float]) -> float` | Return the ESR effective ``g`` value for a static-field direction. |
+| function | `resonance_frequency_hz(system: ESRSpinSystem, b0_vector_tesla_g: float | np.ndarray | Sequence[float]) -> float` | Return the spin-1/2 ESR transition frequency in hertz. |
+| function | `resonance_field_tesla(system: ESRSpinSystem, microwave_frequency_hz: float, b0_direction_g: np.ndarray | Sequence[float] = (0.0, 0.0, 1.0)) -> float` | Return the resonant static-field magnitude for one ESR orientation. |
+| function | `zeeman_hamiltonian(system: ESRSpinSystem, b0_vector_tesla_g: np.ndarray | Sequence[float]) -> np.ndarray` | Return the electron Zeeman Hamiltonian in radians per second. |
+| function | `diagonalize_system(system: ESRSpinSystem, b0_vector_tesla_g: np.ndarray | Sequence[float], *, strength_tolerance: float = 1e-12, frequency_tolerance_hz: float = 1e-09) -> ESREigensystem` | Diagonalize the ESR Zeeman Hamiltonian and return transition metadata. |
+
+## `spin_dynamics.esr.hyperfine`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `NuclearSite` | One nucleus coupled to the ESR electron spin. |
+| class | `ElectronNuclearSystem` | One electron spin coupled isotropically to one or more nuclei. |
+| class | `HyperfineTransition` | One ESR-active transition in an electron-nuclear spin system. |
+| class | `HyperfineEigensystem` | Energy levels, eigenvectors, and ESR transitions for a hyperfine system. |
+| class | `HyperfineFieldPoint` | One field-sweep contribution from one hyperfine transition. |
+| class | `HyperfineFieldSweepResult` | Field-swept ESR spectrum for an electron-nuclear hyperfine system. |
+| function | `electron_nuclear_system(hyperfine_hz: Sequence[float] | np.ndarray, *, nuclei: Sequence[NuclearSite] | None = None, g_tensor: float | np.ndarray | list[float] | tuple[float, ...] = 2.00231930436256) -> ElectronNuclearSystem` | Build an electron-nuclear spin system from isotropic hyperfine constants. |
+| function | `electron_operator(system: ElectronNuclearSystem, axis: str) -> np.ndarray` | Return an electron spin operator embedded in the full Hilbert space. |
+| function | `nuclear_operator(system: ElectronNuclearSystem, nucleus_index: int, axis: str) -> np.ndarray` | Return a nuclear spin operator embedded in the full Hilbert space. |
+| function | `zeeman_hamiltonian(system: ElectronNuclearSystem, b0_vector_tesla_g: np.ndarray | Sequence[float]) -> np.ndarray` | Return electron plus nuclear Zeeman Hamiltonian in radians per second. |
+| function | `isotropic_hyperfine_hamiltonian(system: ElectronNuclearSystem) -> np.ndarray` | Return isotropic ``S . A . I`` hyperfine Hamiltonian in radians per second. |
+| function | `hyperfine_hamiltonian(system: ElectronNuclearSystem, b0_vector_tesla_g: np.ndarray | Sequence[float]) -> np.ndarray` | Return Zeeman plus isotropic hyperfine Hamiltonian. |
+| function | `diagonalize_hyperfine_system(system: ElectronNuclearSystem, b0_vector_tesla_g: np.ndarray | Sequence[float], *, strength_tolerance: float = 1e-12, frequency_tolerance_hz: float = 1e-09) -> HyperfineEigensystem` | Diagonalize a hyperfine Hamiltonian and return ESR-active transitions. |
+| function | `simulate_hyperfine_field_sweep(system: ElectronNuclearSystem, microwave_frequency_hz: float, *, b0_direction_g: np.ndarray | Sequence[float] = (0.0, 0.0, 1.0), b1_direction_g: np.ndarray | Sequence[float] = (1.0, 0.0, 0.0), broadening_hz: float = 1000000.0, points: int = 1024, span_tesla: float | None = None, fields_tesla: np.ndarray | list[float] | tuple[float, ...] | None = None, lineshape: str = 'gaussian', detection_mode: str = 'absorption', intensity_tolerance: float = 1e-14) -> HyperfineFieldSweepResult` | Return a field-swept ESR spectrum including isotropic hyperfine coupling. |
+
+## `spin_dynamics.esr.lineshapes`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `gaussian_lineshape(axis: np.ndarray, center: float, width: float, *, derivative: bool = False) -> np.ndarray` | Return a unit-height Gaussian absorption line or its first derivative. |
+| function | `lorentzian_lineshape(axis: np.ndarray, center: float, width: float, *, derivative: bool = False) -> np.ndarray` | Return a unit-height Lorentzian absorption line or its first derivative. |
+| function | `spectrum_from_lines(axis: np.ndarray, centers: np.ndarray | list[float] | tuple[float, ...], intensities: np.ndarray | list[float] | tuple[float, ...], *, width: float, lineshape: str = 'gaussian', detection_mode: str = 'absorption') -> np.ndarray` | Return a broadened ESR spectrum from weighted line centers. |
+
+## `spin_dynamics.esr.orientations`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `spherical_direction(alpha: float, beta: float) -> np.ndarray` | Return a unit vector from azimuth ``alpha`` and polar angle ``beta``. |
+| class | `ESROrientationSample` | One local ``g``-tensor orientation relative to lab static and RF fields. |
+| function | `single_crystal_orientation(alpha: float = 0.0, beta: float = 0.0, *, b1_alpha: float | None = None, b1_beta: float | None = None) -> tuple[ESROrientationSample, ...]` | Return a one-sample ESR orientation ensemble. |
+| function | `powder_average_grid(n_theta: int = 16, n_phi: int = 32, n_chi: int = 8, *, b1_b0_angle: float = np.pi / 2.0) -> tuple[ESROrientationSample, ...]` | Return a normalized ESR powder grid with correlated lab B0 and B1 axes. |
+| function | `normalize_orientations(orientations: tuple[ESROrientationSample, ...] | list[ESROrientationSample]) -> tuple[ESROrientationSample, ...]` | Return ESR orientation samples with weights normalized to unity. |
+
+## `spin_dynamics.esr.pulsed`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `equilibrium_density(levels_hz: np.ndarray) -> np.ndarray` | Return a trace-zero high-temperature ESR density matrix. |
+| function | `flip_angle_duration(flip_angle_rad: float, nutation_hz: float) -> float` | Return the rectangular-pulse duration for a spin-1/2 flip angle. |
+| function | `rf_operator_eigenbasis(eigensystem: ESREigensystem, direction_g = (1.0, 0.0, 0.0)) -> np.ndarray` | Return ``e1 . S`` for a unit microwave-field direction in the eigenbasis. |
+| function | `rotating_indices(levels_hz: np.ndarray, rf_frequency_hz: float) -> np.ndarray` | Return two-level RWA winding numbers for a carrier frequency. |
+| function | `static_hamiltonian_rotating(eigensystem: ESREigensystem, rf_frequency_hz: float) -> np.ndarray` | Return the rotating-frame static Hamiltonian in radians per second. |
+| function | `pulse_hamiltonian(eigensystem: ESREigensystem, *, nutation_hz: float, rf_frequency_hz: float, phase: float = 0.0, b1_direction_g = (1.0, 0.0, 0.0)) -> np.ndarray` | Return a rectangular microwave-pulse Hamiltonian in the rotating frame. |
+| function | `detection_operator(eigensystem: ESREigensystem, rf_frequency_hz: float, rx_direction_g = (1.0, 0.0, 0.0)) -> np.ndarray` | Return the baseband receive observable for the addressed ESR line. |
+| class | `ESRFIDResult` | Complex baseband ESR FID from one rectangular excitation pulse. |
+| class | `ESRHahnEchoResult` | Complex baseband ESR Hahn echo from one isochromat. |
+| function | `simulate_fid(system: ESRSpinSystem, b0_vector_tesla_g, *, nutation_hz: float, pulse_duration_seconds: float, times_seconds, rf_frequency_hz: float | None = None, phase: float = 0.0, b1_direction_g = (1.0, 0.0, 0.0), rx_direction_g = None, t2_seconds: float = np.inf, relaxation: ESRRelaxationModel | None = None, initial_density: np.ndarray | None = None) -> ESRFIDResult` | Simulate a pulsed ESR free-induction decay in the rotating frame. |
+| function | `simulate_hahn_echo(system: ESRSpinSystem, b0_vector_tesla_g, *, nutation_hz: float, excitation_duration_seconds: float, refocus_duration_seconds: float, tau_seconds: float, times_seconds, rf_frequency_hz: float | None = None, excitation_phase: float = 0.0, refocus_phase: float = np.pi / 2.0, b1_direction_g = (1.0, 0.0, 0.0), rx_direction_g = None, t2_seconds: float = np.inf, relaxation: ESRRelaxationModel | None = None, initial_density: np.ndarray | None = None) -> ESRHahnEchoResult` | Simulate a two-pulse ESR Hahn echo for one isochromat. |
+
+## `spin_dynamics.esr.relaxation`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `ESRRelaxationModel` | Phenomenological ESR relaxation model in the energy eigenbasis. |
+| function | `matrix_exponential(matrix: np.ndarray, duration: float = 1.0) -> np.ndarray` | Return ``exp(matrix * duration)`` for a small dense matrix. |
+| function | `liouville_hamiltonian(hamiltonian: np.ndarray) -> np.ndarray` | Return the commutator Liouvillian for column-stacked density matrices. |
+| function | `relaxation_superoperator(dimension: int, model: ESRRelaxationModel) -> np.ndarray` | Return a trace-preserving ESR relaxation superoperator. |
+| function | `liouville_superoperator(hamiltonian: np.ndarray, model: ESRRelaxationModel | None = None) -> np.ndarray` | Return Hamiltonian plus optional ESR relaxation Liouvillian. |
+| function | `propagate_density_liouville(density: np.ndarray, hamiltonian: np.ndarray, duration: float, *, relaxation: ESRRelaxationModel | None = None) -> np.ndarray` | Propagate a density matrix with Hamiltonian and ESR relaxation. |
+
+## `spin_dynamics.esr.spectra`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `ESRLine` | One orientation-resolved ESR transition line. |
+| class | `ESRFrequencySpectrumResult` | Fixed-field ESR spectrum on a frequency axis. |
+| class | `ESRFieldSweepResult` | Fixed-frequency ESR spectrum on a static-field axis. |
+| function | `simulate_frequency_spectrum(system: ESRSpinSystem, b0_tesla: float, *, orientations: OrientationInput = 'single', broadening_hz: float = 1000000.0, points: int = 1024, span_hz: float | None = None, frequencies_hz: np.ndarray | list[float] | tuple[float, ...] | None = None, lineshape: str = 'gaussian', detection_mode: str = 'absorption') -> ESRFrequencySpectrumResult` | Return a broadened fixed-field ESR spectrum on a frequency axis. |
+| function | `simulate_field_sweep(system: ESRSpinSystem, microwave_frequency_hz: float, *, orientations: OrientationInput = 'single', broadening_tesla: float = 0.0001, points: int = 1024, span_tesla: float | None = None, fields_tesla: np.ndarray | list[float] | tuple[float, ...] | None = None, lineshape: str = 'gaussian', detection_mode: str = 'absorption') -> ESRFieldSweepResult` | Return a broadened fixed-frequency ESR spectrum on a field axis. |
+
+## `spin_dynamics.esr.systems`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `as_g_tensor(g_tensor: float | np.ndarray | list[float] | tuple[float, ...]) -> np.ndarray` | Return a validated 3 by 3 electron ``g`` tensor. |
+| class | `ESRSpinSystem` | Single-electron ESR spin system with an isotropic or anisotropic ``g`` tensor. |
+| class | `ESRTransition` | One ESR transition between electron-spin energy eigenstates. |
+| class | `ESREigensystem` | Energy levels, eigenvectors, and allowed ESR transitions for one field. |
+
 ## `spin_dynamics.motion`
 
 | Kind | Name | Summary |

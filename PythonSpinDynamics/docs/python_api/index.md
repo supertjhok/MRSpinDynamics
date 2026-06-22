@@ -17,6 +17,7 @@ variants, packaging, and performance.
 - [Analysis](analysis.md)
 - [J-Coupling Models](j_coupling.md)
 - [NQR Models](nqr.md)
+- [ESR Models](esr.md)
 - [API Reference](api_reference.md)
 - [Performance](performance.md)
 - [Validation](validation.md)
@@ -78,6 +79,12 @@ The validated Python API currently covers:
 - first pulsed NQR helpers for spin-1 quadrupolar sites, selective
   transition pulses, single-crystal and powder orientations, SLSE echo trains,
   and perturbation-plus-detection population-transfer experiments;
+- first ESR helpers for single-electron spin-1/2 systems, scalar/anisotropic
+  `g` tensors, single-crystal and powder orientation grids, and fixed-field or
+  fixed-frequency spectra, CW derivative/lineshape display, static
+  strain/disorder sampling, rectangular-pulse FID and Hahn-echo helpers, and
+  Liouville-space pulsed T1/T2 relaxation, plus isotropic electron-nuclear
+  hyperfine doublet simulations;
 - the current `sim_spin_dynamics_arb10` kernel;
 - the legacy-compatible `sim_spin_dynamics_arb7` path needed by ideal FID;
 - original/reference tuned, untuned, and matched probe CPMG paths.

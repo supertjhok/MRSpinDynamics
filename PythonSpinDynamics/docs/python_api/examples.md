@@ -156,6 +156,29 @@ python examples\plot_tango_filter.py --target 160 --output results\tango_filter.
 python examples\plot_slic_two_spin.py --j-hz 7 --delta-hz 0.7 --output results\slic_two_spin.png
 ```
 
+## ESR Examples
+
+These examples exercise the first single-electron ESR surface. The
+single-crystal example rotates the static field through an anisotropic
+`g`-tensor frame and plots the effective `g` and resonant field. The powder
+example compares conventional fixed-frequency field sweeps with fixed-field
+frequency sweeps for the same orientation grid, and includes options for
+derivative CW display, Lorentzian broadening, diagonal `g` strain, and field
+strain. The pulsed example shows rectangular-pulse calibration, an on-resonance
+FID, and a Hahn echo from a detuned isochromat ensemble. The relaxation example
+uses the Liouville-space `ESRRelaxationModel` to compare FID T2 decay,
+Hahn-echo T2 decay, and T1 population relaxation. The hyperfine example shows
+the classic one-nucleus ESR doublet from an isotropic coupling.
+
+```powershell
+python examples\plot_esr_single_crystal.py --output results\esr_single_crystal.png
+python examples\plot_esr_powder_spectrum.py --output results\esr_powder_spectrum.png
+python examples\plot_esr_powder_spectrum.py --detection-mode derivative --g-strain 0 0 0.005 --output results\esr_derivative_strain.png
+python examples\plot_esr_pulsed_echo.py --output results\esr_pulsed_echo.png
+python examples\plot_esr_relaxation.py --output results\esr_relaxation.png
+python examples\plot_esr_hyperfine_doublet.py --output results\esr_hyperfine_doublet.png
+```
+
 ## NQR Examples
 
 These examples exercise the early quadrupolar extension. The current pulsed

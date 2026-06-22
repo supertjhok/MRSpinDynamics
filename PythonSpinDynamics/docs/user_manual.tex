@@ -114,7 +114,8 @@
 Simulation workflows for magnetic-resonance spin dynamics in possibly
 non-uniform and time-varying fields, with validated MATLAB-compatible
 spin-1/2 NMR Bloch kernels, Python-native analysis tools, scoped
-scalar-coupled spin-1/2 models, and pulsed NQR extensions.
+scalar-coupled spin-1/2 models, pulsed NQR extensions, and first ESR/EPR
+Hamiltonian and pulse-simulation helpers.
 \end{minipage}
 \vfill
 {\large June 2026\par}
@@ -158,6 +159,16 @@ spin-1 and spin-3/2 transition metadata, single-crystal and powder orientation
 averages, SLSE echo trains, two-frequency population transfer, EFG
 inhomogeneity, finite-window SLSE spectra, and weak-B0 perturbations. These
 models are documented in Chapter~\ref{chap:nqr}.
+}
+
+\scopebox{Accent}{
+\textbf{ESR/EPR extension.} The \code{spin\_dynamics.esr} namespace adds
+single-electron spin-1/2 ESR tools, including scalar or anisotropic \(g\)
+tensors, single-crystal and powder spectra, CW absorption/derivative
+lineshapes, static \(g\)-strain and field-strain distributions, rectangular
+pulsed ESR FID and Hahn-echo simulations with Liouville-space \(T_1/T_2\)
+relaxation, and a first dense isotropic electron-nuclear hyperfine model.
+These tools are documented in Chapter~\ref{chap:esr}.
 }
 
 \scopebox{AccentTwo}{
@@ -212,6 +223,9 @@ quantum spin Hamiltonian framework.
   exchange that are outside the explicit isochromat model.
   \item Use \code{spin\_dynamics.coupling} when a small spin-1/2 scalar
   J-coupled model is the phenomenon of interest.
+  \item Use \code{spin\_dynamics.esr} for single-electron ESR spectra, pulsed
+  ESR FID/echo simulations, static disorder studies, and simple isotropic
+  electron-nuclear hyperfine doublets.
   \item Use \code{spin\_dynamics.nqr} when selective pulsed NQR of a small
   quadrupolar site is the phenomenon of interest.
   \item Do not use the package for chemical exchange, large coupled-spin
@@ -705,6 +719,227 @@ result = simulate_slic_spectrum(
 For a nearly equivalent two-spin system, the SLIC dip is expected near the
 coupling frequency. The helper is exploratory and dense; broad homonuclear
 networks will need sparse or specialized methods.
+
+\chapter{Electron Spin Resonance Models}
+\label{chap:esr}
+
+The \code{spin\_dynamics.esr} namespace adds an ESR/EPR extension for
+single-electron spin-1/2 systems. The first layer is intentionally compact: it
+uses dense matrices, explicit \(g\)-tensor axes, and small product Hilbert
+spaces for hyperfine examples. Hamiltonians are expressed in radians per
+second, while public resonance frequencies, linewidths, and hyperfine
+constants are expressed in hertz.
+
+\scopebox{Accent}{
+\textbf{Use this layer for:} single-electron ESR resonance calculations,
+anisotropic \(g\)-tensor single-crystal and powder spectra, CW absorption or
+first-derivative display, static \(g\)-strain and field-strain broadening,
+rectangular pulsed ESR FID and Hahn-echo simulations, Liouville-space
+\(T_1/T_2\) relaxation, and first electron-nuclear isotropic hyperfine
+doublets.
+}
+
+\scopebox{AccentTwo}{
+\textbf{Current limits:} electron spin \(S=1/2\) only in the main ESR system;
+dense matrices only; hyperfine couplings are isotropic \(A\,\mathbf{S}\cdot
+\mathbf{I}\); no anisotropic \(A\) tensors, exchange, electron-electron dipolar
+coupling, higher-spin zero-field splitting, saturation, or microwave resonator
+model yet.
+}
+
+\section{Zeeman Hamiltonian and \(g\) Tensors}
+
+The single-electron Zeeman Hamiltonian is
+\[
+  H_Z =
+    2\pi \frac{\mu_B}{h}\,
+    \mathbf{B}_0^{\mathsf{T}}\, \mathbf{g}\, \mathbf{S},
+\]
+where \(\mu_B/h\) is exposed as \code{BOHR\_MAGNETON\_HZ\_PER\_T}. The \(g\)
+tensor may be supplied as a scalar, a three-component principal-axis vector, or
+a full \(3\times 3\) matrix. For a static-field direction \(\hat{\mathbf{n}}\),
+the effective \(g\) value is
+\[
+  g_{\mathrm{eff}}(\hat{\mathbf{n}})
+    = \left|\mathbf{g}^{\mathsf{T}}\hat{\mathbf{n}}\right|,
+\]
+and the spin-1/2 transition frequency is
+\[
+  \nu_{\mathrm{ESR}} =
+    \frac{\mu_B}{h}\,B_0\,g_{\mathrm{eff}} .
+\]
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.esr import (
+    ESRSpinSystem,
+    effective_g_value,
+    resonance_field_tesla,
+    resonance_frequency_hz,
+)
+
+system = ESRSpinSystem(g_tensor=[2.00, 2.08, 2.24])
+g_z = effective_g_value(system, [0.0, 0.0, 1.0])
+nu = resonance_frequency_hz(system, [0.0, 0.0, 0.34])
+b_res = resonance_field_tesla(system, microwave_frequency_hz=9.5e9)
+\end{lstlisting}
+
+\section{CW Spectra, Lineshapes, and Disorder}
+
+Frequency-swept and field-swept helpers broaden orientation-resolved ESR lines
+with Gaussian or Lorentzian profiles. The same helpers can return absorption
+or first-derivative CW-style spectra:
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.esr import simulate_field_sweep
+
+result = simulate_field_sweep(
+    system,
+    microwave_frequency_hz=9.5e9,
+    orientations="powder",
+    broadening_tesla=0.2e-3,
+    lineshape="lorentzian",
+    detection_mode="derivative",
+)
+\end{lstlisting}
+
+Static disorder is represented by weighted samples. The convenience
+\code{static\_disorder\_grid} builds Gaussian quadrature-like samples for
+diagonal \(g\)-strain and applied-field offsets:
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.esr import (
+    simulate_field_sweep_distribution,
+    static_disorder_grid,
+)
+
+samples = static_disorder_grid(
+    system,
+    g_std=[0.0, 0.0, 0.005],
+    field_std_tesla=0.1e-3,
+    g_points=5,
+    field_points=5,
+)
+
+strained = simulate_field_sweep_distribution(
+    samples,
+    microwave_frequency_hz=9.5e9,
+    orientations="powder",
+    broadening_tesla=0.05e-3,
+)
+\end{lstlisting}
+
+\section{Pulsed ESR}
+
+The pulsed ESR helpers use a single rotating frame and a rotating-wave
+approximation. The \code{nutation\_hz} parameter is the on-resonance spin-1/2
+Rabi rate for the selected microwave \(B_1\) direction, so a rectangular pulse
+of flip angle \(\theta\) has duration
+\[
+  t_p = \frac{\theta}{2\pi \nu_1}.
+\]
+In particular, a 90-degree pulse has duration \(1/(4\nu_1)\).
+
+\begin{lstlisting}[language=Python]
+import numpy as np
+
+from spin_dynamics.esr import (
+    flip_angle_duration,
+    simulate_fid,
+    simulate_hahn_echo,
+)
+
+carrier = resonance_frequency_hz(system, [0.0, 0.0, 0.34])
+nu1 = 5e6
+t90 = flip_angle_duration(np.pi / 2.0, nu1)
+t180 = flip_angle_duration(np.pi, nu1)
+
+fid = simulate_fid(
+    system,
+    [0.0, 0.0, 0.34],
+    nutation_hz=nu1,
+    pulse_duration_seconds=t90,
+    times_seconds=np.linspace(0.0, 5e-6, 256),
+    rf_frequency_hz=carrier,
+)
+
+echo = simulate_hahn_echo(
+    system,
+    [0.0, 0.0, 0.34],
+    nutation_hz=nu1,
+    excitation_duration_seconds=t90,
+    refocus_duration_seconds=t180,
+    tau_seconds=2e-6,
+    times_seconds=np.linspace(0.0, 4e-6, 256),
+    rf_frequency_hz=carrier,
+)
+\end{lstlisting}
+
+\section{Pulsed Relaxation}
+
+For physical \(T_1/T_2\) relaxation during pulses, free evolution, and
+acquisition, pass an \code{ESRRelaxationModel}. The model acts in
+Liouville space on the trace-zero high-temperature density-matrix deviation:
+\(T_1\) damps population differences while preserving trace, and \(T_2\) damps
+coherences.
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.esr import ESRRelaxationModel
+
+relaxed = simulate_fid(
+    system,
+    [0.0, 0.0, 0.34],
+    nutation_hz=nu1,
+    pulse_duration_seconds=t90,
+    times_seconds=np.linspace(0.0, 5e-6, 256),
+    rf_frequency_hz=carrier,
+    relaxation=ESRRelaxationModel(t1_seconds=50e-6, t2_seconds=3e-6),
+)
+\end{lstlisting}
+
+The older \code{t2\_seconds} argument in the pulsed helpers is a simple
+post-propagation envelope retained for quick examples. When using
+\code{ESRRelaxationModel}, leave \code{t2\_seconds=inf} to avoid double-counting
+coherence decay.
+
+\section{Isotropic Hyperfine Coupling}
+
+The first hyperfine layer models one electron spin-1/2 coupled isotropically to
+one or more nuclei:
+\[
+  H =
+    H_{eZ} + H_{nZ}
+    + 2\pi\sum_k A_k\,\mathbf{S}\cdot\mathbf{I}_k ,
+\]
+with \(A_k\) in hertz. The helper scans the applied field, diagonalizes the
+full dense electron-nuclear Hamiltonian at each point, and sums ESR-active
+transitions according to the microwave \(B_1\) matrix element.
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.esr import (
+    NuclearSite,
+    electron_nuclear_system,
+    simulate_hyperfine_field_sweep,
+)
+
+hf_system = electron_nuclear_system(
+    [20e6],
+    nuclei=[NuclearSite("H1", isotope="1H", gamma_hz_per_t=42.577e6)],
+    g_tensor=2.0023,
+)
+
+hf_sweep = simulate_hyperfine_field_sweep(
+    hf_system,
+    microwave_frequency_hz=9.5e9,
+    broadening_hz=0.5e6,
+)
+\end{lstlisting}
+
+For one spin-1/2 nucleus in the high-field limit, the ESR line splits by
+approximately \(A\) in frequency, or by
+\[
+  \Delta B \approx \frac{A}{(\mu_B/h)g}
+\]
+in a field-swept spectrum.
 
 \chapter{Pulsed NQR Models}
 \label{chap:nqr}
@@ -1948,6 +2183,55 @@ Object & Purpose \\
 \bottomrule
 \end{longtable}
 
+\section{ESR API}
+
+\begin{lstlisting}
+from spin_dynamics.esr import (
+    ESRSpinSystem,
+    ESRRelaxationModel,
+    ESRDistributionSample,
+    NuclearSite,
+    ElectronNuclearSystem,
+    resonance_frequency_hz,
+    resonance_field_tesla,
+    effective_g_value,
+    simulate_field_sweep,
+    simulate_frequency_spectrum,
+    static_disorder_grid,
+    simulate_field_sweep_distribution,
+    simulate_frequency_spectrum_distribution,
+    gaussian_lineshape,
+    lorentzian_lineshape,
+    flip_angle_duration,
+    simulate_fid,
+    simulate_hahn_echo,
+    electron_nuclear_system,
+    diagonalize_hyperfine_system,
+    simulate_hyperfine_field_sweep,
+)
+\end{lstlisting}
+
+\begin{longtable}{p{0.42\linewidth}p{0.50\linewidth}}
+\toprule
+Object & Purpose \\
+\midrule
+\code{ESRSpinSystem} & Single-electron spin-1/2 ESR system with scalar, diagonal, or full \(g\) tensor. \\
+\code{resonance\_frequency\_hz}, \code{resonance\_field\_tesla} & Convert between field and microwave frequency for one ESR orientation. \\
+\code{effective\_g\_value} & Direction-dependent \(g_{\mathrm{eff}}=|\mathbf{g}^{\mathsf{T}}\hat{\mathbf{n}}|\). \\
+\code{simulate\_field\_sweep}, \code{simulate\_frequency\_spectrum} & Single-crystal or powder CW ESR spectra with Gaussian/Lorentzian absorption or derivative display. \\
+\code{gaussian\_lineshape}, \code{lorentzian\_lineshape} & Unit-height absorption profiles and first derivatives. \\
+\code{static\_disorder\_grid} & Weighted diagonal \(g\)-strain and applied-field-offset samples. \\
+\code{simulate\_field\_sweep\_distribution} & Field-swept ESR spectrum averaged over static disorder samples. \\
+\code{flip\_angle\_duration} & Rectangular-pulse duration for a spin-1/2 flip angle and nutation rate. \\
+\code{simulate\_fid}, \code{simulate\_hahn\_echo} & Rotating-frame pulsed ESR FID and Hahn-echo density-matrix simulations. \\
+\code{ESRRelaxationModel} & Phenomenological Liouville-space \(T_1/T_2\) relaxation model for pulsed ESR. \\
+\code{NuclearSite}, \code{ElectronNuclearSystem} & Dense electron-nuclear product-space hyperfine model containers. \\
+\code{electron\_nuclear\_system} & Convenience builder for isotropic electron-nuclear hyperfine systems. \\
+\code{diagonalize\_hyperfine\_system} & Exact dense energy levels and ESR-active transitions for a hyperfine system. \\
+\code{simulate\_hyperfine\_field\_sweep} & Field-swept ESR spectrum including isotropic electron-nuclear hyperfine coupling. \\
+\bottomrule
+\end{longtable}
+
 \section{NQR API}
 
 \begin{lstlisting}
@@ -2069,8 +2353,9 @@ matters. The largest remaining gaps are broader high-Q matched-probe validation,
 full historical MATLAB \code{.mat} structure parity, broad \code{fmincon}
 parity, paper-level scalar-coupling fixture comparisons, relaxation-aware
 coupled-spin pulse-sequence runners, full nonselective quadrupolar pulse
-propagation, experimental NQR fixture comparisons, and acceleration backends
-beyond the current NumPy implementation.
+propagation, experimental NQR fixture comparisons, ESR anisotropic hyperfine
+and multi-electron interactions, and acceleration backends beyond the current
+NumPy implementation.
 
 New work should add small reference fixtures first, then a NumPy implementation,
 then optional acceleration or plotting once numerical behavior is pinned down.

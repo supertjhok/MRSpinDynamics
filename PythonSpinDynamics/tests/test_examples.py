@@ -102,6 +102,11 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_j_editing_field_spread.py",
             "examples/plot_tango_filter.py",
             "examples/plot_slic_two_spin.py",
+            "examples/plot_esr_single_crystal.py",
+            "examples/plot_esr_powder_spectrum.py",
+            "examples/plot_esr_pulsed_echo.py",
+            "examples/plot_esr_relaxation.py",
+            "examples/plot_esr_hyperfine_doublet.py",
             "examples/plot_nqr_powder_nutation.py",
             "examples/plot_nqr_full_powder_nutation.py",
             "examples/plot_nqr_auto_model_selection.py",
@@ -164,6 +169,23 @@ class ExampleSmokeTests(unittest.TestCase):
         self.assertIn("--target", result.stdout)
         result = run_example("examples/plot_slic_two_spin.py", "--help")
         self.assertIn("--delta-hz", result.stdout)
+        result = run_example("examples/plot_esr_single_crystal.py", "--help")
+        self.assertIn("--microwave-ghz", result.stdout)
+        self.assertIn("--broadening-mt", result.stdout)
+        result = run_example("examples/plot_esr_powder_spectrum.py", "--help")
+        self.assertIn("--n-chi", result.stdout)
+        self.assertIn("--b1-b0-angle", result.stdout)
+        self.assertIn("--detection-mode", result.stdout)
+        self.assertIn("--g-strain", result.stdout)
+        result = run_example("examples/plot_esr_pulsed_echo.py", "--help")
+        self.assertIn("--nutation-mhz", result.stdout)
+        self.assertIn("--detuning-span-mhz", result.stdout)
+        result = run_example("examples/plot_esr_relaxation.py", "--help")
+        self.assertIn("--t1-us", result.stdout)
+        self.assertIn("--t2-us", result.stdout)
+        result = run_example("examples/plot_esr_hyperfine_doublet.py", "--help")
+        self.assertIn("--hyperfine-mhz", result.stdout)
+        self.assertIn("--nuclear-gamma-mhz-per-t", result.stdout)
         result = run_example("examples/plot_nqr_powder_nutation.py", "--help")
         self.assertIn("--max-angle", result.stdout)
         self.assertIn("supports spin=1 only", result.stdout)

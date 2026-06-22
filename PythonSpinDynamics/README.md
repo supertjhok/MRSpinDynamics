@@ -3,7 +3,8 @@
 PythonSpinDynamics is the Python package workspace within MRSpinDynamics. It
 began as the Python port of the MATLAB NMR spin-dynamics package in
 `../MATLABSpinDynamics`, and now also hosts Python-native quadrupolar NQR
-models. The MATLAB Version 2 code remains the numerical reference for the
+models and single-electron ESR/EPR helpers. The MATLAB Version 2 code remains
+the numerical reference for the
 validated NMR Bloch workflows; this workspace contains the Python package,
 examples, validation fixtures, tests, and user documentation.
 
@@ -23,8 +24,12 @@ namespace is the quadrupolar extension for selective pulsed NQR, SLSE, powder
 averaging, EFG inhomogeneity, weak-B0 spectra, and two-frequency
 population-transfer experiments. The Hamiltonian/transition layer includes
 spin-1 and spin-3/2 line metadata, while the current selective-pulse examples
-are spin-1 workflows. The package still does not attempt chemical exchange or
-arbitrary nonselective multi-quantum pulse-sequence simulation.
+are spin-1 workflows. The `spin_dynamics.esr` namespace is the single-electron
+ESR/EPR extension for anisotropic g-tensor spectra, CW derivative display,
+static disorder, pulsed FID/Hahn echo simulations with T1/T2 relaxation, and
+first isotropic electron-nuclear hyperfine doublets. The package still does
+not attempt chemical exchange or arbitrary nonselective multi-quantum
+pulse-sequence simulation.
 
 ## Documentation
 
@@ -35,6 +40,7 @@ arbitrary nonselective multi-quantum pulse-sequence simulation.
 - `docs/python_api/j_coupling.md` describes the scalar-coupled spin-1/2
   extension layer.
 - `docs/python_api/nqr.md` describes the pulsed NQR extension layer.
+- `docs/python_api/esr.md` describes the ESR/EPR extension layer.
 - `docs/nqr_module_plan.md` tracks planned NQR milestones.
 - `docs/matlab_mapping.md` and `docs/migration_plan.md` track MATLAB-to-Python
   mapping and remaining porting work.
@@ -157,6 +163,21 @@ Weak static B0 line splitting is available for both spin-1 and spin-3/2 through
 `simulate_weak_b0_spectrum`, with an explicit `|gamma B0| / nu_ref` weak-field
 regime check.
 
+ESR example:
+
+```python
+from spin_dynamics.esr import ESRSpinSystem, simulate_field_sweep
+
+system = ESRSpinSystem(g_tensor=[2.00, 2.08, 2.24])
+spectrum = simulate_field_sweep(
+    system,
+    microwave_frequency_hz=9.5e9,
+    orientations="powder",
+    detection_mode="derivative",
+)
+print(spectrum.fields_tesla.shape)
+```
+
 ## Examples
 
 Examples live in `examples/` and can be run from this directory:
@@ -176,6 +197,10 @@ python examples\plot_nqr_efg_broadening.py --output results\nqr_efg_broadening.p
 python examples\plot_nqr_temperature_broadening.py --output results\nqr_temperature_broadening.png
 python examples\plot_nqr_slse_efg_broadening.py --output results\nqr_slse_efg_broadening.png
 python examples\plot_nqr_weak_b0_spectrum.py --output results\nqr_weak_b0_spectrum.png
+python examples\plot_esr_powder_spectrum.py --output results\esr_powder_spectrum.png
+python examples\plot_esr_pulsed_echo.py --output results\esr_pulsed_echo.png
+python examples\plot_esr_relaxation.py --output results\esr_relaxation.png
+python examples\plot_esr_hyperfine_doublet.py --output results\esr_hyperfine_doublet.png
 ```
 
 The SLSE EFG broadening plot forms its spectrum from a finite acquired echo

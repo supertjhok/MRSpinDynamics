@@ -4,6 +4,7 @@ __all__ = [
     "analysis",
     "coupling",
     "core",
+    "esr",
     "motion",
     "noise",
     "nqr",
