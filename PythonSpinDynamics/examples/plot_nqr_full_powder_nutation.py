@@ -33,7 +33,6 @@ from spin_dynamics.nqr import (  # noqa: E402
     equilibrium_density,
     powder_average_grid,
     pulse_hamiltonian,
-    static_hamiltonian_rotating,
 )
 
 

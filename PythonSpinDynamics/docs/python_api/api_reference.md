@@ -187,6 +187,20 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `matched_probe_output_noise_density(sp: Mapping[str, Any] | Any, pp: Mapping[str, Any] | Any, *, tf1: np.ndarray | None = None) -> tuple[np.ndarray, np.ndarray]` | Return matched-probe output-referred noise density and frequencies. |
 | function | `frequency_bin_width(frequencies: np.ndarray) -> float` | Estimate a representative frequency-bin width. |
 
+## `spin_dynamics.nqr.full_dynamics`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `rf_operator_eigenbasis(eigensystem: NQREigensystem, direction) -> np.ndarray` | Return ``e1 . I`` for unit direction ``e1`` in the energy eigenbasis. |
+| function | `rotating_indices(levels_hz: np.ndarray, rf_frequency_hz: float) -> np.ndarray` | Return RWA winding numbers ``round((nu_i - min nu) / nu_rf)`` per level. |
+| function | `static_hamiltonian_rotating(eigensystem: NQREigensystem, rf_frequency_hz: float) -> np.ndarray` | Return the rotating-frame static Hamiltonian (rad/s) in the eigenbasis. |
+| function | `pulse_hamiltonian(eigensystem: NQREigensystem, *, nutation_hz: float, rf_frequency_hz: float, phase: float = 0.0, b1_direction_pas = (1.0, 0.0, 0.0)) -> np.ndarray` | Return the rotating-frame RWA pulse Hamiltonian (rad/s) in the eigenbasis. |
+| function | `detection_operator(eigensystem: NQREigensystem, rf_frequency_hz: float, rx_direction_pas = (1.0, 0.0, 0.0)) -> np.ndarray` | Return the baseband receive observable ``M`` with ``s = Tr(rho M)``. |
+| class | `FullNQRFIDResult` | Complex baseband FID from the full density-matrix model. |
+| class | `FullNQREchoResult` | Complex baseband echo from a full density-matrix two-pulse sequence. |
+| function | `simulate_full_fid(site: QuadrupolarSite, *, nutation_hz: float, pulse_duration_seconds: float, times_seconds: np.ndarray, rf_frequency_hz: float | None = None, phase: float = 0.0, b1_direction_pas = (1.0, 0.0, 0.0), rx_direction_pas = None, b0_vector_tesla_pas = None, relaxation: NQRRelaxationModel | None = None, initial_density: np.ndarray | None = None) -> FullNQRFIDResult` | Simulate a single-pulse full density-matrix NQR FID. |
+| function | `simulate_full_echo(site: QuadrupolarSite, *, nutation_hz: float, excitation_duration_seconds: float, refocus_duration_seconds: float, echo_spacing_seconds: float, times_seconds: np.ndarray, rf_frequency_hz: float | None = None, excitation_phase: float = 0.0, refocus_phase: float = np.pi / 2, b1_direction_pas = (1.0, 0.0, 0.0), rx_direction_pas = None, b0_vector_tesla_pas = None, relaxation: NQRRelaxationModel | None = None) -> FullNQREchoResult` | Simulate a full density-matrix two-pulse (Hahn-style) NQR echo. |
+
 ## `spin_dynamics.nqr.hamiltonians`
 
 | Kind | Name | Summary |
@@ -218,6 +232,13 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `simulate_fid_efg_distribution(distribution: EFGDistribution, transition_label: str, times_seconds: np.ndarray | list[float] | tuple[float, ...], *, excitation: SelectivePulse, carrier_frequency_hz: float | None = None, orientations: OrientationInput = 'single', t2_seconds: float = np.inf, zero_fill_factor: int = 2, window: str = 'hann', rephase_action: str = 'warn', rephase_safety_factor: float = 1.25) -> NQRFIDDistributionResult` | Simulate a selective-pulse NQR FID from a static EFG distribution. |
 | function | `simulate_slse_efg_distribution(distribution: EFGDistribution, sequence, *, orientations: OrientationInput = 'powder', b0_tesla: float = 0.0, t2e_seconds: float = np.inf, relaxation = None, rephase_action: str = 'warn', rephase_safety_factor: float = 1.25) -> SLSEDistributionResult` | Simulate an SLSE echo train summed over a static EFG distribution. |
 | function | `simulate_slse_acquisition_spectrum(distribution: EFGDistribution, sequence, *, acquisition_duration_seconds: float, acquisition_points: int = 256, echo_index: int = -1, carrier_frequency_hz: float | None = None, orientations: OrientationInput = 'powder', b0_tesla: float = 0.0, t2e_seconds: float = np.inf, relaxation = None, zero_fill_factor: int = 2, spectrum_window: str = 'none', noise: NoiseSpec | Mapping | float | int | None = None, deconvolution_strength: float | None = None, rephase_action: str = 'warn', rephase_safety_factor: float = 1.25) -> SLSEAcquisitionSpectrumResult` | Simulate the spectrum of one finite-window acquired SLSE echo. |
+
+## `spin_dynamics.nqr.model_selection`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `NQRModelSelection` | Recommendation and diagnostics for the reduced-vs-full modeling choice. |
+| function | `select_nqr_model(site: QuadrupolarSite, target: str | NQRTransition, *, nutation_hz: float, pulse_duration_seconds: float, b1_direction_pas = (1.0, 0.0, 0.0), linewidth_hz: float = 0.0, b0_vector_tesla_pas = None, rf_frequency_hz: float | None = None, isolation_threshold: float = 5.0, coupling_tolerance: float = 0.01) -> NQRModelSelection` | Recommend the reduced or full NQR model for a pulse on one transition. |
 
 ## `spin_dynamics.nqr.operators`
 

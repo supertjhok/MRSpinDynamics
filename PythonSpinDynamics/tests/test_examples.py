@@ -105,6 +105,7 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_nqr_powder_nutation.py",
             "examples/plot_nqr_full_powder_nutation.py",
             "examples/plot_nqr_auto_model_selection.py",
+            "examples/plot_chen2020_slse_relaxation.py",
             "examples/plot_nqr_population_transfer.py",
             "examples/plot_nqr_slse_offset.py",
             "examples/plot_nqr_slse_spacing.py",
@@ -172,6 +173,8 @@ class ExampleSmokeTests(unittest.TestCase):
         result = run_example("examples/plot_nqr_auto_model_selection.py", "--help")
         self.assertIn("--offset-khz", result.stdout)
         self.assertIn("--t2-us", result.stdout)
+        result = run_example("examples/plot_chen2020_slse_relaxation.py", "--help")
+        self.assertIn("--max-field-g", result.stdout)
         result = run_example("examples/plot_nqr_population_transfer.py", "--help")
         self.assertIn("--perturb-angle", result.stdout)
         self.assertIn("supports spin=1 only", result.stdout)
