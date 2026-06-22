@@ -13,6 +13,19 @@ from typing import Any
 
 import numpy as np
 
+from spin_dynamics.absolute_phase import (
+    AbsolutePhaseMetadata,
+    AbsolutePhaseSpec,
+    FiniteCPMGPhaseSchedule,
+    FiniteCPMGPulsePlan,
+    LongitudinalPhaseKick,
+    PulseShape,
+    apply_absolute_phase_model,
+    as_absolute_phase_spec,
+    build_cpmg_absolute_phase_metadata,
+    build_finite_cpmg_phase_schedule,
+    build_finite_cpmg_pulse_plan,
+)
 from spin_dynamics.core.echo import calc_time_domain_echo
 from spin_dynamics.core.isochromats import (
     check_rephasing,
@@ -20,8 +33,10 @@ from spin_dynamics.core.isochromats import (
 )
 from spin_dynamics.core.numerics import trapezoid
 from spin_dynamics.core.rotations import (
+    MatrixElements,
     calc_rot_axis_arba3,
     calc_rotation_matrix,
+    free_precession_matrix_elements,
     sim_spin_dynamics_asymp_mag3,
 )
 from spin_dynamics.noise import (
@@ -96,6 +111,7 @@ class CPMGTrainResult:
     echo_integrals_noisy: np.ndarray | None = None
     noise: NoiseMetadata | None = None
     radiation_damping: RadiationDampingSpec | None = None
+    absolute_phase: AbsolutePhaseMetadata | None = None
 
 
 def _field(obj: Mapping[str, Any] | Any, name: str) -> Any:
@@ -306,6 +322,195 @@ def _echo_train_from_spectra(
     return echo, tvect, echo_integrals
 
 
+def _shape_tuple(shape: PulseShape) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    return shape.duration, shape.phase, shape.amplitude
+
+
+def _pulse_shape(
+    duration: np.ndarray,
+    phase: np.ndarray,
+    amplitude: np.ndarray,
+) -> PulseShape:
+    return PulseShape(
+        duration=np.asarray(duration, dtype=np.float64).reshape(-1),
+        phase=np.asarray(phase, dtype=np.float64).reshape(-1),
+        amplitude=np.asarray(amplitude, dtype=np.float64).reshape(-1),
+    )
+
+
+def _as_pulse_shape(shape: tuple[np.ndarray, np.ndarray, np.ndarray]) -> PulseShape:
+    return _pulse_shape(shape[0], shape[1], shape[2])
+
+
+def _compose_rotation_matrices(
+    left: MatrixElements,
+    right: MatrixElements,
+) -> MatrixElements:
+    """Return matrix product ``left @ right`` in coherence-basis storage."""
+
+    return MatrixElements(
+        R_00=left.R_00 * right.R_00 + left.R_0m * right.R_m0 + left.R_0p * right.R_p0,
+        R_0m=left.R_00 * right.R_0m + left.R_0m * right.R_mm + left.R_0p * right.R_pm,
+        R_0p=left.R_00 * right.R_0p + left.R_0m * right.R_mp + left.R_0p * right.R_pp,
+        R_m0=left.R_m0 * right.R_00 + left.R_mm * right.R_m0 + left.R_mp * right.R_p0,
+        R_mm=left.R_m0 * right.R_0m + left.R_mm * right.R_mm + left.R_mp * right.R_pm,
+        R_mp=left.R_m0 * right.R_0p + left.R_mm * right.R_mp + left.R_mp * right.R_pp,
+        R_p0=left.R_p0 * right.R_00 + left.R_pm * right.R_m0 + left.R_pp * right.R_p0,
+        R_pm=left.R_p0 * right.R_0m + left.R_pm * right.R_mm + left.R_pp * right.R_pm,
+        R_pp=left.R_p0 * right.R_0p + left.R_pm * right.R_mp + left.R_pp * right.R_pp,
+    )
+
+
+def _apply_longitudinal_phase_kick(
+    matrix: MatrixElements,
+    *,
+    del_w: np.ndarray,
+    spec: AbsolutePhaseSpec | None,
+    pp: Mapping[str, Any] | Any,
+    pulse_start_phase_rad: float,
+    pulse_kind: str,
+) -> MatrixElements:
+    model = None if spec is None else spec.transient_model
+    if not isinstance(model, LongitudinalPhaseKick):
+        return matrix
+    end_phase = (
+        float(pulse_start_phase_rad)
+        + float(spec.rf_angular_frequency_rad_s) * float(_field(pp, "T_180"))
+    )
+    kick = model.phase_kick(end_phase, pulse_kind)
+    if kick == 0.0:
+        return matrix
+    kick_matrix = free_precession_matrix_elements(
+        np.full_like(del_w, kick, dtype=np.float64),
+        1.0,
+    )
+    return _compose_rotation_matrices(kick_matrix, matrix)
+
+
+def _cpmg_absolute_phase_plan(
+    absolute_phase: AbsolutePhaseSpec | Mapping[str, Any] | None,
+    pp: Mapping[str, Any] | Any,
+    *,
+    num_echoes: int,
+    excitation_start_seconds: float = 0.0,
+) -> tuple[AbsolutePhaseSpec | None, FiniteCPMGPhaseSchedule | None]:
+    spec = as_absolute_phase_spec(absolute_phase)
+    if spec is None:
+        return None, None
+    echo_spacing = float(np.sum(np.asarray(_field(pp, "tref"), dtype=np.float64)))
+    schedule = build_finite_cpmg_phase_schedule(
+        spec=spec,
+        excitation_start_seconds=excitation_start_seconds,
+        excitation_duration_seconds=float(np.ravel(_field(pp, "texc"))[0]),
+        correction_delay_seconds=float(_field(pp, "tcorr")),
+        pre_refocus_delay_seconds=float(np.ravel(_field(pp, "tref"))[0]),
+        echo_spacing_seconds=echo_spacing,
+        num_echoes=int(num_echoes),
+    )
+    return spec, schedule
+
+
+def _metadata_for_plan(
+    spec: AbsolutePhaseSpec | None,
+    pp: Mapping[str, Any] | Any,
+    schedule: FiniteCPMGPhaseSchedule | None,
+    *,
+    num_echoes: int,
+    pulse_plan: FiniteCPMGPulsePlan,
+    excitation_start_seconds: float = 0.0,
+) -> AbsolutePhaseMetadata | None:
+    if spec is None or schedule is None:
+        return None
+    echo_spacing = float(np.sum(np.asarray(_field(pp, "tref"), dtype=np.float64)))
+    return build_cpmg_absolute_phase_metadata(
+        spec=spec,
+        excitation_start_seconds=excitation_start_seconds,
+        excitation_phases_rad=np.array(
+            [np.pi / 2, 3 * np.pi / 2],
+            dtype=np.float64,
+        ),
+        refocus_start_seconds=schedule.refocus_start_seconds[: int(num_echoes)],
+        refocus_rotating_phase_rad=0.0,
+        echo_spacing_seconds=echo_spacing,
+        pulse_matrix_count=pulse_plan.pulse_matrix_count,
+        schedule=schedule,
+        pulse_plan=pulse_plan,
+    )
+
+
+def _build_absolute_phase_rtot_and_pul(
+    *,
+    del_w: np.ndarray,
+    w_1: np.ndarray | float,
+    spec: AbsolutePhaseSpec | None,
+    pp: Mapping[str, Any] | Any,
+    schedule: FiniteCPMGPhaseSchedule | None,
+    num_echoes: int,
+    exc_y: PulseShape,
+    exc_minus_y: PulseShape,
+    ref_shape_factory: Any,
+    excitation_start_seconds: float = 0.0,
+) -> tuple[list[Any], np.ndarray, np.ndarray, AbsolutePhaseMetadata | None]:
+    if spec is None or schedule is None:
+        pulse_plan = build_finite_cpmg_pulse_plan(
+            int(num_echoes),
+            per_echo_refocusing=False,
+        )
+        rtot = [
+            calc_rotation_matrix(del_w, w_1, *_shape_tuple(exc_y)),
+            calc_rotation_matrix(del_w, w_1, *_shape_tuple(exc_minus_y)),
+            calc_rotation_matrix(del_w, w_1, *_shape_tuple(ref_shape_factory(0.0))),
+        ]
+        pref = pulse_plan.refocus_cycle
+        return rtot, pref, pref.copy(), None
+
+    pulse_plan = build_finite_cpmg_pulse_plan(
+        int(num_echoes),
+        per_echo_refocusing=True,
+    )
+    exc_abs = schedule.excitation_absolute_phase_rad
+    exc_y_ap = apply_absolute_phase_model(exc_y, spec, float(exc_abs[0]), "excitation")
+    exc_minus_y_ap = apply_absolute_phase_model(
+        exc_minus_y,
+        spec,
+        float(exc_abs[1]),
+        "excitation",
+    )
+    rtot = [
+        calc_rotation_matrix(del_w, w_1, *_shape_tuple(exc_y_ap)),
+        calc_rotation_matrix(del_w, w_1, *_shape_tuple(exc_minus_y_ap)),
+    ]
+
+    for absolute_start in schedule.refocus_absolute_phase_rad[: int(num_echoes)]:
+        ref_shape = apply_absolute_phase_model(
+            ref_shape_factory(float(absolute_start)),
+            spec,
+            float(absolute_start),
+            "refocusing",
+        )
+        ref_matrix = calc_rotation_matrix(del_w, w_1, *_shape_tuple(ref_shape))
+        ref_matrix = _apply_longitudinal_phase_kick(
+            ref_matrix,
+            del_w=del_w,
+            spec=spec,
+            pp=pp,
+            pulse_start_phase_rad=float(absolute_start),
+            pulse_kind="refocusing",
+        )
+        rtot.append(ref_matrix)
+
+    pref = pulse_plan.refocus_cycle
+    metadata = _metadata_for_plan(
+        spec,
+        pp,
+        schedule,
+        num_echoes=num_echoes,
+        pulse_plan=pulse_plan,
+        excitation_start_seconds=excitation_start_seconds,
+    )
+    return rtot, pref, pref.copy(), metadata
+
+
 def run_ideal_cpmg_train(
     numpts: int = 101,
     maxoffs: float = 10.0,
@@ -318,6 +523,7 @@ def run_ideal_cpmg_train(
     rephase_safety_factor: float = 1.25,
     rephase_action: str = "warn",
     noise: NoiseSpec | Mapping[str, Any] | float | int | None = None,
+    absolute_phase: AbsolutePhaseSpec | Mapping[str, Any] | None = None,
 ) -> CPMGTrainResult:
     """Run a finite ideal CPMG echo train with relaxation.
 
@@ -363,29 +569,25 @@ def run_ideal_cpmg_train(
         "mth": sp0.mth * np.ones_like(del_w),
     }
 
-    rtot = [
-        calc_rotation_matrix(
-            del_w,
-            sp["w_1"],
-            w1n * pp0.texc,
-            pp0.pexc,
-            pp0.aexc,
-        ),
-        calc_rotation_matrix(
-            del_w,
-            sp["w_1"],
-            w1n * pp0.texc,
-            pp0.pexc + np.pi,
-            pp0.aexc,
-        ),
-        calc_rotation_matrix(
-            del_w,
-            sp["w_1"],
-            w1n * pp0.tref[1:-1],
-            pp0.pref[1:-1],
-            pp0.aref[1:-1],
-        ),
-    ]
+    ap_spec, ap_schedule = _cpmg_absolute_phase_plan(
+        absolute_phase,
+        pp0,
+        num_echoes=int(num_echoes),
+    )
+    exc_y = _pulse_shape(w1n * pp0.texc, pp0.pexc, pp0.aexc)
+    exc_minus_y = _pulse_shape(w1n * pp0.texc, pp0.pexc + np.pi, pp0.aexc)
+    ref_x = _pulse_shape(w1n * pp0.tref[1:-1], pp0.pref[1:-1], pp0.aref[1:-1])
+    rtot, pref, _pref2, ap_metadata = _build_absolute_phase_rtot_and_pul(
+        del_w=del_w,
+        w_1=sp["w_1"],
+        spec=ap_spec,
+        pp=pp0,
+        schedule=ap_schedule,
+        num_echoes=int(num_echoes),
+        exc_y=exc_y,
+        exc_minus_y=exc_minus_y,
+        ref_shape_factory=lambda _absolute_start: ref_x,
+    )
 
     texc = np.array([np.pi / 2, w1n * pp0.tcorr], dtype=np.float64)
     aexc = np.array([1.0, 0.0], dtype=np.float64)
@@ -398,7 +600,6 @@ def run_ideal_cpmg_train(
         w1n * np.array([pp0.tref[0], pp0.tref[1], pp0.tref[2]], dtype=np.float64),
         int(num_echoes),
     )
-    pref = np.tile(np.array([0, 3, 0], dtype=np.int64), int(num_echoes))
     aref = np.tile(np.array([0.0, 1.0, 0.0], dtype=np.float64), int(num_echoes))
     acq_ref = np.tile(np.array([0, 0, 1], dtype=np.int64), int(num_echoes))
     grad_ref = np.zeros(3 * int(num_echoes), dtype=np.float64)
@@ -456,6 +657,7 @@ def run_ideal_cpmg_train(
         echo_noisy=echo_noisy,
         echo_integrals_noisy=echo_integrals_noisy,
         noise=noise_metadata,
+        absolute_phase=ap_metadata,
     )
 
 
@@ -466,17 +668,21 @@ def _calc_tuned_pulse_shape(
     pulse_phase: float,
     pulse_amplitude: float,
     delay_seconds: float,
+    *,
+    psi: float | None = None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     T_90 = float(_field(pp, "T_90"))
     delay_normalized = (np.pi / 2) * delay_seconds / T_90
+    carrier_phase = float(_field(pp, "psi")) if psi is None else float(psi)
     pp_fields = pp.__dict__ if hasattr(pp, "__dict__") else dict(pp)
     pp_curr = {
         **pp_fields,
         "tref": np.array([pulse_duration_seconds, delay_seconds], dtype=np.float64),
-        "pref": np.array([pulse_phase, 0.0], dtype=np.float64),
+        "pref": np.array([pulse_phase + carrier_phase, 0.0], dtype=np.float64),
         "aref": np.array([pulse_amplitude, 0.0], dtype=np.float64),
     }
     tvect, icr, _tvect_raw, _ic = tuned_probe_lp(sp, pp_curr)
+    icr = icr * np.exp(-1j * carrier_phase)
 
     delt = (np.pi / 2) * (tvect[1] - tvect[0]) / T_90
     tp = delt * np.ones(tvect.size, dtype=np.float64)
@@ -504,17 +710,21 @@ def _calc_untuned_pulse_shape(
     pulse_phase: float,
     pulse_amplitude: float,
     delay_seconds: float,
+    *,
+    psi: float | None = None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     T_90 = float(_field(pp, "T_90"))
     delay_normalized = (np.pi / 2) * delay_seconds / T_90
+    carrier_phase = float(_field(pp, "psi")) if psi is None else float(psi)
     pp_fields = pp.__dict__ if hasattr(pp, "__dict__") else dict(pp)
     pp_curr = {
         **pp_fields,
         "tref": np.array([pulse_duration_seconds, delay_seconds], dtype=np.float64),
-        "pref": np.array([pulse_phase, 0.0], dtype=np.float64),
+        "pref": np.array([pulse_phase + carrier_phase, 0.0], dtype=np.float64),
         "aref": np.array([pulse_amplitude, 0.0], dtype=np.float64),
     }
     tvect, icr, _tvect_raw, _ic = untuned_probe_lp(sp, pp_curr)
+    icr = icr * np.exp(-1j * carrier_phase)
 
     delt = (np.pi / 2) * (tvect[1] - tvect[0]) / T_90
     tp = delt * np.ones(tvect.size, dtype=np.float64)
@@ -539,6 +749,8 @@ def _calc_matched_pulse_shape(
     pulse_phase: float,
     pulse_amplitude: float,
     delay_seconds: float,
+    *,
+    psi: float | None = None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     T_90 = float(_field(pp, "T_90"))
     delay_normalized = (np.pi / 2) * delay_seconds / T_90
@@ -548,6 +760,7 @@ def _calc_matched_pulse_shape(
         "tp": np.array([pulse_duration_seconds, delay_seconds], dtype=np.float64),
         "phi": np.array([pulse_phase, 0.0], dtype=np.float64),
         "amp": np.array([pulse_amplitude, 0.0], dtype=np.float64),
+        "psi": float(_field(pp, "psi")) if psi is None else float(psi),
     }
     tvect, icr, tf1, tf2 = find_coil_current(sp, pp_curr)
 
@@ -582,6 +795,7 @@ def run_tuned_cpmg_train(
     rephase_action: str = "warn",
     noise: NoiseSpec | Mapping[str, Any] | float | int | None = None,
     radiation_damping: RadiationDampingSpec | Mapping[str, Any] | None = None,
+    absolute_phase: AbsolutePhaseSpec | Mapping[str, Any] | None = None,
 ) -> CPMGTrainResult:
     """Run a finite tuned-probe CPMG echo train with relaxation.
 
@@ -650,7 +864,26 @@ def run_tuned_cpmg_train(
         "plt_echo": 0,
     }
 
-    exc_y = _calc_tuned_pulse_shape(sp, pp0, pp0.T_90, np.pi / 2, 1.0, 2 * pp0.T_90)
+    ap_spec, ap_schedule = _cpmg_absolute_phase_plan(
+        absolute_phase,
+        pp0,
+        num_echoes=int(num_echoes),
+    )
+    excitation_psi = None
+    if ap_schedule is not None:
+        excitation_psi = (
+            ap_schedule.excitation_absolute_phase_rad
+            - ap_schedule.excitation_rotating_phase_rad
+        )
+    exc_y = _calc_tuned_pulse_shape(
+        sp,
+        pp0,
+        pp0.T_90,
+        np.pi / 2,
+        1.0,
+        2 * pp0.T_90,
+        psi=None if excitation_psi is None else float(excitation_psi[0]),
+    )
     exc_minus_y = _calc_tuned_pulse_shape(
         sp,
         pp0,
@@ -658,14 +891,33 @@ def run_tuned_cpmg_train(
         3 * np.pi / 2,
         1.0,
         2 * pp0.T_90,
+        psi=None if excitation_psi is None else float(excitation_psi[1]),
     )
     ref_x = _calc_tuned_pulse_shape(sp, pp0, pp0.T_180, 0.0, 1.0, 2 * pp0.T_90)
 
-    rtot = [
-        calc_rotation_matrix(del_w, sp["w_1"], *exc_y),
-        calc_rotation_matrix(del_w, sp["w_1"], *exc_minus_y),
-        calc_rotation_matrix(del_w, sp["w_1"], *ref_x),
-    ]
+    rtot, pref, _pref2, ap_metadata = _build_absolute_phase_rtot_and_pul(
+        del_w=del_w,
+        w_1=sp["w_1"],
+        spec=ap_spec,
+        pp=pp0,
+        schedule=ap_schedule,
+        num_echoes=int(num_echoes),
+        exc_y=_as_pulse_shape(exc_y),
+        exc_minus_y=_as_pulse_shape(exc_minus_y),
+        ref_shape_factory=lambda carrier_phase: _as_pulse_shape(
+            ref_x
+            if ap_schedule is None
+            else _calc_tuned_pulse_shape(
+                sp,
+                pp0,
+                pp0.T_180,
+                0.0,
+                1.0,
+                2 * pp0.T_90,
+                psi=carrier_phase,
+            )
+        ),
+    )
 
     texc = np.array([np.pi / 2, (np.pi / 2) * pp0.tcorr / pp0.T_90], dtype=np.float64)
     aexc = np.array([1.0, 0.0], dtype=np.float64)
@@ -675,7 +927,6 @@ def run_tuned_cpmg_train(
     grad_exc = np.array([0.0, 0.0], dtype=np.float64)
 
     tref = np.tile(np.array([tfp, np.pi, tfp], dtype=np.float64), int(num_echoes))
-    pref = np.tile(np.array([0, 3, 0], dtype=np.int64), int(num_echoes))
     aref = np.tile(np.array([0.0, 1.0, 0.0], dtype=np.float64), int(num_echoes))
     acq_ref = np.tile(np.array([0, 0, 1], dtype=np.int64), int(num_echoes))
     grad_ref = np.zeros(3 * int(num_echoes), dtype=np.float64)
@@ -753,6 +1004,7 @@ def run_tuned_cpmg_train(
         echo_integrals_noisy=echo_integrals_noisy,
         noise=noise_metadata,
         radiation_damping=rd_spec,
+        absolute_phase=ap_metadata,
     )
 
 
@@ -770,6 +1022,7 @@ def run_untuned_cpmg_train(
     rephase_safety_factor: float = 1.25,
     rephase_action: str = "warn",
     noise: NoiseSpec | Mapping[str, Any] | float | int | None = None,
+    absolute_phase: AbsolutePhaseSpec | Mapping[str, Any] | None = None,
 ) -> CPMGTrainResult:
     """Run a finite untuned-probe CPMG echo train with relaxation."""
 
@@ -834,7 +1087,26 @@ def run_untuned_cpmg_train(
         "plt_echo": 0,
     }
 
-    exc_y = _calc_untuned_pulse_shape(sp, pp0, pp0.T_90, np.pi / 2, 1.0, pp0.trd)
+    ap_spec, ap_schedule = _cpmg_absolute_phase_plan(
+        absolute_phase,
+        pp0,
+        num_echoes=int(num_echoes),
+    )
+    excitation_psi = None
+    if ap_schedule is not None:
+        excitation_psi = (
+            ap_schedule.excitation_absolute_phase_rad
+            - ap_schedule.excitation_rotating_phase_rad
+        )
+    exc_y = _calc_untuned_pulse_shape(
+        sp,
+        pp0,
+        pp0.T_90,
+        np.pi / 2,
+        1.0,
+        pp0.trd,
+        psi=None if excitation_psi is None else float(excitation_psi[0]),
+    )
     exc_minus_y = _calc_untuned_pulse_shape(
         sp,
         pp0,
@@ -842,14 +1114,33 @@ def run_untuned_cpmg_train(
         3 * np.pi / 2,
         1.0,
         pp0.trd,
+        psi=None if excitation_psi is None else float(excitation_psi[1]),
     )
     ref_x = _calc_untuned_pulse_shape(sp, pp0, pp0.T_180, 0.0, 1.0, pp0.trd)
 
-    rtot = [
-        calc_rotation_matrix(del_w, sp["w_1"], *exc_y),
-        calc_rotation_matrix(del_w, sp["w_1"], *exc_minus_y),
-        calc_rotation_matrix(del_w, sp["w_1"], *ref_x),
-    ]
+    rtot, pref, _pref2, ap_metadata = _build_absolute_phase_rtot_and_pul(
+        del_w=del_w,
+        w_1=sp["w_1"],
+        spec=ap_spec,
+        pp=pp0,
+        schedule=ap_schedule,
+        num_echoes=int(num_echoes),
+        exc_y=_as_pulse_shape(exc_y),
+        exc_minus_y=_as_pulse_shape(exc_minus_y),
+        ref_shape_factory=lambda carrier_phase: _as_pulse_shape(
+            ref_x
+            if ap_schedule is None
+            else _calc_untuned_pulse_shape(
+                sp,
+                pp0,
+                pp0.T_180,
+                0.0,
+                1.0,
+                pp0.trd,
+                psi=carrier_phase,
+            )
+        ),
+    )
 
     texc = np.array([np.pi / 2, (np.pi / 2) * pp0.tcorr / pp0.T_90], dtype=np.float64)
     aexc = np.array([1.0, 0.0], dtype=np.float64)
@@ -859,7 +1150,6 @@ def run_untuned_cpmg_train(
     grad_exc = np.array([0.0, 0.0], dtype=np.float64)
 
     tref = np.tile(np.array([tfp, np.pi, tfp], dtype=np.float64), int(num_echoes))
-    pref = np.tile(np.array([0, 3, 0], dtype=np.int64), int(num_echoes))
     aref = np.tile(np.array([0.0, 1.0, 0.0], dtype=np.float64), int(num_echoes))
     acq_ref = np.tile(np.array([0, 0, 1], dtype=np.int64), int(num_echoes))
     grad_ref = np.zeros(3 * int(num_echoes), dtype=np.float64)
@@ -920,6 +1210,7 @@ def run_untuned_cpmg_train(
         echo_noisy=echo_noisy,
         echo_integrals_noisy=echo_integrals_noisy,
         noise=noise_metadata,
+        absolute_phase=ap_metadata,
     )
 
 
@@ -938,6 +1229,7 @@ def run_matched_cpmg_train(
     rephase_action: str = "warn",
     noise: NoiseSpec | Mapping[str, Any] | float | int | None = None,
     radiation_damping: RadiationDampingSpec | Mapping[str, Any] | None = None,
+    absolute_phase: AbsolutePhaseSpec | Mapping[str, Any] | None = None,
 ) -> CPMGTrainResult:
     """Run a finite matched-probe CPMG echo train with relaxation."""
 
@@ -1001,6 +1293,17 @@ def run_matched_cpmg_train(
         "plt_echo": 0,
     }
 
+    ap_spec, ap_schedule = _cpmg_absolute_phase_plan(
+        absolute_phase,
+        pp0,
+        num_echoes=int(num_echoes),
+    )
+    excitation_psi = None
+    if ap_schedule is not None:
+        excitation_psi = (
+            ap_schedule.excitation_absolute_phase_rad
+            - ap_schedule.excitation_rotating_phase_rad
+        )
     exc_y_tp, exc_y_phi, exc_y_amp, tf1, tf2 = _calc_matched_pulse_shape(
         sp,
         pp0,
@@ -1008,6 +1311,7 @@ def run_matched_cpmg_train(
         np.pi / 2,
         1.0,
         pp0.trd,
+        psi=None if excitation_psi is None else float(excitation_psi[0]),
     )
     exc_minus_y = _calc_matched_pulse_shape(
         sp,
@@ -1016,14 +1320,32 @@ def run_matched_cpmg_train(
         3 * np.pi / 2,
         1.0,
         pp0.trd,
+        psi=None if excitation_psi is None else float(excitation_psi[1]),
     )[:3]
     ref_x = _calc_matched_pulse_shape(sp, pp0, pp0.T_180, 0.0, 1.0, pp0.trd)[:3]
-
-    rtot = [
-        calc_rotation_matrix(del_w, sp["w_1"], exc_y_tp, exc_y_phi, exc_y_amp),
-        calc_rotation_matrix(del_w, sp["w_1"], *exc_minus_y),
-        calc_rotation_matrix(del_w, sp["w_1"], *ref_x),
-    ]
+    rtot, pref, _pref2, ap_metadata = _build_absolute_phase_rtot_and_pul(
+        del_w=del_w,
+        w_1=sp["w_1"],
+        spec=ap_spec,
+        pp=pp0,
+        schedule=ap_schedule,
+        num_echoes=int(num_echoes),
+        exc_y=_pulse_shape(exc_y_tp, exc_y_phi, exc_y_amp),
+        exc_minus_y=_as_pulse_shape(exc_minus_y),
+        ref_shape_factory=lambda carrier_phase: _as_pulse_shape(
+            ref_x
+            if ap_schedule is None
+            else _calc_matched_pulse_shape(
+                sp,
+                pp0,
+                pp0.T_180,
+                0.0,
+                1.0,
+                pp0.trd,
+                psi=carrier_phase,
+            )[:3]
+        ),
+    )
 
     texc = np.array([np.pi / 2, (np.pi / 2) * pp0.tcorr / pp0.T_90], dtype=np.float64)
     aexc = np.array([1.0, 0.0], dtype=np.float64)
@@ -1033,7 +1355,6 @@ def run_matched_cpmg_train(
     grad_exc = np.array([0.0, 0.0], dtype=np.float64)
 
     tref = np.tile(np.array([tfp, np.pi, tfp], dtype=np.float64), int(num_echoes))
-    pref = np.tile(np.array([0, 3, 0], dtype=np.int64), int(num_echoes))
     aref = np.tile(np.array([0.0, 1.0, 0.0], dtype=np.float64), int(num_echoes))
     acq_ref = np.tile(np.array([0, 0, 1], dtype=np.int64), int(num_echoes))
     grad_ref = np.zeros(3 * int(num_echoes), dtype=np.float64)
@@ -1112,6 +1433,7 @@ def run_matched_cpmg_train(
         echo_integrals_noisy=echo_integrals_noisy,
         noise=noise_metadata,
         radiation_damping=rd_spec,
+        absolute_phase=ap_metadata,
     )
 
 

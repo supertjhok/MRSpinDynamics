@@ -54,6 +54,107 @@ angular offset grid may rephase before the train finishes. Set
 and set `num_workers=None` to use the available CPU count for chunked
 isochromat propagation.
 
+Finite CPMG train runners also accept an opt-in `absolute_phase` mapping from
+`spin_dynamics.absolute_phase`. With only `rf_frequency_hz`, the ideal workflow
+tracks the laboratory-frame RF phase at the excitation and refocusing pulses
+while preserving the validated default pulse shapes. Tuned, untuned, and
+matched probe train workflows use that phase to solve the probe waveform for
+each finite-train pulse and build per-pulse rotation matrices from the
+discretized rotating-frame shape:
+
+```python
+train = run_tuned_cpmg_train(
+    numpts=21,
+    num_echoes=32,
+    absolute_phase={
+        "rf_frequency_hz": 0.25 / 200e-6,
+    },
+)
+
+phase_step = train.absolute_phase.delta_refocus_phase_cycles
+```
+
+For ideal trains and for custom reduced models, add a `transient_model` mapping
+to perturb pulse phase or amplitude as a function of absolute RF phase:
+
+```python
+train = run_ideal_cpmg_train(
+    numpts=51,
+    num_echoes=128,
+    absolute_phase={
+        "rf_frequency_hz": 0.125 / 200e-6,
+        "transient_model": {
+            "kind": "longitudinal_phase_kick",
+            "phase_amplitude_rad": 0.043,
+        },
+    },
+)
+```
+
+The simple transient models are phenomenological. They are intended for
+synchronization sweeps and for plumbing sequence timing through the simulator;
+measured or circuit-derived pulse-shape libraries can use the same
+`absolute_phase` submodule.
+For measured or precomputed pulse shapes, pass `kind="library"` with
+`absolute_phase_rad` samples and one or more pulse-kind entries. Interpolation
+is performed on the complex RF drive, so wrapped phases remain continuous:
+
+```python
+import numpy as np
+
+train = run_ideal_cpmg_train(
+    num_echoes=8,
+    absolute_phase={
+        "rf_frequency_hz": 0.25 / 200e-6,
+        "transient_model": {
+            "kind": "library",
+            "absolute_phase_rad": [0.0, np.pi / 2, np.pi, 3 * np.pi / 2],
+            "shapes": {
+                "refocusing": {
+                    "duration": [np.pi],
+                    "phase": [[0.0], [0.15], [0.0], [-0.15]],
+                    "amplitude": [[1.0], [0.8], [1.0], [1.2]],
+                }
+            },
+        },
+    },
+)
+```
+
+The same library interface can be generated from low-order circuit models:
+
+```python
+import numpy as np
+
+from spin_dynamics.absolute_phase import (
+    AbsolutePhaseSpec,
+    InterpolatedPulseShapeModel,
+    build_nonresonant_circuit_pulse_library,
+)
+
+rf_frequency_hz = 0.25 / 200e-6
+library = build_nonresonant_circuit_pulse_library(
+    absolute_phase_rad=np.linspace(0.0, 2 * np.pi, 16, endpoint=False),
+    rf_frequency_hz=rf_frequency_hz,
+    pulse_duration_seconds=50e-6,
+    time_scale_rad_per_s=(np.pi / 2) / 25e-6,
+    tau_seconds=12e-6,
+)
+
+train = run_ideal_cpmg_train(
+    num_echoes=8,
+    absolute_phase=AbsolutePhaseSpec(
+        rf_frequency_hz=rf_frequency_hz,
+        transient_model=InterpolatedPulseShapeModel(library),
+    ),
+)
+```
+
+`build_tuned_resonator_pulse_library` provides a second-order tuned-resonator
+analogue for reduced ideal-workflow studies. Prefer the finite tuned, untuned,
+or matched probe workflows when the goal is to reproduce absolute-phase
+transients from solved probe waveforms.
+
 ## Radiation Damping
 
 Radiation damping is available as an opt-in nonlinear probe back-action model.

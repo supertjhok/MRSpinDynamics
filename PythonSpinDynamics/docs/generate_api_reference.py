@@ -14,6 +14,7 @@ OUTPUT = ROOT / "docs" / "python_api" / "api_reference.md"
 MODULES = [
     "analysis.ilt",
     "analysis.regularization",
+    "absolute_phase",
     "coupling.evolution",
     "coupling.hamiltonians",
     "coupling.isochromats",

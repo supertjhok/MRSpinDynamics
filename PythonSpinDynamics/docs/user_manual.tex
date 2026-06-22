@@ -1628,6 +1628,51 @@ ideal = run_ideal_wurst_inversion(numpts=101)
 matched = run_matched_wurst_cpmg(num_echoes=2, numpts=51, num_steps=64)
 \end{lstlisting}
 
+\section{Absolute RF Phase}
+
+Finite CPMG train workflows accept an optional \code{absolute\_phase}
+mapping.  The ideal workflow records the laboratory-frame phase schedule while
+preserving its nominal rectangular pulses.  Probe-aware finite trains use the
+same schedule to solve the tuned, un-tuned, or matched probe waveform for each
+pulse, discretize the rotating-frame waveform into short segments, and build a
+separate refocusing matrix for each echo:
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.workflows import run_tuned_cpmg_train
+
+train = run_tuned_cpmg_train(
+    numpts=21,
+    num_echoes=32,
+    absolute_phase={
+        "rf_frequency_hz": 0.25 / 200e-6,
+        "rf_phase_at_zero_rad": 0.0,
+    },
+)
+
+phase_step = train.absolute_phase.delta_refocus_phase_cycles
+\end{lstlisting}
+
+When sweeping the phase advance between refocusing pulses, keep the absolute
+phase of the first refocusing pulse fixed if the goal is to isolate
+echo-to-echo variation.  A half-cycle phase advance produces the same
+transverse rotating-frame pulse shape for a linear tuned probe, while
+intermediate advances change the rise/fall and quadrature transients and can
+produce extra attenuation in the matched-filter echo amplitude.
+
+The Mandal-2015 plotting examples expose the diagnostic workflow directly:
+
+\begin{lstlisting}[language=bash]
+python examples\plot_mandal2015_phase_step_sweep.py --probe tuned
+python examples\plot_mandal2015_echo_modulation.py --probe tuned
+python examples\plot_mandal2015_pulse_shapes.py --probe tuned
+\end{lstlisting}
+
+\code{plot\_mandal2015\_pulse\_shapes.py} solves a single refocusing pulse at
+several absolute RF phases and plots \(\mathrm{Re}(B_1)\),
+\(\mathrm{Im}(B_1)\), \(|B_1|\), and the phase of the nonzero-amplitude
+segments.  It is intended as a debugging and teaching aid: the finite train
+examples use the same pulse-shape solvers and the same discretized segments.
+
 \section{Radiation Damping}
 
 \begin{lstlisting}[language=Python]
@@ -1761,6 +1806,9 @@ python examples\plot_motion_diffusion_cpmg.py --output results\motion_diffusion_
 python examples\plot_radiation_damping.py --output results\radiation_damping.png
 python examples\plot_radiation_damping_detuning.py --output results\rd_detuning.png
 python examples\plot_radiation_damping_cpmg_train.py --output results\rd_cpmg.png
+python examples\plot_mandal2015_phase_step_sweep.py --probe tuned --output results\mandal_phase_sweep.png
+python examples\plot_mandal2015_echo_modulation.py --probe tuned --output results\mandal_echo_modulation.png
+python examples\plot_mandal2015_pulse_shapes.py --probe tuned --output results\mandal_pulse_shapes.png
 python examples\plot_nmr_maser.py --output results\nmr_maser.png
 python examples\plot_wurst_flow.py --numpts 41 --num-steps 64 --output results\wurst_flow.png
 python examples\plot_j_editing_spectrum.py --output results\j_editing_spectrum.png

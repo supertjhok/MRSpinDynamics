@@ -122,6 +122,21 @@ python examples\matched_cpmg_ir_train.py --numpts 21 --num-echoes 4 --num-tau 4
 python examples\finite_probe_train_sweeps.py --numpts 21 --num-echoes 3
 ```
 
+## Absolute-Phase CPMG Examples
+
+These plotting examples reproduce the pulse-shape simulation strategy from
+Mandal 2015 in compact form. They use the finite CPMG `absolute_phase` workflow
+to solve the tuned, untuned, or matched probe waveform for each refocusing
+pulse's absolute RF phase, discretize the rotating-frame shape into small pulse
+segments, and compare the matched-filter echo amplitude with a synchronized
+reference.
+
+```powershell
+python examples\plot_mandal2015_phase_step_sweep.py --output results\mandal2015_phase_step_sweep.png
+python examples\plot_mandal2015_echo_modulation.py --output results\mandal2015_echo_modulation.png
+python examples\plot_mandal2015_pulse_shapes.py --output results\mandal2015_pulse_shapes.png
+```
+
 ## Matched Diffusion CPMG
 
 ```powershell

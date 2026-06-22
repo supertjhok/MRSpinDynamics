@@ -6,10 +6,19 @@ import unittest
 import uuid
 from pathlib import Path
 
+import numpy as np
+
 
 ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES = ROOT / "examples"
 LOCAL_TMP = ROOT / ".tmp"
+if str(EXAMPLES) not in sys.path:
+    sys.path.insert(0, str(EXAMPLES))
+
+from _mandal2015_absolute_phase import (  # noqa: E402
+    matched_filter_ratio,
+    run_phase_resolved_probe_case,
+)
 
 
 def run_example(*args: str, cwd: Path = ROOT) -> subprocess.CompletedProcess[str]:
@@ -23,6 +32,32 @@ def run_example(*args: str, cwd: Path = ROOT) -> subprocess.CompletedProcess[str
 
 
 class ExampleSmokeTests(unittest.TestCase):
+    def test_mandal2015_helper_modulates_echo_energy(self) -> None:
+        baseline = run_phase_resolved_probe_case(
+            probe="tuned",
+            numpts=9,
+            num_echoes=24,
+            phase_step_cycles=0.0,
+        )
+        pi_periodic = run_phase_resolved_probe_case(
+            probe="tuned",
+            numpts=9,
+            num_echoes=24,
+            phase_step_cycles=0.5,
+        )
+        modulated = run_phase_resolved_probe_case(
+            probe="tuned",
+            numpts=9,
+            num_echoes=24,
+            phase_step_cycles=0.25,
+        )
+
+        static_ratio = np.abs(matched_filter_ratio(pi_periodic, baseline))
+        modulated_ratio = np.abs(matched_filter_ratio(modulated, baseline))
+
+        np.testing.assert_allclose(static_ratio, 1.0, atol=5e-3, rtol=5e-3)
+        self.assertGreater(float(np.max(np.abs(modulated_ratio - 1.0))), 0.02)
+
     def test_non_plot_examples_run(self) -> None:
         commands = [
             ("examples/ideal_cpmg.py", "--numpts", "21"),
@@ -97,6 +132,9 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_radiation_damping.py",
             "examples/plot_radiation_damping_detuning.py",
             "examples/plot_radiation_damping_cpmg_train.py",
+            "examples/plot_mandal2015_phase_step_sweep.py",
+            "examples/plot_mandal2015_echo_modulation.py",
+            "examples/plot_mandal2015_pulse_shapes.py",
             "examples/plot_nmr_maser.py",
             "examples/plot_j_editing_spectrum.py",
             "examples/plot_j_editing_field_spread.py",
@@ -157,6 +195,12 @@ class ExampleSmokeTests(unittest.TestCase):
         self.assertIn("--max-detuning", result.stdout)
         result = run_example("examples/plot_radiation_damping_cpmg_train.py", "--help")
         self.assertIn("--apply-during-pulses", result.stdout)
+        result = run_example("examples/plot_mandal2015_phase_step_sweep.py", "--help")
+        self.assertIn("--probe", result.stdout)
+        result = run_example("examples/plot_mandal2015_echo_modulation.py", "--help")
+        self.assertIn("--phase-steps", result.stdout)
+        result = run_example("examples/plot_mandal2015_pulse_shapes.py", "--help")
+        self.assertIn("--absolute-phases", result.stdout)
         result = run_example("examples/plot_nmr_maser.py", "--help")
         self.assertIn("--t2-trd", result.stdout)
         self.assertIn("--pump-multipliers", result.stdout)

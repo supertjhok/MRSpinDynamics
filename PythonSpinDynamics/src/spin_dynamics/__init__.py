@@ -1,6 +1,7 @@
 """Python port of the MATLABSpinDynamics simulation package."""
 
 __all__ = [
+    "absolute_phase",
     "analysis",
     "coupling",
     "core",
