@@ -15,7 +15,6 @@ from spin_dynamics.esr import (  # noqa: E402
     ESRSpinSystem,
     effective_g_value,
     resonance_field_tesla,
-    resonance_frequency_hz,
     simulate_field_sweep,
     single_crystal_orientation,
 )
