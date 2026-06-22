@@ -1,4 +1,11 @@
-"""Validate matched diffusion CPMG behavior across coil Q values."""
+"""Solver-stability sweep for matched diffusion CPMG across coil Q values.
+
+This benchmark probes the *numerical* stability of the matched-probe transient
+solver as coil Q grows; it records whether the outputs stay finite, not whether
+the diffusion attenuation is physically accurate. Physical correctness of the
+constant-gradient CPMG diffusion law is covered by the analytic regression
+tests in ``tests/test_diffusion_physics.py``.
+"""
 
 from __future__ import annotations
 

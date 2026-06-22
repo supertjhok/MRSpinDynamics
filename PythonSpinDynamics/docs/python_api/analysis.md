@@ -11,13 +11,25 @@ Tikhonov-regularized solves for common NMR kernels:
 
 - T2 decay: `exp(-te / T2)`;
 - T1 saturation recovery: `1 - exp(-tau / T1)`;
-- T1 inversion recovery: `1 - 2 exp(-tau / T1)`;
+- T1 inversion recovery: `1 - 2 exp(-tau / T1)` (signed);
 - diffusion attenuation: `exp(-b D)`;
 - T1-T2 and D-T2 separable products.
 
-Inputs should be phase-corrected real arrays or magnitudes. The distribution
-axes are user supplied, so choose log-spaced T1/T2 grids for broad relaxation
-spectra and a physically plausible linear or log diffusion grid for D-T2 work.
+The T2, saturation-recovery, and diffusion kernels are non-negative, so
+magnitude or phase-corrected real data are both fine. The **inversion-recovery**
+kernel is signed (negative for `tau < T1 ln 2`), so it requires *signed*,
+phase-corrected real data: magnitude data folds the negative lobe upward and
+cannot be fit by the signed kernel. `invert_laplace_1d`/`invert_laplace_2d`
+emit a warning if they detect an entirely non-negative signal paired with a
+signed kernel.
+
+The distribution axes are user supplied, so choose log-spaced T1/T2 grids for
+broad relaxation spectra and a physically plausible linear or log diffusion grid
+for D-T2 work. The recovered `distribution` holds the *per-grid-point amplitude*
+`x` in `signal = K @ x`, not a probability density: on a uniform log grid the
+summed amplitude of a peak approximates that component's signal fraction, but
+the amplitudes are unnormalized and are not divided by bin width. Divide by the
+log-spacing if a true density `f(log T2)` is required.
 
 ```python
 import numpy as np
@@ -63,7 +75,10 @@ discrepancy principle. It estimates the expected noise RMS from the observed
 data and an RMS SNR value, scans a logarithmic strength grid, and chooses the
 strongest regularization whose residual norm remains within the expected noise
 norm. If every candidate exceeds the target residual, it chooses the closest
-candidate and returns the full candidate trace for inspection.
+candidate and returns the full candidate trace for inspection. This is a
+discrepancy-principle selector and therefore needs a known or estimated SNR; it
+is **not** the Butler-Reeds-Dawson (BRD) auto-`alpha`, an L-curve, or a GCV
+selector.
 
 The SNR convention is `clean_signal_rms / noise_rms`. For measured data the
 clean RMS is usually unavailable, so the helper estimates the noise RMS from
@@ -116,5 +131,7 @@ Non-negative solves use SciPy's `nnls`, so install the optional optimization
 extra or include SciPy in your Conda environment. Unconstrained least-squares
 solves can be run with `nonnegative=False` using only NumPy.
 
-The kernels are real-valued distribution models. Pass magnitudes or
-phase-corrected real signals for complex acquisitions.
+The kernels are real-valued distribution models. Pass phase-corrected real
+signals for complex acquisitions; magnitudes are acceptable only for the
+non-negative kernels (T2, saturation recovery, diffusion), never for the signed
+inversion-recovery kernel.

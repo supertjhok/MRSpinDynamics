@@ -349,6 +349,17 @@ be treated as a validation target because the current NumPy matched-probe
 transient solver can become stiff; the compact matched-diffusion workflow is
 currently solver-validated through Q=2000.
 
+**Diffusion model and assumptions.** The diffusion term models *free*
+(unrestricted) diffusion in a *constant* background gradient. Each
+free-precession interval attenuates the transverse coherence by
+`exp(-(1/3) gamma**2 G**2 D t**3)` on that interval's own physical duration
+`t`; over a CPMG train this reproduces the textbook Carr-Purcell law
+`exp(-(1/12) gamma**2 G**2 D t_E**3 N)`. It is **not** a narrow-pulse PGSE
+model: despite the name, `diffusion_time` is the encoding-block duration that
+sets the gradient/refocusing geometry, not a Stejskal-Tanner `Delta`. The
+analytic correctness of this law is covered by
+`tests/test_diffusion_physics.py`.
+
 Because the diffusion workflow also uses a uniform fixed offset grid, it
 accepts `rephase_action`, `rephase_safety_factor`, and `auto_refine_grid`.
 The Q sweep forwards those options to each matched-diffusion CPMG run.

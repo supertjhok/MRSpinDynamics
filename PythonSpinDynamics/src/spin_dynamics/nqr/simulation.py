@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import warnings
 
 import numpy as np
 
@@ -210,6 +211,15 @@ def simulate_slse(
     t2e_seconds = float(t2e_seconds)
     if t2e_seconds <= 0:
         raise ValueError("t2e_seconds must be positive")
+    if relaxation is not None and np.isfinite(t2e_seconds):
+        warnings.warn(
+            "both a finite t2e_seconds envelope and a Liouville-space "
+            "relaxation model were given; their T2 damping composes "
+            "multiplicatively. Pass t2e_seconds=inf (the default) when using a "
+            "relaxation model so coherence decay is not double-counted.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
     local: list[np.ndarray] = []
     local_t2eff: list[float] = []
     local_eigenvalues: list[np.ndarray] = []

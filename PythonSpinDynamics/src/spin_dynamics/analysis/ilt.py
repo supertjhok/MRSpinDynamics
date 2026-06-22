@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Literal
+import warnings
 
 import numpy as np
 
@@ -79,6 +80,12 @@ def t1_kernel(
     Saturation recovery uses ``1 - exp(-tau / T1)`` and is non-negative.
     Inversion recovery uses ``1 - 2 exp(-tau / T1)``, matching the ideal
     inversion-preparation contrast used by the imaging workflow.
+
+    The inversion-recovery kernel is *signed* (negative for ``tau < T1 ln 2``),
+    so it must be fit against signed, phase-corrected real data. Magnitude data
+    folds that negative lobe upward and is incompatible with this kernel; pass
+    it through ``saturation`` mode or phase-correct first. ``invert_laplace_1d``
+    and ``invert_laplace_2d`` emit a warning if they detect magnitude-like input.
     """
 
     times = _positive_vector(recovery_times, "recovery_times", allow_zero=True)
@@ -120,6 +127,37 @@ def laplace_kernel(
     )
 
 
+def _warn_if_magnitude_like_signal(
+    kernel_matrix: np.ndarray, signal: np.ndarray, nonnegative: bool
+) -> None:
+    """Warn when a signed kernel is paired with an all-non-negative signal.
+
+    Inversion-recovery kernels are negative at short recovery times, so valid
+    signed data must contain negative samples there. An entirely non-negative
+    signal is the signature of magnitude data, which folds the negative lobe
+    upward and biases the fit. This is a heuristic warning, not an error: it
+    can also fire if the shortest recovery time already exceeds the inversion
+    null, in which case it is safe to ignore.
+    """
+
+    if not nonnegative:
+        return
+    real = np.real(np.asarray(signal, dtype=np.float64))
+    if real.size == 0:
+        return
+    scale = float(np.max(np.abs(real))) or 1.0
+    tol = 1e-12 * scale
+    if np.nanmin(kernel_matrix) < -tol and np.all(real >= -tol):
+        warnings.warn(
+            "a signed (inversion-recovery) kernel was paired with an entirely "
+            "non-negative signal, which looks like magnitude data. The signed "
+            "kernel cannot fit magnitudes correctly; provide signed, "
+            "phase-corrected real data or use saturation-recovery mode.",
+            RuntimeWarning,
+            stacklevel=3,
+        )
+
+
 def invert_laplace_1d(
     signal: np.ndarray,
     sample_axis: np.ndarray,
@@ -150,6 +188,7 @@ def invert_laplace_1d(
             "kernel matrix must have shape "
             f"({samples.size}, {axis.size}); got {kernel_matrix.shape}"
         )
+    _warn_if_magnitude_like_signal(kernel_matrix, y, nonnegative)
 
     distribution = _solve_tikhonov(
         kernel_matrix,
@@ -217,6 +256,8 @@ def invert_laplace_2d(
         raise ValueError(f"kernel1 has unexpected shape {k1.shape}")
     if k2.shape != (x2.size, axis2.size):
         raise ValueError(f"kernel2 has unexpected shape {k2.shape}")
+    _warn_if_magnitude_like_signal(k1, matrix, nonnegative)
+    _warn_if_magnitude_like_signal(k2, matrix, nonnegative)
 
     design = np.kron(k2, k1)
     distribution_flat = _solve_tikhonov(
@@ -265,7 +306,13 @@ def invert_t1(
     mode: Literal["saturation", "inversion"] = "saturation",
     **kwargs,
 ) -> ILTResult1D:
-    """Convenience wrapper for a 1D T1 recovery or inversion-recovery ILT."""
+    """Convenience wrapper for a 1D T1 recovery or inversion-recovery ILT.
+
+    With ``mode="inversion"`` the kernel is signed (``1 - 2 exp(-tau / T1)``)
+    and requires signed, phase-corrected real ``signal`` data; magnitude data
+    is incompatible and triggers a warning. Use ``mode="saturation"`` for
+    magnitude or saturation-recovery data.
+    """
 
     kernel = "t1_ir" if mode == "inversion" else "t1"
     return invert_laplace_1d(signal, recovery_times, t1_axis, kernel=kernel, **kwargs)

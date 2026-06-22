@@ -42,8 +42,14 @@ def radiation_damping_time(
 ) -> float:
     """Return the radiation-damping time constant ``Trd`` in seconds.
 
-    ``equilibrium_magnetization`` is the thermal magnetization density in A/m,
-    and ``fill_factor`` is the coil magnetic-energy fill factor.
+    Uses the SI Bloch-Maxwell convention
+    ``1 / Trd = (1/2) * mu0 * gamma * M0 * Q * eta``, i.e.
+    ``Trd = 2 / (gamma * mu0 * eta * M0 * Q)``, where ``eta`` (``fill_factor``)
+    is the coil *magnetic-energy* filling factor and ``M0``
+    (``equilibrium_magnetization``) is the thermal magnetization density in A/m.
+    Other references fold a factor of 2 or 2*pi into the definition of ``eta``;
+    this function assumes the bare magnetic-energy filling factor with the
+    explicit 1/2 shown above.
     """
 
     gamma = float(gamma)
@@ -199,7 +205,14 @@ class RadiationDampingProbe:
 
     @property
     def krd(self) -> float:
-        """Relative radiation-damping field strength in T per A/m."""
+        """Radiation-damping feedback-field coefficient in T per (A/m).
+
+        The dimensional feedback field is ``B_rd = krd * M_xy`` with
+        ``krd = mu0 * eta * Q / 2`` (units T*m/A). This is a convenience for
+        dimensional estimates; the simulator itself works in normalized units
+        and drives the feedback through ``1 / trd`` rather than this property,
+        so the two are consistent but ``krd`` is not used in the integrator.
+        """
 
         return MU0 * self.fill_factor * self.q / 2.0
 

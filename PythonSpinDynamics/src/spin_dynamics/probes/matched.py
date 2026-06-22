@@ -503,6 +503,12 @@ def matched_probe_rx(
     f = (2 * np.pi * f0 + del_w * w1_max) / (2 * np.pi)
 
     mrx = macq * tf2
+    # Coil thermal noise (open-circuit 4*k*T*Rc) referred through the loaded
+    # matched transfer tf1, plus the amplifier excess noise k*T*Rin*(F-1). The
+    # latter has no factor of 4 because it is on the matched available-power
+    # basis: tf1's matched load halves the EMF (1/2 voltage, 1/4 power), so the
+    # coil term also reduces to k*T*Rin at the input node. Both are consistent
+    # with the signal mrx, which is referred through the same network.
     vni2 = 4 * k * T * Rc * np.abs(tf1) ** 2
     Fn = 10 ** (float(_field(sp, "NF")) / 10)
     vn2 = k * T * float(_field(sp, "Rin")) * (Fn - 1) * np.ones(f.size)

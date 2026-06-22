@@ -40,12 +40,18 @@ class Arb10Parameters:
 
 @dataclass(frozen=True)
 class Arb10DiffusionParameters(Arb10Parameters):
-    """Parameters for `sim_spin_dynamics_arb10_diffusion`."""
+    """Parameters for `sim_spin_dynamics_arb10_diffusion`.
+
+    ``time_scale`` is the number of physical seconds per unit of normalized
+    pulse time (``2 * T_90 / pi``). It converts each normalized free-precession
+    interval ``tf`` to seconds so the constant-gradient diffusion attenuation
+    is evaluated on the interval's own duration.
+    """
 
     gamma: float
     gradient: float
     diffusion_coefficient: float
-    diffusion_time: float
+    time_scale: float = 1.0
 
 
 @dataclass(frozen=True)
@@ -113,15 +119,34 @@ def _free_precession_matrix_elements_diffusion(
     gamma: float,
     gradient: float,
     diffusion_coefficient: float,
-    diffusion_time: float,
+    time_scale: float,
 ) -> MatrixElements:
+    """Free-precession matrix with constant-gradient diffusion attenuation.
+
+    Each free-precession interval of physical duration ``t = |tf| * time_scale``
+    attenuates the transverse coherence by
+    ``exp(-(1/3) * gamma**2 * gradient**2 * D * t**3)``. This is the unrefocused
+    (FID) free-diffusion result in a constant gradient; diffusion is
+    irreversible, so the refocusing pulses between intervals do not recover it
+    and applying the factor independently per interval is exact for a constant
+    background gradient. A CPMG train of ``N`` echoes with echo spacing ``t_E``
+    (two intervals of ``t_E/2`` per echo) thus reproduces the textbook
+    ``exp(-(1/12) * gamma**2 * gradient**2 * D * t_E**3 * N)``.
+
+    ``tf`` is the normalized interval time and ``time_scale`` (``2 * T_90 / pi``)
+    converts it to seconds; ``gamma``, ``gradient``, and ``diffusion_coefficient``
+    are SI, so the exponent is dimensionless. The interval duration is taken in
+    magnitude so rewind/negative-time segments still attenuate rather than grow.
+    """
+
     mat = _free_precession_matrix_elements(del_w, tf, T1n, T2n)
+    t_seconds = abs(float(tf)) * float(time_scale)
     attenuation = np.exp(
-        -(1.0 / 12.0)
+        -(1.0 / 3.0)
         * float(gamma) ** 2
         * float(gradient) ** 2
         * float(diffusion_coefficient)
-        * float(diffusion_time) ** 3
+        * t_seconds ** 3
     )
     return MatrixElements(
         R_00=mat.R_00,
@@ -587,7 +612,7 @@ def sim_spin_dynamics_arb10_diffusion(
     gamma = float(_field(params, "gamma"))
     gradient = float(_field(params, "gradient"))
     diffusion_coefficient = float(_field(params, "diffusion_coefficient"))
-    diffusion_time = float(_field(params, "diffusion_time"))
+    time_scale = float(_field_or_default(params, "time_scale", 1.0))
 
     numpts = del_w0.size
     if not (tp.size == pul.size == amp.size == acq.size == grad.size):
@@ -621,7 +646,7 @@ def sim_spin_dynamics_arb10_diffusion(
                 gamma,
                 gradient,
                 diffusion_coefficient,
-                diffusion_time,
+                time_scale,
             )
             mlong = mth * (1 - np.exp(-tp_j / T1n))
 
@@ -682,7 +707,7 @@ def _slice_arb10_diffusion_params(
         gamma=float(_field(params, "gamma")),
         gradient=float(_field(params, "gradient")),
         diffusion_coefficient=float(_field(params, "diffusion_coefficient")),
-        diffusion_time=float(_field(params, "diffusion_time")),
+        time_scale=float(_field_or_default(params, "time_scale", 1.0)),
     )
 
 

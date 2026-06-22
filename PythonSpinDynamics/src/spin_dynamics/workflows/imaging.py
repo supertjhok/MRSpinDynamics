@@ -279,12 +279,25 @@ def _indexed_noise_spec(
 
 
 def reconstruct_image_from_kspace(kspace: np.ndarray, echo_index: int = 0) -> np.ndarray:
-    """Reconstruct an image from one echo of CPMG imaging k-space."""
+    """Reconstruct an image from one echo of CPMG imaging k-space.
+
+    The acquisition samples k-space centered, with k=0 at the middle index of
+    each phase-encode axis (``gradx``/``gradz`` run symmetrically from negative
+    to positive). A correct inverse DFT therefore needs ``ifftshift`` to move
+    k=0 to the array origin that ``ifft2`` expects, and ``fftshift`` afterward
+    to move the image origin back to the center:
+
+        image = fftshift(ifft2(ifftshift(kspace)))
+
+    The previous implementation shifted only the output, which left an
+    uncorrected ``(-1)**(m+n)`` phase/half-FOV offset in the reconstructed map.
+    """
 
     kspace = np.asarray(kspace, dtype=np.complex128)
     if kspace.ndim != 3:
         raise ValueError("kspace must have shape (px, pz, num_echoes)")
-    return np.fft.ifftshift(np.fft.ifft2(kspace[:, :, int(echo_index)]))
+    plane = kspace[:, :, int(echo_index)]
+    return np.fft.fftshift(np.fft.ifft2(np.fft.ifftshift(plane)))
 
 
 def fit_imaging_echo_decay(
@@ -968,6 +981,14 @@ def _ideal_phase_encoded_cpmg_imaging(
     pul3 = np.concatenate([prep_p, pexc1, penc2, pref2])
     pul4 = np.concatenate([prep_p, pexc2, penc2, pref2])
 
+    # Phase-encode gradient scaling. `wxmax` is the maximum normalized gradient
+    # offset so that stepping the encode index across `px` values sweeps one
+    # full k-space traversal matched to the field of view: the encode geometry
+    # ties resolution (px), FOV, and the normalized gradient time `tgradn`
+    # together via `wxmax ~ px**2 / (FOV * tgradn)`. The gradients run
+    # symmetrically from -wxmax to +wxmax, so k=0 is sampled at the center
+    # index -- this is the centered-k-space convention assumed by
+    # `reconstruct_image_from_kspace`.
     px, pz = rho_arr.shape
     wxmax = np.pi * px**2 / (2 * fov_arr[0] * tgradn)
     wzmax = np.pi * pz**2 / (2 * fov_arr[1] * tgradn)
@@ -1214,6 +1235,14 @@ def _probe_imaging(
     pul3 = np.concatenate([pexc1, penc2, pref2])
     pul4 = np.concatenate([pexc2, penc2, pref2])
 
+    # Phase-encode gradient scaling. `wxmax` is the maximum normalized gradient
+    # offset so that stepping the encode index across `px` values sweeps one
+    # full k-space traversal matched to the field of view: the encode geometry
+    # ties resolution (px), FOV, and the normalized gradient time `tgradn`
+    # together via `wxmax ~ px**2 / (FOV * tgradn)`. The gradients run
+    # symmetrically from -wxmax to +wxmax, so k=0 is sampled at the center
+    # index -- this is the centered-k-space convention assumed by
+    # `reconstruct_image_from_kspace`.
     px, pz = rho_arr.shape
     wxmax = np.pi * px**2 / (2 * fov_arr[0] * tgradn)
     wzmax = np.pi * pz**2 / (2 * fov_arr[1] * tgradn)

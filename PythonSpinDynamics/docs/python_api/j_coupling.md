@@ -127,9 +127,17 @@ result = simulate_slic_spectrum(
 )
 ```
 
-For a nearly equivalent two-spin system, the deepest dip occurs near the
-J-coupling frequency. This dense simulator is intended for small systems only;
-larger homonuclear networks will need sparse or specialized methods.
+The SLIC matching condition is that the spin-lock nutation frequency `omega_1`
+equals the resonance-offset (chemical-shift) difference `Delta nu` between the
+two spins, not the J-coupling frequency: at `omega_1 ~ Delta nu` the spin-lock
+brings the singlet `(|ab> - |ba>)/sqrt(2)` and a triplet level into a near
+crossing, and J sets the width of the resonance and the transfer rate. So for a
+nearly equivalent two-spin system (small `Delta nu`) the deepest dip simply
+falls at a small nutation frequency because `Delta nu` is small, not because it
+coincides with J. The companion `two_spin_slic_transfer_time` returns the
+ideal maximum-transfer time `1 / (sqrt(2) Delta nu)`, again set by the offset
+difference. This dense simulator is intended for small systems only; larger
+homonuclear networks will need sparse or specialized methods.
 
 ## Current Limits
 

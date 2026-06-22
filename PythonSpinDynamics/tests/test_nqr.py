@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 import unittest
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -22,10 +23,14 @@ from spin_dynamics.nqr import (  # noqa: E402
     check_efg_rephasing,
     diagonalize_site,
     efg_line_spectrum,
+    equilibrium_density,
     gaussian_efg_distribution,
     powder_average_grid,
     propagate_density_liouville,
     quadrupole_frequency_scale_hz,
+    relaxation_superoperator,
+    transition_drive_scale,
+    zeeman_hamiltonian,
     simulate_fid_efg_distribution,
     simulate_population_transfer,
     simulate_slse,
@@ -621,6 +626,102 @@ class NQRTests(unittest.TestCase):
         weak_field = diagonalize_site(site, [0.0, 0.0, 1e-5]).transition("x").frequency_hz
 
         self.assertNotAlmostEqual(zero_field, weak_field)
+
+
+class NQRAuditAdditionTests(unittest.TestCase):
+    """Coverage added during the physics audit (operators, equilibrium,
+    relaxation generator, drive selectivity, and the t2e/relaxation guard)."""
+
+    def test_operators_satisfy_casimir_and_ladder_relations(self) -> None:
+        for spin, casimir in ((1.0, 2.0), (1.5, 3.75)):
+            ops = spin_matrices(spin)
+            i_squared = ops.ix @ ops.ix + ops.iy @ ops.iy + ops.iz @ ops.iz
+            np.testing.assert_allclose(
+                i_squared, casimir * np.eye(ops.iz.shape[0]), atol=1e-12
+            )
+            np.testing.assert_allclose(
+                ops.iy @ ops.iz - ops.iz @ ops.iy, 1j * ops.ix, atol=1e-12
+            )
+        # <3/2|I+|1/2> = sqrt(I(I+1) - m(m+1)) = sqrt(3.75 - 0.75) = sqrt(3).
+        self.assertAlmostEqual(abs(spin_matrices(1.5).i_plus[0, 1]), np.sqrt(3.0),
+                               places=12)
+
+    def test_three_line_frequencies_track_eta_parametrically(self) -> None:
+        nu_q = 1.2e6
+        for eta in (0.0, 0.15, 0.4, 0.85):
+            site = QuadrupolarSite(spin=1, quadrupole_frequency_hz=nu_q, eta=eta)
+            freqs = {t.label: t.frequency_hz for t in diagonalize_site(site).transitions}
+            self.assertAlmostEqual(freqs["x"], nu_q * (1 + eta / 3), places=2)
+            if eta > 0:  # nu_0 line is dropped at eta = 0
+                self.assertAlmostEqual(freqs["y"], nu_q * (1 - eta / 3), places=2)
+                self.assertAlmostEqual(freqs["z"], (2.0 / 3.0) * nu_q * eta, places=2)
+
+    def test_label_axis_is_the_dominant_drive_axis(self) -> None:
+        site = QuadrupolarSite(spin=1, quadrupole_frequency_hz=900e3, eta=0.3)
+        axis_of = {"x": (1.0, 0.0, 0.0), "y": (0.0, 1.0, 0.0), "z": (0.0, 0.0, 1.0)}
+        for transition in diagonalize_site(site).transitions:
+            self.assertAlmostEqual(
+                transition_drive_scale(transition, axis_of[transition.label]),
+                1.0, places=6,
+            )
+            for label, direction in axis_of.items():
+                if label != transition.label:
+                    self.assertLess(transition_drive_scale(transition, direction), 1e-9)
+
+    def test_equilibrium_density_is_traceless_hermitian_boltzmann(self) -> None:
+        site = QuadrupolarSite(spin=1, quadrupole_frequency_hz=900e3, eta=0.3)
+        eig = diagonalize_site(site)
+        rho = equilibrium_density(eig.levels_hz)
+        self.assertAlmostEqual(np.trace(rho).real, 0.0, places=12)
+        np.testing.assert_allclose(rho, rho.conj().T, atol=1e-12)
+        # High-temperature limit: the lowest-energy level is the most populated.
+        self.assertEqual(int(np.argmax(np.diag(rho).real)),
+                         int(np.argmin(eig.levels_hz)))
+
+    def test_relaxation_generator_is_traceless_and_t1_mixes_to_uniform(self) -> None:
+        model = NQRRelaxationModel(t1_seconds=2e-3, t2_seconds=4e-3)
+        gen = relaxation_superoperator(3, model)
+        rho = np.diag([0.2, 0.3, 0.5]).astype(np.complex128)
+        drho = (gen @ rho.reshape(-1, order="F")).reshape((3, 3), order="F")
+        self.assertAlmostEqual(np.trace(drho).real, 0.0, places=12)
+        # Pure T1 over many time constants equalizes populations, conserving trace.
+        relaxed = propagate_density_liouville(
+            np.diag([1.0, 0.0, 0.0]).astype(np.complex128),
+            np.zeros((3, 3), dtype=np.complex128),
+            1.0,
+            relaxation=NQRRelaxationModel(t1_seconds=1e-3, t2_seconds=np.inf),
+        )
+        self.assertAlmostEqual(np.trace(relaxed).real, 1.0, places=10)
+        np.testing.assert_allclose(np.diag(relaxed).real, np.full(3, 1.0 / 3.0),
+                                   atol=1e-6)
+
+    def test_zeeman_hamiltonian_hermitian_and_linear_in_field(self) -> None:
+        site = QuadrupolarSite(spin=1, quadrupole_frequency_hz=900e3, eta=0.3,
+                               gamma_hz_per_t=3.08e6)
+        h1 = zeeman_hamiltonian(site, [0.0, 0.0, 1e-3])
+        h2 = zeeman_hamiltonian(site, [0.0, 0.0, 2e-3])
+        np.testing.assert_allclose(h1, h1.conj().T, atol=1e-9)
+        np.testing.assert_allclose(h2, 2.0 * h1, atol=1e-9)
+
+    def test_simulate_slse_warns_when_t2e_and_relaxation_both_set(self) -> None:
+        site = QuadrupolarSite(spin=1, quadrupole_frequency_hz=900e3, eta=0.3)
+        seq = slse_sequence("x", pulse_duration_seconds=25e-6, nutation_hz=10e3,
+                            echo_spacing_seconds=1e-3, num_echoes=4)
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            simulate_slse(site, seq, orientations="single", t2e_seconds=20e-3,
+                          relaxation=NQRRelaxationModel(t2_seconds=20e-3))
+        self.assertTrue(any("double-counted" in str(w.message) for w in caught))
+
+    def test_simulate_slse_does_not_warn_for_relaxation_only(self) -> None:
+        site = QuadrupolarSite(spin=1, quadrupole_frequency_hz=900e3, eta=0.3)
+        seq = slse_sequence("x", pulse_duration_seconds=25e-6, nutation_hz=10e3,
+                            echo_spacing_seconds=1e-3, num_echoes=4)
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            simulate_slse(site, seq, orientations="single",
+                          relaxation=NQRRelaxationModel(t2_seconds=20e-3))
+        self.assertFalse(any("double-counted" in str(w.message) for w in caught))
 
 
 if __name__ == "__main__":

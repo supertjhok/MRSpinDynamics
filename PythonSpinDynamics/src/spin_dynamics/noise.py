@@ -287,6 +287,16 @@ def matched_probe_output_noise_density(
     f = (2 * np.pi * f0 + del_w * w1_max) / (2 * np.pi)
     vni2 = 4 * k * T * Rc * np.abs(tf1) ** 2
     Fn = 10 ** (float(_field(sp, "NF")) / 10)
+    # Amplifier excess-noise term `k*T*Rin*(F-1)`. The apparent "missing" factor
+    # of 4 relative to the coil term's open-circuit `4*k*T*Rc` is correct for a
+    # matched probe: `tf1` is the loaded transfer to the matched amplifier input
+    # (the source EMF carries the `Vs0 = 2*sqrt(Rc/Rs)` normalization), so the
+    # matched load sees half the EMF -- a 1/2 voltage / 1/4 power transfer. That
+    # turns the open-circuit coil noise `4*k*T*Rc*|tf1|**2` into the delivered
+    # node value `k*T*Rin`, i.e. the available-power basis `k*T`. The amplifier
+    # excess noise is written directly on that same available-power basis,
+    # `k*T*Rin*(F-1)`, and the signal `mrx` is referred through the same `tf1`,
+    # so signal and both noise terms are consistent at the matched input node.
     vn2 = k * T * float(_field(sp, "Rin")) * (Fn - 1) * np.ones(f.size)
     return np.asarray(vni2 + vn2, dtype=np.float64), f
 
@@ -323,6 +333,13 @@ def _add_probe_noise(
         raise ValueError("pnoise must contain finite non-negative values")
     df = frequency_bin_width(frequencies)
     dx = frequency_bin_width(_axis_or_index(sample_axis, density.size, "sample_axis"))
+    # density [units**2/Hz] * df [Hz] is the per-bin variance. The `/ dx**2`
+    # factor rescales that variance onto a user-supplied `sample_axis` grid; it
+    # is a no-op in the default case (sample_axis=None -> dx=1). The factor is a
+    # convention for mapping the receiver PSD onto an arbitrary sample spacing
+    # and is not independently validated for physical (non-unit) sample axes
+    # (see docs/python_api/known_gaps.md); pass sample_axis=None for the
+    # validated behavior.
     variance = _broadcast_density(density, signal.shape) * df / dx**2
     scale = float(spec.scale)
     if spec.target_snr is not None:

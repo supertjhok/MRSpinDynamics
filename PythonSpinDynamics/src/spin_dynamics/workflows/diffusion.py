@@ -129,7 +129,10 @@ def calc_macq_matched_probe_relax_diffusion(
         "gamma": _field(sp, "gamma"),
         "gradient": _field(sp, "grad_physical"),
         "diffusion_coefficient": _field(sp, "D"),
-        "diffusion_time": _field(sp, "Delta"),
+        # Seconds per unit of normalized pulse time; lets the diffusion kernel
+        # attenuate each free-precession interval on its own duration rather
+        # than a single global encoding time.
+        "time_scale": 2.0 * t_90 / np.pi,
     }
     if num_workers is None or int(num_workers) > 1:
         macq = sim_spin_dynamics_arb10_diffusion_chunked(params, num_workers=num_workers)
@@ -163,6 +166,14 @@ def run_matched_diffusion_cpmg(
     Mirrors the useful core of MATLAB
     `Sim_Diffusion/sim_dif_matched_CPMG_noRx.m`, with precomputed RF matrices
     and an `arb10`-style diffusion kernel.
+
+    Models *free* diffusion in a *constant* background gradient: each
+    free-precession interval is attenuated by ``exp(-(1/3) gamma**2 G**2 D
+    t**3)`` on its own duration, reproducing the Carr-Purcell train law
+    ``exp(-(1/12) gamma**2 G**2 D t_E**3 N)``. ``diffusion_time`` sets the
+    encoding-block geometry (it is not a narrow-pulse PGSE ``Delta``); the
+    background gradient enters only through the diffusion attenuation, not the
+    spin precession.
     """
 
     if num_echoes <= 0:

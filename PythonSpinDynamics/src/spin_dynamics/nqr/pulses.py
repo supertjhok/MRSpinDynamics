@@ -13,7 +13,19 @@ from spin_dynamics.nqr.systems import NQRTransition
 
 @dataclass(frozen=True)
 class SelectivePulse:
-    """A rectangular selective RF pulse applied to one NQR transition."""
+    """A rectangular selective RF pulse applied to one NQR transition.
+
+    ``nutation_hz`` is the *effective two-level Rabi frequency* of the addressed
+    transition at full RF coupling, i.e. the on-resonance Rabi rate ``Omega / (2
+    pi)`` for the embedded |lower>-|upper> two-level system. It already includes
+    the transition's dipole matrix element, so it is **not** the bare ``gamma *
+    B1 / (2 pi)``: for spin-1 NQR the transition matrix element carries a
+    sqrt(2)-type enhancement that this convention folds in. With this
+    convention the flip angle is ``theta = 2 pi * nutation_hz * duration_seconds``
+    on resonance, so a 90-degree pulse satisfies ``nutation_hz *
+    duration_seconds = 0.25`` and a 180-degree pulse ``= 0.5``. The actual drive
+    is further scaled by the B1 orientation through ``transition_drive_scale``.
+    """
 
     transition_label: str
     duration_seconds: float
@@ -68,7 +80,15 @@ def selective_pulse_hamiltonian(
     b1_direction_pas: np.ndarray | list[float] | tuple[float, float, float] = (1.0, 0.0, 0.0),
     detuning_hz: float = 0.0,
 ) -> np.ndarray:
-    """Return an embedded two-level RF Hamiltonian in radians per second."""
+    """Return an embedded two-level RF Hamiltonian in radians per second.
+
+    ``nutation_hz`` is the effective two-level Rabi frequency of the transition
+    at full coupling (see :class:`SelectivePulse`), not ``gamma * B1 / (2 pi)``.
+    The off-diagonal element is ``pi * nutation_hz * drive * exp(-i phase)`` where
+    ``drive`` (magnitude <= 1) is the orientation-dependent coupling from
+    ``transition_drive_scale``; on resonance with ``|drive| = 1`` the Rabi rate
+    is exactly ``2 pi * nutation_hz``.
+    """
 
     dimension = int(dimension)
     if dimension <= max(transition.lower, transition.upper):

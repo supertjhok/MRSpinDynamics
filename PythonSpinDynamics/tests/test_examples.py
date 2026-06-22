@@ -103,6 +103,8 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_tango_filter.py",
             "examples/plot_slic_two_spin.py",
             "examples/plot_nqr_powder_nutation.py",
+            "examples/plot_nqr_full_powder_nutation.py",
+            "examples/plot_nqr_auto_model_selection.py",
             "examples/plot_nqr_population_transfer.py",
             "examples/plot_nqr_slse_offset.py",
             "examples/plot_nqr_slse_spacing.py",
@@ -164,6 +166,12 @@ class ExampleSmokeTests(unittest.TestCase):
         result = run_example("examples/plot_nqr_powder_nutation.py", "--help")
         self.assertIn("--max-angle", result.stdout)
         self.assertIn("supports spin=1 only", result.stdout)
+        result = run_example("examples/plot_nqr_full_powder_nutation.py", "--help")
+        self.assertIn("--quadrupole-mhz", result.stdout)
+        self.assertIn("--nutation-khz", result.stdout)
+        result = run_example("examples/plot_nqr_auto_model_selection.py", "--help")
+        self.assertIn("--offset-khz", result.stdout)
+        self.assertIn("--t2-us", result.stdout)
         result = run_example("examples/plot_nqr_population_transfer.py", "--help")
         self.assertIn("--perturb-angle", result.stdout)
         self.assertIn("supports spin=1 only", result.stdout)

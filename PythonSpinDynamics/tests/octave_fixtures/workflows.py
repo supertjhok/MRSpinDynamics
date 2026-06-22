@@ -433,7 +433,7 @@ class OctaveWorkflowFixtureTests(OctaveFixtureBase):
             "gamma": 1.0,
             "gradient": 1.0,
             "diffusion_coefficient": 0.0,
-            "diffusion_time": 1.0,
+            "time_scale": 1.0,
         }
         np.testing.assert_allclose(
             sim_spin_dynamics_arb10_diffusion(diff_params),

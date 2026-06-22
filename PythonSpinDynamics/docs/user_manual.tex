@@ -716,19 +716,23 @@ solid-state pulsed NQR experiments. It is intentionally separate from the
 spin-1/2 Bloch and scalar-coupling layers.
 
 \scopebox{Accent}{
-\textbf{Use this layer for:} selective pulsed NQR of one spin-1 quadrupolar
-site, spin-1 and spin-3/2 transition metadata, fixed-orientation
-single-crystal calculations, powder averages over local EFG orientations,
-SLSE echo trains, two-frequency population transfer, static EFG
-inhomogeneity, finite-window SLSE spectra, and weak-B0 line splitting.
+\textbf{Use this layer for:} reduced two-level (selective) pulsed NQR of spin-1
+sites; full \((2I+1)\)-level density-matrix FID and echo dynamics required for
+spin-3/2; automatic reduced-vs-full model selection; spin-1 and spin-3/2
+transition metadata; single-crystal and powder averages over local EFG
+orientations; SLSE echo trains; two-frequency population transfer; static EFG
+inhomogeneity; finite-window SLSE spectra; and weak-B0 line splitting.
 }
 
 \scopebox{AccentTwo}{
-\textbf{Current limits:} dense single-site matrices only; selective RF pulses
-only; spin-3/2 pulsed dynamics pending a degenerate-doublet RF manifold model;
-phenomenological relaxation rather than microscopic Redfield/dipolar rates; no
-simultaneous multi-frequency excitation; no full nonselective shaped-pulse
-Hamiltonian propagation; no multi-site coupling between quadrupolar nuclei.
+\textbf{Current limits:} dense single-site matrices only; two pulse models (the
+reduced spin-1 selective pulse and the full \((2I+1)\)-level density-matrix
+pulse). The full-model pulse uses a single-carrier rotating-wave approximation
+addressing one transition band, so it covers spin-3/2 zero-field and
+weak-Zeeman dynamics but is not yet a general multi-band higher-spin solver. The
+reduced SLSE and population-transfer workflows remain spin-1; relaxation is
+phenomenological rather than microscopic Redfield/dipolar; no multi-site
+coupling between quadrupolar nuclei.
 }
 
 \section{Quadrupolar Site Model}
@@ -799,10 +803,41 @@ for transition in diagonalize_site(chlorine).transitions:
     print(transition.frequency_hz)
 \end{lstlisting}
 
+\section{Two Modeling Regimes}
+\label{sec:nqr-regimes}
+
+Before propagating a pulse, the package chooses between two models. The choice
+is governed by how many states the RF pulse can connect, not by the number of
+spectral lines. The detailed reasoning is given in the technical note
+\code{References/Pulsed\_NQR\_Spin\_Dynamics\_Narrative\_Rewrite}.
+
+\begin{itemize}
+\item \textbf{Reduced two-level model} (\code{SelectivePulse},
+\code{simulate\_slse}): one pulse addresses one transition as an embedded
+fictitious spin-1/2 rotation. This is honest only when the selected transition
+is isolated. For a target transition \(t\), with
+\(\Delta_{\mathrm{iso}}=\min_{j\neq t}|\omega_t-\omega_j|\) the spacing to the
+nearest RF-active competitor, the validity condition is
+\[
+  \Delta_{\mathrm{iso}} \gg
+  \max\!\left(\Omega_1,\ \Delta\omega_{\mathrm{pulse}},\ \Gamma\right),
+\]
+where \(\Omega_1\) is the effective nutation rate, \(\Delta\omega_{\mathrm{pulse}}\sim 1/t_p\)
+is the pulse bandwidth, and \(\Gamma\) is the linewidth. A nonzero \(\eta\) is
+necessary but \emph{not} sufficient: at \(\eta=0\) the spin-1 \(x\) and \(y\)
+lines coincide and the reduction fails. The reduced path is restricted to
+spin-1 for this reason.
+\item \textbf{Full density-matrix model}
+(\code{spin\_dynamics.nqr.full\_dynamics}): the complete \((2I+1)\)-level
+density matrix is propagated. This is the correct general model and is required
+for spin-3/2, whose single zero-field line connects two Kramers doublets---four
+states hidden behind one frequency.
+\end{itemize}
+
 \section{Selective Pulse Approximation}
 
-Most practical pulsed NQR RF pulses are narrowband relative to the separation
-between quadrupolar transitions. The first NQR implementation uses this
+Most practical spin-1 pulsed NQR RF pulses are narrowband relative to the
+separation between quadrupolar transitions. The reduced model uses this
 selective limit: one pulse addresses one transition and acts as an embedded
 two-level rotation inside the full \((2I+1)\)-level Hilbert space.
 
@@ -835,13 +870,96 @@ The pulse helper also supports an optional RF frequency. If omitted, the RF is
 placed on the selected transition. If supplied, the difference between the RF
 frequency and transition frequency is treated as a two-level detuning.
 
-The selective-pulse propagation routines currently support spin-1 sites only.
-Spin-3/2 nuclei such as \({}^{35}\mathrm{Cl}\) and \({}^{37}\mathrm{Cl}\)
-have degenerate doublets at zero field; their pulsed response needs an RF model
-that acts on the full doublet manifold rather than an embedded two-level
-transition. Static spin-3/2 transition frequencies and weak-B0 spectra are
-available now, but spin-3/2 SLSE/FID pulse simulations deliberately raise a
-clear error.
+The selective-pulse propagation routines support spin-1 sites only. Spin-3/2
+nuclei such as \({}^{35}\mathrm{Cl}\) and \({}^{37}\mathrm{Cl}\) have degenerate
+doublets at zero field, so their pulsed response is handled by the full
+density-matrix model below rather than by an embedded two-level transition;
+calling the reduced selective-pulse routines on a non-spin-1 site raises a clear
+error.
+
+\section{Full Density-Matrix Model}
+\label{sec:nqr-full}
+
+The \code{spin\_dynamics.nqr.full\_dynamics} module propagates the complete
+\((2I+1)\)-level density matrix in a rotating frame at the pulse carrier. It is
+the required model for spin-3/2 and also runs for spin-1. The static
+Hamiltonian \(H_Q+H_Z\) is diagonalized for the actual EFG and field
+orientation, the RF and detection operators \(\hat{\mathbf{e}}\cdot\mathbf{I}\)
+are transformed into that eigenbasis, and the density matrix is propagated
+through each constant-Hamiltonian interval by
+\(U_k=\exp(-iH_k\,\Delta t_k)\), \(\rho_{k+1}=U_k\rho_k U_k^{\dagger}\).
+
+Here \code{nutation\_hz} is the bare field nutation \(\gamma B_1/(2\pi)\), so the
+realized Rabi rate on a transition \(a\!-\!b\) is
+\(2\,\nu_1\,|\langle a|\hat{\mathbf{e}}_1\cdot\mathbf{I}|b\rangle|\); the same
+pulse is a different flip angle on different transitions, which is the physical
+effect the full model captures. A single-carrier rotating-wave approximation is
+used, valid when one carrier addresses one transition band (the spin-3/2
+zero-field and weak-Zeeman regime).
+
+\begin{lstlisting}[language=Python]
+import numpy as np
+from spin_dynamics.nqr import QuadrupolarSite, simulate_full_fid
+
+site = QuadrupolarSite(spin=1.5, isotope="35Cl",
+                       quadrupole_frequency_hz=30e6, eta=0.1)
+
+fid = simulate_full_fid(
+    site,
+    nutation_hz=20e3,            # bare field nutation gamma*B1/(2*pi)
+    pulse_duration_seconds=10e-6,
+    times_seconds=np.linspace(0.0, 200e-6, 1024),
+)
+print(fid.signal)               # complex baseband signal
+\end{lstlisting}
+
+A two-pulse (Hahn-style) echo is available through \code{simulate\_full\_echo},
+and an optional \code{relaxation=NQRRelaxationModel(...)} adds Liouville-space
+\(T_1/T_2\) decay. The lower-level primitives \code{pulse\_hamiltonian},
+\code{static\_hamiltonian\_rotating}, and \code{detection\_operator} are exposed
+for custom sequences. The full model has been validated against an exact
+lab-frame propagator (the rotating-wave error scales as the
+\(\Omega_1^2\) Bloch-Siegert shift), and its spin-1 powder nutation curve
+reproduces the classic \(119^\circ\) maximum while the spin-3/2 curve peaks at a
+slightly smaller flip angle.
+
+\section{Model Selection}
+\label{sec:nqr-model-selection}
+
+\code{select\_nqr\_model} reads the reduced-vs-full choice from the static
+Hamiltonian and the RF matrix elements for the coil polarization, not from the
+spin or the line count. It builds the pulse-addressed connected set (states the
+pulse can drive from the target pair, plus RF-driven near-degenerate partners)
+and the isolation ratio
+\(\Delta_{\mathrm{iso}}/\max(\Omega_1,1/t_p,\Gamma)\).
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.nqr import QuadrupolarSite, select_nqr_model
+
+site = QuadrupolarSite(spin=1.5, quadrupole_frequency_hz=30e6, eta=0.1)
+choice = select_nqr_model(
+    site, "x",
+    nutation_hz=5e3,
+    pulse_duration_seconds=50e-6,
+    b1_direction_pas=(1, 1, 1),
+)
+print(choice.recommended_model)   # "full" -- spin-3/2 Kramers doublets
+print(choice.describe())          # diagnostic report
+\end{lstlisting}
+
+The reduced model is recommended only when the addressed set is a single,
+non-degenerate, RF-active pair \emph{and} the isolation ratio clears
+\code{isolation\_threshold} (default \(5\)). The returned
+\code{NQRModelSelection} reports the target states, nearest competing RF-active
+transition, isolation distance and ratio, pulse bandwidth, the addressed-state
+set, a degeneracy flag, and human-readable reasons. It handles the
+regime-defining cases: spin-1 \(\eta=0\) and unresolved small-\(\eta\)
+splittings go full via the isolation ratio; spin-3/2 Kramers doublets go full
+because the addressed set spans four states; a strongly Zeeman-resolved
+spin-3/2 line can return reduced as a verified special case; and a polarization
+that makes neighboring lines RF-dark keeps a crowded spectrum reducible. The
+check is currently advisory---the reduced workflows do not yet invoke it
+automatically.
 
 \section{Orientations and Powder Averages}
 
@@ -1417,6 +1535,8 @@ python examples\plot_slic_two_spin.py --j-hz 7 --delta-hz 0.7 --output results\s
 python examples\plot_optimization_workflows.py --numpts 11 --segments 2 --starts 2 --inverse-starts 4 --output results\optimization_workflows.png
 python examples\plot_optimization_pipeline.py --numpts 11 --refocusing-segments 2 --refocusing-starts 2 --excitation-segments 2 --excitation-starts 2 --inverse-starts 3 --output results\optimization_pipeline.png
 python examples\plot_nqr_powder_nutation.py --output results\nqr_powder_nutation.png
+python examples\plot_nqr_full_powder_nutation.py --output results\nqr_full_powder_nutation.png
+python examples\plot_nqr_auto_model_selection.py --output results\nqr_auto_model_selection.png
 python examples\plot_nqr_population_transfer.py --output results\nqr_population_transfer.png
 python examples\plot_nqr_slse_offset.py --output results\nqr_slse_offset.png
 python examples\plot_nqr_slse_spacing.py --output results\nqr_slse_spacing.png

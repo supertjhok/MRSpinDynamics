@@ -1,4 +1,18 @@
-"""WURST pulse and matched-probe inversion/CPMG workflows."""
+"""WURST pulse and matched-probe inversion/CPMG workflows.
+
+The WURST waveform is built by :func:`spin_dynamics.pulses.create_wurst_pulse`:
+the amplitude envelope is ``1 - |cos(pi t / T)|**order`` (zero at both ends, flat
+top for large ``order``) and the frequency offset is swept *linearly* and
+symmetrically about the carrier across ``sweep_width_rad_per_s``, which by
+``cumsum`` integration gives the characteristic quadratic phase. ``order`` and
+``sweep_width`` therefore set the offset bandwidth covered.
+
+These workflows assume the sweep is *adiabatic*: the adiabaticity factor
+``Q = omega_1**2 / |d(omega_offset)/dt|`` must stay well above 1 across the band
+for clean inversion. That condition is the caller's responsibility -- it is
+**not** computed or enforced here -- so reduce the sweep rate (longer duration or
+narrower sweep) or raise ``omega_1`` if inversion is incomplete.
+"""
 
 from __future__ import annotations
 
