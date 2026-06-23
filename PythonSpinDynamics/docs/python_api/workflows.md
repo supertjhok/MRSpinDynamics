@@ -74,6 +74,46 @@ train = run_tuned_cpmg_train(
 phase_step = train.absolute_phase.delta_refocus_phase_cycles
 ```
 
+Long finite trains can reuse pulse solves by adding `phase_bins`. Refocusing
+absolute phases are snapped to the nearest uniform bin around the RF cycle,
+while `train.absolute_phase.refocus_absolute_phase_rad` still records the
+unsnapped schedule. The metadata also reports the matrix phase used for each
+echo, the phase-bin index, and a `refocus_pulse_library` containing the unique
+resolved shapes:
+
+```python
+train = run_tuned_cpmg_train(
+    num_echoes=256,
+    absolute_phase={
+        "rf_frequency_hz": 0.03125 / 200e-6,
+        "phase_bins": 32,
+    },
+)
+
+library = train.absolute_phase.refocus_pulse_library
+matrix_phases = train.absolute_phase.refocus_matrix_phase_rad
+```
+
+For direct debugging or teaching plots, solve the same probe pulse shapes without
+running a full echo train:
+
+```python
+import numpy as np
+
+from spin_dynamics.pulse_diagnostics import solve_probe_pulse_shape_sweep
+
+sweep = solve_probe_pulse_shape_sweep(
+    probe="tuned",
+    absolute_phase_rad=2 * np.pi * np.array([0.0, 0.25, 0.5, 0.75]),
+    numpts=17,
+)
+
+shape = sweep.shapes[1]
+drive = shape.drive
+quadrature_fraction = shape.quadrature_energy_fraction
+library = sweep.pulse_shape_library
+```
+
 For ideal trains and for custom reduced models, add a `transient_model` mapping
 to perturb pulse phase or amplitude as a function of absolute RF phase:
 
@@ -428,8 +468,26 @@ result = run_matched_diffusion_q_sweep(
     q_values=[20, 50],
     num_echoes=3,
     numpts=21,
+    dz=50e-6,
     auto_refine_grid=True,
     sweep_workers=2,
+)
+```
+
+For a tuned-probe counterpart with stronger probe-solved absolute-phase
+contrast, use `run_tuned_diffusion_cpmg`:
+
+```python
+from spin_dynamics.workflows import run_tuned_diffusion_cpmg
+
+tuned = run_tuned_diffusion_cpmg(
+    num_echoes=8,
+    dz=50e-6,
+    auto_refine_grid=True,
+    absolute_phase={
+        "rf_frequency_hz": 0.25 / 1.0e-3,
+        "phase_bins": 16,
+    },
 )
 ```
 
@@ -450,6 +508,36 @@ be treated as a validation target because the current NumPy matched-probe
 transient solver can become stiff; the compact matched-diffusion workflow is
 currently solver-validated through Q=2000.
 
+The matched diffusion workflow also accepts the finite-train `absolute_phase`
+mapping. The diffusion-encoding pi pulse and each CPMG refocusing pulse are
+solved at their laboratory-frame RF phase, optionally quantized with
+`phase_bins`, while free-precession intervals continue to carry the diffusion
+attenuation:
+
+```python
+from spin_dynamics.workflows import run_matched_diffusion_cpmg
+
+combined = run_matched_diffusion_cpmg(
+    num_echoes=16,
+    echo_spacing_seconds=1.0e-3,
+    diffusion_time=1.0e-3,
+    q_value=50,
+    absolute_phase={
+        "rf_frequency_hz": 0.25 / 1.0e-3,
+        "phase_bins": 16,
+    },
+)
+
+metadata = combined.absolute_phase
+encoding_phase = metadata.encoding_absolute_phase_rad
+refocus_phases = metadata.refocus_absolute_phase_rad
+```
+
+`metadata.refocus_*` fields describe the echo-train refocusing pulses, while
+`metadata.encoding_*` fields describe the diffusion-encoding pi pulse. The
+full RF event list is available through `pulse_kind`, `pulse_start_seconds`,
+`pulse_absolute_phase_rad`, and `pulse_matrix_phase_rad`.
+
 **Diffusion model and assumptions.** The diffusion term models *free*
 (unrestricted) diffusion in a *constant* background gradient. Each
 free-precession interval attenuates the transverse coherence by
@@ -464,6 +552,9 @@ analytic correctness of this law is covered by
 Because the diffusion workflow also uses a uniform fixed offset grid, it
 accepts `rephase_action`, `rephase_safety_factor`, and `auto_refine_grid`.
 The Q sweep forwards those options to each matched-diffusion CPMG run.
+For examples and exploratory plots, prefer either a physically narrow `dz` or
+`auto_refine_grid=True`; otherwise a compact `numpts` can discretely rephase
+inside the echo train and produce misleading echo integrals.
 
 MATLAB references:
 

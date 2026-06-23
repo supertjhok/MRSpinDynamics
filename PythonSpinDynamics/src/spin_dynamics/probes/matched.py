@@ -197,6 +197,13 @@ def find_coil_current(
     N = int(_field(pp, "N"))
     psi = float(_field(pp, "psi"))
     del_w = _as_vector(_field(sp, "del_w"))
+    segment_fraction = 1.0
+    if isinstance(pp, Mapping):
+        segment_fraction = float(pp.get("segment_fraction", segment_fraction))
+    elif hasattr(pp, "segment_fraction"):
+        segment_fraction = float(getattr(pp, "segment_fraction"))
+    if segment_fraction <= 0:
+        raise ValueError("segment_fraction must be positive")
 
     ttot = float(np.sum(tp))
     delt = 2 * np.pi / (wn * N)
@@ -280,11 +287,12 @@ def find_coil_current(
     y = ycos[:, 0] + 1j * ysin[:, 0] + ycos_imp + 1j * ysin_imp
     yr = y * np.exp(-1j * wn * tvec) * np.exp(-1j * psi)
 
-    ntot2 = int(np.floor(ntot / N))
+    window = max(1, int(round(N * segment_fraction)))
+    ntot2 = int(np.floor(ntot / window))
     tvec2 = np.zeros(ntot2, dtype=np.float64)
     yr2 = np.zeros(ntot2, dtype=np.complex128)
     for idx in range(ntot2):
-        ind = slice(idx * N, (idx + 1) * N)
+        ind = slice(idx * window, (idx + 1) * window)
         tvec2[idx] = np.mean(tvec[ind])
         yr2[idx] = np.mean(yr[ind])
 

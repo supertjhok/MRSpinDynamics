@@ -20,11 +20,14 @@ from spin_dynamics.absolute_phase import (
     FiniteCPMGPulsePlan,
     LongitudinalPhaseKick,
     PulseShape,
+    PulseShapeLibrary,
     apply_absolute_phase_model,
     as_absolute_phase_spec,
     build_cpmg_absolute_phase_metadata,
     build_finite_cpmg_phase_schedule,
     build_finite_cpmg_pulse_plan,
+    phase_bin_indices,
+    quantize_phase_to_bins,
 )
 from spin_dynamics.core.echo import calc_time_domain_echo
 from spin_dynamics.core.isochromats import (
@@ -418,6 +421,10 @@ def _metadata_for_plan(
     num_echoes: int,
     pulse_plan: FiniteCPMGPulsePlan,
     excitation_start_seconds: float = 0.0,
+    refocus_phase_bin: np.ndarray | None = None,
+    refocus_matrix_phase_rad: np.ndarray | None = None,
+    unique_refocus_phase_rad: np.ndarray | None = None,
+    refocus_pulse_library: PulseShapeLibrary | None = None,
 ) -> AbsolutePhaseMetadata | None:
     if spec is None or schedule is None:
         return None
@@ -435,6 +442,10 @@ def _metadata_for_plan(
         pulse_matrix_count=pulse_plan.pulse_matrix_count,
         schedule=schedule,
         pulse_plan=pulse_plan,
+        refocus_phase_bin=refocus_phase_bin,
+        refocus_matrix_phase_rad=refocus_matrix_phase_rad,
+        unique_refocus_phase_rad=unique_refocus_phase_rad,
+        refocus_pulse_library=refocus_pulse_library,
     )
 
 
@@ -464,10 +475,6 @@ def _build_absolute_phase_rtot_and_pul(
         pref = pulse_plan.refocus_cycle
         return rtot, pref, pref.copy(), None
 
-    pulse_plan = build_finite_cpmg_pulse_plan(
-        int(num_echoes),
-        per_echo_refocusing=True,
-    )
     exc_abs = schedule.excitation_absolute_phase_rad
     exc_y_ap = apply_absolute_phase_model(exc_y, spec, float(exc_abs[0]), "excitation")
     exc_minus_y_ap = apply_absolute_phase_model(
@@ -481,23 +488,61 @@ def _build_absolute_phase_rtot_and_pul(
         calc_rotation_matrix(del_w, w_1, *_shape_tuple(exc_minus_y_ap)),
     ]
 
-    for absolute_start in schedule.refocus_absolute_phase_rad[: int(num_echoes)]:
-        ref_shape = apply_absolute_phase_model(
-            ref_shape_factory(float(absolute_start)),
-            spec,
-            float(absolute_start),
-            "refocusing",
-        )
-        ref_matrix = calc_rotation_matrix(del_w, w_1, *_shape_tuple(ref_shape))
-        ref_matrix = _apply_longitudinal_phase_kick(
-            ref_matrix,
-            del_w=del_w,
-            spec=spec,
-            pp=pp,
-            pulse_start_phase_rad=float(absolute_start),
-            pulse_kind="refocusing",
-        )
-        rtot.append(ref_matrix)
+    refocus_abs = schedule.refocus_absolute_phase_rad[: int(num_echoes)]
+    matrix_phases = np.asarray(
+        quantize_phase_to_bins(refocus_abs, spec.phase_bins),
+        dtype=np.float64,
+    ).reshape(-1)
+    refocus_bins = (
+        np.asarray(phase_bin_indices(refocus_abs, spec.phase_bins), dtype=np.int64)
+        if spec.phase_bins is not None
+        else None
+    )
+    refocus_cycle: list[int] = []
+    matrix_by_phase: dict[int | float, int] = {}
+    unique_phases: list[float] = []
+    unique_shapes: list[PulseShape] = []
+
+    for echo_idx, matrix_phase in enumerate(matrix_phases):
+        if spec.phase_bins is not None:
+            key: int | float = int(refocus_bins[echo_idx])
+        else:
+            key = round(float(matrix_phase) / (2.0 * np.pi), 12)
+        matrix_index = matrix_by_phase.get(key)
+        if matrix_index is None:
+            absolute_start = float(matrix_phase)
+            ref_shape = apply_absolute_phase_model(
+                ref_shape_factory(absolute_start),
+                spec,
+                absolute_start,
+                "refocusing",
+            )
+            ref_matrix = calc_rotation_matrix(del_w, w_1, *_shape_tuple(ref_shape))
+            ref_matrix = _apply_longitudinal_phase_kick(
+                ref_matrix,
+                del_w=del_w,
+                spec=spec,
+                pp=pp,
+                pulse_start_phase_rad=absolute_start,
+                pulse_kind="refocusing",
+            )
+            rtot.append(ref_matrix)
+            matrix_index = len(rtot)
+            matrix_by_phase[key] = matrix_index
+            unique_phases.append(absolute_start)
+            unique_shapes.append(ref_shape)
+        refocus_cycle.extend([0, matrix_index, 0])
+
+    pulse_plan = FiniteCPMGPulsePlan(
+        excitation_cycle_one=np.array([1, 0], dtype=np.int64),
+        excitation_cycle_two=np.array([2, 0], dtype=np.int64),
+        refocus_cycle=np.asarray(refocus_cycle, dtype=np.int64),
+        pulse_matrix_count=len(rtot),
+    )
+    refocus_pulse_library = PulseShapeLibrary(
+        absolute_phase_rad=np.asarray(unique_phases, dtype=np.float64),
+        shapes={"refocusing": tuple(unique_shapes)},
+    )
 
     pref = pulse_plan.refocus_cycle
     metadata = _metadata_for_plan(
@@ -507,6 +552,10 @@ def _build_absolute_phase_rtot_and_pul(
         num_echoes=num_echoes,
         pulse_plan=pulse_plan,
         excitation_start_seconds=excitation_start_seconds,
+        refocus_phase_bin=refocus_bins,
+        refocus_matrix_phase_rad=matrix_phases,
+        unique_refocus_phase_rad=np.asarray(unique_phases, dtype=np.float64),
+        refocus_pulse_library=refocus_pulse_library,
     )
     return rtot, pref, pref.copy(), metadata
 
@@ -751,6 +800,7 @@ def _calc_matched_pulse_shape(
     delay_seconds: float,
     *,
     psi: float | None = None,
+    segment_fraction: float = 1.0,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     T_90 = float(_field(pp, "T_90"))
     delay_normalized = (np.pi / 2) * delay_seconds / T_90
@@ -761,6 +811,7 @@ def _calc_matched_pulse_shape(
         "phi": np.array([pulse_phase, 0.0], dtype=np.float64),
         "amp": np.array([pulse_amplitude, 0.0], dtype=np.float64),
         "psi": float(_field(pp, "psi")) if psi is None else float(psi),
+        "segment_fraction": float(segment_fraction),
     }
     tvect, icr, tf1, tf2 = find_coil_current(sp, pp_curr)
 
@@ -1343,6 +1394,7 @@ def run_matched_cpmg_train(
                 1.0,
                 pp0.trd,
                 psi=carrier_phase,
+                segment_fraction=0.5,
             )[:3]
         ),
     )

@@ -17,6 +17,8 @@ from spin_dynamics.absolute_phase import (
     build_tuned_resonator_pulse_library,
     cpmg_refocus_start_times,
     nonresonant_dc_phase_perturbation,
+    phase_bin_indices,
+    quantize_phase_to_bins,
 )
 from spin_dynamics.parameters import set_params_tuned_orig
 from spin_dynamics.workflows import run_ideal_cpmg_train, run_tuned_cpmg_train
@@ -143,6 +145,32 @@ class AbsolutePhaseTests(unittest.TestCase):
         self.assertGreater(interpolated.amplitude[0], 0.9)
         self.assertGreater(abs(interpolated.phase[0]), 3.0)
 
+    def test_pulse_shape_library_accepts_single_cached_shape(self) -> None:
+        shape = PulseShape(
+            duration=np.array([1.0]),
+            phase=np.array([0.25]),
+            amplitude=np.array([0.8]),
+        )
+        library = PulseShapeLibrary(
+            absolute_phase_rad=np.array([0.0]),
+            shapes={"refocusing": [shape]},
+        )
+
+        resolved = library.shape("refocusing", np.pi)
+
+        np.testing.assert_allclose(resolved.duration, shape.duration)
+        np.testing.assert_allclose(resolved.phase, shape.phase)
+        np.testing.assert_allclose(resolved.amplitude, shape.amplitude)
+
+    def test_phase_bin_quantization_snaps_to_nearest_uniform_phase(self) -> None:
+        phases = np.array([0.01, 0.49 * np.pi, 1.51 * np.pi, 1.99 * np.pi])
+
+        bins = phase_bin_indices(phases, 4)
+        quantized = quantize_phase_to_bins(phases, 4)
+
+        np.testing.assert_array_equal(bins, [0, 1, 3, 0])
+        np.testing.assert_allclose(quantized, [0.0, np.pi / 2, 3 * np.pi / 2, 0.0])
+
     def test_ideal_cpmg_absolute_phase_tracking_preserves_default(self) -> None:
         baseline = run_ideal_cpmg_train(
             numpts=17,
@@ -157,7 +185,7 @@ class AbsolutePhaseTests(unittest.TestCase):
         )
 
         self.assertIsNotNone(tracked.absolute_phase)
-        self.assertEqual(tracked.absolute_phase.pulse_matrix_count, 5)
+        self.assertEqual(tracked.absolute_phase.pulse_matrix_count, 3)
         self.assertEqual(
             tracked.absolute_phase.pulse_kind,
             ("excitation", "excitation", "refocusing", "refocusing", "refocusing"),
@@ -169,7 +197,12 @@ class AbsolutePhaseTests(unittest.TestCase):
         )
         np.testing.assert_array_equal(
             tracked.absolute_phase.refocus_matrix_indices,
-            [0, 3, 0, 0, 4, 0, 0, 5, 0],
+            [0, 3, 0, 0, 3, 0, 0, 3, 0],
+        )
+        self.assertIsNotNone(tracked.absolute_phase.refocus_pulse_library)
+        self.assertEqual(
+            len(tracked.absolute_phase.refocus_pulse_library.shapes["refocusing"]),
+            1,
         )
         np.testing.assert_allclose(tracked.mrx, baseline.mrx, atol=1e-12, rtol=1e-12)
 
@@ -280,6 +313,43 @@ class AbsolutePhaseTests(unittest.TestCase):
 
         np.testing.assert_allclose(half_ratio, 1.0, atol=5e-3)
         self.assertGreater(float(np.max(np.abs(quarter_ratio - 1.0))), 0.02)
+
+    def test_tuned_cpmg_phase_bins_reuse_refocusing_pulse_matrices(self) -> None:
+        _params, _sp, pp = set_params_tuned_orig(numpts=9)
+        echo_spacing = float(np.sum(pp.tref))
+        first_refocus = float(np.ravel(pp.texc)[0] + pp.tcorr + pp.tref[0])
+        rf_frequency_hz = 0.125 / echo_spacing
+
+        result = run_tuned_cpmg_train(
+            numpts=9,
+            num_echoes=8,
+            t1_seconds=1.0e9,
+            t2_seconds=1.0e9,
+            rephase_action="ignore",
+            absolute_phase={
+                "rf_frequency_hz": rf_frequency_hz,
+                "rf_phase_at_zero_rad": -2.0 * np.pi * rf_frequency_hz * first_refocus,
+                "phase_bins": 4,
+            },
+        )
+
+        metadata = result.absolute_phase
+        self.assertIsNotNone(metadata)
+        self.assertEqual(metadata.phase_bins, 4)
+        self.assertIsNotNone(metadata.refocus_phase_bin)
+        self.assertIsNotNone(metadata.refocus_matrix_phase_rad)
+        self.assertIsNotNone(metadata.unique_refocus_phase_rad)
+        self.assertIsNotNone(metadata.refocus_pulse_library)
+        np.testing.assert_array_equal(metadata.refocus_phase_bin, [0, 1, 1, 2, 2, 3, 3, 0])
+        np.testing.assert_array_equal(
+            metadata.refocus_matrix_indices,
+            [0, 3, 0, 0, 4, 0, 0, 4, 0, 0, 5, 0, 0, 5, 0, 0, 6, 0, 0, 6, 0, 0, 3, 0],
+        )
+        self.assertEqual(metadata.pulse_matrix_count, 6)
+        self.assertEqual(
+            len(metadata.refocus_pulse_library.shapes["refocusing"]),
+            4,
+        )
 
     def test_ideal_cpmg_accepts_absolute_phase_pulse_library(self) -> None:
         baseline = run_ideal_cpmg_train(

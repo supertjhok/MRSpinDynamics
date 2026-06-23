@@ -36,6 +36,10 @@ def _run_train(
     num_echoes: int,
     phase_step_cycles: float,
     initial_phase_rad: float,
+    phase_bins: int | None,
+    auto_refine_grid: bool,
+    rephase_safety_factor: float,
+    rephase_action: str,
 ) -> object:
     return run_phase_resolved_probe_case(
         probe=probe,
@@ -43,6 +47,10 @@ def _run_train(
         num_echoes=num_echoes,
         phase_step_cycles=phase_step_cycles,
         initial_refocus_phase_rad=initial_phase_rad,
+        phase_bins=phase_bins,
+        auto_refine_grid=auto_refine_grid,
+        rephase_safety_factor=rephase_safety_factor,
+        rephase_action=rephase_action,
     )
 
 
@@ -51,6 +59,12 @@ def main() -> None:
     parser.add_argument("--probe", choices=["tuned", "untuned", "matched"], default="tuned")
     parser.add_argument("--numpts", type=int, default=17)
     parser.add_argument("--num-echoes", type=int, default=64)
+    parser.add_argument(
+        "--phase-bins",
+        type=int,
+        default=None,
+        help="Optional number of absolute-phase bins used to reuse pulse solves.",
+    )
     parser.add_argument("--initial-phase", type=float, default=0.0)
     parser.add_argument(
         "--phase-steps",
@@ -59,7 +73,26 @@ def main() -> None:
         default=[0.0, 0.03125, 0.0625, 0.125, 0.25, 0.5],
         help="RF absolute-phase advances per refocusing pulse, in cycles.",
     )
+    parser.add_argument(
+        "--no-auto-refine-grid",
+        dest="auto_refine_grid",
+        action="store_false",
+        help="Keep the requested numpts even when the offset grid may rephase.",
+    )
+    parser.add_argument(
+        "--rephase-safety-factor",
+        type=float,
+        default=1.25,
+        help="Safety factor for the discrete-offset rephasing check.",
+    )
+    parser.add_argument(
+        "--rephase-action",
+        choices=["warn", "ignore", "raise"],
+        default="raise",
+        help="Action if auto-refinement is disabled and the grid may rephase.",
+    )
     parser.add_argument("--output", type=Path, default=None)
+    parser.set_defaults(auto_refine_grid=True)
     args = parser.parse_args()
 
     plt = load_matplotlib(headless=args.output is not None)
@@ -69,6 +102,10 @@ def main() -> None:
         num_echoes=args.num_echoes,
         phase_step_cycles=0.0,
         initial_refocus_phase_rad=args.initial_phase,
+        phase_bins=args.phase_bins,
+        auto_refine_grid=args.auto_refine_grid,
+        rephase_safety_factor=args.rephase_safety_factor,
+        rephase_action=args.rephase_action,
     )
     echo_numbers = np.arange(1, args.num_echoes + 1)
 
@@ -79,9 +116,14 @@ def main() -> None:
             num_echoes=args.num_echoes,
             phase_step_cycles=step,
             initial_phase_rad=args.initial_phase,
+            phase_bins=args.phase_bins,
+            auto_refine_grid=args.auto_refine_grid,
+            rephase_safety_factor=args.rephase_safety_factor,
+            rephase_action=args.rephase_action,
         )
         for step in args.phase_steps
     ]
+    print(f"effective num offsets: {baseline.result.del_w.size}")
 
     fig, axes = plt.subplots(2, 2, figsize=(11, 7.5), constrained_layout=True)
     axes[0, 0].plot(

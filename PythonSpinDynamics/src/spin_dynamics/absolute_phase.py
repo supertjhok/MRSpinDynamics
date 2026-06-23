@@ -188,8 +188,8 @@ class PulseShapeLibrary:
         if not np.isfinite(period) or period <= 0:
             raise ValueError("period_rad must be finite and positive")
         phase_grid = np.asarray(self.absolute_phase_rad, dtype=np.float64).reshape(-1)
-        if phase_grid.size < 2:
-            raise ValueError("absolute_phase_rad must contain at least two samples")
+        if phase_grid.size < 1:
+            raise ValueError("absolute_phase_rad must contain at least one sample")
         if not np.all(np.isfinite(phase_grid)):
             raise ValueError("absolute_phase_rad values must be finite")
         phase_grid = np.mod(phase_grid, period)
@@ -229,6 +229,13 @@ class PulseShapeLibrary:
 
         if pulse_kind not in self.shapes:
             raise KeyError(f"pulse kind {pulse_kind!r} is not in the library")
+        if self.absolute_phase_rad.size == 1:
+            shape = self.shapes[pulse_kind][0]
+            return PulseShape(
+                duration=shape.duration,
+                phase=shape.phase,
+                amplitude=shape.amplitude,
+            )
         phase = float(np.mod(float(absolute_phase_rad), self.period_rad))
         grid = self.absolute_phase_rad
         idx = int(np.searchsorted(grid, phase, side="right") - 1)
@@ -299,6 +306,7 @@ class AbsolutePhaseSpec:
     rf_phase_at_zero_rad: float = 0.0
     transient_model: TransientModel | None = None
     receiver_phase_rad: float = 0.0
+    phase_bins: int | None = None
 
     def __post_init__(self) -> None:
         if not np.isfinite(float(self.rf_frequency_hz)) or self.rf_frequency_hz <= 0:
@@ -307,6 +315,10 @@ class AbsolutePhaseSpec:
             raise ValueError("rf_phase_at_zero_rad must be finite")
         if not np.isfinite(float(self.receiver_phase_rad)):
             raise ValueError("receiver_phase_rad must be finite")
+        if self.phase_bins is not None and int(self.phase_bins) <= 0:
+            raise ValueError("phase_bins must be positive when provided")
+        if self.phase_bins is not None:
+            object.__setattr__(self, "phase_bins", int(self.phase_bins))
 
     @property
     def rf_angular_frequency_rad_s(self) -> float:
@@ -342,8 +354,19 @@ class AbsolutePhaseMetadata:
     pulse_kind: tuple[str, ...] = ()
     pulse_rotating_phase_rad: np.ndarray | None = None
     pulse_absolute_phase_rad: np.ndarray | None = None
+    pulse_phase_bin: np.ndarray | None = None
+    pulse_matrix_phase_rad: np.ndarray | None = None
     excitation_matrix_indices: np.ndarray | None = None
     refocus_matrix_indices: np.ndarray | None = None
+    phase_bins: int | None = None
+    encoding_absolute_phase_rad: np.ndarray | None = None
+    encoding_matrix_indices: np.ndarray | None = None
+    encoding_phase_bin: np.ndarray | None = None
+    encoding_matrix_phase_rad: np.ndarray | None = None
+    refocus_phase_bin: np.ndarray | None = None
+    refocus_matrix_phase_rad: np.ndarray | None = None
+    unique_refocus_phase_rad: np.ndarray | None = None
+    refocus_pulse_library: PulseShapeLibrary | None = None
 
     @property
     def delta_refocus_phase_cycles(self) -> float:
@@ -411,6 +434,38 @@ def wrap_phase(phase_rad: float | np.ndarray) -> float | np.ndarray:
     """Wrap phase into the interval [0, 2*pi)."""
 
     return np.mod(phase_rad, TAU)
+
+
+def phase_bin_indices(
+    phase_rad: float | np.ndarray,
+    phase_bins: int,
+) -> int | np.ndarray:
+    """Return nearest uniform absolute-phase bin indices."""
+
+    bins = int(phase_bins)
+    if bins <= 0:
+        raise ValueError("phase_bins must be positive")
+    scaled = np.asarray(wrap_phase(phase_rad), dtype=np.float64) * bins / TAU
+    indices = np.mod(np.floor(scaled + 0.5 + 1.0e-12).astype(np.int64), bins)
+    if np.isscalar(phase_rad):
+        return int(indices.reshape(()))
+    return indices
+
+
+def quantize_phase_to_bins(
+    phase_rad: float | np.ndarray,
+    phase_bins: int | None,
+) -> float | np.ndarray:
+    """Return phase values snapped to a uniform absolute-phase grid."""
+
+    if phase_bins is None:
+        return wrap_phase(phase_rad)
+    bins = int(phase_bins)
+    indices = phase_bin_indices(phase_rad, bins)
+    quantized = np.asarray(indices, dtype=np.float64) * TAU / bins
+    if np.isscalar(phase_rad):
+        return float(quantized.reshape(()))
+    return quantized
 
 
 def sinusoidal_transient_from_mapping(
@@ -815,6 +870,11 @@ def as_absolute_phase_spec(
         rf_phase_at_zero_rad=float(value.get("rf_phase_at_zero_rad", 0.0)),
         transient_model=transient_model,
         receiver_phase_rad=float(value.get("receiver_phase_rad", 0.0)),
+        phase_bins=(
+            None
+            if value.get("phase_bins", value.get("num_phase_bins")) is None
+            else int(value.get("phase_bins", value.get("num_phase_bins")))
+        ),
     )
 
 
@@ -980,6 +1040,10 @@ def build_cpmg_absolute_phase_metadata(
     pulse_matrix_count: int,
     schedule: FiniteCPMGPhaseSchedule | None = None,
     pulse_plan: FiniteCPMGPulsePlan | None = None,
+    refocus_phase_bin: np.ndarray | None = None,
+    refocus_matrix_phase_rad: np.ndarray | None = None,
+    unique_refocus_phase_rad: np.ndarray | None = None,
+    refocus_pulse_library: PulseShapeLibrary | None = None,
 ) -> AbsolutePhaseMetadata:
     """Build metadata for a CPMG-like absolute-phase schedule."""
 
@@ -1052,4 +1116,21 @@ def build_cpmg_absolute_phase_metadata(
         refocus_matrix_indices=(
             pulse_plan.refocus_cycle.copy() if pulse_plan is not None else None
         ),
+        phase_bins=spec.phase_bins,
+        refocus_phase_bin=(
+            np.asarray(refocus_phase_bin, dtype=np.int64).reshape(-1).copy()
+            if refocus_phase_bin is not None
+            else None
+        ),
+        refocus_matrix_phase_rad=(
+            np.asarray(refocus_matrix_phase_rad, dtype=np.float64).reshape(-1).copy()
+            if refocus_matrix_phase_rad is not None
+            else None
+        ),
+        unique_refocus_phase_rad=(
+            np.asarray(unique_refocus_phase_rad, dtype=np.float64).reshape(-1).copy()
+            if unique_refocus_phase_rad is not None
+            else None
+        ),
+        refocus_pulse_library=refocus_pulse_library,
     )

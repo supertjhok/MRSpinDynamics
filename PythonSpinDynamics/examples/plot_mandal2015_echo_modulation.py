@@ -32,14 +32,39 @@ def main() -> None:
     parser.add_argument("--numpts", type=int, default=17)
     parser.add_argument("--num-echoes", type=int, default=64)
     parser.add_argument(
+        "--phase-bins",
+        type=int,
+        default=None,
+        help="Optional number of absolute-phase bins used to reuse pulse solves.",
+    )
+    parser.add_argument(
         "--phase-steps",
         type=float,
         nargs="+",
         default=[0.0, 0.125, 0.25],
         help="RF absolute-phase advances per refocusing pulse, in cycles.",
     )
+    parser.add_argument(
+        "--no-auto-refine-grid",
+        dest="auto_refine_grid",
+        action="store_false",
+        help="Keep the requested numpts even when the offset grid may rephase.",
+    )
+    parser.add_argument(
+        "--rephase-safety-factor",
+        type=float,
+        default=1.25,
+        help="Safety factor for the discrete-offset rephasing check.",
+    )
+    parser.add_argument(
+        "--rephase-action",
+        choices=["warn", "ignore", "raise"],
+        default="raise",
+        help="Action if auto-refinement is disabled and the grid may rephase.",
+    )
     parser.add_argument("--initial-phase", type=float, default=0.0)
     parser.add_argument("--output", type=Path, default=None)
+    parser.set_defaults(auto_refine_grid=True)
     args = parser.parse_args()
 
     plt = load_matplotlib(headless=args.output is not None)
@@ -49,6 +74,10 @@ def main() -> None:
         num_echoes=args.num_echoes,
         phase_step_cycles=0.0,
         initial_refocus_phase_rad=args.initial_phase,
+        phase_bins=args.phase_bins,
+        auto_refine_grid=args.auto_refine_grid,
+        rephase_safety_factor=args.rephase_safety_factor,
+        rephase_action=args.rephase_action,
     )
     results = []
     for step_cycles in args.phase_steps:
@@ -59,8 +88,13 @@ def main() -> None:
                 num_echoes=args.num_echoes,
                 phase_step_cycles=step_cycles,
                 initial_refocus_phase_rad=args.initial_phase,
+                phase_bins=args.phase_bins,
+                auto_refine_grid=args.auto_refine_grid,
+                rephase_safety_factor=args.rephase_safety_factor,
+                rephase_action=args.rephase_action,
             )
         )
+    print(f"effective num offsets: {baseline.result.del_w.size}")
 
     echo_numbers = np.arange(1, args.num_echoes + 1)
     fig, axes = plt.subplots(2, 2, figsize=(11, 7.5), constrained_layout=True)

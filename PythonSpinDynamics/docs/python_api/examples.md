@@ -137,11 +137,41 @@ python examples\plot_mandal2015_echo_modulation.py --output results\mandal2015_e
 python examples\plot_mandal2015_pulse_shapes.py --output results\mandal2015_pulse_shapes.png
 ```
 
+The two finite-train plots accept `--phase-bins N` to quantize refocusing
+absolute phases and reuse the corresponding pulse-shape solves. The result
+metadata still stores the scheduled phase for every echo plus the quantized
+matrix phase and exported refocusing pulse-shape library.
+By default, the finite-train plots also enable `auto_refine_grid` and use
+`--rephase-action raise`, so a too-coarse fixed isochromat grid is corrected or
+reported instead of becoming an artificial echo modulation. Use
+`--no-auto-refine-grid --rephase-action warn` only for deliberate diagnostics.
+The pulse-shape plotting example uses the public
+`spin_dynamics.pulse_diagnostics.solve_probe_pulse_shape` API, which can also
+be used directly in notebooks or debugging scripts.
+
 ## Matched Diffusion CPMG
 
 ```powershell
 python examples\matched_diffusion_cpmg.py --numpts 21 --num-echoes 3
 ```
+
+Add `--phase-step 0.25 --phase-bins 16` to run the same compact diffusion
+case with absolute-phase-resolved matched-probe pulse shapes.
+
+```powershell
+python examples\plot_diffusion_absolute_phase_compare.py --output results\diffusion_absolute_phase_compare.png
+python examples\plot_tuned_diffusion_absolute_phase_compare.py --output results\tuned_diffusion_absolute_phase_compare.png
+```
+
+These plots compare four CPMG echo decays: synchronized RF without diffusion,
+diffusion only, absolute-phase advance only, and the combined case.
+The diffusion examples use a narrow default `--dz-um` and auto-refine the
+offset grid so the plotted echo decays are not dominated by discrete-grid
+rephasing. Each script prints the effective number of offsets after refinement.
+The matched-probe comparison also prints the matched-probe absolute-phase
+residual; the current matched pulse-shape solver is often nearly
+phase-invariant. The tuned-probe comparison is the higher-contrast example for
+probe-solved absolute-phase sensitivity combined with diffusion.
 
 ## Received Signal Noise
 
@@ -355,8 +385,12 @@ This example requires Matplotlib. It compares finite CPMG echo trains across
 ideal, tuned, untuned, and matched probe models.
 
 ```powershell
-python examples\plot_finite_train_workflows.py --numpts 17 --num-echoes 4 --output results\finite_trains.png
+python examples\plot_finite_train_workflows.py --numpts 65 --num-echoes 4 --output results\finite_trains.png
 ```
+
+This plot defaults to automatic grid refinement and reports the effective
+number of offsets used. Disable refinement only when intentionally testing the
+rephasing guard.
 
 ## Plot Diffusion Sweep
 
@@ -364,8 +398,12 @@ This example requires Matplotlib. It plots a compact matched-probe diffusion
 CPMG Q sweep, including echo-integral decay and a Q-by-echo heatmap.
 
 ```powershell
-python examples\plot_diffusion_sweep.py --numpts 17 --num-echoes 3 --output results\diffusion_sweep.png
+python examples\plot_diffusion_sweep.py --numpts 65 --num-echoes 3 --output results\diffusion_sweep.png
 ```
+
+Use `--dz-um` to set the physical slice thickness that determines the
+normalized offset span; the default is intentionally compact for a stable
+teaching plot.
 
 ## Plot Time-Varying Field Sweep
 

@@ -16,7 +16,7 @@ from _source_path import add_src_to_path, load_matplotlib
 
 add_src_to_path()
 
-from _mandal2015_absolute_phase import solve_refocusing_pulse_shape  # noqa: E402
+from spin_dynamics.pulse_diagnostics import solve_probe_pulse_shape  # noqa: E402
 
 
 def _phase_label(cycles: float) -> str:
@@ -40,9 +40,10 @@ def main() -> None:
 
     plt = load_matplotlib(headless=args.output is not None)
     shapes = [
-        solve_refocusing_pulse_shape(
+        solve_probe_pulse_shape(
             probe=args.probe,
             absolute_phase_rad=2.0 * np.pi * phase_cycles,
+            pulse_kind="refocusing",
             numpts=args.numpts,
             maxoffs=args.maxoffs,
         )

@@ -21,12 +21,24 @@ from spin_dynamics.workflows import (
 
 
 
-def _run_train(probe: str, numpts: int, num_echoes: int):
+def _run_train(
+    probe: str,
+    numpts: int,
+    num_echoes: int,
+    *,
+    auto_refine_grid: bool,
+    rephase_action: str,
+):
     # Use the public workflow wrappers rather than stitching lower-level
     # acquisition calls together. This keeps the example close to user-facing
     # code and exercises probe pulse shaping plus receiver filtering where
     # applicable.
-    common = {"numpts": numpts, "num_echoes": num_echoes, "rephase_action": "ignore"}
+    common = {
+        "numpts": numpts,
+        "num_echoes": num_echoes,
+        "auto_refine_grid": auto_refine_grid,
+        "rephase_action": rephase_action,
+    }
     if probe == "ideal":
         return run_ideal_cpmg_train(**common)
     if probe == "tuned":
@@ -49,12 +61,35 @@ def main() -> None:
         default=["ideal", "tuned", "untuned", "matched"],
         help="Probe models to compare.",
     )
+    parser.add_argument(
+        "--no-auto-refine-grid",
+        dest="auto_refine_grid",
+        action="store_false",
+        help="Keep the requested numpts even when the offset grid may rephase.",
+    )
+    parser.add_argument(
+        "--rephase-action",
+        choices=["warn", "ignore", "raise"],
+        default="raise",
+        help="Action if auto-refinement is disabled and the grid may rephase.",
+    )
     parser.add_argument("--output", type=Path, default=None, help="Optional output PNG path.")
+    parser.set_defaults(auto_refine_grid=True)
     args = parser.parse_args()
 
-    plt = load_matplotlib()
+    plt = load_matplotlib(headless=args.output is not None)
 
-    results = [_run_train(probe, args.numpts, args.num_echoes) for probe in args.probes]
+    results = [
+        _run_train(
+            probe,
+            args.numpts,
+            args.num_echoes,
+            auto_refine_grid=args.auto_refine_grid,
+            rephase_action=args.rephase_action,
+        )
+        for probe in args.probes
+    ]
+    print(f"effective num offsets: {results[0].del_w.size}")
     echo_numbers = np.arange(1, args.num_echoes + 1)
 
     fig, axes = plt.subplots(2, 2, figsize=(11, 7.5), constrained_layout=True)

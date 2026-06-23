@@ -59,6 +59,7 @@ MODULES = [
     "optimization.results",
     "optimization.spa",
     "pulses",
+    "pulse_diagnostics",
     "radiation_damping",
     "sequences.motion",
     "workflows.acquisition",

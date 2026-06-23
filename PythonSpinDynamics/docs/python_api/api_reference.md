@@ -50,6 +50,8 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `FiniteCPMGPhaseSchedule` | Absolute phase schedule for a finite CPMG-like echo train. |
 | class | `FiniteCPMGPulsePlan` | Pulse-matrix indices for finite CPMG phase cycling. |
 | function | `wrap_phase(phase_rad: float | np.ndarray) -> float | np.ndarray` | Wrap phase into the interval [0, 2*pi). |
+| function | `phase_bin_indices(phase_rad: float | np.ndarray, phase_bins: int) -> int | np.ndarray` | Return nearest uniform absolute-phase bin indices. |
+| function | `quantize_phase_to_bins(phase_rad: float | np.ndarray, phase_bins: int | None) -> float | np.ndarray` | Return phase values snapped to a uniform absolute-phase grid. |
 | function | `sinusoidal_transient_from_mapping(value: Mapping[str, Any]) -> SinusoidalTransientPerturbation` | Build a sinusoidal perturbation model from a mapping. |
 | function | `longitudinal_phase_kick_from_mapping(value: Mapping[str, Any]) -> LongitudinalPhaseKick` | Build a longitudinal phase-kick model from a mapping. |
 | function | `pulse_shape_library_from_mapping(value: Mapping[str, Any]) -> PulseShapeLibrary` | Build a pulse-shape library from plain arrays. |
@@ -62,7 +64,7 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `cpmg_refocus_start_times(*, excitation_start_seconds: float, excitation_duration_seconds: float, correction_delay_seconds: float, pre_refocus_delay_seconds: float, echo_spacing_seconds: float, num_echoes: int) -> np.ndarray` | Return refocusing-pulse start times for a CPMG-like train. |
 | function | `build_finite_cpmg_phase_schedule(*, spec: AbsolutePhaseSpec, excitation_start_seconds: float, excitation_duration_seconds: float, correction_delay_seconds: float, pre_refocus_delay_seconds: float, echo_spacing_seconds: float, num_echoes: int, excitation_phases_rad: Sequence[float] | np.ndarray = (np.pi / 2, 3 * np.pi / 2), refocus_rotating_phase_rad: float = 0.0) -> FiniteCPMGPhaseSchedule` | Build absolute RF phase schedule for a finite CPMG-like train. |
 | function | `build_finite_cpmg_pulse_plan(num_echoes: int, *, per_echo_refocusing: bool) -> FiniteCPMGPulsePlan` | Return pulse-matrix index vectors for finite CPMG phase cycling. |
-| function | `build_cpmg_absolute_phase_metadata(*, spec: AbsolutePhaseSpec, excitation_start_seconds: float, excitation_phases_rad: np.ndarray, refocus_start_seconds: np.ndarray, refocus_rotating_phase_rad: float, echo_spacing_seconds: float, pulse_matrix_count: int, schedule: FiniteCPMGPhaseSchedule | None = None, pulse_plan: FiniteCPMGPulsePlan | None = None) -> AbsolutePhaseMetadata` | Build metadata for a CPMG-like absolute-phase schedule. |
+| function | `build_cpmg_absolute_phase_metadata(*, spec: AbsolutePhaseSpec, excitation_start_seconds: float, excitation_phases_rad: np.ndarray, refocus_start_seconds: np.ndarray, refocus_rotating_phase_rad: float, echo_spacing_seconds: float, pulse_matrix_count: int, schedule: FiniteCPMGPhaseSchedule | None = None, pulse_plan: FiniteCPMGPulsePlan | None = None, refocus_phase_bin: np.ndarray | None = None, refocus_matrix_phase_rad: np.ndarray | None = None, unique_refocus_phase_rad: np.ndarray | None = None, refocus_pulse_library: PulseShapeLibrary | None = None) -> AbsolutePhaseMetadata` | Build metadata for a CPMG-like absolute-phase schedule. |
 
 ## `spin_dynamics.coupling.evolution`
 
@@ -604,6 +606,16 @@ No public classes or functions found.
 | function | `matched_rectangular_pulse_response(*, numpts: int = 2000) -> ProbePulseResponse` | Return the JMR matched-probe rectangular-pulse response. |
 | function | `matched_wurst_pulse_response(pulse: WURSTPulse, *, numpts: int = 2000, q_value: float | None = None, drive_phase: float | None = None) -> ProbePulseResponse` | Return matched-probe transmit response to a WURST RF block. |
 
+## `spin_dynamics.pulse_diagnostics`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `ProbePulseShapeDiagnostics` | Solved rotating-frame probe pulse shape and diagnostic metrics. |
+| class | `ProbePulseShapeSweep` | Set of solved probe pulse shapes over absolute RF phase. |
+| function | `solve_probe_pulse_shape(*, probe: str, absolute_phase_rad: float, pulse_kind: str = 'refocusing', numpts: int = 17, maxoffs: float = 10.0, q_value: float | None = None, mistuning_offset: float | None = None, rotating_phase_rad: float | None = None, pulse_duration_seconds: float | None = None, pulse_amplitude: float = 1.0, delay_seconds: float | None = None) -> ProbePulseShapeDiagnostics` | Solve one probe pulse shape for a requested absolute RF phase. |
+| function | `solve_probe_pulse_shape_sweep(*, probe: str, absolute_phase_rad: Sequence[float] | np.ndarray, pulse_kind: str = 'refocusing', numpts: int = 17, maxoffs: float = 10.0, q_value: float | None = None, mistuning_offset: float | None = None, rotating_phase_rad: float | None = None, pulse_duration_seconds: float | None = None, pulse_amplitude: float = 1.0, delay_seconds: float | None = None) -> ProbePulseShapeSweep` | Solve a probe pulse-shape sweep over absolute RF phase. |
+| function | `build_probe_pulse_shape_library(*, probe: str, absolute_phase_rad: Sequence[float] | np.ndarray, pulse_kind: str = 'refocusing', numpts: int = 17, maxoffs: float = 10.0, q_value: float | None = None, mistuning_offset: float | None = None, rotating_phase_rad: float | None = None, pulse_duration_seconds: float | None = None, pulse_amplitude: float = 1.0, delay_seconds: float | None = None) -> PulseShapeLibrary` | Build a probe-solved absolute-phase pulse-shape library. |
+
 ## `spin_dynamics.radiation_damping`
 
 | Kind | Name | Summary |
@@ -677,11 +689,14 @@ No public classes or functions found.
 | Kind | Name | Summary |
 | --- | --- | --- |
 | class | `MatchedDiffusionCPMGResult` | Matched-probe diffusion-aware finite CPMG result. |
+| class | `TunedDiffusionCPMGResult` | Tuned-probe diffusion-aware finite CPMG result. |
 | class | `MatchedDiffusionQSweepResult` | Q sweep result for matched-probe diffusion-aware CPMG. |
 | function | `check_matched_diffusion_q_stability(q_value: float, *, action: str = 'warn') -> bool` | Check the compact matched-diffusion Q validation boundary. |
 | function | `calc_macq_matched_probe_relax_diffusion(sp: Mapping[str, Any] | Any, pp: Mapping[str, Any] | Any, *, apply_receiver: bool = True, num_workers: int | None = 1) -> tuple[np.ndarray, np.ndarray]` | Calculate diffusion-aware matched-probe finite acquisition. |
-| function | `run_matched_diffusion_cpmg(num_echoes: int = 5, echo_spacing_seconds: float = 0.001, t1_seconds: float = 0.1, t2_seconds: float = 0.1, dz: float = 0.001, diffusion_time: float = 0.001, t90_seconds: float = 0.0001, q_value: float = 50.0, *, numpts: int = 101, apply_receiver: bool = False, num_workers: int | None = 1, q_stability_action: str = 'warn', auto_refine_grid: bool = False, rephase_safety_factor: float = 1.25, rephase_action: str = 'warn') -> MatchedDiffusionCPMGResult` | Run a compact matched-probe diffusion-aware CPMG train. |
-| function | `run_matched_diffusion_q_sweep(q_values: Iterable[float] | np.ndarray | None = None, *, num_echoes: int = 5, echo_spacing_seconds: float = 0.001, numpts: int = 101, num_workers: int | None = 1, sweep_workers: int | None = 1, q_stability_action: str = 'warn', auto_refine_grid: bool = False, rephase_safety_factor: float = 1.25, rephase_action: str = 'warn') -> MatchedDiffusionQSweepResult` | Sweep matched-probe Q for the compact diffusion CPMG workflow. |
+| function | `calc_macq_tuned_probe_relax_diffusion(sp: Mapping[str, Any] | Any, pp: Mapping[str, Any] | Any, *, apply_receiver: bool = True, num_workers: int | None = 1) -> tuple[np.ndarray, np.ndarray]` | Calculate diffusion-aware tuned-probe finite acquisition. |
+| function | `run_matched_diffusion_cpmg(num_echoes: int = 5, echo_spacing_seconds: float = 0.001, t1_seconds: float = 0.1, t2_seconds: float = 0.1, dz: float = 0.001, diffusion_time: float = 0.001, diffusion_coefficient: float | None = None, t90_seconds: float = 0.0001, q_value: float = 50.0, *, numpts: int = 101, apply_receiver: bool = False, num_workers: int | None = 1, q_stability_action: str = 'warn', auto_refine_grid: bool = False, rephase_safety_factor: float = 1.25, rephase_action: str = 'warn', absolute_phase: AbsolutePhaseSpec | Mapping[str, Any] | None = None) -> MatchedDiffusionCPMGResult` | Run a compact matched-probe diffusion-aware CPMG train. |
+| function | `run_tuned_diffusion_cpmg(num_echoes: int = 5, echo_spacing_seconds: float = 0.001, t1_seconds: float = 0.1, t2_seconds: float = 0.1, dz: float = 0.001, diffusion_time: float = 0.001, diffusion_coefficient: float | None = None, gradient: float = 1.0, t90_seconds: float = 0.0001, q_value: float | None = None, *, numpts: int = 101, apply_receiver: bool = True, num_workers: int | None = 1, auto_refine_grid: bool = False, rephase_safety_factor: float = 1.25, rephase_action: str = 'warn', absolute_phase: AbsolutePhaseSpec | Mapping[str, Any] | None = None) -> TunedDiffusionCPMGResult` | Run a compact tuned-probe diffusion-aware CPMG train. |
+| function | `run_matched_diffusion_q_sweep(q_values: Iterable[float] | np.ndarray | None = None, *, num_echoes: int = 5, echo_spacing_seconds: float = 0.001, diffusion_coefficient: float | None = None, diffusion_time: float = 0.001, dz: float = 0.001, t90_seconds: float = 0.0001, numpts: int = 101, num_workers: int | None = 1, sweep_workers: int | None = 1, q_stability_action: str = 'warn', auto_refine_grid: bool = False, rephase_safety_factor: float = 1.25, rephase_action: str = 'warn', absolute_phase: AbsolutePhaseSpec | Mapping[str, Any] | None = None) -> MatchedDiffusionQSweepResult` | Sweep matched-probe Q for the compact diffusion CPMG workflow. |
 
 ## `spin_dynamics.workflows.fid`
 

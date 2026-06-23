@@ -38,18 +38,21 @@ class ExampleSmokeTests(unittest.TestCase):
             numpts=9,
             num_echoes=24,
             phase_step_cycles=0.0,
+            rephase_action="ignore",
         )
         pi_periodic = run_phase_resolved_probe_case(
             probe="tuned",
             numpts=9,
             num_echoes=24,
             phase_step_cycles=0.5,
+            rephase_action="ignore",
         )
         modulated = run_phase_resolved_probe_case(
             probe="tuned",
             numpts=9,
             num_echoes=24,
             phase_step_cycles=0.25,
+            rephase_action="ignore",
         )
 
         static_ratio = np.abs(matched_filter_ratio(pi_periodic, baseline))
@@ -124,6 +127,8 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/diagnose_optimization_backends.py",
             "examples/plot_finite_train_workflows.py",
             "examples/plot_diffusion_sweep.py",
+            "examples/plot_diffusion_absolute_phase_compare.py",
+            "examples/plot_tuned_diffusion_absolute_phase_compare.py",
             "examples/plot_time_varying_sweep.py",
             "examples/plot_inverse_laplace.py",
             "examples/plot_motion_linear.py",
@@ -177,6 +182,12 @@ class ExampleSmokeTests(unittest.TestCase):
         self.assertIn("--probes", result.stdout)
         result = run_example("examples/plot_diffusion_sweep.py", "--help")
         self.assertIn("--q-values", result.stdout)
+        result = run_example("examples/plot_diffusion_absolute_phase_compare.py", "--help")
+        self.assertIn("--phase-step", result.stdout)
+        self.assertIn("--diffusion-coefficient", result.stdout)
+        result = run_example("examples/plot_tuned_diffusion_absolute_phase_compare.py", "--help")
+        self.assertIn("--phase-step", result.stdout)
+        self.assertIn("--diffusion-coefficient", result.stdout)
         result = run_example("examples/plot_time_varying_sweep.py", "--help")
         self.assertIn("--amplitudes", result.stdout)
         result = run_example("examples/plot_inverse_laplace.py", "--help")

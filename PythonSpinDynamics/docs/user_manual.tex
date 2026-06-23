@@ -1563,6 +1563,7 @@ sweep = run_matched_diffusion_q_sweep(
     q_values=[20, 50],
     num_echoes=3,
     numpts=21,
+    dz=50e-6,
     auto_refine_grid=True,
 )
 \end{lstlisting}
@@ -1570,6 +1571,56 @@ sweep = run_matched_diffusion_q_sweep(
 The compact matched-probe diffusion workflow is solver-validated through
 \(Q=2000\). Higher-Q cases remain a stiffness target for the current NumPy
 matched-probe transient solver.
+
+Matched diffusion CPMG also accepts \code{absolute\_phase}.  In this combined
+path, the diffusion-encoding \(\pi\) pulse and the CPMG refocusing pulses are
+solved at their laboratory-frame RF phase, while the free-precession intervals
+retain the diffusion attenuation:
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.workflows import run_matched_diffusion_cpmg
+
+combined = run_matched_diffusion_cpmg(
+    num_echoes=16,
+    echo_spacing_seconds=1.0e-3,
+    diffusion_time=1.0e-3,
+    q_value=50,
+    absolute_phase={
+        "rf_frequency_hz": 0.25 / 1.0e-3,
+        "phase_bins": 16,
+    },
+)
+
+metadata = combined.absolute_phase
+encoding_phase = metadata.encoding_absolute_phase_rad
+refocus_phases = metadata.refocus_absolute_phase_rad
+\end{lstlisting}
+
+\code{metadata.refocus\_*} describes the echo-train refocusing pulses.
+\code{metadata.encoding\_*} describes the diffusion-encoding \(\pi\) pulse,
+and \code{pulse\_*} fields provide the full RF event list.
+
+The comparison plotting example toggles diffusion and absolute phase
+independently:
+
+\begin{lstlisting}[language=bash]
+python examples\plot_diffusion_absolute_phase_compare.py
+python examples\plot_tuned_diffusion_absolute_phase_compare.py
+\end{lstlisting}
+
+The diffusion plotting examples use a narrow default \code{--dz-um} and enable
+automatic offset-grid refinement so the displayed decay is not an artifact of
+discrete-grid rephasing.  They print the effective number of offsets after any
+refinement.  Use \code{--no-auto-refine-grid} only when intentionally testing
+the rephasing guard.
+The matched diffusion comparison also prints the matched-probe absolute-phase
+residual and warns when it is below the plotting tolerance.  The current
+matched pulse-shape solver is often nearly phase-invariant; in that case the
+plot is a diagnostic limitation rather than evidence for a measurable combined
+effect.
+The tuned-probe comparison uses the same diffusion kernel with tuned
+pulse-shape solves and usually shows a much larger residual, making it the
+better contrast example for phase-sensitive probe transients.
 
 \section{Moving Isochromats}
 
@@ -1652,6 +1703,50 @@ train = run_tuned_cpmg_train(
 phase_step = train.absolute_phase.delta_refocus_phase_cycles
 \end{lstlisting}
 
+For long trains, add \code{phase\_bins} to reuse solved refocusing pulses on a
+uniform absolute-phase grid:
+
+\begin{lstlisting}[language=Python]
+train = run_tuned_cpmg_train(
+    num_echoes=256,
+    absolute_phase={
+        "rf_frequency_hz": 0.03125 / 200e-6,
+        "phase_bins": 32,
+    },
+)
+
+library = train.absolute_phase.refocus_pulse_library
+matrix_phases = train.absolute_phase.refocus_matrix_phase_rad
+\end{lstlisting}
+
+The scheduled phase for every echo remains available as
+\code{refocus\_absolute\_phase\_rad}.  The quantized matrix phase, bin index,
+unique phase list, and exported \code{PulseShapeLibrary} are recorded in result
+metadata so cache behavior can be audited or reused in downstream analysis.
+The matched diffusion CPMG workflow uses the same \code{absolute\_phase}
+mapping and additionally records the diffusion-encoding \(\pi\) pulse in
+\code{encoding\_*} metadata fields.
+
+The same solved pulse shapes can be inspected without running a full echo
+train:
+
+\begin{lstlisting}[language=Python]
+import numpy as np
+
+from spin_dynamics.pulse_diagnostics import solve_probe_pulse_shape_sweep
+
+sweep = solve_probe_pulse_shape_sweep(
+    probe="tuned",
+    absolute_phase_rad=2 * np.pi * np.array([0.0, 0.25, 0.5, 0.75]),
+    numpts=17,
+)
+
+shape = sweep.shapes[1]
+drive = shape.drive
+quadrature_fraction = shape.quadrature_energy_fraction
+library = sweep.pulse_shape_library
+\end{lstlisting}
+
 When sweeping the phase advance between refocusing pulses, keep the absolute
 phase of the first refocusing pulse fixed if the goal is to isolate
 echo-to-echo variation.  A half-cycle phase advance produces the same
@@ -1667,11 +1762,19 @@ python examples\plot_mandal2015_echo_modulation.py --probe tuned
 python examples\plot_mandal2015_pulse_shapes.py --probe tuned
 \end{lstlisting}
 
+The finite-train plotting scripts accept \code{--phase-bins N} to exercise the
+same quantized pulse-cache path used by the workflow API.
+They also enable automatic offset-grid refinement by default and use
+\code{--rephase-action raise}; this keeps demonstration plots from silently
+using too few isochromats.  Pass \code{--no-auto-refine-grid} only for explicit
+diagnostic runs.
+
 \code{plot\_mandal2015\_pulse\_shapes.py} solves a single refocusing pulse at
 several absolute RF phases and plots \(\mathrm{Re}(B_1)\),
 \(\mathrm{Im}(B_1)\), \(|B_1|\), and the phase of the nonzero-amplitude
 segments.  It is intended as a debugging and teaching aid: the finite train
-examples use the same pulse-shape solvers and the same discretized segments.
+examples use the same public diagnostics API, pulse-shape solvers, and
+discretized segments.
 
 \section{Radiation Damping}
 
@@ -1798,8 +1901,10 @@ python examples\plot_custom_imaging_fields.py --pixels 8 --ny 7 --output results
 python examples\plot_inverse_laplace.py --output results\inverse_laplace.png
 python examples\plot_probe_parameter_sweep.py --probe tuned --sweep q --output results\tuned_q_sweep.png
 python examples\plot_probe_cpmg.py --numpts 101 --output results\probe_cpmg.png
-python examples\plot_finite_train_workflows.py --numpts 17 --num-echoes 4 --output results\finite_trains.png
-python examples\plot_diffusion_sweep.py --numpts 17 --num-echoes 3 --output results\diffusion_sweep.png
+python examples\plot_finite_train_workflows.py --numpts 65 --num-echoes 4 --output results\finite_trains.png
+python examples\plot_diffusion_sweep.py --numpts 65 --num-echoes 3 --output results\diffusion_sweep.png
+python examples\plot_diffusion_absolute_phase_compare.py --output results\diffusion_absolute_phase_compare.png
+python examples\plot_tuned_diffusion_absolute_phase_compare.py --output results\tuned_diffusion_absolute_phase_compare.png
 python examples\plot_time_varying_sweep.py --numpts 51 --num-echoes 12 --output results\time_varying_sweep.png
 python examples\plot_motion_linear.py --output results\motion_linear.png
 python examples\plot_motion_diffusion_cpmg.py --output results\motion_diffusion_cpmg.png
