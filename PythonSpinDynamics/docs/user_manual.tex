@@ -1839,6 +1839,46 @@ The example \code{plot\_pgse\_double\_encoding\_elliptical\_pore.py} traces
 \(E(\psi)\) for the ellipse and the equal-area circle, both at a single
 orientation and powder-averaged, and reports the fitted \(\cos 2\psi\) amplitude.
 
+\subsection{Oscillating-Gradient Spin Echo (OGSE)}
+
+PGSE varies the diffusion time \(\Delta\); \code{run\_ogse\_walkers} instead
+varies the oscillation frequency of a cosine-modulated gradient. Each
+diffusion-encoding lobe is a waveform \(G\cos(2\pi f t)\) of \code{num\_periods}
+whole periods, applied symmetrically around the refocusing pulse,
+\(90-\cos\text{ lobe}-180-\cos\text{ lobe}-\mathrm{echo}\). Because each lobe
+spans an integer number of periods, its zeroth gradient moment vanishes and
+stationary spins refocus. The encoding power is concentrated at the angular
+frequency \(\omega=2\pi f\), so sweeping \code{oscillation\_frequency} maps the
+diffusion spectrum \(D(\omega)\) and reaches the short-diffusion-time regime that
+ordinary PGSE cannot. The waveform is discretized into \code{samples\_per\_period}
+constant-gradient steps, and the b-value follows the cosine spectrum
+\(b=(\gamma G/\omega)^2\,N/f\), which falls steeply with frequency.
+
+\begin{lstlisting}[language=Python]
+import numpy as np
+from spin_dynamics.motion import make_motion_field_maps_2d
+from spin_dynamics.workflows import run_ogse_walkers
+
+x = np.linspace(-2.5e-6, 2.5e-6, 15)         # 5 um reflecting slab along x
+z = np.array([-0.5e-6, 0.5e-6])
+rho = np.ones((x.size, z.size))
+
+ogse = run_ogse_walkers(
+    rho=rho, x_axis=x, z_axis=z,
+    fields=make_motion_field_maps_2d(x, z),  # walls = the slab
+    gradient_amplitude=0.5, oscillation_frequency=200.0,  # sweep this
+    num_periods=2, diffusion_coefficient=2.0e-9,
+    walkers_per_cell=160, substeps_per_interval=6, seed=2026, jitter=True,
+)
+d_app = -np.log(abs(ogse.signal[0]) / rho.sum()) / ogse.b_value  # D(omega)
+\end{lstlisting}
+
+In restricted geometry \(D_{\mathrm{app}}\) rises from the long-time
+(tortuosity) value toward the bulk value as the frequency increases, and a
+smaller pore stays restricted to higher frequency (transition
+\(f_c\sim D/L^2\)). The example \code{plot\_ogse\_frequency\_diffusion.py}
+sweeps the frequency for free diffusion and two reflecting slab widths.
+
 \section{Moving Isochromats}
 
 The motion layer treats inhomogeneity in the same spirit as static
@@ -2229,6 +2269,7 @@ Class & Purpose \\
 \code{PGSEWalkerResult} & Random-walker PGSE signal, sequence samples, and initial particle ensemble. \\
 \code{PGSTEWalkerResult} & Random-walker stimulated-echo (PGSTE) signal, storage interval, and initial particle ensemble. \\
 \code{DDEWalkerResult} & Random-walker double diffusion encoding (DDE) signal, encoding angles, and mixing time. \\
+\code{OGSEWalkerResult} & Random-walker oscillating-gradient spin-echo (OGSE) signal, oscillation frequency, and b-value. \\
 \code{WURSTInversionResult} & WURST inversion profile and pulse metadata. \\
 \code{MatchedWURSTCPMGResult} & Matched WURST-CPMG echoes and spectra. \\
 \code{RadiationDampingFIDResult} & Radiation-damping FID simulation and analytic comparison fields. \\
@@ -2264,7 +2305,8 @@ from spin_dynamics.workflows import (
     run_matched_z_magnetization_q_sweep,
     run_matched_diffusion_cpmg, run_matched_diffusion_q_sweep,
     run_pgse, run_pgse_moment, run_pgse_walkers, run_pgste_walkers,
-    run_dde_walkers, pgse_b_value, gradient_moment_b_value,
+    run_dde_walkers, run_ogse_walkers,
+    pgse_b_value, gradient_moment_b_value,
     run_ideal_time_varying_cpmg_final,
     run_tuned_time_varying_cpmg_final,
     run_untuned_time_varying_cpmg_final,

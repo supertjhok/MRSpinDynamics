@@ -280,6 +280,28 @@ minutes. Use `--semi-major` / `--semi-minor` to set the eccentricity,
 `--num-orientations` / `--walkers-per-cell` to trade runtime for smoother curves.
 Only Matplotlib is required.
 
+## OGSE Frequency-Resolved Diffusion
+
+This example uses the oscillating-gradient spin-echo backend
+(`run_ogse_walkers`) to map the diffusion spectrum `D(omega)`. Where PGSE varies
+the diffusion *time*, OGSE varies the oscillation *frequency* of a
+cosine-modulated gradient, reaching much shorter effective diffusion times. The
+first panel shows the cosine waveform; the second sweeps the frequency and plots
+the apparent diffusion coefficient for free diffusion and for reflecting slab
+pores of two widths. Free diffusion is flat at the bulk value, while the
+restricted curves rise from the low-frequency (tortuosity-limited) value toward
+bulk as the frequency increases -- and the smaller pore stays restricted to
+higher frequency (transition `f_c ~ D / L^2`).
+
+```powershell
+python examples\plot_ogse_frequency_diffusion.py --output results\ogse.png
+```
+
+The gradient amplitude is scaled with frequency to hold the b-value fixed (the
+cosine-OGSE b-value falls steeply with frequency). Use `--slab-widths`,
+`--freq-min` / `--freq-max` / `--num-freqs`, and `--walkers-per-cell` /
+`--substeps` to explore. Only Matplotlib is required.
+
 ## Received Signal Noise
 
 This non-plotting example compares opt-in white noise and probe-colored

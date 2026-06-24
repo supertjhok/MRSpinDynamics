@@ -749,6 +749,41 @@ The reported `b_value` is per block, and the `cos 2*psi` powder term is a
 higher-order (`q^4`) effect, so strong diffusion weighting is needed to resolve
 it. See the elliptical-pore DDE example.
 
+### Oscillating-gradient spin echo (OGSE)
+
+`run_ogse_walkers` replaces the two rectangular PGSE lobes with cosine-modulated
+gradient waveforms of `num_periods` whole periods around the refocusing pulse,
+``90 - cos lobe - 180 - cos lobe - echo``. The encoding power sits at the angular
+frequency `omega = 2*pi*oscillation_frequency`, so sweeping the frequency maps
+the diffusion spectrum `D(omega)` and reaches the short-diffusion-time regime
+that ordinary PGSE cannot. The waveform is discretized into
+`samples_per_period` constant-gradient steps, and the b-value is computed from
+the effective gradient spectrum (it falls steeply with frequency,
+`b = (gamma G / omega)^2 * N / f`).
+
+```python
+from spin_dynamics.motion import make_motion_field_maps_2d
+from spin_dynamics.workflows import run_ogse_walkers
+import numpy as np
+
+x = np.linspace(-2.5e-6, 2.5e-6, 15)        # 5 um reflecting slab along x
+z = np.array([-0.5e-6, 0.5e-6])
+rho = np.ones((x.size, z.size))
+
+ogse = run_ogse_walkers(
+    rho=rho, x_axis=x, z_axis=z,
+    fields=make_motion_field_maps_2d(x, z),  # walls = the slab
+    gradient_amplitude=0.5, oscillation_frequency=200.0,  # sweep this
+    num_periods=2, diffusion_coefficient=2.0e-9,
+    walkers_per_cell=160, substeps_per_interval=6, seed=2026, jitter=True,
+)
+d_app = -np.log(abs(ogse.signal[0]) / rho.sum()) / ogse.b_value  # D(omega)
+```
+
+In restricted geometry `D_app` rises from the long-time value toward the bulk
+value as the frequency increases. Keep the per-substep hop small compared with
+the pore size. See the OGSE frequency-diffusion example.
+
 ## WURST Inversion and CPMG
 
 ```python

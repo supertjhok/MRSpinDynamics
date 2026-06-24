@@ -112,6 +112,32 @@ class DDEWalkerResult:
     backend: str = "walkers_dde"
 
 
+@dataclass(frozen=True)
+class OGSEWalkerResult:
+    """Random-walker oscillating-gradient spin-echo (OGSE) result.
+
+    The two diffusion-encoding lobes are cosine-modulated gradient waveforms, so
+    the encoding spectrum is concentrated at the angular frequency
+    ``omega = 2*pi*oscillation_frequency``. Sweeping the frequency maps the
+    diffusion spectrum ``D(omega)``: in restricted geometry the apparent
+    diffusion coefficient rises from the long-time (tortuosity) value toward the
+    bulk value as the frequency increases.
+    """
+
+    signal: np.ndarray
+    echo_times: np.ndarray
+    b_value: float
+    oscillation_frequency: float
+    num_periods: int
+    encoding_time: float
+    sequence: MotionSequenceResult
+    initial_ensemble: ParticleEnsemble
+    gradient_amplitude: float
+    diffusion_coefficient: float
+    gamma: float
+    backend: str = "walkers_ogse"
+
+
 def pgse_b_value(
     gradient_amplitude: float,
     gradient_duration: float,
@@ -612,6 +638,133 @@ def run_dde_walkers(
     )
 
 
+def run_ogse_walkers(
+    *,
+    rho: Iterable[float] | np.ndarray | None = None,
+    x_axis: Iterable[float] | np.ndarray | None = None,
+    z_axis: Iterable[float] | np.ndarray | None = None,
+    fields: MotionFieldMaps2D | None = None,
+    gradient_amplitude: float = 0.05,
+    oscillation_frequency: float = 100.0,
+    num_periods: int = 2,
+    samples_per_period: int = 16,
+    diffusion_coefficient: float = 2.3e-9,
+    gamma: float = 2.675e8,
+    gradient_axis: PGSEAxis = "x",
+    walkers_per_cell: int = 128,
+    seed: int | None = None,
+    jitter: bool = False,
+    excitation_duration: float = 100.0e-6,
+    refocusing_duration: float = 200.0e-6,
+    t1_seconds: float = np.inf,
+    t2_seconds: float = np.inf,
+    velocity: Velocity = None,
+    boundary: Boundary = "reflect",
+    substeps_per_interval: int = 4,
+) -> OGSEWalkerResult:
+    """Run an oscillating-gradient spin-echo (OGSE) walker simulation.
+
+    Each diffusion-encoding lobe is a cosine waveform ``G cos(2*pi*f*t)`` of
+    ``num_periods`` whole periods, applied symmetrically around a refocusing
+    pulse: ``90 - cos lobe - 180 - cos lobe - echo``. Because each lobe spans an
+    integer number of periods, its zeroth gradient moment is zero and stationary
+    spins refocus. The encoding power sits at ``omega = 2*pi*f``, so sweeping
+    ``oscillation_frequency`` probes the diffusion spectrum ``D(omega)`` -- the
+    short-diffusion-time regime that ordinary PGSE cannot reach.
+    """
+
+    if diffusion_coefficient < 0.0:
+        raise ValueError("diffusion_coefficient must be non-negative")
+    if walkers_per_cell <= 0:
+        raise ValueError("walkers_per_cell must be positive")
+    if excitation_duration <= 0.0 or refocusing_duration <= 0.0:
+        raise ValueError("RF pulse durations must be positive")
+    if oscillation_frequency <= 0.0:
+        raise ValueError("oscillation_frequency must be positive")
+    if num_periods < 1:
+        raise ValueError("num_periods must be at least 1")
+    if samples_per_period < 4:
+        raise ValueError("samples_per_period must be at least 4")
+    if substeps_per_interval <= 0:
+        raise ValueError("substeps_per_interval must be positive")
+
+    frequency = float(oscillation_frequency)
+    periods = int(num_periods)
+    per_period = int(samples_per_period)
+    step_dt = 1.0 / frequency / per_period
+    num_steps = periods * per_period
+    midpoints = (np.arange(num_steps) + 0.5) * step_dt
+    cosine = np.cos(2.0 * np.pi * frequency * midpoints)
+    amplitude = float(gradient_amplitude)
+    encoding_time = periods / frequency
+
+    # Effective gradient segments for the b-value: the 180 flips the coherence
+    # sign, so the second lobe contributes with opposite effective sign.
+    segments: list[tuple[float, float]] = [
+        (step_dt, amplitude * float(c)) for c in cosine
+    ]
+    segments.append((float(refocusing_duration), 0.0))
+    segments.extend((step_dt, -amplitude * float(c)) for c in cosine)
+    b_value = gradient_moment_b_value(segments, gamma=gamma)
+
+    rho_arr = np.ones((1, 1), dtype=np.float64) if rho is None else _map2d(rho, "rho")
+    x = (
+        np.array([0.0], dtype=np.float64)
+        if x_axis is None
+        else _axis(x_axis, "x_axis", rho_arr.shape[0])
+    )
+    z = (
+        np.array([0.0], dtype=np.float64)
+        if z_axis is None
+        else _axis(z_axis, "z_axis", rho_arr.shape[1])
+    )
+    ensemble = initialize_ensemble_from_density(
+        rho_arr,
+        x,
+        z,
+        walkers_per_cell=int(walkers_per_cell),
+        diffusion_coefficient=float(diffusion_coefficient),
+        seed=seed,
+        jitter=jitter,
+    )
+    if fields is None:
+        fields = _default_motion_fields(x, z, encoding_time, diffusion_coefficient)
+
+    steps = _make_ogse_steps(
+        cosine=cosine,
+        step_dt=step_dt,
+        moment=float(gamma) * amplitude,
+        gradient_axis=gradient_axis,
+        excitation_duration=float(excitation_duration),
+        refocusing_duration=float(refocusing_duration),
+        substeps_per_interval=int(substeps_per_interval),
+    )
+    sequence = run_motion_sequence(
+        ensemble,
+        fields,
+        steps,
+        velocity=velocity,
+        rng=np.random.default_rng(seed),
+        t1=t1_seconds,
+        t2=t2_seconds,
+        boundary=boundary,
+        default_substeps=int(substeps_per_interval),
+    )
+    return OGSEWalkerResult(
+        signal=sequence.signal,
+        echo_times=sequence.sample_times,
+        b_value=b_value,
+        oscillation_frequency=frequency,
+        num_periods=periods,
+        encoding_time=encoding_time,
+        sequence=sequence,
+        initial_ensemble=ensemble,
+        gradient_amplitude=amplitude,
+        diffusion_coefficient=float(diffusion_coefficient),
+        gamma=float(gamma),
+    )
+
+
 def run_pgse(
     *,
     backend: PGSEBackend = "moment",
@@ -839,6 +992,56 @@ def _make_dde_steps(
             MotionSequenceStep(duration=mixing_time, substeps=sub, label="mixing")
         )
     steps.extend(_block(gradient_2, 2, acquire=True))
+    return tuple(steps)
+
+
+def _make_ogse_steps(
+    *,
+    cosine: np.ndarray,
+    step_dt: float,
+    moment: float,
+    gradient_axis: PGSEAxis,
+    excitation_duration: float,
+    refocusing_duration: float,
+    substeps_per_interval: int,
+) -> tuple[MotionSequenceStep, ...]:
+    sub = substeps_per_interval
+
+    def _lobe(acquire_last: bool) -> list[MotionSequenceStep]:
+        last_index = cosine.size - 1
+        lobe: list[MotionSequenceStep] = []
+        for index, value in enumerate(cosine):
+            acquire = acquire_last and index == last_index
+            lobe.append(
+                MotionSequenceStep(
+                    duration=step_dt,
+                    gradient=_gradient_tuple(moment * float(value), gradient_axis),
+                    acquire=acquire,
+                    num_samples=1 if acquire else 0,
+                    substeps=sub,
+                    label="ogse_echo" if acquire else "ogse_wave",
+                )
+            )
+        return lobe
+
+    steps = [
+        MotionSequenceStep(
+            duration=excitation_duration,
+            rf_amplitude=(0.5 * np.pi) / excitation_duration,
+            rf_phase=np.pi / 2,
+            substeps=max(1, sub),
+            label="excitation_90",
+        ),
+        *_lobe(acquire_last=False),
+        MotionSequenceStep(
+            duration=refocusing_duration,
+            rf_amplitude=np.pi / refocusing_duration,
+            rf_phase=0.0,
+            substeps=max(1, sub),
+            label="ogse_180",
+        ),
+        *_lobe(acquire_last=True),
+    ]
     return tuple(steps)
 
 
