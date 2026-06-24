@@ -1043,6 +1043,19 @@ Because a spin echo refocuses the static spread at each echo, the spread blurs
 the image along the readout axis (the T2* point-spread function) without decaying
 the echo train. See the imaging-inhomogeneity example.
 
+A related diagnostic is `imaging_slice_sensitivity`, which maps the real-space
+*sensitive slice* of an excitation in a non-uniform field. The excited
+transverse magnetization is computed from a rectangular RF pulse for every voxel
+at its own off-resonance (`b0_map - center_frequency`, rad/s) and transmit-B1,
+so the slice profile (bandwidth ~ 1/`excitation_duration`) and the curvature
+(set by the B0 contours) emerge directly; the result is weighted by the receive
+B1, and `refocusing=True` also applies the 180-degree refocusing efficiency (the
+spin-echo sensitive volume). The returned `sensitivity` follows the curved
+iso-B0 contours and is shaded by B1 -- it is "neither flat nor uniform", the
+practical reality of imaging in inhomogeneous fields. It accepts the same `rho`
+array plus maps, or an `ImagingFieldMaps` container. See the sensitive-slice
+example.
+
 Noise-aware workflows can pass `NoiseSpec(domain="time")` to CPMG echo
 workflows to add white noise directly to the time-domain echo samples instead
 of the received spectrum. Probe-colored noise remains spectrum-domain because

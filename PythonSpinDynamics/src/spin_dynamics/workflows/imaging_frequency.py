@@ -59,6 +59,31 @@ class FrequencyEncodedImagingResult:
         return self.image[:, :, 0]
 
 
+@dataclass(frozen=True)
+class SliceSensitivityResult:
+    """Real-space sensitive slice of an excitation in a non-uniform field.
+
+    In a non-uniform B0 the spins that an RF pulse excites are those whose
+    frequency falls in its band, so the excited region follows the curved
+    iso-B0 contours rather than a flat plane, and its intensity varies with the
+    transmit/receive B1. ``sensitivity`` is the excited (optionally refocused)
+    transverse magnetization weighted by the receive sensitivity -- the relative
+    signal each point contributes.
+    """
+
+    sensitivity: np.ndarray  # (px, pz) excited (+refocused) * receive weight
+    excitation: np.ndarray  # (px, pz) |Mxy| excitation slice profile
+    off_resonance: np.ndarray  # (px, pz) b0_map - center_frequency (rad/s)
+    b0_map: np.ndarray
+    b1_tx_map: np.ndarray
+    b1_rx_map: np.ndarray
+    center_frequency: float
+    excitation_flip: float
+    excitation_duration: float
+    refocusing: bool
+    fov: tuple[float, float]
+
+
 def _resolve_maps(rho, t1_map, t2_map, b0_map, b1_tx_map, b1_rx_map):
     """Return ``(rho, t1, t2, b0, b1_tx, b1_rx)`` arrays from inputs.
 
@@ -332,3 +357,73 @@ def run_spin_warp_imaging(rho, **kwargs) -> FrequencyEncodedImagingResult:
     kwargs.pop("echo_train_length", None)
     kwargs.pop("phase_encode_order", None)
     return run_rare_imaging(rho, echo_train_length=1, **kwargs)
+
+
+def imaging_slice_sensitivity(
+    rho,
+    *,
+    center_frequency: float = 0.0,
+    excitation_flip: float = np.pi / 2,
+    excitation_duration: float = 100.0e-6,
+    refocusing: bool = False,
+    refocusing_flip: float = np.pi,
+    refocusing_duration: float = 200.0e-6,
+    t1_map=None,
+    t2_map=None,
+    b0_map=None,
+    b1_tx_map=None,
+    b1_rx_map=None,
+    fov: tuple[float, float] = (0.02, 0.02),
+) -> SliceSensitivityResult:
+    """Map the real-space sensitive slice of an excitation in a non-uniform field.
+
+    ``rho`` may be a spin-density array (with optional map keywords) or an
+    ``ImagingFieldMaps`` container; only the B0/B1 maps are used. The excited
+    transverse magnetization is computed from a rectangular RF pulse for every
+    voxel at its own off-resonance ``b0_map - center_frequency`` (rad/s) and
+    transmit-B1, so the slice profile (set by the pulse bandwidth ~ 1/duration)
+    and the curvature (set by the B0 contours) emerge directly. The result is
+    weighted by the receive B1. Set ``refocusing=True`` to also multiply by the
+    refocusing efficiency of a 180-degree pulse (the spin-echo sensitive volume).
+
+    The returned ``sensitivity`` is "neither flat nor uniform": it follows the
+    curved iso-B0 contours and is shaded by the B1 maps.
+    """
+
+    from spin_dynamics.core.rotations import rf_matrix_elements
+
+    rho_arr, _t1, _t2, b0_arr, b1_tx_arr, b1_rx_arr = _resolve_maps(
+        rho, t1_map, t2_map, b0_map, b1_tx_map, b1_rx_map
+    )
+    if excitation_duration <= 0.0 or refocusing_duration <= 0.0:
+        raise ValueError("pulse durations must be positive")
+    shape = b0_arr.shape
+    off = b0_arr - float(center_frequency)
+
+    w1_exc = (float(excitation_flip) / float(excitation_duration)) * b1_tx_arr
+    excited = rf_matrix_elements(
+        off.reshape(-1), w1_exc.reshape(-1), float(excitation_duration), np.pi / 2
+    )
+    excitation = np.abs(excited.R_m0).reshape(shape)  # |Mxy| from equilibrium
+    sensitivity = excitation * b1_rx_arr
+    if refocusing:
+        w1_ref = (float(refocusing_flip) / float(refocusing_duration)) * b1_tx_arr
+        refocused = rf_matrix_elements(
+            off.reshape(-1), w1_ref.reshape(-1), float(refocusing_duration), 0.0
+        )
+        # |R_pm| is the M- -> M+ transfer (1 for an ideal on-resonance 180).
+        sensitivity = sensitivity * np.abs(refocused.R_pm).reshape(shape)
+
+    return SliceSensitivityResult(
+        sensitivity=sensitivity,
+        excitation=excitation,
+        off_resonance=off,
+        b0_map=b0_arr,
+        b1_tx_map=b1_tx_arr,
+        b1_rx_map=b1_rx_arr,
+        center_frequency=float(center_frequency),
+        excitation_flip=float(excitation_flip),
+        excitation_duration=float(excitation_duration),
+        refocusing=bool(refocusing),
+        fov=(float(fov[0]), float(fov[1])),
+    )

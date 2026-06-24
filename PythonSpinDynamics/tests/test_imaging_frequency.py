@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from spin_dynamics.workflows import (
+    imaging_slice_sensitivity,
     make_imaging_field_maps,
     run_rare_imaging,
     run_spin_warp_imaging,
@@ -129,6 +130,57 @@ class FrequencyEncodedImagingTests(unittest.TestCase):
         # The spread broadens the readout (x) axis but leaves phase encode (z).
         self.assertGreater(sx1, sx0 + 0.3)
         self.assertAlmostEqual(sz1, sz0, delta=0.1)
+
+    def test_slice_sensitivity_peaks_on_resonance(self) -> None:
+        n = 21
+        rho = np.ones((n, n))
+        ramp = np.linspace(-80000.0, 80000.0, n)  # rad/s along x
+        b0 = ramp[:, np.newaxis] * np.ones((1, n))
+        res = imaging_slice_sensitivity(
+            rho, b0_map=b0, center_frequency=0.0,
+            excitation_flip=np.pi / 2, excitation_duration=100e-6,
+        )
+        # On-resonance (centre row) a 90 gives full transverse magnetization.
+        self.assertAlmostEqual(res.excitation[n // 2, 0], 1.0, delta=0.02)
+        # The excited band is centred on resonance and falls off well off it (a
+        # hard pulse has a broad, sinc-like profile, not an ideal box).
+        self.assertEqual(int(np.argmax(res.excitation[:, 0])), n // 2)
+        self.assertLess(res.excitation[0, 0], 0.4)
+
+    def test_slice_sensitivity_scales_with_receive_b1(self) -> None:
+        n = 16
+        rho = np.ones((n, n))
+        b0 = np.linspace(-2e4, 2e4, n)[:, np.newaxis] * np.ones((1, n))
+        base = imaging_slice_sensitivity(rho, b0_map=b0, b1_rx_map=np.ones((n, n)))
+        doubled = imaging_slice_sensitivity(
+            rho, b0_map=b0, b1_rx_map=2.0 * np.ones((n, n))
+        )
+        np.testing.assert_allclose(doubled.sensitivity, 2.0 * base.sensitivity, atol=1e-9)
+
+    def test_slice_follows_curved_b0_contour(self) -> None:
+        n = 31
+        rho = np.ones((n, n))
+        axis = np.linspace(-1.0, 1.0, n)
+        xx = axis[:, np.newaxis] * np.ones((1, n))
+        zz = np.ones((n, 1)) * axis[np.newaxis, :]
+        b0 = 2 * np.pi * (30000.0 * zz + 18000.0 * xx**2)  # parabolic contours
+        res = imaging_slice_sensitivity(rho, b0_map=b0, excitation_duration=120e-6)
+        centers = axis[np.argmin(np.abs(res.off_resonance), axis=1)]
+        # The on-resonance depth varies with position (curved, not flat) and is
+        # deeper at the edges than on axis.
+        self.assertGreater(centers.std(), 0.1)
+        self.assertLess(centers[0], centers[n // 2] - 0.2)
+        self.assertLess(centers[-1], centers[n // 2] - 0.2)
+
+    def test_slice_sensitivity_accepts_field_maps(self) -> None:
+        n = 12
+        rho = np.ones((n, n))
+        b0 = np.linspace(-2e4, 2e4, n)[:, np.newaxis] * np.ones((1, n))
+        fields = make_imaging_field_maps(rho, b0_map=b0, b1_tx_map=np.ones((n, n)),
+                                         b1_rx_map=np.ones((n, n)))
+        from_fields = imaging_slice_sensitivity(fields)
+        from_arrays = imaging_slice_sensitivity(rho, b0_map=b0)
+        np.testing.assert_allclose(from_fields.sensitivity, from_arrays.sensitivity)
 
     def test_static_spread_does_not_decay_the_echo_train(self) -> None:
         rho = np.zeros((20, 20))
