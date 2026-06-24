@@ -68,6 +68,7 @@ MODULES = [
     "workflows.diffusion",
     "workflows.fid",
     "workflows.imaging",
+    "workflows.imaging_frequency",
     "workflows.imaging_types",
     "workflows.pgse",
     "workflows.sweeps",

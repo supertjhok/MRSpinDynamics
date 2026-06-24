@@ -994,6 +994,42 @@ overloading "imaging".
 All three imaging runners are checked against compact MATLAB-generated k-space
 fixtures in `validation/fixtures`.
 
+### Frequency-encoded imaging: spin-warp and RARE
+
+The phase-encoded workflows above fill k-space one point per phase-encode step.
+`run_spin_warp_imaging` and `run_rare_imaging` add a *readout* (frequency-encode)
+gradient applied during acquisition, so each spin echo samples a whole k-space
+line. They are built on the Lagrangian motion engine (one static isochromat per
+voxel), which supports the two-axis gradient waveforms that the scalar-gradient
+arbitrary-pulse kernels cannot express; they are ideal-probe (no probe transfer
+function) and reuse `reconstruct_image_from_kspace`.
+
+```python
+import numpy as np
+from spin_dynamics.workflows import run_spin_warp_imaging, run_rare_imaging
+
+rho = np.zeros((32, 32)); rho[8:24, 10:18] = 1.0
+t2 = np.full((32, 32), 60e-3)
+
+# Spin-warp: one spin echo per phase-encode line (pz excitations, no blurring).
+ref = run_spin_warp_imaging(rho, fov=(0.02, 0.02), t2_map=t2)
+
+# RARE / fast spin echo: each echo reads a different line, so an echo train of
+# length 8 needs only ceil(pz / 8) excitations.
+fse = run_rare_imaging(rho, fov=(0.02, 0.02), t2_map=t2, echo_train_length=8)
+
+image = ref.image[:, :, 0]          # complex reconstruction
+print(fse.num_shots, fse.line_echo_time.max())
+```
+
+Readout is along x (frequency encode) and the phase encode is along z. Each echo
+is gradient-balanced (an x pre-dephase and rewind return k-space to the origin
+before each 180), so the train stays a clean Meiboom-Gill CPMG. The T2 decay
+across the echo train weights the phase-encode lines (`line_echo_time` records
+the echo time of each k_z line), which broadens the point-spread function -- the
+characteristic RARE blurring, strongest for short T2. `echo_train_length=1`
+recovers the spin-warp reference. See the RARE imaging example.
+
 Noise-aware workflows can pass `NoiseSpec(domain="time")` to CPMG echo
 workflows to add white noise directly to the time-domain echo samples instead
 of the received spectrum. Probe-colored noise remains spectrum-domain because

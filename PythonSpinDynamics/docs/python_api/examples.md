@@ -92,6 +92,24 @@ echo-summed, fitted-rho, and fitted-T2 displays under custom field maps.
 The same ideal-probe `--t1-encoded` option can be combined with those display
 modes for synthetic T1 contrast examples.
 
+## RARE Imaging (Frequency-Encoded)
+
+This example contrasts the two frequency-encoded workflows, `run_spin_warp_imaging`
+and `run_rare_imaging`, on a synthetic two-T2 phantom. Spin-warp uses one spin
+echo per phase-encode line (the reference image); RARE reads a different k-space
+line on each echo of a CPMG train, so it needs far fewer excitations at the cost
+of a T2 weighting across the phase-encode lines that blurs the image. The four
+panels show the phantom, the spin-warp reference, a single-shot RARE
+reconstruction, and the k-space T2 weighting that drives the blurring.
+
+```powershell
+python examples\plot_rare_imaging.py --pixels 32 --output results\rare_imaging.png
+```
+
+Use `--echo-train-length` to set the RARE acceleration (default: a full single
+shot), `--readout-time` for the frequency-encode duration, and `--t2-long` /
+`--t2-short` for the phantom relaxation contrast. Only Matplotlib is required.
+
 ## Tuned-Probe CPMG
 
 ```powershell
