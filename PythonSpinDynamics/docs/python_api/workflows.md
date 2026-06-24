@@ -563,6 +563,72 @@ MATLAB references:
 - `calc_macq_diff/calc_macq_matched_probe_relax_diff_noRx.m`
 - `sim_spin_dynamics_arb/sim_spin_dynamics_arb_relax_diff.m`
 
+## PGSE and PGSE-Prepared CPMG
+
+The PGSE workflow layer covers rectangular Stejskal-Tanner diffusion encoding
+and PGSE-prepared CPMG echo trains. It has two complementary backends:
+
+- `run_pgse_moment`: deterministic gradient-moment tracking. It computes
+  \(b = \int q(t)^2 dt\) for the effective gradient waveform and is the fast
+  path for homogeneous unrestricted diffusion.
+- `run_pgse_walkers`: explicit random walkers through the motion sequence
+  machinery. It is slower and stochastic, but it can handle motion through B0/B1
+  maps, boundaries, and future inhomogeneous-gradient extensions.
+
+For a rectangular PGSE pair, `pgse_b_value` and the moment backend reduce to the
+standard Stejskal-Tanner result:
+
+```text
+b = (gamma * G * delta)^2 * (Delta - delta / 3)
+```
+
+where `Delta` is the leading-edge separation between the two gradient lobes.
+The physical gradient lobes are scheduled with the same polarity across the
+180-degree refocusing pulse; the refocusing pulse flips the coherence-frame
+sign, so stationary spins refocus and diffusion produces the attenuation.
+
+```python
+from spin_dynamics.workflows import run_pgse_moment
+
+pgse = run_pgse_moment(
+    num_echoes=8,
+    gradient_amplitude=0.12,      # T/m
+    gradient_duration=2.5e-3,     # delta
+    diffusion_time=28.0e-3,       # Delta
+    diffusion_coefficient=1.2e-9,
+    first_echo_time_seconds=56e-3,
+    echo_spacing_seconds=8e-3,
+    t2_seconds=80e-3,
+)
+
+print(pgse.b_value, pgse.signal.shape)
+```
+
+`num_echoes=1` is the ordinary spin-echo PGSE case. Larger `num_echoes` use the
+same PGSE preparation followed by a compact CPMG-style echo train in the result
+time axis.
+
+Use the walker backend when spatial motion matters:
+
+```python
+from spin_dynamics.workflows import run_pgse_walkers
+
+walkers = run_pgse_walkers(
+    gradient_amplitude=0.05,
+    gradient_duration=2.0e-3,
+    diffusion_time=16.0e-3,
+    diffusion_coefficient=2.3e-9,
+    walkers_per_cell=12000,
+    seed=123,
+)
+
+echo = walkers.signal[0]
+```
+
+The walker tests compare the diffusing signal against a zero-diffusion walker
+reference and the moment-backend Stejskal-Tanner attenuation. Increase
+`walkers_per_cell` and substeps for production convergence studies.
+
 ## WURST Inversion and CPMG
 
 ```python

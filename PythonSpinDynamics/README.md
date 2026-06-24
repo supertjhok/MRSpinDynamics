@@ -11,7 +11,8 @@ examples, validation fixtures, tests, and user documentation.
 The main Version 2 workflow port is mostly complete. The package includes
 ideal, tuned, untuned, and matched-probe CPMG workflows; finite echo trains;
 FID, imaging, diffusion, time-varying-field, WURST, radiation-damping, motion,
-noise, inverse-Laplace analysis, and pulse-optimization helpers.
+noise, inverse-Laplace analysis, PGSE D-T2 examples, and pulse-optimization
+helpers.
 
 Most MATLAB-compatible Bloch workflows still assume a bath of uncoupled
 spin-1/2 nuclei in a possibly non-uniform and time-varying \(B_0\) field;
@@ -189,6 +190,7 @@ python examples\probe_cpmg_compare.py --numpts 101
 python examples\matched_diffusion_cpmg.py --numpts 21 --num-echoes 3
 python examples\radiation_damping_fid.py --probe matched --points 401
 python examples\plot_inverse_laplace.py --output results\inverse_laplace.png
+python examples\plot_pgse_d_t2.py --output results\pgse_d_t2.png
 python examples\plot_nqr_powder_nutation.py --output results\nqr_powder_nutation.png
 python examples\plot_nqr_population_transfer.py --output results\nqr_population_transfer.png
 python examples\plot_nqr_slse_offset.py --output results\nqr_slse_offset.png

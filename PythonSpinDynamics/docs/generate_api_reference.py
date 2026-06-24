@@ -69,6 +69,7 @@ MODULES = [
     "workflows.fid",
     "workflows.imaging",
     "workflows.imaging_types",
+    "workflows.pgse",
     "workflows.sweeps",
     "workflows.time_varying",
     "workflows.wurst",
