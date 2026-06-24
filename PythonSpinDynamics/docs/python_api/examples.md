@@ -235,6 +235,25 @@ deeper fringe minima, and `--pore-radius` / `--diffusion-time` to move the
 diffraction features. SciPy is optional and only used to overlay the Bessel
 form-factor theory.
 
+## PGSTE Stimulated-Echo Diffusion
+
+This example uses the stimulated-echo backend (`run_pgste_walkers`) to show why
+PGSTE is preferred for slow diffusion and short-`T2` samples. The encoding is
+split across three 90-degree pulses so the magnetization is stored along the
+longitudinal axis during the (long) diffusion delay, decaying with `T1` instead
+of `T2`. The left panel confirms the stimulated echo follows Stejskal-Tanner
+`exp(-b D)` at half the spin-echo amplitude; the right panel sweeps the
+diffusion time at fixed `b` with a short `T2` and long `T1`, where the PGSE spin
+echo collapses while the stimulated echo survives.
+
+```powershell
+python examples\plot_pgste_stimulated_echo.py --output results\pgste.png
+```
+
+Use `--t1` / `--t2` to set the relaxation contrast, `--fixed-b` for the
+diffusion-time panel weighting, and `--walkers-per-cell` / `--substeps` for
+convergence. Only Matplotlib is required.
+
 ## Received Signal Noise
 
 This non-plotting example compares opt-in white noise and probe-colored

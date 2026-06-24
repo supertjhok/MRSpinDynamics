@@ -135,6 +135,7 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_motion_diffusion_cpmg.py",
             "examples/plot_pgse_restricted_diffusion.py",
             "examples/plot_pgse_circular_pore_diffraction.py",
+            "examples/plot_pgste_stimulated_echo.py",
             "examples/plot_wurst_flow.py",
             "examples/plot_radiation_damping.py",
             "examples/plot_radiation_damping_detuning.py",
@@ -206,6 +207,9 @@ class ExampleSmokeTests(unittest.TestCase):
         result = run_example("examples/plot_pgse_circular_pore_diffraction.py", "--help")
         self.assertIn("--pore-radius", result.stdout)
         self.assertIn("--max-qa", result.stdout)
+        result = run_example("examples/plot_pgste_stimulated_echo.py", "--help")
+        self.assertIn("--fixed-b", result.stdout)
+        self.assertIn("--t1", result.stdout)
         result = run_example("examples/plot_wurst_flow.py", "--help")
         self.assertIn("--sweep-width", result.stdout)
         result = run_example("examples/plot_radiation_damping.py", "--help")

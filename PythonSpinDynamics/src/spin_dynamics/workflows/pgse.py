@@ -61,6 +61,30 @@ class PGSEWalkerResult:
     backend: str = "walkers"
 
 
+@dataclass(frozen=True)
+class PGSTEWalkerResult:
+    """Random-walker stimulated-echo PGSE (PGSTE) result.
+
+    The diffusion encoding is split across a storage interval during which the
+    magnetization is longitudinal, so the reachable diffusion time is bounded by
+    ``T1`` rather than ``T2``. The stimulated echo carries half of the
+    spin-echo amplitude (the other coherence pathway is spoiled away).
+    """
+
+    signal: np.ndarray
+    echo_times: np.ndarray
+    b_value: float
+    storage_time: float
+    sequence: MotionSequenceResult
+    initial_ensemble: ParticleEnsemble
+    gradient_amplitude: float
+    gradient_duration: float
+    diffusion_time: float
+    diffusion_coefficient: float
+    gamma: float
+    backend: str = "walkers_ste"
+
+
 def pgse_b_value(
     gradient_amplitude: float,
     gradient_duration: float,
@@ -305,6 +329,137 @@ def run_pgse_walkers(
     )
 
 
+def run_pgste_walkers(
+    *,
+    rho: Iterable[float] | np.ndarray | None = None,
+    x_axis: Iterable[float] | np.ndarray | None = None,
+    z_axis: Iterable[float] | np.ndarray | None = None,
+    fields: MotionFieldMaps2D | None = None,
+    gradient_amplitude: float = 0.05,
+    gradient_duration: float = 2.0e-3,
+    diffusion_time: float = 20.0e-3,
+    diffusion_coefficient: float = 2.3e-9,
+    gamma: float = 2.675e8,
+    gradient_axis: PGSEAxis = "x",
+    walkers_per_cell: int = 128,
+    seed: int | None = None,
+    jitter: bool = False,
+    excitation_duration: float = 100.0e-6,
+    encode_delay: float = 0.0,
+    spoiler_gradient: float = 0.2,
+    spoiler_axis: PGSEAxis = "x",
+    t1_seconds: float = np.inf,
+    t2_seconds: float = np.inf,
+    velocity: Velocity = None,
+    boundary: Boundary = "reflect",
+    substeps_per_interval: int = 8,
+) -> PGSTEWalkerResult:
+    """Run a pulsed-gradient stimulated-echo (PGSTE) walker simulation.
+
+    The sequence is ``90 - G(delta) - 90 - [storage] - 90 - G(delta) - echo``.
+    The first storage pulse parks one quadrature of the encoded magnetization
+    along the longitudinal axis, so during the (long) storage interval it decays
+    with ``T1`` instead of ``T2``. A spoiler gradient applied during storage
+    dephases the residual transverse coherences; the surviving stimulated-echo
+    pathway carries half of the corresponding spin-echo amplitude.
+
+    ``diffusion_time`` is the leading-edge separation of the two gradient lobes,
+    so the rectangular Stejskal-Tanner ``b = (gamma G delta)^2 (Delta - delta/3)``
+    still applies. The storage interval is
+    ``Delta - delta - 2*encode_delay - 2*excitation_duration``.
+    """
+
+    if diffusion_coefficient < 0.0:
+        raise ValueError("diffusion_coefficient must be non-negative")
+    if walkers_per_cell <= 0:
+        raise ValueError("walkers_per_cell must be positive")
+    if excitation_duration <= 0.0:
+        raise ValueError("excitation_duration must be positive")
+    if encode_delay < 0.0:
+        raise ValueError("encode_delay must be non-negative")
+    if substeps_per_interval <= 0:
+        raise ValueError("substeps_per_interval must be positive")
+    delta = float(gradient_duration)
+    delta_big = float(diffusion_time)
+    if delta <= 0.0:
+        raise ValueError("gradient_duration must be positive")
+    overhead = delta + 2.0 * float(encode_delay) + 2.0 * float(excitation_duration)
+    storage_time = delta_big - overhead
+    if storage_time <= 0.0:
+        raise ValueError(
+            "diffusion_time must exceed gradient_duration + 2*encode_delay "
+            "+ 2*excitation_duration"
+        )
+
+    rho_arr = np.ones((1, 1), dtype=np.float64) if rho is None else _map2d(rho, "rho")
+    x = (
+        np.array([0.0], dtype=np.float64)
+        if x_axis is None
+        else _axis(x_axis, "x_axis", rho_arr.shape[0])
+    )
+    z = (
+        np.array([0.0], dtype=np.float64)
+        if z_axis is None
+        else _axis(z_axis, "z_axis", rho_arr.shape[1])
+    )
+    ensemble = initialize_ensemble_from_density(
+        rho_arr,
+        x,
+        z,
+        walkers_per_cell=int(walkers_per_cell),
+        diffusion_coefficient=float(diffusion_coefficient),
+        seed=seed,
+        jitter=jitter,
+    )
+    if fields is None:
+        fields = _default_motion_fields(x, z, diffusion_time, diffusion_coefficient)
+
+    gradient = _gradient_tuple(float(gamma) * float(gradient_amplitude), gradient_axis)
+    spoiler = _gradient_tuple(float(gamma) * float(spoiler_gradient), spoiler_axis)
+    steps = _make_pgste_steps(
+        gradient_duration=delta,
+        gradient=gradient,
+        spoiler=spoiler,
+        storage_time=storage_time,
+        encode_delay=float(encode_delay),
+        excitation_duration=float(excitation_duration),
+        substeps_per_interval=int(substeps_per_interval),
+    )
+    sequence = run_motion_sequence(
+        ensemble,
+        fields,
+        steps,
+        velocity=velocity,
+        rng=np.random.default_rng(seed),
+        t1=t1_seconds,
+        t2=t2_seconds,
+        # mth=0 models the phase-cycled stimulated-echo pathway: T1 still decays
+        # the stored signal (exp(-Ts/T1)), but equilibrium magnetization does not
+        # regrow into a contaminating FID during the long storage interval.
+        mth=0.0,
+        boundary=boundary,
+        default_substeps=int(substeps_per_interval),
+    )
+    return PGSTEWalkerResult(
+        signal=sequence.signal,
+        echo_times=sequence.sample_times,
+        b_value=pgse_b_value(
+            gradient_amplitude,
+            gradient_duration,
+            diffusion_time,
+            gamma=gamma,
+        ),
+        storage_time=storage_time,
+        sequence=sequence,
+        initial_ensemble=ensemble,
+        gradient_amplitude=float(gradient_amplitude),
+        gradient_duration=delta,
+        diffusion_time=delta_big,
+        diffusion_coefficient=float(diffusion_coefficient),
+        gamma=float(gamma),
+    )
+
+
 def run_pgse(
     *,
     backend: PGSEBackend = "moment",
@@ -402,6 +557,78 @@ def _make_pgse_steps(
                 ),
             ]
         )
+    return tuple(steps)
+
+
+def _make_pgste_steps(
+    *,
+    gradient_duration: float,
+    gradient: tuple[float, float],
+    spoiler: tuple[float, float],
+    storage_time: float,
+    encode_delay: float,
+    excitation_duration: float,
+    substeps_per_interval: int,
+) -> tuple[MotionSequenceStep, ...]:
+    pulse_amplitude = (0.5 * np.pi) / excitation_duration
+    pulse_substeps = max(1, substeps_per_interval)
+
+    def _pulse(label: str) -> MotionSequenceStep:
+        return MotionSequenceStep(
+            duration=excitation_duration,
+            rf_amplitude=pulse_amplitude,
+            rf_phase=np.pi / 2,
+            substeps=pulse_substeps,
+            label=label,
+        )
+
+    steps = [
+        _pulse("excitation_90"),
+        MotionSequenceStep(
+            duration=gradient_duration,
+            gradient=gradient,
+            substeps=substeps_per_interval,
+            label="ste_lobe_1",
+        ),
+    ]
+    if encode_delay > 0.0:
+        steps.append(
+            MotionSequenceStep(
+                duration=encode_delay,
+                substeps=substeps_per_interval,
+                label="ste_encode_delay_1",
+            )
+        )
+    steps.append(_pulse("store_90"))
+    # During storage the encoded magnetization is longitudinal (decays with T1);
+    # the spoiler gradient dephases the residual transverse coherences.
+    steps.append(
+        MotionSequenceStep(
+            duration=storage_time,
+            gradient=spoiler,
+            substeps=substeps_per_interval,
+            label="storage",
+        )
+    )
+    steps.append(_pulse("read_90"))
+    if encode_delay > 0.0:
+        steps.append(
+            MotionSequenceStep(
+                duration=encode_delay,
+                substeps=substeps_per_interval,
+                label="ste_encode_delay_2",
+            )
+        )
+    steps.append(
+        MotionSequenceStep(
+            duration=gradient_duration,
+            gradient=gradient,
+            acquire=True,
+            num_samples=1,
+            substeps=substeps_per_interval,
+            label="stimulated_echo",
+        )
+    )
     return tuple(steps)
 
 

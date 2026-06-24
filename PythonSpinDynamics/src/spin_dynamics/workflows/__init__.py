@@ -73,11 +73,13 @@ from spin_dynamics.workflows.imaging import (
 from spin_dynamics.workflows.pgse import (
     PGSEMomentResult,
     PGSEWalkerResult,
+    PGSTEWalkerResult,
     gradient_moment_b_value,
     pgse_b_value,
     run_pgse,
     run_pgse_moment,
     run_pgse_walkers,
+    run_pgste_walkers,
 )
 from spin_dynamics.workflows.sweeps import (
     CPMGFiniteParameterSweepResult,
@@ -165,6 +167,7 @@ EXTENDED_WORKFLOW_API = (
     "run_pgse",
     "run_pgse_moment",
     "run_pgse_walkers",
+    "run_pgste_walkers",
     "run_t1_encoded_cpmg_imaging",
     "run_t1_encoded_phase_encoded_cpmg_imaging",
     "run_tuned_cpmg_imaging",
@@ -212,6 +215,7 @@ __all__ = [
     "ProbeTimeVaryingSweepResult",
     "PGSEMomentResult",
     "PGSEWalkerResult",
+    "PGSTEWalkerResult",
     "RadiationDampingFIDResult",
     "EXTENDED_WORKFLOW_API",
     "LEGACY_SWEEP_API",
@@ -267,6 +271,7 @@ __all__ = [
     "run_pgse",
     "run_pgse_moment",
     "run_pgse_walkers",
+    "run_pgste_walkers",
     "run_tuned_cpmg",
     "run_tuned_cpmg_imaging",
     "run_tuned_cpmg_ir_train",
