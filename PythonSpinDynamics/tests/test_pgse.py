@@ -18,6 +18,7 @@ from spin_dynamics.workflows import (
     gradient_moment_b_value,
     pgse_b_value,
     run_dde_walkers,
+    run_ogse_walkers,
     run_pgse,
     run_pgse_moment,
     run_pgse_walkers,
@@ -271,6 +272,62 @@ class PGSETests(unittest.TestCase):
                 diffusion_time=2.0e-3,  # not greater than delta + refocusing_duration
                 refocusing_duration=200.0e-6,
             )
+
+    def test_ogse_b_value_matches_cosine_spectrum_and_free_attenuation(self) -> None:
+        gradient = 0.3
+        frequency = 150.0
+        periods = 2
+        diffusion = 2.0e-9
+        result = run_ogse_walkers(
+            gradient_amplitude=gradient, oscillation_frequency=frequency,
+            num_periods=periods, samples_per_period=16,
+            diffusion_coefficient=diffusion, walkers_per_cell=4000, seed=3,
+            excitation_duration=40.0e-6, refocusing_duration=80.0e-6,
+            substeps_per_interval=4,
+        )
+        # Cosine-OGSE b-value: b = (gamma G / omega)^2 * N / f.
+        omega = 2.0 * np.pi * frequency
+        analytic_b = (2.675e8 * gradient / omega) ** 2 * periods / frequency
+        self.assertAlmostEqual(result.b_value / analytic_b, 1.0, delta=0.02)
+
+        # Free diffusion follows the Stejskal-Tanner exponential.
+        measured = abs(result.signal[0]) / float(result.initial_ensemble.weights.sum())
+        expected = float(np.exp(-result.b_value * diffusion))
+        self.assertAlmostEqual(measured, expected, delta=0.05)
+
+    def test_ogse_apparent_diffusion_rises_with_frequency(self) -> None:
+        # A reflecting slab: restrict along x, thin along z (gradient is along x).
+        x = np.linspace(-2.5e-6, 2.5e-6, 15)
+        z = np.array([-0.5e-6, 0.5e-6])
+        rho = np.ones((x.size, z.size), dtype=np.float64)
+        fields = make_motion_field_maps_2d(x, z)
+
+        def d_app(frequency):
+            omega = 2.0 * np.pi * frequency
+            gradient = float(omega / 2.675e8 * np.sqrt(3.0e8 * frequency / 2))
+            result = run_ogse_walkers(
+                rho=rho, x_axis=x, z_axis=z, fields=fields,
+                gradient_amplitude=gradient, oscillation_frequency=frequency,
+                num_periods=2, samples_per_period=12, diffusion_coefficient=2.0e-9,
+                walkers_per_cell=160, seed=7, jitter=True,
+                excitation_duration=40.0e-6, refocusing_duration=80.0e-6,
+                boundary="reflect", substeps_per_interval=6,
+            )
+            echo = abs(result.signal[0]) / float(rho.sum())
+            return -np.log(max(echo, 1e-9)) / result.b_value
+
+        low = d_app(40.0)
+        high = d_app(400.0)
+        # Restriction is strong at low frequency and lifts at high frequency.
+        self.assertLess(low, 0.3 * 2.0e-9)
+        self.assertGreater(high, 0.4 * 2.0e-9)
+        self.assertGreater(high, low)
+
+    def test_ogse_validates_frequency_and_periods(self) -> None:
+        with self.assertRaises(ValueError):
+            run_ogse_walkers(oscillation_frequency=0.0)
+        with self.assertRaises(ValueError):
+            run_ogse_walkers(num_periods=0)
 
 
 if __name__ == "__main__":
