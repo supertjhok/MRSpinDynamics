@@ -318,7 +318,30 @@ their inputs and outputs are small, array-based, and close to NumPy's strengths.
   phase/frequency encoding, probe-shaped pulses, and broader diffusion
   validation workflows.
 
-## Later Phase 12: Acceleration
+## Started Phase 12: PGSE Diffusion Workflows
+
+- `spin_dynamics.workflows.pgse` adds rectangular PGSE and PGSE-prepared CPMG
+  workflows. `run_pgse_moment` is the deterministic fast path: it tracks the
+  effective gradient moment and reproduces the Stejskal-Tanner
+  `(gamma * G * delta)^2 * (Delta - delta / 3)` b-value for balanced
+  rectangular lobes.
+- `run_pgse_walkers` uses the moving-isochromat sequence driver with explicit
+  Brownian walkers. It keeps the same-polarity physical gradient lobes around
+  the refocusing pulse; the RF pulse supplies the coherence-frame sign flip, so
+  stationary spins refocus and random displacement attenuates the signal.
+- The PGSE tests cover b-value equivalence, `exp(-bD)` signal attenuation,
+  zero-gradient/zero-diffusion limits, backend dispatch, and walker convergence
+  against the moment backend through a zero-diffusion walker reference.
+- `examples/plot_pgse_d_t2.py` builds PGSE b-values with the moment backend,
+  synthesizes a PGSE-prepared CPMG D-T2 data matrix, adds Gaussian noise, and
+  recovers the D-T2 map with `invert_d_t2`. The intended path uses SciPy's
+  non-negative NNLS solve; a minimal-install unconstrained preview remains
+  available.
+- Follow-on work should add stimulated-echo and bipolar diffusion encodings,
+  probe-shaped PGSE pulses, inhomogeneous/restricted diffusion validation, and
+  direct handoff from walker PGSE to imaging reconstruction.
+
+## Later Phase 13: Acceleration
 
 - Start with NumPy/SciPy.
 - Add Numba, Cython, compiled C/C++, or GPU backends only behind the same public

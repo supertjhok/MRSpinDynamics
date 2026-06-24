@@ -173,6 +173,23 @@ residual; the current matched pulse-shape solver is often nearly
 phase-invariant. The tuned-probe comparison is the higher-contrast example for
 probe-solved absolute-phase sensitivity combined with diffusion.
 
+## PGSE D-T2 Inverse Laplace
+
+This plotting example requires SciPy and Matplotlib for the non-negative
+2D inverse Laplace transform. It builds a PGSE b-axis with the new moment
+backend, simulates a PGSE-prepared CPMG echo matrix for a two-component
+D-T2 distribution, adds Gaussian noise, and recovers the map with
+`invert_d_t2`.
+
+```powershell
+python examples\plot_pgse_d_t2.py --output results\pgse_d_t2.png
+```
+
+Use `--snr`, `--regularization`, and `--regularization-order` to inspect
+conditioning. If SciPy is absent the script falls back to an unconstrained
+least-squares preview, but the intended production path is the default NNLS
+solve from the `opt` extra.
+
 ## Received Signal Noise
 
 This non-plotting example compares opt-in white noise and probe-colored

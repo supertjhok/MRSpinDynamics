@@ -38,6 +38,8 @@ The validated Python API currently covers:
 - Python-native finite-train Q/mistuning sweeps for tuned, untuned, and
   matched probes;
 - first matched-probe diffusion CPMG workflow and compact diffusion Q sweep;
+- rectangular PGSE and PGSE-prepared CPMG workflows with deterministic
+  gradient-moment and explicit random-walker backends;
 - fixture-validated ideal, tuned, and matched CPMG imaging, k-space
   reconstruction, and arbitrary B0/B1 field-map loading helpers;
 - fixture-validated pulse-shape utilities for JMR rectangular pulse responses,
@@ -73,8 +75,8 @@ The validated Python API currently covers:
   comparison, and optional SciPy-backed `.mat` import/export for multi-start
   results;
 - plotting examples for CPMG comparisons, finite trains, parameter sweeps,
-  diffusion, time-varying fields, imaging, motion, WURST, inverse Laplace, and
-  compact optimization workflows;
+  diffusion, PGSE D-T2 inverse Laplace, time-varying fields, imaging, motion,
+  WURST, inverse Laplace, and compact optimization workflows;
 - low-level rotation matrix and effective-axis helpers;
 - first pulsed NQR helpers for spin-1 quadrupolar sites, selective
   transition pulses, single-crystal and powder orientations, SLSE echo trains,

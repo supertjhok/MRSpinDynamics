@@ -1622,6 +1622,65 @@ The tuned-probe comparison uses the same diffusion kernel with tuned
 pulse-shape solves and usually shows a much larger residual, making it the
 better contrast example for phase-sensitive probe transients.
 
+\subsection{PGSE and PGSE-Prepared CPMG}
+
+For Stejskal-Tanner pulsed-gradient diffusion encoding, use the PGSE workflow
+helpers. The deterministic backend tracks the effective gradient moment and
+therefore evaluates
+\[
+  b = \int q(t)^2\,\dd t,
+  \qquad
+  q(t)=\gamma\int_0^t G_{\mathrm{eff}}(t')\,\dd t' .
+\]
+For a rectangular PGSE pair this reduces to
+\[
+  b = (\gamma G \delta)^2\left(\Delta-\frac{\delta}{3}\right),
+\]
+where \(\delta\) is the lobe duration and \(\Delta\) is the leading-edge
+separation between the two gradient lobes. The physical lobes are scheduled
+with the same polarity around the refocusing pulse; the 180-degree pulse flips
+the coherence-frame sign, so stationary spins refocus while diffusive motion
+attenuates the signal.
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.workflows import run_pgse_moment
+
+pgse = run_pgse_moment(
+    num_echoes=8,
+    gradient_amplitude=0.12,      # T/m
+    gradient_duration=2.5e-3,     # delta
+    diffusion_time=28.0e-3,       # Delta
+    diffusion_coefficient=1.2e-9,
+    first_echo_time_seconds=56e-3,
+    echo_spacing_seconds=8e-3,
+    t2_seconds=80e-3,
+)
+\end{lstlisting}
+
+\code{num\_echoes=1} is the ordinary spin-echo PGSE acquisition. Larger echo
+counts represent a PGSE preparation followed by a compact CPMG acquisition.
+For spatially explicit studies, \code{run\_pgse\_walkers} uses the
+moving-isochromat sequence driver and seeded Brownian walkers. It is slower and
+stochastic, but can be extended to inhomogeneous field maps, boundaries, and
+advection:
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.workflows import run_pgse_walkers
+
+walkers = run_pgse_walkers(
+    gradient_amplitude=0.05,
+    gradient_duration=2.0e-3,
+    diffusion_time=16.0e-3,
+    diffusion_coefficient=2.3e-9,
+    walkers_per_cell=12000,
+    seed=123,
+)
+\end{lstlisting}
+
+The PGSE tests compare the moment backend to the analytical
+Stejskal-Tanner formula, and compare the walker backend against the same
+attenuation through a zero-diffusion walker reference.
+
 \section{Moving Isochromats}
 
 The motion layer treats inhomogeneity in the same spirit as static
@@ -1843,6 +1902,11 @@ where \(D\) is the measured data, \(F\) is the unknown distribution, and
 \(K_1\), \(K_2\) are relaxation or diffusion kernels. Use
 \code{invert\_t1\_t2} or \code{invert\_d\_t2} for common NMR cases.
 
+The PGSE D-T2 example ties this analysis layer to a sequence model: it builds
+the b-axis with \code{run\_pgse\_moment}, simulates a PGSE-prepared CPMG echo
+matrix, and recovers the D-T2 distribution with the SciPy-backed non-negative
+\code{invert\_d\_t2} solver.
+
 \section{Optimization Workflows}
 
 The optimization package provides compact, plotting-free drivers for
@@ -1899,6 +1963,7 @@ python examples\plot_ideal_workflows.py --numpts 201 --output results\ideal_work
 python examples\plot_ideal_imaging.py --pixels 6 --ny 7 --output results\ideal_imaging.png
 python examples\plot_custom_imaging_fields.py --pixels 8 --ny 7 --output results\custom_imaging_fields.png
 python examples\plot_inverse_laplace.py --output results\inverse_laplace.png
+python examples\plot_pgse_d_t2.py --output results\pgse_d_t2.png
 python examples\plot_probe_parameter_sweep.py --probe tuned --sweep q --output results\tuned_q_sweep.png
 python examples\plot_probe_cpmg.py --numpts 101 --output results\probe_cpmg.png
 python examples\plot_finite_train_workflows.py --numpts 65 --num-echoes 4 --output results\finite_trains.png
@@ -2002,6 +2067,8 @@ Class & Purpose \\
 \code{NoiseMetadata} & Generated received-noise parameters and realized SNR. \\
 \code{MatchedDiffusionCPMGResult} & Matched diffusion-aware CPMG train. \\
 \code{MatchedDiffusionQSweepResult} & Matched diffusion Q sweep. \\
+\code{PGSEMomentResult} & Deterministic PGSE or PGSE-prepared CPMG attenuation from gradient moments. \\
+\code{PGSEWalkerResult} & Random-walker PGSE signal, sequence samples, and initial particle ensemble. \\
 \code{WURSTInversionResult} & WURST inversion profile and pulse metadata. \\
 \code{MatchedWURSTCPMGResult} & Matched WURST-CPMG echoes and spectra. \\
 \code{RadiationDampingFIDResult} & Radiation-damping FID simulation and analytic comparison fields. \\
@@ -2036,6 +2103,8 @@ from spin_dynamics.workflows import (
     run_matched_finite_mistuning_sweep,
     run_matched_z_magnetization_q_sweep,
     run_matched_diffusion_cpmg, run_matched_diffusion_q_sweep,
+    run_pgse, run_pgse_moment, run_pgse_walkers,
+    pgse_b_value, gradient_moment_b_value,
     run_ideal_time_varying_cpmg_final,
     run_tuned_time_varying_cpmg_final,
     run_untuned_time_varying_cpmg_final,
