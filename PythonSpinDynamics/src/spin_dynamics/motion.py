@@ -17,6 +17,10 @@ from spin_dynamics.core.rotations import MatrixElements, rf_matrix_elements
 
 
 BoundaryMode = Literal["reflect", "periodic", "clip"]
+BoundaryFn = Callable[[np.ndarray], np.ndarray]
+# A boundary is either one of the rectangular-box modes or a callable that maps
+# ``(num_particles, 2)`` positions to confined positions (e.g. a curved pore).
+Boundary = BoundaryMode | BoundaryFn
 Velocity = np.ndarray | Callable[[np.ndarray, float], np.ndarray] | None
 
 
@@ -228,7 +232,7 @@ def advect_diffuse_positions(
     rng: np.random.Generator | None = None,
     time: float = 0.0,
     bounds: tuple[tuple[float, float], tuple[float, float]] | None = None,
-    boundary: BoundaryMode = "reflect",
+    boundary: Boundary = "reflect",
 ) -> np.ndarray:
     """Advance positions with deterministic advection and Brownian diffusion."""
 
@@ -260,7 +264,7 @@ def move_ensemble(
     rng: np.random.Generator | None = None,
     time: float = 0.0,
     bounds: tuple[tuple[float, float], tuple[float, float]] | None = None,
-    boundary: BoundaryMode = "reflect",
+    boundary: Boundary = "reflect",
 ) -> ParticleEnsemble:
     """Return an ensemble with advected/diffused positions."""
 
@@ -348,7 +352,7 @@ def free_precession_with_motion_step(
     t1: float | Iterable[float] | np.ndarray = np.inf,
     t2: float | Iterable[float] | np.ndarray = np.inf,
     mth: float | Iterable[float] | np.ndarray = 1.0,
-    boundary: BoundaryMode = "reflect",
+    boundary: Boundary = "reflect",
 ) -> ParticleEnsemble:
     """Move particles and apply a first-order free-precession update.
 
@@ -392,14 +396,62 @@ def receive_signal(
     )
 
 
+def make_circular_reflector(
+    center: tuple[float, float],
+    radius: float,
+) -> BoundaryFn:
+    """Return a reflecting-wall boundary callback for a circular pore.
+
+    The returned function maps walker positions so that any walker stepping
+    outside the circle is folded back along its radial direction, the curved
+    analogue of the rectangular ``"reflect"`` mode. Pass it as the ``boundary``
+    argument to ``run_motion_sequence`` (or ``run_pgse_walkers``) to model
+    isotropically restricted diffusion inside a disc.
+
+    Accurate reflection assumes the per-substep diffusion length stays well
+    below ``radius``; refine ``substeps_per_interval`` if walkers routinely
+    overshoot the wall by more than a small fraction of the radius.
+    """
+
+    cx = float(center[0])
+    cz = float(center[1])
+    r = float(radius)
+    if r <= 0.0:
+        raise ValueError("radius must be positive")
+
+    def reflect(positions: np.ndarray) -> np.ndarray:
+        pos = _positions2d(positions).copy()
+        dx = pos[:, 0] - cx
+        dz = pos[:, 1] - cz
+        dist = np.hypot(dx, dz)
+        # Fold the radius into [0, r] with a reflecting wall at r, mirroring the
+        # triangle-wave fold used by the rectangular "reflect" mode.
+        period = 2.0 * r
+        folded_mod = np.mod(dist, period)
+        folded = np.where(folded_mod <= r, folded_mod, period - folded_mod)
+        scale = np.divide(folded, dist, out=np.ones_like(dist), where=dist > 0.0)
+        pos[:, 0] = cx + dx * scale
+        pos[:, 1] = cz + dz * scale
+        return pos
+
+    return reflect
+
+
 def apply_boundary(
     positions: np.ndarray,
     bounds: tuple[tuple[float, float], tuple[float, float]],
-    mode: BoundaryMode,
+    mode: Boundary,
 ) -> np.ndarray:
-    """Apply simple boundary conditions to two-dimensional positions."""
+    """Apply boundary conditions to two-dimensional positions.
+
+    ``mode`` is one of the rectangular-box modes ``"reflect"``, ``"periodic"``,
+    or ``"clip"``, or a callable mapping positions to confined positions (in
+    which case ``bounds`` is ignored), as produced by ``make_circular_reflector``.
+    """
 
     pos = _positions2d(positions).copy()
+    if callable(mode):
+        return _positions2d(mode(pos))
     for dim, (lower, upper) in enumerate(bounds):
         lo = float(lower)
         hi = float(upper)

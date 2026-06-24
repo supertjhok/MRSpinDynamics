@@ -16,6 +16,7 @@ from spin_dynamics.motion import (
     advect_diffuse_positions,
     free_precession_with_motion_step,
     initialize_ensemble_from_density,
+    make_circular_reflector,
     make_motion_field_maps_2d,
     receive_signal,
     transverse_b1_magnitude,
@@ -131,6 +132,36 @@ class MotionTests(unittest.TestCase):
             "reflect",
         )
         np.testing.assert_allclose(reflected, [[0.1, 0.8], [0.3, 0.6]])
+
+    def test_circular_reflector_confines_walkers_to_the_disc(self) -> None:
+        reflector = make_circular_reflector((0.0, 0.0), 2.0)
+
+        # Interior points are untouched; exterior points fold back radially.
+        inside = np.array([[0.0, 0.0], [1.0, 1.0]], dtype=np.float64)
+        np.testing.assert_allclose(reflector(inside), inside)
+
+        # A point at radius 2.5 along +x reflects to radius 1.5 (2*r - d).
+        reflected = reflector(np.array([[2.5, 0.0], [0.0, -3.0]], dtype=np.float64))
+        np.testing.assert_allclose(reflected, [[1.5, 0.0], [0.0, -1.0]])
+
+        # A diffusing cloud driven through the reflector stays within the disc.
+        rng = np.random.default_rng(7)
+        positions = rng.uniform(-1.0, 1.0, size=(500, 2))
+        for _ in range(40):
+            positions = advect_diffuse_positions(
+                positions,
+                1.0,
+                diffusion_coefficient=0.05,
+                rng=rng,
+                bounds=((-2.0, 2.0), (-2.0, 2.0)),
+                boundary=reflector,
+            )
+        radii = np.hypot(positions[:, 0], positions[:, 1])
+        self.assertTrue(np.all(radii <= 2.0 + 1e-9))
+
+    def test_make_circular_reflector_rejects_nonpositive_radius(self) -> None:
+        with self.assertRaises(ValueError):
+            make_circular_reflector((0.0, 0.0), 0.0)
 
     def test_free_precession_matches_analytical_phase_and_relaxation(self) -> None:
         ensemble = initialize_ensemble_from_density(

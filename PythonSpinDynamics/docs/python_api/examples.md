@@ -190,6 +190,51 @@ conditioning. If SciPy is absent the script falls back to an unconstrained
 least-squares preview, but the intended production path is the default NNLS
 solve from the `opt` extra.
 
+## PGSE Restricted Diffusion in a Pore
+
+This plotting example uses the stochastic random-walker PGSE backend
+(`run_pgse_walkers`) to model diffusion confined to a slab pore with reflecting
+walls. Passing explicit field maps whose bounds coincide with the pore makes the
+walkers bounce off the walls, which the analytical moment backend cannot
+represent. The three panels reproduce the canonical restricted-diffusion
+signatures: the echo attenuation `E(b)` bends below the free `exp(-b D)` line as
+the pore shrinks, the apparent diffusion coefficient `D_app = -ln(E)/b` falls
+with increasing diffusion time, and the walker displacement histogram shows the
+Gaussian free spread clamped to the pore width.
+
+```powershell
+python examples\plot_pgse_restricted_diffusion.py --output results\pgse_restricted.png
+```
+
+Use `--diffusion-time` to set the b-sweep diffusion time, and
+`--walkers-per-cell` / `--substeps` to trade runtime for smoother, more accurate
+stochastic curves. Only Matplotlib is required; SciPy is not used here.
+
+## PGSE Diffusive Diffraction in a Circular Pore
+
+This example extends restricted diffusion to a genuinely two-dimensional
+geometry: walkers confined to a disc by a reflecting circular wall, supplied by
+the new `spin_dynamics.motion.make_circular_reflector` callback (the motion
+engine now accepts a callable boundary in addition to the rectangular
+`reflect`/`periodic`/`clip` modes). In the narrow-pulse, long-mixing q-space
+regime the normalized echo stops decaying monotonically and instead shows
+*diffusive diffraction* minima at the zeros of the disc structure factor
+`|2 J1(q a)/(q a)|^2`, i.e. at `q_ang a = 3.83, 7.02, ...`. The x-axis uses the
+Callaghan reciprocal-space convention `q = gamma G delta / (2*pi)`; the angular
+alternative is `q_ang = gamma G delta` (note the factor-of-`2*pi` ambiguity
+between the two conventions in the literature).
+
+```powershell
+python examples\plot_pgse_circular_pore_diffraction.py --output results\pgse_diffraction.png
+```
+
+This is the heaviest example in the suite (the q sweep re-runs the walker
+ensemble per gradient); the defaults take a couple of minutes. Use `--num-q`,
+`--grid`, `--walkers-per-cell`, and `--substeps` to trade runtime for sharper,
+deeper fringe minima, and `--pore-radius` / `--diffusion-time` to move the
+diffraction features. SciPy is optional and only used to overlay the Bessel
+form-factor theory.
+
 ## Received Signal Noise
 
 This non-plotting example compares opt-in white noise and probe-colored

@@ -629,6 +629,46 @@ The walker tests compare the diffusing signal against a zero-diffusion walker
 reference and the moment-backend Stejskal-Tanner attenuation. Increase
 `walkers_per_cell` and substeps for production convergence studies.
 
+### Restricted diffusion and pore geometry
+
+Because the walker backend integrates explicit displacements, it can model
+diffusion restricted by hard walls — physics the moment backend cannot express.
+The `boundary` argument accepts the rectangular modes `"reflect"`, `"periodic"`,
+and `"clip"`, or any callable mapping `(N, 2)` positions to confined positions.
+`spin_dynamics.motion.make_circular_reflector` supplies a reflecting circular
+wall for a pore:
+
+```python
+from spin_dynamics.motion import make_circular_reflector
+from spin_dynamics.workflows import run_pgse_walkers
+import numpy as np
+
+radius = 5.0e-6
+axis = np.linspace(-radius, radius, 21)
+xx, zz = np.meshgrid(axis, axis, indexing="ij")
+rho = (xx**2 + zz**2 <= radius**2).astype(float)  # uniform disc
+
+walkers = run_pgse_walkers(
+    rho=rho,
+    x_axis=axis,
+    z_axis=axis,
+    gradient_amplitude=2.0,        # large G to reach the q-space regime
+    gradient_duration=0.4e-3,      # short delta (narrow-pulse / SGP limit)
+    diffusion_time=80.0e-3,        # long Delta >> a^2/D (full pore sampling)
+    diffusion_coefficient=2.3e-9,
+    boundary=make_circular_reflector((0.0, 0.0), radius),
+    walkers_per_cell=28,
+    substeps_per_interval=80,
+    seed=2026,
+)
+```
+
+In the narrow-pulse, long-mixing limit the echo follows the pore form factor and
+develops *diffusive diffraction* minima at `q_ang a = 3.83, 7.02, ...` for a disc
+of radius `a`, where `q_ang = gamma * G * delta`. Keep the per-substep hop
+`sqrt(2 D dt)` well below the pore size (raise `substeps_per_interval`) for
+accurate reflection. See the slab-pore and circular-pore diffraction examples.
+
 ## WURST Inversion and CPMG
 
 ```python

@@ -9,7 +9,7 @@ from typing import Literal
 import numpy as np
 
 from spin_dynamics.motion import (
-    BoundaryMode,
+    Boundary,
     MotionFieldMaps2D,
     ParticleEnsemble,
     Velocity,
@@ -210,7 +210,7 @@ def run_pgse_walkers(
     t1_seconds: float = np.inf,
     t2_seconds: float = np.inf,
     velocity: Velocity = None,
-    boundary: BoundaryMode = "reflect",
+    boundary: Boundary = "reflect",
     substeps_per_interval: int = 8,
 ) -> PGSEWalkerResult:
     """Run PGSE with explicit random-walker diffusion.

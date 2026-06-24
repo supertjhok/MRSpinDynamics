@@ -1681,6 +1681,75 @@ The PGSE tests compare the moment backend to the analytical
 Stejskal-Tanner formula, and compare the walker backend against the same
 attenuation through a zero-diffusion walker reference.
 
+\subsection{Restricted Diffusion and Diffusive Diffraction}
+
+Because the walker backend integrates explicit displacements, it can model
+diffusion restricted by hard walls---physics the closed-form moment backend
+cannot express. The \code{boundary} argument of \code{run\_pgse\_walkers}
+accepts the rectangular-box modes \code{"reflect"}, \code{"periodic"}, and
+\code{"clip"}, or any callable mapping particle positions to confined
+positions. The helper \code{make\_circular\_reflector(center, radius)} supplies
+a reflecting circular wall for a pore.
+
+For a slab pore of width \(L\) along the gradient axis, confining the walkers
+makes the echo attenuation bend above the free Stejskal-Tanner line
+\(E=\exp(-bD)\): once the diffusion length \(\sqrt{2D\Delta}\) approaches \(L\)
+the spins can no longer fully dephase, and the apparent diffusion coefficient
+\(D_{\mathrm{app}}=-\ln(E)/b\) falls below the bulk value \(D\) as the diffusion
+time grows. The example
+\code{plot\_pgse\_restricted\_diffusion.py} sweeps several pore widths and
+diffusion times to show both signatures.
+
+In a closed two-dimensional pore the restricted signal becomes non-monotonic.
+In the narrow-pulse, long-mixing limit (\(\delta\ll a^2/D\ll\Delta\)) the
+normalized echo approaches the squared magnitude of the pore form factor, the
+\emph{diffusive diffraction} regime of \(q\)-space NMR. For a uniform disc of
+radius \(a\),
+\[
+  E(q)\;\longrightarrow\;\left|\frac{2\,J_1(q_{\mathrm{ang}}a)}{q_{\mathrm{ang}}a}\right|^2,
+\]
+with minima at the zeros of \(J_1\), i.e. \(q_{\mathrm{ang}}a=3.83,\,7.02,\,
+10.17,\dots\). Note the factor-of-\(2\pi\) ambiguity in the definition of
+\(q\): the \emph{angular} wavenumber is \(q_{\mathrm{ang}}=\gamma G\delta\)
+(units \(\mathrm{rad/m}\), with \(b=q_{\mathrm{ang}}^2(\Delta-\delta/3)\)),
+while the \emph{reciprocal-space} (Callaghan) convention uses
+\(q=\gamma G\delta/(2\pi)\) (units \(1/\mathrm{m}\), encoding kernel
+\(\exp(i2\pi q x)\)), for which the first disc feature sits near \(qa\sim1\).
+
+\begin{lstlisting}[language=Python]
+import numpy as np
+from spin_dynamics.motion import make_circular_reflector
+from spin_dynamics.workflows import run_pgse_walkers
+
+radius = 5.0e-6
+axis = np.linspace(-radius, radius, 21)
+xx, zz = np.meshgrid(axis, axis, indexing="ij")
+rho = (xx**2 + zz**2 <= radius**2).astype(float)  # uniform disc
+
+walkers = run_pgse_walkers(
+    rho=rho, x_axis=axis, z_axis=axis,
+    gradient_amplitude=2.0,        # large G reaches the q-space regime
+    gradient_duration=0.4e-3,      # short delta (narrow-pulse limit)
+    diffusion_time=80.0e-3,        # long Delta >> a^2 / D
+    diffusion_coefficient=2.3e-9,
+    boundary=make_circular_reflector((0.0, 0.0), radius),
+    walkers_per_cell=28, substeps_per_interval=80, seed=2026,
+)
+\end{lstlisting}
+
+The example \code{plot\_pgse\_circular\_pore\_diffraction.py} plots the
+resulting fringes against the Bessel form factor. It offers two methods. The
+default \code{walker-sweep} re-runs the confined PGSE simulation at every
+gradient and so captures finite-pulse blurring of the minima. The optional
+\code{--method sgp-propagator} exploits the fact that the walker trajectories
+are independent of \(q\): it runs the confined diffusion once, records each
+walker's net displacement \(\Delta x\) over the diffusion time, and evaluates
+\(E(q)=\bigl|\langle\exp(iq_{\mathrm{ang}}\Delta x)\rangle\bigr|\) for all
+\(q\) in a single vectorized sum. This is the average-propagator (\(q\)-space)
+method; it is tens of times faster and reproduces the same diffraction pattern
+in the \(\delta\to0\) limit. Keep the per-substep hop \(\sqrt{2D\,\dd t}\) well
+below the pore size so reflection stays accurate.
+
 \section{Moving Isochromats}
 
 The motion layer treats inhomogeneity in the same spirit as static

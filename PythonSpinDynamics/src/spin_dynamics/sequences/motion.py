@@ -8,7 +8,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from spin_dynamics.motion import (
-    BoundaryMode,
+    Boundary,
     MotionFieldMaps2D,
     ParticleEnsemble,
     Velocity,
@@ -61,7 +61,7 @@ def run_motion_sequence(
     t1: float | Iterable[float] | np.ndarray = np.inf,
     t2: float | Iterable[float] | np.ndarray = np.inf,
     mth: float | Iterable[float] | np.ndarray = 1.0,
-    boundary: BoundaryMode = "reflect",
+    boundary: Boundary = "reflect",
     default_substeps: int = 1,
 ) -> MotionSequenceResult:
     """Run a sequence while moving particles through sampled field maps.
@@ -199,7 +199,7 @@ def run_motion_cpmg_sequence(
     t1: float | Iterable[float] | np.ndarray = np.inf,
     t2: float | Iterable[float] | np.ndarray = np.inf,
     mth: float | Iterable[float] | np.ndarray = 1.0,
-    boundary: BoundaryMode = "reflect",
+    boundary: Boundary = "reflect",
     substeps_per_interval: int = 1,
 ) -> MotionSequenceResult:
     """Run a rectangular-pulse CPMG sequence with moving isochromats."""
@@ -237,7 +237,7 @@ def _run_step(
     t1: float | Iterable[float] | np.ndarray,
     t2: float | Iterable[float] | np.ndarray,
     mth: float | Iterable[float] | np.ndarray,
-    boundary: BoundaryMode,
+    boundary: Boundary,
     default_substeps: int,
     label: str,
 ) -> tuple[ParticleEnsemble, float, list[complex], list[float], list[str]]:
@@ -308,7 +308,7 @@ def _propagate_segment(
     t1: float | Iterable[float] | np.ndarray,
     t2: float | Iterable[float] | np.ndarray,
     mth: float | Iterable[float] | np.ndarray,
-    boundary: BoundaryMode,
+    boundary: Boundary,
 ) -> ParticleEnsemble:
     moved = move_ensemble(
         ensemble,

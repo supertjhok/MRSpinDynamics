@@ -133,6 +133,8 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_inverse_laplace.py",
             "examples/plot_motion_linear.py",
             "examples/plot_motion_diffusion_cpmg.py",
+            "examples/plot_pgse_restricted_diffusion.py",
+            "examples/plot_pgse_circular_pore_diffraction.py",
             "examples/plot_wurst_flow.py",
             "examples/plot_radiation_damping.py",
             "examples/plot_radiation_damping_detuning.py",
@@ -198,6 +200,12 @@ class ExampleSmokeTests(unittest.TestCase):
         self.assertIn("--velocity", result.stdout)
         result = run_example("examples/plot_motion_diffusion_cpmg.py", "--help")
         self.assertIn("--diffusion", result.stdout)
+        result = run_example("examples/plot_pgse_restricted_diffusion.py", "--help")
+        self.assertIn("--walkers-per-cell", result.stdout)
+        self.assertIn("--diffusion-time", result.stdout)
+        result = run_example("examples/plot_pgse_circular_pore_diffraction.py", "--help")
+        self.assertIn("--pore-radius", result.stdout)
+        self.assertIn("--max-qa", result.stdout)
         result = run_example("examples/plot_wurst_flow.py", "--help")
         self.assertIn("--sweep-width", result.stdout)
         result = run_example("examples/plot_radiation_damping.py", "--help")
