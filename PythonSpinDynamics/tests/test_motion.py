@@ -17,6 +17,7 @@ from spin_dynamics.motion import (
     free_precession_with_motion_step,
     initialize_ensemble_from_density,
     make_circular_reflector,
+    make_elliptical_reflector,
     make_motion_field_maps_2d,
     receive_signal,
     transverse_b1_magnitude,
@@ -162,6 +163,37 @@ class MotionTests(unittest.TestCase):
     def test_make_circular_reflector_rejects_nonpositive_radius(self) -> None:
         with self.assertRaises(ValueError):
             make_circular_reflector((0.0, 0.0), 0.0)
+
+    def test_elliptical_reflector_confines_walkers_to_the_ellipse(self) -> None:
+        ax, az = 4.0, 1.5
+        reflector = make_elliptical_reflector((0.0, 0.0), (ax, az))
+
+        # Interior points are untouched.
+        inside = np.array([[0.0, 0.0], [2.0, 0.5]], dtype=np.float64)
+        np.testing.assert_allclose(reflector(inside), inside)
+
+        # A point at 1.5x the x semi-axis folds back across the wall (1.5 -> 0.5).
+        reflected = reflector(np.array([[1.5 * ax, 0.0]], dtype=np.float64))
+        np.testing.assert_allclose(reflected, [[0.5 * ax, 0.0]], atol=1e-12)
+
+        # A diffusing cloud driven through the reflector stays inside the ellipse.
+        rng = np.random.default_rng(3)
+        positions = rng.uniform(-1.0, 1.0, size=(500, 2))
+        for _ in range(40):
+            positions = advect_diffuse_positions(
+                positions,
+                1.0,
+                diffusion_coefficient=0.05,
+                rng=rng,
+                bounds=((-ax, ax), (-az, az)),
+                boundary=reflector,
+            )
+        normalized = (positions[:, 0] / ax) ** 2 + (positions[:, 1] / az) ** 2
+        self.assertTrue(np.all(normalized <= 1.0 + 1e-9))
+
+    def test_make_elliptical_reflector_rejects_nonpositive_axes(self) -> None:
+        with self.assertRaises(ValueError):
+            make_elliptical_reflector((0.0, 0.0), (1.0, 0.0))
 
     def test_free_precession_matches_analytical_phase_and_relaxation(self) -> None:
         ensemble = initialize_ensemble_from_density(

@@ -712,6 +712,43 @@ sample wide compared with the gradient phase wavelength `pi / (gamma G delta)`
 so the unwanted stimulated anti-echo dephases spatially; with diffusion present
 it is additionally suppressed. See the PGSTE stimulated-echo example.
 
+### Double diffusion encoding (DDE / double-PGSE)
+
+`run_dde_walkers` applies two refocused PGSE blocks separated by a mixing time,
+``90 - [G1 block] - mixing - [G2 block] - echo``, with the blocks encoding along
+``angle1`` and ``angle2``. Sweeping the relative angle ``psi = angle2 - angle1``
+probes microscopic anisotropy: in a restricted anisotropic pore the echo gains a
+``cos 2*psi`` modulation whose amplitude reports the local anisotropy. Because it
+depends only on the relative angle, it survives powder averaging and so reveals
+shape anisotropy even when the single-PGSE diffusion tensor is macroscopically
+isotropic. Pair it with `make_elliptical_reflector` for an anisotropic pore:
+
+```python
+from spin_dynamics.motion import make_elliptical_reflector
+from spin_dynamics.workflows import run_dde_walkers
+import numpy as np
+
+semi_axes = (8.0e-6, 3.0e-6)
+x = np.linspace(-semi_axes[0], semi_axes[0], 15)
+z = np.linspace(-semi_axes[1], semi_axes[1], 15)
+xx, zz = np.meshgrid(x, z, indexing="ij")
+rho = ((xx / semi_axes[0])**2 + (zz / semi_axes[1])**2 <= 1.0).astype(float)
+
+dde = run_dde_walkers(
+    rho=rho, x_axis=x, z_axis=z,
+    gradient_amplitude=1.0, gradient_duration=1.0e-3,
+    diffusion_time=12.0e-3, mixing_time=1.0e-3,
+    angle1=0.0, angle2=np.pi / 2,          # vary to trace E(psi)
+    diffusion_coefficient=2.0e-9,
+    boundary=make_elliptical_reflector((0.0, 0.0), semi_axes),
+    walkers_per_cell=64, substeps_per_interval=10, seed=2026, jitter=True,
+)
+```
+
+The reported `b_value` is per block, and the `cos 2*psi` powder term is a
+higher-order (`q^4`) effect, so strong diffusion weighting is needed to resolve
+it. See the elliptical-pore DDE example.
+
 ## WURST Inversion and CPMG
 
 ```python

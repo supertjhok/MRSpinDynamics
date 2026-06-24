@@ -254,6 +254,32 @@ Use `--t1` / `--t2` to set the relaxation contrast, `--fixed-b` for the
 diffusion-time panel weighting, and `--walkers-per-cell` / `--substeps` for
 convergence. Only Matplotlib is required.
 
+## Double Diffusion Encoding in an Elliptical Pore
+
+This example uses the double-PGSE backend (`run_dde_walkers`) with an elliptical
+reflecting pore (`make_elliptical_reflector`) to demonstrate the unique
+capability of double diffusion encoding (DDE): detecting *microscopic*
+anisotropy. Two gradient pairs separated by a mixing time encode displacement
+along directions at a relative angle `psi`; the echo then carries a `cos 2*psi`
+modulation whose amplitude reports the local anisotropy. Because it depends only
+on the relative angle, it survives powder averaging, so it reveals shape
+anisotropy even in an orientationally disordered sample where single-PGSE
+diffusion looks isotropic. The example contrasts the ellipse with an equal-area
+circle: the `cos 2*psi` term is present for the ellipse (single orientation and
+powder-averaged) and absent for the circle.
+
+```powershell
+python examples\plot_pgse_double_encoding_elliptical_pore.py --output results\dde.png
+```
+
+The `cos 2*psi` term is a higher-order (`q^4`) effect, so the default uses strong
+diffusion weighting (`--gradient-amplitude 1.0`); the powder panel re-runs the
+walker ensemble at several orientations, so the defaults take a couple of
+minutes. Use `--semi-major` / `--semi-minor` to set the eccentricity,
+`--mixing-time` for the inter-block delay, and `--num-angles` /
+`--num-orientations` / `--walkers-per-cell` to trade runtime for smoother curves.
+Only Matplotlib is required.
+
 ## Received Signal Noise
 
 This non-plotting example compares opt-in white noise and probe-colored

@@ -85,6 +85,33 @@ class PGSTEWalkerResult:
     backend: str = "walkers_ste"
 
 
+@dataclass(frozen=True)
+class DDEWalkerResult:
+    """Random-walker double diffusion encoding (DDE / double-PGSE) result.
+
+    Two PGSE blocks separated by a mixing time encode displacement along two
+    directions at a relative angle ``psi = angle2 - angle1``. The dependence of
+    the echo on ``psi`` reports microscopic anisotropy of the local geometry,
+    which survives orientational averaging even when single-PGSE diffusion is
+    macroscopically isotropic. ``b_value`` is the per-block Stejskal-Tanner value.
+    """
+
+    signal: np.ndarray
+    echo_times: np.ndarray
+    b_value: float
+    mixing_time: float
+    angle1: float
+    angle2: float
+    sequence: MotionSequenceResult
+    initial_ensemble: ParticleEnsemble
+    gradient_amplitude: float
+    gradient_duration: float
+    diffusion_time: float
+    diffusion_coefficient: float
+    gamma: float
+    backend: str = "walkers_dde"
+
+
 def pgse_b_value(
     gradient_amplitude: float,
     gradient_duration: float,
@@ -460,6 +487,131 @@ def run_pgste_walkers(
     )
 
 
+def run_dde_walkers(
+    *,
+    rho: Iterable[float] | np.ndarray | None = None,
+    x_axis: Iterable[float] | np.ndarray | None = None,
+    z_axis: Iterable[float] | np.ndarray | None = None,
+    fields: MotionFieldMaps2D | None = None,
+    gradient_amplitude: float = 0.05,
+    gradient_duration: float = 2.0e-3,
+    diffusion_time: float = 20.0e-3,
+    mixing_time: float = 0.0,
+    angle1: float = 0.0,
+    angle2: float = 0.0,
+    diffusion_coefficient: float = 2.3e-9,
+    gamma: float = 2.675e8,
+    walkers_per_cell: int = 128,
+    seed: int | None = None,
+    jitter: bool = False,
+    excitation_duration: float = 100.0e-6,
+    refocusing_duration: float = 200.0e-6,
+    t1_seconds: float = np.inf,
+    t2_seconds: float = np.inf,
+    velocity: Velocity = None,
+    boundary: Boundary = "reflect",
+    substeps_per_interval: int = 8,
+) -> DDEWalkerResult:
+    """Run a double diffusion encoding (DDE / double-PGSE) walker simulation.
+
+    The sequence is two refocused PGSE blocks separated by a mixing time:
+    ``90 - [G1 block] - mixing - [G2 block] - echo``. The two blocks encode
+    displacement along ``angle1`` and ``angle2`` (radians in the x-z plane) with
+    equal gradient magnitude. Sweeping the relative angle ``psi = angle2 - angle1``
+    probes microscopic anisotropy: in a restricted anisotropic pore the echo
+    modulates with ``psi`` (a ``cos 2*psi`` term at leading order), whereas an
+    isotropic pore gives an angle-independent echo.
+    """
+
+    if diffusion_coefficient < 0.0:
+        raise ValueError("diffusion_coefficient must be non-negative")
+    if walkers_per_cell <= 0:
+        raise ValueError("walkers_per_cell must be positive")
+    if excitation_duration <= 0.0 or refocusing_duration <= 0.0:
+        raise ValueError("RF pulse durations must be positive")
+    if mixing_time < 0.0:
+        raise ValueError("mixing_time must be non-negative")
+    if substeps_per_interval <= 0:
+        raise ValueError("substeps_per_interval must be positive")
+    delta = float(gradient_duration)
+    delta_big = float(diffusion_time)
+    if delta <= 0.0:
+        raise ValueError("gradient_duration must be positive")
+    if delta_big <= delta + refocusing_duration:
+        raise ValueError(
+            "diffusion_time must exceed gradient_duration + refocusing_duration"
+        )
+
+    rho_arr = np.ones((1, 1), dtype=np.float64) if rho is None else _map2d(rho, "rho")
+    x = (
+        np.array([0.0], dtype=np.float64)
+        if x_axis is None
+        else _axis(x_axis, "x_axis", rho_arr.shape[0])
+    )
+    z = (
+        np.array([0.0], dtype=np.float64)
+        if z_axis is None
+        else _axis(z_axis, "z_axis", rho_arr.shape[1])
+    )
+    ensemble = initialize_ensemble_from_density(
+        rho_arr,
+        x,
+        z,
+        walkers_per_cell=int(walkers_per_cell),
+        diffusion_coefficient=float(diffusion_coefficient),
+        seed=seed,
+        jitter=jitter,
+    )
+    if fields is None:
+        fields = _default_motion_fields(x, z, diffusion_time, diffusion_coefficient)
+
+    moment = float(gamma) * float(gradient_amplitude)
+    gradient_1 = (moment * float(np.cos(angle1)), moment * float(np.sin(angle1)))
+    gradient_2 = (moment * float(np.cos(angle2)), moment * float(np.sin(angle2)))
+    gap = 0.5 * (delta_big - delta - float(refocusing_duration))
+    steps = _make_dde_steps(
+        gradient_duration=delta,
+        gradient_1=gradient_1,
+        gradient_2=gradient_2,
+        gap=gap,
+        mixing_time=float(mixing_time),
+        excitation_duration=float(excitation_duration),
+        refocusing_duration=float(refocusing_duration),
+        substeps_per_interval=int(substeps_per_interval),
+    )
+    sequence = run_motion_sequence(
+        ensemble,
+        fields,
+        steps,
+        velocity=velocity,
+        rng=np.random.default_rng(seed),
+        t1=t1_seconds,
+        t2=t2_seconds,
+        boundary=boundary,
+        default_substeps=int(substeps_per_interval),
+    )
+    return DDEWalkerResult(
+        signal=sequence.signal,
+        echo_times=sequence.sample_times,
+        b_value=pgse_b_value(
+            gradient_amplitude,
+            gradient_duration,
+            diffusion_time,
+            gamma=gamma,
+        ),
+        mixing_time=float(mixing_time),
+        angle1=float(angle1),
+        angle2=float(angle2),
+        sequence=sequence,
+        initial_ensemble=ensemble,
+        gradient_amplitude=float(gradient_amplitude),
+        gradient_duration=delta,
+        diffusion_time=delta_big,
+        diffusion_coefficient=float(diffusion_coefficient),
+        gamma=float(gamma),
+    )
+
+
 def run_pgse(
     *,
     backend: PGSEBackend = "moment",
@@ -629,6 +781,64 @@ def _make_pgste_steps(
             label="stimulated_echo",
         )
     )
+    return tuple(steps)
+
+
+def _make_dde_steps(
+    *,
+    gradient_duration: float,
+    gradient_1: tuple[float, float],
+    gradient_2: tuple[float, float],
+    gap: float,
+    mixing_time: float,
+    excitation_duration: float,
+    refocusing_duration: float,
+    substeps_per_interval: int,
+) -> tuple[MotionSequenceStep, ...]:
+    sub = substeps_per_interval
+
+    def _block(gradient: tuple[float, float], index: int, acquire: bool):
+        return [
+            MotionSequenceStep(
+                duration=gradient_duration,
+                gradient=gradient,
+                substeps=sub,
+                label=f"dde{index}_lobe_1",
+            ),
+            MotionSequenceStep(duration=gap, substeps=sub, label=f"dde{index}_gap_1"),
+            MotionSequenceStep(
+                duration=refocusing_duration,
+                rf_amplitude=np.pi / refocusing_duration,
+                rf_phase=0.0,
+                substeps=max(1, sub),
+                label=f"dde{index}_180",
+            ),
+            MotionSequenceStep(duration=gap, substeps=sub, label=f"dde{index}_gap_2"),
+            MotionSequenceStep(
+                duration=gradient_duration,
+                gradient=gradient,
+                acquire=acquire,
+                num_samples=1 if acquire else 0,
+                substeps=sub,
+                label="dde_echo" if acquire else f"dde{index}_lobe_2",
+            ),
+        ]
+
+    steps = [
+        MotionSequenceStep(
+            duration=excitation_duration,
+            rf_amplitude=(0.5 * np.pi) / excitation_duration,
+            rf_phase=np.pi / 2,
+            substeps=max(1, sub),
+            label="excitation_90",
+        ),
+    ]
+    steps.extend(_block(gradient_1, 1, acquire=False))
+    if mixing_time > 0.0:
+        steps.append(
+            MotionSequenceStep(duration=mixing_time, substeps=sub, label="mixing")
+        )
+    steps.extend(_block(gradient_2, 2, acquire=True))
     return tuple(steps)
 
 
