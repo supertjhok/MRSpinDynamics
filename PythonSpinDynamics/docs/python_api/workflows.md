@@ -669,6 +669,49 @@ of radius `a`, where `q_ang = gamma * G * delta`. Keep the per-substep hop
 `sqrt(2 D dt)` well below the pore size (raise `substeps_per_interval`) for
 accurate reflection. See the slab-pore and circular-pore diffraction examples.
 
+### Stimulated-echo PGSE (PGSTE)
+
+`run_pgste_walkers` splits the diffusion encoding across three 90-degree pulses:
+``90 - G(delta) - 90 - [storage] - 90 - G(delta) - echo``. The second pulse
+stores one quadrature along the longitudinal axis, so during the storage
+interval the encoded magnetization decays with `T1` rather than `T2`. This is
+the standard way to reach long diffusion times in short-`T2` samples (porous
+media, low field, internal gradients). A spoiler gradient applied during storage
+crushes the residual transverse coherences, and the workflow models the
+phase-cycled stimulated-echo pathway (equilibrium recovery removed), so the
+surviving echo carries **half** the spin-echo amplitude:
+
+```python
+from spin_dynamics.workflows import run_pgste_walkers
+import numpy as np
+
+axis = np.linspace(-1.0e-3, 1.0e-3, 64)          # wide slab (see note below)
+rho = np.ones((axis.size, 2))
+
+ste = run_pgste_walkers(
+    rho=rho,
+    x_axis=axis,
+    z_axis=np.array([-1e-6, 1e-6]),
+    gradient_amplitude=0.1,
+    gradient_duration=1.0e-3,        # delta
+    diffusion_time=60.0e-3,          # Delta = lobe leading-edge separation
+    diffusion_coefficient=2.3e-9,
+    t1_seconds=0.4,                  # storage decays with T1, not T2
+    t2_seconds=15.0e-3,
+    walkers_per_cell=64,
+    seed=2026,
+    jitter=True,
+)
+# attenuation E(b) ~ 0.5 * exp(-Ts/T1) * exp(-b D)
+```
+
+`diffusion_time` is the leading-edge lobe separation (the Stejskal-Tanner
+`b = (gamma G delta)^2 (Delta - delta/3)` still applies), and the storage
+interval is `Delta - delta - 2*encode_delay - 2*excitation_duration`. Use a
+sample wide compared with the gradient phase wavelength `pi / (gamma G delta)`
+so the unwanted stimulated anti-echo dephases spatially; with diffusion present
+it is additionally suppressed. See the PGSTE stimulated-echo example.
+
 ## WURST Inversion and CPMG
 
 ```python

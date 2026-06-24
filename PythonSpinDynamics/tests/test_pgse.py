@@ -15,7 +15,16 @@ from spin_dynamics.workflows import (
     run_pgse,
     run_pgse_moment,
     run_pgse_walkers,
+    run_pgste_walkers,
 )
+
+
+def _wide_slab(num_cells: int = 48):
+    # A wide slab lets the unwanted stimulated anti-echo dephase spatially.
+    x_axis = np.linspace(-1.0e-3, 1.0e-3, num_cells)
+    z_axis = np.array([-1.0e-6, 1.0e-6])
+    rho = np.ones((x_axis.size, z_axis.size), dtype=np.float64)
+    return rho, x_axis, z_axis
 
 
 class PGSETests(unittest.TestCase):
@@ -122,6 +131,75 @@ class PGSETests(unittest.TestCase):
 
         self.assertEqual(result.signal.shape, (1,))
         self.assertEqual(result.sequence.sample_labels, ("echo_1",))
+
+    def test_stimulated_echo_is_half_amplitude_with_stejskal_tanner_slope(self) -> None:
+        rho, x_axis, z_axis = _wide_slab()
+        common = {
+            "rho": rho,
+            "x_axis": x_axis,
+            "z_axis": z_axis,
+            "gradient_amplitude": 0.1,
+            "gradient_duration": 1.0e-3,
+            "diffusion_time": 20.0e-3,
+            "walkers_per_cell": 128,
+            "seed": 123,
+            "jitter": True,
+            "excitation_duration": 50.0e-6,
+            "substeps_per_interval": 6,
+        }
+        diffusion = 2.5e-9
+        norm = float(rho.sum())
+
+        ste_reference = run_pgste_walkers(**common, diffusion_coefficient=0.0)
+        ste_diffusing = run_pgste_walkers(**common, diffusion_coefficient=diffusion)
+        spin_echo = run_pgse_walkers(
+            **common, diffusion_coefficient=0.0, refocusing_duration=100.0e-6
+        )
+
+        # The stimulated echo carries half of the spin-echo amplitude.
+        self.assertAlmostEqual(abs(ste_reference.signal[0]) / norm, 0.5, delta=0.05)
+        self.assertAlmostEqual(abs(spin_echo.signal[0]) / norm, 1.0, delta=0.05)
+
+        # ... and still follows the Stejskal-Tanner diffusion attenuation.
+        measured = abs(ste_diffusing.signal[0]) / abs(ste_reference.signal[0])
+        expected = float(np.exp(-ste_diffusing.b_value * diffusion))
+        self.assertAlmostEqual(measured, expected, delta=0.08)
+
+    def test_stimulated_echo_storage_decays_with_t1(self) -> None:
+        rho, x_axis, z_axis = _wide_slab()
+        common = {
+            "rho": rho,
+            "x_axis": x_axis,
+            "z_axis": z_axis,
+            "gradient_amplitude": 0.05,
+            "gradient_duration": 1.0e-3,
+            "diffusion_coefficient": 0.0,
+            "walkers_per_cell": 96,
+            "seed": 123,
+            "jitter": True,
+            "excitation_duration": 50.0e-6,
+            # Strong spoiler + enough substeps so the residual transverse
+            # coherence is fully crushed even at the shorter storage time.
+            "spoiler_gradient": 0.3,
+            "substeps_per_interval": 8,
+            "t1_seconds": 50.0e-3,
+        }
+        short = run_pgste_walkers(**common, diffusion_time=20.0e-3)
+        long = run_pgste_walkers(**common, diffusion_time=60.0e-3)
+
+        ratio = abs(long.signal[0]) / abs(short.signal[0])
+        expected = float(
+            np.exp(-(long.storage_time - short.storage_time) / 50.0e-3)
+        )
+        self.assertAlmostEqual(ratio, expected, delta=0.05)
+
+    def test_stimulated_echo_requires_room_for_storage(self) -> None:
+        with self.assertRaises(ValueError):
+            run_pgste_walkers(
+                gradient_duration=1.0e-3,
+                diffusion_time=0.5e-3,  # shorter than the encode + pulse overhead
+                excitation_duration=50.0e-6,
+            )
 
 
 if __name__ == "__main__":

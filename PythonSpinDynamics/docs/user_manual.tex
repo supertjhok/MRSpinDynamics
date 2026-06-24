@@ -1750,6 +1750,52 @@ method; it is tens of times faster and reproduces the same diffraction pattern
 in the \(\delta\to0\) limit. Keep the per-substep hop \(\sqrt{2D\,\dd t}\) well
 below the pore size so reflection stays accurate.
 
+\subsection{Stimulated-Echo PGSE (PGSTE)}
+
+\code{run\_pgste\_walkers} splits the diffusion encoding across three
+90-degree pulses, \(90-G(\delta)-90-[\mathrm{storage}]-90-G(\delta)-\mathrm{echo}\).
+The second pulse stores one quadrature of the encoded magnetization along the
+longitudinal axis, so during the (long) storage interval it decays with \(T_1\)
+rather than \(T_2\). This is why PGSTE is the method of choice for slow
+diffusion, large pores, and short-\(T_2\) samples such as porous media, low
+field, and internal-gradient regimes. A spoiler gradient applied during storage
+crushes the residual transverse coherences, and the workflow models the
+phase-cycled stimulated-echo pathway (equilibrium recovery removed), so the
+surviving echo follows the Stejskal-Tanner attenuation at \emph{half} the
+spin-echo amplitude:
+\[
+  E(b)\;\longrightarrow\;\tfrac{1}{2}\,
+  \exp\!\left(-\frac{T_s}{T_1}\right)\exp(-bD),
+\]
+where \(T_s\) is the storage interval. The argument \code{diffusion\_time} is
+the leading-edge separation of the two gradient lobes, so
+\(b=(\gamma G\delta)^2(\Delta-\delta/3)\) still holds, and
+\(T_s=\Delta-\delta-2\,\code{encode\_delay}-2\,\code{excitation\_duration}\).
+
+\begin{lstlisting}[language=Python]
+import numpy as np
+from spin_dynamics.workflows import run_pgste_walkers
+
+axis = np.linspace(-1.0e-3, 1.0e-3, 64)   # wide slab (see note below)
+rho = np.ones((axis.size, 2))
+
+ste = run_pgste_walkers(
+    rho=rho, x_axis=axis, z_axis=np.array([-1e-6, 1e-6]),
+    gradient_amplitude=0.1, gradient_duration=1.0e-3,  # delta
+    diffusion_time=60.0e-3,            # Delta = lobe leading-edge separation
+    diffusion_coefficient=2.3e-9,
+    t1_seconds=0.4, t2_seconds=15.0e-3,  # storage decays with T1, not T2
+    walkers_per_cell=64, seed=2026, jitter=True,
+)
+\end{lstlisting}
+
+Use a sample wide compared with the gradient phase wavelength
+\(\pi/(\gamma G\delta)\) so the unwanted stimulated anti-echo dephases
+spatially; with diffusion present it is suppressed further. The example
+\code{plot\_pgste\_stimulated\_echo.py} verifies the half-amplitude
+Stejskal-Tanner attenuation and contrasts the \(T_2\)-limited spin echo with the
+\(T_1\)-limited stimulated echo as the diffusion time grows.
+
 \section{Moving Isochromats}
 
 The motion layer treats inhomogeneity in the same spirit as static
@@ -2138,6 +2184,7 @@ Class & Purpose \\
 \code{MatchedDiffusionQSweepResult} & Matched diffusion Q sweep. \\
 \code{PGSEMomentResult} & Deterministic PGSE or PGSE-prepared CPMG attenuation from gradient moments. \\
 \code{PGSEWalkerResult} & Random-walker PGSE signal, sequence samples, and initial particle ensemble. \\
+\code{PGSTEWalkerResult} & Random-walker stimulated-echo (PGSTE) signal, storage interval, and initial particle ensemble. \\
 \code{WURSTInversionResult} & WURST inversion profile and pulse metadata. \\
 \code{MatchedWURSTCPMGResult} & Matched WURST-CPMG echoes and spectra. \\
 \code{RadiationDampingFIDResult} & Radiation-damping FID simulation and analytic comparison fields. \\
@@ -2172,7 +2219,7 @@ from spin_dynamics.workflows import (
     run_matched_finite_mistuning_sweep,
     run_matched_z_magnetization_q_sweep,
     run_matched_diffusion_cpmg, run_matched_diffusion_q_sweep,
-    run_pgse, run_pgse_moment, run_pgse_walkers,
+    run_pgse, run_pgse_moment, run_pgse_walkers, run_pgste_walkers,
     pgse_b_value, gradient_moment_b_value,
     run_ideal_time_varying_cpmg_final,
     run_tuned_time_varying_cpmg_final,
