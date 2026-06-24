@@ -110,6 +110,24 @@ Use `--echo-train-length` to set the RARE acceleration (default: a full single
 shot), `--readout-time` for the frequency-encode duration, and `--t2-long` /
 `--t2-short` for the phantom relaxation contrast. Only Matplotlib is required.
 
+## Imaging Inhomogeneity (Frequency-Encoded)
+
+This example evaluates how field inhomogeneity affects a frequency-encoded
+(spin-warp) image, since `run_spin_warp_imaging` and `run_rare_imaging` accept
+the same B0/B1 maps as the phase-encoded workflows. One phantom is imaged four
+ways: uniform fields (reference), a linear B0 gradient (geometric distortion
+along the readout axis), a sub-voxel B0 spread (`num_offsets` / `offset_spread`,
+the T2* point-spread function that blurs along readout), and a transmit-B1
+shading.
+
+```powershell
+python examples\plot_imaging_inhomogeneity.py --pixels 32 --output results\imaging_inhomogeneity.png
+```
+
+Use `--b0-gradient-hz`, `--b0-spread-hz` / `--num-offsets`, and `--b1-min` to set
+each effect, and `--readout-time` (a shorter readout resists B0 distortion). Only
+Matplotlib is required.
+
 ## Tuned-Probe CPMG
 
 ```powershell

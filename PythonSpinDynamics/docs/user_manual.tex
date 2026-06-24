@@ -1567,6 +1567,20 @@ function (the RARE blurring, strongest for short \(T_2\)).
 \code{echo\_train\_length=1} recovers the spin-warp reference. The example
 \code{plot\_rare\_imaging.py} contrasts the two on a two-\(T_2\) phantom.
 
+Both workflows accept the same inputs as the phase-encoded path so the effects
+of inhomogeneity can be evaluated: pass \code{rho} with per-voxel \code{b0\_map}
+(absolute angular off-resonance, rad/s), \code{b1\_tx\_map}, \code{b1\_rx\_map},
+\code{t1\_map}, and \code{t2\_map}, or pass an \code{ImagingFieldMaps} container
+directly (with the map keywords omitted). B0 inhomogeneity distorts geometry
+along the readout axis and B1 maps shade the image. An unresolved sub-voxel B0
+spread is modelled with \code{num\_offsets}~\(>1\) isochromats per voxel spread
+over \(\pm\)\code{offset\_spread} (rad/s), the counterpart of the
+\code{ny}/\code{maxoffs} samples of the phase-encoded path; a spin echo refocuses
+the static spread at each echo, so it blurs the readout axis (the \(T_2^*\)
+point-spread function) without decaying the train. The example
+\code{plot\_imaging\_inhomogeneity.py} shows B0 distortion, sub-voxel \(T_2^*\)
+blur, and B1 shading.
+
 \section{Received-Signal Noise}
 
 Noise is opt-in and output-referred. High-level workflows accept a

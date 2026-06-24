@@ -10,9 +10,23 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from spin_dynamics.workflows import (
+    make_imaging_field_maps,
     run_rare_imaging,
     run_spin_warp_imaging,
 )
+
+
+def _readout_phase_widths(image: np.ndarray) -> tuple[float, float]:
+    m = np.abs(image)
+    m = m / m.max()
+    n0, n1 = m.shape
+    gx, gz = np.mgrid[0:n0, 0:n1]
+    total = m.sum()
+    mx = (gx * m).sum() / total
+    mz = (gz * m).sum() / total
+    sx = float(np.sqrt(((gx - mx) ** 2 * m).sum() / total))
+    sz = float(np.sqrt(((gz - mz) ** 2 * m).sum() / total))
+    return sx, sz
 
 
 def _phantom(n: int = 16):
@@ -82,6 +96,53 @@ class FrequencyEncodedImagingTests(unittest.TestCase):
     def test_rejects_non_2d_density(self) -> None:
         with self.assertRaises(ValueError):
             run_spin_warp_imaging(np.ones(8))
+
+    def test_accepts_imaging_field_maps_like_array_inputs(self) -> None:
+        rho = _phantom()
+        t1 = np.full(rho.shape, 1.0)
+        t2 = np.full(rho.shape, 1.0)
+        fields = make_imaging_field_maps(
+            rho, t1_map=t1, t2_map=t2, b0_map=np.zeros(rho.shape),
+            b1_tx_map=np.ones(rho.shape), b1_rx_map=np.ones(rho.shape),
+        )
+        from_fields = run_spin_warp_imaging(fields, fov=(0.02, 0.02))
+        from_arrays = run_spin_warp_imaging(rho, fov=(0.02, 0.02), t1_map=t1, t2_map=t2)
+        np.testing.assert_allclose(from_fields.kspace, from_arrays.kspace, atol=1e-9)
+
+    def test_rejects_map_kwargs_with_field_maps(self) -> None:
+        rho = _phantom()
+        fields = make_imaging_field_maps(rho)
+        with self.assertRaises(ValueError):
+            run_spin_warp_imaging(fields, b0_map=np.zeros(rho.shape))
+
+    def test_subvoxel_b0_spread_blurs_readout_not_phase_encode(self) -> None:
+        rho = np.zeros((24, 24))
+        rho[8:16, 9:15] = 1.0
+        spread = 2.0 * np.pi * 1500.0  # rad/s
+        base = run_spin_warp_imaging(rho, fov=(0.02, 0.02))
+        blurred = run_spin_warp_imaging(
+            rho, fov=(0.02, 0.02), num_offsets=9, offset_spread=spread
+        )
+        sx0, sz0 = _readout_phase_widths(base.image[:, :, 0])
+        sx1, sz1 = _readout_phase_widths(blurred.image[:, :, 0])
+        self.assertEqual(blurred.num_offsets, 9)
+        # The spread broadens the readout (x) axis but leaves phase encode (z).
+        self.assertGreater(sx1, sx0 + 0.3)
+        self.assertAlmostEqual(sz1, sz0, delta=0.1)
+
+    def test_static_spread_does_not_decay_the_echo_train(self) -> None:
+        rho = np.zeros((20, 20))
+        rho[6:14, 7:13] = 1.0
+        spread = 2.0 * np.pi * 1200.0
+        kw = dict(fov=(0.02, 0.02), echo_train_length=20,
+                  t2_map=np.full(rho.shape, np.inf))
+        plain = run_rare_imaging(rho, **kw)
+        spread_run = run_rare_imaging(rho, num_offsets=9, offset_spread=spread, **kw)
+        # The last echo (longest TE) keeps most of its amplitude: a static spread
+        # is refocused each echo, so it does not act like a T2' train decay.
+        last = 19
+        ratio = abs(spread_run.kspace[10, last, 0]) / abs(plain.kspace[10, last, 0])
+        self.assertGreater(ratio, 0.8)
 
 
 if __name__ == "__main__":
