@@ -29,6 +29,7 @@ from spin_dynamics.motion import (
 )
 from spin_dynamics.sequences.motion import MotionSequenceStep, run_motion_sequence
 from spin_dynamics.workflows.imaging import reconstruct_image_from_kspace
+from spin_dynamics.workflows.imaging_types import ImagingFieldMaps
 
 
 PhaseEncodeOrder = Literal["linear", "centric"]
@@ -49,6 +50,8 @@ class FrequencyEncodedImagingResult:
     fov: tuple[float, float]
     echo_spacing: float
     method: str
+    num_offsets: int  # sub-voxel B0 samples averaged per voxel (1 = none)
+    offset_spread: float  # half-width of the sub-voxel B0 spread (rad/s)
 
     def reconstruct(self) -> np.ndarray:
         """Return the complex image (alias for the stored reconstruction)."""
@@ -56,7 +59,30 @@ class FrequencyEncodedImagingResult:
         return self.image[:, :, 0]
 
 
-def _maps(rho, t1_map, t2_map, b0_map, b1_tx_map, b1_rx_map):
+def _resolve_maps(rho, t1_map, t2_map, b0_map, b1_tx_map, b1_rx_map):
+    """Return ``(rho, t1, t2, b0, b1_tx, b1_rx)`` arrays from inputs.
+
+    ``rho`` may be a 2D spin-density array (with optional map keywords) or an
+    ``ImagingFieldMaps`` container shared with the phase-encoded workflows, in
+    which case the map keywords must be omitted. ``b0_map`` is an absolute
+    angular off-resonance map in rad/s.
+    """
+
+    if isinstance(rho, ImagingFieldMaps):
+        if any(m is not None for m in (t1_map, t2_map, b0_map, b1_tx_map, b1_rx_map)):
+            raise ValueError(
+                "do not provide map keywords when rho is an ImagingFieldMaps"
+            )
+        fm = rho
+        return (
+            np.asarray(fm.rho, dtype=np.float64),
+            np.asarray(fm.t1_map, dtype=np.float64),
+            np.asarray(fm.t2_map, dtype=np.float64),
+            np.asarray(fm.b0_map, dtype=np.float64),
+            np.asarray(fm.b1_tx_map, dtype=np.float64),
+            np.asarray(fm.b1_rx_map, dtype=np.float64),
+        )
+
     rho_arr = np.asarray(rho, dtype=np.float64)
     if rho_arr.ndim != 2 or min(rho_arr.shape) < 2:
         raise ValueError("rho must be a 2D array with at least 2x2 voxels")
@@ -120,36 +146,50 @@ def run_rare_imaging(
     phase_time: float = 0.4e-3,
     excitation_duration: float = 50.0e-6,
     refocusing_duration: float = 100.0e-6,
+    num_offsets: int = 1,
+    offset_spread: float = 0.0,
     gamma: float = 2.675e8,
     substeps_per_interval: int = 1,
 ) -> FrequencyEncodedImagingResult:
     """Simulate a RARE / fast-spin-echo frequency-encoded image.
 
-    Readout is along x (frequency encode) and the phase encode is along z. Each
-    CPMG echo reads one k_z line, so ``echo_train_length`` lines are acquired per
-    excitation and the image needs ``ceil(pz / echo_train_length)`` shots. The
-    T2 decay across the train weights the phase-encode lines, which broadens the
-    point-spread function (RARE blurring).
+    ``rho`` may be a 2D spin-density array or an ``ImagingFieldMaps`` container
+    shared with the phase-encoded workflows. Readout is along x (frequency
+    encode) and the phase encode is along z. Each CPMG echo reads one k_z line,
+    so ``echo_train_length`` lines are acquired per excitation and the image
+    needs ``ceil(pz / echo_train_length)`` shots. The T2 decay across the train
+    weights the phase-encode lines, which broadens the point-spread function
+    (RARE blurring).
+
+    ``num_offsets`` (> 1) models an unresolved sub-voxel B0 spread by averaging
+    that many isochromats per voxel, evenly spaced over ``+/- offset_spread``
+    (rad/s) -- the counterpart of the ``ny`` / ``maxoffs`` off-resonance samples
+    of the phase-encoded path. A spin echo refocuses the static spread at each
+    echo, so the spread blurs the image along the readout axis (the T2*
+    point-spread function) without decaying the echo train.
     """
 
-    rho_arr, t1_arr, t2_arr, b0_arr, b1_tx_arr, b1_rx_arr = _maps(
+    rho_arr, t1_arr, t2_arr, b0_arr, b1_tx_arr, b1_rx_arr = _resolve_maps(
         rho, t1_map, t2_map, b0_map, b1_tx_map, b1_rx_map
     )
     px, pz = rho_arr.shape
+    if min(px, pz) < 2:
+        raise ValueError("rho must have at least 2x2 voxels")
     fov_x, fov_z = float(fov[0]), float(fov[1])
     if fov_x <= 0.0 or fov_z <= 0.0:
         raise ValueError("fov entries must be positive")
     if readout_time <= 0.0 or phase_time <= 0.0:
         raise ValueError("readout_time and phase_time must be positive")
+    if num_offsets < 1:
+        raise ValueError("num_offsets must be at least 1")
+    if offset_spread < 0.0:
+        raise ValueError("offset_spread must be non-negative")
 
     # Voxel positions use an integer center (px//2) so they sit on the DFT grid
     # that fftshift/ifftshift assume; a half-integer center would imprint a
     # (-1)^index half-pixel modulation on the reconstruction.
     x_axis = (np.arange(px) - px // 2) * (fov_x / px)
     z_axis = (np.arange(pz) - pz // 2) * (fov_z / pz)
-    fields = make_motion_field_maps_2d(
-        x_axis, z_axis, b0_map=b0_arr, b1_tx_map=b1_tx_arr, b1_rx_map=b1_rx_arr
-    )
     ensemble = initialize_ensemble_from_density(
         rho_arr, x_axis, z_axis, walkers_per_cell=1, diffusion_coefficient=0.0
     )
@@ -167,17 +207,19 @@ def run_rare_imaging(
     # to -(px//2 + 1)*dk_x lands the samples on the centered grid (m - px//2)*dk_x.
     moment_predephase = -(px // 2 + 1) * dk_x / phase_time
     moment_rewind = -(px - (px // 2 + 1)) * dk_x / phase_time  # k_x back to 0
+    # Place the first 180 so the readout centre (k=0) sits at the spin-echo
+    # refocus time; later echoes are then automatically centred. This makes the
+    # sub-voxel B0 spread refocus at each echo, as a real spin echo does.
+    pre_180_gap = max(
+        0.0, phase_time + 0.5 * readout_time - 0.5 * excitation_duration
+    )
 
     schedule = _phase_encode_schedule(pz, echo_train_length, phase_encode_order)
     num_shots = len(schedule)
     echo_spacing = refocusing_duration + 2.0 * phase_time + readout_time
-
-    kspace = np.zeros((px, pz), dtype=np.complex128)
-    line_echo_index = np.zeros(pz, dtype=np.int64)
-    line_echo_time = np.zeros(pz, dtype=np.float64)
     sub = int(substeps_per_interval)
 
-    for lines in schedule:
+    def _shot_steps(lines: list[int]) -> list[MotionSequenceStep]:
         steps: list[MotionSequenceStep] = [
             MotionSequenceStep(
                 duration=excitation_duration,
@@ -187,7 +229,13 @@ def run_rare_imaging(
                 label="excitation_90",
             ),
         ]
-        for echo_index, line in enumerate(lines):
+        if pre_180_gap > 0.0:
+            steps.append(
+                MotionSequenceStep(
+                    duration=pre_180_gap, substeps=max(1, sub), label="te_centering"
+                )
+            )
+        for line in lines:
             moment_pe = (line - pz // 2) * dk_z / phase_time
             steps.extend(
                 [
@@ -222,20 +270,37 @@ def run_rare_imaging(
                     ),
                 ]
             )
+        return steps
 
-        sequence = run_motion_sequence(
-            ensemble,
-            fields,
-            steps,
-            t1=t1_particles,
-            t2=t2_particles,
-            default_substeps=max(1, sub),
+    shot_steps = [(_shot_steps(lines), lines) for lines in schedule]
+
+    # Sub-voxel B0 spread: average isochromats spaced over +/- offset_spread.
+    offsets = (
+        np.array([0.0])
+        if num_offsets == 1
+        else np.linspace(-offset_spread, offset_spread, num_offsets)
+    )
+    kspace = np.zeros((px, pz), dtype=np.complex128)
+    line_echo_index = np.zeros(pz, dtype=np.int64)
+    line_echo_time = np.zeros(pz, dtype=np.float64)
+
+    for offset in offsets:
+        fields = make_motion_field_maps_2d(
+            x_axis, z_axis,
+            b0_map=b0_arr + float(offset),
+            b1_tx_map=b1_tx_arr, b1_rx_map=b1_rx_arr,
         )
-        signal = sequence.signal
-        for echo_index, line in enumerate(lines):
-            kspace[:, line] = signal[echo_index * px : (echo_index + 1) * px]
-            line_echo_index[line] = echo_index
-            line_echo_time[line] = (echo_index + 1) * echo_spacing
+        for steps, lines in shot_steps:
+            sequence = run_motion_sequence(
+                ensemble, fields, steps,
+                t1=t1_particles, t2=t2_particles, default_substeps=max(1, sub),
+            )
+            signal = sequence.signal
+            for echo_index, line in enumerate(lines):
+                kspace[:, line] += signal[echo_index * px : (echo_index + 1) * px]
+                line_echo_index[line] = echo_index
+                line_echo_time[line] = (echo_index + 1) * echo_spacing
+    kspace /= float(offsets.size)
 
     kspace3 = kspace[:, :, np.newaxis]
     image = reconstruct_image_from_kspace(kspace3, 0)[:, :, np.newaxis]
@@ -251,6 +316,8 @@ def run_rare_imaging(
         fov=(fov_x, fov_z),
         echo_spacing=echo_spacing,
         method="rare" if echo_train_length > 1 else "spin_warp",
+        num_offsets=int(num_offsets),
+        offset_spread=float(offset_spread),
     )
 
 

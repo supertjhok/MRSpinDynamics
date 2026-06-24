@@ -733,7 +733,7 @@ No public classes or functions found.
 | Kind | Name | Summary |
 | --- | --- | --- |
 | class | `FrequencyEncodedImagingResult` | Result of a frequency-encoded (spin-warp or RARE) imaging simulation. |
-| function | `run_rare_imaging(rho, *, t1_map = None, t2_map = None, b0_map = None, b1_tx_map = None, b1_rx_map = None, fov: tuple[float, float] = (0.02, 0.02), echo_train_length: int = 8, phase_encode_order: PhaseEncodeOrder = 'linear', readout_time: float = 0.002, phase_time: float = 0.0004, excitation_duration: float = 5e-05, refocusing_duration: float = 0.0001, gamma: float = 267500000.0, substeps_per_interval: int = 1) -> FrequencyEncodedImagingResult` | Simulate a RARE / fast-spin-echo frequency-encoded image. |
+| function | `run_rare_imaging(rho, *, t1_map = None, t2_map = None, b0_map = None, b1_tx_map = None, b1_rx_map = None, fov: tuple[float, float] = (0.02, 0.02), echo_train_length: int = 8, phase_encode_order: PhaseEncodeOrder = 'linear', readout_time: float = 0.002, phase_time: float = 0.0004, excitation_duration: float = 5e-05, refocusing_duration: float = 0.0001, num_offsets: int = 1, offset_spread: float = 0.0, gamma: float = 267500000.0, substeps_per_interval: int = 1) -> FrequencyEncodedImagingResult` | Simulate a RARE / fast-spin-echo frequency-encoded image. |
 | function | `run_spin_warp_imaging(rho, **kwargs) -> FrequencyEncodedImagingResult` | Simulate a spin-warp image (one spin echo per phase-encode line). |
 
 ## `spin_dynamics.workflows.imaging_types`

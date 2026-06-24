@@ -1030,6 +1030,19 @@ the echo time of each k_z line), which broadens the point-spread function -- the
 characteristic RARE blurring, strongest for short T2. `echo_train_length=1`
 recovers the spin-warp reference. See the RARE imaging example.
 
+Both workflows accept the same inputs as the phase-encoded path so inhomogeneity
+can be evaluated: pass `rho` plus per-voxel `b0_map` (absolute angular
+off-resonance, rad/s), `b1_tx_map`, `b1_rx_map`, `t1_map`, and `t2_map`, or pass
+an `ImagingFieldMaps` container directly (in which case the map keywords must be
+omitted). B0 inhomogeneity produces geometric distortion along the readout axis
+(`1 / readout gradient`); B1 maps shade the image and perturb the flip angles.
+An unresolved *sub-voxel* B0 spread is modelled with `num_offsets > 1`
+isochromats per voxel evenly spaced over `+/- offset_spread` (rad/s) -- the
+counterpart of the phase-encoded path's `ny` / `maxoffs` off-resonance samples.
+Because a spin echo refocuses the static spread at each echo, the spread blurs
+the image along the readout axis (the T2* point-spread function) without decaying
+the echo train. See the imaging-inhomogeneity example.
+
 Noise-aware workflows can pass `NoiseSpec(domain="time")` to CPMG echo
 workflows to add white noise directly to the time-domain echo samples instead
 of the received spectrum. Probe-colored noise remains spectrum-domain because
