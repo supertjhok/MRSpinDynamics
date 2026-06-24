@@ -128,6 +128,26 @@ Use `--b0-gradient-hz`, `--b0-spread-hz` / `--num-offsets`, and `--b1-min` to se
 each effect, and `--readout-time` (a shorter readout resists B0 distortion). Only
 Matplotlib is required.
 
+## Sensitive Slice in a Non-Uniform Field
+
+A practical issue in inhomogeneous-field imaging is that the excited slice is
+neither flat nor uniform in real space. This example uses
+`imaging_slice_sensitivity` on a single-sided-like field (B0 rising with depth
+and curving across the probe, plus a surface-coil B1) to map the sensitive
+slice. The four panels show the B0 field with curved iso-frequency contours, the
+sensitive slice at one excitation frequency (a curved band shaded by B1),
+several slices at different frequencies (curved bands at different depths), and
+the slice center and peak intensity versus position -- making explicit that the
+slice is curved (not flat) and shaded (not uniform).
+
+```powershell
+python examples\plot_sensitive_slice.py --pixels 61 --output results\sensitive_slice.png
+```
+
+Use `--b0-depth-hz` / `--b0-curvature-hz` to shape the field, and
+`--excitation-duration` to set the slice thickness (bandwidth ~ 1/duration). Only
+Matplotlib is required.
+
 ## Tuned-Probe CPMG
 
 ```powershell

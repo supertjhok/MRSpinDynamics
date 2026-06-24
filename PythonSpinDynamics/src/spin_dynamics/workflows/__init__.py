@@ -72,6 +72,8 @@ from spin_dynamics.workflows.imaging import (
 )
 from spin_dynamics.workflows.imaging_frequency import (
     FrequencyEncodedImagingResult,
+    SliceSensitivityResult,
+    imaging_slice_sensitivity,
     run_rare_imaging,
     run_spin_warp_imaging,
 )
@@ -153,6 +155,7 @@ EXTENDED_WORKFLOW_API = (
     "fit_imaging_echo_decay",
     "form_imaging_image",
     "gradient_moment_b_value",
+    "imaging_slice_sensitivity",
     "load_imaging_field_maps_npz",
     "make_imaging_field_maps",
     "pgse_b_value",
@@ -228,6 +231,7 @@ __all__ = [
     "ProbeTimeVaryingSweepResult",
     "DDEWalkerResult",
     "FrequencyEncodedImagingResult",
+    "SliceSensitivityResult",
     "OGSEWalkerResult",
     "PGSEMomentResult",
     "PGSEWalkerResult",
@@ -254,6 +258,7 @@ __all__ = [
     "fit_imaging_echo_decay",
     "form_imaging_image",
     "gradient_moment_b_value",
+    "imaging_slice_sensitivity",
     "load_imaging_field_maps_npz",
     "make_imaging_field_maps",
     "pgse_b_value",

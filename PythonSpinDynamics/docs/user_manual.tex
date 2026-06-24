@@ -1581,6 +1581,19 @@ point-spread function) without decaying the train. The example
 \code{plot\_imaging\_inhomogeneity.py} shows B0 distortion, sub-voxel \(T_2^*\)
 blur, and B1 shading.
 
+A practical issue in inhomogeneous-field imaging is that the excited slice is
+neither flat nor uniform in real space: an RF pulse excites the spins whose
+frequency falls in its band, so the slice follows the curved iso-B0 contours and
+is shaded by B1. \code{imaging\_slice\_sensitivity} maps this sensitive slice
+from the same B0/B1 maps by computing, for every voxel at its own off-resonance
+(\code{b0\_map - center\_frequency}, rad/s) and transmit-B1, the excited
+transverse magnetization of a rectangular RF pulse (so the slice profile follows
+the pulse bandwidth \(\sim 1/\code{excitation\_duration}\)), weighted by the
+receive B1; \code{refocusing=True} also applies the 180-degree refocusing
+efficiency for the spin-echo sensitive volume. The example
+\code{plot\_sensitive\_slice.py} visualizes the curved, non-uniform slice in a
+single-sided-like field.
+
 \section{Received-Signal Noise}
 
 Noise is opt-in and output-referred. High-level workflows accept a
@@ -2309,6 +2322,7 @@ Class & Purpose \\
 \code{IdealCPMGImagingResult} & Ideal phase-encoded CPMG imaging result. \\
 \code{ProbeCPMGImagingResult} & Tuned or matched phase-encoded CPMG imaging result. \\
 \code{FrequencyEncodedImagingResult} & Spin-warp / RARE frequency-encoded image, k-space, and per-line echo times. \\
+\code{SliceSensitivityResult} & Real-space sensitive slice (excited/refocused, B1-weighted) of an excitation in a non-uniform field. \\
 \code{ImagingEchoFitResult} & Voxel-wise mono-exponential echo-stack fit. \\
 \code{ImagingNoiseStatistics} & Repeated-trial image-domain noise summary. \\
 \code{MotionSequenceResult} & Moving-isochromat sequence samples and final particle ensemble. \\
@@ -2390,7 +2404,7 @@ from spin_dynamics.workflows import (
     run_tuned_phase_encoded_cpmg_imaging,
     run_matched_phase_encoded_cpmg_imaging,
     run_t1_encoded_phase_encoded_cpmg_imaging,
-    run_spin_warp_imaging, run_rare_imaging,
+    run_spin_warp_imaging, run_rare_imaging, imaging_slice_sensitivity,
     reconstruct_image_from_kspace,
     form_imaging_image,
     fit_imaging_echo_decay,
