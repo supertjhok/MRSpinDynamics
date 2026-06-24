@@ -70,6 +70,11 @@ from spin_dynamics.workflows.imaging import (
     run_tuned_phase_encoded_cpmg_imaging,
     summarize_imaging_noise_trials,
 )
+from spin_dynamics.workflows.imaging_frequency import (
+    FrequencyEncodedImagingResult,
+    run_rare_imaging,
+    run_spin_warp_imaging,
+)
 from spin_dynamics.workflows.pgse import (
     DDEWalkerResult,
     OGSEWalkerResult,
@@ -174,6 +179,8 @@ EXTENDED_WORKFLOW_API = (
     "run_pgse_moment",
     "run_pgse_walkers",
     "run_pgste_walkers",
+    "run_rare_imaging",
+    "run_spin_warp_imaging",
     "run_t1_encoded_cpmg_imaging",
     "run_t1_encoded_phase_encoded_cpmg_imaging",
     "run_tuned_cpmg_imaging",
@@ -220,6 +227,7 @@ __all__ = [
     "ProbeTimeVaryingCPMGResult",
     "ProbeTimeVaryingSweepResult",
     "DDEWalkerResult",
+    "FrequencyEncodedImagingResult",
     "OGSEWalkerResult",
     "PGSEMomentResult",
     "PGSEWalkerResult",
@@ -282,6 +290,8 @@ __all__ = [
     "run_pgse_moment",
     "run_pgse_walkers",
     "run_pgste_walkers",
+    "run_rare_imaging",
+    "run_spin_warp_imaging",
     "run_tuned_cpmg",
     "run_tuned_cpmg_imaging",
     "run_tuned_cpmg_ir_train",

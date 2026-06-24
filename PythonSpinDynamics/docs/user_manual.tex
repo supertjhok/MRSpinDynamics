@@ -241,7 +241,8 @@ typed, testable Python API for simulations, validation fixtures, examples, and
 new analysis workflows.
 
 The supported surface currently includes ideal, tuned, untuned, and matched
-probe CPMG workflows; finite echo trains; FID; phase-encoded imaging; diffusion
+probe CPMG workflows; finite echo trains; FID; phase-encoded and
+frequency-encoded (spin-warp / RARE) imaging; diffusion
 CPMG; time-varying-field CPMG; WURST inversion and matched WURST-CPMG;
 radiation damping; moving-isochromat motion helpers; received-signal noise;
 inverse-Laplace analysis; compact pulse-optimization scaffolds; and small
@@ -1532,6 +1533,40 @@ When \code{noise} is supplied, clean k-space and image fields remain in the
 result while noisy counterparts are stored in \code{kspace\_noisy},
 \code{image\_noisy}, and \code{magnitude\_noisy}.
 
+\subsection{Frequency-Encoded Imaging: Spin-Warp and RARE}
+
+The phase-encoded workflows above fill k-space one point per phase-encode step.
+\code{run\_spin\_warp\_imaging} and \code{run\_rare\_imaging} add a readout
+(frequency-encode) gradient during acquisition, so each spin echo samples a
+whole k-space line. They are built on the Lagrangian motion engine---one static
+isochromat per voxel---which supports the two-axis gradient waveforms that the
+scalar-gradient arbitrary-pulse kernels cannot express; they are ideal-probe and
+reuse \code{reconstruct\_image\_from\_kspace}.
+
+\begin{lstlisting}[language=Python]
+import numpy as np
+from spin_dynamics.workflows import run_spin_warp_imaging, run_rare_imaging
+
+rho = np.zeros((32, 32)); rho[8:24, 10:18] = 1.0
+t2 = np.full((32, 32), 60e-3)
+
+# Spin-warp: one spin echo per phase-encode line (pz excitations, no blurring).
+ref = run_spin_warp_imaging(rho, fov=(0.02, 0.02), t2_map=t2)
+
+# RARE / fast spin echo: each echo reads a different line, so a train of length 8
+# needs only ceil(pz / 8) excitations, at the cost of T2 blurring.
+fse = run_rare_imaging(rho, fov=(0.02, 0.02), t2_map=t2, echo_train_length=8)
+\end{lstlisting}
+
+Readout is along x and the phase encode along z. Each echo is gradient-balanced
+(an x pre-dephase and rewind return k-space to the origin before each
+180-degree pulse), so the train stays a clean Meiboom-Gill CPMG. The T2 decay
+across the echo train weights the phase-encode lines---\code{line\_echo\_time}
+records the echo time of each \(k_z\) line---which broadens the point-spread
+function (the RARE blurring, strongest for short \(T_2\)).
+\code{echo\_train\_length=1} recovers the spin-warp reference. The example
+\code{plot\_rare\_imaging.py} contrasts the two on a two-\(T_2\) phantom.
+
 \section{Received-Signal Noise}
 
 Noise is opt-in and output-referred. High-level workflows accept a
@@ -2259,6 +2294,7 @@ Class & Purpose \\
 \code{ProbeTimeVaryingCPMGResult} & Probe-aware time-varying-field CPMG result. \\
 \code{IdealCPMGImagingResult} & Ideal phase-encoded CPMG imaging result. \\
 \code{ProbeCPMGImagingResult} & Tuned or matched phase-encoded CPMG imaging result. \\
+\code{FrequencyEncodedImagingResult} & Spin-warp / RARE frequency-encoded image, k-space, and per-line echo times. \\
 \code{ImagingEchoFitResult} & Voxel-wise mono-exponential echo-stack fit. \\
 \code{ImagingNoiseStatistics} & Repeated-trial image-domain noise summary. \\
 \code{MotionSequenceResult} & Moving-isochromat sequence samples and final particle ensemble. \\
@@ -2340,6 +2376,7 @@ from spin_dynamics.workflows import (
     run_tuned_phase_encoded_cpmg_imaging,
     run_matched_phase_encoded_cpmg_imaging,
     run_t1_encoded_phase_encoded_cpmg_imaging,
+    run_spin_warp_imaging, run_rare_imaging,
     reconstruct_image_from_kspace,
     form_imaging_image,
     fit_imaging_echo_decay,

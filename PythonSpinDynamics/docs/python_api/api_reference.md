@@ -728,6 +728,14 @@ No public classes or functions found.
 | function | `run_matched_phase_encoded_cpmg_imaging(rho: Iterable[float] | np.ndarray | ImagingFieldMaps, *, t1_map: Iterable[float] | np.ndarray | None = None, t2_map: Iterable[float] | np.ndarray | None = None, num_echoes: int = 2, echo_spacing_seconds: float = 0.0002, gradient_duration_seconds: float = 0.0005, fov: tuple[float, float] | Iterable[float] = (20.0, 20.0), ny: int = 9, maxoffs: float = 5.0, num_workers: int | None = 1, phase_workers: int | None = 1, density_normalization: Literal['legacy', 'preserve'] = 'legacy', noise: NoiseSpec | Mapping[str, object] | float | int | None = None) -> ProbeCPMGImagingResult` | Run a compact matched-probe phase-encoded CPMG imaging simulation. |
 | function | `run_matched_cpmg_imaging(rho: Iterable[float] | np.ndarray | ImagingFieldMaps, *, t1_map: Iterable[float] | np.ndarray | None = None, t2_map: Iterable[float] | np.ndarray | None = None, num_echoes: int = 2, echo_spacing_seconds: float = 0.0002, gradient_duration_seconds: float = 0.0005, fov: tuple[float, float] | Iterable[float] = (20.0, 20.0), ny: int = 9, maxoffs: float = 5.0, num_workers: int | None = 1, phase_workers: int | None = 1, density_normalization: Literal['legacy', 'preserve'] = 'legacy', noise: NoiseSpec | Mapping[str, object] | float | int | None = None) -> ProbeCPMGImagingResult` | Compatibility alias for `run_matched_phase_encoded_cpmg_imaging`. |
 
+## `spin_dynamics.workflows.imaging_frequency`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `FrequencyEncodedImagingResult` | Result of a frequency-encoded (spin-warp or RARE) imaging simulation. |
+| function | `run_rare_imaging(rho, *, t1_map = None, t2_map = None, b0_map = None, b1_tx_map = None, b1_rx_map = None, fov: tuple[float, float] = (0.02, 0.02), echo_train_length: int = 8, phase_encode_order: PhaseEncodeOrder = 'linear', readout_time: float = 0.002, phase_time: float = 0.0004, excitation_duration: float = 5e-05, refocusing_duration: float = 0.0001, gamma: float = 267500000.0, substeps_per_interval: int = 1) -> FrequencyEncodedImagingResult` | Simulate a RARE / fast-spin-echo frequency-encoded image. |
+| function | `run_spin_warp_imaging(rho, **kwargs) -> FrequencyEncodedImagingResult` | Simulate a spin-warp image (one spin echo per phase-encode line). |
+
 ## `spin_dynamics.workflows.imaging_types`
 
 | Kind | Name | Summary |
