@@ -437,6 +437,46 @@ def make_circular_reflector(
     return reflect
 
 
+def make_elliptical_reflector(
+    center: tuple[float, float],
+    semi_axes: tuple[float, float],
+) -> BoundaryFn:
+    """Return a reflecting-wall boundary callback for an elliptical pore.
+
+    ``semi_axes`` are the ``(x, z)`` half-widths of the ellipse. Reflection is
+    performed in normalized coordinates ``(x/ax, z/az)``, where the ellipse maps
+    to the unit circle, so a uniform spin density stays uniform inside the pore.
+    This is the anisotropic generalization of ``make_circular_reflector`` and is
+    the geometry that makes double diffusion encoding (DDE) sensitive to
+    microscopic anisotropy.
+
+    As with the circular reflector, accurate reflection assumes the per-substep
+    diffusion length stays well below the smaller semi-axis.
+    """
+
+    cx = float(center[0])
+    cz = float(center[1])
+    ax = float(semi_axes[0])
+    az = float(semi_axes[1])
+    if ax <= 0.0 or az <= 0.0:
+        raise ValueError("semi-axes must be positive")
+
+    def reflect(positions: np.ndarray) -> np.ndarray:
+        pos = _positions2d(positions).copy()
+        u = (pos[:, 0] - cx) / ax
+        v = (pos[:, 1] - cz) / az
+        radius = np.hypot(u, v)
+        # Fold the normalized radius into the unit disc (ellipse boundary at 1).
+        folded_mod = np.mod(radius, 2.0)
+        folded = np.where(folded_mod <= 1.0, folded_mod, 2.0 - folded_mod)
+        scale = np.divide(folded, radius, out=np.ones_like(radius), where=radius > 0.0)
+        pos[:, 0] = cx + u * scale * ax
+        pos[:, 1] = cz + v * scale * az
+        return pos
+
+    return reflect
+
+
 def apply_boundary(
     positions: np.ndarray,
     bounds: tuple[tuple[float, float], tuple[float, float]],

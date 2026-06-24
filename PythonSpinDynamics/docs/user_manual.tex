@@ -1688,8 +1688,9 @@ diffusion restricted by hard walls---physics the closed-form moment backend
 cannot express. The \code{boundary} argument of \code{run\_pgse\_walkers}
 accepts the rectangular-box modes \code{"reflect"}, \code{"periodic"}, and
 \code{"clip"}, or any callable mapping particle positions to confined
-positions. The helper \code{make\_circular\_reflector(center, radius)} supplies
-a reflecting circular wall for a pore.
+positions. The helpers \code{make\_circular\_reflector(center, radius)} and
+\code{make\_elliptical\_reflector(center, semi\_axes)} supply reflecting
+circular and elliptical pore walls.
 
 For a slab pore of width \(L\) along the gradient axis, confining the walkers
 makes the echo attenuation bend above the free Stejskal-Tanner line
@@ -1795,6 +1796,48 @@ spatially; with diffusion present it is suppressed further. The example
 \code{plot\_pgste\_stimulated\_echo.py} verifies the half-amplitude
 Stejskal-Tanner attenuation and contrasts the \(T_2\)-limited spin echo with the
 \(T_1\)-limited stimulated echo as the diffusion time grows.
+
+\subsection{Double Diffusion Encoding (DDE / Double-PGSE)}
+
+\code{run\_dde\_walkers} applies two refocused PGSE blocks separated by a mixing
+time, \(90-[G_1\,\mathrm{block}]-\mathrm{mixing}-[G_2\,\mathrm{block}]-
+\mathrm{echo}\), encoding displacement along \code{angle1} and \code{angle2}.
+Single-PGSE measures the diffusion tensor, so in an orientationally disordered
+sample of anisotropic compartments it sees only the isotropic orientation
+average. Sweeping the angle \(\psi\) between the two encoding directions instead
+produces a \(\cos 2\psi\) modulation of the echo whose amplitude reports the
+\emph{microscopic} anisotropy of the local geometry; because it depends only on
+the relative angle, it survives powder averaging and reveals shape anisotropy
+that single-PGSE cannot. Paired with \code{make\_elliptical\_reflector}, an
+elliptical pore shows the \(\cos 2\psi\) term while an equal-area circular pore
+does not. The \(\cos 2\psi\) term is a higher-order (\(q^4\)) effect, so strong
+diffusion weighting is needed to resolve it in the powder average.
+
+\begin{lstlisting}[language=Python]
+import numpy as np
+from spin_dynamics.motion import make_elliptical_reflector
+from spin_dynamics.workflows import run_dde_walkers
+
+semi_axes = (8.0e-6, 3.0e-6)
+x = np.linspace(-semi_axes[0], semi_axes[0], 15)
+z = np.linspace(-semi_axes[1], semi_axes[1], 15)
+xx, zz = np.meshgrid(x, z, indexing="ij")
+rho = ((xx / semi_axes[0]) ** 2 + (zz / semi_axes[1]) ** 2 <= 1.0).astype(float)
+
+dde = run_dde_walkers(
+    rho=rho, x_axis=x, z_axis=z,
+    gradient_amplitude=1.0, gradient_duration=1.0e-3,
+    diffusion_time=12.0e-3, mixing_time=1.0e-3,
+    angle1=0.0, angle2=np.pi / 2,          # vary to trace E(psi)
+    diffusion_coefficient=2.0e-9,
+    boundary=make_elliptical_reflector((0.0, 0.0), semi_axes),
+    walkers_per_cell=64, substeps_per_interval=10, seed=2026, jitter=True,
+)
+\end{lstlisting}
+
+The example \code{plot\_pgse\_double\_encoding\_elliptical\_pore.py} traces
+\(E(\psi)\) for the ellipse and the equal-area circle, both at a single
+orientation and powder-averaged, and reports the fitted \(\cos 2\psi\) amplitude.
 
 \section{Moving Isochromats}
 
@@ -2185,6 +2228,7 @@ Class & Purpose \\
 \code{PGSEMomentResult} & Deterministic PGSE or PGSE-prepared CPMG attenuation from gradient moments. \\
 \code{PGSEWalkerResult} & Random-walker PGSE signal, sequence samples, and initial particle ensemble. \\
 \code{PGSTEWalkerResult} & Random-walker stimulated-echo (PGSTE) signal, storage interval, and initial particle ensemble. \\
+\code{DDEWalkerResult} & Random-walker double diffusion encoding (DDE) signal, encoding angles, and mixing time. \\
 \code{WURSTInversionResult} & WURST inversion profile and pulse metadata. \\
 \code{MatchedWURSTCPMGResult} & Matched WURST-CPMG echoes and spectra. \\
 \code{RadiationDampingFIDResult} & Radiation-damping FID simulation and analytic comparison fields. \\
@@ -2220,7 +2264,7 @@ from spin_dynamics.workflows import (
     run_matched_z_magnetization_q_sweep,
     run_matched_diffusion_cpmg, run_matched_diffusion_q_sweep,
     run_pgse, run_pgse_moment, run_pgse_walkers, run_pgste_walkers,
-    pgse_b_value, gradient_moment_b_value,
+    run_dde_walkers, pgse_b_value, gradient_moment_b_value,
     run_ideal_time_varying_cpmg_final,
     run_tuned_time_varying_cpmg_final,
     run_untuned_time_varying_cpmg_final,

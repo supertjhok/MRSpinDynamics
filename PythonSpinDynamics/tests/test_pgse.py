@@ -9,9 +9,15 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
+from spin_dynamics.motion import (
+    make_circular_reflector,
+    make_elliptical_reflector,
+    make_motion_field_maps_2d,
+)
 from spin_dynamics.workflows import (
     gradient_moment_b_value,
     pgse_b_value,
+    run_dde_walkers,
     run_pgse,
     run_pgse_moment,
     run_pgse_walkers,
@@ -25,6 +31,33 @@ def _wide_slab(num_cells: int = 48):
     z_axis = np.array([-1.0e-6, 1.0e-6])
     rho = np.ones((x_axis.size, z_axis.size), dtype=np.float64)
     return rho, x_axis, z_axis
+
+
+def _pore(semi_axes, grid: int = 13):
+    ax, az = semi_axes
+    x = np.linspace(-ax, ax, grid)
+    z = np.linspace(-az, az, grid)
+    xx, zz = np.meshgrid(x, z, indexing="ij")
+    rho = ((xx / ax) ** 2 + (zz / az) ** 2 <= 1.0).astype(np.float64)
+    return rho, x, z, make_motion_field_maps_2d(x, z)
+
+
+def _dde_cos2psi(reflector, pore) -> float:
+    # Estimate the cos(2 psi) amplitude from psi = 0, 90, 180 degrees:
+    # E2 = ((E(0) + E(180)) / 2 - E(90)) / 2.
+    rho, x, z, fields = pore
+    echoes = {}
+    for psi in (0.0, np.pi / 2, np.pi):
+        result = run_dde_walkers(
+            rho=rho, x_axis=x, z_axis=z, fields=fields,
+            gradient_amplitude=1.0, gradient_duration=1.0e-3, diffusion_time=12.0e-3,
+            mixing_time=1.0e-3, angle1=0.0, angle2=psi,
+            diffusion_coefficient=2.0e-9, walkers_per_cell=48, seed=11, jitter=True,
+            excitation_duration=40.0e-6, refocusing_duration=80.0e-6,
+            boundary=reflector, substeps_per_interval=8,
+        )
+        echoes[psi] = abs(result.signal[0]) / float(rho.sum())
+    return 0.5 * (0.5 * (echoes[0.0] + echoes[np.pi]) - echoes[np.pi / 2])
 
 
 class PGSETests(unittest.TestCase):
@@ -199,6 +232,44 @@ class PGSETests(unittest.TestCase):
                 gradient_duration=1.0e-3,
                 diffusion_time=0.5e-3,  # shorter than the encode + pulse overhead
                 excitation_duration=50.0e-6,
+            )
+
+    def test_dde_refocuses_stationary_spins(self) -> None:
+        rho, x, z, fields = _pore((8.0e-6, 3.0e-6))
+        reflector = make_elliptical_reflector((0.0, 0.0), (8.0e-6, 3.0e-6))
+        result = run_dde_walkers(
+            rho=rho, x_axis=x, z_axis=z, fields=fields,
+            gradient_amplitude=1.0, gradient_duration=1.0e-3, diffusion_time=12.0e-3,
+            mixing_time=1.0e-3, angle1=0.0, angle2=np.pi / 2,
+            diffusion_coefficient=0.0, walkers_per_cell=32, seed=5, jitter=True,
+            excitation_duration=40.0e-6, refocusing_duration=80.0e-6,
+            boundary=reflector, substeps_per_interval=8,
+        )
+        self.assertEqual(result.signal.shape, (1,))
+        self.assertEqual(result.sequence.sample_labels, ("dde_echo",))
+        # With no diffusion the two refocused blocks recover the full echo.
+        self.assertAlmostEqual(abs(result.signal[0]) / float(rho.sum()), 1.0, delta=1e-6)
+
+    def test_dde_cos2psi_modulation_reveals_pore_anisotropy(self) -> None:
+        ellipse = _pore((8.0e-6, 3.0e-6))
+        radius = float(np.sqrt(8.0e-6 * 3.0e-6))  # equal area
+        circle = _pore((radius, radius))
+        ellipse_e2 = _dde_cos2psi(
+            make_elliptical_reflector((0.0, 0.0), (8.0e-6, 3.0e-6)), ellipse
+        )
+        circle_e2 = _dde_cos2psi(make_circular_reflector((0.0, 0.0), radius), circle)
+
+        # The anisotropic pore carries a clear cos(2 psi) term; the isotropic
+        # pore does not.
+        self.assertLess(ellipse_e2, -0.01)
+        self.assertLess(abs(circle_e2), 0.01)
+
+    def test_dde_requires_room_for_refocusing(self) -> None:
+        with self.assertRaises(ValueError):
+            run_dde_walkers(
+                gradient_duration=2.0e-3,
+                diffusion_time=2.0e-3,  # not greater than delta + refocusing_duration
+                refocusing_duration=200.0e-6,
             )
 
 
