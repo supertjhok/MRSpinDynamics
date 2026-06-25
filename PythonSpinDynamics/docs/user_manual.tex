@@ -1430,7 +1430,7 @@ print(result.snr)
 
 The asymptotic CPMG runners return \code{CPMGResult} objects with the offset
 grid, asymptotic magnetization, received spectrum, time-domain echo, acquisition
-time vector, optional SNR, and probe label.
+time vector, optional SNR, probe label, and the default phase-cycle metadata.
 
 \section{Finite Echo Trains}
 
@@ -1447,6 +1447,8 @@ train = run_matched_cpmg_train(
 
 Finite train results contain one acquired spectrum and one echo per echo index.
 They also include trapezoidal echo integrals and physical echo-center times.
+The default CPMG/PAP phase-cycle table is available as
+\code{train.phase\_cycle}.
 For long trains, use the rephasing checks or enable
 \code{auto\_refine\_grid=True} so the offset grid is refined before RF matrices
 are built.
@@ -1822,10 +1824,10 @@ longitudinal axis, so during the (long) storage interval it decays with \(T_1\)
 rather than \(T_2\). This is why PGSTE is the method of choice for slow
 diffusion, large pores, and short-\(T_2\) samples such as porous media, low
 field, and internal-gradient regimes. A spoiler gradient applied during storage
-crushes the residual transverse coherences, and the workflow models the
-phase-cycled stimulated-echo pathway (equilibrium recovery removed), so the
-surviving echo follows the Stejskal-Tanner attenuation at \emph{half} the
-spin-echo amplitude:
+crushes the residual transverse coherences. The workflow records an effective
+selected-pathway phase table and suppresses equilibrium recovery into a
+contaminating FID, so the surviving stimulated echo follows the
+Stejskal-Tanner attenuation at \emph{half} the spin-echo amplitude:
 \[
   E(b)\;\longrightarrow\;\tfrac{1}{2}\,
   \exp\!\left(-\frac{T_s}{T_1}\right)\exp(-bD),
@@ -1850,6 +1852,7 @@ ste = run_pgste_walkers(
     t1_seconds=0.4, t2_seconds=15.0e-3,  # storage decays with T1, not T2
     walkers_per_cell=64, seed=2026, jitter=True,
 )
+ste.phase_cycle.name   # "pgste_stimulated_echo"
 \end{lstlisting}
 
 Use a sample wide compared with the gradient phase wavelength
@@ -1997,6 +2000,56 @@ from spin_dynamics.workflows import (
 ideal = run_ideal_wurst_inversion(numpts=101)
 matched = run_matched_wurst_cpmg(num_echoes=2, numpts=51, num_steps=64)
 \end{lstlisting}
+
+\section{Phase Cycling}
+
+The Python API represents phase cycling with
+\code{spin\_dynamics.phase\_cycling.PhaseCycle}. A phase cycle is a scan table:
+rows are cycle steps, and columns are named logical RF pulse roles or events.
+For example, the default CPMG/PAP table has one pulse column,
+\code{excitation}, and two rows with phases \(\pi/2\) and \(3\pi/2\). Each row
+also carries a receiver phase, a branch weight, and an optional label. Branches
+are combined as
+\[
+  \sum_k w_k \exp(-i\phi_{\mathrm{rx},k})\,S_k,
+\]
+with normalization by the sum of absolute receiver-weighted branch weights
+unless the table disables normalization.
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.phase_cycling import cpmg_two_step_phase_cycle
+from spin_dynamics.workflows import run_ideal_cpmg_train
+
+cycle = cpmg_two_step_phase_cycle()
+cycle.pulse_names        # ("excitation",)
+cycle.branch_weights     # array([0.5+0.j, -0.5+0.j])
+
+train = run_ideal_cpmg_train(num_echoes=8, numpts=51)
+train.phase_cycle.name   # "cpmg_two_step"
+\end{lstlisting}
+
+The phase-cycle columns are not the set of unique RF phase values. They are the
+named pulse roles whose phase can vary from one scan branch to the next. This
+keeps the table aligned with sequence events and leaves room for receiver phase
+and weighting information on each row.
+
+PGSTE walker results expose the same metadata field, but the interpretation is
+more specific. The \code{pgste\_} constructor returns a one-row table for the
+selected stimulated-echo pathway with columns \code{excitation\_90},
+\code{store\_90}, and \code{read\_90}. The PGSTE workflow does not explicitly
+simulate and receiver-combine several phase-cycle branches; pathway selection is
+implemented by the spoiler and by suppressing equilibrium regrowth during
+storage.
+
+\code{plot\_phase\_cycled\_stimulated\_echo.py} shows the explicit three-pulse
+phase table on a deterministic inhomogeneous-field ensemble. It compares a
+single three-\(90^\circ\) scan, a read-pulse-only two-step cycle, and a full
+64-step table over \code{excitation\_90}, \code{store\_90}, and
+\code{read\_90}. During storage the example applies physical relaxation:
+transverse magnetization decays with \(T_2\), while \(M_z\) relaxes back toward
+equilibrium with \(T_1\). The recovered \(M_z\) produces a prompt last-pulse
+FID, and the full receiver signature \(-\phi_1+\phi_2+\phi_3\) rejects that
+pathway while retaining the stimulated echo at \(\tau\).
 
 \section{Absolute RF Phase}
 
@@ -2224,6 +2277,7 @@ python examples\plot_ideal_imaging.py --pixels 6 --ny 7 --output results\ideal_i
 python examples\plot_custom_imaging_fields.py --pixels 8 --ny 7 --output results\custom_imaging_fields.png
 python examples\plot_inverse_laplace.py --output results\inverse_laplace.png
 python examples\plot_pgse_d_t2.py --output results\pgse_d_t2.png
+python examples\plot_phase_cycled_stimulated_echo.py --output results\phase_cycled_ste.png
 python examples\plot_probe_parameter_sweep.py --probe tuned --sweep q --output results\tuned_q_sweep.png
 python examples\plot_probe_cpmg.py --numpts 101 --output results\probe_cpmg.png
 python examples\plot_finite_train_workflows.py --numpts 65 --num-echoes 4 --output results\finite_trains.png
@@ -2310,8 +2364,8 @@ Chapter~\ref{chap:nqr}.
 \toprule
 Class & Purpose \\
 \midrule
-\code{CPMGResult} & Asymptotic CPMG spectrum, echo, time vector, SNR, and probe label. \\
-\code{CPMGTrainResult} & Finite echo-train spectra, echoes, echo integrals, and sequence timing. \\
+\code{CPMGResult} & Asymptotic CPMG spectrum, echo, time vector, SNR, probe label, and phase-cycle metadata. \\
+\code{CPMGTrainResult} & Finite echo-train spectra, echoes, echo integrals, sequence timing, and phase-cycle metadata. \\
 \code{CPMGIRTrainResult} & Inversion-recovery finite trains over a \code{tauvect}. \\
 \code{MatchedCPMGIRTrainResult} & Matched-probe specialization of the CPMG-IR train result. \\
 \code{CPMGParameterSweepResult} & Asymptotic Q or mistuning sweeps. \\
@@ -2331,7 +2385,7 @@ Class & Purpose \\
 \code{MatchedDiffusionQSweepResult} & Matched diffusion Q sweep. \\
 \code{PGSEMomentResult} & Deterministic PGSE or PGSE-prepared CPMG attenuation from gradient moments. \\
 \code{PGSEWalkerResult} & Random-walker PGSE signal, sequence samples, and initial particle ensemble. \\
-\code{PGSTEWalkerResult} & Random-walker stimulated-echo (PGSTE) signal, storage interval, and initial particle ensemble. \\
+\code{PGSTEWalkerResult} & Random-walker stimulated-echo (PGSTE) signal, storage interval, selected-pathway phase-cycle metadata, and initial particle ensemble. \\
 \code{DDEWalkerResult} & Random-walker double diffusion encoding (DDE) signal, encoding angles, and mixing time. \\
 \code{OGSEWalkerResult} & Random-walker oscillating-gradient spin-echo (OGSE) signal, oscillation frequency, and b-value. \\
 \code{WURSTInversionResult} & WURST inversion profile and pulse metadata. \\

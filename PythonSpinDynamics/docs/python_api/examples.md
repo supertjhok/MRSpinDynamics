@@ -310,6 +310,24 @@ Use `--t1` / `--t2` to set the relaxation contrast, `--fixed-b` for the
 diffusion-time panel weighting, and `--walkers-per-cell` / `--substeps` for
 convergence. Only Matplotlib is required.
 
+## Phase-Cycled Stimulated Echo
+
+This example uses the public `PhaseCycle` abstraction directly on a deterministic
+Bloch ensemble in an inhomogeneous static field. It contrasts a single uncycled
+three-90 scan, a simple two-step readout cycle, and the full three-pulse
+stimulated-echo phase table. Storage relaxation creates a prompt last-pulse FID
+from recovered longitudinal magnetization; the two-step cycle cannot separate it
+from the stimulated echo, while the full receiver signature
+`-phi1 + phi2 + phi3` keeps the refocused stimulated echo at `tau`.
+
+```powershell
+python examples\plot_phase_cycled_stimulated_echo.py --output results\phase_cycled_ste.png
+```
+
+Use `--offset-span-hz` / `--offset-sigma-hz` to shape the B0 distribution,
+`--tau-ms` / `--storage-ms` to set the sequence timing, and
+`--t1-ms` / `--t2-ms` to control storage relaxation. Only Matplotlib is required.
+
 ## Double Diffusion Encoding in an Elliptical Pore
 
 This example uses the double-PGSE backend (`run_dde_walkers`) with an elliptical

@@ -54,6 +54,20 @@ angular offset grid may rephase before the train finishes. Set
 and set `num_workers=None` to use the available CPU count for chunked
 isochromat propagation.
 
+Default CPMG branch subtraction is represented by
+`spin_dynamics.phase_cycling.cpmg_two_step_phase_cycle()`. A phase cycle is a
+scan table: rows are cycle steps, columns are named logical RF pulse roles, and
+each row also carries a receiver phase and branch weight. The default CPMG/PAP
+table has one pulse column, `excitation`, with rows `pi/2` and `3*pi/2`; the
+weights `+1` and `-1` reproduce the historical `(branch1 - branch2) / 2`
+combination. Results expose this table as `result.phase_cycle`. Arbitrary
+user-supplied phase-cycle tables are not yet accepted by the public CPMG
+runners.
+
+PGSTE walker results also expose `result.phase_cycle`, but with a different
+meaning: it is a one-row selected-pathway table for the stimulated echo, not a
+multi-branch receiver-weighted simulation.
+
 Finite CPMG train runners also accept an opt-in `absolute_phase` mapping from
 `spin_dynamics.absolute_phase`. With only `rf_frequency_hz`, the ideal workflow
 tracks the laboratory-frame RF phase at the excitation and refocusing pulses
@@ -677,9 +691,10 @@ stores one quadrature along the longitudinal axis, so during the storage
 interval the encoded magnetization decays with `T1` rather than `T2`. This is
 the standard way to reach long diffusion times in short-`T2` samples (porous
 media, low field, internal gradients). A spoiler gradient applied during storage
-crushes the residual transverse coherences, and the workflow models the
-phase-cycled stimulated-echo pathway (equilibrium recovery removed), so the
-surviving echo carries **half** the spin-echo amplitude:
+crushes the residual transverse coherences, and the workflow records an
+effective selected-pathway phase table while suppressing equilibrium regrowth
+into a contaminating FID. The surviving stimulated echo carries **half** the
+spin-echo amplitude:
 
 ```python
 from spin_dynamics.workflows import run_pgste_walkers
@@ -702,6 +717,7 @@ ste = run_pgste_walkers(
     seed=2026,
     jitter=True,
 )
+ste.phase_cycle.name  # "pgste_stimulated_echo"
 # attenuation E(b) ~ 0.5 * exp(-Ts/T1) * exp(-b D)
 ```
 

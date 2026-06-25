@@ -136,6 +136,7 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_pgse_restricted_diffusion.py",
             "examples/plot_pgse_circular_pore_diffraction.py",
             "examples/plot_pgste_stimulated_echo.py",
+            "examples/plot_phase_cycled_stimulated_echo.py",
             "examples/plot_pgse_double_encoding_elliptical_pore.py",
             "examples/plot_ogse_frequency_diffusion.py",
             "examples/plot_rare_imaging.py",
@@ -215,6 +216,10 @@ class ExampleSmokeTests(unittest.TestCase):
         result = run_example("examples/plot_pgste_stimulated_echo.py", "--help")
         self.assertIn("--fixed-b", result.stdout)
         self.assertIn("--t1", result.stdout)
+        result = run_example("examples/plot_phase_cycled_stimulated_echo.py", "--help")
+        self.assertIn("--t1-ms", result.stdout)
+        self.assertIn("--t2-ms", result.stdout)
+        self.assertIn("--offset-span-hz", result.stdout)
         result = run_example(
             "examples/plot_pgse_double_encoding_elliptical_pore.py", "--help"
         )

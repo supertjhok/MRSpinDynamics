@@ -95,6 +95,12 @@ Remaining gaps:
 - newer matched-probe helper variants outside the original/reference and JMR
   rectangular-pulse paths;
 - probe-shaped T1-prepared imaging for tuned or matched inversion pulses;
+- general phase cycling is only partially first-class. The new
+  `spin_dynamics.phase_cycling` table owns the default CPMG two-step branch
+  combination and records PGSTE selected-pathway metadata, but arbitrary
+  cycle-table support is not yet wired through all workflows, and NQR/ESR
+  pathway selection remains workflow-specific. See
+  [Phase Cycling Findings](phase_cycling.md);
 - broad diffusion sweeps, Q>2000 matched-diffusion validation, stimulated-echo
   or bipolar PGSE variants, restricted/anisotropic diffusion models, and
   probe-shaped PGSE pulses;

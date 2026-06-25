@@ -16,6 +16,10 @@ from spin_dynamics.motion import (
     initialize_ensemble_from_density,
     make_motion_field_maps_2d,
 )
+from spin_dynamics.phase_cycling import (
+    PhaseCycle,
+    pgste_stimulated_echo_phase_cycle,
+)
 from spin_dynamics.sequences.motion import (
     MotionSequenceResult,
     MotionSequenceStep,
@@ -82,6 +86,7 @@ class PGSTEWalkerResult:
     diffusion_time: float
     diffusion_coefficient: float
     gamma: float
+    phase_cycle: PhaseCycle | None = None
     backend: str = "walkers_ste"
 
 
@@ -469,6 +474,7 @@ def run_pgste_walkers(
 
     gradient = _gradient_tuple(float(gamma) * float(gradient_amplitude), gradient_axis)
     spoiler = _gradient_tuple(float(gamma) * float(spoiler_gradient), spoiler_axis)
+    phase_cycle = pgste_stimulated_echo_phase_cycle()
     steps = _make_pgste_steps(
         gradient_duration=delta,
         gradient=gradient,
@@ -486,9 +492,9 @@ def run_pgste_walkers(
         rng=np.random.default_rng(seed),
         t1=t1_seconds,
         t2=t2_seconds,
-        # mth=0 models the phase-cycled stimulated-echo pathway: T1 still decays
-        # the stored signal (exp(-Ts/T1)), but equilibrium magnetization does not
-        # regrow into a contaminating FID during the long storage interval.
+        # The phase_cycle records the selected stimulated-echo pathway. mth=0
+        # keeps equilibrium magnetization from regrowing into a contaminating
+        # FID during storage while T1 still decays the stored signal.
         mth=0.0,
         boundary=boundary,
         default_substeps=int(substeps_per_interval),
@@ -510,6 +516,7 @@ def run_pgste_walkers(
         diffusion_time=delta_big,
         diffusion_coefficient=float(diffusion_coefficient),
         gamma=float(gamma),
+        phase_cycle=phase_cycle,
     )
 
 

@@ -18,6 +18,7 @@ from spin_dynamics.core.rotations import (
     rf_matrix_elements,
     sim_spin_dynamics_asymp_mag3,
 )
+from spin_dynamics.phase_cycling import cpmg_two_step_phase_cycle
 
 
 def _field(obj: Mapping[str, Any] | Any, name: str) -> Any:
@@ -573,9 +574,27 @@ def calc_masy_matched_probe_orig(
     aexc = np.concatenate([aexc, [0.0, 0.0]])
     del_w = _as_vector(_field(sp_match, "del_w"))
 
-    masy1 = sim_spin_dynamics_asymp_mag3(texc, pexc, aexc, neff, del_w, float(tacq[0]))
-    masy2 = sim_spin_dynamics_asymp_mag3(texc, pexc + np.pi, aexc, neff, del_w, float(tacq[0]))
-    masy = (masy1 - masy2) / 2
+    phase_cycle = cpmg_two_step_phase_cycle()
+    masy = phase_cycle.combine(
+        [
+            sim_spin_dynamics_asymp_mag3(
+                texc,
+                pexc,
+                aexc,
+                neff,
+                del_w,
+                float(tacq[0]),
+            ),
+            sim_spin_dynamics_asymp_mag3(
+                texc,
+                pexc + np.pi,
+                aexc,
+                neff,
+                del_w,
+                float(tacq[0]),
+            ),
+        ]
+    )
     mrx, _echo, _tvect, snr = matched_probe_rx(sp_match, pp, masy, tf1, tf2)
     return mrx, masy, snr
 

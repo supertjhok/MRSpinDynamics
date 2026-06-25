@@ -52,6 +52,7 @@ MODULES = [
     "nqr.zeeman",
     "nqr.workflows",
     "parameters.constructors",
+    "phase_cycling",
     "optimization.drivers",
     "optimization.excitation",
     "optimization.pipeline",

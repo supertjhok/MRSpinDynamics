@@ -6,7 +6,7 @@ MATLAB reference folder:
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
 from types import SimpleNamespace
 from typing import Any
@@ -57,6 +57,7 @@ from spin_dynamics.parameters import (
     set_params_tuned_orig,
     set_params_untuned_orig,
 )
+from spin_dynamics.phase_cycling import PhaseCycle, cpmg_two_step_phase_cycle
 from spin_dynamics.probes.matched import calc_masy_matched_probe_orig
 from spin_dynamics.probes.matched import find_coil_current, matching_network_design2
 from spin_dynamics.probes.tuned import (
@@ -96,6 +97,7 @@ class CPMGResult:
     mrx_noisy: np.ndarray | None = None
     echo_noisy: np.ndarray | None = None
     noise: NoiseMetadata | None = None
+    phase_cycle: PhaseCycle | None = None
 
 
 @dataclass(frozen=True)
@@ -115,6 +117,7 @@ class CPMGTrainResult:
     noise: NoiseMetadata | None = None
     radiation_damping: RadiationDampingSpec | None = None
     absolute_phase: AbsolutePhaseMetadata | None = None
+    phase_cycle: PhaseCycle | None = None
 
 
 def _field(obj: Mapping[str, Any] | Any, name: str) -> Any:
@@ -261,6 +264,46 @@ def _add_optional_time_noise(
     return add_received_noise(echo, spec)
 
 
+def _default_cpmg_phase_cycle() -> PhaseCycle:
+    return cpmg_two_step_phase_cycle()
+
+
+def _cpmg_excitation_phases(phase_cycle: PhaseCycle) -> np.ndarray:
+    phases = phase_cycle.pulse_phases("excitation")
+    if phases.size != 2:
+        raise ValueError("current CPMG workflows expect a two-step excitation cycle")
+    return phases
+
+
+def _cpmg_excitation_offsets(phase_cycle: PhaseCycle) -> np.ndarray:
+    phases = _cpmg_excitation_phases(phase_cycle)
+    return phases - phases[0]
+
+
+def _cpmg_branch_prefixes(phase_cycle: PhaseCycle) -> tuple[np.ndarray, ...]:
+    _cpmg_excitation_phases(phase_cycle)
+    return tuple(
+        np.array([branch + 1, 0], dtype=np.int64)
+        for branch in range(phase_cycle.num_steps)
+    )
+
+
+def _combine_cpmg_phase_cycle(
+    phase_cycle: PhaseCycle,
+    pp_common: Mapping[str, Any],
+    refocus_cycle: np.ndarray,
+    branch_runner: Callable[[Mapping[str, Any]], np.ndarray],
+) -> np.ndarray:
+    branch_signals = []
+    for prefix in _cpmg_branch_prefixes(phase_cycle):
+        pp_branch = {
+            **pp_common,
+            "pul": np.concatenate([prefix, refocus_cycle]),
+        }
+        branch_signals.append(branch_runner(pp_branch))
+    return phase_cycle.combine(branch_signals)
+
+
 def calc_masy_ideal(sp: Mapping[str, Any] | Any, pp: Mapping[str, Any] | Any) -> np.ndarray:
     """Calculate ideal CPMG asymptotic magnetization.
 
@@ -289,9 +332,19 @@ def calc_masy_ideal(sp: Mapping[str, Any] | Any, pp: Mapping[str, Any] | Any) ->
         np.array([0.0]),
     ])
 
-    masy1 = sim_spin_dynamics_asymp_mag3(texc, pexc, aexc, neff, del_w, tacq_scalar)
-    masy2 = sim_spin_dynamics_asymp_mag3(texc, pexc + np.pi, aexc, neff, del_w, tacq_scalar)
-    return (masy1 - masy2) / 2
+    phase_cycle = _default_cpmg_phase_cycle()
+    branches = [
+        sim_spin_dynamics_asymp_mag3(
+            texc,
+            pexc + phase_offset,
+            aexc,
+            neff,
+            del_w,
+            tacq_scalar,
+        )
+        for phase_offset in _cpmg_excitation_offsets(phase_cycle)
+    ]
+    return phase_cycle.combine(branches)
 
 
 def _offset_grid(numpts: int, maxoffs: float) -> np.ndarray:
@@ -395,6 +448,7 @@ def _cpmg_absolute_phase_plan(
     pp: Mapping[str, Any] | Any,
     *,
     num_echoes: int,
+    phase_cycle: PhaseCycle,
     excitation_start_seconds: float = 0.0,
 ) -> tuple[AbsolutePhaseSpec | None, FiniteCPMGPhaseSchedule | None]:
     spec = as_absolute_phase_spec(absolute_phase)
@@ -409,6 +463,7 @@ def _cpmg_absolute_phase_plan(
         pre_refocus_delay_seconds=float(np.ravel(_field(pp, "tref"))[0]),
         echo_spacing_seconds=echo_spacing,
         num_echoes=int(num_echoes),
+        excitation_phases_rad=_cpmg_excitation_phases(phase_cycle),
     )
     return spec, schedule
 
@@ -420,6 +475,7 @@ def _metadata_for_plan(
     *,
     num_echoes: int,
     pulse_plan: FiniteCPMGPulsePlan,
+    phase_cycle: PhaseCycle,
     excitation_start_seconds: float = 0.0,
     refocus_phase_bin: np.ndarray | None = None,
     refocus_matrix_phase_rad: np.ndarray | None = None,
@@ -432,10 +488,7 @@ def _metadata_for_plan(
     return build_cpmg_absolute_phase_metadata(
         spec=spec,
         excitation_start_seconds=excitation_start_seconds,
-        excitation_phases_rad=np.array(
-            [np.pi / 2, 3 * np.pi / 2],
-            dtype=np.float64,
-        ),
+        excitation_phases_rad=_cpmg_excitation_phases(phase_cycle),
         refocus_start_seconds=schedule.refocus_start_seconds[: int(num_echoes)],
         refocus_rotating_phase_rad=0.0,
         echo_spacing_seconds=echo_spacing,
@@ -460,8 +513,10 @@ def _build_absolute_phase_rtot_and_pul(
     exc_y: PulseShape,
     exc_minus_y: PulseShape,
     ref_shape_factory: Any,
+    phase_cycle: PhaseCycle,
     excitation_start_seconds: float = 0.0,
 ) -> tuple[list[Any], np.ndarray, np.ndarray, AbsolutePhaseMetadata | None]:
+    _cpmg_excitation_phases(phase_cycle)
     if spec is None or schedule is None:
         pulse_plan = build_finite_cpmg_pulse_plan(
             int(num_echoes),
@@ -551,6 +606,7 @@ def _build_absolute_phase_rtot_and_pul(
         schedule,
         num_echoes=num_echoes,
         pulse_plan=pulse_plan,
+        phase_cycle=phase_cycle,
         excitation_start_seconds=excitation_start_seconds,
         refocus_phase_bin=refocus_bins,
         refocus_matrix_phase_rad=matrix_phases,
@@ -618,13 +674,20 @@ def run_ideal_cpmg_train(
         "mth": sp0.mth * np.ones_like(del_w),
     }
 
+    phase_cycle = _default_cpmg_phase_cycle()
+    excitation_offsets = _cpmg_excitation_offsets(phase_cycle)
     ap_spec, ap_schedule = _cpmg_absolute_phase_plan(
         absolute_phase,
         pp0,
         num_echoes=int(num_echoes),
+        phase_cycle=phase_cycle,
     )
-    exc_y = _pulse_shape(w1n * pp0.texc, pp0.pexc, pp0.aexc)
-    exc_minus_y = _pulse_shape(w1n * pp0.texc, pp0.pexc + np.pi, pp0.aexc)
+    exc_y = _pulse_shape(w1n * pp0.texc, pp0.pexc + excitation_offsets[0], pp0.aexc)
+    exc_minus_y = _pulse_shape(
+        w1n * pp0.texc,
+        pp0.pexc + excitation_offsets[1],
+        pp0.aexc,
+    )
     ref_x = _pulse_shape(w1n * pp0.tref[1:-1], pp0.pref[1:-1], pp0.aref[1:-1])
     rtot, pref, _pref2, ap_metadata = _build_absolute_phase_rtot_and_pul(
         del_w=del_w,
@@ -636,12 +699,11 @@ def run_ideal_cpmg_train(
         exc_y=exc_y,
         exc_minus_y=exc_minus_y,
         ref_shape_factory=lambda _absolute_start: ref_x,
+        phase_cycle=phase_cycle,
     )
 
     texc = np.array([np.pi / 2, w1n * pp0.tcorr], dtype=np.float64)
     aexc = np.array([1.0, 0.0], dtype=np.float64)
-    pexc1 = np.array([1, 0], dtype=np.int64)
-    pexc2 = np.array([2, 0], dtype=np.int64)
     acq_exc = np.array([0, 0], dtype=np.int64)
     grad_exc = np.array([0.0, 0.0], dtype=np.float64)
 
@@ -662,11 +724,16 @@ def run_ideal_cpmg_train(
         "Rtot": rtot,
     }
 
-    pp1 = {**pp_common, "pul": np.concatenate([pexc1, pref])}
-    pp2 = {**pp_common, "pul": np.concatenate([pexc2, pref])}
-    mrx1 = calc_macq_ideal_probe_relax4(sp, pp1, num_workers=num_workers)
-    mrx2 = calc_macq_ideal_probe_relax4(sp, pp2, num_workers=num_workers)
-    mrx = (mrx1 - mrx2) / 2
+    mrx = _combine_cpmg_phase_cycle(
+        phase_cycle,
+        pp_common,
+        pref,
+        lambda pp_branch: calc_macq_ideal_probe_relax4(
+            sp,
+            pp_branch,
+            num_workers=num_workers,
+        ),
+    )
 
     tacq = float((np.pi / 2) * np.ravel(pp0.tacq)[0] / pp0.T_90)
     tdw = float((np.pi / 2) * pp0.tdw / pp0.T_90)
@@ -707,6 +774,7 @@ def run_ideal_cpmg_train(
         echo_integrals_noisy=echo_integrals_noisy,
         noise=noise_metadata,
         absolute_phase=ap_metadata,
+        phase_cycle=phase_cycle,
     )
 
 
@@ -915,10 +983,13 @@ def run_tuned_cpmg_train(
         "plt_echo": 0,
     }
 
+    phase_cycle = _default_cpmg_phase_cycle()
+    excitation_phases = _cpmg_excitation_phases(phase_cycle)
     ap_spec, ap_schedule = _cpmg_absolute_phase_plan(
         absolute_phase,
         pp0,
         num_echoes=int(num_echoes),
+        phase_cycle=phase_cycle,
     )
     excitation_psi = None
     if ap_schedule is not None:
@@ -930,7 +1001,7 @@ def run_tuned_cpmg_train(
         sp,
         pp0,
         pp0.T_90,
-        np.pi / 2,
+        float(excitation_phases[0]),
         1.0,
         2 * pp0.T_90,
         psi=None if excitation_psi is None else float(excitation_psi[0]),
@@ -939,7 +1010,7 @@ def run_tuned_cpmg_train(
         sp,
         pp0,
         pp0.T_90,
-        3 * np.pi / 2,
+        float(excitation_phases[1]),
         1.0,
         2 * pp0.T_90,
         psi=None if excitation_psi is None else float(excitation_psi[1]),
@@ -968,12 +1039,11 @@ def run_tuned_cpmg_train(
                 psi=carrier_phase,
             )
         ),
+        phase_cycle=phase_cycle,
     )
 
     texc = np.array([np.pi / 2, (np.pi / 2) * pp0.tcorr / pp0.T_90], dtype=np.float64)
     aexc = np.array([1.0, 0.0], dtype=np.float64)
-    pexc1 = np.array([1, 0], dtype=np.int64)
-    pexc2 = np.array([2, 0], dtype=np.int64)
     acq_exc = np.array([0, 0], dtype=np.int64)
     grad_exc = np.array([0.0, 0.0], dtype=np.float64)
 
@@ -998,21 +1068,17 @@ def run_tuned_cpmg_train(
         sp=sp,
         pp=pp0,
     )
-    pp1 = {**pp_common, "pul": np.concatenate([pexc1, pref])}
-    pp2 = {**pp_common, "pul": np.concatenate([pexc2, pref])}
-    _macq1, mrx1 = calc_macq_tuned_probe_relax4(
-        sp,
-        pp1,
-        num_workers=num_workers,
-        radiation_damping=rd_spec,
+    mrx = _combine_cpmg_phase_cycle(
+        phase_cycle,
+        pp_common,
+        pref,
+        lambda pp_branch: calc_macq_tuned_probe_relax4(
+            sp,
+            pp_branch,
+            num_workers=num_workers,
+            radiation_damping=rd_spec,
+        )[1],
     )
-    _macq2, mrx2 = calc_macq_tuned_probe_relax4(
-        sp,
-        pp2,
-        num_workers=num_workers,
-        radiation_damping=rd_spec,
-    )
-    mrx = (mrx1 - mrx2) / 2
 
     tacq = float((np.pi / 2) * np.ravel(pp0.tacq)[0] / pp0.T_90)
     tdw = float((np.pi / 2) * pp0.tdw / pp0.T_90)
@@ -1056,6 +1122,7 @@ def run_tuned_cpmg_train(
         noise=noise_metadata,
         radiation_damping=rd_spec,
         absolute_phase=ap_metadata,
+        phase_cycle=phase_cycle,
     )
 
 
@@ -1138,10 +1205,13 @@ def run_untuned_cpmg_train(
         "plt_echo": 0,
     }
 
+    phase_cycle = _default_cpmg_phase_cycle()
+    excitation_phases = _cpmg_excitation_phases(phase_cycle)
     ap_spec, ap_schedule = _cpmg_absolute_phase_plan(
         absolute_phase,
         pp0,
         num_echoes=int(num_echoes),
+        phase_cycle=phase_cycle,
     )
     excitation_psi = None
     if ap_schedule is not None:
@@ -1153,7 +1223,7 @@ def run_untuned_cpmg_train(
         sp,
         pp0,
         pp0.T_90,
-        np.pi / 2,
+        float(excitation_phases[0]),
         1.0,
         pp0.trd,
         psi=None if excitation_psi is None else float(excitation_psi[0]),
@@ -1162,7 +1232,7 @@ def run_untuned_cpmg_train(
         sp,
         pp0,
         pp0.T_90,
-        3 * np.pi / 2,
+        float(excitation_phases[1]),
         1.0,
         pp0.trd,
         psi=None if excitation_psi is None else float(excitation_psi[1]),
@@ -1191,12 +1261,11 @@ def run_untuned_cpmg_train(
                 psi=carrier_phase,
             )
         ),
+        phase_cycle=phase_cycle,
     )
 
     texc = np.array([np.pi / 2, (np.pi / 2) * pp0.tcorr / pp0.T_90], dtype=np.float64)
     aexc = np.array([1.0, 0.0], dtype=np.float64)
-    pexc1 = np.array([1, 0], dtype=np.int64)
-    pexc2 = np.array([2, 0], dtype=np.int64)
     acq_exc = np.array([0, 0], dtype=np.int64)
     grad_exc = np.array([0.0, 0.0], dtype=np.float64)
 
@@ -1215,11 +1284,16 @@ def run_untuned_cpmg_train(
     }
 
     sp["tf"] = untuned_probe_rx_tf(sp, pp0)
-    pp1 = {**pp_common, "pul": np.concatenate([pexc1, pref])}
-    pp2 = {**pp_common, "pul": np.concatenate([pexc2, pref])}
-    _macq1, mrx1 = calc_macq_untuned_probe_relax4(sp, pp1, num_workers=num_workers)
-    _macq2, mrx2 = calc_macq_untuned_probe_relax4(sp, pp2, num_workers=num_workers)
-    mrx = (mrx1 - mrx2) / 2
+    mrx = _combine_cpmg_phase_cycle(
+        phase_cycle,
+        pp_common,
+        pref,
+        lambda pp_branch: calc_macq_untuned_probe_relax4(
+            sp,
+            pp_branch,
+            num_workers=num_workers,
+        )[1],
+    )
 
     tacq = float((np.pi / 2) * np.ravel(pp0.tacq)[0] / pp0.T_90)
     tdw = float((np.pi / 2) * pp0.tdw / pp0.T_90)
@@ -1262,6 +1336,7 @@ def run_untuned_cpmg_train(
         echo_integrals_noisy=echo_integrals_noisy,
         noise=noise_metadata,
         absolute_phase=ap_metadata,
+        phase_cycle=phase_cycle,
     )
 
 
@@ -1344,10 +1419,13 @@ def run_matched_cpmg_train(
         "plt_echo": 0,
     }
 
+    phase_cycle = _default_cpmg_phase_cycle()
+    excitation_phases = _cpmg_excitation_phases(phase_cycle)
     ap_spec, ap_schedule = _cpmg_absolute_phase_plan(
         absolute_phase,
         pp0,
         num_echoes=int(num_echoes),
+        phase_cycle=phase_cycle,
     )
     excitation_psi = None
     if ap_schedule is not None:
@@ -1359,7 +1437,7 @@ def run_matched_cpmg_train(
         sp,
         pp0,
         pp0.T_90,
-        np.pi / 2,
+        float(excitation_phases[0]),
         1.0,
         pp0.trd,
         psi=None if excitation_psi is None else float(excitation_psi[0]),
@@ -1368,7 +1446,7 @@ def run_matched_cpmg_train(
         sp,
         pp0,
         pp0.T_90,
-        3 * np.pi / 2,
+        float(excitation_phases[1]),
         1.0,
         pp0.trd,
         psi=None if excitation_psi is None else float(excitation_psi[1]),
@@ -1397,12 +1475,11 @@ def run_matched_cpmg_train(
                 segment_fraction=0.5,
             )[:3]
         ),
+        phase_cycle=phase_cycle,
     )
 
     texc = np.array([np.pi / 2, (np.pi / 2) * pp0.tcorr / pp0.T_90], dtype=np.float64)
     aexc = np.array([1.0, 0.0], dtype=np.float64)
-    pexc1 = np.array([1, 0], dtype=np.int64)
-    pexc2 = np.array([2, 0], dtype=np.int64)
     acq_exc = np.array([0, 0], dtype=np.int64)
     grad_exc = np.array([0.0, 0.0], dtype=np.float64)
 
@@ -1428,21 +1505,17 @@ def run_matched_cpmg_train(
         sp=sp,
         pp=pp0,
     )
-    pp1 = {**pp_common, "pul": np.concatenate([pexc1, pref])}
-    pp2 = {**pp_common, "pul": np.concatenate([pexc2, pref])}
-    _macq1, mrx1 = calc_macq_matched_probe_relax4(
-        sp,
-        pp1,
-        num_workers=num_workers,
-        radiation_damping=rd_spec,
+    mrx = _combine_cpmg_phase_cycle(
+        phase_cycle,
+        pp_common,
+        pref,
+        lambda pp_branch: calc_macq_matched_probe_relax4(
+            sp,
+            pp_branch,
+            num_workers=num_workers,
+            radiation_damping=rd_spec,
+        )[1],
     )
-    _macq2, mrx2 = calc_macq_matched_probe_relax4(
-        sp,
-        pp2,
-        num_workers=num_workers,
-        radiation_damping=rd_spec,
-    )
-    mrx = (mrx1 - mrx2) / 2
 
     tacq = float((np.pi / 2) * np.ravel(pp0.tacq)[0] / pp0.T_90)
     tdw = float((np.pi / 2) * pp0.tdw / pp0.T_90)
@@ -1486,6 +1559,7 @@ def run_matched_cpmg_train(
         noise=noise_metadata,
         radiation_damping=rd_spec,
         absolute_phase=ap_metadata,
+        phase_cycle=phase_cycle,
     )
 
 
@@ -1497,6 +1571,7 @@ def run_ideal_cpmg(
 ) -> CPMGResult:
     """Run the validated ideal no-probe CPMG workflow."""
 
+    phase_cycle = _default_cpmg_phase_cycle()
     del_w = _offset_grid(numpts, maxoffs)
     sp, pp = set_params_ideal(numpts=numpts)
     sp = replace(sp, maxoffs=float(maxoffs), del_w=del_w)
@@ -1524,6 +1599,7 @@ def run_ideal_cpmg(
         mrx_noisy=mrx_noisy,
         echo_noisy=echo_noisy,
         noise=noise_metadata,
+        phase_cycle=phase_cycle,
     )
 
 
@@ -1535,6 +1611,7 @@ def run_tuned_cpmg(
 ) -> CPMGResult:
     """Run the original/reference tuned-probe CPMG workflow."""
 
+    phase_cycle = _default_cpmg_phase_cycle()
     del_w = _offset_grid(numpts, maxoffs)
     params, sp, pp = set_params_tuned_orig(numpts=numpts)
     sp = replace(
@@ -1572,6 +1649,7 @@ def run_tuned_cpmg(
         mrx_noisy=mrx_noisy,
         echo_noisy=echo_noisy,
         noise=noise_metadata,
+        phase_cycle=phase_cycle,
     )
 
 
@@ -1583,6 +1661,7 @@ def run_untuned_cpmg(
 ) -> CPMGResult:
     """Run the original/reference untuned-probe CPMG workflow."""
 
+    phase_cycle = _default_cpmg_phase_cycle()
     del_w = _offset_grid(numpts, maxoffs)
     params, sp, pp = set_params_untuned_orig(numpts=numpts)
     sp = replace(
@@ -1621,6 +1700,7 @@ def run_untuned_cpmg(
         mrx_noisy=mrx_noisy,
         echo_noisy=echo_noisy,
         noise=noise_metadata,
+        phase_cycle=phase_cycle,
     )
 
 
@@ -1632,6 +1712,7 @@ def run_matched_cpmg(
 ) -> CPMGResult:
     """Run the original/reference matched-probe CPMG workflow."""
 
+    phase_cycle = _default_cpmg_phase_cycle()
     del_w = _offset_grid(numpts, maxoffs)
     sp, pp = set_params_matched_orig(numpts=numpts)
     sp = replace(
@@ -1675,4 +1756,5 @@ def run_matched_cpmg(
         mrx_noisy=mrx_noisy,
         echo_noisy=echo_noisy,
         noise=noise_metadata,
+        phase_cycle=phase_cycle,
     )
