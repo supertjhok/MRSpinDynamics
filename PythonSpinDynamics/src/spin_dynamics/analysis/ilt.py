@@ -423,6 +423,40 @@ def invert_d_t2(
     )
 
 
+def invert_t2_t2(
+    data: np.ndarray,
+    encode_times: np.ndarray,
+    detect_times: np.ndarray,
+    t2_axis_encode: np.ndarray,
+    t2_axis_detect: np.ndarray | None = None,
+    **kwargs,
+) -> ILTResult2D:
+    """Convenience wrapper for a T2-T2 (relaxation exchange) inverse transform.
+
+    The forward model is ``data = K1 @ distribution @ K2.T`` with both kernels
+    of T2 decay form, where axis 1 is the encode echo time and axis 2 is the
+    detect echo time. The recovered ``distribution`` is the relaxation exchange
+    map: diagonal peaks come from spins whose T2 is unchanged across the mixing
+    interval, while off-diagonal cross peaks reveal spins that moved to a site
+    with a different T2 (chemical or compartmental exchange). Pair it with
+    ``spin_dynamics.exchange.simulate_relaxation_exchange_2d`` for the forward
+    side. ``t2_axis_detect`` defaults to ``t2_axis_encode``.
+    """
+
+    if t2_axis_detect is None:
+        t2_axis_detect = t2_axis_encode
+    return invert_laplace_2d(
+        data,
+        encode_times,
+        detect_times,
+        t2_axis_encode,
+        t2_axis_detect,
+        kernel1="t2",
+        kernel2="t2",
+        **kwargs,
+    )
+
+
 def _solve_tikhonov(
     design: np.ndarray,
     observations: np.ndarray,

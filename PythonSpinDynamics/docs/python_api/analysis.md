@@ -59,9 +59,12 @@ data = K1 @ distribution @ K2.T
 ```
 
 Use `invert_t1_t2(...)` for recovery/inversion-by-echo data and
-`invert_d_t2(...)` for b-value-by-echo data. The generic
-`invert_laplace_1d(...)` and `invert_laplace_2d(...)` functions also accept
-precomputed kernel matrices.
+`invert_d_t2(...)` for b-value-by-echo data. Use `invert_t2_t2(...)` for
+relaxation-exchange (REXSY) encode-by-detect data, where both axes share the T2
+decay kernel and off-diagonal peaks signal site exchange; pair it with
+`spin_dynamics.exchange.simulate_relaxation_exchange_2d` and see
+[Chemical / Site Exchange](exchange.md). The generic `invert_laplace_1d(...)`
+and `invert_laplace_2d(...)` functions also accept precomputed kernel matrices.
 
 The regularization penalty can be a scalar or a `Regularization` object.
 `regularization_order=0` damps amplitudes, `1` damps slopes, and `2` damps
