@@ -78,6 +78,7 @@ from spin_dynamics.motion import (
     free_precession_with_motion_step,
     initialize_ensemble_from_density,
     make_motion_field_maps_2d,
+    make_semipermeable_plane,
     receive_signal,
     transverse_b1_magnitude,
 )
@@ -94,8 +95,10 @@ but adds reusable building blocks for particle/walker simulations where spins
 move through B0, transmit-B1, and receive-B1 maps. Deterministic velocity
 fields update positions through advection, diffusion adds seeded Brownian
 steps, and field maps are sampled at the particles' current positions before
-magnetization updates. Long sequence intervals should be split into smaller
-steps when fields or velocities vary strongly in space.
+magnetization updates. Boundary callbacks can impose hard pore walls or
+semi-permeable interfaces such as `make_semipermeable_plane` for slow exchange.
+Long sequence intervals should be split into smaller steps when fields,
+velocities, or membranes require finer spatial resolution.
 
 Scalar B1 maps are treated as already perpendicular to local B0. When field
 exports contain vector maps, pass `b0_vector_map` and `b1_*_vector_map` to

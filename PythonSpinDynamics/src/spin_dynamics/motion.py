@@ -7,6 +7,7 @@ through spatial B0/B1 maps between sequence updates.
 
 from __future__ import annotations
 
+import inspect
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, replace
 from typing import Literal
@@ -17,9 +18,11 @@ from spin_dynamics.core.rotations import MatrixElements, rf_matrix_elements
 
 
 BoundaryMode = Literal["reflect", "periodic", "clip"]
-BoundaryFn = Callable[[np.ndarray], np.ndarray]
+BoundaryFn = Callable[..., np.ndarray]
 # A boundary is either one of the rectangular-box modes or a callable that maps
-# ``(num_particles, 2)`` positions to confined positions (e.g. a curved pore).
+# ``(num_particles, 2)`` positions to confined positions. Context-aware
+# callables may also accept ``previous_positions``, ``dt``, ``rng``, ``time``,
+# and ``bounds`` keyword arguments.
 Boundary = BoundaryMode | BoundaryFn
 Velocity = np.ndarray | Callable[[np.ndarray, float], np.ndarray] | None
 
@@ -247,12 +250,23 @@ def advect_diffuse_positions(
     )
     if np.any(diffusion < 0.0):
         raise ValueError("diffusion_coefficient must be non-negative")
+    generator = rng
     if np.any(diffusion > 0.0) and dt > 0.0:
-        generator = np.random.default_rng() if rng is None else rng
+        generator = np.random.default_rng() if generator is None else generator
         sigma = np.sqrt(2.0 * diffusion * float(dt))
         updated = updated + generator.normal(size=pos.shape) * sigma[:, np.newaxis]
     if bounds is not None:
-        updated = apply_boundary(updated, bounds, boundary)
+        if callable(boundary) and generator is None:
+            generator = np.random.default_rng()
+        updated = apply_boundary(
+            updated,
+            bounds,
+            boundary,
+            previous_positions=pos,
+            rng=generator,
+            time=time,
+            dt=dt,
+        )
     return updated
 
 
@@ -477,21 +491,113 @@ def make_elliptical_reflector(
     return reflect
 
 
+def make_semipermeable_plane(
+    interface: float,
+    exchange_rate: float,
+    *,
+    axis: Literal["x", "z"] = "x",
+    outer_boundary: BoundaryMode = "reflect",
+) -> BoundaryFn:
+    """Return a stochastic semi-permeable internal plane boundary.
+
+    The membrane is the line ``x = interface`` or ``z = interface`` inside the
+    rectangular simulation bounds. Walkers that do not cross the membrane are
+    left alone. Walkers that do cross transmit with probability
+    ``1 - exp(-exchange_rate * dt)`` and otherwise reflect from the membrane.
+
+    ``exchange_rate`` has units of inverse simulation time. Use ``0`` for an
+    impermeable internal wall and ``np.inf`` for a freely transmitting
+    interface. The returned boundary is intended for the motion helpers, which
+    provide the previous positions, time step, and random generator needed for
+    stochastic exchange.
+    """
+
+    membrane = float(interface)
+    rate = float(exchange_rate)
+    if not np.isfinite(membrane):
+        raise ValueError("interface must be finite")
+    if np.isnan(rate) or rate < 0.0:
+        raise ValueError("exchange_rate must be non-negative")
+    if axis not in {"x", "z"}:
+        raise ValueError("axis must be 'x' or 'z'")
+    if outer_boundary not in {"reflect", "periodic", "clip"}:
+        raise ValueError("outer_boundary must be 'reflect', 'periodic', or 'clip'")
+    dim = 0 if axis == "x" else 1
+
+    def exchange(
+        positions: np.ndarray,
+        *,
+        previous_positions: np.ndarray | None = None,
+        rng: np.random.Generator | None = None,
+        dt: float = 0.0,
+        bounds: tuple[tuple[float, float], tuple[float, float]] | None = None,
+        **_: object,
+    ) -> np.ndarray:
+        pos = _positions2d(positions).copy()
+        if previous_positions is not None:
+            prev = _positions2d(previous_positions)
+            if prev.shape != pos.shape:
+                raise ValueError("previous_positions must match positions.shape")
+            left_prev = prev[:, dim] < membrane
+            left_next = pos[:, dim] < membrane
+            crossing = left_prev != left_next
+            if np.any(crossing):
+                if dt < 0.0:
+                    raise ValueError("dt must be non-negative")
+                if rate == np.inf:
+                    transmit_probability = 1.0
+                elif dt == 0.0:
+                    transmit_probability = 0.0
+                else:
+                    transmit_probability = -np.expm1(-rate * float(dt))
+                generator = np.random.default_rng() if rng is None else rng
+                transmitted = np.zeros(pos.shape[0], dtype=bool)
+                transmitted[crossing] = (
+                    generator.random(int(np.count_nonzero(crossing)))
+                    < transmit_probability
+                )
+                blocked = crossing & ~transmitted
+                pos[blocked, dim] = 2.0 * membrane - pos[blocked, dim]
+        if bounds is None:
+            return pos
+        return apply_boundary(pos, bounds, outer_boundary)
+
+    return exchange
+
+
 def apply_boundary(
     positions: np.ndarray,
     bounds: tuple[tuple[float, float], tuple[float, float]],
     mode: Boundary,
+    *,
+    previous_positions: np.ndarray | None = None,
+    rng: np.random.Generator | None = None,
+    time: float = 0.0,
+    dt: float = 0.0,
 ) -> np.ndarray:
     """Apply boundary conditions to two-dimensional positions.
 
     ``mode`` is one of the rectangular-box modes ``"reflect"``, ``"periodic"``,
-    or ``"clip"``, or a callable mapping positions to confined positions (in
-    which case ``bounds`` is ignored), as produced by ``make_circular_reflector``.
+    or ``"clip"``, or a callable mapping positions to confined positions. Plain
+    callables such as ``make_circular_reflector`` only receive positions;
+    context-aware callables such as ``make_semipermeable_plane`` also receive
+    previous positions, the time step, random generator, current time, and
+    rectangular bounds when their signature accepts those keywords.
     """
 
     pos = _positions2d(positions).copy()
     if callable(mode):
-        return _positions2d(mode(pos))
+        return _positions2d(
+            _call_boundary(
+                mode,
+                pos,
+                bounds,
+                previous_positions=previous_positions,
+                rng=rng,
+                time=time,
+                dt=dt,
+            )
+        )
     for dim, (lower, upper) in enumerate(bounds):
         lo = float(lower)
         hi = float(upper)
@@ -511,6 +617,43 @@ def apply_boundary(
         else:
             raise ValueError("boundary must be 'reflect', 'periodic', or 'clip'")
     return pos
+
+
+def _call_boundary(
+    callback: BoundaryFn,
+    positions: np.ndarray,
+    bounds: tuple[tuple[float, float], tuple[float, float]],
+    *,
+    previous_positions: np.ndarray | None,
+    rng: np.random.Generator | None,
+    time: float,
+    dt: float,
+) -> np.ndarray:
+    context = {
+        "previous_positions": previous_positions,
+        "rng": rng,
+        "time": time,
+        "dt": dt,
+        "bounds": bounds,
+    }
+    try:
+        signature = inspect.signature(callback)
+    except (TypeError, ValueError):
+        return callback(positions, **context)
+    params = signature.parameters
+    accepts_kwargs = any(
+        param.kind == inspect.Parameter.VAR_KEYWORD for param in params.values()
+    )
+    if accepts_kwargs:
+        return callback(positions, **context)
+    accepted = {
+        name: value
+        for name, value in context.items()
+        if name in params
+        and params[name].kind
+        in (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)
+    }
+    return callback(positions, **accepted)
 
 
 def _apply_matrix_elements(

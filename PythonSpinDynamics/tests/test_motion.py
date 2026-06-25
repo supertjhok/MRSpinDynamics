@@ -19,6 +19,7 @@ from spin_dynamics.motion import (
     make_circular_reflector,
     make_elliptical_reflector,
     make_motion_field_maps_2d,
+    make_semipermeable_plane,
     receive_signal,
     transverse_b1_magnitude,
 )
@@ -194,6 +195,82 @@ class MotionTests(unittest.TestCase):
     def test_make_elliptical_reflector_rejects_nonpositive_axes(self) -> None:
         with self.assertRaises(ValueError):
             make_elliptical_reflector((0.0, 0.0), (1.0, 0.0))
+
+    def test_semipermeable_plane_blocks_crossings_at_zero_exchange(self) -> None:
+        membrane = make_semipermeable_plane(0.0, 0.0, axis="x")
+        previous = np.array([[-0.2, 0.0], [0.2, 0.0]], dtype=np.float64)
+        proposed = np.array([[0.3, 0.0], [-0.4, 0.0]], dtype=np.float64)
+
+        reflected = apply_boundary(
+            proposed,
+            ((-1.0, 1.0), (-1.0, 1.0)),
+            membrane,
+            previous_positions=previous,
+            rng=np.random.default_rng(1),
+            dt=0.5,
+        )
+
+        np.testing.assert_allclose(reflected, [[-0.3, 0.0], [0.4, 0.0]])
+
+    def test_semipermeable_plane_transmits_crossings_at_infinite_exchange(self) -> None:
+        membrane = make_semipermeable_plane(0.0, np.inf, axis="x")
+        previous = np.array([[-0.2, 0.0], [0.2, 0.0]], dtype=np.float64)
+        proposed = np.array([[0.3, 0.0], [-0.4, 0.0]], dtype=np.float64)
+
+        transmitted = apply_boundary(
+            proposed,
+            ((-1.0, 1.0), (-1.0, 1.0)),
+            membrane,
+            previous_positions=previous,
+            rng=np.random.default_rng(1),
+            dt=0.5,
+        )
+
+        np.testing.assert_allclose(transmitted, proposed)
+
+    def test_semipermeable_plane_allows_seeded_partial_exchange(self) -> None:
+        rate = -np.log(0.75)
+        membrane = make_semipermeable_plane(0.0, rate, axis="x")
+        previous = np.column_stack(
+            (
+                -0.01 * np.ones(1000, dtype=np.float64),
+                np.zeros(1000, dtype=np.float64),
+            )
+        )
+        proposed = previous.copy()
+        proposed[:, 0] = 0.01
+
+        exchanged = apply_boundary(
+            proposed,
+            ((-1.0, 1.0), (-1.0, 1.0)),
+            membrane,
+            previous_positions=previous,
+            rng=np.random.default_rng(123),
+            dt=1.0,
+        )
+
+        transmitted_fraction = float(np.mean(exchanged[:, 0] > 0.0))
+        self.assertGreater(transmitted_fraction, 0.20)
+        self.assertLess(transmitted_fraction, 0.30)
+
+    def test_advect_diffuse_positions_passes_boundary_context(self) -> None:
+        membrane = make_semipermeable_plane(0.0, 0.0, axis="x")
+
+        moved = advect_diffuse_positions(
+            np.array([[-0.1, 0.0]], dtype=np.float64),
+            1.0,
+            velocity=np.array([0.3, 0.0], dtype=np.float64),
+            bounds=((-1.0, 1.0), (-1.0, 1.0)),
+            boundary=membrane,
+        )
+
+        np.testing.assert_allclose(moved, [[-0.2, 0.0]])
+
+    def test_make_semipermeable_plane_rejects_invalid_parameters(self) -> None:
+        with self.assertRaises(ValueError):
+            make_semipermeable_plane(0.0, -1.0)
+        with self.assertRaises(ValueError):
+            make_semipermeable_plane(0.0, 1.0, axis="y")  # type: ignore[arg-type]
 
     def test_free_precession_matches_analytical_phase_and_relaxation(self) -> None:
         ensemble = initialize_ensemble_from_density(

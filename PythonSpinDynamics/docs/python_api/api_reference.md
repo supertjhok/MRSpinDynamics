@@ -307,7 +307,8 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `receive_signal(ensemble: ParticleEnsemble, fields: MotionFieldMaps2D | None = None) -> complex` | Sum weighted received transverse magnetization over particles. |
 | function | `make_circular_reflector(center: tuple[float, float], radius: float) -> BoundaryFn` | Return a reflecting-wall boundary callback for a circular pore. |
 | function | `make_elliptical_reflector(center: tuple[float, float], semi_axes: tuple[float, float]) -> BoundaryFn` | Return a reflecting-wall boundary callback for an elliptical pore. |
-| function | `apply_boundary(positions: np.ndarray, bounds: tuple[tuple[float, float], tuple[float, float]], mode: Boundary) -> np.ndarray` | Apply boundary conditions to two-dimensional positions. |
+| function | `make_semipermeable_plane(interface: float, exchange_rate: float, *, axis: Literal['x', 'z'] = 'x', outer_boundary: BoundaryMode = 'reflect') -> BoundaryFn` | Return a stochastic semi-permeable internal plane boundary. |
+| function | `apply_boundary(positions: np.ndarray, bounds: tuple[tuple[float, float], tuple[float, float]], mode: Boundary, *, previous_positions: np.ndarray | None = None, rng: np.random.Generator | None = None, time: float = 0.0, dt: float = 0.0) -> np.ndarray` | Apply boundary conditions to two-dimensional positions. |
 
 ## `spin_dynamics.noise`
 

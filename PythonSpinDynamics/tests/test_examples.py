@@ -139,6 +139,7 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_pgste_stimulated_echo.py",
             "examples/plot_phase_cycled_stimulated_echo.py",
             "examples/plot_pgse_double_encoding_elliptical_pore.py",
+            "examples/plot_dexsy_exchange.py",
             "examples/plot_ogse_frequency_diffusion.py",
             "examples/plot_rare_imaging.py",
             "examples/plot_imaging_inhomogeneity.py",
@@ -231,6 +232,9 @@ class ExampleSmokeTests(unittest.TestCase):
         )
         self.assertIn("--semi-major", result.stdout)
         self.assertIn("--num-orientations", result.stdout)
+        result = run_example("examples/plot_dexsy_exchange.py", "--help")
+        self.assertIn("--mixing-time", result.stdout)
+        self.assertIn("--exchange-rate", result.stdout)
         result = run_example("examples/plot_ogse_frequency_diffusion.py", "--help")
         self.assertIn("--slab-widths", result.stdout)
         self.assertIn("--freq-max", result.stdout)

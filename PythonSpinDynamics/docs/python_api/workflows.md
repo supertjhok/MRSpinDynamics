@@ -646,9 +646,10 @@ reference and the moment-backend Stejskal-Tanner attenuation. Increase
 ### Restricted diffusion and pore geometry
 
 Because the walker backend integrates explicit displacements, it can model
-diffusion restricted by hard walls — physics the moment backend cannot express.
-The `boundary` argument accepts the rectangular modes `"reflect"`, `"periodic"`,
-and `"clip"`, or any callable mapping `(N, 2)` positions to confined positions.
+diffusion restricted by hard walls or exchanged through semi-permeable
+membranes -- physics the moment backend cannot express. The `boundary` argument
+accepts the rectangular modes `"reflect"`, `"periodic"`, and `"clip"`, or any
+callable mapping `(N, 2)` positions to confined positions.
 `spin_dynamics.motion.make_circular_reflector` supplies a reflecting circular
 wall for a pore:
 
@@ -682,6 +683,49 @@ develops *diffusive diffraction* minima at `q_ang a = 3.83, 7.02, ...` for a dis
 of radius `a`, where `q_ang = gamma * G * delta`. Keep the per-substep hop
 `sqrt(2 D dt)` well below the pore size (raise `substeps_per_interval`) for
 accurate reflection. See the slab-pore and circular-pore diffraction examples.
+
+For slow exchange between two compartments, use
+`spin_dynamics.motion.make_semipermeable_plane`. The membrane is an internal
+line (`x = interface` or `z = interface`) inside the rectangular bounds. A
+walker that crosses the line transmits with probability
+`1 - exp(-exchange_rate * dt)`; otherwise it reflects from the membrane. This
+exchange-rate form remains stable when the motion interval is split into more
+substeps:
+
+```python
+from spin_dynamics.motion import make_semipermeable_plane
+from spin_dynamics.workflows import run_pgse_walkers
+import numpy as np
+
+x = np.linspace(-10e-6, 10e-6, 41)
+z = np.array([-0.5e-6, 0.5e-6])
+rho = np.ones((x.size, z.size))
+membrane = make_semipermeable_plane(
+    0.0,
+    exchange_rate=25.0,  # s^-1 in this seconds-based workflow
+    axis="x",
+)
+
+walkers = run_pgse_walkers(
+    rho=rho,
+    x_axis=x,
+    z_axis=z,
+    gradient_amplitude=0.2,
+    gradient_duration=1.0e-3,
+    diffusion_time=40.0e-3,
+    diffusion_coefficient=2.0e-9,
+    boundary=membrane,
+    walkers_per_cell=64,
+    substeps_per_interval=16,
+    seed=2026,
+    jitter=True,
+)
+```
+
+Set `exchange_rate=0` for an impermeable internal wall and `np.inf` for a
+freely transmitting interface. The outer rectangular boundary still defaults to
+reflection, so the two exchanging compartments remain confined by the sample
+box.
 
 ### Stimulated-echo PGSE (PGSTE)
 
