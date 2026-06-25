@@ -36,6 +36,7 @@ MODULES = [
     "esr.relaxation",
     "esr.spectra",
     "esr.systems",
+    "exchange",
     "motion",
     "noise",
     "nqr.full_dynamics",

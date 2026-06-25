@@ -6,6 +6,7 @@ __all__ = [
     "coupling",
     "core",
     "esr",
+    "exchange",
     "motion",
     "noise",
     "nqr",

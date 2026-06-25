@@ -386,6 +386,26 @@ smoother Monte Carlo data. The intended inversion path uses SciPy-backed NNLS
 from the `opt` extra; without SciPy the script falls back to an unconstrained
 preview. Matplotlib is required for plotting.
 
+## T2-T2 Relaxation Exchange (REXSY)
+
+This example is the relaxation-domain analogue of the DEXSY map. It builds an
+analytic two-site Bloch-McConnell system with `spin_dynamics.exchange`,
+simulates the encode-mix-detect data with `simulate_relaxation_exchange_2d`, and
+inverts it with `invert_t2_t2` into a `T2`-`T2` map. Diagonal peaks report spins
+whose `T2` is unchanged across the mixing interval; off-diagonal cross peaks
+report spins that changed site, and their intensity grows with the exchange
+rate. The script also prints the longitudinal mixing propagator so the exchanged
+fraction is explicit.
+
+```powershell
+python examples\plot_t2_t2_exchange.py --output results\t2_t2_exchange.png
+```
+
+Use `--exchange-rate`, `--mixing-time-ms`, and `--population-fast` to tune the
+cross peaks. Non-negative inversion uses SciPy-backed NNLS from the `opt` extra;
+without SciPy the script falls back to an unconstrained preview. Matplotlib is
+required for plotting.
+
 ## OGSE Frequency-Resolved Diffusion
 
 This example uses the oscillating-gradient spin-echo backend

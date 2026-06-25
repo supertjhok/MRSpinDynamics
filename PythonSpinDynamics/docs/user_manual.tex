@@ -171,13 +171,26 @@ relaxation, and a first dense isotropic electron-nuclear hyperfine model.
 These tools are documented in Chapter~\ref{chap:esr}.
 }
 
+\scopebox{Accent}{
+\textbf{Chemical / site exchange extension.} The \code{spin\_dynamics.exchange}
+namespace adds Bloch-McConnell site exchange: a bath of magnetically distinct
+sites that swap magnetization at finite first-order kinetic rates while each
+site relaxes with its own \(T_1/T_2\) and precesses at its own offset. It
+provides kinetic generators with detailed-balance checks, transverse lineshape
+coalescence, longitudinal mixing propagators, and encode-mix-detect
+\(T_2\)-\(T_2\) relaxation exchange (REXSY) data that inverts to an exchange
+map. These tools are documented in Chapter~\ref{chap:workflows}.
+}
+
 \scopebox{AccentTwo}{
-\textbf{Still outside the package scope.} Dipolar coupling networks, chemical
-exchange, arbitrary nonselective multi-quantum pulse sequences, shaped sample
-microstructure beyond the supplied field and density maps, microscopic spin
-noise, and large sparse coupled-spin simulations. Spin-spin effects enter the
-Bloch workflows only indirectly when represented by effective relaxation times
-such as \(T_2\) or \(T_2^*\).
+\textbf{Still outside the package scope.} Dipolar coupling networks, arbitrary
+nonselective multi-quantum pulse sequences, shaped sample microstructure beyond
+the supplied field and density maps, microscopic spin noise, and large sparse
+coupled-spin simulations. Spin-spin effects enter the Bloch workflows only
+indirectly when represented by effective relaxation times such as \(T_2\) or
+\(T_2^*\). Site exchange is modeled phenomenologically by the
+\code{spin\_dynamics.exchange} layer rather than from a microscopic
+exchange Hamiltonian.
 }
 
 This scope is deliberate. The main package follows MATLAB's classical
@@ -1415,6 +1428,7 @@ indicate that perturbation and detection frequencies are connected through the
 same quadrupolar site.
 
 \chapter{First Workflows}
+\label{chap:workflows}
 
 \section{CPMG}
 
@@ -2334,6 +2348,64 @@ the b-axis with \code{run\_pgse\_moment}, simulates a PGSE-prepared CPMG echo
 matrix, and recovers the D-T2 distribution with the SciPy-backed non-negative
 \code{invert\_d\_t2} solver.
 
+\section{Chemical and Site Exchange}
+\label{sec:exchange}
+
+The \code{spin\_dynamics.exchange} namespace adds Bloch-McConnell site exchange,
+the relaxation-domain counterpart to the diffusion-exchange (DEXSY) walker
+example. An \code{ExchangeSystem} holds a tuple of \code{ExchangeSite} objects
+and a rate matrix whose entry \((i,j)\) for \(i \neq j\) is the first-order rate
+constant \(k_{i\to j}\). Site populations are normalized, and detailed balance
+\(p_i k_{i\to j} = p_j k_{j\to i}\) is checked unless disabled.
+
+\begin{lstlisting}[language=Python]
+import numpy as np
+from spin_dynamics.exchange import (
+    two_site_exchange, simulate_relaxation_exchange_2d, exchange_spectrum,
+)
+from spin_dynamics.analysis import invert_t2_t2
+
+system = two_site_exchange(
+    offset_a_hz=0.0, offset_b_hz=0.0,
+    k_ab_hz=8.0, population_a=0.5,
+    t2_a_seconds=0.010, t2_b_seconds=0.200,
+    labels=("fast", "slow"),
+)
+\end{lstlisting}
+
+The kinetic generator \(X\) (\(\dot{m}=Xm\)) is column-conserving, so exchange
+alone preserves total magnetization. Adding per-site offset precession and
+transverse relaxation gives the transverse generator used for lineshapes:
+\code{exchange\_spectrum} integrates the transverse Bloch-McConnell equations
+and reproduces the slow-exchange (two resolved lines) to fast-exchange (a single
+population-averaged line) coalescence crossover.
+
+For relaxation exchange spectroscopy (REXSY), the encode-mix-detect model places
+exchange in a longitudinal mixing interval described by a mixing propagator
+\(G\):
+\[
+  S(t_1, t_2) = \sum_b e^{-t_2 / T_{2,b}}
+                \sum_a G_{ba}\, p_a\, e^{-t_1 / T_{2,a}}.
+\]
+Inverting \(S(t_1, t_2)\) with \code{invert\_t2\_t2} yields a \(T_2\)-\(T_2\) map:
+diagonal peaks for spins whose \(T_2\) is unchanged across mixing, and
+off-diagonal cross peaks whose intensity grows with the exchange rate.
+
+\begin{lstlisting}[language=Python]
+encode = np.linspace(0.0, 0.06, 28)
+detect = np.linspace(0.0, 0.8, 28)
+rexsy = simulate_relaxation_exchange_2d(system, encode, detect, mixing_time=0.06)
+
+t2_axis = np.logspace(-3, 0, 48)
+ilt = invert_t2_t2(rexsy.data, encode, detect, t2_axis, regularization=1e-3)
+exchange_map = ilt.distribution  # off-diagonal mass == exchange
+\end{lstlisting}
+
+The \code{plot\_t2\_t2\_exchange.py} example runs this end to end. The REXSY
+forward model assumes refocused encode/detect trains and exchange confined to
+the longitudinal mixing interval; use the transverse engine directly when offset
+evolution during encoding matters.
+
 \section{Optimization Workflows}
 
 The optimization package provides compact, plotting-free drivers for
@@ -2517,6 +2589,7 @@ Class & Purpose \\
 \code{SLSEAcquisitionSpectrumResult} & Finite-window SLSE echo acquisition and spectrum, including optional noise and deconvolution metadata. \\
 \code{WeakB0SpectrumResult} & Static weak-B0 transition spectrum and perturbation-ratio metadata. \\
 \code{PopulationTransferResult} & NQR perturbation-plus-SLSE signal, reference signal, and normalized difference. \\
+\code{RelaxationExchange2DResult} & Encode-mix-detect T2-T2 relaxation exchange (REXSY) data and longitudinal mixing propagator. \\
 \bottomrule
 \end{longtable}
 
@@ -2620,7 +2693,7 @@ when omitted.
 from spin_dynamics.analysis import (
     t2_kernel, t1_kernel, diffusion_kernel, laplace_kernel,
     invert_laplace_1d, invert_laplace_2d,
-    invert_t2, invert_t1, invert_t1_t2, invert_d_t2,
+    invert_t2, invert_t1, invert_t1_t2, invert_d_t2, invert_t2_t2,
     default_regularization_strengths,
     estimate_noise_rms_from_snr,
     expected_residual_norm_from_snr,
@@ -2641,10 +2714,26 @@ For separable two-dimensional maps, use:
 \begin{lstlisting}
 invert_t1_t2
 invert_d_t2
+invert_t2_t2
 \end{lstlisting}
 
 The \code{select\_regularization\_*} helpers choose Tikhonov strengths from an
 RMS SNR estimate.
+
+\subsection{Chemical / Site Exchange}
+
+The \code{spin\_dynamics.exchange} namespace provides the Bloch-McConnell site
+exchange model described in Section~\ref{sec:exchange}:
+
+\begin{lstlisting}
+from spin_dynamics.exchange import (
+    ExchangeSite, ExchangeSystem, RelaxationExchange2DResult,
+    two_site_exchange, exchange_generator, transverse_generator,
+    transverse_propagator, mixing_propagator,
+    simulate_exchange_fid, exchange_spectrum,
+    simulate_relaxation_exchange_2d,
+)
+\end{lstlisting}
 
 \section{Optimization Diagnostics}
 
