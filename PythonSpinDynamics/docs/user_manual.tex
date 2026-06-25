@@ -241,7 +241,8 @@ typed, testable Python API for simulations, validation fixtures, examples, and
 new analysis workflows.
 
 The supported surface currently includes ideal, tuned, untuned, and matched
-probe CPMG workflows; finite echo trains; FID; phase-encoded and
+probe CPMG workflows; Uhrig dynamical decoupling (UDD) timing and
+moving-isochromat sequence helpers; finite echo trains; FID; phase-encoded and
 frequency-encoded (spin-warp / RARE) imaging; diffusion
 CPMG; time-varying-field CPMG; WURST inversion and matched WURST-CPMG;
 radiation damping; moving-isochromat motion helpers; received-signal noise;
@@ -1432,6 +1433,34 @@ The asymptotic CPMG runners return \code{CPMGResult} objects with the offset
 grid, asymptotic magnetization, received spectrum, time-domain echo, acquisition
 time vector, optional SNR, probe label, and the default phase-cycle metadata.
 
+\subsection{Uhrig Dynamical Decoupling}
+
+The sequence utility layer also provides ideal CPMG and Uhrig dynamical
+decoupling timing helpers. For \(n\) refocusing pulses in a total evolution
+window \(T\), UDD places the \(j\)th pulse at
+\[
+  t_j = T\sin^2\!\left(\frac{j\pi}{2n+2}\right),\qquad j=1,\ldots,n.
+\]
+The pulses cluster near the beginning and end of the window. This does not
+usually improve simple unrestricted diffusion in a static gradient, but it can
+strongly suppress low-frequency correlated detuning noise.
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.sequences import (
+    cpmg_pulse_times,
+    dephasing_filter_function,
+    udd_pulse_times,
+)
+
+duration = 1.0
+omega = 0.1 / duration
+cpmg = cpmg_pulse_times(8, duration)
+udd = udd_pulse_times(8, duration)
+
+print(dephasing_filter_function(omega, cpmg, duration))
+print(dephasing_filter_function(omega, udd, duration))
+\end{lstlisting}
+
 \section{Finite Echo Trains}
 
 \begin{lstlisting}[language=Python]
@@ -1952,7 +1981,10 @@ receive-B1 maps:
 
 \begin{lstlisting}[language=Python]
 from spin_dynamics.motion import make_motion_field_maps_2d, initialize_ensemble_from_density
-from spin_dynamics.sequences.motion import run_motion_cpmg_sequence
+from spin_dynamics.sequences.motion import (
+    run_motion_cpmg_sequence,
+    run_motion_udd_sequence,
+)
 
 fields = make_motion_field_maps_2d([-1, 0, 1], [-1, 0, 1])
 ensemble = initialize_ensemble_from_density([[0, 1, 0], [1, 2, 1], [0, 1, 0]])
@@ -1965,12 +1997,53 @@ motion = run_motion_cpmg_sequence(
     refocusing_duration=40e-6,
     gradient=(0.0, 0.1),
 )
+
+udd = run_motion_udd_sequence(
+    ensemble,
+    fields,
+    num_pulses=4,
+    total_duration=4e-3,
+    excitation_duration=20e-6,
+    refocusing_duration=40e-6,
+    gradient=(0.0, 0.1),
+)
 \end{lstlisting}
 
 Lower-level helpers such as \code{free\_precession\_with\_motion\_step} are
 useful for custom trajectories. The sequence helpers split long intervals into
 substeps so field maps are sampled along the particle path rather than only at
 the beginning of an interval.
+
+The motion sequence runners also accept \code{detuning\_waveform}. The callable
+may return a scalar B0 offset for the whole ensemble or one value per particle.
+This makes it possible to model slow fluctuating gradients or local bath fields:
+
+\begin{lstlisting}[language=Python]
+import numpy as np
+
+fluctuating_gradient = lambda time, positions: (
+    1500.0 * positions[:, 0] * np.cos(2 * np.pi * 0.35 * time)
+)
+
+udd = run_motion_udd_sequence(
+    ensemble,
+    fields,
+    num_pulses=8,
+    total_duration=0.72,
+    excitation_duration=0.25e-3,
+    refocusing_duration=0.5e-3,
+    t1=5.0,
+    t2=1.0,
+    detuning_waveform=fluctuating_gradient,
+    substeps_per_interval=8,
+)
+\end{lstlisting}
+
+This is the more realistic regime where UDD can outperform evenly spaced CPMG:
+the noise is low-frequency and correlated across time, but varies across the
+sample so residual phase spread reduces the received signal. In contrast,
+ordinary unrestricted diffusion in a static gradient usually gives very similar
+CPMG and UDD attenuation.
 
 \section{Time-Varying Fields}
 
@@ -2285,8 +2358,10 @@ python examples\plot_diffusion_sweep.py --numpts 65 --num-echoes 3 --output resu
 python examples\plot_diffusion_absolute_phase_compare.py --output results\diffusion_absolute_phase_compare.png
 python examples\plot_tuned_diffusion_absolute_phase_compare.py --output results\tuned_diffusion_absolute_phase_compare.png
 python examples\plot_time_varying_sweep.py --numpts 51 --num-echoes 12 --output results\time_varying_sweep.png
+python examples\plot_udd_cpmg_filter.py --pulses 8 --output results\udd_cpmg_filter.png
 python examples\plot_motion_linear.py --output results\motion_linear.png
 python examples\plot_motion_diffusion_cpmg.py --output results\motion_diffusion_cpmg.png
+python examples\plot_motion_diffusion_udd.py --output results\motion_diffusion_udd.png
 python examples\plot_radiation_damping.py --output results\radiation_damping.png
 python examples\plot_radiation_damping_detuning.py --output results\rd_detuning.png
 python examples\plot_radiation_damping_cpmg_train.py --output results\rd_cpmg.png
@@ -2649,8 +2724,17 @@ from spin_dynamics.sequences.motion import (
     MotionSequenceStep,
     MotionSequenceResult,
     make_motion_cpmg_sequence,
+    make_motion_udd_sequence,
     run_motion_sequence,
     run_motion_cpmg_sequence,
+    run_motion_udd_sequence,
+)
+from spin_dynamics.sequences import (
+    cpmg_pulse_times,
+    udd_pulse_times,
+    interval_durations,
+    toggling_frame_integral,
+    dephasing_filter_function,
 )
 from spin_dynamics.radiation_damping import (
     radiation_damping_time,

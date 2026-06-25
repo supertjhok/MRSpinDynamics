@@ -22,6 +22,16 @@ python examples\ideal_fid.py --numpts 101
 python examples\ideal_cpmg_train.py --numpts 101 --num-echoes 8
 ```
 
+## UDD vs CPMG Filter Functions
+
+This plotting example compares ideal instantaneous-pulse UDD and CPMG timing
+for the same number of refocusing pulses. It shows pulse placement, sinusoidal
+detuning response, and cumulative pickup from low-frequency fluctuations.
+
+```powershell
+python examples\plot_udd_cpmg_filter.py --pulses 8 --output results\udd_cpmg_filter.png
+```
+
 ## Ideal Time-Varying CPMG
 
 ```powershell
@@ -632,4 +642,13 @@ a static gradient.
 
 ```powershell
 python examples\plot_motion_diffusion_cpmg.py --output results\motion_diffusion_cpmg.png
+```
+
+The UDD counterpart compares CPMG and Uhrig timing with the same walker
+diffusion, static gradient, and `T1`/`T2` relaxation model. By default it also
+adds a slow sinusoidal gradient fluctuation, creating the correlated
+low-frequency dephasing regime where UDD can outperform evenly spaced CPMG.
+
+```powershell
+python examples\plot_motion_diffusion_udd.py --output results\motion_diffusion_udd.png
 ```
