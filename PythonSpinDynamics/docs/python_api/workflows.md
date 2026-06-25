@@ -846,7 +846,8 @@ MATLAB references:
 
 ```python
 from spin_dynamics.motion import initialize_ensemble_from_density, make_motion_field_maps_2d
-from spin_dynamics.sequences.motion import run_motion_cpmg_sequence
+from spin_dynamics.sequences.motion import run_motion_cpmg_sequence, run_motion_udd_sequence
+import numpy as np
 
 fields = make_motion_field_maps_2d([-1, 1], [-1, 1])
 ensemble = initialize_ensemble_from_density([[1.0]], [0.0], [0.0])
@@ -860,6 +861,22 @@ result = run_motion_cpmg_sequence(
     gradient=(35.0, 0.0),
     substeps_per_interval=8,
 )
+
+udd = run_motion_udd_sequence(
+    ensemble,
+    fields,
+    num_pulses=4,
+    total_duration=0.32,
+    excitation_duration=0.002,
+    refocusing_duration=0.004,
+    gradient=(35.0, 0.0),
+    t1=5.0,
+    t2=1.0,
+    detuning_waveform=lambda time, positions: (
+        1500.0 * positions[:, 0] * np.cos(2 * np.pi * 0.35 * time)
+    ),
+    substeps_per_interval=8,
+)
 ```
 
 `spin_dynamics.sequences.motion` is the first workflow-oriented layer for
@@ -868,7 +885,12 @@ samples B0/B1 maps at the current particle positions, substeps RF and
 free-precession intervals, and records receive samples during acquisition
 windows. The generic `run_motion_sequence` driver takes explicit
 `MotionSequenceStep` intervals; `run_motion_cpmg_sequence` builds a compact
-rectangular-pulse CPMG train with one receive sample per echo.
+rectangular-pulse CPMG train with one receive sample per echo, while
+`run_motion_udd_sequence` places the same finite refocusing pulses at Uhrig
+times and records a final UDD signal at the end of the evolution window.
+Both runners accept `detuning_waveform` for time-dependent B0 fluctuations. It
+may return a scalar uniform detuning or one detuning per particle, so slow
+fluctuating gradients can be modeled as a callable of `(time, positions)`.
 
 This path is not a MATLAB fixture-parity replacement for the fixed-grid
 `arb10` kernels. It is intended for physical motion studies where spins move

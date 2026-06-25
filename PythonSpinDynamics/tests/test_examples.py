@@ -133,6 +133,7 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_inverse_laplace.py",
             "examples/plot_motion_linear.py",
             "examples/plot_motion_diffusion_cpmg.py",
+            "examples/plot_motion_diffusion_udd.py",
             "examples/plot_pgse_restricted_diffusion.py",
             "examples/plot_pgse_circular_pore_diffraction.py",
             "examples/plot_pgste_stimulated_echo.py",
@@ -154,6 +155,7 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_j_editing_field_spread.py",
             "examples/plot_tango_filter.py",
             "examples/plot_slic_two_spin.py",
+            "examples/plot_udd_cpmg_filter.py",
             "examples/plot_esr_single_crystal.py",
             "examples/plot_esr_powder_spectrum.py",
             "examples/plot_esr_pulsed_echo.py",
@@ -207,6 +209,10 @@ class ExampleSmokeTests(unittest.TestCase):
         self.assertIn("--velocity", result.stdout)
         result = run_example("examples/plot_motion_diffusion_cpmg.py", "--help")
         self.assertIn("--diffusion", result.stdout)
+        result = run_example("examples/plot_motion_diffusion_udd.py", "--help")
+        self.assertIn("--pulses", result.stdout)
+        self.assertIn("--t2", result.stdout)
+        self.assertIn("--fluctuation-amplitude", result.stdout)
         result = run_example("examples/plot_pgse_restricted_diffusion.py", "--help")
         self.assertIn("--walkers-per-cell", result.stdout)
         self.assertIn("--diffusion-time", result.stdout)
@@ -263,6 +269,8 @@ class ExampleSmokeTests(unittest.TestCase):
         self.assertIn("--target", result.stdout)
         result = run_example("examples/plot_slic_two_spin.py", "--help")
         self.assertIn("--delta-hz", result.stdout)
+        result = run_example("examples/plot_udd_cpmg_filter.py", "--help")
+        self.assertIn("--min-omega-t", result.stdout)
         result = run_example("examples/plot_esr_single_crystal.py", "--help")
         self.assertIn("--microwave-ghz", result.stdout)
         self.assertIn("--broadening-mt", result.stdout)

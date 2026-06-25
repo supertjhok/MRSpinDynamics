@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 
 import numpy as np
@@ -16,6 +16,12 @@ from spin_dynamics.motion import (
     apply_rf_rotation,
     move_ensemble,
     receive_signal,
+)
+from spin_dynamics.sequences.cpmg import udd_pulse_times
+
+
+DetuningWaveform = (
+    float | Iterable[float] | np.ndarray | Callable[..., float | np.ndarray] | None
 )
 
 
@@ -63,6 +69,7 @@ def run_motion_sequence(
     mth: float | Iterable[float] | np.ndarray = 1.0,
     boundary: Boundary = "reflect",
     default_substeps: int = 1,
+    detuning_waveform: DetuningWaveform = None,
 ) -> MotionSequenceResult:
     """Run a sequence while moving particles through sampled field maps.
 
@@ -98,6 +105,7 @@ def run_motion_sequence(
             mth=mth,
             boundary=boundary,
             default_substeps=int(default_substeps),
+            detuning_waveform=detuning_waveform,
             label=label,
         )
         signals.extend(new_signals)
@@ -185,6 +193,94 @@ def make_motion_cpmg_sequence(
     return tuple(steps)
 
 
+def make_motion_udd_sequence(
+    num_pulses: int,
+    total_duration: float,
+    *,
+    excitation_duration: float,
+    refocusing_duration: float,
+    excitation_phase: float = np.pi / 2,
+    refocusing_phase: float = 0.0,
+    gradient: tuple[float, float] = (0.0, 0.0),
+    substeps_per_interval: int = 1,
+) -> tuple[MotionSequenceStep, ...]:
+    """Build a rectangular-pulse UDD sequence for moving isochromats.
+
+    The UDD pulse centers are placed inside the evolution window after the
+    excitation pulse using ``t_j = T sin^2(j*pi/(2*n + 2))``. A single receive
+    sample is recorded at the end of the evolution window. Gradients are
+    applied during free-precession windows, matching the CPMG motion helper's
+    finite-pulse convention.
+    """
+
+    if num_pulses < 0:
+        raise ValueError("num_pulses must be non-negative")
+    if total_duration <= 0.0:
+        raise ValueError("total_duration must be positive")
+    if excitation_duration <= 0.0 or refocusing_duration <= 0.0:
+        raise ValueError("pulse durations must be positive")
+    if substeps_per_interval <= 0:
+        raise ValueError("substeps_per_interval must be positive")
+
+    centers = udd_pulse_times(int(num_pulses), float(total_duration))
+    half_pulse = 0.5 * float(refocusing_duration)
+    if centers.size > 0:
+        starts = centers - half_pulse
+        stops = centers + half_pulse
+        if starts[0] < 0.0 or stops[-1] > total_duration:
+            raise ValueError("refocusing pulses do not fit within total_duration")
+        if np.any(starts[1:] < stops[:-1]):
+            raise ValueError("refocusing pulses overlap; increase total_duration")
+    else:
+        starts = np.empty(0, dtype=np.float64)
+        stops = np.empty(0, dtype=np.float64)
+
+    steps: list[MotionSequenceStep] = [
+        MotionSequenceStep(
+            duration=float(excitation_duration),
+            rf_amplitude=(0.5 * np.pi) / float(excitation_duration),
+            rf_phase=float(excitation_phase),
+            substeps=max(1, int(substeps_per_interval)),
+            label="excitation_90",
+        )
+    ]
+    cursor = 0.0
+    for pulse_index, (start, stop) in enumerate(zip(starts, stops), start=1):
+        free_duration = float(start - cursor)
+        if free_duration > 0.0:
+            steps.append(
+                MotionSequenceStep(
+                    duration=free_duration,
+                    gradient=gradient,
+                    substeps=int(substeps_per_interval),
+                    label=f"udd_{pulse_index}_pre",
+                )
+            )
+        steps.append(
+            MotionSequenceStep(
+                duration=float(refocusing_duration),
+                rf_amplitude=np.pi / float(refocusing_duration),
+                rf_phase=float(refocusing_phase),
+                substeps=max(1, int(substeps_per_interval)),
+                label=f"udd_{pulse_index}_180",
+            )
+        )
+        cursor = float(stop)
+
+    final_free = float(total_duration - cursor)
+    steps.append(
+        MotionSequenceStep(
+            duration=final_free,
+            gradient=gradient,
+            acquire=True,
+            num_samples=1,
+            substeps=int(substeps_per_interval),
+            label="udd_echo",
+        )
+    )
+    return tuple(steps)
+
+
 def run_motion_cpmg_sequence(
     ensemble: ParticleEnsemble,
     fields: MotionFieldMaps2D,
@@ -201,6 +297,7 @@ def run_motion_cpmg_sequence(
     mth: float | Iterable[float] | np.ndarray = 1.0,
     boundary: Boundary = "reflect",
     substeps_per_interval: int = 1,
+    detuning_waveform: DetuningWaveform = None,
 ) -> MotionSequenceResult:
     """Run a rectangular-pulse CPMG sequence with moving isochromats."""
 
@@ -223,6 +320,50 @@ def run_motion_cpmg_sequence(
         mth=mth,
         boundary=boundary,
         default_substeps=substeps_per_interval,
+        detuning_waveform=detuning_waveform,
+    )
+
+
+def run_motion_udd_sequence(
+    ensemble: ParticleEnsemble,
+    fields: MotionFieldMaps2D,
+    *,
+    num_pulses: int,
+    total_duration: float,
+    excitation_duration: float,
+    refocusing_duration: float,
+    gradient: tuple[float, float] = (0.0, 0.0),
+    velocity: Velocity = None,
+    rng: np.random.Generator | None = None,
+    t1: float | Iterable[float] | np.ndarray = np.inf,
+    t2: float | Iterable[float] | np.ndarray = np.inf,
+    mth: float | Iterable[float] | np.ndarray = 1.0,
+    boundary: Boundary = "reflect",
+    substeps_per_interval: int = 1,
+    detuning_waveform: DetuningWaveform = None,
+) -> MotionSequenceResult:
+    """Run a rectangular-pulse UDD sequence with moving isochromats."""
+
+    steps = make_motion_udd_sequence(
+        num_pulses,
+        total_duration,
+        excitation_duration=excitation_duration,
+        refocusing_duration=refocusing_duration,
+        gradient=gradient,
+        substeps_per_interval=substeps_per_interval,
+    )
+    return run_motion_sequence(
+        ensemble,
+        fields,
+        steps,
+        velocity=velocity,
+        rng=rng,
+        t1=t1,
+        t2=t2,
+        mth=mth,
+        boundary=boundary,
+        default_substeps=substeps_per_interval,
+        detuning_waveform=detuning_waveform,
     )
 
 
@@ -239,6 +380,7 @@ def _run_step(
     mth: float | Iterable[float] | np.ndarray,
     boundary: Boundary,
     default_substeps: int,
+    detuning_waveform: DetuningWaveform,
     label: str,
 ) -> tuple[ParticleEnsemble, float, list[complex], list[float], list[str]]:
     duration = float(step.duration)
@@ -284,6 +426,7 @@ def _run_step(
                 t2=t2,
                 mth=mth,
                 boundary=boundary,
+                detuning_waveform=detuning_waveform,
             )
             current_time += dt
         if sample_count > 0 and np.round(local_time, decimals=14) in sample_points:
@@ -309,6 +452,7 @@ def _propagate_segment(
     t2: float | Iterable[float] | np.ndarray,
     mth: float | Iterable[float] | np.ndarray,
     boundary: Boundary,
+    detuning_waveform: DetuningWaveform,
 ) -> ParticleEnsemble:
     moved = move_ensemble(
         ensemble,
@@ -321,7 +465,12 @@ def _propagate_segment(
     )
     sampled = fields.sample(moved.positions)
     grad = np.asarray(gradient, dtype=np.float64).reshape(2)
-    off_resonance = sampled["b0"] + moved.positions @ grad
+    detuning = _detuning_values(
+        detuning_waveform,
+        absolute_time + 0.5 * dt,
+        moved.positions,
+    )
+    off_resonance = sampled["b0"] + moved.positions @ grad + detuning
     if rf_amplitude == 0.0:
         return apply_free_precession(
             moved,
@@ -375,3 +524,31 @@ def _validate_step(step: MotionSequenceStep) -> None:
         raise ValueError("step gradient must contain two finite values")
     if not np.isfinite(step.rf_amplitude) or not np.isfinite(step.rf_phase):
         raise ValueError("RF amplitude and phase must be finite")
+
+
+def _detuning_values(
+    detuning_waveform: DetuningWaveform,
+    time: float,
+    positions: np.ndarray,
+) -> float | np.ndarray:
+    if detuning_waveform is None:
+        return 0.0
+    if callable(detuning_waveform):
+        try:
+            value = detuning_waveform(float(time), positions)
+        except TypeError:
+            value = detuning_waveform(float(time))
+    else:
+        value = detuning_waveform
+    arr = np.asarray(value, dtype=np.float64)
+    if arr.ndim == 0:
+        detuning = float(arr)
+    else:
+        detuning = arr.reshape(-1)
+        if detuning.size != positions.shape[0]:
+            raise ValueError(
+                "detuning_waveform must return a scalar or one value per particle"
+            )
+    if not np.all(np.isfinite(detuning)):
+        raise ValueError("detuning_waveform must return finite values")
+    return detuning
