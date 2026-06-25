@@ -1777,13 +1777,14 @@ attenuation through a zero-diffusion walker reference.
 \subsection{Restricted Diffusion and Diffusive Diffraction}
 
 Because the walker backend integrates explicit displacements, it can model
-diffusion restricted by hard walls---physics the closed-form moment backend
-cannot express. The \code{boundary} argument of \code{run\_pgse\_walkers}
-accepts the rectangular-box modes \code{"reflect"}, \code{"periodic"}, and
-\code{"clip"}, or any callable mapping particle positions to confined
-positions. The helpers \code{make\_circular\_reflector(center, radius)} and
-\code{make\_elliptical\_reflector(center, semi\_axes)} supply reflecting
-circular and elliptical pore walls.
+diffusion restricted by hard walls or exchanged through semi-permeable
+membranes---physics the closed-form moment backend cannot express. The
+\code{boundary} argument of \code{run\_pgse\_walkers} accepts the rectangular-box
+modes \code{"reflect"}, \code{"periodic"}, and \code{"clip"}, or any callable
+mapping particle positions to confined positions. The helpers
+\code{make\_circular\_reflector(center, radius)} and
+\code{make\_elliptical\_reflector(center, semi\_axes)} supply reflecting circular
+and elliptical pore walls.
 
 For a slab pore of width \(L\) along the gradient axis, confining the walkers
 makes the echo attenuation bend above the free Stejskal-Tanner line
@@ -1843,6 +1844,46 @@ walker's net displacement \(\Delta x\) over the diffusion time, and evaluates
 method; it is tens of times faster and reproduces the same diffraction pattern
 in the \(\delta\to0\) limit. Keep the per-substep hop \(\sqrt{2D\,\dd t}\) well
 below the pore size so reflection stays accurate.
+
+For slow exchange between two compartments, use
+\code{make\_semipermeable\_plane}. The membrane is an internal line
+\(x=x_m\) or \(z=z_m\) inside the rectangular bounds. A walker that crosses the
+line transmits with probability
+\[
+  P_{\mathrm{transmit}} = 1 - \exp(-k\,\Delta t),
+\]
+where \(k\) is \code{exchange\_rate}; otherwise the walker reflects from the
+membrane. This rate form stays consistent when \code{substeps\_per\_interval}
+is changed.
+
+\begin{lstlisting}[language=Python]
+import numpy as np
+from spin_dynamics.motion import make_semipermeable_plane
+from spin_dynamics.workflows import run_pgse_walkers
+
+x = np.linspace(-10e-6, 10e-6, 41)
+z = np.array([-0.5e-6, 0.5e-6])
+rho = np.ones((x.size, z.size))
+membrane = make_semipermeable_plane(
+    0.0,
+    exchange_rate=25.0,  # s^-1 in this seconds-based workflow
+    axis="x",
+)
+
+walkers = run_pgse_walkers(
+    rho=rho, x_axis=x, z_axis=z,
+    gradient_amplitude=0.2, gradient_duration=1.0e-3,
+    diffusion_time=40.0e-3,
+    diffusion_coefficient=2.0e-9,
+    boundary=membrane,
+    walkers_per_cell=64, substeps_per_interval=16, seed=2026, jitter=True,
+)
+\end{lstlisting}
+
+Use \code{exchange\_rate=0} for an impermeable internal wall and
+\code{np.inf} for a freely transmitting interface. The outer rectangular
+boundary still defaults to reflection, so the exchanging compartments remain
+confined by the sample box.
 
 \subsection{Stimulated-Echo PGSE (PGSTE)}
 
@@ -2712,6 +2753,7 @@ from spin_dynamics.motion import (
     MotionFieldMaps2D,
     make_motion_field_maps_2d,
     initialize_ensemble_from_density,
+    make_semipermeable_plane,
     advect_diffuse_positions,
     move_ensemble,
     apply_free_precession,

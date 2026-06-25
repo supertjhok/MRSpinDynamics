@@ -364,6 +364,28 @@ minutes. Use `--semi-major` / `--semi-minor` to set the eccentricity,
 `--num-orientations` / `--walkers-per-cell` to trade runtime for smoother curves.
 Only Matplotlib is required.
 
+## DEXSY Exchange Map
+
+This example uses the semi-permeable membrane boundary to simulate a
+two-compartment DEXSY / diffusion-diffusion correlation experiment with an
+explicit finite-pulse sequence. Walkers start in narrow and wide slab
+compartments separated by an internal membrane, undergo a finite PGSE block,
+exchange during a mixing interval, then undergo a second finite PGSE block and
+acquisition. The script sweeps the two gradient amplitudes to build `S(b1, b2)`
+and inverts it with `invert_laplace_2d` into a D-D map. The diagonal peaks report
+spins that stayed in the same apparent-diffusion compartment; off-diagonal peaks
+report exchange between compartments.
+
+```powershell
+python examples\plot_dexsy_exchange.py --output results\dexsy_exchange.png
+```
+
+Use `--exchange-rate` and `--mixing-time` to tune the off-diagonal peak
+amplitudes, and `--walkers-per-cell` / `--substeps` to trade runtime for
+smoother Monte Carlo data. The intended inversion path uses SciPy-backed NNLS
+from the `opt` extra; without SciPy the script falls back to an unconstrained
+preview. Matplotlib is required for plotting.
+
 ## OGSE Frequency-Resolved Diffusion
 
 This example uses the oscillating-gradient spin-echo backend

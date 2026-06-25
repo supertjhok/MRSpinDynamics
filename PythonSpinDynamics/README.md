@@ -191,6 +191,7 @@ python examples\matched_diffusion_cpmg.py --numpts 21 --num-echoes 3
 python examples\radiation_damping_fid.py --probe matched --points 401
 python examples\plot_inverse_laplace.py --output results\inverse_laplace.png
 python examples\plot_pgse_d_t2.py --output results\pgse_d_t2.png
+python examples\plot_dexsy_exchange.py --output results\dexsy_exchange.png
 python examples\plot_nqr_powder_nutation.py --output results\nqr_powder_nutation.png
 python examples\plot_nqr_population_transfer.py --output results\nqr_population_transfer.png
 python examples\plot_nqr_slse_offset.py --output results\nqr_slse_offset.png
