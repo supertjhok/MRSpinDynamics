@@ -492,6 +492,15 @@ No public classes or functions found.
 | function | `set_params_matched_spa(numpts: int = 5000) -> tuple[MatchedSystemParameters, MatchedPulseParameters]` | Construct matched-probe SPA pulse-evaluation parameters. |
 | function | `set_params_matched_jmr(numpts: int = 2000) -> tuple[MatchedSystemParameters, MatchedPulseParameters]` | Construct JMR-paper matched-probe parameters. |
 
+## `spin_dynamics.phase_cycling`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `PhaseStep` | One scan branch in a phase cycle. |
+| class | `PhaseCycle` | A reusable phase-cycle scan table. |
+| function | `cpmg_two_step_phase_cycle(*, excitation_name: str = 'excitation', excitation_phase_rad: float = np.pi / 2.0) -> PhaseCycle` | Return the default two-step CPMG/PAP excitation phase cycle. |
+| function | `pgste_stimulated_echo_phase_cycle() -> PhaseCycle` | Return the selected-pathway PGSTE stimulated-echo phase table. |
+
 ## `spin_dynamics.optimization.drivers`
 
 | Kind | Name | Summary |

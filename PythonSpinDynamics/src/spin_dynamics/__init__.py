@@ -10,6 +10,7 @@ __all__ = [
     "noise",
     "nqr",
     "parameters",
+    "phase_cycling",
     "pulse_diagnostics",
     "radiation_damping",
     "pulses",

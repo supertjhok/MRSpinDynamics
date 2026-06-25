@@ -14,6 +14,7 @@ import numpy as np
 
 from spin_dynamics.core.numerics import trapezoid
 from spin_dynamics.core.rotations import calc_rot_axis_arba3, sim_spin_dynamics_asymp_mag3
+from spin_dynamics.phase_cycling import cpmg_two_step_phase_cycle
 
 
 def _field(obj: Mapping[str, Any] | Any, name: str) -> Any:
@@ -313,13 +314,31 @@ def calc_masy_untuned_probe_lp(
     if pcycle == 0:
         masy = sim_spin_dynamics_asymp_mag3(texc, pexc, aexc, neff, del_w, tacq_scalar)
     elif pcycle == 1:
-        masy1 = sim_spin_dynamics_asymp_mag3(texc, pexc, aexc, neff, del_w, tacq_scalar)
-        masy2 = sim_spin_dynamics_asymp_mag3(texc, pexc + np.pi, aexc, neff, del_w, tacq_scalar)
-        masy = (masy1 - masy2) / 2
+        phase_cycle = cpmg_two_step_phase_cycle()
+        masy = phase_cycle.combine(
+            [
+                sim_spin_dynamics_asymp_mag3(
+                    texc,
+                    pexc,
+                    aexc,
+                    neff,
+                    del_w,
+                    tacq_scalar,
+                ),
+                sim_spin_dynamics_asymp_mag3(
+                    texc,
+                    pexc + np.pi,
+                    aexc,
+                    neff,
+                    del_w,
+                    tacq_scalar,
+                ),
+            ]
+        )
     elif pcycle == 2:
         masy1 = sim_spin_dynamics_asymp_mag3(texc, pexc, aexc, neff, del_w, tacq_scalar)
         masy2 = sim_spin_dynamics_asymp_mag3(texc, -pexc, aexc, neff, del_w, tacq_scalar)
-        masy = (masy1 - masy2) / 2
+        masy = cpmg_two_step_phase_cycle().combine([masy1, masy2])
     else:
         raise ValueError("pcycle must be 0, 1, or 2")
 

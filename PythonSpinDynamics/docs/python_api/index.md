@@ -18,6 +18,7 @@ variants, packaging, and performance.
 - [J-Coupling Models](j_coupling.md)
 - [NQR Models](nqr.md)
 - [ESR Models](esr.md)
+- [Phase Cycling Findings](phase_cycling.md)
 - [API Reference](api_reference.md)
 - [Performance](performance.md)
 - [Validation](validation.md)
