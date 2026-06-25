@@ -158,14 +158,17 @@ def _run_case(
     seed = args.seed + 1009 * case_index
     ensemble = _initialize_walkers(args.num_particles, diffusion, seed)
     rng = np.random.default_rng(seed)
-    detuning = lambda time, positions: (
-        args.fluctuation_amplitude
-        * positions[:, 0]
-        * np.cos(
-            2.0 * np.pi * args.fluctuation_frequency * time
-            + args.fluctuation_phase
+
+    def detuning(time, positions):
+        return (
+            args.fluctuation_amplitude
+            * positions[:, 0]
+            * np.cos(
+                2.0 * np.pi * args.fluctuation_frequency * time
+                + args.fluctuation_phase
+            )
         )
-    )
+
     common = dict(
         ensemble=ensemble,
         fields=fields,

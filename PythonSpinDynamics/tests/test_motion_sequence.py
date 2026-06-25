@@ -352,9 +352,10 @@ class MotionSequenceTests(unittest.TestCase):
             diffusion_coefficient=0.0,
         )
         duration = 0.6
-        detuning = lambda time, positions: (
-            1500.0 * positions[:, 0] * np.cos(2.0 * np.pi * 0.35 * time)
-        )
+
+        def detuning(time, positions):
+            return 1500.0 * positions[:, 0] * np.cos(2.0 * np.pi * 0.35 * time)
+
         common = dict(
             ensemble=ensemble,
             fields=fields,
