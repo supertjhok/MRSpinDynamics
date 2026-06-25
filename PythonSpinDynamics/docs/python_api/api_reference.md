@@ -21,6 +21,7 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `invert_t1(signal: np.ndarray, recovery_times: np.ndarray, t1_axis: np.ndarray, *, mode: Literal['saturation', 'inversion'] = 'saturation', **kwargs) -> ILTResult1D` | Convenience wrapper for a 1D T1 recovery or inversion-recovery ILT. |
 | function | `invert_t1_t2(data: np.ndarray, recovery_times: np.ndarray, echo_times: np.ndarray, t1_axis: np.ndarray, t2_axis: np.ndarray, *, t1_mode: Literal['saturation', 'inversion'] = 'saturation', **kwargs) -> ILTResult2D` | Convenience wrapper for a separable T1-T2 inverse Laplace transform. |
 | function | `invert_d_t2(data: np.ndarray, b_values: np.ndarray, echo_times: np.ndarray, diffusion_axis: np.ndarray, t2_axis: np.ndarray, **kwargs) -> ILTResult2D` | Convenience wrapper for a separable D-T2 inverse Laplace transform. |
+| function | `invert_t2_t2(data: np.ndarray, encode_times: np.ndarray, detect_times: np.ndarray, t2_axis_encode: np.ndarray, t2_axis_detect: np.ndarray | None = None, **kwargs) -> ILTResult2D` | Convenience wrapper for a T2-T2 (relaxation exchange) inverse transform. |
 
 ## `spin_dynamics.analysis.regularization`
 
@@ -289,6 +290,22 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `ESRSpinSystem` | Single-electron ESR spin system with an isotropic or anisotropic ``g`` tensor. |
 | class | `ESRTransition` | One ESR transition between electron-spin energy eigenstates. |
 | class | `ESREigensystem` | Energy levels, eigenvectors, and allowed ESR transitions for one field. |
+
+## `spin_dynamics.exchange`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `ExchangeSite` | One magnetically distinct site in a chemical-exchange bath. |
+| class | `ExchangeSystem` | A set of exchanging sites with a first-order rate matrix. |
+| class | `RelaxationExchange2DResult` | Encode-mix-detect data set for relaxation exchange spectroscopy. |
+| function | `two_site_exchange(*, offset_a_hz: float, offset_b_hz: float, k_ab_hz: float, k_ba_hz: float | None = None, population_a: float | None = None, t2_a_seconds: float = np.inf, t2_b_seconds: float = np.inf, t1_a_seconds: float = np.inf, t1_b_seconds: float = np.inf, labels: tuple[str, str] = ('A', 'B'), balance: str = 'warn') -> ExchangeSystem` | Build a two-site exchange system. |
+| function | `exchange_generator(system: ExchangeSystem) -> np.ndarray` | Return the kinetic generator ``X`` for magnetization exchange. |
+| function | `transverse_generator(system: ExchangeSystem) -> np.ndarray` | Return the complex transverse Bloch-McConnell generator. |
+| function | `transverse_propagator(system: ExchangeSystem, duration: float) -> np.ndarray` | Return ``exp(A * duration)`` for the transverse generator. |
+| function | `mixing_propagator(system: ExchangeSystem, mixing_time: float, *, include_t1: bool = True) -> np.ndarray` | Return the longitudinal exchange map ``G`` for the mixing interval. |
+| function | `simulate_exchange_fid(system: ExchangeSystem, times_seconds: np.ndarray, *, initial_magnetization: np.ndarray | None = None) -> np.ndarray` | Return the complex transverse free-induction decay with exchange. |
+| function | `exchange_spectrum(system: ExchangeSystem, *, num_points: int = 4096, dwell_seconds: float | None = None, span_hz: float | None = None, line_broadening_hz: float = 0.0) -> tuple[np.ndarray, np.ndarray]` | Return ``(frequencies_hz, spectrum)`` from an exchange-broadened FID. |
+| function | `simulate_relaxation_exchange_2d(system: ExchangeSystem, encode_times: np.ndarray, detect_times: np.ndarray, mixing_time: float, *, include_t1: bool = True) -> RelaxationExchange2DResult` | Simulate an encode-mix-detect (T2-T2) relaxation exchange data set. |
 
 ## `spin_dynamics.motion`
 

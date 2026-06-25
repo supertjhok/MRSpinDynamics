@@ -28,9 +28,13 @@ spin-1 and spin-3/2 line metadata, while the current selective-pulse examples
 are spin-1 workflows. The `spin_dynamics.esr` namespace is the single-electron
 ESR/EPR extension for anisotropic g-tensor spectra, CW derivative display,
 static disorder, pulsed FID/Hahn echo simulations with T1/T2 relaxation, and
-first isotropic electron-nuclear hyperfine doublets. The package still does
-not attempt chemical exchange or arbitrary nonselective multi-quantum
-pulse-sequence simulation.
+first isotropic electron-nuclear hyperfine doublets. The
+`spin_dynamics.exchange` namespace adds Bloch-McConnell site/chemical exchange:
+multi-site kinetic magnetization transfer with per-site `T1`/`T2` and offset,
+lineshape coalescence, and encode-mix-detect `T2`-`T2` relaxation exchange
+(REXSY) data that inverts to an exchange map through the existing 2D
+inverse-Laplace solver. The package still does not attempt arbitrary
+nonselective multi-quantum pulse-sequence simulation.
 
 ## Documentation
 
@@ -192,6 +196,7 @@ python examples\radiation_damping_fid.py --probe matched --points 401
 python examples\plot_inverse_laplace.py --output results\inverse_laplace.png
 python examples\plot_pgse_d_t2.py --output results\pgse_d_t2.png
 python examples\plot_dexsy_exchange.py --output results\dexsy_exchange.png
+python examples\plot_t2_t2_exchange.py --output results\t2_t2_exchange.png
 python examples\plot_nqr_powder_nutation.py --output results\nqr_powder_nutation.png
 python examples\plot_nqr_population_transfer.py --output results\nqr_population_transfer.png
 python examples\plot_nqr_slse_offset.py --output results\nqr_slse_offset.png

@@ -15,6 +15,7 @@ variants, packaging, and performance.
 - [Core Numerical Functions](core.md)
 - [Workflows](workflows.md)
 - [Analysis](analysis.md)
+- [Chemical / Site Exchange](exchange.md)
 - [J-Coupling Models](j_coupling.md)
 - [NQR Models](nqr.md)
 - [ESR Models](esr.md)

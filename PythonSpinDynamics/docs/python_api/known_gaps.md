@@ -40,10 +40,14 @@ Ported and validated:
 - moving-isochromat sequence driver primitives, including explicit sequence
   intervals, RF/free-precession substeps, receive samples, and a rectangular
   CPMG runner for static-gradient diffusion/advection studies;
-- 1D and separable 2D inverse Laplace transform helpers for T1, T2, T1-T2, and
-  D-T2 synthetic analysis, with adjustable Tikhonov regularization and
-  SNR-informed automatic strength selection plus SciPy-backed non-negative
+- 1D and separable 2D inverse Laplace transform helpers for T1, T2, T1-T2,
+  D-T2, and T2-T2 synthetic analysis, with adjustable Tikhonov regularization
+  and SNR-informed automatic strength selection plus SciPy-backed non-negative
   solves;
+- Bloch-McConnell site/chemical exchange (`spin_dynamics.exchange`):
+  multi-site kinetic generators with detailed-balance checks, transverse
+  lineshape coalescence, longitudinal mixing propagators, and encode-mix-detect
+  T2-T2 relaxation exchange (REXSY) data that inverts to an exchange map;
 - fixture-validated pulse-shape utilities for JMR rectangular pulse responses,
   phase quantization, and untuned segment adjustment;
 - WURST pulse construction, matched-probe frequency-swept transmit response,
