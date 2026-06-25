@@ -16,3 +16,6 @@
   `python3 -m venv /tmp/nmr-ci-venv && . /tmp/nmr-ci-venv/bin/activate && cd '/mnt/c/Users/super/OneDrive - Brookhaven National Laboratory/Codex/NMR/PythonSpinDynamics' && python -m pip install -q -e '.[dev,opt,plot]'`.
   Then run the three smoke steps from that activated venv before committing or
   pushing.
+- For PythonSpinDynamics updates in this repository, push completed and
+  validated changes directly to `main` unless the user explicitly asks for a
+  pull-request branch.
