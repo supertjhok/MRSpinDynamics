@@ -12,8 +12,14 @@ from spin_dynamics.analysis.ilt import (
     ILTResult2D,
     KernelName,
     Regularization,
-    invert_laplace_1d,
-    invert_laplace_2d,
+    _invert_laplace_1d_precomputed,
+    _invert_laplace_2d_precomputed,
+    _kernel_matrix,
+    _positive_vector,
+    _regularization,
+    _regularization_pair,
+    _vector,
+    _warn_if_magnitude_like_signal,
 )
 
 
@@ -141,14 +147,31 @@ def select_regularization_1d(
         snr,
         target_multiplier=target_multiplier,
     )
+    samples = _vector(sample_axis, "sample_axis")
+    axis = _positive_vector(distribution_axis, "distribution_axis", allow_zero=True)
+    y = _vector(signal, "signal")
+    if y.size != samples.size:
+        raise ValueError("signal and sample_axis must have the same length")
+    kernel_matrix = _kernel_matrix(kernel, samples, axis)
+    if kernel_matrix.shape != (samples.size, axis.size):
+        raise ValueError(
+            "kernel matrix must have shape "
+            f"({samples.size}, {axis.size}); got {kernel_matrix.shape}"
+        )
+    _warn_if_magnitude_like_signal(kernel_matrix, y, nonnegative)
+
     candidates: list[RegularizationCandidate1D] = []
     for strength in grid:
-        result = invert_laplace_1d(
-            signal,
-            sample_axis,
-            distribution_axis,
-            kernel=kernel,
-            regularization=Regularization(float(strength), regularization_order),
+        regularization = _regularization(
+            Regularization(float(strength), regularization_order),
+            None,
+        )
+        result = _invert_laplace_1d_precomputed(
+            y,
+            samples,
+            axis,
+            kernel_matrix,
+            regularization=regularization,
             nonnegative=nonnegative,
         )
         ratio = _residual_ratio(result.residual_norm, target)
@@ -207,22 +230,46 @@ def select_regularization_2d(
         snr,
         target_multiplier=target_multiplier,
     )
+    x1 = _vector(sample_axis1, "sample_axis1")
+    x2 = _vector(sample_axis2, "sample_axis2")
+    axis1 = _positive_vector(distribution_axis1, "distribution_axis1", allow_zero=True)
+    axis2 = _positive_vector(distribution_axis2, "distribution_axis2", allow_zero=True)
+    matrix = np.asarray(data)
+    if matrix.shape != (x1.size, x2.size):
+        raise ValueError(
+            "data must have shape "
+            f"({x1.size}, {x2.size}); got {matrix.shape}"
+        )
+    k1 = _kernel_matrix(kernel1, x1, axis1)
+    k2 = _kernel_matrix(kernel2, x2, axis2)
+    if k1.shape != (x1.size, axis1.size):
+        raise ValueError(f"kernel1 has unexpected shape {k1.shape}")
+    if k2.shape != (x2.size, axis2.size):
+        raise ValueError(f"kernel2 has unexpected shape {k2.shape}")
+    _warn_if_magnitude_like_signal(k1, matrix, nonnegative)
+    _warn_if_magnitude_like_signal(k2, matrix, nonnegative)
+    design = np.kron(k2, k1)
+
     candidates: list[RegularizationCandidate2D] = []
     for strength in grid:
         axis_strengths = (
             float(strength * axis_strength_ratio[0]),
             float(strength * axis_strength_ratio[1]),
         )
-        result = invert_laplace_2d(
-            data,
-            sample_axis1,
-            sample_axis2,
-            distribution_axis1,
-            distribution_axis2,
-            kernel1=kernel1,
-            kernel2=kernel2,
-            regularization=axis_strengths,
-            regularization_order=regularization_order,
+        regularization = _regularization_pair(
+            axis_strengths,
+            regularization_order,
+        )
+        result = _invert_laplace_2d_precomputed(
+            matrix,
+            x1,
+            x2,
+            axis1,
+            axis2,
+            k1,
+            k2,
+            design,
+            regularization=regularization,
             nonnegative=nonnegative,
         )
         ratio = _residual_ratio(result.residual_norm, target)

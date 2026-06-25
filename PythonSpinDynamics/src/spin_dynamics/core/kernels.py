@@ -161,6 +161,24 @@ def _free_precession_matrix_elements_diffusion(
     )
 
 
+def _apply_free_precession_step(
+    mvect: np.ndarray,
+    del_w: np.ndarray,
+    tf: float,
+    t1n: np.ndarray,
+    t2n: np.ndarray,
+    mth: np.ndarray,
+    transverse_attenuation: float = 1.0,
+) -> None:
+    longitudinal = np.exp(-tf / t1n)
+    transverse = np.exp(-tf / t2n) * np.exp(1j * del_w * tf)
+    if transverse_attenuation != 1.0:
+        transverse = float(transverse_attenuation) * transverse
+    mvect[0, :] = longitudinal * mvect[0, :] + mth * (1.0 - longitudinal)
+    mvect[1, :] = np.conj(transverse) * mvect[1, :]
+    mvect[2, :] = transverse * mvect[2, :]
+
+
 def sim_spin_dynamics_arb10(params: Mapping[str, Any] | Arb10Parameters | Any) -> np.ndarray:
     """Simulate arbitrary-pulse spin dynamics with precomputed pulse matrices.
 
@@ -202,19 +220,23 @@ def sim_spin_dynamics_arb10(params: Mapping[str, Any] | Arb10Parameters | Any) -
     acq_cnt = 0
 
     for tp_j, pul_j, amp_j, acq_j, grad_j in zip(tp, pul, amp, acq, grad):
-        del_w = del_w0 + grad_j * del_wg
-
         if amp_j > 0:
             mat = rtot[int(pul_j) - 1]
             mlong = np.zeros(numpts, dtype=np.complex128)
+            tmp = mvect.copy()
+            mvect[0, :] = mat.R_00 * tmp[0, :] + mat.R_0m * tmp[1, :] + mat.R_0p * tmp[2, :] + mlong
+            mvect[1, :] = mat.R_m0 * tmp[0, :] + mat.R_mm * tmp[1, :] + mat.R_mp * tmp[2, :]
+            mvect[2, :] = mat.R_p0 * tmp[0, :] + mat.R_pm * tmp[1, :] + mat.R_pp * tmp[2, :]
         else:
-            mat = _free_precession_matrix_elements(del_w, float(tp_j), T1n, T2n)
-            mlong = mth * (1 - np.exp(-tp_j / T1n))
-
-        tmp = mvect.copy()
-        mvect[0, :] = mat.R_00 * tmp[0, :] + mat.R_0m * tmp[1, :] + mat.R_0p * tmp[2, :] + mlong
-        mvect[1, :] = mat.R_m0 * tmp[0, :] + mat.R_mm * tmp[1, :] + mat.R_mp * tmp[2, :]
-        mvect[2, :] = mat.R_p0 * tmp[0, :] + mat.R_pm * tmp[1, :] + mat.R_pp * tmp[2, :]
+            del_w = del_w0 + grad_j * del_wg
+            _apply_free_precession_step(
+                mvect,
+                del_w,
+                float(tp_j),
+                T1n,
+                T2n,
+                mth,
+            )
 
         if acq_j:
             macq[acq_cnt, :] = mvect[1, :]
@@ -633,27 +655,32 @@ def sim_spin_dynamics_arb10_diffusion(
     acq_cnt = 0
 
     for tp_j, pul_j, amp_j, acq_j, grad_j in zip(tp, pul, amp, acq, grad):
-        del_w = del_w0 + grad_j * del_wg
         if amp_j > 0:
             mat = rtot[int(pul_j) - 1]
             mlong = np.zeros(numpts, dtype=np.complex128)
+            tmp = mvect.copy()
+            mvect[0, :] = mat.R_00 * tmp[0, :] + mat.R_0m * tmp[1, :] + mat.R_0p * tmp[2, :] + mlong
+            mvect[1, :] = mat.R_m0 * tmp[0, :] + mat.R_mm * tmp[1, :] + mat.R_mp * tmp[2, :]
+            mvect[2, :] = mat.R_p0 * tmp[0, :] + mat.R_pm * tmp[1, :] + mat.R_pp * tmp[2, :]
         else:
-            mat = _free_precession_matrix_elements_diffusion(
+            del_w = del_w0 + grad_j * del_wg
+            t_seconds = abs(float(tp_j)) * time_scale
+            attenuation = np.exp(
+                -(1.0 / 3.0)
+                * gamma**2
+                * gradient**2
+                * diffusion_coefficient
+                * t_seconds**3
+            )
+            _apply_free_precession_step(
+                mvect,
                 del_w,
                 float(tp_j),
                 T1n,
                 T2n,
-                gamma,
-                gradient,
-                diffusion_coefficient,
-                time_scale,
+                mth,
+                transverse_attenuation=float(attenuation),
             )
-            mlong = mth * (1 - np.exp(-tp_j / T1n))
-
-        tmp = mvect.copy()
-        mvect[0, :] = mat.R_00 * tmp[0, :] + mat.R_0m * tmp[1, :] + mat.R_0p * tmp[2, :] + mlong
-        mvect[1, :] = mat.R_m0 * tmp[0, :] + mat.R_mm * tmp[1, :] + mat.R_mp * tmp[2, :]
-        mvect[2, :] = mat.R_p0 * tmp[0, :] + mat.R_pm * tmp[1, :] + mat.R_pp * tmp[2, :]
 
         if acq_j:
             macq[acq_cnt, :] = mvect[1, :]
@@ -723,7 +750,7 @@ def _chunk_slices(numpts: int, chunks: int) -> list[slice]:
 def sim_spin_dynamics_arb10_chunked(
     params: Mapping[str, Any] | Arb10Parameters | Any,
     num_workers: int | None = None,
-    min_chunk_size: int = 256,
+    min_chunk_size: int = 8192,
 ) -> np.ndarray:
     """Run `sim_spin_dynamics_arb10` on contiguous isochromat chunks.
 
@@ -759,7 +786,7 @@ def sim_spin_dynamics_arb10_chunked(
 def sim_spin_dynamics_arb10_diffusion_chunked(
     params: Mapping[str, Any] | Arb10DiffusionParameters | Any,
     num_workers: int | None = None,
-    min_chunk_size: int = 256,
+    min_chunk_size: int = 8192,
 ) -> np.ndarray:
     """Run `sim_spin_dynamics_arb10_diffusion` on isochromat chunks."""
 
@@ -836,23 +863,28 @@ def sim_spin_dynamics_arb7(params: Mapping[str, Any] | Arb7Parameters | Any) -> 
         if amp_j > 0:
             mat = rf_matrix_elements(del_w, amp_j * w_1, float(tp_j), float(phi_j))
             mlong = np.zeros(numpts, dtype=np.complex128)
+            tmp = mvect.copy()
+            mvect[0, :] = (
+                mat.R_00 * tmp[0, :]
+                + mat.R_0m * tmp[1, :]
+                + mat.R_0p * tmp[2, :]
+                + mlong
+            )
+            mvect[1, :] = (
+                mat.R_m0 * tmp[0, :] + mat.R_mm * tmp[1, :] + mat.R_mp * tmp[2, :]
+            )
+            mvect[2, :] = (
+                mat.R_p0 * tmp[0, :] + mat.R_pm * tmp[1, :] + mat.R_pp * tmp[2, :]
+            )
         else:
-            mat = _free_precession_matrix_elements(del_w, float(tp_j), T1n, T2n)
-            mlong = mth * (1 - np.exp(-tp_j / T1n))
-
-        tmp = mvect.copy()
-        mvect[0, :] = (
-            mat.R_00 * tmp[0, :]
-            + mat.R_0m * tmp[1, :]
-            + mat.R_0p * tmp[2, :]
-            + mlong
-        )
-        mvect[1, :] = (
-            mat.R_m0 * tmp[0, :] + mat.R_mm * tmp[1, :] + mat.R_mp * tmp[2, :]
-        )
-        mvect[2, :] = (
-            mat.R_p0 * tmp[0, :] + mat.R_pm * tmp[1, :] + mat.R_pp * tmp[2, :]
-        )
+            _apply_free_precession_step(
+                mvect,
+                del_w,
+                float(tp_j),
+                T1n,
+                T2n,
+                mth,
+            )
 
         if acq_j:
             macq[acq_cnt, :] = np.convolve(mvect[1, :], window, mode="same")

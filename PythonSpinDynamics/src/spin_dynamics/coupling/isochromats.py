@@ -198,30 +198,35 @@ def simulate_coupled_isochromat_sequence(
         dtype=np.complex128,
     )
 
+    prepared_steps = []
+    for step in steps:
+        b0_offsets = _step_isochromat_values(
+            step.b0_offsets_hz,
+            ensemble.b0_offsets_hz,
+            ensemble.nisochromats,
+            "b0_offsets_hz",
+        )
+        b1_scale = _step_isochromat_values(
+            step.b1_tx_scale,
+            ensemble.b1_tx_scale,
+            ensemble.nisochromats,
+            "b1_tx_scale",
+        )
+        if np.any(b1_scale < 0.0):
+            raise ValueError("B1 scales must be non-negative")
+        nutation = np.asarray(step.nutation_hz, dtype=np.float64)
+        prepared_steps.append((step, b0_offsets, b1_scale, nutation))
+
+    if j_mode == "isotropic":
+        j_hamiltonian = isotropic_j_hamiltonian(ensemble.base_system)
+    else:
+        j_hamiltonian = secular_j_hamiltonian(ensemble.base_system)
+
     for iso_idx in range(ensemble.nisochromats):
         density = initial.copy()
-        for step in steps:
-            b0_offsets = _step_isochromat_values(
-                step.b0_offsets_hz,
-                ensemble.b0_offsets_hz,
-                ensemble.nisochromats,
-                "b0_offsets_hz",
-            )
-            b1_scale = _step_isochromat_values(
-                step.b1_tx_scale,
-                ensemble.b1_tx_scale,
-                ensemble.nisochromats,
-                "b1_tx_scale",
-            )
-            if np.any(b1_scale < 0.0):
-                raise ValueError("B1 scales must be non-negative")
+        for step, b0_offsets, b1_scale, nutation in prepared_steps:
             system = ensemble.local_system(iso_idx, float(b0_offsets[iso_idx]))
-            hamiltonian = zeeman_hamiltonian(system)
-            if j_mode == "isotropic":
-                hamiltonian = hamiltonian + isotropic_j_hamiltonian(system)
-            else:
-                hamiltonian = hamiltonian + secular_j_hamiltonian(system)
-            nutation = np.asarray(step.nutation_hz, dtype=np.float64)
+            hamiltonian = zeeman_hamiltonian(system) + j_hamiltonian
             if np.any(nutation != 0.0):
                 hamiltonian = hamiltonian + rf_hamiltonian(
                     system,

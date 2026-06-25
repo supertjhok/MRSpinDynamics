@@ -7,6 +7,7 @@ import warnings
 
 import numpy as np
 
+from spin_dynamics.coupling.evolution import propagator
 from spin_dynamics.nqr.hamiltonians import diagonalize_site
 from spin_dynamics.nqr.orientations import (
     OrientationSample,
@@ -241,13 +242,22 @@ def simulate_slse(
         )
         echoes = np.zeros(sequence.num_echoes, dtype=np.complex128)
         if relaxation is None:
+            detuning_hz = _pulse_detuning_hz(sequence.detection, transition)
+            hamiltonian = selective_pulse_hamiltonian(
+                site.dimension,
+                transition,
+                nutation_hz=sequence.detection.nutation_hz,
+                phase=sequence.detection.phase,
+                b1_direction_pas=sample.b1_direction_pas,
+                detuning_hz=detuning_hz,
+            )
+            unitary = propagator(
+                hamiltonian,
+                sequence.detection.duration_seconds,
+            )
+            unitary_dagger = unitary.conj().T
             for echo_idx in range(sequence.num_echoes):
-                density = apply_selective_pulse(
-                    density,
-                    transition,
-                    sequence.detection,
-                    b1_direction_pas=sample.b1_direction_pas,
-                )
+                density = unitary @ density @ unitary_dagger
                 echoes[echo_idx] = transition_signal(
                     density,
                     transition,

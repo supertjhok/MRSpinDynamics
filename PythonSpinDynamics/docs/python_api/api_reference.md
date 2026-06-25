@@ -160,8 +160,8 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `sim_spin_dynamics_arb10(params: Mapping[str, Any] | Arb10Parameters | Any) -> np.ndarray` | Simulate arbitrary-pulse spin dynamics with precomputed pulse matrices. |
 | function | `sim_spin_dynamics_arb10_radiation_damping(params: Mapping[str, Any] | Arb10Parameters | Any, radiation_damping: RadiationDampingSpec) -> np.ndarray` | Simulate `arb10` with ensemble radiation damping during free intervals. |
 | function | `sim_spin_dynamics_arb10_diffusion(params: Mapping[str, Any] | Arb10DiffusionParameters | Any) -> np.ndarray` | Simulate arbitrary-pulse dynamics with a diffusion free-precession term. |
-| function | `sim_spin_dynamics_arb10_chunked(params: Mapping[str, Any] | Arb10Parameters | Any, num_workers: int | None = None, min_chunk_size: int = 256) -> np.ndarray` | Run `sim_spin_dynamics_arb10` on contiguous isochromat chunks. |
-| function | `sim_spin_dynamics_arb10_diffusion_chunked(params: Mapping[str, Any] | Arb10DiffusionParameters | Any, num_workers: int | None = None, min_chunk_size: int = 256) -> np.ndarray` | Run `sim_spin_dynamics_arb10_diffusion` on isochromat chunks. |
+| function | `sim_spin_dynamics_arb10_chunked(params: Mapping[str, Any] | Arb10Parameters | Any, num_workers: int | None = None, min_chunk_size: int = 8192) -> np.ndarray` | Run `sim_spin_dynamics_arb10` on contiguous isochromat chunks. |
+| function | `sim_spin_dynamics_arb10_diffusion_chunked(params: Mapping[str, Any] | Arb10DiffusionParameters | Any, num_workers: int | None = None, min_chunk_size: int = 8192) -> np.ndarray` | Run `sim_spin_dynamics_arb10_diffusion` on isochromat chunks. |
 | function | `sim_spin_dynamics_arb7(params: Mapping[str, Any] | Arb7Parameters | Any) -> np.ndarray` | Simulate arbitrary-pulse dynamics with acquisition-window convolution. |
 
 ## `spin_dynamics.core.numerics`

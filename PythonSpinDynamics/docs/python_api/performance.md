@@ -30,6 +30,16 @@ builds, BLAS threading, and worker count. Compare before/after runs on the same
 machine with the same command line. Treat committed timing CSV files as
 historical guidance rather than portable pass/fail thresholds.
 
+The chunked core kernels default to larger per-worker chunks so compact
+isochromat grids stay serial unless there is enough work to offset process
+startup and data-transfer overhead. For small sweeps, prefer outer-level
+parallelism over simultaneously enabling sweep workers and isochromat workers.
+
+SNR-based inverse-Laplace regularization selectors reuse their validated kernel
+matrices across candidate strengths. Large 2D inversions still build the dense
+Kronecker design matrix for the solve, so very large maps remain better treated
+as benchmark targets than interactive workloads.
+
 The matched-diffusion high-Q benchmark is a solver-validation boundary, not a
 physical limit. The current pure-Python matched transient calculation is
 validated for compact cases through Q=2000 and warns above that boundary.

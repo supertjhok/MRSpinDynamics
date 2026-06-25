@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import lru_cache
 
 import numpy as np
 
@@ -40,6 +41,7 @@ class SpinMatrices:
     i_minus: np.ndarray
 
 
+@lru_cache(maxsize=None)
 def spin_matrices(spin: float) -> SpinMatrices:
     """Return dense angular-momentum matrices for one spin."""
 

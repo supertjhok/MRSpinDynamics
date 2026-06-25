@@ -364,15 +364,28 @@ def _maybe_refine_numpts(
     return max(int(numpts), recommended)
 
 
+def _echo_phase_matrix(
+    del_w: np.ndarray,
+    tacq: float,
+    tdw: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    nacq = round(tacq / tdw) + 1
+    tvect = np.linspace(-tacq / 2, tacq / 2, nacq)
+    isoc = np.exp(1j * tvect[:, np.newaxis] * del_w[np.newaxis, :])
+    return tvect, isoc
+
+
 def _echo_train_from_spectra(
     mrx: np.ndarray,
     del_w: np.ndarray,
     tacq: float,
     tdw: float,
+    *,
+    tvect: np.ndarray | None = None,
+    isoc: np.ndarray | None = None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    nacq = round(tacq / tdw) + 1
-    tvect = np.linspace(-tacq / 2, tacq / 2, nacq)
-    isoc = np.exp(1j * tvect[:, np.newaxis] * del_w[np.newaxis, :])
+    if tvect is None or isoc is None:
+        tvect, isoc = _echo_phase_matrix(del_w, tacq, tdw)
     echo = (isoc @ mrx.T).T
     echo_integrals = trapezoid(echo, tvect, axis=1)
     return echo, tvect, echo_integrals
@@ -737,7 +750,15 @@ def run_ideal_cpmg_train(
 
     tacq = float((np.pi / 2) * np.ravel(pp0.tacq)[0] / pp0.T_90)
     tdw = float((np.pi / 2) * pp0.tdw / pp0.T_90)
-    echo, tvect, echo_integrals = _echo_train_from_spectra(mrx, del_w, tacq, tdw)
+    tvect, isoc = _echo_phase_matrix(del_w, tacq, tdw)
+    echo, tvect, echo_integrals = _echo_train_from_spectra(
+        mrx,
+        del_w,
+        tacq,
+        tdw,
+        tvect=tvect,
+        isoc=isoc,
+    )
     mrx_noisy, noise_metadata = _add_optional_spectrum_noise(
         mrx,
         noise,
@@ -752,6 +773,8 @@ def run_ideal_cpmg_train(
             del_w,
             tacq,
             tdw,
+            tvect=tvect,
+            isoc=isoc,
         )
     else:
         echo_noisy, noise_metadata = _add_optional_time_noise(echo, noise)
@@ -1082,7 +1105,15 @@ def run_tuned_cpmg_train(
 
     tacq = float((np.pi / 2) * np.ravel(pp0.tacq)[0] / pp0.T_90)
     tdw = float((np.pi / 2) * pp0.tdw / pp0.T_90)
-    echo, tvect, echo_integrals = _echo_train_from_spectra(mrx, del_w, tacq, tdw)
+    tvect, isoc = _echo_phase_matrix(del_w, tacq, tdw)
+    echo, tvect, echo_integrals = _echo_train_from_spectra(
+        mrx,
+        del_w,
+        tacq,
+        tdw,
+        tvect=tvect,
+        isoc=isoc,
+    )
     mrx_noisy, noise_metadata = _add_optional_spectrum_noise(
         mrx,
         noise,
@@ -1099,6 +1130,8 @@ def run_tuned_cpmg_train(
             del_w,
             tacq,
             tdw,
+            tvect=tvect,
+            isoc=isoc,
         )
     else:
         echo_noisy, noise_metadata = _add_optional_time_noise(echo, noise)
@@ -1297,7 +1330,15 @@ def run_untuned_cpmg_train(
 
     tacq = float((np.pi / 2) * np.ravel(pp0.tacq)[0] / pp0.T_90)
     tdw = float((np.pi / 2) * pp0.tdw / pp0.T_90)
-    echo, tvect, echo_integrals = _echo_train_from_spectra(mrx, del_w, tacq, tdw)
+    tvect, isoc = _echo_phase_matrix(del_w, tacq, tdw)
+    echo, tvect, echo_integrals = _echo_train_from_spectra(
+        mrx,
+        del_w,
+        tacq,
+        tdw,
+        tvect=tvect,
+        isoc=isoc,
+    )
     mrx_noisy, noise_metadata = _add_optional_spectrum_noise(
         mrx,
         noise,
@@ -1314,6 +1355,8 @@ def run_untuned_cpmg_train(
             del_w,
             tacq,
             tdw,
+            tvect=tvect,
+            isoc=isoc,
         )
     else:
         echo_noisy, noise_metadata = _add_optional_time_noise(echo, noise)
@@ -1519,7 +1562,15 @@ def run_matched_cpmg_train(
 
     tacq = float((np.pi / 2) * np.ravel(pp0.tacq)[0] / pp0.T_90)
     tdw = float((np.pi / 2) * pp0.tdw / pp0.T_90)
-    echo, tvect, echo_integrals = _echo_train_from_spectra(mrx, del_w, tacq, tdw)
+    tvect, isoc = _echo_phase_matrix(del_w, tacq, tdw)
+    echo, tvect, echo_integrals = _echo_train_from_spectra(
+        mrx,
+        del_w,
+        tacq,
+        tdw,
+        tvect=tvect,
+        isoc=isoc,
+    )
     mrx_noisy, noise_metadata = _add_optional_spectrum_noise(
         mrx,
         noise,
@@ -1536,6 +1587,8 @@ def run_matched_cpmg_train(
             del_w,
             tacq,
             tdw,
+            tvect=tvect,
+            isoc=isoc,
         )
     else:
         echo_noisy, noise_metadata = _add_optional_time_noise(echo, noise)

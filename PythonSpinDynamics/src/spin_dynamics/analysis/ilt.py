@@ -189,27 +189,13 @@ def invert_laplace_1d(
             f"({samples.size}, {axis.size}); got {kernel_matrix.shape}"
         )
     _warn_if_magnitude_like_signal(kernel_matrix, y, nonnegative)
-
-    distribution = _solve_tikhonov(
-        kernel_matrix,
+    return _invert_laplace_1d_precomputed(
         y,
-        (reg,),
-        (axis.size,),
-        nonnegative=nonnegative,
-    )
-    prediction = kernel_matrix @ distribution
-    residual = prediction - y
-    return ILTResult1D(
-        distribution=distribution,
-        axis=axis,
-        sample_axis=samples,
-        prediction=prediction,
-        residual=residual,
-        kernel=kernel_matrix,
+        samples,
+        axis,
+        kernel_matrix,
         regularization=reg,
         nonnegative=nonnegative,
-        residual_norm=float(np.linalg.norm(residual.ravel())),
-        solution_norm=float(np.linalg.norm(distribution.ravel())),
     )
 
 
@@ -260,16 +246,88 @@ def invert_laplace_2d(
     _warn_if_magnitude_like_signal(k2, matrix, nonnegative)
 
     design = np.kron(k2, k1)
+    return _invert_laplace_2d_precomputed(
+        matrix,
+        x1,
+        x2,
+        axis1,
+        axis2,
+        k1,
+        k2,
+        design,
+        regularization=(reg1, reg2),
+        nonnegative=nonnegative,
+    )
+
+
+def _invert_laplace_1d_precomputed(
+    signal: np.ndarray,
+    samples: np.ndarray,
+    axis: np.ndarray,
+    kernel_matrix: np.ndarray,
+    *,
+    regularization: Regularization,
+    nonnegative: bool,
+) -> ILTResult1D:
+    """Solve a 1D ILT with validated axes and a precomputed kernel."""
+
+    if signal.size != samples.size:
+        raise ValueError("signal and sample_axis must have the same length")
+
+    distribution = _solve_tikhonov(
+        kernel_matrix,
+        signal,
+        (regularization,),
+        (axis.size,),
+        nonnegative=nonnegative,
+    )
+    prediction = kernel_matrix @ distribution
+    residual = prediction - signal
+    return ILTResult1D(
+        distribution=distribution,
+        axis=axis,
+        sample_axis=samples,
+        prediction=prediction,
+        residual=residual,
+        kernel=kernel_matrix,
+        regularization=regularization,
+        nonnegative=nonnegative,
+        residual_norm=float(np.linalg.norm(residual.ravel())),
+        solution_norm=float(np.linalg.norm(distribution.ravel())),
+    )
+
+
+def _invert_laplace_2d_precomputed(
+    data: np.ndarray,
+    x1: np.ndarray,
+    x2: np.ndarray,
+    axis1: np.ndarray,
+    axis2: np.ndarray,
+    k1: np.ndarray,
+    k2: np.ndarray,
+    design: np.ndarray,
+    *,
+    regularization: tuple[Regularization, Regularization],
+    nonnegative: bool,
+) -> ILTResult2D:
+    """Solve a 2D ILT with validated axes and precomputed separable kernels."""
+
+    if data.shape != (x1.size, x2.size):
+        raise ValueError(
+            "data must have shape "
+            f"({x1.size}, {x2.size}); got {data.shape}"
+        )
+    reg1, reg2 = regularization
     distribution_flat = _solve_tikhonov(
         design,
-        matrix.reshape(-1, order="F"),
+        data.reshape(-1, order="F"),
         (reg1, reg2),
         (axis1.size, axis2.size),
         nonnegative=nonnegative,
     )
     distribution = distribution_flat.reshape((axis1.size, axis2.size), order="F")
     prediction = k1 @ distribution @ k2.T
-    residual = prediction - matrix
+    residual = prediction - data
     return ILTResult2D(
         distribution=distribution,
         axis1=axis1,

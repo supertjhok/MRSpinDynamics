@@ -1280,13 +1280,9 @@ def _probe_imaging(
             "del_wg": gradx[ix] * maps["del_wx"] + gradz[iz] * maps["del_wz"],
         }
         pp1 = {**pp_common, "pul": pul1}
-        pp2 = {**pp_common, "pul": pul2}
         pp3 = {**pp_common, "pul": pul3}
-        pp4 = {**pp_common, "pul": pul4}
         macq1, mrx1 = calc_macq(sp_case, pp1, num_workers=num_workers)
-        _macq2, mrx2 = calc_macq(sp_case, pp2, num_workers=num_workers)
         macq3, mrx3 = calc_macq(sp_case, pp3, num_workers=num_workers)
-        _macq4, mrx4 = calc_macq(sp_case, pp4, num_workers=num_workers)
         if probe == "tuned":
             if tuned_receive_mode == "raw":
                 echo_x = isoc @ macq1.T
@@ -1303,6 +1299,10 @@ def _probe_imaging(
                     echo_y_noisy = isoc @ mrx3_noisy.T
                     echo_xy_noisy = np.imag(echo_x_noisy) - 1j * np.real(echo_y_noisy)
         else:
+            pp2 = {**pp_common, "pul": pul2}
+            pp4 = {**pp_common, "pul": pul4}
+            _macq2, mrx2 = calc_macq(sp_case, pp2, num_workers=num_workers)
+            _macq4, mrx4 = calc_macq(sp_case, pp4, num_workers=num_workers)
             echo_x = isoc @ (mrx1 - mrx2).T
             echo_y = isoc @ (mrx3 - mrx4).T
             echo_xy_noisy = None
