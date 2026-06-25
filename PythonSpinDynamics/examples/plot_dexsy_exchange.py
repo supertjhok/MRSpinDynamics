@@ -197,7 +197,6 @@ def _make_ensemble(args: argparse.Namespace):
         int(args.cells_right),
     )
     x_centers = np.concatenate((left_centers, right_centers))
-    z_centers = np.array([0.0], dtype=np.float64)
     base = np.column_stack((x_centers, np.zeros_like(x_centers)))
     positions = np.repeat(base, int(args.walkers_per_cell), axis=0)
     dx = np.concatenate(
