@@ -216,9 +216,55 @@ def pgste_stimulated_echo_phase_cycle() -> PhaseCycle:
     )
 
 
+def diff_stebp_phase_cycle() -> PhaseCycle:
+    """Return the 16-step Bruker ``diff_stebp`` 13-interval bipolar PGSTE cycle.
+
+    This reproduces the phase program of the Bruker ``diff_stebp.gp`` 13-interval
+    stimulated-echo bipolar pulsed-gradient sequence: ``ph1`` on the excitation
+    90, ``ph2`` on the storage 90, ``ph3`` on the read 90, ``ph4`` on both 180
+    refocusing pulses (constant 0), and the receiver ``ph31``. Phases are given
+    in the Bruker quarter-cycle convention (units of ``pi/2``).
+
+    The receiver satisfies ``ph31 = -(ph1 + ph2 + ph3) mod 4`` (since
+    ``ph4 = 0``), which selects the stimulated-echo coherence-transfer pathway
+    ``Delta p = (+1, -2, +1, +1, -2)`` with detection at ``p = -1`` and rejects
+    the anti-echo, axial (FID), and double-quantum-like pathways. The two 180
+    pulses refocus a constant background gradient within each encoding period.
+    """
+
+    quarter = np.pi / 2.0
+    ph1 = [0, 0, 2, 2, 1, 1, 3, 3, 2, 2, 0, 0, 3, 3, 1, 1]
+    ph2 = [0, 2, 0, 2, 1, 3, 1, 3, 2, 0, 2, 0, 3, 1, 3, 1]
+    ph3 = [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3]
+    ph4 = [0] * 16
+    ph31 = [0, 2, 2, 0, 1, 3, 3, 1, 2, 0, 0, 2, 3, 1, 1, 3]
+
+    steps = tuple(
+        PhaseStep(
+            pulse_phases={
+                "excitation_90": ph1[index] * quarter,
+                "refocus_180": ph4[index] * quarter,
+                "store_90": ph2[index] * quarter,
+                "read_90": ph3[index] * quarter,
+            },
+            receiver_phase_rad=ph31[index] * quarter,
+            weight=1.0,
+            label=f"diff_stebp_{index:02d}",
+        )
+        for index in range(16)
+    )
+    return PhaseCycle(
+        steps=steps,
+        pulse_names=("excitation_90", "refocus_180", "store_90", "read_90"),
+        normalize=True,
+        name="diff_stebp",
+    )
+
+
 __all__ = [
     "PhaseCycle",
     "PhaseStep",
     "cpmg_two_step_phase_cycle",
+    "diff_stebp_phase_cycle",
     "pgste_stimulated_echo_phase_cycle",
 ]

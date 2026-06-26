@@ -518,6 +518,7 @@ No public classes or functions found.
 | class | `PhaseCycle` | A reusable phase-cycle scan table. |
 | function | `cpmg_two_step_phase_cycle(*, excitation_name: str = 'excitation', excitation_phase_rad: float = np.pi / 2.0) -> PhaseCycle` | Return the default two-step CPMG/PAP excitation phase cycle. |
 | function | `pgste_stimulated_echo_phase_cycle() -> PhaseCycle` | Return the selected-pathway PGSTE stimulated-echo phase table. |
+| function | `diff_stebp_phase_cycle() -> PhaseCycle` | Return the 16-step Bruker ``diff_stebp`` 13-interval bipolar PGSTE cycle. |
 
 ## `spin_dynamics.optimization.drivers`
 
@@ -699,6 +700,19 @@ No public classes or functions found.
 | function | `calc_macq_tuned_probe_relax4(sp: Mapping[str, Any] | Any, pp: Mapping[str, Any] | Any, *, num_workers: int | None = 1, rephase_max_time: float | None = None, rephase_safety_factor: float = 1.25, rephase_action: str = 'ignore', radiation_damping: RadiationDampingSpec | None = None) -> tuple[np.ndarray, np.ndarray]` | Calculate finite acquisition for a tuned probe. |
 | function | `calc_macq_untuned_probe_relax4(sp: Mapping[str, Any] | Any, pp: Mapping[str, Any] | Any, *, num_workers: int | None = 1, rephase_max_time: float | None = None, rephase_safety_factor: float = 1.25, rephase_action: str = 'ignore', radiation_damping: RadiationDampingSpec | None = None) -> tuple[np.ndarray, np.ndarray]` | Calculate finite acquisition for an untuned probe. |
 | function | `calc_macq_matched_probe_relax4(sp: Mapping[str, Any] | Any, pp: Mapping[str, Any] | Any, *, num_workers: int | None = 1, rephase_max_time: float | None = None, rephase_safety_factor: float = 1.25, rephase_action: str = 'ignore', radiation_damping: RadiationDampingSpec | None = None) -> tuple[np.ndarray, np.ndarray]` | Calculate finite acquisition for a tuned-and-matched probe. |
+
+## `spin_dynamics.workflows.bipolar`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `ToggleInterval` | One piecewise-constant interval in the toggling (coherence) frame. |
+| class | `GradientMoments` | Toggling-frame diffusion moments for a gradient waveform. |
+| class | `BipolarPGSTEResult` | Moment-model result for a stimulated-echo diffusion sequence. |
+| function | `toggling_frame_moments(intervals: Iterable[ToggleInterval], *, gamma: float = GAMMA) -> GradientMoments` | Integrate the toggling-frame wavevector moments for a gradient waveform. |
+| function | `cotts_thirteen_interval_intervals(*, gradient_amplitude: float, gradient_duration: float, half_echo_time: float, storage_time: float) -> tuple[ToggleInterval, ...]` | Build the 13-interval bipolar APGSTE toggling-frame intervals. |
+| function | `monopolar_pgste_intervals(*, gradient_amplitude: float, gradient_duration: float, half_echo_time: float, storage_time: float) -> tuple[ToggleInterval, ...]` | Build an ordinary monopolar PGSTE for comparison. |
+| function | `run_cotts_thirteen_interval_moment(*, gradient_amplitude: float = 0.05, gradient_duration: float = 0.002, half_echo_time: float = 0.006, storage_time: float = 0.04, diffusion_coefficient: float = 2.3e-09, background_gradient: float = 0.0, initial_signal: complex = 1.0 + 0j, gamma: float = GAMMA) -> BipolarPGSTEResult` | Run the 13-interval bipolar APGSTE moment model. |
+| function | `run_monopolar_pgste_moment(*, gradient_amplitude: float = 0.05, gradient_duration: float = 0.002, half_echo_time: float = 0.006, storage_time: float = 0.04, diffusion_coefficient: float = 2.3e-09, background_gradient: float = 0.0, initial_signal: complex = 1.0 + 0j, gamma: float = GAMMA) -> BipolarPGSTEResult` | Run an ordinary monopolar PGSTE moment model for comparison. |
 
 ## `spin_dynamics.workflows.cpmg`
 

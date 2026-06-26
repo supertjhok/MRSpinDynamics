@@ -66,6 +66,7 @@ MODULES = [
     "sequences.motion",
     "susceptibility",
     "workflows.acquisition",
+    "workflows.bipolar",
     "workflows.cpmg",
     "workflows.cpmg_ir",
     "workflows.diffusion",

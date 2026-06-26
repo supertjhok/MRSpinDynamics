@@ -9,6 +9,7 @@ from spin_dynamics.phase_cycling import (
     PhaseCycle,
     PhaseStep,
     cpmg_two_step_phase_cycle,
+    diff_stebp_phase_cycle,
     pgste_stimulated_echo_phase_cycle,
 )
 from spin_dynamics.workflows import run_ideal_cpmg_train, run_pgste_walkers
@@ -125,6 +126,61 @@ class PhaseCyclingTests(unittest.TestCase):
             ("excitation_90", "store_90", "read_90"),
         )
         np.testing.assert_allclose(combined, desired, atol=1e-14)
+
+    def test_diff_stebp_cycle_matches_bruker_phase_program(self) -> None:
+        cycle = diff_stebp_phase_cycle()
+        self.assertEqual(cycle.name, "diff_stebp")
+        self.assertEqual(cycle.num_steps, 16)
+        self.assertEqual(
+            cycle.pulse_names,
+            ("excitation_90", "refocus_180", "store_90", "read_90"),
+        )
+        quarter = np.pi / 2.0
+        # the Bruker ph1..ph4 and ph31 columns, in quarter-cycle units
+        ph1 = [0, 0, 2, 2, 1, 1, 3, 3, 2, 2, 0, 0, 3, 3, 1, 1]
+        ph2 = [0, 2, 0, 2, 1, 3, 1, 3, 2, 0, 2, 0, 3, 1, 3, 1]
+        ph3 = [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3]
+        ph31 = [0, 2, 2, 0, 1, 3, 3, 1, 2, 0, 0, 2, 3, 1, 1, 3]
+        np.testing.assert_allclose(
+            cycle.pulse_phases("excitation_90"), np.array(ph1) * quarter
+        )
+        np.testing.assert_allclose(
+            cycle.pulse_phases("store_90"), np.array(ph2) * quarter
+        )
+        np.testing.assert_allclose(
+            cycle.pulse_phases("read_90"), np.array(ph3) * quarter
+        )
+        np.testing.assert_allclose(
+            cycle.pulse_phases("refocus_180"), np.zeros(16)
+        )
+        receiver = np.array(
+            [step.receiver_phase_rad for step in cycle.steps]
+        )
+        np.testing.assert_allclose(receiver, np.array(ph31) * quarter)
+        # ph31 == -(ph1 + ph2 + ph3) mod 4: the stimulated-echo pathway rule
+        predicted = (-(np.array(ph1) + np.array(ph2) + np.array(ph3))) % 4
+        np.testing.assert_array_equal(predicted, np.array(ph31))
+
+    def test_diff_stebp_cycle_selects_stimulated_echo_pathway(self) -> None:
+        cycle = diff_stebp_phase_cycle()
+        ph1 = cycle.pulse_phases("excitation_90")
+        ph2 = cycle.pulse_phases("store_90")
+        ph3 = cycle.pulse_phases("read_90")
+        desired = np.array([0.75 + 1.25j, -2.0 + 0.5j])
+        dc_artifact = np.array([5.0 - 1.0j, 2.0 + 3.0j])
+        anti_echo = np.array([-0.25 + 0.5j, 1.5 - 0.25j])
+        read_fid = np.array([0.1 + 2.0j, -0.75 - 0.5j])
+        branches = []
+        for phi1, phi2, phi3 in zip(ph1, ph2, ph3):
+            # selected pathway response is exp(-i(phi1+phi2+phi3)); add rejected ones
+            branches.append(
+                desired * np.exp(-1j * (phi1 + phi2 + phi3))
+                + dc_artifact
+                + anti_echo * np.exp(-1j * (phi1 - phi2 + phi3))
+                + read_fid * np.exp(-1j * phi3)
+            )
+        combined = cycle.combine(branches)
+        np.testing.assert_allclose(combined, desired, atol=1e-13)
 
     def test_phase_cycle_rejects_missing_pulse_column(self) -> None:
         with self.assertRaisesRegex(ValueError, "missing pulse phases"):

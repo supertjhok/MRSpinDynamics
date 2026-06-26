@@ -2468,8 +2468,57 @@ pore-space gradient \emph{distribution} is a second distinguishing feature; a
 uniform gradient would be a single value. The \code{plot\_internal\_gradients.py}
 example shows the internal field, the internal-gradient distribution, and the
 recovered \(B_0^2\) scaling of the diffusion-induced decay rate end to end.
-Background-gradient-suppressing sequences (bipolar / Cotts 13-interval PGSTE)
-are the natural next addition; the internal field produced here is their input.
+Background-gradient-suppressing sequences are implemented in the next section;
+the internal field produced here is their input.
+
+\section{Bipolar 13-Interval PGSTE}
+\label{sec:bipolar-pgste}
+
+The \code{spin\_dynamics.workflows.bipolar} module implements the Cotts
+13-interval alternating pulsed-gradient stimulated-echo (APGSTE) sequence, the
+sequence in the Bruker \code{diff\_stebp.gp} program, which measures diffusion
+while suppressing a constant background gradient \(g_0\) such as the internal
+gradient of Section~\ref{sec:internal-gradients}. It is a stimulated echo (three
+90 degree pulses) with one 180 degree pulse in each of the two encoding periods,
+a gradient lobe on each side of every 180, and the applied polarity inverted
+between the two periods. The 180 pulses refocus the background gradient within
+each period, and the polarity alternation cancels the applied-times-background
+cross-term.
+
+Working in the toggling (coherence) frame, the diffusion attenuation in a
+constant background gradient is
+\[
+  \ln E = -D\,\bigl(b_\mathrm{applied}
+            + g_0\, c_\mathrm{cross}
+            + g_0^2\, c_\mathrm{bg}\bigr),
+\]
+and \code{toggling\_frame\_moments} returns the three coefficients. For the
+13-interval sequence \(c_\mathrm{cross} = 0\); for an ordinary monopolar
+stimulated echo it is non-zero, so its apparent diffusion coefficient drifts
+with \(g_0\).
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.workflows import (
+    run_cotts_thirteen_interval_moment, run_monopolar_pgste_moment,
+)
+
+c = run_cotts_thirteen_interval_moment(gradient_amplitude=0.1, background_gradient=0.05)
+m = run_monopolar_pgste_moment(gradient_amplitude=0.1, background_gradient=0.05)
+print(c.cross_term_bias, m.cross_term_bias)  # ~0 vs non-zero
+print(c.phase_cycle.name)                    # "diff_stebp"
+\end{lstlisting}
+
+The phase cycle is the 16-step Bruker \code{diff\_stebp} table, built on the
+package's \code{PhaseCycle} machinery as
+\code{diff\_stebp\_phase\_cycle()}. Its receiver satisfies
+\(\mathrm{ph31} = -(\mathrm{ph1} + \mathrm{ph2} + \mathrm{ph3}) \bmod 4\) (with
+\(\mathrm{ph4} = 0\) on both 180 pulses), selecting the stimulated-echo
+coherence-transfer pathway \(\Delta p = (+1, -2, +1, +1, -2)\) with detection at
+\(p = -1\); the coherence order \(p(t)\) this cycle selects is exactly the sign
+carried by the toggling-frame intervals. The \code{plot\_bipolar\_pgste.py}
+example traces the wavevectors and the apparent-diffusion suppression versus
+\(g_0\). The moment model is the free-diffusion b-value for ideal rectangular
+lobes; trapezoidal ramps and restricted geometry need the walker pipeline.
 
 \section{Optimization Workflows}
 
@@ -2641,6 +2690,7 @@ Class & Purpose \\
 \code{PGSTEWalkerResult} & Random-walker stimulated-echo (PGSTE) signal, storage interval, selected-pathway phase-cycle metadata, and initial particle ensemble. \\
 \code{DDEWalkerResult} & Random-walker double diffusion encoding (DDE) signal, encoding angles, and mixing time. \\
 \code{OGSEWalkerResult} & Random-walker oscillating-gradient spin-echo (OGSE) signal, oscillation frequency, and b-value. \\
+\code{BipolarPGSTEResult} & Cotts 13-interval bipolar PGSTE moment model: b-value, background cross-term bias, and the \code{diff\_stebp} phase cycle. \\
 \code{WURSTInversionResult} & WURST inversion profile and pulse metadata. \\
 \code{MatchedWURSTCPMGResult} & Matched WURST-CPMG echoes and spectra. \\
 \code{RadiationDampingFIDResult} & Radiation-damping FID simulation and analytic comparison fields. \\

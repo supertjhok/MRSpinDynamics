@@ -17,6 +17,7 @@ variants, packaging, and performance.
 - [Analysis](analysis.md)
 - [Chemical / Site Exchange](exchange.md)
 - [Internal / Susceptibility Gradients](internal_gradients.md)
+- [Bipolar 13-Interval PGSTE](bipolar_pgste.md)
 - [J-Coupling Models](j_coupling.md)
 - [NQR Models](nqr.md)
 - [ESR Models](esr.md)
