@@ -178,6 +178,22 @@ path costs roughly `slices x pixels` full-ensemble sequence runs, so keep the
 grid modest; `run_multislice_imaging_separable` is the fast flat-slice
 approximation for larger volumes. Only Matplotlib is required.
 
+## Finite Halbach Dipole Field
+
+Samples the 3D field of the lowest-order finite Halbach dipole: four transverse,
+diametrically magnetized cylindrical or square rods. The example plots the
+mid-plane Larmor map, vector field, uniformity, axial finite-length falloff, and
+field-gradient map. It is a direct visualization of
+`spin_dynamics.fields.magnetostatics.sample_halbach_dipole_field`.
+
+```powershell
+python examples\plot_halbach_dipole_field.py --rod-shape square --output results\halbach_dipole.png
+```
+
+Use `--center-radius`, `--rod-radius` / `--rod-width`, `--length`, and
+`--remanence` for the magnet, and `--n-cross` / `--n-length` for the point-dipole
+cubature resolution. Only Matplotlib is required.
+
 ## NMR-MOUSE Field Maps and Sensitive Slice
 
 Builds the field of a single-sided NMR-MOUSE from first principles
@@ -607,6 +623,9 @@ The full density-matrix model adds spin-3/2 (chlorine-style) examples:
 `plot_nqr_full_powder_nutation.py` overlays the spin-1 and spin-3/2 powder
 nutation curves, and `plot_nqr_spin32_slse.py` runs the `35Cl` powder SLSE echo
 train and shows how a weak Zeeman field (`--b0-mt`) reshapes the decay.
+The polarization-enhancement example uses a finite Halbach fringe field, a
+Glickstein-style adiabatic crossing model, and by default estimates the
+`1H-14N` coupling from the melamine CIF in `QuadrupolarDFT/structures/Melamine`.
 
 ```powershell
 python examples\plot_nqr_powder_nutation.py --output results\nqr_powder_nutation.png
@@ -619,6 +638,7 @@ python examples\plot_nqr_slse_efg_broadening.py --output results\nqr_slse_efg_br
 python examples\plot_nqr_weak_b0_spectrum.py --output results\nqr_weak_b0_spectrum.png
 python examples\plot_nqr_full_powder_nutation.py --output results\nqr_full_powder_nutation.png
 python examples\plot_nqr_spin32_slse.py --output results\nqr_spin32_slse.png
+python examples\plot_nqr_polarization_enhancement.py --output results\nqr_polarization_enhancement.png
 ```
 
 ## Radiation Damping

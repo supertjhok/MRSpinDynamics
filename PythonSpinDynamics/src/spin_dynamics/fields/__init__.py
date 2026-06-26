@@ -13,11 +13,16 @@ from spin_dynamics.fields.interpolate import dlinear_sample
 from spin_dynamics.fields.magnetostatics import (
     GAMMA_PROTON,
     BarMagnet,
+    FiniteMagnetRod,
+    HalbachDipoleFieldMaps,
     MagnetFieldMaps,
     bar_array_b0,
     biot_savart,
     circular_loop,
+    finite_magnet_array_b0,
+    halbach_dipole_magnets,
     nmr_mouse_magnets,
+    sample_halbach_dipole_field,
     sample_magnet_field,
 )
 from spin_dynamics.fields.maps import SpatialFieldMaps
@@ -36,10 +41,15 @@ __all__ = [
     "velocity_array",
     "GAMMA_PROTON",
     "BarMagnet",
+    "FiniteMagnetRod",
+    "HalbachDipoleFieldMaps",
     "MagnetFieldMaps",
     "bar_array_b0",
     "biot_savart",
     "circular_loop",
+    "finite_magnet_array_b0",
+    "halbach_dipole_magnets",
     "nmr_mouse_magnets",
+    "sample_halbach_dipole_field",
     "sample_magnet_field",
 ]

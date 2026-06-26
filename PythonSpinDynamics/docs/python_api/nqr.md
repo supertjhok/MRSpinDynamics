@@ -416,6 +416,84 @@ This models the perturbation-plus-SLSE detection experiment used in 2D NQR:
 a pulse on one transition changes populations shared with another transition,
 changing the detected SLSE amplitude.
 
+## Polarization-Enhanced NQR Transport
+
+`spin_dynamics.nqr.polarization_enhancement` models the instrument-level
+polarization-enhanced NQR workflow described by Glickstein and Mandal: protons are
+pre-polarized in a permanent magnet, the sample is translated through a falling
+fringe field, and cross-polarization can occur at level crossings where
+`gamma_H * B0 = nu_NQR`. The model is intentionally an adiabatic-transfer
+estimator, not a microscopic coupled-spin propagation through every avoided
+crossing.
+
+```python
+from spin_dynamics.nqr import (
+    CylindricalSampleGeometry,
+    HalbachPrepolarizationMagnet,
+    LinearTransportMotion,
+    PolarizationEnhancedNQRSample,
+    simulate_adiabatic_polarization_transfer,
+)
+
+sample = PolarizationEnhancedNQRSample(
+    name="melamine-like",
+    line_labels=("nu+", "nu-", "nu0"),
+    line_frequencies_hz=(2.766e6, 2.034e6, 0.732e6),
+    protons_per_molecule=6,
+    nitrogens_per_molecule=6,
+    proton_t1_seconds=48.6,
+    proton_linewidth_hz=80e3,
+    proton_nitrogen_coupling_hz=1.3e3,
+)
+magnet = HalbachPrepolarizationMagnet(rod_shape="square", rod_width=25.4e-3)
+geometry = CylindricalSampleGeometry(length=20e-3, diameter=8e-3)
+motion = LinearTransportMotion(0.0, 0.10, velocity=0.1667, axis="z")
+
+result = simulate_adiabatic_polarization_transfer(
+    magnet, sample, geometry, motion, prepolarization_time_seconds=100.0
+)
+print(result.practical_enhancement)
+```
+
+The returned `PolarizationTransferResult` reports the ideal spin-1 enhancement
+factors, practical enhancement after finite proton build-up and transfer
+efficiency, crossing positions, local field gradients, adiabatic ratios, and the
+sample-averaged field profile along the transport axis. Use
+`examples/plot_nqr_polarization_enhancement.py` to sweep speed, pre-polarization
+time, and sample size.
+
+### Estimating the 1H-14N coupling from CIF structures
+
+The main uncertainty in the adiabatic criterion is the effective
+`proton_nitrogen_coupling_hz`. `spin_dynamics.nqr.structure_coupling` provides a
+lightweight CIF reader and point-dipole estimator. Given a quadrupolar atom label,
+it applies CIF symmetry, searches periodic images for nearby protons, computes
+
+```text
+d_HQ = (mu0 / 4pi) h gamma_H gamma_Q / r^3
+```
+
+and reports individual couplings plus an RMS effective coupling:
+
+```python
+from spin_dynamics.nqr import estimate_proton_dipolar_couplings_from_cif
+
+estimate = estimate_proton_dipolar_couplings_from_cif(
+    "../QuadrupolarDFT/structures/Melamine/237082.cif",
+    "N101",
+    proton_radius_angstrom=3.0,
+)
+print(estimate.effective_rms_hz)
+for item in estimate.proton_couplings:
+    print(item.proton_label, item.distance_angstrom, item.coupling_hz)
+```
+
+For the bundled melamine CIF, the default `N101` ring nitrogen finds four nearby
+protons within `3 A` and gives an RMS coupling of about `1.3 kHz`; directly
+protonated amine nitrogens have much larger direct N-H couplings. The plotting
+example uses this CIF estimate by default, while still accepting a manual
+`--nh-coupling-hz` override.
+
 ## Current Limits
 
 - Dense single-site matrices only.

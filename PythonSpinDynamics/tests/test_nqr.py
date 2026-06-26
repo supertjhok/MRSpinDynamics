@@ -15,6 +15,11 @@ from spin_dynamics.nqr import (  # noqa: E402
     EFGIsochromat,
     NQRRelaxationModel,
     OrientationSample,
+    PROTON_GAMMA_HZ_PER_T,
+    CylindricalSampleGeometry,
+    GAMMA_14N_HZ_PER_T,
+    LinearTransportMotion,
+    PolarizationEnhancedNQRSample,
     QuadrupolarSite,
     SelectivePulse,
     apply_selective_pulse,
@@ -22,9 +27,12 @@ from spin_dynamics.nqr import (  # noqa: E402
     b0_powder_average_grid,
     check_efg_rephasing,
     diagonalize_site,
+    dipolar_coupling_hz,
     efg_line_spectrum,
     equilibrium_density,
     gaussian_efg_distribution,
+    ideal_spin1_enhancement_factors,
+    estimate_proton_dipolar_couplings_from_cif,
     powder_average_grid,
     propagate_density_liouville,
     quadrupole_frequency_scale_hz,
@@ -32,6 +40,7 @@ from spin_dynamics.nqr import (  # noqa: E402
     transition_drive_scale,
     zeeman_hamiltonian,
     simulate_fid_efg_distribution,
+    simulate_adiabatic_polarization_transfer,
     simulate_population_transfer,
     simulate_slse,
     simulate_slse_acquisition_spectrum,
@@ -54,6 +63,160 @@ class NQRTests(unittest.TestCase):
             ops.ix @ ops.iy - ops.iy @ ops.ix,
             1j * ops.iz,
             atol=1e-14,
+        )
+
+    def test_glickstein_spin_one_enhancement_matches_melamine_example(self) -> None:
+        enhancements = ideal_spin1_enhancement_factors(
+            (2.766e6, 2.034e6, 0.732e6),
+            max_b0_tesla=0.65,
+            protons_per_molecule=6.0,
+            nitrogens_per_molecule=6.0,
+        )
+
+        self.assertAlmostEqual(enhancements[0], 8.24, delta=0.1)
+        self.assertGreater(enhancements[2], enhancements[0])
+
+    def test_adiabatic_transfer_improves_at_lower_velocity(self) -> None:
+        def fringe_field(points):
+            z = np.asarray(points)[..., 2]
+            return 0.70 - 20.0 * z
+
+        sample = PolarizationEnhancedNQRSample(
+            name="melamine-like",
+            line_frequencies_hz=(2.766e6, 2.034e6, 0.732e6),
+            protons_per_molecule=6.0,
+            nitrogens_per_molecule=6.0,
+            proton_t1_seconds=50.0,
+            nitrogen_t1_seconds=5.0,
+            proton_linewidth_hz=25.0e3,
+            proton_nitrogen_coupling_hz=300.0,
+        )
+        geometry = CylindricalSampleGeometry(
+            length=1.0e-3,
+            diameter=1.0e-3,
+            axial_points=3,
+            radial_rings=0,
+        )
+        slow = simulate_adiabatic_polarization_transfer(
+            fringe_field,
+            sample,
+            geometry,
+            LinearTransportMotion(0.0, 0.04, velocity=0.005),
+            prepolarization_time_seconds=np.inf,
+            path_points=101,
+        )
+        fast = simulate_adiabatic_polarization_transfer(
+            fringe_field,
+            sample,
+            geometry,
+            LinearTransportMotion(0.0, 0.04, velocity=0.10),
+            prepolarization_time_seconds=np.inf,
+            path_points=101,
+        )
+
+        self.assertTrue(np.all(np.isfinite(slow.crossing_positions)))
+        np.testing.assert_allclose(
+            slow.crossing_fields_tesla,
+            slow.line_frequencies_hz / PROTON_GAMMA_HZ_PER_T,
+        )
+        self.assertGreater(slow.practical_enhancement[0],
+                           fast.practical_enhancement[0])
+        self.assertGreater(slow.transfer_efficiency[0], fast.transfer_efficiency[0])
+
+    def test_finite_prepolarization_time_reduces_enhancement(self) -> None:
+        def fringe_field(points):
+            z = np.asarray(points)[..., 2]
+            return 0.70 - 20.0 * z
+
+        sample = PolarizationEnhancedNQRSample(
+            line_frequencies_hz=(2.766e6,),
+            line_labels=("line",),
+            protons_per_molecule=6.0,
+            nitrogens_per_molecule=1.0,
+            proton_t1_seconds=50.0,
+            proton_linewidth_hz=25.0e3,
+            proton_nitrogen_coupling_hz=300.0,
+        )
+        geometry = CylindricalSampleGeometry(
+            length=1.0e-3,
+            diameter=1.0e-3,
+            axial_points=1,
+            radial_rings=0,
+        )
+        motion = LinearTransportMotion(0.0, 0.04, velocity=0.005)
+
+        saturated = simulate_adiabatic_polarization_transfer(
+            fringe_field,
+            sample,
+            geometry,
+            motion,
+            prepolarization_time_seconds=np.inf,
+            path_points=101,
+        )
+        finite = simulate_adiabatic_polarization_transfer(
+            fringe_field,
+            sample,
+            geometry,
+            motion,
+            prepolarization_time_seconds=10.0,
+            path_points=101,
+        )
+
+        self.assertGreater(saturated.practical_enhancement[0],
+                           finite.practical_enhancement[0])
+        self.assertAlmostEqual(
+            finite.proton_polarization_factor,
+            1.0 - np.exp(-10.0 / 50.0),
+        )
+
+    def test_dipolar_coupling_formula_matches_one_angstrom_nh_pair(self) -> None:
+        coupling = dipolar_coupling_hz(
+            1.0,
+            gamma_a_hz_per_t=GAMMA_14N_HZ_PER_T,
+            gamma_b_hz_per_t=PROTON_GAMMA_HZ_PER_T,
+        )
+
+        self.assertTrue(8.0e3 < coupling < 9.0e3)
+
+    def test_cif_nearby_proton_coupling_estimator(self) -> None:
+        cif = """data_test
+_cell_length_a 10
+_cell_length_b 10
+_cell_length_c 10
+_cell_angle_alpha 90
+_cell_angle_beta 90
+_cell_angle_gamma 90
+loop_
+_symmetry_equiv_pos_as_xyz
+x,y,z
+loop_
+_atom_site_label
+_atom_site_type_symbol
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+N1 N 0 0 0
+H1 H 0.1 0 0
+H2 H 0.5 0 0
+"""
+        tmpdir = ROOT / ".tmp"
+        tmpdir.mkdir(exist_ok=True)
+        path = tmpdir / "test_coupling.cif"
+        path.write_text(cif, encoding="utf-8")
+
+        estimate = estimate_proton_dipolar_couplings_from_cif(
+            path,
+            "N1",
+            proton_radius_angstrom=1.5,
+        )
+
+        self.assertEqual(estimate.target_label, "N1")
+        self.assertEqual(len(estimate.proton_couplings), 1)
+        self.assertEqual(estimate.proton_couplings[0].proton_label, "H1")
+        self.assertAlmostEqual(estimate.proton_couplings[0].distance_angstrom, 1.0)
+        self.assertAlmostEqual(
+            estimate.effective_rms_hz,
+            estimate.proton_couplings[0].coupling_hz,
         )
 
     def test_spin_one_quadrupole_transitions_match_xyz_convention(self) -> None:

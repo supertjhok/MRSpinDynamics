@@ -1232,6 +1232,11 @@ real device field can drive the spin dynamics instead of a synthetic field.
   `mu -> infinity` plane, which enforces `B_tangential = 0` at the iron surface.
 - **B1** is the Biot-Savart field of a coil (`circular_loop` segments); its transverse
   (imaging-relevant) component is the part perpendicular to the local B0.
+- **Finite Halbach dipoles** use the lowest-order four-rod approximation:
+  `halbach_dipole_magnets` builds four diametrically magnetized cylindrical or square
+  rods, and `sample_halbach_dipole_field` samples the 3D bore/fringe field by summing a
+  finite-volume point-dipole cubature. This is intended for quick bore-field and
+  end-effect studies, not precision magnet design inside the magnet material.
 
 ```python
 import numpy as np
@@ -1287,6 +1292,32 @@ and the diffusion sensitivity honestly falls off with depth as the gradient weak
 moving-walker engine is validated against the exact constant-gradient Carr-Purcell law in
 `tests/test_single_sided.py`, so deviations here are the real-field physics, not numerics. The
 example `plot_nmr_mouse_depth_profile.py` profiles a layered phantom end to end.
+
+### Finite Halbach dipole field maps
+
+The same magnetostatics layer can generate the finite-length Halbach field used by
+pre-polarizing magnets and compact imaging magnets:
+
+```python
+import numpy as np
+from spin_dynamics.fields.magnetostatics import sample_halbach_dipole_field
+
+x = y = np.linspace(-14e-3, 14e-3, 31)
+z = np.linspace(-50e-3, 50e-3, 41)
+fm = sample_halbach_dipole_field(
+    x, y, z,
+    center_radius=30e-3,
+    rod_shape="square",
+    rod_width=16e-3,
+    length=80e-3,
+    remanence=1.30,
+)
+```
+
+The result contains `b0_vector`, `b0_magnitude`, `b0_gradient`, and `larmor_hz`
+on the full `(x, y, z)` grid. `examples/plot_halbach_dipole_field.py` plots the
+mid-plane field, field uniformity, transverse centerline, and finite-length axial
+falloff.
 
 ## Ideal FID
 

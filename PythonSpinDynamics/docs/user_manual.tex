@@ -981,7 +981,9 @@ sites; full \((2I+1)\)-level density-matrix FID and echo dynamics required for
 spin-3/2; automatic reduced-vs-full model selection; spin-1 and spin-3/2
 transition metadata; single-crystal and powder averages over local EFG
 orientations; SLSE echo trains; two-frequency population transfer; static EFG
-inhomogeneity; finite-window SLSE spectra; and weak-B0 line splitting.
+inhomogeneity; finite-window SLSE spectra; weak-B0 line splitting; and
+instrument-level polarization-enhanced NQR transport with CIF-based
+\({}^{1}\mathrm{H}\)-quadrupolar dipolar-coupling estimates.
 }
 
 \scopebox{AccentTwo}{
@@ -1313,6 +1315,114 @@ transitions, but transitions dark to the coil should not contribute to the
 plotted spectrum. In the axial limit \(\eta=0\), \(B_0\parallel z_{\mathrm{PAS}}\),
 and \(B_1\perp B_0\), a spin-3/2 site gives the expected pair
 \(\nu_Q\pm\gamma B_0\).
+
+\section{Polarization-Enhanced NQR Transport}
+\label{sec:nqr-polarization-enhancement}
+
+Polarization-enhanced NQR is modeled at the instrument level following the
+Glickstein--Mandal automated pre-polarization workflow. A solid sample first
+sits in a permanent magnet long enough to build proton polarization. It is then
+translated through the falling fringe field into the NQR probe. Whenever the
+proton Larmor frequency
+\[
+  \nu_H(x) = \gamma_H B_0(x)
+\]
+crosses a nitrogen NQR line, dipolar coupling can transfer polarization from
+the proton reservoir into the quadrupolar population difference. For a sample
+moving with speed \(v\) through a local gradient \(dB_0/dx\), the available
+crossing time is approximately
+\[
+  t_{\mathrm{cp}} \approx
+  \frac{\Delta\nu_H}{\gamma_H\,v\,|dB_0/dx|}.
+\]
+The transfer is adiabatic when this time is long compared with the inverse
+\({}^{1}\mathrm{H}\)-\({}^{14}\mathrm{N}\) coupling rate \(\nu_{NH}^{-1}\), or
+equivalently when
+\[
+  \frac{\gamma_H v |dB_0/dx|}
+       {\Delta\nu_H\,\nu_{NH}} \ll 1.
+\]
+The helper \code{simulate\_adiabatic\_polarization\_transfer} evaluates this
+criterion along a user-specified transport path, using either a finite Halbach
+magnet model or any callable B0 sampler. It reports the level-crossing
+positions, local gradients, adiabatic ratios, transfer efficiencies, ideal
+spin-1 enhancement factors, and practical enhancement after finite proton
+build-up, transfer efficiency, finite sample size, and \(T_1\) loss during
+transport.
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.nqr import (
+    CylindricalSampleGeometry, HalbachPrepolarizationMagnet,
+    LinearTransportMotion, PolarizationEnhancedNQRSample,
+    simulate_adiabatic_polarization_transfer,
+)
+
+sample = PolarizationEnhancedNQRSample(
+    name="melamine-like",
+    line_labels=("nu+", "nu-", "nu0"),
+    line_frequencies_hz=(2.766e6, 2.034e6, 0.732e6),
+    protons_per_molecule=6,
+    nitrogens_per_molecule=6,
+    proton_t1_seconds=48.6,
+    proton_linewidth_hz=80e3,
+    proton_nitrogen_coupling_hz=1.3e3,
+)
+magnet = HalbachPrepolarizationMagnet(
+    rod_shape="square", rod_width=25.4e-3, length=101.6e-3,
+)
+geometry = CylindricalSampleGeometry(length=20e-3, diameter=8e-3)
+motion = LinearTransportMotion(0.0, 0.10, velocity=0.1667, axis="z")
+
+pe = simulate_adiabatic_polarization_transfer(
+    magnet, sample, geometry, motion,
+    prepolarization_time_seconds=100.0,
+)
+print(pe.practical_enhancement)
+\end{lstlisting}
+
+The model intentionally does not replace a microscopic coupled-spin
+density-matrix calculation of each avoided crossing. Instead, it provides a
+transparent engineering model for choosing magnet geometry, transport speed,
+sample size, pre-polarization time, and the uncertain coupling scale
+\(\nu_{NH}\).
+
+\subsection{Estimating \texorpdfstring{\({}^{1}\mathrm{H}\)-N}{1H-N}
+Coupling from CIF Structures}
+
+The coupling scale can be estimated from a crystal structure when nearby
+proton positions are known. The helper
+\code{estimate\_proton\_dipolar\_couplings\_from\_cif} reads a small-molecule
+CIF, applies the listed symmetry operations and periodic images, finds protons
+within a search radius of the quadrupolar atom label, and evaluates the
+point-dipole prefactor
+\[
+  d_{HQ}(r) =
+  \frac{\mu_0}{4\pi}\frac{h\,|\gamma_H\gamma_Q|}{r^3}.
+\]
+It returns individual proton distances and couplings, plus an RMS effective
+coupling useful as \(\nu_{NH}\) in the adiabatic-transfer criterion. If a field
+direction is supplied, it also reports the secular angular factor
+\((1-3\cos^2\theta)d_{HQ}\).
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.nqr import estimate_proton_dipolar_couplings_from_cif
+
+estimate = estimate_proton_dipolar_couplings_from_cif(
+    "../QuadrupolarDFT/structures/Melamine/237082.cif",
+    "N101",
+    proton_radius_angstrom=3.0,
+)
+print(estimate.effective_rms_hz)
+for item in estimate.proton_couplings:
+    print(item.proton_label, item.distance_angstrom, item.coupling_hz)
+\end{lstlisting}
+
+For the bundled melamine CIF, the ring nitrogen \code{N101} sees four nearby
+protons within \(3\,\text{\AA}\) and gives an RMS coupling of about
+\(1.3\) kHz. Protonated amine nitrogens have direct N--H distances and
+therefore much larger couplings. The example
+\code{plot\_nqr\_polarization\_enhancement.py} uses the melamine CIF estimate
+by default, but accepts \code{--nh-coupling-hz} to override it.
 
 \section{SLSE Detection}
 
@@ -1742,6 +1852,11 @@ in single-sided NMR---and a soft-iron return yoke is added by the method of
 images across a \(\mu\to\infty\) plane, which enforces \(B_\parallel=0\) at the
 iron surface. The coil B1 is the Biot-Savart field of straight current segments,
 and its transverse component is the part perpendicular to the local B0.
+Finite Halbach dipoles are represented by the lowest-order four-rod
+approximation: four diametrically magnetized cylinders or square rods arranged
+around a bore. Their finite length is included by a point-dipole cubature over
+the magnet volume, which is sufficient for bore-field and fringe-field studies
+but not a substitute for precision magnet design inside the magnet material.
 
 \begin{lstlisting}[language=Python]
 import numpy as np
@@ -1761,19 +1876,39 @@ Larmor frequency of \(\sim 5\text{--}23\,\)MHz, and a strong static gradient
 \(G\sim 7\text{--}28\,\)T/m. The example \code{plot\_nmr\_mouse\_fields.py} shows
 the field, the gradient, the coil B1, and the depth-resolved sensitive slice.
 
+\begin{lstlisting}[language=Python]
+from spin_dynamics.fields.magnetostatics import sample_halbach_dipole_field
+
+fm3d = sample_halbach_dipole_field(
+    x_axis, y_axis, z_axis,
+    center_radius=30e-3,
+    rod_shape="square",
+    rod_width=16e-3,
+    length=80e-3,
+    remanence=1.30,
+)
+\end{lstlisting}
+
+The 3D Halbach result exposes \code{b0\_vector}, \code{b0\_magnitude},
+\code{b0\_gradient}, and \code{larmor\_hz}. The example
+\code{plot\_halbach\_dipole\_field.py} plots the mid-plane field, vector
+direction, uniformity, finite-length axial falloff, and gradient map. These
+fields also feed the polarization-enhanced NQR transport model in
+Sec.~\ref{sec:nqr-polarization-enhancement}.
+
 Single-sided NMR profiles a sample by depth: an excitation frequency selects the
 iso-B0 sensitive slice, and the strong static gradient encodes diffusion. The
 defining feature is that the spins \emph{move through a spatially structured
 field}---as a molecule diffuses it samples a changing off-resonance set by the
 real gradient---which is irreducibly spatial and cannot be reduced to a fixed
-off-resonance distribution. \code{spin\_dynamics.workflows.single\_sided}
-therefore drives the moving-isochromat engine directly with the magnet's own B0
-map: \code{mouse\_depth\_profile} sweeps the carrier frequency so the excited
-signal traces the depth profile (a density gap shows up as a hole) and the echo
-decay gives the apparent \(T_2\), diffusion-shortened where the gradient is
-strong; \code{measure\_diffusion\_at\_depth} runs the CPMG twice with identical
-initial walker positions (diffusion on and off) so the inhomogeneous-field echo
-envelope cancels in the ratio, and the attenuation rate
+off-resonance distribution. The single-sided workflow module therefore drives
+the moving-isochromat engine directly with the magnet's own B0 map:
+\code{mouse\_depth\_profile} sweeps the carrier frequency so the excited signal
+traces the depth profile (a density gap shows up as a hole) and the echo decay
+gives the apparent \(T_2\), diffusion-shortened where the gradient is strong.
+The companion helper \code{measure\_diffusion\_\allowbreak at\_depth} runs the
+CPMG twice with identical initial walker positions (diffusion on and off) so the
+inhomogeneous-field echo envelope cancels in the ratio, and the attenuation rate
 \(k=\tfrac{1}{12}\gamma^2 G^2 D\,t_E^2\) gives \(D\) using the slice's local
 gradient. This is a stochastic moving-walker Monte-Carlo whose diffusion
 sensitivity honestly falls off with depth as the gradient weakens; the engine's
@@ -2735,6 +2870,7 @@ python examples\plot_time_varying_sweep.py --numpts 51 --num-echoes 12 --output 
 python examples\plot_udd_cpmg_filter.py --pulses 8 --output results\udd_cpmg_filter.png
 python examples\plot_sensitive_slice.py --output results\sensitive_slice.png
 python examples\plot_multislice_halbach_imaging.py --pixels 16 --slices 5 --output results\multislice_halbach.png
+python examples\plot_halbach_dipole_field.py --rod-shape square --output results\halbach_dipole.png
 python examples\plot_nmr_mouse_fields.py --pixels 121 --output results\nmr_mouse_fields.png
 python examples\plot_nmr_mouse_depth_profile.py --num-depths 13 --num-d-depths 5 --seeds 4 --output results\nmr_mouse_depth.png
 python examples\plot_motion_linear.py --output results\motion_linear.png
@@ -2764,6 +2900,7 @@ python examples\plot_nqr_efg_broadening.py --output results\nqr_efg_broadening.p
 python examples\plot_nqr_temperature_broadening.py --output results\nqr_temperature_broadening.png
 python examples\plot_nqr_slse_efg_broadening.py --output results\nqr_slse_efg_broadening.png
 python examples\plot_nqr_weak_b0_spectrum.py --output results\nqr_weak_b0_spectrum.png
+python examples\plot_nqr_polarization_enhancement.py --output results\nqr_polarization_enhancement.png
 \end{lstlisting}
 
 \chapter{Validation}
@@ -2833,6 +2970,7 @@ Class & Purpose \\
 \code{ImagingEchoFitResult} & Voxel-wise mono-exponential echo-stack fit. \\
 \code{ImagingNoiseStatistics} & Repeated-trial image-domain noise summary. \\
 \code{MotionSequenceResult} & Moving-isochromat sequence samples and final particle ensemble. \\
+\code{HalbachDipoleFieldMaps} & Sampled 3-D finite Halbach dipole field maps, including rods and Cartesian field components. \\
 \code{NoiseMetadata} & Generated received-noise parameters and realized SNR. \\
 \code{MatchedDiffusionCPMGResult} & Matched diffusion-aware CPMG train. \\
 \code{MatchedDiffusionQSweepResult} & Matched diffusion Q sweep. \\
@@ -2856,6 +2994,8 @@ Class & Purpose \\
 \code{SLSEAcquisitionSpectrumResult} & Finite-window SLSE echo acquisition and spectrum, including optional noise and deconvolution metadata. \\
 \code{WeakB0SpectrumResult} & Static weak-B0 transition spectrum and perturbation-ratio metadata. \\
 \code{PopulationTransferResult} & NQR perturbation-plus-SLSE signal, reference signal, and normalized difference. \\
+\code{PolarizationTransferResult} & Polarization-enhanced NQR transport result with sampled trajectory fields, adiabaticity metrics, and ideal enhancement factors. \\
+\code{ProtonCouplingEstimate} & CIF-based dipole-dipole proton coupling estimate for one quadrupolar nucleus. \\
 \code{RelaxationExchange2DResult} & Encode-mix-detect T2-T2 relaxation exchange (REXSY) data and longitudinal mixing propagator. \\
 \bottomrule
 \end{longtable}
@@ -3150,13 +3290,23 @@ from spin_dynamics.sequences.motion import (
 from spin_dynamics.fields import (
     SpatialDomain,
     SpatialFieldMaps,
+    FiniteMagnetRod,
+    HalbachDipoleFieldMaps,
+    finite_magnet_array_b0,
+    halbach_dipole_magnets,
+    sample_halbach_dipole_field,
 )
 from spin_dynamics.fields.magnetostatics import (
     BarMagnet,
+    FiniteMagnetRod,
+    HalbachDipoleFieldMaps,
     bar_array_b0,
     biot_savart,
     circular_loop,
+    finite_magnet_array_b0,
+    halbach_dipole_magnets,
     nmr_mouse_magnets,
+    sample_halbach_dipole_field,
     sample_magnet_field,
 )
 from spin_dynamics.workflows import (
@@ -3231,7 +3381,7 @@ from spin_dynamics.coupling import (
 )
 \end{lstlisting}
 
-\begin{longtable}{p{0.42\linewidth}p{0.50\linewidth}}
+\begin{longtable}{p{0.52\linewidth}p{0.40\linewidth}}
 \toprule
 Object & Purpose \\
 \midrule
@@ -3337,8 +3487,20 @@ from spin_dynamics.nqr import (
     weak_field_ratio,
     zeeman_frequency_hz,
     simulate_population_transfer,
+    PolarizationEnhancedNQRSample,
+    CylindricalSampleGeometry,
+    LinearTransportMotion,
+    HalbachPrepolarizationMagnet,
+    ideal_spin1_enhancement_factors,
+    simulate_adiabatic_polarization_transfer,
+    load_cif_structure,
+    dipolar_coupling_hz,
+    estimate_proton_dipolar_couplings,
+    estimate_proton_dipolar_couplings_from_cif,
     SLSEResult,
     PopulationTransferResult,
+    PolarizationTransferResult,
+    ProtonCouplingEstimate,
     WeakB0SpectrumResult,
 )
 \end{lstlisting}
@@ -3369,6 +3531,15 @@ Object & Purpose \\
 \code{simulate\_weak\_b0\_spectrum} & Static weak-B0 transition spectrum for spin-1 or spin-3/2. \\
 \code{weak\_field\_ratio}, \code{zeeman\_frequency\_hz} & Weak-field regime checks based on \(|\gamma B_0|/\nu_{\mathrm{ref}}\). \\
 \code{simulate\_population\_transfer} & Perturbation pulse plus SLSE detection for 2D NQR diagnostics. \\
+\code{PolarizationEnhancedNQRSample} & Sample and spin parameters for polarization-enhanced NQR transport. \\
+\code{CylindricalSampleGeometry}, \code{LinearTransportMotion} & Detector-volume and conveyor/translation parameters. \\
+\code{HalbachPrepolarizationMagnet} & Links a sampled Halbach dipole map or constant field to the polarization-transfer model. \\
+\code{ideal\_spin1\_enhancement\_factors} & Glickstein--Mandal spin-1 enhancement factors from \(B_{\mathrm{p}}\), \(T\), and NQR line frequencies. \\
+\code{simulate\_adiabatic\_\allowbreak polarization\_\allowbreak transfer} & Compute trajectory fields, adiabaticity, residence loss, and ideal transferred NQR signal gains. \\
+\code{load\_cif\_structure} & Read fractional coordinates, lattice constants, and symmetry operations from a CIF file. \\
+\code{dipolar\_coupling\_hz} & Point-dipole proton--quadrupolar-nucleus coupling estimate for a specified separation and angle. \\
+\code{estimate\_proton\_dipolar\_couplings} & Find nearby protons around a quadrupolar nucleus in a loaded CIF structure. \\
+\code{estimate\_proton\_dipolar\_\allowbreak couplings\_\allowbreak from\_cif} & Load a CIF file and summarize the nearby-proton dipolar coupling scale. \\
 \bottomrule
 \end{longtable}
 
