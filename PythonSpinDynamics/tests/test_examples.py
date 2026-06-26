@@ -148,6 +148,8 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_imaging_inhomogeneity.py",
             "examples/plot_sensitive_slice.py",
             "examples/plot_multislice_halbach_imaging.py",
+            "examples/plot_nmr_mouse_fields.py",
+            "examples/plot_nmr_mouse_depth_profile.py",
             "examples/plot_wurst_flow.py",
             "examples/plot_radiation_damping.py",
             "examples/plot_radiation_damping_detuning.py",
@@ -265,6 +267,12 @@ class ExampleSmokeTests(unittest.TestCase):
         result = run_example("examples/plot_multislice_halbach_imaging.py", "--help")
         self.assertIn("--b0-inhomogeneity-hz", result.stdout)
         self.assertIn("--slice-thickness-voxels", result.stdout)
+        result = run_example("examples/plot_nmr_mouse_fields.py", "--help")
+        self.assertIn("--remanence", result.stdout)
+        self.assertIn("--coil-radius", result.stdout)
+        result = run_example("examples/plot_nmr_mouse_depth_profile.py", "--help")
+        self.assertIn("--num-depths", result.stdout)
+        self.assertIn("--seeds", result.stdout)
         result = run_example("examples/plot_wurst_flow.py", "--help")
         self.assertIn("--sweep-width", result.stdout)
         result = run_example("examples/plot_radiation_damping.py", "--help")

@@ -1220,6 +1220,74 @@ MATLAB references:
 - `Sim_CPMG/sim_cpmg_matched_probe_img.m`
 - `create_fields/create_fields_single_sided.m`
 
+## Magnet Field Sources and Single-Sided NMR
+
+The imaging and motion workflows consume `(B0, B1)` maps; `spin_dynamics.fields.magnetostatics`
+*generates* them from first-principles magnet and coil models (pure NumPy, mesh-free), so a
+real device field can drive the spin dynamics instead of a synthetic field.
+
+- **B0** is the closed-form field of uniformly magnetized rectangular bars (the magnetic
+  charge-sheets on their faces), exact for the nearly linear rare-earth magnets used in
+  single-sided NMR. A soft-iron **return yoke** is added by the method of images across a
+  `mu -> infinity` plane, which enforces `B_tangential = 0` at the iron surface.
+- **B1** is the Biot-Savart field of a coil (`circular_loop` segments); its transverse
+  (imaging-relevant) component is the part perpendicular to the local B0.
+
+```python
+import numpy as np
+from spin_dynamics.fields.magnetostatics import (
+    nmr_mouse_magnets, circular_loop, sample_magnet_field,
+)
+
+bars, yoke = nmr_mouse_magnets(gap=0.012, remanence=1.30)   # two antiparallel bars on a yoke
+coil = circular_loop((0.0, 0.030, 0.0), 0.008, axis="y")
+x = np.linspace(-0.02, 0.02, 121); y = np.linspace(0.021, 0.045, 121)
+fm = sample_magnet_field(x, y, bars, yoke_y=yoke, coil_segments=coil)
+# fm.b0_magnitude (T), fm.b0_gradient (T/m, the static gradient), fm.larmor_hz, fm.b1_transverse
+```
+
+For the canonical NMR-MOUSE (two antiparallel bars on a yoke) this reproduces the device's
+hallmarks: `|B0| ~ 0.25-0.54 T` over the gap, a proton Larmor frequency of `~5-23 MHz`, and a
+strong static gradient `G ~ 7-28 T/m`. The example `plot_nmr_mouse_fields.py` shows the field,
+the gradient, the coil B1, and the depth-resolved sensitive slice from `imaging_slice_sensitivity`.
+
+### Depth-resolved relaxation and diffusion
+
+Single-sided NMR profiles a sample by depth: an excitation frequency selects the iso-B0
+sensitive slice, and the strong static gradient encodes diffusion. The defining feature is
+that the spins *move through a spatially structured field* -- as a molecule diffuses it
+samples a changing off-resonance set by the real gradient -- which is irreducibly spatial and
+cannot be reduced to a fixed off-resonance distribution. `spin_dynamics.workflows.single_sided`
+therefore drives the moving-isochromat engine directly with the magnet's own B0 map.
+
+```python
+from spin_dynamics.fields.magnetostatics import nmr_mouse_magnets
+from spin_dynamics.workflows.single_sided import (
+    SampleLayer, LayeredSample, mouse_depth_profile, measure_diffusion_at_depth,
+)
+
+bars, yoke = nmr_mouse_magnets(gap=0.012, remanence=1.30)
+sample = LayeredSample([
+    SampleLayer(0.022, 0.030, rho=1.0, t2=0.060, diffusion=2.3e-9),  # water
+    SampleLayer(0.030, 0.034, rho=0.0),                              # gap
+    SampleLayer(0.034, 0.044, rho=1.0, t2=0.015, diffusion=0.5e-9),  # gel
+])
+profile = mouse_depth_profile(bars, sample, frequencies_hz, yoke_y=yoke)  # signal/T2 vs depth
+d = measure_diffusion_at_depth(bars, sample, frequency_hz, yoke_y=yoke)    # D at one depth
+```
+
+`mouse_depth_profile` sweeps the carrier frequency: the excited signal traces the depth
+profile (a `rho = 0` gap shows up as a hole) and the echo decay gives the apparent T2, which is
+diffusion-shortened where the gradient is strong. `measure_diffusion_at_depth` runs the CPMG
+twice with identical initial walker positions -- diffusion on and off -- so the messy
+inhomogeneous-field echo envelope cancels in the ratio, leaving the diffusion attenuation in
+the real gradient; the rate `k = (1/12) gamma^2 G^2 D tE^2` then gives D using the slice's local
+gradient. Because this is a moving-walker Monte-Carlo it is stochastic (average several seeds),
+and the diffusion sensitivity honestly falls off with depth as the gradient weakens. The
+moving-walker engine is validated against the exact constant-gradient Carr-Purcell law in
+`tests/test_single_sided.py`, so deviations here are the real-field physics, not numerics. The
+example `plot_nmr_mouse_depth_profile.py` profiles a layered phantom end to end.
+
 ## Ideal FID
 
 ```python
