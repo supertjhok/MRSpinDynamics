@@ -64,6 +64,7 @@ MODULES = [
     "pulse_diagnostics",
     "radiation_damping",
     "sequences.motion",
+    "susceptibility",
     "workflows.acquisition",
     "workflows.cpmg",
     "workflows.cpmg_ir",

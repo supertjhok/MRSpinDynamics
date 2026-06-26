@@ -48,6 +48,10 @@ Ported and validated:
   multi-site kinetic generators with detailed-balance checks, transverse
   lineshape coalescence, longitudinal mixing propagators, and encode-mix-detect
   T2-T2 relaxation exchange (REXSY) data that inverts to an exchange map;
+- susceptibility-induced internal gradients (`spin_dynamics.susceptibility`):
+  analytic 2D cylindrical-grain off-resonance maps that feed the moving-
+  isochromat pipeline, plus pore-space internal-gradient distributions for
+  diffusion-in-internal-gradient studies;
 - fixture-validated pulse-shape utilities for JMR rectangular pulse responses,
   phase quantization, and untuned segment adjustment;
 - WURST pulse construction, matched-probe frequency-swept transmit response,

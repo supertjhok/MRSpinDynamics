@@ -14,6 +14,7 @@ __all__ = [
     "phase_cycling",
     "pulse_diagnostics",
     "radiation_damping",
+    "susceptibility",
     "pulses",
     "optimization",
     "probes",

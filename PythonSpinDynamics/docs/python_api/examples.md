@@ -406,6 +406,25 @@ cross peaks. Non-negative inversion uses SciPy-backed NNLS from the `opt` extra;
 without SciPy the script falls back to an unconstrained preview. Matplotlib is
 required for plotting.
 
+## Internal / Susceptibility Gradients
+
+This example builds the internal field of a packed-grain pore space with
+`spin_dynamics.susceptibility`, summarizes the pore-space internal-gradient
+distribution, and drives a CPMG echo train of diffusing walkers through the
+internal field with no applied gradient. The internal off-resonance map shows
+the `cos(2 phi)` dipole lobes around each cylindrical grain; the CPMG decay
+grows with echo spacing because the attenuation comes purely from diffusion in
+the internal gradient.
+
+```powershell
+python examples\plot_internal_gradients.py --output results\internal_gradients.png
+```
+
+Use `--susceptibility`, `--b0-tesla`, and `--grain-radius-um` to set the
+internal-gradient strength, and `--echo-spacings-ms` to compare decay rates.
+Matplotlib is required for plotting; the field and gradient calculations need
+only NumPy.
+
 ## OGSE Frequency-Resolved Diffusion
 
 This example uses the oscillating-gradient spin-echo backend

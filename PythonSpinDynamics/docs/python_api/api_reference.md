@@ -679,6 +679,18 @@ No public classes or functions found.
 | function | `run_motion_cpmg_sequence(ensemble: ParticleEnsemble, fields: MotionFieldMaps2D, *, num_echoes: int, echo_spacing: float, excitation_duration: float, refocusing_duration: float, gradient: tuple[float, float] = (0.0, 0.0), velocity: Velocity = None, rng: np.random.Generator | None = None, t1: float | Iterable[float] | np.ndarray = np.inf, t2: float | Iterable[float] | np.ndarray = np.inf, mth: float | Iterable[float] | np.ndarray = 1.0, boundary: Boundary = 'reflect', substeps_per_interval: int = 1, detuning_waveform: DetuningWaveform = None) -> MotionSequenceResult` | Run a rectangular-pulse CPMG sequence with moving isochromats. |
 | function | `run_motion_udd_sequence(ensemble: ParticleEnsemble, fields: MotionFieldMaps2D, *, num_pulses: int, total_duration: float, excitation_duration: float, refocusing_duration: float, gradient: tuple[float, float] = (0.0, 0.0), velocity: Velocity = None, rng: np.random.Generator | None = None, t1: float | Iterable[float] | np.ndarray = np.inf, t2: float | Iterable[float] | np.ndarray = np.inf, mth: float | Iterable[float] | np.ndarray = 1.0, boundary: Boundary = 'reflect', substeps_per_interval: int = 1, detuning_waveform: DetuningWaveform = None) -> MotionSequenceResult` | Run a rectangular-pulse UDD sequence with moving isochromats. |
 
+## `spin_dynamics.susceptibility`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `CylindricalInclusion` | One infinitely long cylindrical inclusion perpendicular to the map plane. |
+| class | `SusceptibilityField` | Internal off-resonance field from a susceptibility-contrast geometry. |
+| class | `InternalGradientDistribution` | Pore-space distribution of the internal-gradient magnitude (T/m). |
+| function | `susceptibility_offresonance_map(x_axis: Iterable[float] | np.ndarray, z_axis: Iterable[float] | np.ndarray, inclusions: Iterable[CylindricalInclusion], *, b0_tesla: float, susceptibility_difference: float = 0.0, gamma: float = PROTON_GAMMA, b0_in_plane_angle: float = 0.0, interior_fill: str = 'uniform') -> SusceptibilityField` | Return the internal off-resonance field for cylindrical inclusions. |
+| function | `make_susceptibility_field_maps(field: SusceptibilityField, *, b1_tx_map: Iterable[float] | np.ndarray | None = None, b1_rx_map: Iterable[float] | np.ndarray | None = None) -> MotionFieldMaps2D` | Wrap a ``SusceptibilityField`` as motion field maps. |
+| function | `internal_gradient_maps(field: SusceptibilityField) -> tuple[np.ndarray, np.ndarray, np.ndarray]` | Return ``(g_x, g_z, g_magnitude)`` internal-gradient maps in tesla/metre. |
+| function | `internal_gradient_distribution(field: SusceptibilityField, *, weights: Iterable[float] | np.ndarray | None = None, restrict_to_pore_space: bool = True, bins: int = 64, range_max: float | None = None) -> InternalGradientDistribution` | Summarize the pore-space internal-gradient magnitude (T/m). |
+
 ## `spin_dynamics.workflows.acquisition`
 
 | Kind | Name | Summary |

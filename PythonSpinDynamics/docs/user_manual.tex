@@ -182,6 +182,16 @@ coalescence, longitudinal mixing propagators, and encode-mix-detect
 map. These tools are documented in Chapter~\ref{chap:workflows}.
 }
 
+\scopebox{Accent}{
+\textbf{Internal / susceptibility gradients.} The
+\code{spin\_dynamics.susceptibility} namespace generates the static internal
+field produced by magnetic-susceptibility contrast in porous media. It provides
+analytic two-dimensional cylindrical-grain off-resonance maps that feed the
+moving-isochromat pipeline and pore-space internal-gradient distributions for
+diffusion-in-internal-gradient studies. These tools are documented in
+Chapter~\ref{chap:workflows}.
+}
+
 \scopebox{AccentTwo}{
 \textbf{Still outside the package scope.} Dipolar coupling networks, arbitrary
 nonselective multi-quantum pulse sequences, shaped sample microstructure beyond
@@ -2406,6 +2416,53 @@ forward model assumes refocused encode/detect trains and exchange confined to
 the longitudinal mixing interval; use the transverse engine directly when offset
 evolution during encoding matters.
 
+\section{Internal and Susceptibility Gradients}
+\label{sec:internal-gradients}
+
+The \code{spin\_dynamics.susceptibility} namespace generates the static internal
+field produced by magnetic-susceptibility contrast between a solid matrix and
+the pore fluid, the inhomogeneity that usually dominates porous-media NMR. Each
+\code{CylindricalInclusion} is an infinitely long cylinder perpendicular to the
+two-dimensional map plane, magnetized by a uniform in-plane applied field.
+Outside the cylinder the parallel field perturbation is the 2D dipole
+\[
+  \Delta B_\parallel(\rho, \varphi)
+    = B_0\, \frac{\Delta\chi}{2}\,
+      \left(\frac{a}{\rho}\right)^2 \cos(2\varphi),
+\]
+with radius \(a\), distance \(\rho\), and angle \(\varphi\) measured from the
+applied-field direction. Cylinders superpose in the dilute
+(\(|\Delta\chi| \ll 1\)) limit.
+
+\begin{lstlisting}[language=Python]
+import numpy as np
+from spin_dynamics.susceptibility import (
+    CylindricalInclusion, susceptibility_offresonance_map,
+    internal_gradient_distribution, make_susceptibility_field_maps,
+)
+
+axis = np.linspace(-50e-6, 50e-6, 161)
+grains = [CylindricalInclusion(cx, cz, 12e-6)
+          for cx in (-30e-6, 30e-6) for cz in (-30e-6, 30e-6)]
+
+field = susceptibility_offresonance_map(
+    axis, axis, grains, b0_tesla=2.0, susceptibility_difference=1e-6,
+)
+dist = internal_gradient_distribution(field)  # pore-space |g| in T/m
+maps = make_susceptibility_field_maps(field)  # drop into motion helpers
+\end{lstlisting}
+
+The off-resonance map is returned in the angular-frequency (rad/s) convention
+used by \code{spin\_dynamics.motion}, so it feeds the moving-isochromat sequence
+helpers directly. With no applied gradient, a CPMG echo train of diffusing
+walkers then decays purely from diffusion in the internal gradient, and the
+decay grows with echo spacing -- the \(g_\mathrm{internal}\) signature that
+background-gradient-suppressing sequences are designed to cancel. The
+\code{plot\_internal\_gradients.py} example shows the internal field, the
+internal-gradient distribution, and the echo-spacing-dependent decay end to end.
+Background-gradient-suppressing sequences (bipolar / Cotts 13-interval PGSTE)
+are the natural next addition; the internal field produced here is their input.
+
 \section{Optimization Workflows}
 
 The optimization package provides compact, plotting-free drivers for
@@ -2732,6 +2789,19 @@ from spin_dynamics.exchange import (
     transverse_propagator, mixing_propagator,
     simulate_exchange_fid, exchange_spectrum,
     simulate_relaxation_exchange_2d,
+)
+\end{lstlisting}
+
+\subsection{Internal / Susceptibility Gradients}
+
+The \code{spin\_dynamics.susceptibility} namespace provides the internal-field
+generator described in Section~\ref{sec:internal-gradients}:
+
+\begin{lstlisting}
+from spin_dynamics.susceptibility import (
+    CylindricalInclusion, SusceptibilityField, InternalGradientDistribution,
+    susceptibility_offresonance_map, make_susceptibility_field_maps,
+    internal_gradient_maps, internal_gradient_distribution,
 )
 \end{lstlisting}
 

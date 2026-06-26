@@ -33,8 +33,12 @@ first isotropic electron-nuclear hyperfine doublets. The
 multi-site kinetic magnetization transfer with per-site `T1`/`T2` and offset,
 lineshape coalescence, and encode-mix-detect `T2`-`T2` relaxation exchange
 (REXSY) data that inverts to an exchange map through the existing 2D
-inverse-Laplace solver. The package still does not attempt arbitrary
-nonselective multi-quantum pulse-sequence simulation.
+inverse-Laplace solver. The `spin_dynamics.susceptibility` namespace generates
+the internal field from magnetic-susceptibility contrast in porous media:
+analytic 2D cylindrical-grain off-resonance maps that drop into the moving-
+isochromat pipeline, plus pore-space internal-gradient distributions for
+diffusion-in-internal-gradient studies. The package still does not attempt
+arbitrary nonselective multi-quantum pulse-sequence simulation.
 
 ## Documentation
 
@@ -197,6 +201,7 @@ python examples\plot_inverse_laplace.py --output results\inverse_laplace.png
 python examples\plot_pgse_d_t2.py --output results\pgse_d_t2.png
 python examples\plot_dexsy_exchange.py --output results\dexsy_exchange.png
 python examples\plot_t2_t2_exchange.py --output results\t2_t2_exchange.png
+python examples\plot_internal_gradients.py --output results\internal_gradients.png
 python examples\plot_nqr_powder_nutation.py --output results\nqr_powder_nutation.png
 python examples\plot_nqr_population_transfer.py --output results\nqr_population_transfer.png
 python examples\plot_nqr_slse_offset.py --output results\nqr_slse_offset.png

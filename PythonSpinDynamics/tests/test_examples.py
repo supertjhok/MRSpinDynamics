@@ -141,6 +141,7 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_pgse_double_encoding_elliptical_pore.py",
             "examples/plot_dexsy_exchange.py",
             "examples/plot_t2_t2_exchange.py",
+            "examples/plot_internal_gradients.py",
             "examples/plot_ogse_frequency_diffusion.py",
             "examples/plot_rare_imaging.py",
             "examples/plot_imaging_inhomogeneity.py",
@@ -239,6 +240,10 @@ class ExampleSmokeTests(unittest.TestCase):
         result = run_example("examples/plot_t2_t2_exchange.py", "--help")
         self.assertIn("--mixing-time-ms", result.stdout)
         self.assertIn("--exchange-rate", result.stdout)
+        result = run_example("examples/plot_internal_gradients.py", "--help")
+        self.assertIn("--grain-radius-um", result.stdout)
+        self.assertIn("--echo-spacings-ms", result.stdout)
+        self.assertIn("--susceptibility", result.stdout)
         result = run_example("examples/plot_ogse_frequency_diffusion.py", "--help")
         self.assertIn("--slab-widths", result.stdout)
         self.assertIn("--freq-max", result.stdout)
