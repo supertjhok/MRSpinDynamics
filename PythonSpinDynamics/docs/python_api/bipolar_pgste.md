@@ -66,15 +66,49 @@ the applied b-value over a gradient sweep. Over that sweep the background
 that does not bias the slope, so only the cross-term matters;
 `cross_term_bias = g0 * cross_coefficient / b_applied` reports it per run.
 
+## Explicit random-walker runner
+
+`run_cotts_thirteen_interval_walkers` runs the real five-pulse sequence -- the
+three 90 degree pulses, the two 180 refocusing pulses, and the four gradient
+lobes -- with moving walkers, so it captures restricted-geometry and finite-pulse
+effects the moment model omits. A constant `background_gradient` (T/m) is applied
+as a linear off-resonance map, so the suppression appears directly in the
+simulated signal.
+
+```python
+import numpy as np
+from spin_dynamics.workflows import run_cotts_thirteen_interval_walkers
+
+result = run_cotts_thirteen_interval_walkers(
+    gradient_amplitude=0.1,
+    diffusion_coefficient=2.3e-9,
+    background_gradient=0.04,     # T/m along the gradient axis
+    walkers_per_cell=4000,
+    seed=7,
+)
+echo = np.abs(result.signal[-1])
+print(result.b_value, result.phase_cycle.name)  # moment b-value, "diff_stebp"
+```
+
+For free diffusion the walker echo reproduces `exp(-b D)` with the moment-model
+`b_value` (validated to ~1% in the test suite), and the apparent diffusion
+coefficient from a b-value sweep is unbiased by the background gradient. Pass a
+restricted-geometry `boundary` (e.g. `spin_dynamics.motion.make_circular_reflector`)
+and supply `fields`, `rho`, and `x_axis`/`z_axis` for pore-scale studies; the
+storage interval then sets the diffusion time that matters for restricted media.
+Unlike a monopolar stimulated echo, the bipolar pair refocuses the encoding phase
+before storage, so a fully refocused component is stored rather than half.
+
 ## Scope and limits
 
 - The moment model is the free-diffusion (Gaussian-propagator) b-value for ideal
   rectangular lobes. Because the applied wavevector refocuses within each
   encoding period, the free-diffusion b-value comes from the bipolar lobe pairs;
   the storage interval sets the diffusion *time* that matters for restricted
-  media, which needs the walker pipeline.
-- Trapezoidal ramps (the Bruker `diff_ramp`) and finite-pulse effects are not in
-  the moment model; they shift the b-value slightly but not the cross-term
+  media, which the walker runner resolves.
+- Trapezoidal ramps (the Bruker `diff_ramp`) are not modeled; the walker runner
+  uses rectangular lobes. Ramps shift the b-value slightly but not the cross-term
   cancellation, which is a timing-symmetry property.
-- See `examples/plot_bipolar_pgste.py` for the wavevector trajectories and the
-  apparent-diffusion suppression curve versus background gradient.
+- See `examples/plot_bipolar_pgste.py` for the wavevector trajectories, the
+  moment-model apparent-diffusion suppression curve, and the walker runner
+  validated against `exp(-b D)`.

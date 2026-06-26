@@ -15,6 +15,7 @@ from spin_dynamics.workflows.bipolar import (
     cotts_thirteen_interval_intervals,
     monopolar_pgste_intervals,
     run_cotts_thirteen_interval_moment,
+    run_cotts_thirteen_interval_walkers,
     run_monopolar_pgste_moment,
     toggling_frame_moments,
 )
@@ -200,6 +201,92 @@ class PathwayConsistencyTests(unittest.TestCase):
         # storage interval carries coherence order 0 (parked)
         storage = [iv for iv in intervals if iv.sign == 0]
         self.assertEqual(len(storage), 1)
+
+
+class WalkerRunnerTests(unittest.TestCase):
+    COMMON = dict(
+        gradient_duration=2e-3,
+        half_echo_time=3e-3,
+        storage_time=15e-3,
+        excitation_duration=20e-6,
+        refocusing_duration=40e-6,
+        walkers_per_cell=3000,
+        substeps_per_interval=6,
+        seed=7,
+    )
+
+    def test_walker_reports_diff_stebp_phase_cycle(self) -> None:
+        result = run_cotts_thirteen_interval_walkers(
+            gradient_amplitude=0.05, **self.COMMON
+        )
+        self.assertEqual(result.phase_cycle.name, "diff_stebp")
+        self.assertEqual(result.phase_cycle.num_steps, 16)
+        self.assertEqual(result.label, "cotts_13_interval_walkers")
+
+    def test_stationary_spins_form_an_unattenuated_echo(self) -> None:
+        result = run_cotts_thirteen_interval_walkers(
+            gradient_amplitude=0.1, diffusion_coefficient=0.0, **self.COMMON
+        )
+        # the bipolar pair refocuses, so a stationary ensemble keeps full echo
+        self.assertGreater(float(np.abs(result.signal[-1])), 0.95)
+
+    def test_free_diffusion_attenuation_matches_moment_b_value(self) -> None:
+        diffusion = 2.3e-9
+        for g in (0.05, 0.1, 0.15):
+            wet = run_cotts_thirteen_interval_walkers(
+                gradient_amplitude=g, diffusion_coefficient=diffusion, **self.COMMON
+            )
+            dry = run_cotts_thirteen_interval_walkers(
+                gradient_amplitude=g, diffusion_coefficient=0.0, **self.COMMON
+            )
+            attenuation = float(np.abs(wet.signal[-1]) / np.abs(dry.signal[-1]))
+            predicted = float(np.exp(-wet.b_value * diffusion))
+            self.assertAlmostEqual(attenuation / predicted, 1.0, delta=0.03)
+
+    def test_background_gradient_does_not_bias_apparent_diffusion(self) -> None:
+        diffusion = 2.3e-9
+        gradients = np.array([0.0, 0.06, 0.10, 0.14])
+
+        def apparent(background: float) -> float:
+            base = np.abs(
+                run_cotts_thirteen_interval_walkers(
+                    gradient_amplitude=0.0,
+                    diffusion_coefficient=diffusion,
+                    background_gradient=background,
+                    **self.COMMON,
+                ).signal[-1]
+            )
+            b_values = []
+            log_signal = []
+            for g in gradients:
+                r = run_cotts_thirteen_interval_walkers(
+                    gradient_amplitude=float(g),
+                    diffusion_coefficient=diffusion,
+                    background_gradient=background,
+                    **self.COMMON,
+                )
+                b_values.append(r.b_value)
+                log_signal.append(np.log(np.abs(r.signal[-1]) / base))
+            return -np.polyfit(b_values, log_signal, 1)[0]
+
+        unbiased = apparent(0.0) / diffusion
+        with_background = apparent(0.04) / diffusion
+        self.assertAlmostEqual(unbiased, 1.0, delta=0.06)
+        self.assertAlmostEqual(with_background, 1.0, delta=0.06)
+
+    def test_walker_rejects_bad_parameters(self) -> None:
+        with self.assertRaises(ValueError):
+            run_cotts_thirteen_interval_walkers(
+                gradient_amplitude=0.05, storage_time=0.0, **{
+                    k: v for k, v in self.COMMON.items() if k != "storage_time"
+                }
+            )
+        with self.assertRaises(ValueError):
+            run_cotts_thirteen_interval_walkers(
+                gradient_amplitude=0.05, half_echo_time=1e-3, **{
+                    k: v for k, v in self.COMMON.items() if k != "half_echo_time"
+                }
+            )
 
 
 if __name__ == "__main__":

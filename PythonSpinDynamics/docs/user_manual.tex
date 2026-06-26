@@ -2515,10 +2515,18 @@ package's \code{PhaseCycle} machinery as
 \(\mathrm{ph4} = 0\) on both 180 pulses), selecting the stimulated-echo
 coherence-transfer pathway \(\Delta p = (+1, -2, +1, +1, -2)\) with detection at
 \(p = -1\); the coherence order \(p(t)\) this cycle selects is exactly the sign
-carried by the toggling-frame intervals. The \code{plot\_bipolar\_pgste.py}
-example traces the wavevectors and the apparent-diffusion suppression versus
-\(g_0\). The moment model is the free-diffusion b-value for ideal rectangular
-lobes; trapezoidal ramps and restricted geometry need the walker pipeline.
+carried by the toggling-frame intervals.
+
+For restricted geometry and finite-pulse effects,
+\code{run\_cotts\_thirteen\_interval\_walkers} runs the full five-pulse sequence
+with moving walkers, applying a constant background gradient as a linear
+off-resonance map. For free diffusion the walker echo reproduces \(\exp(-b D)\)
+with the moment-model b-value, and the apparent diffusion coefficient from a
+b-value sweep is unbiased by the background gradient. The
+\code{plot\_bipolar\_pgste.py} example traces the wavevectors, the moment-model
+apparent-diffusion suppression versus \(g_0\), and the walker runner validated
+against \(\exp(-b D)\). The moment model is the free-diffusion b-value for ideal
+rectangular lobes; trapezoidal ramps need a shaped-gradient extension.
 
 \section{Optimization Workflows}
 
@@ -2691,6 +2699,7 @@ Class & Purpose \\
 \code{DDEWalkerResult} & Random-walker double diffusion encoding (DDE) signal, encoding angles, and mixing time. \\
 \code{OGSEWalkerResult} & Random-walker oscillating-gradient spin-echo (OGSE) signal, oscillation frequency, and b-value. \\
 \code{BipolarPGSTEResult} & Cotts 13-interval bipolar PGSTE moment model: b-value, background cross-term bias, and the \code{diff\_stebp} phase cycle. \\
+\code{BipolarPGSTEWalkerResult} & Explicit moving-walker bipolar 13-interval PGSTE: acquired echo, moment-model b-value, sequence, and ensemble. \\
 \code{WURSTInversionResult} & WURST inversion profile and pulse metadata. \\
 \code{MatchedWURSTCPMGResult} & Matched WURST-CPMG echoes and spectra. \\
 \code{RadiationDampingFIDResult} & Radiation-damping FID simulation and analytic comparison fields. \\

@@ -79,11 +79,13 @@ from spin_dynamics.workflows.imaging_frequency import (
 )
 from spin_dynamics.workflows.bipolar import (
     BipolarPGSTEResult,
+    BipolarPGSTEWalkerResult,
     GradientMoments,
     ToggleInterval,
     cotts_thirteen_interval_intervals,
     monopolar_pgste_intervals,
     run_cotts_thirteen_interval_moment,
+    run_cotts_thirteen_interval_walkers,
     run_monopolar_pgste_moment,
     toggling_frame_moments,
 )
@@ -174,6 +176,7 @@ EXTENDED_WORKFLOW_API = (
     "reconstruct_image_from_kspace",
     "toggling_frame_moments",
     "run_cotts_thirteen_interval_moment",
+    "run_cotts_thirteen_interval_walkers",
     "run_dde_walkers",
     "run_monopolar_pgste_moment",
     "run_ogse_walkers",
@@ -245,6 +248,7 @@ __all__ = [
     "ProbeTimeVaryingCPMGResult",
     "ProbeTimeVaryingSweepResult",
     "BipolarPGSTEResult",
+    "BipolarPGSTEWalkerResult",
     "DDEWalkerResult",
     "FrequencyEncodedImagingResult",
     "GradientMoments",
@@ -284,6 +288,7 @@ __all__ = [
     "pgse_b_value",
     "toggling_frame_moments",
     "run_cotts_thirteen_interval_moment",
+    "run_cotts_thirteen_interval_walkers",
     "run_monopolar_pgste_moment",
     "run_ideal_cpmg",
     "run_ideal_cpmg_imaging",

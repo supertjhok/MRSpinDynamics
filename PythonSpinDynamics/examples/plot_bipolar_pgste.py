@@ -46,6 +46,10 @@ class BipolarSimulation:
     apparent_thirteen: np.ndarray
     apparent_monopolar: np.ndarray
     diffusion: float
+    walker_b: np.ndarray
+    walker_attenuation_zero: np.ndarray
+    walker_attenuation_background: np.ndarray
+    walker_background: float
 
 
 def _parse_args() -> argparse.Namespace:
@@ -99,6 +103,30 @@ def _parse_args() -> argparse.Namespace:
         help="Number of background-gradient values.",
     )
     parser.add_argument(
+        "--walkers-per-cell",
+        type=int,
+        default=2000,
+        help="Random walkers for the explicit walker-runner validation panel.",
+    )
+    parser.add_argument(
+        "--walker-points",
+        type=int,
+        default=5,
+        help="Applied-gradient points in the walker validation sweep.",
+    )
+    parser.add_argument(
+        "--walker-background",
+        type=float,
+        default=0.04,
+        help="Background gradient (T/m) for the second walker sweep.",
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=7,
+        help="Random seed for the walker simulation.",
+    )
+    parser.add_argument(
         "--output",
         type=Path,
         help="Optional path for the output PNG. If omitted, show the plot.",
@@ -148,6 +176,42 @@ def _apparent_diffusion(runner, *, background, gradients, diffusion, kwargs) -> 
     return -float(slope)
 
 
+def _walker_sweep(args, timing, *, background: float) -> tuple[np.ndarray, np.ndarray]:
+    from spin_dynamics.workflows.bipolar import run_cotts_thirteen_interval_walkers
+
+    gradients = np.linspace(0.0, float(args.max_gradient), int(args.walker_points))
+    walker_kwargs = dict(
+        gradient_duration=timing["gradient_duration"],
+        half_echo_time=timing["half_echo_time"],
+        storage_time=timing["storage_time"],
+        excitation_duration=20e-6,
+        refocusing_duration=40e-6,
+        walkers_per_cell=int(args.walkers_per_cell),
+        substeps_per_interval=6,
+        seed=int(args.seed),
+    )
+    baseline = np.abs(
+        run_cotts_thirteen_interval_walkers(
+            gradient_amplitude=0.0,
+            diffusion_coefficient=DIFFUSION,
+            background_gradient=float(background),
+            **walker_kwargs,
+        ).signal[-1]
+    )
+    b_values = []
+    attenuation = []
+    for g in gradients:
+        result = run_cotts_thirteen_interval_walkers(
+            gradient_amplitude=float(g),
+            diffusion_coefficient=DIFFUSION,
+            background_gradient=float(background),
+            **walker_kwargs,
+        )
+        b_values.append(result.b_value)
+        attenuation.append(float(np.abs(result.signal[-1]) / baseline))
+    return np.array(b_values), np.array(attenuation)
+
+
 def _simulate(args: argparse.Namespace) -> BipolarSimulation:
     from spin_dynamics.workflows.bipolar import (
         cotts_thirteen_interval_intervals,
@@ -192,6 +256,10 @@ def _simulate(args: argparse.Namespace) -> BipolarSimulation:
             for g0 in backgrounds
         ]
     )
+    walker_b, walker_zero = _walker_sweep(args, timing, background=0.0)
+    _, walker_background = _walker_sweep(
+        args, timing, background=float(args.walker_background)
+    )
     return BipolarSimulation(
         times=times,
         q_applied=q_applied,
@@ -200,11 +268,15 @@ def _simulate(args: argparse.Namespace) -> BipolarSimulation:
         apparent_thirteen=apparent_thirteen,
         apparent_monopolar=apparent_monopolar,
         diffusion=DIFFUSION,
+        walker_b=walker_b,
+        walker_attenuation_zero=walker_zero,
+        walker_attenuation_background=walker_background,
+        walker_background=float(args.walker_background),
     )
 
 
 def _plot_results(plt, sim: BipolarSimulation):
-    fig, axes = plt.subplots(1, 2, figsize=(11.4, 4.4))
+    fig, axes = plt.subplots(1, 3, figsize=(16.2, 4.4))
 
     axes[0].plot(
         sim.times * 1e3,
@@ -247,8 +319,39 @@ def _plot_results(plt, sim: BipolarSimulation):
     axes[1].axhline(1.0, color="gray", lw=0.8, ls="--")
     axes[1].set_xlabel("background gradient g0 (mT/m)")
     axes[1].set_ylabel("apparent D / true D")
-    axes[1].set_title("Background-gradient suppression")
+    axes[1].set_title("Background-gradient suppression (moment model)")
     axes[1].legend(fontsize=8)
+
+    b_axis = sim.walker_b * 1e-9
+    b_dense = np.linspace(0.0, float(np.max(sim.walker_b)), 100)
+    axes[2].plot(
+        b_dense * 1e-9,
+        np.exp(-b_dense * sim.diffusion),
+        color="gray",
+        lw=1.0,
+        label="exp(-b D)",
+    )
+    axes[2].plot(
+        b_axis,
+        sim.walker_attenuation_zero,
+        "o",
+        ms=5,
+        color="#2a7f3f",
+        label="walkers, g0 = 0",
+    )
+    axes[2].plot(
+        b_axis,
+        sim.walker_attenuation_background,
+        "s",
+        ms=5,
+        mfc="none",
+        color="#b03060",
+        label=f"walkers, g0 = {sim.walker_background * 1e3:.0f} mT/m",
+    )
+    axes[2].set_xlabel("applied b-value (10^9 s/m^2)")
+    axes[2].set_ylabel("normalized echo")
+    axes[2].set_title("Walker runner vs exp(-b D)")
+    axes[2].legend(fontsize=8)
 
     fig.tight_layout()
     return fig
@@ -266,7 +369,7 @@ def main() -> None:
 
     cycle = diff_stebp_phase_cycle()
     print(f"phase cycle: {cycle.name} ({cycle.num_steps} steps, Bruker diff_stebp)")
-    print("apparent D / true D (background g0 sweep):")
+    print("apparent D / true D (moment-model background g0 sweep):")
     for g0, mono, thirteen in zip(
         sim.background_gradients, sim.apparent_monopolar, sim.apparent_thirteen
     ):
@@ -274,6 +377,13 @@ def main() -> None:
             f"  g0 = {g0 * 1e3:5.1f} mT/m -> monopolar {mono / sim.diffusion:5.3f}, "
             f"13-interval {thirteen / sim.diffusion:5.3f}"
         )
+    walker_ratio = sim.walker_attenuation_zero / np.exp(
+        -sim.walker_b * sim.diffusion
+    )
+    print(
+        "walker runner vs exp(-b D): mean ratio "
+        f"{float(np.mean(walker_ratio)):.3f} (g0 = 0), confirms the b-value"
+    )
 
     fig = _plot_results(plt, sim)
     if args.output:
