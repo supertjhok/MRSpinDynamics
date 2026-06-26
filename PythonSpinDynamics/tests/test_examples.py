@@ -148,6 +148,7 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_imaging_inhomogeneity.py",
             "examples/plot_sensitive_slice.py",
             "examples/plot_multislice_halbach_imaging.py",
+            "examples/plot_halbach_dipole_field.py",
             "examples/plot_nmr_mouse_fields.py",
             "examples/plot_nmr_mouse_depth_profile.py",
             "examples/plot_wurst_flow.py",
@@ -180,6 +181,7 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_nqr_temperature_broadening.py",
             "examples/plot_nqr_slse_efg_broadening.py",
             "examples/plot_nqr_weak_b0_spectrum.py",
+            "examples/plot_nqr_polarization_enhancement.py",
         ]
         for script in scripts:
             with self.subTest(script=script):
@@ -267,6 +269,9 @@ class ExampleSmokeTests(unittest.TestCase):
         result = run_example("examples/plot_multislice_halbach_imaging.py", "--help")
         self.assertIn("--b0-inhomogeneity-hz", result.stdout)
         self.assertIn("--slice-thickness-voxels", result.stdout)
+        result = run_example("examples/plot_halbach_dipole_field.py", "--help")
+        self.assertIn("--rod-shape", result.stdout)
+        self.assertIn("--n-length", result.stdout)
         result = run_example("examples/plot_nmr_mouse_fields.py", "--help")
         self.assertIn("--remanence", result.stdout)
         self.assertIn("--coil-radius", result.stdout)
@@ -361,6 +366,12 @@ class ExampleSmokeTests(unittest.TestCase):
         self.assertIn("--n-chi", result.stdout)
         self.assertIn("--b1-b0-angle", result.stdout)
         self.assertIn("supports spin=1 and spin=3/2", result.stdout)
+        result = run_example("examples/plot_nqr_polarization_enhancement.py", "--help")
+        self.assertIn("--velocity", result.stdout)
+        self.assertIn("--cif", result.stdout)
+        self.assertIn("--coupling-target", result.stdout)
+        self.assertIn("--sample-length", result.stdout)
+        self.assertIn("--remanence", result.stdout)
 
 
 if __name__ == "__main__":

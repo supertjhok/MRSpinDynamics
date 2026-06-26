@@ -15,7 +15,10 @@ from spin_dynamics.fields.magnetostatics import (
     bar_array_b0,
     biot_savart,
     circular_loop,
+    finite_magnet_array_b0,
+    halbach_dipole_magnets,
     nmr_mouse_magnets,
+    sample_halbach_dipole_field,
     sample_magnet_field,
 )
 
@@ -96,6 +99,94 @@ class MouseFieldTests(unittest.TestCase):
             fm.b1_transverse.max(),
             np.linalg.norm(fm.b1_vector, axis=-1).max() + 1e-12,
         )
+
+
+class HalbachDipoleTests(unittest.TestCase):
+    def test_four_rod_halbach_phasing_points_bore_field_along_x(self):
+        rods = halbach_dipole_magnets(
+            center_radius=0.025,
+            rod_radius=0.006,
+            length=0.06,
+            remanence=1.2,
+        )
+        self.assertEqual(len(rods), 4)
+        np.testing.assert_allclose(rods[0].center, (0.025, 0.0, 0.0), atol=1e-15)
+        np.testing.assert_allclose(rods[1].center, (0.0, 0.025, 0.0), atol=1e-15)
+        # M(phi) = Br [cos(2 phi), sin(2 phi), 0] for a +x bore field.
+        self.assertGreater(rods[0].br[0], 0.0)
+        self.assertLess(rods[1].br[0], 0.0)
+        self.assertGreater(rods[2].br[0], 0.0)
+        self.assertLess(rods[3].br[0], 0.0)
+
+        b0 = finite_magnet_array_b0(
+            np.array([[0.0, 0.0, 0.0]]),
+            rods,
+            n_cross=5,
+            n_length=9,
+        )[0]
+        self.assertGreater(b0[0], 0.0)
+        self.assertLess(abs(b0[1]), 1e-12)
+        self.assertLess(abs(b0[2]), 1e-12)
+
+    def test_field_angle_rotates_bore_field(self):
+        rods = halbach_dipole_magnets(
+            center_radius=0.025,
+            rod_radius=0.006,
+            length=0.06,
+            remanence=1.2,
+            field_angle=0.5 * np.pi,
+        )
+        b0 = finite_magnet_array_b0(
+            np.array([[0.0, 0.0, 0.0]]),
+            rods,
+            n_cross=5,
+            n_length=9,
+        )[0]
+        self.assertGreater(b0[1], 0.0)
+        self.assertLess(abs(b0[0]), 1e-12)
+        self.assertLess(abs(b0[2]), 1e-12)
+
+    def test_sample_halbach_field_has_finite_length_end_falloff(self):
+        axis = np.linspace(-0.005, 0.005, 5)
+        z_axis = np.linspace(-0.045, 0.045, 7)
+        fm = sample_halbach_dipole_field(
+            axis,
+            axis,
+            z_axis,
+            center_radius=0.025,
+            rod_radius=0.006,
+            length=0.06,
+            remanence=1.2,
+            n_cross=5,
+            n_length=11,
+        )
+        self.assertEqual(fm.b0_vector.shape, (5, 5, 7, 3))
+        self.assertEqual(fm.b0_gradient.shape, (5, 5, 7))
+        ix0 = int(np.argmin(np.abs(axis)))
+        iz0 = int(np.argmin(np.abs(z_axis)))
+        center = fm.b0_magnitude[ix0, ix0, iz0]
+        end = fm.b0_magnitude[ix0, ix0, -1]
+        self.assertGreater(center, end)
+        self.assertTrue(0.01 < center < 1.0)
+
+    def test_square_rods_are_supported(self):
+        rods = halbach_dipole_magnets(
+            center_radius=0.025,
+            rod_shape="square",
+            rod_width=0.010,
+            length=0.06,
+            remanence=1.2,
+        )
+        self.assertTrue(all(rod.shape == "square" for rod in rods))
+        b0 = finite_magnet_array_b0(
+            np.array([[0.0, 0.0, 0.0], [0.002, -0.001, 0.003]]),
+            rods,
+            n_cross=4,
+            n_length=7,
+        )
+        self.assertEqual(b0.shape, (2, 3))
+        self.assertTrue(np.all(np.isfinite(b0)))
+        self.assertGreater(b0[0, 0], 0.0)
 
 
 if __name__ == "__main__":

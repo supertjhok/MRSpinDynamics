@@ -324,7 +324,12 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | Kind | Name | Summary |
 | --- | --- | --- |
 | class | `BarMagnet` | A 2-D uniformly magnetized rectangular bar (infinite along z). |
+| class | `FiniteMagnetRod` | A finite uniformly magnetized rod with its long axis along z. |
+| class | `HalbachDipoleFieldMaps` | Sampled 3-D B0 field of a four-rod finite Halbach dipole. |
 | function | `bar_array_b0(x: np.ndarray, y: np.ndarray, bars: Sequence[BarMagnet], *, yoke_y: float | None = None) -> tuple[np.ndarray, np.ndarray]` | Return ``(Bx, By)`` (T) of permanent-magnet bars at points ``(x, y)``. |
+| function | `finite_magnet_array_b0(points: np.ndarray, rods: Sequence[FiniteMagnetRod], *, n_cross: int = 5, n_length: int = 21, chunk_size: int = 4096) -> np.ndarray` | Return the 3-D B field (T) of finite uniformly magnetized rods. |
+| function | `halbach_dipole_magnets(*, center_radius: float = 0.03, length: float = 0.08, remanence: float = 1.3, rod_shape: Literal['cylinder', 'square'] = 'cylinder', rod_radius: float | None = 0.008, rod_width: float | None = None, field_angle: float = 0.0) -> tuple[FiniteMagnetRod, ...]` | Return four rods for the lowest-order finite Halbach dipole. |
+| function | `sample_halbach_dipole_field(x_axis: np.ndarray, y_axis: np.ndarray, z_axis: np.ndarray, *, rods: Sequence[FiniteMagnetRod] | None = None, center_radius: float = 0.03, length: float = 0.08, remanence: float = 1.3, rod_shape: Literal['cylinder', 'square'] = 'cylinder', rod_radius: float | None = 0.008, rod_width: float | None = None, field_angle: float = 0.0, n_cross: int = 5, n_length: int = 21, chunk_size: int = 4096, gamma: float = GAMMA_PROTON) -> HalbachDipoleFieldMaps` | Sample a finite four-rod Halbach dipole onto a 3-D grid. |
 | function | `biot_savart(points: np.ndarray, segments: Sequence[tuple[Sequence[float], Sequence[float]]], current: float) -> np.ndarray` | Biot-Savart B field (T) of straight current segments at ``points``. |
 | function | `circular_loop(center: Sequence[float], radius: float, *, axis: str = 'y', n_segments: int = 72) -> list[tuple[np.ndarray, np.ndarray]]` | Return straight-segment endpoints approximating a circular current loop. |
 | class | `MagnetFieldMaps` | Sampled B0/B1 of a magnet+coil assembly on a 2-D ``(x, y)`` grid. |
@@ -460,6 +465,18 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `b0_powder_average_grid(n_theta: int = 16, n_phi: int = 32, *, b1_direction_pas: np.ndarray | list[float] | tuple[float, float, float] = (1.0, 0.0, 0.0)) -> tuple[OrientationSample, ...]` | Return a powder grid over static-field directions in the PAS. |
 | function | `normalize_orientations(orientations: tuple[OrientationSample, ...] | list[OrientationSample]) -> tuple[OrientationSample, ...]` | Return orientation samples with weights normalized to unity. |
 
+## `spin_dynamics.nqr.polarization_enhancement`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `PolarizationEnhancedNQRSample` | Sample and spin parameters for polarization-enhanced NQR. |
+| class | `CylindricalSampleGeometry` | Cylindrical sample volume moved through the magnet. |
+| class | `LinearTransportMotion` | Constant-velocity sample motion along one lab axis. |
+| class | `HalbachPrepolarizationMagnet` | Finite four-rod Halbach magnet for transport simulations. |
+| class | `PolarizationTransferResult` | Result of a polarization-enhanced NQR transport simulation. |
+| function | `ideal_spin1_enhancement_factors(line_frequencies_hz: Sequence[float], *, max_b0_tesla: float, protons_per_molecule: float, nitrogens_per_molecule: float, gamma_hz_per_t: float = PROTON_GAMMA_HZ_PER_T) -> np.ndarray` | Return ideal spin-1 enhancement factors from the Glickstein model. |
+| function | `simulate_adiabatic_polarization_transfer(magnet: HalbachPrepolarizationMagnet | Callable[[np.ndarray], np.ndarray], sample: PolarizationEnhancedNQRSample, sample_geometry: CylindricalSampleGeometry, motion: LinearTransportMotion, *, prepolarization_time_seconds: float = np.inf, path_points: int = 501, gamma_hz_per_t: float = PROTON_GAMMA_HZ_PER_T, adiabatic_scale: float = 1.0) -> PolarizationTransferResult` | Simulate polarization transfer while a sample moves through a gradient. |
+
 ## `spin_dynamics.nqr.pulses`
 
 | Kind | Name | Summary |
@@ -502,6 +519,19 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `simulate_slse_offset_sweep(site: QuadrupolarSite, transition_label: str, offsets_hz: np.ndarray | list[float] | tuple[float, ...], *, pulse_duration_seconds: float, nutation_hz: float, echo_spacing_seconds: float, num_echoes: int = 16, phase: float = 0.0, orientations: OrientationInput = 'powder', b0_tesla: float = 0.0, t2e_seconds: float = np.inf, relaxation: NQRRelaxationModel | None = None, echo_index: int = -1) -> SLSESweepResult` | Sweep irradiation offset and return SLSE amplitude and decay estimates. |
 | function | `simulate_slse_spacing_sweep(site: QuadrupolarSite, transition_label: str, echo_spacing_seconds: np.ndarray | list[float] | tuple[float, ...], *, pulse_duration_seconds: float, nutation_hz: float, num_echoes: int = 16, phase: float = 0.0, rf_offset_hz: float = 0.0, orientations: OrientationInput = 'powder', b0_tesla: float = 0.0, t2e_seconds: float = np.inf, relaxation: NQRRelaxationModel | None = None, echo_index: int = -1) -> SLSESweepResult` | Sweep SLSE pulse period and return amplitude plus effective decay. |
 | function | `simulate_population_transfer(site: QuadrupolarSite, perturbation: SelectivePulse, detection_sequence: SLSESequence, *, orientations: OrientationInput = 'powder', b0_tesla: float = 0.0, t2e_seconds: float = np.inf) -> PopulationTransferResult` | Simulate a perturbation pulse followed by SLSE detection. |
+
+## `spin_dynamics.nqr.structure_coupling`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `CIFAtom` | One atom from a CIF atom-site loop. |
+| class | `CIFStructure` | Minimal CIF crystal structure with atom sites and symmetry operations. |
+| class | `ProtonDipolarCoupling` | One quadrupolar-nucleus to proton dipolar coupling estimate. |
+| class | `ProtonCouplingEstimate` | Nearby-proton coupling summary for one quadrupolar nucleus. |
+| function | `load_cif_structure(path: str | Path) -> CIFStructure` | Load atom sites, cell parameters, and symmetry operations from a CIF. |
+| function | `estimate_proton_dipolar_couplings_from_cif(path: str | Path, target_label: str, *, proton_radius_angstrom: float = 3.0, gamma_quadrupolar_hz_per_t: float = GAMMA_14N_HZ_PER_T, gamma_proton_hz_per_t: float = PROTON_GAMMA_HZ_PER_T, field_direction: Sequence[float] | None = None, max_periodic_images: int | None = None, max_results: int | None = None) -> ProtonCouplingEstimate` | Estimate nearby-proton dipolar couplings for ``target_label`` in a CIF. |
+| function | `estimate_proton_dipolar_couplings(structure: CIFStructure, target_label: str, *, proton_radius_angstrom: float = 3.0, gamma_quadrupolar_hz_per_t: float = GAMMA_14N_HZ_PER_T, gamma_proton_hz_per_t: float = PROTON_GAMMA_HZ_PER_T, field_direction: Sequence[float] | None = None, max_periodic_images: int | None = None, max_results: int | None = None) -> ProtonCouplingEstimate` | Estimate nearby-proton dipolar couplings in a loaded CIF structure. |
+| function | `dipolar_coupling_hz(distance_angstrom: float, *, gamma_a_hz_per_t: float = GAMMA_14N_HZ_PER_T, gamma_b_hz_per_t: float = PROTON_GAMMA_HZ_PER_T) -> float` | Return the point-dipole coupling prefactor in Hz. |
 
 ## `spin_dynamics.nqr.systems`
 

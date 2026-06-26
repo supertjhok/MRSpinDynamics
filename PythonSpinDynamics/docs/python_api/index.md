@@ -54,10 +54,11 @@ The validated Python API currently covers:
   imaging and moving-isochromat workflows;
 - analytic magnet field sources (`spin_dynamics.fields.magnetostatics`):
   closed-form B0 of permanent-magnet bars with a soft-iron return yoke (method of
-  images) and Biot-Savart coil B1, and a single-sided NMR-MOUSE depth-resolved
-  relaxation/diffusion simulation (`spin_dynamics.workflows.single_sided`) that
-  diffuses walkers through the magnet's real static gradient, validated against
-  the exact constant-gradient Carr-Purcell law;
+  images), Biot-Savart coil B1, finite four-rod Halbach dipole field maps, and a
+  single-sided NMR-MOUSE depth-resolved relaxation/diffusion simulation
+  (`spin_dynamics.workflows.single_sided`) that diffuses walkers through the
+  magnet's real static gradient, validated against the exact constant-gradient
+  Carr-Purcell law;
 - fixture-validated pulse-shape utilities for JMR rectangular pulse responses,
   phase quantization, and untuned segment adjustment;
 - tuned and matched CPMG Q/mistuning sweep workflows;
@@ -96,7 +97,8 @@ The validated Python API currently covers:
 - low-level rotation matrix and effective-axis helpers;
 - first pulsed NQR helpers for spin-1 quadrupolar sites, selective
   transition pulses, single-crystal and powder orientations, SLSE echo trains,
-  and perturbation-plus-detection population-transfer experiments;
+  perturbation-plus-detection population-transfer experiments, weak-B0 spectra,
+  polarization-enhanced NQR transport, and CIF-based proton-coupling estimates;
 - first ESR helpers for single-electron spin-1/2 systems, scalar/anisotropic
   `g` tensors, single-crystal and powder orientation grids, and fixed-field or
   fixed-frequency spectra, CW derivative/lineshape display, static

@@ -22,8 +22,9 @@ extension for small scalar-coupled spin-1/2 systems, including low-field
 J-editing, ideal TANGO-B filtering, dense Hamiltonian propagation, B0/B1
 isochromat ensembles, and initial SLIC models. The `spin_dynamics.nqr`
 namespace is the quadrupolar extension for selective pulsed NQR, SLSE, powder
-averaging, EFG inhomogeneity, weak-B0 spectra, and two-frequency
-population-transfer experiments. The embedded two-level selective-pulse
+averaging, EFG inhomogeneity, weak-B0 spectra, two-frequency
+population-transfer experiments, and polarization-enhanced NQR transport with
+CIF-based proton-coupling estimates. The embedded two-level selective-pulse
 workflows are spin-1; spin-3/2 (chlorine-style) FID, echo, and SLSE -- whose
 single zero-field line connects two degenerate Kramers doublets -- run on the
 full `(2I+1)`-level density-matrix model (`simulate_full_fid`,
@@ -218,6 +219,8 @@ python examples\plot_nqr_temperature_broadening.py --output results\nqr_temperat
 python examples\plot_nqr_slse_efg_broadening.py --output results\nqr_slse_efg_broadening.png
 python examples\plot_nqr_weak_b0_spectrum.py --output results\nqr_weak_b0_spectrum.png
 python examples\plot_nqr_spin32_slse.py --output results\nqr_spin32_slse.png
+python examples\plot_halbach_dipole_field.py --output results\halbach_dipole.png
+python examples\plot_nqr_polarization_enhancement.py --output results\nqr_polarization_enhancement.png
 python examples\plot_esr_powder_spectrum.py --output results\esr_powder_spectrum.png
 python examples\plot_esr_pulsed_echo.py --output results\esr_pulsed_echo.png
 python examples\plot_esr_relaxation.py --output results\esr_relaxation.png

@@ -24,6 +24,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import Literal
 
 import numpy as np
 
@@ -46,6 +47,40 @@ class BarMagnet:
     y1: float
     br_x: float = 0.0
     br_y: float = 0.0
+
+
+@dataclass(frozen=True)
+class FiniteMagnetRod:
+    """A finite uniformly magnetized rod with its long axis along z.
+
+    ``center`` is the rod center (m), ``length`` is the z extent (m), and ``br``
+    is the remanence vector (T). ``shape`` is either a circular cylinder
+    (``"cylinder"``, using ``radius``) or an axis-aligned square rod
+    (``"square"``, using ``width``). Fields are evaluated by cubature over
+    point dipoles, so points should normally be in the bore/sample volume rather
+    than inside the magnetic material.
+    """
+
+    center: tuple[float, float, float]
+    length: float
+    br: tuple[float, float, float]
+    shape: Literal["cylinder", "square"] = "cylinder"
+    radius: float | None = None
+    width: float | None = None
+
+
+@dataclass(frozen=True)
+class HalbachDipoleFieldMaps:
+    """Sampled 3-D B0 field of a four-rod finite Halbach dipole."""
+
+    x_axis: np.ndarray
+    y_axis: np.ndarray
+    z_axis: np.ndarray
+    rods: tuple[FiniteMagnetRod, ...]
+    b0_vector: np.ndarray  # (nx, ny, nz, 3) static field (T)
+    b0_magnitude: np.ndarray  # (nx, ny, nz) |B0| (T)
+    b0_gradient: np.ndarray  # (nx, ny, nz) |grad |B0|| (T/m)
+    larmor_hz: np.ndarray  # (nx, ny, nz) proton Larmor frequency (Hz)
 
 
 # Each face is encoded as (kind, a, b, fixed, sigma):
@@ -127,6 +162,254 @@ def bar_array_b0(
     return bx, by
 
 
+def _rod_dipoles(
+    rod: FiniteMagnetRod,
+    n_cross: int,
+    n_length: int,
+) -> tuple[np.ndarray, np.ndarray]:
+    n_cross = int(n_cross)
+    n_length = int(n_length)
+    if n_cross < 1:
+        raise ValueError("n_cross must be at least 1")
+    if n_length < 1:
+        raise ValueError("n_length must be at least 1")
+    if rod.length <= 0.0 or not np.isfinite(rod.length):
+        raise ValueError("rod length must be positive and finite")
+
+    center = np.asarray(rod.center, dtype=np.float64).reshape(3)
+    br = np.asarray(rod.br, dtype=np.float64).reshape(3)
+    z_offsets = (
+        (np.arange(n_length, dtype=np.float64) + 0.5) / n_length - 0.5
+    ) * rod.length
+
+    if rod.shape == "square":
+        if rod.width is None or rod.width <= 0.0 or not np.isfinite(rod.width):
+            raise ValueError("square rods require a positive finite width")
+        coords = (
+            (np.arange(n_cross, dtype=np.float64) + 0.5) / n_cross - 0.5
+        ) * rod.width
+        xx, yy, zz = np.meshgrid(coords, coords, z_offsets, indexing="ij")
+        volume = rod.width * rod.width * rod.length
+    elif rod.shape == "cylinder":
+        if rod.radius is None or rod.radius <= 0.0 or not np.isfinite(rod.radius):
+            raise ValueError("cylindrical rods require a positive finite radius")
+        coords = (
+            (np.arange(n_cross, dtype=np.float64) + 0.5) / n_cross - 0.5
+        ) * (2.0 * rod.radius)
+        xx2, yy2 = np.meshgrid(coords, coords, indexing="ij")
+        mask = xx2**2 + yy2**2 <= rod.radius**2
+        if not np.any(mask):
+            raise ValueError("n_cross is too small to sample the cylinder")
+        x_offsets = xx2[mask]
+        y_offsets = yy2[mask]
+        xx, zz = np.meshgrid(x_offsets, z_offsets, indexing="ij")
+        yy, _ = np.meshgrid(y_offsets, z_offsets, indexing="ij")
+        volume = np.pi * rod.radius**2 * rod.length
+    else:
+        raise ValueError("rod shape must be 'cylinder' or 'square'")
+
+    offsets = np.column_stack([xx.ravel(), yy.ravel(), zz.ravel()])
+    positions = offsets + center
+    moment = (br / MU0) * (volume / positions.shape[0])
+    moments = np.repeat(moment[np.newaxis, :], positions.shape[0], axis=0)
+    return positions, moments
+
+
+def finite_magnet_array_b0(
+    points: np.ndarray,
+    rods: Sequence[FiniteMagnetRod],
+    *,
+    n_cross: int = 5,
+    n_length: int = 21,
+    chunk_size: int = 4096,
+) -> np.ndarray:
+    """Return the 3-D B field (T) of finite uniformly magnetized rods.
+
+    Each rod is represented by a volume cubature of point dipoles. Increasing
+    ``n_cross`` and ``n_length`` improves the finite-rod approximation at the
+    cost of runtime. ``points`` has shape ``(..., 3)`` in meters; the returned
+    array has the same shape.
+    """
+
+    pts = np.asarray(points, dtype=np.float64)
+    if pts.shape[-1] != 3:
+        raise ValueError("points must have shape (..., 3)")
+    chunk_size = int(chunk_size)
+    if chunk_size < 1:
+        raise ValueError("chunk_size must be at least 1")
+
+    source_positions: list[np.ndarray] = []
+    source_moments: list[np.ndarray] = []
+    for rod in rods:
+        pos, mom = _rod_dipoles(rod, n_cross=n_cross, n_length=n_length)
+        source_positions.append(pos)
+        source_moments.append(mom)
+    if not source_positions:
+        return np.zeros_like(pts)
+
+    src_pos = np.concatenate(source_positions, axis=0)
+    src_mom = np.concatenate(source_moments, axis=0)
+    flat = pts.reshape(-1, 3)
+    out = np.zeros_like(flat)
+    prefactor = MU0 / (4.0 * np.pi)
+
+    for start in range(0, flat.shape[0], chunk_size):
+        stop = min(start + chunk_size, flat.shape[0])
+        r = flat[start:stop, np.newaxis, :] - src_pos[np.newaxis, :, :]
+        r2 = np.sum(r**2, axis=-1)
+        mdotr = np.sum(src_mom[np.newaxis, :, :] * r, axis=-1)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            inv_r3 = np.where(r2 > 0.0, r2 ** -1.5, 0.0)
+            inv_r5 = np.where(r2 > 0.0, inv_r3 / r2, 0.0)
+        term = (
+            3.0 * r * mdotr[..., np.newaxis] * inv_r5[..., np.newaxis]
+            - src_mom[np.newaxis, :, :] * inv_r3[..., np.newaxis]
+        )
+        out[start:stop, :] = prefactor * np.sum(term, axis=1)
+
+    return out.reshape(pts.shape)
+
+
+def halbach_dipole_magnets(
+    *,
+    center_radius: float = 30.0e-3,
+    length: float = 80.0e-3,
+    remanence: float = 1.30,
+    rod_shape: Literal["cylinder", "square"] = "cylinder",
+    rod_radius: float | None = 8.0e-3,
+    rod_width: float | None = None,
+    field_angle: float = 0.0,
+) -> tuple[FiniteMagnetRod, ...]:
+    """Return four rods for the lowest-order finite Halbach dipole.
+
+    The rods lie at azimuths 0, 90, 180, and 270 degrees around the z-axis and
+    are uniformly magnetized transverse to z. Their remanence angle follows the
+    ideal dipole Halbach rule ``2 * phi - field_angle``. With
+    ``field_angle = 0`` the bore field points mostly along +x near the center;
+    with ``field_angle = pi / 2`` it points mostly along +y.
+    """
+
+    if center_radius <= 0.0 or not np.isfinite(center_radius):
+        raise ValueError("center_radius must be positive and finite")
+    if length <= 0.0 or not np.isfinite(length):
+        raise ValueError("length must be positive and finite")
+    if remanence < 0.0 or not np.isfinite(remanence):
+        raise ValueError("remanence must be non-negative and finite")
+    if rod_shape == "cylinder":
+        if rod_radius is None or rod_radius <= 0.0 or not np.isfinite(rod_radius):
+            raise ValueError("cylindrical rods require a positive finite rod_radius")
+        radius = float(rod_radius)
+        width = None
+    elif rod_shape == "square":
+        if rod_width is None:
+            if rod_radius is None:
+                raise ValueError("square rods require rod_width or rod_radius")
+            rod_width = 2.0 * rod_radius
+        if rod_width <= 0.0 or not np.isfinite(rod_width):
+            raise ValueError("square rods require a positive finite rod_width")
+        radius = None
+        width = float(rod_width)
+    else:
+        raise ValueError("rod_shape must be 'cylinder' or 'square'")
+
+    rods: list[FiniteMagnetRod] = []
+    for phi in (0.0, 0.5 * np.pi, np.pi, 1.5 * np.pi):
+        center = (
+            float(center_radius * np.cos(phi)),
+            float(center_radius * np.sin(phi)),
+            0.0,
+        )
+        br_angle = 2.0 * phi - field_angle
+        br = (
+            float(remanence * np.cos(br_angle)),
+            float(remanence * np.sin(br_angle)),
+            0.0,
+        )
+        rods.append(
+            FiniteMagnetRod(
+                center=center,
+                length=float(length),
+                br=br,
+                shape=rod_shape,
+                radius=radius,
+                width=width,
+            )
+        )
+    return tuple(rods)
+
+
+def sample_halbach_dipole_field(
+    x_axis: np.ndarray,
+    y_axis: np.ndarray,
+    z_axis: np.ndarray,
+    *,
+    rods: Sequence[FiniteMagnetRod] | None = None,
+    center_radius: float = 30.0e-3,
+    length: float = 80.0e-3,
+    remanence: float = 1.30,
+    rod_shape: Literal["cylinder", "square"] = "cylinder",
+    rod_radius: float | None = 8.0e-3,
+    rod_width: float | None = None,
+    field_angle: float = 0.0,
+    n_cross: int = 5,
+    n_length: int = 21,
+    chunk_size: int = 4096,
+    gamma: float = GAMMA_PROTON,
+) -> HalbachDipoleFieldMaps:
+    """Sample a finite four-rod Halbach dipole onto a 3-D grid.
+
+    This is a compact lowest-order Halbach approximation: four diametrically
+    magnetized cylinders, or four uniformly magnetized square rods, arranged
+    around a bore. It is intended for bore-field maps, finite-length end-effect
+    studies, and quick spin-dynamics inputs rather than high-accuracy magnet
+    design inside the magnet material.
+    """
+
+    x_axis = np.asarray(x_axis, dtype=np.float64)
+    y_axis = np.asarray(y_axis, dtype=np.float64)
+    z_axis = np.asarray(z_axis, dtype=np.float64)
+    if x_axis.size < 2 or y_axis.size < 2 or z_axis.size < 2:
+        raise ValueError(
+            "x_axis, y_axis, and z_axis must each contain at least 2 points"
+        )
+    if rods is None:
+        rods_tuple = halbach_dipole_magnets(
+            center_radius=center_radius,
+            length=length,
+            remanence=remanence,
+            rod_shape=rod_shape,
+            rod_radius=rod_radius,
+            rod_width=rod_width,
+            field_angle=field_angle,
+        )
+    else:
+        rods_tuple = tuple(rods)
+
+    xx, yy, zz = np.meshgrid(x_axis, y_axis, z_axis, indexing="ij")
+    grid = np.stack([xx, yy, zz], axis=-1)
+    b0_vec = finite_magnet_array_b0(
+        grid,
+        rods_tuple,
+        n_cross=n_cross,
+        n_length=n_length,
+        chunk_size=chunk_size,
+    )
+    b0_mag = np.linalg.norm(b0_vec, axis=-1)
+    gx, gy, gz = np.gradient(b0_mag, x_axis, y_axis, z_axis)
+    b0_grad = np.sqrt(gx**2 + gy**2 + gz**2)
+    larmor = gamma * b0_mag / (2.0 * np.pi)
+    return HalbachDipoleFieldMaps(
+        x_axis=x_axis,
+        y_axis=y_axis,
+        z_axis=z_axis,
+        rods=rods_tuple,
+        b0_vector=b0_vec,
+        b0_magnitude=b0_mag,
+        b0_gradient=b0_grad,
+        larmor_hz=larmor,
+    )
+
+
 def biot_savart(
     points: np.ndarray,
     segments: Sequence[tuple[Sequence[float], Sequence[float]]],
@@ -162,7 +445,10 @@ def biot_savart(
                 np.sum(e * r1, axis=-1) / n1 - np.sum(e * r2, axis=-1) / n2
             )
             factor = np.where(d2 > 0.0, term / np.where(d2 > 0.0, d2, 1.0), 0.0)
-        total = total + (MU0 * current / (4.0 * np.pi)) * factor[..., np.newaxis] * cross
+        total = (
+            total
+            + (MU0 * current / (4.0 * np.pi)) * factor[..., np.newaxis] * cross
+        )
     return total
 
 
