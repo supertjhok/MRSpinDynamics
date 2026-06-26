@@ -1730,6 +1730,56 @@ B1, relaxation, and density---through the dimension-agnostic
 \code{SpatialFieldMaps}), so the 1D, 2D, and 3D paths share one field
 representation and one gradient-coupling rule.
 
+\section{Magnet Field Sources and Single-Sided NMR}
+
+The imaging and motion workflows consume \code{(B0, B1)} maps;
+\code{spin\_dynamics.fields.magnetostatics} \emph{generates} them from
+first-principles magnet and coil models (pure NumPy, mesh-free), so a real
+device field can drive the spin dynamics instead of a synthetic field. The B0 of
+a uniformly magnetized rectangular bar is the closed-form field of the magnetic
+charge-sheets on its faces---exact for the nearly linear rare-earth magnets used
+in single-sided NMR---and a soft-iron return yoke is added by the method of
+images across a \(\mu\to\infty\) plane, which enforces \(B_\parallel=0\) at the
+iron surface. The coil B1 is the Biot-Savart field of straight current segments,
+and its transverse component is the part perpendicular to the local B0.
+
+\begin{lstlisting}[language=Python]
+import numpy as np
+from spin_dynamics.fields.magnetostatics import (
+    nmr_mouse_magnets, circular_loop, sample_magnet_field,
+)
+
+bars, yoke = nmr_mouse_magnets(gap=0.012, remanence=1.30)
+coil = circular_loop((0.0, 0.030, 0.0), 0.008, axis="y")
+x = np.linspace(-0.02, 0.02, 121); y = np.linspace(0.021, 0.045, 121)
+fm = sample_magnet_field(x, y, bars, yoke_y=yoke, coil_segments=coil)
+\end{lstlisting}
+
+For the canonical NMR-MOUSE (two antiparallel bars on a yoke) this reproduces the
+device's hallmarks: \(|B_0|\sim 0.25\text{--}0.54\,\)T over the gap, a proton
+Larmor frequency of \(\sim 5\text{--}23\,\)MHz, and a strong static gradient
+\(G\sim 7\text{--}28\,\)T/m. The example \code{plot\_nmr\_mouse\_fields.py} shows
+the field, the gradient, the coil B1, and the depth-resolved sensitive slice.
+
+Single-sided NMR profiles a sample by depth: an excitation frequency selects the
+iso-B0 sensitive slice, and the strong static gradient encodes diffusion. The
+defining feature is that the spins \emph{move through a spatially structured
+field}---as a molecule diffuses it samples a changing off-resonance set by the
+real gradient---which is irreducibly spatial and cannot be reduced to a fixed
+off-resonance distribution. \code{spin\_dynamics.workflows.single\_sided}
+therefore drives the moving-isochromat engine directly with the magnet's own B0
+map: \code{mouse\_depth\_profile} sweeps the carrier frequency so the excited
+signal traces the depth profile (a density gap shows up as a hole) and the echo
+decay gives the apparent \(T_2\), diffusion-shortened where the gradient is
+strong; \code{measure\_diffusion\_at\_depth} runs the CPMG twice with identical
+initial walker positions (diffusion on and off) so the inhomogeneous-field echo
+envelope cancels in the ratio, and the attenuation rate
+\(k=\tfrac{1}{12}\gamma^2 G^2 D\,t_E^2\) gives \(D\) using the slice's local
+gradient. This is a stochastic moving-walker Monte-Carlo whose diffusion
+sensitivity honestly falls off with depth as the gradient weakens; the engine's
+constant-gradient physics is validated against the exact Carr-Purcell law. The
+example \code{plot\_nmr\_mouse\_depth\_profile.py} profiles a layered phantom.
+
 \section{Received-Signal Noise}
 
 Noise is opt-in and output-referred. High-level workflows accept a
@@ -2685,6 +2735,8 @@ python examples\plot_time_varying_sweep.py --numpts 51 --num-echoes 12 --output 
 python examples\plot_udd_cpmg_filter.py --pulses 8 --output results\udd_cpmg_filter.png
 python examples\plot_sensitive_slice.py --output results\sensitive_slice.png
 python examples\plot_multislice_halbach_imaging.py --pixels 16 --slices 5 --output results\multislice_halbach.png
+python examples\plot_nmr_mouse_fields.py --pixels 121 --output results\nmr_mouse_fields.png
+python examples\plot_nmr_mouse_depth_profile.py --num-depths 13 --num-d-depths 5 --seeds 4 --output results\nmr_mouse_depth.png
 python examples\plot_motion_linear.py --output results\motion_linear.png
 python examples\plot_motion_diffusion_cpmg.py --output results\motion_diffusion_cpmg.png
 python examples\plot_motion_diffusion_udd.py --output results\motion_diffusion_udd.png
@@ -3099,11 +3151,27 @@ from spin_dynamics.fields import (
     SpatialDomain,
     SpatialFieldMaps,
 )
+from spin_dynamics.fields.magnetostatics import (
+    BarMagnet,
+    bar_array_b0,
+    biot_savart,
+    circular_loop,
+    nmr_mouse_magnets,
+    sample_magnet_field,
+)
 from spin_dynamics.workflows import (
     make_slice_selective_excitation,
     simulate_slice_profile,
     run_multislice_imaging,
     run_multislice_imaging_separable,
+)
+from spin_dynamics.workflows.single_sided import (
+    SampleLayer,
+    LayeredSample,
+    mouse_depth_profile,
+    measure_diffusion_at_depth,
+    simulate_mouse_cpmg,
+    resonant_depth,
 )
 from spin_dynamics.sequences import (
     cpmg_pulse_times,

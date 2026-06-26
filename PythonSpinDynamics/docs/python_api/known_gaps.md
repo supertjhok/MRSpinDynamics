@@ -42,6 +42,13 @@ Ported and validated:
   imaging in spatially varying `(B0, B1)` fields (`run_multislice_imaging`, with a
   fast separable approximation), all sharing a dimension-agnostic 1D/2D/3D
   field-map layer (`spin_dynamics.fields`) and an n-D moving-isochromat engine;
+- analytic magnet field sources (`spin_dynamics.fields.magnetostatics`):
+  charged-sheet B0 of permanent-magnet bars with a soft-iron return yoke (method
+  of images) and Biot-Savart coil B1, and a single-sided NMR-MOUSE
+  (`spin_dynamics.workflows.single_sided`) depth-resolved relaxation/diffusion
+  simulation that diffuses walkers through the magnet's real static gradient,
+  with the engine's constant-gradient diffusion validated against the exact
+  Carr-Purcell law;
 - moving-isochromat sequence driver primitives, including explicit sequence
   intervals, RF/free-precession substeps, receive samples, and a rectangular
   CPMG runner for static-gradient diffusion/advection studies;

@@ -52,6 +52,12 @@ The validated Python API currently covers:
   separable approximation, built on a dimension-agnostic 1D/2D/3D field-map layer
   (`spin_dynamics.fields`: `SpatialDomain`, `SpatialFieldMaps`) shared by the
   imaging and moving-isochromat workflows;
+- analytic magnet field sources (`spin_dynamics.fields.magnetostatics`):
+  closed-form B0 of permanent-magnet bars with a soft-iron return yoke (method of
+  images) and Biot-Savart coil B1, and a single-sided NMR-MOUSE depth-resolved
+  relaxation/diffusion simulation (`spin_dynamics.workflows.single_sided`) that
+  diffuses walkers through the magnet's real static gradient, validated against
+  the exact constant-gradient Carr-Purcell law;
 - fixture-validated pulse-shape utilities for JMR rectangular pulse responses,
   phase quantization, and untuned segment adjustment;
 - tuned and matched CPMG Q/mistuning sweep workflows;

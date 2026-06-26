@@ -319,6 +319,18 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | --- | --- | --- |
 | function | `dlinear_sample(values: np.ndarray, axes: Sequence[np.ndarray], positions: np.ndarray) -> np.ndarray` | Multilinearly sample a ``d``-dimensional ``values`` map at ``positions``. |
 
+## `spin_dynamics.fields.magnetostatics`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `BarMagnet` | A 2-D uniformly magnetized rectangular bar (infinite along z). |
+| function | `bar_array_b0(x: np.ndarray, y: np.ndarray, bars: Sequence[BarMagnet], *, yoke_y: float | None = None) -> tuple[np.ndarray, np.ndarray]` | Return ``(Bx, By)`` (T) of permanent-magnet bars at points ``(x, y)``. |
+| function | `biot_savart(points: np.ndarray, segments: Sequence[tuple[Sequence[float], Sequence[float]]], current: float) -> np.ndarray` | Biot-Savart B field (T) of straight current segments at ``points``. |
+| function | `circular_loop(center: Sequence[float], radius: float, *, axis: str = 'y', n_segments: int = 72) -> list[tuple[np.ndarray, np.ndarray]]` | Return straight-segment endpoints approximating a circular current loop. |
+| class | `MagnetFieldMaps` | Sampled B0/B1 of a magnet+coil assembly on a 2-D ``(x, y)`` grid. |
+| function | `sample_magnet_field(x_axis: np.ndarray, y_axis: np.ndarray, bars: Sequence[BarMagnet], *, yoke_y: float | None = None, coil_segments: Sequence[tuple[Sequence[float], Sequence[float]]] | None = None, coil_current: float = 1.0, gamma: float = GAMMA_PROTON) -> MagnetFieldMaps` | Sample a permanent-magnet + RF-coil assembly onto a 2-D grid. |
+| function | `nmr_mouse_magnets(*, magnet_width: float = 0.02, magnet_height: float = 0.02, gap: float = 0.012, remanence: float = 1.3, antiparallel: bool = True) -> tuple[list[BarMagnet], float]` | Return the bar magnets and yoke plane of a u-shaped NMR-MOUSE. |
+
 ## `spin_dynamics.fields.maps`
 
 | Kind | Name | Summary |
@@ -861,6 +873,20 @@ No public classes or functions found.
 | function | `run_dde_walkers(*, rho: Iterable[float] | np.ndarray | None = None, x_axis: Iterable[float] | np.ndarray | None = None, z_axis: Iterable[float] | np.ndarray | None = None, fields: MotionFieldMaps2D | None = None, gradient_amplitude: float = 0.05, gradient_duration: float = 0.002, diffusion_time: float = 0.02, mixing_time: float = 0.0, angle1: float = 0.0, angle2: float = 0.0, diffusion_coefficient: float = 2.3e-09, gamma: float = 267500000.0, walkers_per_cell: int = 128, seed: int | None = None, jitter: bool = False, excitation_duration: float = 0.0001, refocusing_duration: float = 0.0002, t1_seconds: float = np.inf, t2_seconds: float = np.inf, velocity: Velocity = None, boundary: Boundary = 'reflect', substeps_per_interval: int = 8) -> DDEWalkerResult` | Run a double diffusion encoding (DDE / double-PGSE) walker simulation. |
 | function | `run_ogse_walkers(*, rho: Iterable[float] | np.ndarray | None = None, x_axis: Iterable[float] | np.ndarray | None = None, z_axis: Iterable[float] | np.ndarray | None = None, fields: MotionFieldMaps2D | None = None, gradient_amplitude: float = 0.05, oscillation_frequency: float = 100.0, num_periods: int = 2, samples_per_period: int = 16, diffusion_coefficient: float = 2.3e-09, gamma: float = 267500000.0, gradient_axis: PGSEAxis = 'x', walkers_per_cell: int = 128, seed: int | None = None, jitter: bool = False, excitation_duration: float = 0.0001, refocusing_duration: float = 0.0002, t1_seconds: float = np.inf, t2_seconds: float = np.inf, velocity: Velocity = None, boundary: Boundary = 'reflect', substeps_per_interval: int = 4) -> OGSEWalkerResult` | Run an oscillating-gradient spin-echo (OGSE) walker simulation. |
 | function | `run_pgse(*, backend: PGSEBackend = 'moment', **kwargs) -> PGSEMomentResult | PGSEWalkerResult` | Dispatch to the moment or random-walker PGSE backend. |
+
+## `spin_dynamics.workflows.single_sided`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `SampleLayer` | A depth layer of the sample (depth measured along the through-plane axis). |
+| class | `LayeredSample` | A stack of :class:`SampleLayer` ordered by depth. |
+| class | `MouseCPMGResult` | One simulated CPMG measurement at a fixed excitation frequency. |
+| class | `MouseDepthProfileResult` | A depth profile assembled from per-frequency CPMG measurements. |
+| function | `resonant_depth(bars: Sequence[BarMagnet], frequency_hz: float, *, yoke_y: float | None = None, depth_range: tuple[float, float] = (0.021, 0.06), gamma: float = GAMMA_PROTON) -> float` | Return the on-axis depth where the proton Larmor frequency equals ``frequency_hz``. |
+| function | `simulate_mouse_cpmg(bars: Sequence[BarMagnet], sample: LayeredSample, frequency_hz: float, *, yoke_y: float | None = None, echo_time: float = 0.0002, num_echoes: int = 64, excitation_duration: float = 1e-05, depth_halfwidth: float = 0.0005, lateral_halfwidth: float = 0.003, n_depth: int = 121, n_lateral: int = 3, walkers_per_cell: int = 12, substeps_per_interval: int = 4, coil_segments: Sequence | None = None, diffusion_scale: float = 1.0, gamma: float = GAMMA_PROTON, seed: int = 0) -> MouseCPMGResult` | Simulate one CPMG measurement at ``frequency_hz`` in the real magnet field. |
+| class | `MouseDiffusionResult` | Diffusion measured at one depth from the diffusion-on/off echo ratio. |
+| function | `measure_diffusion_at_depth(bars: Sequence[BarMagnet], sample: LayeredSample, frequency_hz: float, *, echo_time: float = 0.00012, num_echoes: int = 40, n_seeds: int = 4, min_ratio: float = 0.1, gamma: float = GAMMA_PROTON, **cpmg_kwargs) -> MouseDiffusionResult` | Measure D at the slice by the diffusion-on / diffusion-off echo ratio. |
+| function | `mouse_depth_profile(bars: Sequence[BarMagnet], sample: LayeredSample, frequencies_hz: Sequence[float], *, yoke_y: float | None = None, **cpmg_kwargs) -> MouseDepthProfileResult` | Profile a sample in depth by sweeping the excitation frequency. |
 
 ## `spin_dynamics.workflows.slice_selective`
 

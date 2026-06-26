@@ -89,6 +89,17 @@ from spin_dynamics.workflows.imaging_3d import (
     run_multislice_imaging,
     run_multislice_imaging_separable,
 )
+from spin_dynamics.workflows.single_sided import (
+    LayeredSample,
+    MouseCPMGResult,
+    MouseDepthProfileResult,
+    MouseDiffusionResult,
+    SampleLayer,
+    measure_diffusion_at_depth,
+    mouse_depth_profile,
+    resonant_depth,
+    simulate_mouse_cpmg,
+)
 from spin_dynamics.workflows.bipolar import (
     BipolarPGSTEResult,
     BipolarPGSTEWalkerResult,
@@ -347,6 +358,15 @@ __all__ = [
     "slice_profile_table",
     "run_multislice_imaging",
     "run_multislice_imaging_separable",
+    "LayeredSample",
+    "SampleLayer",
+    "MouseCPMGResult",
+    "MouseDepthProfileResult",
+    "MouseDiffusionResult",
+    "measure_diffusion_at_depth",
+    "mouse_depth_profile",
+    "resonant_depth",
+    "simulate_mouse_cpmg",
     "run_tuned_cpmg",
     "run_tuned_cpmg_imaging",
     "run_tuned_cpmg_ir_train",

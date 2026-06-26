@@ -178,6 +178,43 @@ path costs roughly `slices x pixels` full-ensemble sequence runs, so keep the
 grid modest; `run_multislice_imaging_separable` is the fast flat-slice
 approximation for larger volumes. Only Matplotlib is required.
 
+## NMR-MOUSE Field Maps and Sensitive Slice
+
+Builds the field of a single-sided NMR-MOUSE from first principles
+(`spin_dynamics.fields.magnetostatics`): the analytic B0 of two antiparallel
+permanent-magnet bars plus a soft-iron return yoke (method of images), and the
+Biot-Savart B1 of a surface coil. It shows the `|B0|`/Larmor map with
+iso-frequency contours (each a depth slice), the static gradient, the transverse
+B1, and the depth-resolved sensitive slice from `imaging_slice_sensitivity`. The
+field reproduces the device's regime: `~5-23 MHz` Larmor, `G ~ 7-28 T/m`.
+
+```powershell
+python examples\plot_nmr_mouse_fields.py --pixels 121 --output results\nmr_mouse_fields.png
+```
+
+Use `--gap`, `--magnet-mm`, and `--remanence` for the magnet, `--coil-radius` for
+the coil, and `--excitation-duration` to set the slice bandwidth. Only Matplotlib
+is required.
+
+## NMR-MOUSE Depth-Resolved Relaxation and Diffusion
+
+Drives the moving-isochromat engine with the magnet's real B0 field: walkers
+seeded around the frequency-selected sensitive slice diffuse through the actual
+static gradient, so the slice selection, the echo train, and its diffusion
+attenuation all emerge from spins moving through the spatially structured field.
+On a layered phantom (water / gap / gel) the figure shows the depth profile of
+CPMG signal (the gap reads as a hole), the apparent T2 vs depth (diffusion-
+shortened where the gradient is strong), the diffusion coefficient vs depth from
+the diffusion-on/off ratio method (resolving the fast and slow layers), and the
+single-sided echo trains.
+
+```powershell
+python examples\plot_nmr_mouse_depth_profile.py --num-depths 13 --num-d-depths 5 --seeds 4 --output results\nmr_mouse_depth.png
+```
+
+This is a moving-walker Monte-Carlo (stochastic; ~1-2 minutes). Use `--seeds` and
+`--walkers` to trade speed for noise. Only Matplotlib is required.
+
 ## Tuned-Probe CPMG
 
 ```powershell
