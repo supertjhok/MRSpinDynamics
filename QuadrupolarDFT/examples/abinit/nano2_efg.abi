@@ -1,0 +1,74 @@
+# Starter EFG calculation for ferroelectric sodium nitrite, NaNO2.
+#
+# Purpose:
+#   Produce nonzero quadrupolar couplings for an NQR-relevant material and
+#   exercise the QuadrupolarDFT ABINIT parser.
+#
+# Scientific caution:
+#   This is a starter geometry, not a validated crystallographic model. The
+#   ferroelectric phase is commonly treated in Im2m below Tc and Immm above Tc
+#   (see Fokin et al., arXiv:cond-mat/0205303). Replace the cell and xred block
+#   with a preferred experimental CIF before interpreting absolute C_Q values.
+#
+# ABINIT EFG requirements:
+#   EFG calculation requires PAW. This file uses the PBE PAW datasets shipped
+#   with Ubuntu's abinit-data package:
+#     /usr/share/abinit/psp/Pseudodojo_paw_pbe_standard/{Na,N,O}.xml
+
+nucefg 2
+# Quadrupole moments in barns for Na-23, N-14, and O-17.
+quadmom 0.104 0.02044 -0.02558
+
+# Conventional orthorhombic starter cell, approximate room-temperature scale.
+# Explicit atoms are supplied and symmetry is disabled for a robust first run.
+acell 3.557 5.569 5.384 Angstrom
+rprim 1.0 0.0 0.0
+      0.0 1.0 0.0
+      0.0 0.0 1.0
+chkprim 0
+nsym 1
+
+ntypat 3
+znucl 11 7 8
+pp_dirpath "$ABI_PSPDIR/Pseudodojo_paw_pbe_standard"
+pseudos "Na.xml, N.xml, O.xml"
+
+natom 8
+typat
+  1 1
+  2 2
+  3 3 3 3
+
+# Starter NaNO2 coordinates.
+# The two nitrite groups are related by the body-centering translation. The
+# NO2 molecular geometry is arranged with an O-O axis approximately along c and
+# a polar displacement along b to avoid the paraelectric symmetry average.
+xred
+  0.000000  0.000000  0.000000  # Na
+  0.500000  0.500000  0.500000  # Na
+  0.000000  0.300000  0.250000  # N
+  0.500000  0.800000  0.750000  # N
+  0.000000  0.421000  0.054000  # O
+  0.000000  0.421000  0.446000  # O
+  0.500000  0.921000  0.554000  # O
+  0.500000  0.921000  0.946000  # O
+
+# Initial numerical values. For production, converge ecut, pawecutdg, and ngkpt
+# against the EFG tensor components at Na and N, not only total energy.
+ecut 25
+pawecutdg 50
+ngkpt 4 4 4
+nshiftk 1
+shiftk 0.0 0.0 0.0
+
+occopt 1
+iscf 17
+nstep 80
+tolvrs 1.0d-14
+diemac 4.0
+
+# Keep the first run compact.
+prtden 0
+prtwf 0
+prteig 0
+prtvol 2

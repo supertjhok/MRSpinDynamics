@@ -1,0 +1,69 @@
+# EFG calculation for ferroelectric sodium nitrite, NaNO2.
+#
+# Structure source:
+#   ICSD 82857, EntryWithCollCode82857.cif
+#   Gohda, Ichikawa, Gustafsson, and Olovsson,
+#   Journal of the Korean Physical Society 29, 551-554 (1996).
+#
+# CIF title is "The refinement of the structure of ferroelectric sodium
+# nitride" [sic in CIF metadata]. The chemistry and atom sites are NaNO2.
+#
+# The asymmetric unit in the CIF is:
+#   Na1: (0, 0.58670, 0)
+#   N1 : (0, 0.12112, 0)
+#   O1 : (0, 0,       0.19552)
+#
+# This input expands the full conventional I-centered orthorhombic cell and
+# disables symmetry so ABINIT reports every crystallographic site explicitly.
+
+nucefg 2
+# Quadrupole moments in barns for Na-23, N-14, and O-17.
+quadmom 0.104 0.02044 -0.02558
+
+acell 3.5653 5.5728 5.3846 Angstrom
+rprim 1.0 0.0 0.0
+      0.0 1.0 0.0
+      0.0 0.0 1.0
+chkprim 0
+nsym 1
+
+ntypat 3
+znucl 11 7 8
+pp_dirpath "$ABI_PSPDIR/Pseudodojo_paw_pbe_standard"
+pseudos "Na.xml, N.xml, O.xml"
+
+natom 8
+typat
+  1 1
+  2 2
+  3 3 3 3
+
+# Full-cell positions generated from ICSD 82857 symmetry operations.
+xred
+  0.000000  0.586700  0.000000  # Na1
+  0.500000  0.086700  0.500000  # Na1 + I centering
+  0.000000  0.121120  0.000000  # N1
+  0.500000  0.621120  0.500000  # N1 + I centering
+  0.000000  0.000000  0.195520  # O1
+  0.000000  0.000000  0.804480  # O1 mirror partner
+  0.500000  0.500000  0.304480  # O1 + I centering
+  0.500000  0.500000  0.695520  # O1 mirror partner + I centering
+
+# Initial numerical values. For production, converge ecut, pawecutdg, and ngkpt
+# against the EFG tensor components at Na and N, not only total energy.
+ecut 25
+pawecutdg 50
+ngkpt 4 4 4
+nshiftk 1
+shiftk 0.0 0.0 0.0
+
+occopt 1
+iscf 17
+nstep 80
+tolvrs 1.0d-14
+diemac 4.0
+
+prtden 0
+prtwf 0
+prteig 0
+prtvol 2
