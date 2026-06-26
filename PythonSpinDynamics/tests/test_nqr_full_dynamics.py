@@ -25,6 +25,10 @@ from spin_dynamics.nqr import (  # noqa: E402
     diagonalize_site,
 )
 from spin_dynamics.nqr.simulation import equilibrium_density  # noqa: E402
+from spin_dynamics.nqr import (  # noqa: E402
+    b0_powder_average_grid,
+    simulate_full_slse,
+)
 from spin_dynamics.nqr.full_dynamics import (  # noqa: E402
     pulse_hamiltonian,
     rf_operator_eigenbasis,
@@ -167,6 +171,101 @@ class FullModelSequenceTests(unittest.TestCase):
         freqs = np.fft.fftfreq(times.size, d=times[1] - times[0])
         peak = abs(freqs[np.argmax(np.abs(np.fft.fft(sig)))])
         self.assertAlmostEqual(peak, offset, delta=2e3)
+
+
+class FullSLSETests(unittest.TestCase):
+    SPIN32 = QuadrupolarSite(
+        spin=1.5, isotope="35Cl", quadrupole_frequency_hz=1.0e6, eta=0.0
+    )
+    SLSE = dict(
+        nutation_hz=10e3,
+        excitation_duration_seconds=25e-6,
+        refocus_duration_seconds=50e-6,
+        echo_spacing_seconds=400e-6,
+        num_echoes=6,
+    )
+
+    def test_spin_three_half_zero_field_line_is_nu_q(self) -> None:
+        eig = diagonalize_site(self.SPIN32)
+        # two degenerate Kramers doublets at -/+ nu_Q/2; the line sits at nu_Q
+        np.testing.assert_allclose(
+            np.sort(eig.levels_hz), [-5e5, -5e5, 5e5, 5e5], atol=1e-3
+        )
+        self.assertTrue(all(np.isclose(t.frequency_hz, 1.0e6) for t in eig.transitions))
+        result = simulate_full_slse(self.SPIN32, orientations="single", **self.SLSE)
+        self.assertAlmostEqual(result.rf_frequency_hz, 1.0e6)
+
+    def test_powder_weights_normalize_and_echoes_decay(self) -> None:
+        result = simulate_full_slse(self.SPIN32, orientations="powder", **self.SLSE)
+        self.assertAlmostEqual(float(result.orientation_weights.sum()), 1.0, places=9)
+        amplitude = np.abs(result.echo_amplitudes)
+        self.assertTrue(np.all(np.isfinite(amplitude)))
+        self.assertGreater(amplitude[0], 0.0)
+        # the powder average of the orientation-dependent nutation decays
+        self.assertLess(amplitude[-1], amplitude[0])
+
+    def test_t2e_envelope_scales_echoes(self) -> None:
+        bare = simulate_full_slse(
+            self.SPIN32, orientations="single", t2e_seconds=np.inf, **self.SLSE
+        )
+        damped = simulate_full_slse(
+            self.SPIN32, orientations="single", t2e_seconds=1.0e-3, **self.SLSE
+        )
+        expected = bare.echo_amplitudes * np.exp(-bare.echo_times / 1.0e-3)
+        np.testing.assert_allclose(damped.echo_amplitudes, expected, rtol=1e-9)
+
+    def test_weak_zeeman_perturbation_changes_signal(self) -> None:
+        grid = b0_powder_average_grid(6, 12)
+        zero = simulate_full_slse(
+            self.SPIN32, orientations=grid, b0_tesla=0.0, **self.SLSE
+        )
+        zeeman_site = QuadrupolarSite(
+            spin=1.5, isotope="35Cl", quadrupole_frequency_hz=1.0e6,
+            eta=0.0, gamma_hz_per_t=4.17e6,
+        )
+        weak = simulate_full_slse(
+            zeeman_site, orientations=grid, b0_tesla=0.02, **self.SLSE
+        )
+        # a weak Zeeman field detunes crystallites and reduces the refocused echo
+        self.assertLess(
+            np.abs(weak.echo_amplitudes[0]), np.abs(zero.echo_amplitudes[0])
+        )
+
+    def test_relaxation_path_runs_and_decays(self) -> None:
+        model = NQRRelaxationModel(t1_seconds=np.inf, t2_seconds=1.0e-3)
+        result = simulate_full_slse(
+            self.SPIN32, orientations="single", relaxation=model, **self.SLSE
+        )
+        amplitude = np.abs(result.echo_amplitudes)
+        self.assertTrue(np.all(np.isfinite(amplitude)))
+        self.assertLess(amplitude[-1], amplitude[0])
+
+    def test_invalid_parameters_rejected(self) -> None:
+        with self.assertRaises(ValueError):
+            simulate_full_slse(
+                self.SPIN32, orientations="single",
+                nutation_hz=10e3, excitation_duration_seconds=25e-6,
+                refocus_duration_seconds=50e-6, echo_spacing_seconds=400e-6,
+                num_echoes=0,
+            )
+        with self.assertRaises(ValueError):
+            simulate_full_slse(
+                self.SPIN32, orientations="single",
+                nutation_hz=10e3, excitation_duration_seconds=25e-6,
+                refocus_duration_seconds=500e-6, echo_spacing_seconds=400e-6,
+                num_echoes=4,
+            )
+
+    def test_spin_one_full_slse_runs(self) -> None:
+        # the full model also covers spin-1; a powder train should decay smoothly
+        site = QuadrupolarSite(spin=1, quadrupole_frequency_hz=900e3, eta=0.2)
+        result = simulate_full_slse(
+            site, orientations="powder", nutation_hz=8e3,
+            excitation_duration_seconds=30e-6, refocus_duration_seconds=60e-6,
+            echo_spacing_seconds=500e-6, num_echoes=5,
+        )
+        self.assertEqual(result.echo_amplitudes.shape, (5,))
+        self.assertTrue(np.all(np.isfinite(result.echo_amplitudes)))
 
 
 if __name__ == "__main__":
