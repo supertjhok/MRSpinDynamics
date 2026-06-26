@@ -25,6 +25,14 @@ some pathway approximations remain distributed across workflow-specific code.
   columns `excitation_90`, `store_90`, and `read_90`. The PGSTE signal is not a
   receiver-weighted sum over explicit simulated branches; pathway selection is
   modeled by the spoiler and `mth=0.0` equilibrium-suppression convention.
+- `diff_stebp_phase_cycle()` is a full 16-step table reproducing the Bruker
+  `diff_stebp.gp` 13-interval bipolar PGSTE phase program: `ph1` on
+  `excitation_90`, `ph2` on `store_90`, `ph3` on `read_90`, `ph4` on both
+  `refocus_180` pulses, and the receiver `ph31`. The receiver satisfies
+  `ph31 = -(ph1 + ph2 + ph3) mod 4`, selecting the stimulated-echo pathway
+  `Delta p = (+1, -2, +1, +1, -2)`. The bipolar 13-interval diffusion workflow
+  (`spin_dynamics.workflows.bipolar`) exposes it as `result.phase_cycle`. See
+  [Bipolar 13-Interval PGSTE](bipolar_pgste.md).
 - The original/reference ideal, tuned, untuned, and matched asymptotic CPMG
   paths also route their default two-step subtraction through
   `cpmg_two_step_phase_cycle`.

@@ -37,8 +37,11 @@ inverse-Laplace solver. The `spin_dynamics.susceptibility` namespace generates
 the internal field from magnetic-susceptibility contrast in porous media:
 analytic 2D cylindrical-grain off-resonance maps that drop into the moving-
 isochromat pipeline, plus pore-space internal-gradient distributions for
-diffusion-in-internal-gradient studies. The package still does not attempt
-arbitrary nonselective multi-quantum pulse-sequence simulation.
+diffusion-in-internal-gradient studies. The bipolar 13-interval PGSTE workflow
+(`spin_dynamics.workflows.bipolar`, with the Bruker `diff_stebp` 16-step phase
+cycle) suppresses the background-gradient cross-term that would otherwise bias
+those diffusion measurements. The package still does not attempt arbitrary
+nonselective multi-quantum pulse-sequence simulation.
 
 ## Documentation
 
@@ -202,6 +205,7 @@ python examples\plot_pgse_d_t2.py --output results\pgse_d_t2.png
 python examples\plot_dexsy_exchange.py --output results\dexsy_exchange.png
 python examples\plot_t2_t2_exchange.py --output results\t2_t2_exchange.png
 python examples\plot_internal_gradients.py --output results\internal_gradients.png
+python examples\plot_bipolar_pgste.py --output results\bipolar_pgste.png
 python examples\plot_nqr_powder_nutation.py --output results\nqr_powder_nutation.png
 python examples\plot_nqr_population_transfer.py --output results\nqr_population_transfer.png
 python examples\plot_nqr_slse_offset.py --output results\nqr_slse_offset.png

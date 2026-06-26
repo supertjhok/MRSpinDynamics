@@ -428,6 +428,24 @@ internal-gradient strength, and `--b0-values-tesla` to choose the fields in the
 scaling sweep. Matplotlib is required for plotting; the field and gradient
 calculations need only NumPy.
 
+## Bipolar 13-Interval PGSTE
+
+This example demonstrates the Cotts 13-interval bipolar PGSTE (Bruker
+`diff_stebp`) suppressing the diffusion bias from a constant background gradient.
+The left panel traces the toggling-frame applied and background wavevectors for
+the 13-interval sequence; the right panel sweeps the background gradient and
+plots the apparent diffusion coefficient recovered from a b-value sweep, for the
+monopolar stimulated echo (biased) and the 13-interval sequence (flat at the true
+value). It prints the 16-step `diff_stebp` phase cycle it uses.
+
+```powershell
+python examples\plot_bipolar_pgste.py --output results\bipolar_pgste.png
+```
+
+Use `--storage-time-ms`, `--half-echo-time-ms`, and `--gradient-duration-ms` to
+set the timing, and `--max-background` to set the swept background range. The
+calculation needs only NumPy; Matplotlib is required for plotting.
+
 ## OGSE Frequency-Resolved Diffusion
 
 This example uses the oscillating-gradient spin-echo backend
