@@ -54,8 +54,9 @@ Ported and validated:
   diffusion-in-internal-gradient studies;
 - bipolar 13-interval PGSTE (`spin_dynamics.workflows.bipolar`): the Cotts
   alternating PGSTE (Bruker `diff_stebp`) with the 16-step `diff_stebp` phase
-  cycle, toggling-frame moment integration, and explicit background-gradient
-  cross-term suppression versus a monopolar stimulated echo;
+  cycle, toggling-frame moment integration, an explicit moving-walker runner
+  (`run_cotts_thirteen_interval_walkers`) validated against `exp(-b D)`, and
+  background-gradient cross-term suppression versus a monopolar stimulated echo;
 - fixture-validated pulse-shape utilities for JMR rectangular pulse responses,
   phase quantization, and untuned segment adjustment;
 - WURST pulse construction, matched-probe frequency-swept transmit response,
@@ -113,10 +114,9 @@ Remaining gaps:
   cycle-table support is not yet wired through all workflows, and NQR/ESR
   pathway selection remains workflow-specific. See
   [Phase Cycling Findings](phase_cycling.md);
-- broad diffusion sweeps, Q>2000 matched-diffusion validation, walker-based
-  bipolar 13-interval PGSTE (the moment-model and phase cycle are implemented;
-  an explicit moving-walker runner with trapezoidal ramps is not yet), and
-  probe-shaped PGSE pulses;
+- broad diffusion sweeps, Q>2000 matched-diffusion validation, trapezoidal
+  (ramped) diffusion-gradient shapes for the bipolar 13-interval walker runner
+  (it currently uses rectangular lobes), and probe-shaped PGSE pulses;
 - full moving-isochromat imaging workflows with phase/frequency encoding,
   probe-shaped pulses, and direct reconstruction outputs;
 - exact MATLAB WURST fixture parity beyond finite-output and physical sanity

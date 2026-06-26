@@ -38,25 +38,44 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
+from typing import Literal
 
 import numpy as np
 
+from spin_dynamics.motion import (
+    Boundary,
+    MotionFieldMaps2D,
+    ParticleEnsemble,
+    Velocity,
+    initialize_ensemble_from_density,
+    make_motion_field_maps_2d,
+)
 from spin_dynamics.phase_cycling import (
     PhaseCycle,
     diff_stebp_phase_cycle,
     pgste_stimulated_echo_phase_cycle,
 )
+from spin_dynamics.sequences.motion import (
+    MotionSequenceResult,
+    MotionSequenceStep,
+    run_motion_sequence,
+)
+
+
+GradientAxis = Literal["x", "z"]
 
 
 __all__ = [
     "ToggleInterval",
     "GradientMoments",
     "BipolarPGSTEResult",
+    "BipolarPGSTEWalkerResult",
     "toggling_frame_moments",
     "cotts_thirteen_interval_intervals",
     "monopolar_pgste_intervals",
     "run_cotts_thirteen_interval_moment",
     "run_monopolar_pgste_moment",
+    "run_cotts_thirteen_interval_walkers",
 ]
 
 # Proton gyromagnetic ratio (rad/s/T), matching the package PGSE default.
@@ -409,3 +428,329 @@ def run_monopolar_pgste_moment(
         initial_signal=initial_signal,
         gamma=gamma,
     )
+
+
+@dataclass(frozen=True)
+class BipolarPGSTEWalkerResult:
+    """Random-walker result for the bipolar 13-interval PGSTE.
+
+    The explicit moving-walker simulation runs the real five-pulse sequence with
+    the two 180 refocusing pulses and the four gradient lobes, so it captures
+    restricted-geometry effects and finite-pulse timing that the toggling-frame
+    moment model omits. ``b_value`` is the free-diffusion moment-model b-value
+    for reference; ``signal`` is the acquired stimulated echo.
+    """
+
+    signal: np.ndarray
+    echo_times: np.ndarray
+    b_value: float
+    sequence: MotionSequenceResult
+    initial_ensemble: ParticleEnsemble
+    gradient_amplitude: float
+    gradient_duration: float
+    half_echo_time: float
+    storage_time: float
+    background_gradient: float
+    diffusion_coefficient: float
+    gamma: float
+    phase_cycle: PhaseCycle
+    label: str = "cotts_13_interval_walkers"
+
+
+def _gradient_tuple(value: float, axis: GradientAxis) -> tuple[float, float]:
+    if axis == "x":
+        return (float(value), 0.0)
+    if axis == "z":
+        return (0.0, float(value))
+    raise ValueError("axis must be 'x' or 'z'")
+
+
+def _bipolar_background_fields(
+    x_axis: np.ndarray,
+    z_axis: np.ndarray,
+    *,
+    gamma: float,
+    background_gradient: float,
+    gradient_axis: GradientAxis,
+    total_time: float,
+    diffusion_coefficient: float,
+) -> MotionFieldMaps2D:
+    """Build motion field maps with an optional constant background gradient.
+
+    A constant background gradient ``g0`` along the gradient axis is a linear
+    off-resonance map ``omega(r) = gamma * g0 * r``, which the walkers feel
+    during every free-precession interval (and which the longitudinal storage
+    period does not dephase). A two-point grid represents the linear ramp
+    exactly under bilinear sampling.
+    """
+
+    sigma = np.sqrt(max(0.0, 2.0 * float(diffusion_coefficient) * float(total_time)))
+    margin = max(10.0 * sigma, 1.0e-6)
+    x_min = float(np.min(x_axis)) - margin
+    x_max = float(np.max(x_axis)) + margin
+    z_min = float(np.min(z_axis)) - margin
+    z_max = float(np.max(z_axis)) + margin
+    if x_min == x_max:
+        x_min -= margin
+        x_max += margin
+    if z_min == z_max:
+        z_min -= margin
+        z_max += margin
+    xs = np.array([x_min, x_max], dtype=np.float64)
+    zs = np.array([z_min, z_max], dtype=np.float64)
+    if float(background_gradient) == 0.0:
+        return make_motion_field_maps_2d(xs, zs)
+    grid_x, grid_z = np.meshgrid(xs, zs, indexing="ij")
+    coordinate = grid_x if gradient_axis == "x" else grid_z
+    b0_map = float(gamma) * float(background_gradient) * coordinate
+    return make_motion_field_maps_2d(xs, zs, b0_map=b0_map)
+
+
+def _make_thirteen_interval_steps(
+    *,
+    gradient_duration: float,
+    half_echo_time: float,
+    storage_time: float,
+    gradient: tuple[float, float],
+    spoiler: tuple[float, float],
+    excitation_duration: float,
+    refocusing_duration: float,
+    substeps_per_interval: int,
+) -> tuple[MotionSequenceStep, ...]:
+    rest = half_echo_time - gradient_duration
+    sub = substeps_per_interval
+    negative = (-gradient[0], -gradient[1])
+
+    def pulse(flip: float, label: str) -> MotionSequenceStep:
+        duration = excitation_duration if flip < np.pi * 0.75 else refocusing_duration
+        return MotionSequenceStep(
+            duration=duration,
+            rf_amplitude=flip / duration,
+            rf_phase=(np.pi / 2.0 if flip < np.pi * 0.75 else 0.0),
+            substeps=max(1, sub),
+            label=label,
+        )
+
+    def lobe(value: tuple[float, float], label: str, *, acquire: bool = False) -> MotionSequenceStep:
+        return MotionSequenceStep(
+            duration=gradient_duration,
+            gradient=value,
+            acquire=acquire,
+            num_samples=1 if acquire else 0,
+            substeps=sub,
+            label=label,
+        )
+
+    def gap(label: str) -> list[MotionSequenceStep]:
+        if rest <= 0.0:
+            return []
+        return [MotionSequenceStep(duration=rest, substeps=sub, label=label)]
+
+    def encode(value: tuple[float, float], index: int, *, acquire_last: bool):
+        # lobe - gap - 180 - gap - lobe, the 180 centred so a constant
+        # background gradient refocuses within the encoding period
+        return [
+            lobe(value, f"enc{index}_lobe1"),
+            *gap(f"enc{index}_gap1"),
+            pulse(np.pi, f"refocus_180_{index}"),
+            *gap(f"enc{index}_gap2"),
+            lobe(
+                value,
+                "stimulated_echo" if acquire_last else f"enc{index}_lobe2",
+                acquire=acquire_last,
+            ),
+        ]
+
+    steps = [pulse(0.5 * np.pi, "excitation_90")]
+    steps += encode(gradient, 1, acquire_last=False)
+    steps.append(pulse(0.5 * np.pi, "store_90"))
+    steps.append(
+        MotionSequenceStep(
+            duration=storage_time,
+            gradient=spoiler,
+            substeps=sub,
+            label="storage",
+        )
+    )
+    steps.append(pulse(0.5 * np.pi, "read_90"))
+    steps += encode(negative, 2, acquire_last=True)
+    return tuple(steps)
+
+
+def run_cotts_thirteen_interval_walkers(
+    *,
+    rho: Iterable[float] | np.ndarray | None = None,
+    x_axis: Iterable[float] | np.ndarray | None = None,
+    z_axis: Iterable[float] | np.ndarray | None = None,
+    fields: MotionFieldMaps2D | None = None,
+    gradient_amplitude: float = 0.05,
+    gradient_duration: float = 2.0e-3,
+    half_echo_time: float = 6.0e-3,
+    storage_time: float = 40.0e-3,
+    diffusion_coefficient: float = 2.3e-9,
+    gamma: float = GAMMA,
+    gradient_axis: GradientAxis = "x",
+    background_gradient: float = 0.0,
+    walkers_per_cell: int = 128,
+    seed: int | None = None,
+    jitter: bool = False,
+    excitation_duration: float = 100.0e-6,
+    refocusing_duration: float = 200.0e-6,
+    spoiler_gradient: float = 0.2,
+    spoiler_axis: GradientAxis = "x",
+    t1_seconds: float = np.inf,
+    t2_seconds: float = np.inf,
+    velocity: Velocity = None,
+    boundary: Boundary = "reflect",
+    substeps_per_interval: int = 8,
+) -> BipolarPGSTEWalkerResult:
+    """Run the bipolar 13-interval PGSTE with explicit random-walker diffusion.
+
+    The five-pulse stimulated echo is built with its two 180 refocusing pulses
+    and four gradient lobes; the applied gradient polarity is positive in the
+    first encoding period and negative in the second, the alternation that
+    cancels the background-gradient cross-term. A constant ``background_gradient``
+    (T/m) along ``gradient_axis`` is applied as a linear off-resonance map, so the
+    13-interval suppression and restricted-geometry effects appear directly in the
+    simulated signal. The storage period uses the spoiler-plus-``mth=0`` PGSTE
+    pathway-selection convention. Unlike a monopolar stimulated echo, the bipolar
+    pair refocuses the encoding phase before storage, so a fully refocused
+    component is stored and the diffusion attenuation matches ``exp(-b D)`` for
+    free diffusion.
+    """
+
+    if diffusion_coefficient < 0.0:
+        raise ValueError("diffusion_coefficient must be non-negative")
+    if walkers_per_cell <= 0:
+        raise ValueError("walkers_per_cell must be positive")
+    if excitation_duration <= 0.0 or refocusing_duration <= 0.0:
+        raise ValueError("RF pulse durations must be positive")
+    if substeps_per_interval <= 0:
+        raise ValueError("substeps_per_interval must be positive")
+    delta = float(gradient_duration)
+    tau = float(half_echo_time)
+    storage = float(storage_time)
+    if delta <= 0.0:
+        raise ValueError("gradient_duration must be positive")
+    if tau < delta:
+        raise ValueError("half_echo_time must be at least gradient_duration")
+    if storage <= 0.0:
+        raise ValueError("storage_time must be positive")
+
+    rho_arr = (
+        np.ones((1, 1), dtype=np.float64)
+        if rho is None
+        else _walker_map2d(rho, "rho")
+    )
+    x = (
+        np.array([0.0], dtype=np.float64)
+        if x_axis is None
+        else _walker_axis(x_axis, "x_axis", rho_arr.shape[0])
+    )
+    z = (
+        np.array([0.0], dtype=np.float64)
+        if z_axis is None
+        else _walker_axis(z_axis, "z_axis", rho_arr.shape[1])
+    )
+    ensemble = initialize_ensemble_from_density(
+        rho_arr,
+        x,
+        z,
+        walkers_per_cell=int(walkers_per_cell),
+        diffusion_coefficient=float(diffusion_coefficient),
+        seed=seed,
+        jitter=jitter,
+    )
+
+    total_time = (
+        storage
+        + 4.0 * tau
+        + 2.0 * float(refocusing_duration)
+        + 3.0 * float(excitation_duration)
+    )
+    if fields is None:
+        fields = _bipolar_background_fields(
+            x,
+            z,
+            gamma=gamma,
+            background_gradient=background_gradient,
+            gradient_axis=gradient_axis,
+            total_time=total_time,
+            diffusion_coefficient=diffusion_coefficient,
+        )
+
+    gradient = _gradient_tuple(float(gamma) * float(gradient_amplitude), gradient_axis)
+    spoiler = _gradient_tuple(float(gamma) * float(spoiler_gradient), spoiler_axis)
+    steps = _make_thirteen_interval_steps(
+        gradient_duration=delta,
+        half_echo_time=tau,
+        storage_time=storage,
+        gradient=gradient,
+        spoiler=spoiler,
+        excitation_duration=float(excitation_duration),
+        refocusing_duration=float(refocusing_duration),
+        substeps_per_interval=int(substeps_per_interval),
+    )
+    sequence = run_motion_sequence(
+        ensemble,
+        fields,
+        steps,
+        velocity=velocity,
+        rng=np.random.default_rng(seed),
+        t1=t1_seconds,
+        t2=t2_seconds,
+        # mth=0 keeps equilibrium magnetization from regrowing into a
+        # contaminating FID during storage while T1 still decays the stored
+        # signal; the diff_stebp phase cycle records the selected pathway.
+        mth=0.0,
+        boundary=boundary,
+        default_substeps=int(substeps_per_interval),
+    )
+    b_value = toggling_frame_moments(
+        cotts_thirteen_interval_intervals(
+            gradient_amplitude=gradient_amplitude,
+            gradient_duration=delta,
+            half_echo_time=tau,
+            storage_time=storage,
+        ),
+        gamma=gamma,
+    ).b_applied
+    return BipolarPGSTEWalkerResult(
+        signal=sequence.signal,
+        echo_times=sequence.sample_times,
+        b_value=float(b_value),
+        sequence=sequence,
+        initial_ensemble=ensemble,
+        gradient_amplitude=float(gradient_amplitude),
+        gradient_duration=delta,
+        half_echo_time=tau,
+        storage_time=storage,
+        background_gradient=float(background_gradient),
+        diffusion_coefficient=float(diffusion_coefficient),
+        gamma=float(gamma),
+        phase_cycle=diff_stebp_phase_cycle(),
+    )
+
+
+def _walker_map2d(values: Iterable[float] | np.ndarray, name: str) -> np.ndarray:
+    arr = np.asarray(values, dtype=np.float64)
+    if arr.ndim != 2:
+        raise ValueError(f"{name} must be a 2D array")
+    if arr.size == 0 or not np.all(np.isfinite(arr)):
+        raise ValueError(f"{name} must contain finite values")
+    return arr
+
+
+def _walker_axis(
+    values: Iterable[float] | np.ndarray,
+    name: str,
+    expected_size: int,
+) -> np.ndarray:
+    arr = np.asarray(values, dtype=np.float64).reshape(-1)
+    if arr.size != expected_size:
+        raise ValueError(f"{name} length must match rho shape")
+    if arr.size == 0 or not np.all(np.isfinite(arr)):
+        raise ValueError(f"{name} must contain finite values")
+    if arr.size > 1 and np.any(np.diff(arr) <= 0.0):
+        raise ValueError(f"{name} must be strictly increasing")
+    return arr

@@ -436,14 +436,19 @@ The left panel traces the toggling-frame applied and background wavevectors for
 the 13-interval sequence; the right panel sweeps the background gradient and
 plots the apparent diffusion coefficient recovered from a b-value sweep, for the
 monopolar stimulated echo (biased) and the 13-interval sequence (flat at the true
-value). It prints the 16-step `diff_stebp` phase cycle it uses.
+value). A third panel runs the explicit moving-walker runner
+(`run_cotts_thirteen_interval_walkers`) at two background gradients and overlays
+the echoes on `exp(-b D)`, confirming the full simulation reproduces the
+moment-model b-value with the suppression intact. It prints the 16-step
+`diff_stebp` phase cycle it uses.
 
 ```powershell
 python examples\plot_bipolar_pgste.py --output results\bipolar_pgste.png
 ```
 
 Use `--storage-time-ms`, `--half-echo-time-ms`, and `--gradient-duration-ms` to
-set the timing, and `--max-background` to set the swept background range. The
+set the timing, `--max-background` for the swept background range, and
+`--walkers-per-cell` / `--walker-points` for the walker panel. The moment-model
 calculation needs only NumPy; Matplotlib is required for plotting.
 
 ## OGSE Frequency-Resolved Diffusion
