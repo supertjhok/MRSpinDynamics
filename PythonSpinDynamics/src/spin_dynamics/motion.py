@@ -8,13 +8,16 @@ through spatial B0/B1 maps between sequence updates.
 from __future__ import annotations
 
 import inspect
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, replace
 from typing import Literal
 
 import numpy as np
 
 from spin_dynamics.core.rotations import MatrixElements, rf_matrix_elements
+from spin_dynamics.fields import positions as _fields_positions
+from spin_dynamics.fields.domain import SpatialDomain
+from spin_dynamics.fields.interpolate import dlinear_sample as _dlinear_sample
 
 
 BoundaryMode = Literal["reflect", "periodic", "clip"]
@@ -58,6 +61,40 @@ class MotionFieldMaps2D:
             "b0": _bilinear_sample(self.b0_map, self.x_axis, self.z_axis, pos),
             "b1_tx": _bilinear_sample(self.b1_tx_map, self.x_axis, self.z_axis, pos),
             "b1_rx": _bilinear_sample(self.b1_rx_map, self.x_axis, self.z_axis, pos),
+        }
+
+
+@dataclass(frozen=True)
+class MotionFieldMaps:
+    """N-dimensional (1-, 2-, or 3-D) field maps for moving isochromats.
+
+    The dimension-agnostic counterpart to :class:`MotionFieldMaps2D`: ``b0_map``
+    (normalized angular off-resonance) and the relative ``b1_tx_map``/
+    ``b1_rx_map`` share the shape of ``domain``. ``sample`` multilinearly
+    interpolates at ``(num_particles, d)`` positions; ``bounds`` returns the
+    per-axis extent the boundary handling needs. Either container can be passed
+    to ``run_motion_sequence`` -- it only requires ``sample`` and ``bounds``.
+    """
+
+    domain: SpatialDomain
+    b0_map: np.ndarray
+    b1_tx_map: np.ndarray
+    b1_rx_map: np.ndarray
+
+    @property
+    def ndim(self) -> int:
+        return self.domain.ndim
+
+    @property
+    def bounds(self) -> tuple[tuple[float, float], ...]:
+        return self.domain.bounds
+
+    def sample(self, positions: np.ndarray) -> dict[str, np.ndarray]:
+        axes = self.domain.axes
+        return {
+            "b0": _dlinear_sample(self.b0_map, axes, positions),
+            "b1_tx": _dlinear_sample(self.b1_tx_map, axes, positions),
+            "b1_rx": _dlinear_sample(self.b1_rx_map, axes, positions),
         }
 
 
@@ -150,6 +187,36 @@ def make_motion_field_maps_2d(
     return MotionFieldMaps2D(x, z, b0, b1_tx, b1_rx)
 
 
+def make_motion_field_maps(
+    axes: SpatialDomain | Sequence[Iterable[float] | np.ndarray],
+    *,
+    b0_map: Iterable[float] | np.ndarray | None = None,
+    b1_tx_map: Iterable[float] | np.ndarray | None = None,
+    b1_rx_map: Iterable[float] | np.ndarray | None = None,
+) -> MotionFieldMaps:
+    """Assemble 1-, 2-, or 3-D motion field maps over ``axes``.
+
+    ``axes`` is either a :class:`SpatialDomain` or a sequence of strictly
+    increasing coordinate axes. Missing ``b0`` defaults to zero off-resonance and
+    missing ``b1`` maps to uniform unit sensitivity. ``b1_rx`` defaults to
+    ``b1_tx``.
+    """
+
+    domain = axes if isinstance(axes, SpatialDomain) else SpatialDomain(tuple(axes))
+    shape = domain.shape
+    b0 = np.zeros(shape) if b0_map is None else np.asarray(b0_map, dtype=np.float64)
+    b1_tx = np.ones(shape) if b1_tx_map is None else np.asarray(b1_tx_map, dtype=np.float64)
+    b1_rx = b1_tx.copy() if b1_rx_map is None else np.asarray(b1_rx_map, dtype=np.float64)
+    for name, arr in (("b0_map", b0), ("b1_tx_map", b1_tx), ("b1_rx_map", b1_rx)):
+        if arr.shape != shape:
+            raise ValueError(f"{name} must have the same shape as the domain")
+        if not np.all(np.isfinite(arr)):
+            raise ValueError(f"{name} must contain finite values")
+    if np.any(b1_tx < 0.0) or np.any(b1_rx < 0.0):
+        raise ValueError("B1 maps must be non-negative")
+    return MotionFieldMaps(domain=domain, b0_map=b0, b1_tx_map=b1_tx, b1_rx_map=b1_rx)
+
+
 def transverse_b1_magnitude(
     b0_vector_map: Iterable[float] | np.ndarray,
     b1_vector_map: Iterable[float] | np.ndarray,
@@ -193,21 +260,80 @@ def initialize_ensemble_from_density(
     z = _strict_axis(z_axis, "z_axis", min_size=1)
     if density.shape != (x.size, z.size):
         raise ValueError("rho must have shape (len(x_axis), len(z_axis))")
+    return _ensemble_from_axes(
+        density,
+        (x, z),
+        walkers_per_cell=walkers_per_cell,
+        diffusion_coefficient=diffusion_coefficient,
+        seed=seed,
+        jitter=jitter,
+    )
+
+
+def initialize_ensemble_from_domain(
+    domain: SpatialDomain,
+    rho: Iterable[float] | np.ndarray,
+    *,
+    walkers_per_cell: int = 1,
+    diffusion_coefficient: float | Iterable[float] | np.ndarray = 0.0,
+    seed: int | None = None,
+    jitter: bool = False,
+) -> ParticleEnsemble:
+    """Create a walker ensemble from a 1-, 2-, or 3-D spin-density volume.
+
+    The dimension-agnostic counterpart to ``initialize_ensemble_from_density``:
+    ``rho`` must match ``domain.shape`` and walkers are seeded at the voxel
+    centers of ``domain``. For a two-axis domain this is identical to the
+    ``(x_axis, z_axis)`` entry point.
+    """
+
+    density = np.asarray(rho, dtype=np.float64)
+    if density.shape != domain.shape:
+        raise ValueError("rho must have the same shape as the domain")
+    if not np.all(np.isfinite(density)):
+        raise ValueError("rho must contain finite values")
+    return _ensemble_from_axes(
+        density,
+        domain.axes,
+        walkers_per_cell=walkers_per_cell,
+        diffusion_coefficient=diffusion_coefficient,
+        seed=seed,
+        jitter=jitter,
+    )
+
+
+def _ensemble_from_axes(
+    density: np.ndarray,
+    axes: tuple[np.ndarray, ...],
+    *,
+    walkers_per_cell: int,
+    diffusion_coefficient: float | Iterable[float] | np.ndarray,
+    seed: int | None,
+    jitter: bool,
+) -> ParticleEnsemble:
     if walkers_per_cell <= 0:
         raise ValueError("walkers_per_cell must be positive")
+    ndim = len(axes)
+    shape = tuple(int(a.size) for a in axes)
 
-    xx, zz = np.meshgrid(x, z, indexing="ij")
-    base_positions = np.column_stack((xx.ravel(), zz.ravel()))
+    grids = np.meshgrid(*axes, indexing="ij")
+    base_positions = np.column_stack([grid.ravel() for grid in grids])
     positions = np.repeat(base_positions, int(walkers_per_cell), axis=0)
 
     if jitter:
         rng = np.random.default_rng(seed)
-        dx = _cell_widths(x)
-        dz = _cell_widths(z)
-        widths = np.column_stack((dx.repeat(z.size), np.tile(dz, x.size)))
+        width_columns = []
+        for k, axis in enumerate(axes):
+            widths_k = _cell_widths(axis)
+            reshaped = widths_k.reshape(
+                tuple(shape[j] if j == k else 1 for j in range(ndim))
+            )
+            width_columns.append(np.broadcast_to(reshaped, shape).ravel())
+        widths = np.column_stack(width_columns)
         widths = np.repeat(widths, int(walkers_per_cell), axis=0)
         positions = positions + rng.uniform(-0.5, 0.5, size=positions.shape) * widths
-        positions = apply_boundary(positions, ((x[0], x[-1]), (z[0], z[-1])), "clip")
+        bounds = tuple((float(a[0]), float(a[-1])) for a in axes)
+        positions = apply_boundary(positions, bounds, "clip")
 
     weights = np.repeat(density.ravel() / int(walkers_per_cell), int(walkers_per_cell))
     diffusion = _particle_values(
@@ -239,7 +365,7 @@ def advect_diffuse_positions(
 ) -> np.ndarray:
     """Advance positions with deterministic advection and Brownian diffusion."""
 
-    pos = _positions2d(positions)
+    pos = _positions_nd(positions)
     if dt < 0.0:
         raise ValueError("dt must be non-negative")
     updated = pos + _velocity_array(velocity, pos, float(time)) * float(dt)
@@ -585,7 +711,7 @@ def apply_boundary(
     rectangular bounds when their signature accepts those keywords.
     """
 
-    pos = _positions2d(positions).copy()
+    pos = _positions_nd(positions).copy()
     if callable(mode):
         return _positions2d(
             _call_boundary(
@@ -680,31 +806,9 @@ def _bilinear_sample(
     z_axis: np.ndarray,
     positions: np.ndarray,
 ) -> np.ndarray:
-    x = np.clip(positions[:, 0], x_axis[0], x_axis[-1])
-    z = np.clip(positions[:, 1], z_axis[0], z_axis[-1])
-    ix1 = np.searchsorted(x_axis, x, side="right")
-    iz1 = np.searchsorted(z_axis, z, side="right")
-    ix1 = np.clip(ix1, 1, x_axis.size - 1)
-    iz1 = np.clip(iz1, 1, z_axis.size - 1)
-    ix0 = ix1 - 1
-    iz0 = iz1 - 1
-    x0 = x_axis[ix0]
-    x1 = x_axis[ix1]
-    z0 = z_axis[iz0]
-    z1 = z_axis[iz1]
-    tx = np.divide(x - x0, x1 - x0, out=np.zeros_like(x), where=(x1 != x0))
-    tz = np.divide(z - z0, z1 - z0, out=np.zeros_like(z), where=(z1 != z0))
+    """Bilinearly sample a 2-D map (thin shim over the d-linear sampler)."""
 
-    v00 = values[ix0, iz0]
-    v10 = values[ix1, iz0]
-    v01 = values[ix0, iz1]
-    v11 = values[ix1, iz1]
-    return (
-        (1.0 - tx) * (1.0 - tz) * v00
-        + tx * (1.0 - tz) * v10
-        + (1.0 - tx) * tz * v01
-        + tx * tz * v11
-    )
+    return _dlinear_sample(values, (x_axis, z_axis), positions)
 
 
 def _strict_axis(
@@ -745,13 +849,12 @@ def _vector_map(values: Iterable[float] | np.ndarray, name: str) -> np.ndarray:
     return arr
 
 
+def _positions_nd(values: np.ndarray, ndim: int | None = None) -> np.ndarray:
+    return _fields_positions.positions_nd(values, ndim)
+
+
 def _positions2d(values: np.ndarray) -> np.ndarray:
-    arr = np.asarray(values, dtype=np.float64)
-    if arr.ndim != 2 or arr.shape[1] != 2:
-        raise ValueError("positions must have shape (num_particles, 2)")
-    if not np.all(np.isfinite(arr)):
-        raise ValueError("positions must contain finite values")
-    return arr
+    return _fields_positions.positions_nd(values, 2)
 
 
 def _particle_values(
@@ -795,19 +898,7 @@ def _velocity_array(
     positions: np.ndarray,
     time: float,
 ) -> np.ndarray:
-    if velocity is None:
-        return np.zeros_like(positions)
-    values = velocity(positions, time) if callable(velocity) else velocity
-    arr = np.asarray(values, dtype=np.float64)
-    if arr.ndim == 1:
-        if arr.size != 2:
-            raise ValueError("velocity vector must have two components")
-        arr = np.tile(arr, (positions.shape[0], 1))
-    if arr.shape != positions.shape:
-        raise ValueError("velocity must have shape (2,) or positions.shape")
-    if not np.all(np.isfinite(arr)):
-        raise ValueError("velocity must contain finite values")
-    return arr
+    return _fields_positions.velocity_array(velocity, positions, time)
 
 
 def _cell_widths(axis: np.ndarray) -> np.ndarray:

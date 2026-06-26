@@ -7,6 +7,7 @@ from typing import Literal
 
 import numpy as np
 
+from spin_dynamics.fields import SpatialDomain, SpatialFieldMaps
 from spin_dynamics.noise import NoiseMetadata
 
 
@@ -124,26 +125,27 @@ class ImagingFieldMaps:
         path by assigning each auxiliary offset sample the full voxel density.
         `density_normalization="preserve"` divides density by the number of
         auxiliary samples so the total represented spin density is unchanged.
+
+        This delegates to the dimension-agnostic `SpatialFieldMaps.flatten`,
+        passing the stored `del_wx`/`del_wz` gradient sensitivities through
+        verbatim and requesting the legacy axis-key names, so the returned dict
+        is identical to the previous in-line implementation.
         """
 
-        if ny <= 0:
-            raise ValueError("ny must be positive")
-        if density_normalization not in {"legacy", "preserve"}:
-            raise ValueError("density_normalization must be 'legacy' or 'preserve'")
-        rho = self.rho
-        reps = int(ny)
-        del_w0y = np.linspace(-float(maxoffs), float(maxoffs), reps)
-        b0 = self.b0_map.reshape(-1)
-        density_scale = 1.0 if density_normalization == "legacy" else 1.0 / reps
-        density = density_scale * rho.reshape(-1)
-        return {
-            "del_w": np.concatenate([offset + b0 for offset in del_w0y]),
-            "del_wx": np.tile(self.del_wx.reshape(-1), reps),
-            "del_wz": np.tile(self.del_wz.reshape(-1), reps),
-            "w_1": np.tile(self.b1_tx_map.reshape(-1), reps),
-            "w_1r": np.tile(self.b1_rx_map.reshape(-1), reps),
-            "m0": np.tile(density, reps),
-            "mth": np.tile(density, reps),
-            "T1": np.tile(self.t1_map.reshape(-1), reps),
-            "T2": np.tile(self.t2_map.reshape(-1), reps),
-        }
+        domain = SpatialDomain.normalized(self.rho.shape)
+        spatial = SpatialFieldMaps(
+            domain=domain,
+            rho=self.rho,
+            t1_map=self.t1_map,
+            t2_map=self.t2_map,
+            b0_map=self.b0_map,
+            b1_tx_map=self.b1_tx_map,
+            b1_rx_map=self.b1_rx_map,
+            gradient_sensitivity=(self.del_wx, self.del_wz),
+        )
+        return spatial.flatten(
+            ny,
+            maxoffs,
+            density_normalization,
+            axis_names=("del_wx", "del_wz"),
+        )

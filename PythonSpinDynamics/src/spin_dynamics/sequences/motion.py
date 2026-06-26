@@ -9,6 +9,7 @@ import numpy as np
 
 from spin_dynamics.motion import (
     Boundary,
+    MotionFieldMaps,
     MotionFieldMaps2D,
     ParticleEnsemble,
     Velocity,
@@ -18,6 +19,10 @@ from spin_dynamics.motion import (
     receive_signal,
 )
 from spin_dynamics.sequences.cpmg import udd_pulse_times
+
+# Either field-map container works: the engine only calls ``sample`` and reads
+# ``bounds``. ``MotionFieldMaps2D`` is the 2-D form; ``MotionFieldMaps`` is n-D.
+MotionFields = MotionFieldMaps2D | MotionFieldMaps
 
 
 DetuningWaveform = (
@@ -59,7 +64,7 @@ class MotionSequenceResult:
 
 def run_motion_sequence(
     ensemble: ParticleEnsemble,
-    fields: MotionFieldMaps2D,
+    fields: MotionFields,
     steps: Sequence[MotionSequenceStep],
     *,
     velocity: Velocity = None,
@@ -283,7 +288,7 @@ def make_motion_udd_sequence(
 
 def run_motion_cpmg_sequence(
     ensemble: ParticleEnsemble,
-    fields: MotionFieldMaps2D,
+    fields: MotionFields,
     *,
     num_echoes: int,
     echo_spacing: float,
@@ -326,7 +331,7 @@ def run_motion_cpmg_sequence(
 
 def run_motion_udd_sequence(
     ensemble: ParticleEnsemble,
-    fields: MotionFieldMaps2D,
+    fields: MotionFields,
     *,
     num_pulses: int,
     total_duration: float,
@@ -369,7 +374,7 @@ def run_motion_udd_sequence(
 
 def _run_step(
     ensemble: ParticleEnsemble,
-    fields: MotionFieldMaps2D,
+    fields: MotionFields,
     step: MotionSequenceStep,
     *,
     time: float,
@@ -439,7 +444,7 @@ def _run_step(
 
 def _propagate_segment(
     ensemble: ParticleEnsemble,
-    fields: MotionFieldMaps2D,
+    fields: MotionFields,
     dt: float,
     *,
     absolute_time: float,
@@ -464,7 +469,9 @@ def _propagate_segment(
         boundary=boundary,
     )
     sampled = fields.sample(moved.positions)
-    grad = np.asarray(gradient, dtype=np.float64).reshape(2)
+    grad = np.asarray(gradient, dtype=np.float64).reshape(-1)
+    if grad.size != moved.positions.shape[1]:
+        raise ValueError("step gradient length must match the spatial dimension")
     detuning = _detuning_values(
         detuning_waveform,
         absolute_time + 0.5 * dt,
@@ -520,8 +527,8 @@ def _validate_step(step: MotionSequenceStep) -> None:
     if step.num_samples < 0:
         raise ValueError("step num_samples must be non-negative")
     gradient = np.asarray(step.gradient, dtype=np.float64)
-    if gradient.shape != (2,) or not np.all(np.isfinite(gradient)):
-        raise ValueError("step gradient must contain two finite values")
+    if gradient.ndim != 1 or gradient.size < 1 or not np.all(np.isfinite(gradient)):
+        raise ValueError("step gradient must be a 1-D vector of finite values")
     if not np.isfinite(step.rf_amplitude) or not np.isfinite(step.rf_phase):
         raise ValueError("RF amplitude and phase must be finite")
 

@@ -77,6 +77,18 @@ from spin_dynamics.workflows.imaging_frequency import (
     run_rare_imaging,
     run_spin_warp_imaging,
 )
+from spin_dynamics.workflows.slice_selective import (
+    SliceProfileResult,
+    make_slice_selective_excitation,
+    simulate_slice_profile,
+    slice_excitation_weights,
+    slice_profile_table,
+)
+from spin_dynamics.workflows.imaging_3d import (
+    MultiSliceImagingResult,
+    run_multislice_imaging,
+    run_multislice_imaging_separable,
+)
 from spin_dynamics.workflows.bipolar import (
     BipolarPGSTEResult,
     BipolarPGSTEWalkerResult,
@@ -202,6 +214,8 @@ EXTENDED_WORKFLOW_API = (
     "run_pgste_walkers",
     "run_rare_imaging",
     "run_spin_warp_imaging",
+    "make_slice_selective_excitation",
+    "simulate_slice_profile",
     "run_t1_encoded_cpmg_imaging",
     "run_t1_encoded_phase_encoded_cpmg_imaging",
     "run_tuned_cpmg_imaging",
@@ -257,7 +271,9 @@ __all__ = [
     "PGSEMomentResult",
     "PGSEWalkerResult",
     "PGSTEWalkerResult",
+    "MultiSliceImagingResult",
     "RadiationDampingFIDResult",
+    "SliceProfileResult",
     "ToggleInterval",
     "EXTENDED_WORKFLOW_API",
     "LEGACY_SWEEP_API",
@@ -325,6 +341,12 @@ __all__ = [
     "run_pgste_walkers",
     "run_rare_imaging",
     "run_spin_warp_imaging",
+    "make_slice_selective_excitation",
+    "simulate_slice_profile",
+    "slice_excitation_weights",
+    "slice_profile_table",
+    "run_multislice_imaging",
+    "run_multislice_imaging_separable",
     "run_tuned_cpmg",
     "run_tuned_cpmg_imaging",
     "run_tuned_cpmg_ir_train",

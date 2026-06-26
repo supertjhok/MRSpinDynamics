@@ -307,15 +307,44 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `exchange_spectrum(system: ExchangeSystem, *, num_points: int = 4096, dwell_seconds: float | None = None, span_hz: float | None = None, line_broadening_hz: float = 0.0) -> tuple[np.ndarray, np.ndarray]` | Return ``(frequencies_hz, spectrum)`` from an exchange-broadened FID. |
 | function | `simulate_relaxation_exchange_2d(system: ExchangeSystem, encode_times: np.ndarray, detect_times: np.ndarray, mixing_time: float, *, include_t1: bool = True) -> RelaxationExchange2DResult` | Simulate an encode-mix-detect (T2-T2) relaxation exchange data set. |
 
+## `spin_dynamics.fields.domain`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `SpatialDomain` | A rectilinear voxel grid of one to three spatial axes. |
+
+## `spin_dynamics.fields.interpolate`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `dlinear_sample(values: np.ndarray, axes: Sequence[np.ndarray], positions: np.ndarray) -> np.ndarray` | Multilinearly sample a ``d``-dimensional ``values`` map at ``positions``. |
+
+## `spin_dynamics.fields.maps`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `SpatialFieldMaps` | Spatial sample and field maps shared by imaging and diffusion workflows. |
+
+## `spin_dynamics.fields.positions`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `positions_nd(values: np.ndarray, ndim: int | None = None) -> np.ndarray` | Validate and return an ``(num_particles, d)`` float64 position array. |
+| function | `velocity_array(velocity, positions: np.ndarray, time: float) -> np.ndarray` | Return a per-particle velocity array matching ``positions``. |
+| function | `gradient_offset(positions: np.ndarray, gradient) -> np.ndarray` | Return the Lagrangian gradient-induced offset ``positions @ gradient``. |
+
 ## `spin_dynamics.motion`
 
 | Kind | Name | Summary |
 | --- | --- | --- |
 | class | `MotionFieldMaps2D` | Two-dimensional field maps used by moving isochromats. |
+| class | `MotionFieldMaps` | N-dimensional (1-, 2-, or 3-D) field maps for moving isochromats. |
 | class | `ParticleEnsemble` | Moving isochromat ensemble. |
 | function | `make_motion_field_maps_2d(x_axis: Iterable[float] | np.ndarray, z_axis: Iterable[float] | np.ndarray, *, b0_map: Iterable[float] | np.ndarray | None = None, b0_vector_map: Iterable[float] | np.ndarray | None = None, b1_tx_map: Iterable[float] | np.ndarray | None = None, b1_tx_vector_map: Iterable[float] | np.ndarray | None = None, b1_rx_map: Iterable[float] | np.ndarray | None = None, b1_rx_vector_map: Iterable[float] | np.ndarray | None = None) -> MotionFieldMaps2D` | Validate and assemble two-dimensional field maps. |
+| function | `make_motion_field_maps(axes: SpatialDomain | Sequence[Iterable[float] | np.ndarray], *, b0_map: Iterable[float] | np.ndarray | None = None, b1_tx_map: Iterable[float] | np.ndarray | None = None, b1_rx_map: Iterable[float] | np.ndarray | None = None) -> MotionFieldMaps` | Assemble 1-, 2-, or 3-D motion field maps over ``axes``. |
 | function | `transverse_b1_magnitude(b0_vector_map: Iterable[float] | np.ndarray, b1_vector_map: Iterable[float] | np.ndarray) -> np.ndarray` | Return the local B1 magnitude perpendicular to the local B0 direction. |
 | function | `initialize_ensemble_from_density(rho: Iterable[float] | np.ndarray, x_axis: Iterable[float] | np.ndarray, z_axis: Iterable[float] | np.ndarray, *, walkers_per_cell: int = 1, diffusion_coefficient: float | Iterable[float] | np.ndarray = 0.0, seed: int | None = None, jitter: bool = False) -> ParticleEnsemble` | Create a walker ensemble from a two-dimensional spin-density map. |
+| function | `initialize_ensemble_from_domain(domain: SpatialDomain, rho: Iterable[float] | np.ndarray, *, walkers_per_cell: int = 1, diffusion_coefficient: float | Iterable[float] | np.ndarray = 0.0, seed: int | None = None, jitter: bool = False) -> ParticleEnsemble` | Create a walker ensemble from a 1-, 2-, or 3-D spin-density volume. |
 | function | `advect_diffuse_positions(positions: np.ndarray, dt: float, *, velocity: Velocity = None, diffusion_coefficient: float | Iterable[float] | np.ndarray = 0.0, rng: np.random.Generator | None = None, time: float = 0.0, bounds: tuple[tuple[float, float], tuple[float, float]] | None = None, boundary: Boundary = 'reflect') -> np.ndarray` | Advance positions with deterministic advection and Brownian diffusion. |
 | function | `move_ensemble(ensemble: ParticleEnsemble, dt: float, *, velocity: Velocity = None, rng: np.random.Generator | None = None, time: float = 0.0, bounds: tuple[tuple[float, float], tuple[float, float]] | None = None, boundary: Boundary = 'reflect') -> ParticleEnsemble` | Return an ensemble with advected/diffused positions. |
 | function | `apply_free_precession(ensemble: ParticleEnsemble, dt: float, off_resonance: Iterable[float] | np.ndarray, *, t1: float | Iterable[float] | np.ndarray = np.inf, t2: float | Iterable[float] | np.ndarray = np.inf, mth: float | Iterable[float] | np.ndarray = 1.0) -> ParticleEnsemble` | Apply relaxation and off-resonance precession to each particle. |
@@ -676,11 +705,11 @@ No public classes or functions found.
 | --- | --- | --- |
 | class | `MotionSequenceStep` | One interval in a moving-isochromat pulse sequence. |
 | class | `MotionSequenceResult` | Result from a moving-isochromat sequence simulation. |
-| function | `run_motion_sequence(ensemble: ParticleEnsemble, fields: MotionFieldMaps2D, steps: Sequence[MotionSequenceStep], *, velocity: Velocity = None, rng: np.random.Generator | None = None, t1: float | Iterable[float] | np.ndarray = np.inf, t2: float | Iterable[float] | np.ndarray = np.inf, mth: float | Iterable[float] | np.ndarray = 1.0, boundary: Boundary = 'reflect', default_substeps: int = 1, detuning_waveform: DetuningWaveform = None) -> MotionSequenceResult` | Run a sequence while moving particles through sampled field maps. |
+| function | `run_motion_sequence(ensemble: ParticleEnsemble, fields: MotionFields, steps: Sequence[MotionSequenceStep], *, velocity: Velocity = None, rng: np.random.Generator | None = None, t1: float | Iterable[float] | np.ndarray = np.inf, t2: float | Iterable[float] | np.ndarray = np.inf, mth: float | Iterable[float] | np.ndarray = 1.0, boundary: Boundary = 'reflect', default_substeps: int = 1, detuning_waveform: DetuningWaveform = None) -> MotionSequenceResult` | Run a sequence while moving particles through sampled field maps. |
 | function | `make_motion_cpmg_sequence(num_echoes: int, echo_spacing: float, *, excitation_duration: float, refocusing_duration: float, excitation_phase: float = np.pi / 2, refocusing_phase: float = 0.0, gradient: tuple[float, float] = (0.0, 0.0), substeps_per_interval: int = 1) -> tuple[MotionSequenceStep, ...]` | Build a rectangular-pulse CPMG sequence for moving isochromats. |
 | function | `make_motion_udd_sequence(num_pulses: int, total_duration: float, *, excitation_duration: float, refocusing_duration: float, excitation_phase: float = np.pi / 2, refocusing_phase: float = 0.0, gradient: tuple[float, float] = (0.0, 0.0), substeps_per_interval: int = 1) -> tuple[MotionSequenceStep, ...]` | Build a rectangular-pulse UDD sequence for moving isochromats. |
-| function | `run_motion_cpmg_sequence(ensemble: ParticleEnsemble, fields: MotionFieldMaps2D, *, num_echoes: int, echo_spacing: float, excitation_duration: float, refocusing_duration: float, gradient: tuple[float, float] = (0.0, 0.0), velocity: Velocity = None, rng: np.random.Generator | None = None, t1: float | Iterable[float] | np.ndarray = np.inf, t2: float | Iterable[float] | np.ndarray = np.inf, mth: float | Iterable[float] | np.ndarray = 1.0, boundary: Boundary = 'reflect', substeps_per_interval: int = 1, detuning_waveform: DetuningWaveform = None) -> MotionSequenceResult` | Run a rectangular-pulse CPMG sequence with moving isochromats. |
-| function | `run_motion_udd_sequence(ensemble: ParticleEnsemble, fields: MotionFieldMaps2D, *, num_pulses: int, total_duration: float, excitation_duration: float, refocusing_duration: float, gradient: tuple[float, float] = (0.0, 0.0), velocity: Velocity = None, rng: np.random.Generator | None = None, t1: float | Iterable[float] | np.ndarray = np.inf, t2: float | Iterable[float] | np.ndarray = np.inf, mth: float | Iterable[float] | np.ndarray = 1.0, boundary: Boundary = 'reflect', substeps_per_interval: int = 1, detuning_waveform: DetuningWaveform = None) -> MotionSequenceResult` | Run a rectangular-pulse UDD sequence with moving isochromats. |
+| function | `run_motion_cpmg_sequence(ensemble: ParticleEnsemble, fields: MotionFields, *, num_echoes: int, echo_spacing: float, excitation_duration: float, refocusing_duration: float, gradient: tuple[float, float] = (0.0, 0.0), velocity: Velocity = None, rng: np.random.Generator | None = None, t1: float | Iterable[float] | np.ndarray = np.inf, t2: float | Iterable[float] | np.ndarray = np.inf, mth: float | Iterable[float] | np.ndarray = 1.0, boundary: Boundary = 'reflect', substeps_per_interval: int = 1, detuning_waveform: DetuningWaveform = None) -> MotionSequenceResult` | Run a rectangular-pulse CPMG sequence with moving isochromats. |
+| function | `run_motion_udd_sequence(ensemble: ParticleEnsemble, fields: MotionFields, *, num_pulses: int, total_duration: float, excitation_duration: float, refocusing_duration: float, gradient: tuple[float, float] = (0.0, 0.0), velocity: Velocity = None, rng: np.random.Generator | None = None, t1: float | Iterable[float] | np.ndarray = np.inf, t2: float | Iterable[float] | np.ndarray = np.inf, mth: float | Iterable[float] | np.ndarray = 1.0, boundary: Boundary = 'reflect', substeps_per_interval: int = 1, detuning_waveform: DetuningWaveform = None) -> MotionSequenceResult` | Run a rectangular-pulse UDD sequence with moving isochromats. |
 
 ## `spin_dynamics.susceptibility`
 
@@ -787,6 +816,14 @@ No public classes or functions found.
 | function | `run_matched_phase_encoded_cpmg_imaging(rho: Iterable[float] | np.ndarray | ImagingFieldMaps, *, t1_map: Iterable[float] | np.ndarray | None = None, t2_map: Iterable[float] | np.ndarray | None = None, num_echoes: int = 2, echo_spacing_seconds: float = 0.0002, gradient_duration_seconds: float = 0.0005, fov: tuple[float, float] | Iterable[float] = (20.0, 20.0), ny: int = 9, maxoffs: float = 5.0, num_workers: int | None = 1, phase_workers: int | None = 1, density_normalization: Literal['legacy', 'preserve'] = 'legacy', noise: NoiseSpec | Mapping[str, object] | float | int | None = None) -> ProbeCPMGImagingResult` | Run a compact matched-probe phase-encoded CPMG imaging simulation. |
 | function | `run_matched_cpmg_imaging(rho: Iterable[float] | np.ndarray | ImagingFieldMaps, *, t1_map: Iterable[float] | np.ndarray | None = None, t2_map: Iterable[float] | np.ndarray | None = None, num_echoes: int = 2, echo_spacing_seconds: float = 0.0002, gradient_duration_seconds: float = 0.0005, fov: tuple[float, float] | Iterable[float] = (20.0, 20.0), ny: int = 9, maxoffs: float = 5.0, num_workers: int | None = 1, phase_workers: int | None = 1, density_normalization: Literal['legacy', 'preserve'] = 'legacy', noise: NoiseSpec | Mapping[str, object] | float | int | None = None) -> ProbeCPMGImagingResult` | Compatibility alias for `run_matched_phase_encoded_cpmg_imaging`. |
 
+## `spin_dynamics.workflows.imaging_3d`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `MultiSliceImagingResult` | Result of a 2-D multi-slice 3-D imaging simulation. |
+| function | `run_multislice_imaging(rho, *, slice_gradient: float, slice_axis: int = 1, fov: tuple[float, float, float] = (0.02, 0.02, 0.02), slice_positions = None, b0_map = None, b1_tx_map = None, b1_rx_map = None, t1_map = None, t2_map = None, slice_duration: float = 0.001, flip_angle: float = np.pi / 2, time_bandwidth: float = 4.0, num_substeps: int = 48, window: Window = 'hamming', rephase: bool = True, rephase_fraction: float = 0.5, readout_time: float = 0.002, phase_time: float = 0.0004, refocusing_duration: float = 0.0001, substeps_per_interval: int = 1) -> MultiSliceImagingResult` | Acquire a 3-D volume by true 3-D slice-selective multi-slice imaging. |
+| function | `run_multislice_imaging_separable(rho, *, slice_gradient: float, slice_axis: int = 1, fov: tuple[float, float, float] = (0.02, 0.02, 0.02), slice_positions = None, slice_duration: float = 0.001, flip_angle: float = np.pi / 2, time_bandwidth: float = 4.0, num_substeps: int = 48, window: Window = 'hamming', rephase: bool = True, rephase_fraction: float = 0.5, **in_plane_kwargs) -> MultiSliceImagingResult` | Fast separable multi-slice approximation (uniform in-plane field). |
+
 ## `spin_dynamics.workflows.imaging_frequency`
 
 | Kind | Name | Summary |
@@ -824,6 +861,16 @@ No public classes or functions found.
 | function | `run_dde_walkers(*, rho: Iterable[float] | np.ndarray | None = None, x_axis: Iterable[float] | np.ndarray | None = None, z_axis: Iterable[float] | np.ndarray | None = None, fields: MotionFieldMaps2D | None = None, gradient_amplitude: float = 0.05, gradient_duration: float = 0.002, diffusion_time: float = 0.02, mixing_time: float = 0.0, angle1: float = 0.0, angle2: float = 0.0, diffusion_coefficient: float = 2.3e-09, gamma: float = 267500000.0, walkers_per_cell: int = 128, seed: int | None = None, jitter: bool = False, excitation_duration: float = 0.0001, refocusing_duration: float = 0.0002, t1_seconds: float = np.inf, t2_seconds: float = np.inf, velocity: Velocity = None, boundary: Boundary = 'reflect', substeps_per_interval: int = 8) -> DDEWalkerResult` | Run a double diffusion encoding (DDE / double-PGSE) walker simulation. |
 | function | `run_ogse_walkers(*, rho: Iterable[float] | np.ndarray | None = None, x_axis: Iterable[float] | np.ndarray | None = None, z_axis: Iterable[float] | np.ndarray | None = None, fields: MotionFieldMaps2D | None = None, gradient_amplitude: float = 0.05, oscillation_frequency: float = 100.0, num_periods: int = 2, samples_per_period: int = 16, diffusion_coefficient: float = 2.3e-09, gamma: float = 267500000.0, gradient_axis: PGSEAxis = 'x', walkers_per_cell: int = 128, seed: int | None = None, jitter: bool = False, excitation_duration: float = 0.0001, refocusing_duration: float = 0.0002, t1_seconds: float = np.inf, t2_seconds: float = np.inf, velocity: Velocity = None, boundary: Boundary = 'reflect', substeps_per_interval: int = 4) -> OGSEWalkerResult` | Run an oscillating-gradient spin-echo (OGSE) walker simulation. |
 | function | `run_pgse(*, backend: PGSEBackend = 'moment', **kwargs) -> PGSEMomentResult | PGSEWalkerResult` | Dispatch to the moment or random-walker PGSE backend. |
+
+## `spin_dynamics.workflows.slice_selective`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `make_slice_selective_excitation(*, duration: float, slice_gradient: float, flip_angle: float = np.pi / 2, slice_axis: int = 0, ndim: int = 2, time_bandwidth: float = 4.0, num_substeps: int = 48, phase: float = 0.0, window: Window = 'hamming', rephase: bool = True, rephase_fraction: float = 0.5) -> tuple[MotionSequenceStep, ...]` | Build a slice-selective excitation as a tuple of motion-sequence steps. |
+| function | `slice_excitation_weights(positions: np.ndarray, *, duration: float, slice_gradient: float, center: float = 0.0, flip_angle: float = np.pi / 2, time_bandwidth: float = 4.0, num_substeps: int = 48, window: Window = 'hamming', rephase: bool = True, rephase_fraction: float = 0.5) -> np.ndarray` | Return the complex transverse weight a slice pulse imprints at ``positions``. |
+| function | `slice_profile_table(*, slice_gradient: float, off_resonance_max: float, duration: float, flip_angle: float = np.pi / 2, num: int = 1201, time_bandwidth: float = 4.0, num_substeps: int = 48, window: Window = 'hamming', rephase: bool = True, rephase_fraction: float = 0.5) -> tuple[np.ndarray, np.ndarray]` | Tabulate the excited transverse magnetization versus off-resonance. |
+| class | `SliceProfileResult` | Through-slice magnetization profile of a slice-selective pulse. |
+| function | `simulate_slice_profile(*, duration: float, slice_gradient: float, flip_angle: float = np.pi / 2, time_bandwidth: float = 4.0, num_substeps: int = 48, window: Window = 'hamming', rephase: bool = True, rephase_fraction: float = 0.5, extent: float | None = None, num_positions: int = 201) -> SliceProfileResult` | Excite a uniform line of spins and return the through-slice profile. |
 
 ## `spin_dynamics.workflows.sweeps`
 

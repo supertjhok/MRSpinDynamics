@@ -37,6 +37,11 @@ Ported and validated:
   receive-weighted imaging mode;
 - ideal inversion-recovery T1-prepared phase-encoded CPMG imaging with
   selected-echo, echo-summed, fitted-rho, and fitted-T2 image formation;
+- frequency-encoded spin-warp and RARE imaging, slice-selective excitation with
+  gradient-shaped (windowed-sinc) pulses, and true-3D slice-selective multi-slice
+  imaging in spatially varying `(B0, B1)` fields (`run_multislice_imaging`, with a
+  fast separable approximation), all sharing a dimension-agnostic 1D/2D/3D
+  field-map layer (`spin_dynamics.fields`) and an n-D moving-isochromat engine;
 - moving-isochromat sequence driver primitives, including explicit sequence
   intervals, RF/free-precession substeps, receive samples, and a rectangular
   CPMG runner for static-gradient diffusion/advection studies;
@@ -117,8 +122,10 @@ Remaining gaps:
 - broad diffusion sweeps, Q>2000 matched-diffusion validation, trapezoidal
   (ramped) diffusion-gradient shapes for the bipolar 13-interval walker runner
   (it currently uses rectangular lobes), and probe-shaped PGSE pulses;
-- full moving-isochromat imaging workflows with phase/frequency encoding,
-  probe-shaped pulses, and direct reconstruction outputs;
+- probe-shaped (tuned/matched) pulses in the moving-isochromat imaging
+  workflows, and genuinely Fourier-encoded 3D imaging (slab-select plus a second
+  phase encode reconstructed with `ifftn`); the current 3D capability is
+  slice-selective multi-slice, and the in-plane readout workflows are ideal-probe;
 - exact MATLAB WURST fixture parity beyond finite-output and physical sanity
   tests, because the MATLAB WURST scripts are exploratory and include
   placeholder or plotting-oriented branches;

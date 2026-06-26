@@ -1676,6 +1676,60 @@ efficiency for the spin-echo sensitive volume. The example
 \code{plot\_sensitive\_slice.py} visualizes the curved, non-uniform slice in a
 single-sided-like field.
 
+\subsection{Slice-Selective Excitation and 3D Multi-Slice Imaging}
+
+\code{imaging\_slice\_sensitivity} above is a passive analysis: it uses a hard
+(rectangular) pulse and relies on the existing B0 inhomogeneity to define the
+band, with no gradient applied during the RF. Real slice selection instead plays
+a shaped RF while a gradient is on, so a chosen plane is excited even in a
+uniform background. \code{make\_slice\_selective\_excitation} builds this pulse
+as a windowed-sinc RF train carrying the slice gradient, followed by a refocusing
+(rephasing) gradient lobe; \code{simulate\_slice\_profile} excites a line of
+spins and returns the through-slice profile, which is a localized band (sharp,
+unlike the hard-pulse approximation) whose thickness scales as the excitation
+bandwidth over the gradient.
+
+\begin{lstlisting}[language=Python]
+import numpy as np
+from spin_dynamics.workflows import simulate_slice_profile, run_multislice_imaging
+
+# Through-slice profile of a 1 ms windowed-sinc 90-degree pulse.
+profile = simulate_slice_profile(duration=1e-3, slice_gradient=1.5e7)
+
+# True-3D multi-slice imaging of a 3D volume in a spatially varying (B0, B1) field.
+rho = np.zeros((16, 5, 16)); rho[6, 2, 9] = 1.0
+volume = run_multislice_imaging(
+    rho,
+    slice_gradient=1.5e7,
+    fov=(0.02, 0.02, 0.02),
+    b0_map=b0_volume,        # rad/s, shape of rho
+    b1_tx_map=b1_volume,     # relative
+    b1_rx_map=b1_volume,
+)            # volume.magnitude has shape (nx, n_slices, nz)
+\end{lstlisting}
+
+\code{run\_multislice\_imaging} is the true-3D path. A single 3D walker ensemble
+lives in a 3D \code{MotionFieldMaps} carrying the actual \code{(B0, B1)} field,
+and every slice is excited (its carrier offset to place the slice) and read out
+through the moving-isochromat engine. Because the slice is selected by
+\emph{total} off-resonance---slice gradient plus local B0---a nonuniform B0
+curves and displaces the excited slice and warps the readout, exactly as in a
+real magnet; the example \code{plot\_multislice\_halbach\_imaging.py} shows this
+for a structured phantom in a mild Halbach saddle, displaying acquired slices and
+the 3D reconstruction. \code{run\_multislice\_imaging\_separable} is a fast
+approximation that reduces the slice pulse to a 1D through-plane weight and forms
+each slice with the validated 2D spin-warp workflow; it ignores in-plane field
+variation (the slice stays flat), trading that fidelity for speed on large
+volumes. Genuinely Fourier-encoded 3D (slab-select plus a second phase encode
+reconstructed with \code{ifftn}) is left for later.
+
+The slice pulse, the moving-isochromat engine, and the phase-encoded imaging
+kernels all read the same per-voxel physics---off-resonance, transmit/receive
+B1, relaxation, and density---through the dimension-agnostic
+\code{spin\_dynamics.fields} layer (\code{SpatialDomain} and
+\code{SpatialFieldMaps}), so the 1D, 2D, and 3D paths share one field
+representation and one gradient-coupling rule.
+
 \section{Received-Signal Noise}
 
 Noise is opt-in and output-referred. High-level workflows accept a
@@ -2105,6 +2159,14 @@ Lower-level helpers such as \code{free\_precession\_with\_motion\_step} are
 useful for custom trajectories. The sequence helpers split long intervals into
 substeps so field maps are sampled along the particle path rather than only at
 the beginning of an interval.
+
+The engine is not limited to two spatial axes. \code{make\_motion\_field\_maps}
+and \code{initialize\_ensemble\_from\_domain} build one-, two-, or
+three-dimensional \code{MotionFieldMaps} and walker ensembles over a
+\code{SpatialDomain}, and a \code{MotionSequenceStep} accepts a gradient vector
+of matching length, so the same precession/advection/diffusion machinery runs in
+3D. This is what the true-3D slice-selective imaging workflow uses; see
+\emph{Slice-Selective Excitation and 3D Multi-Slice Imaging}.
 
 The motion sequence runners also accept \code{detuning\_waveform}. The callable
 may return a scalar B0 offset for the whole ensemble or one value per particle.
@@ -2621,6 +2683,8 @@ python examples\plot_diffusion_absolute_phase_compare.py --output results\diffus
 python examples\plot_tuned_diffusion_absolute_phase_compare.py --output results\tuned_diffusion_absolute_phase_compare.png
 python examples\plot_time_varying_sweep.py --numpts 51 --num-echoes 12 --output results\time_varying_sweep.png
 python examples\plot_udd_cpmg_filter.py --pulses 8 --output results\udd_cpmg_filter.png
+python examples\plot_sensitive_slice.py --output results\sensitive_slice.png
+python examples\plot_multislice_halbach_imaging.py --pixels 16 --slices 5 --output results\multislice_halbach.png
 python examples\plot_motion_linear.py --output results\motion_linear.png
 python examples\plot_motion_diffusion_cpmg.py --output results\motion_diffusion_cpmg.png
 python examples\plot_motion_diffusion_udd.py --output results\motion_diffusion_udd.png
@@ -2799,6 +2863,10 @@ from spin_dynamics.workflows import (
     run_matched_phase_encoded_cpmg_imaging,
     run_t1_encoded_phase_encoded_cpmg_imaging,
     run_spin_warp_imaging, run_rare_imaging, imaging_slice_sensitivity,
+    make_slice_selective_excitation, simulate_slice_profile,
+    slice_excitation_weights, slice_profile_table,
+    run_multislice_imaging, run_multislice_imaging_separable,
+    MultiSliceImagingResult,
     reconstruct_image_from_kspace,
     form_imaging_image,
     fit_imaging_echo_decay,
@@ -3004,8 +3072,11 @@ from spin_dynamics.noise import (
 from spin_dynamics.motion import (
     ParticleEnsemble,
     MotionFieldMaps2D,
+    MotionFieldMaps,
     make_motion_field_maps_2d,
+    make_motion_field_maps,
     initialize_ensemble_from_density,
+    initialize_ensemble_from_domain,
     make_semipermeable_plane,
     advect_diffuse_positions,
     move_ensemble,
@@ -3023,6 +3094,16 @@ from spin_dynamics.sequences.motion import (
     run_motion_sequence,
     run_motion_cpmg_sequence,
     run_motion_udd_sequence,
+)
+from spin_dynamics.fields import (
+    SpatialDomain,
+    SpatialFieldMaps,
+)
+from spin_dynamics.workflows import (
+    make_slice_selective_excitation,
+    simulate_slice_profile,
+    run_multislice_imaging,
+    run_multislice_imaging_separable,
 )
 from spin_dynamics.sequences import (
     cpmg_pulse_times,

@@ -46,6 +46,12 @@ The validated Python API currently covers:
   gradient-moment and explicit random-walker backends;
 - fixture-validated ideal, tuned, and matched CPMG imaging, k-space
   reconstruction, and arbitrary B0/B1 field-map loading helpers;
+- frequency-encoded (spin-warp and RARE) imaging, slice-selective excitation
+  with gradient-shaped pulses, and true-3D slice-selective multi-slice imaging in
+  spatially varying `(B0, B1)` fields (`run_multislice_imaging`), with a fast
+  separable approximation, built on a dimension-agnostic 1D/2D/3D field-map layer
+  (`spin_dynamics.fields`: `SpatialDomain`, `SpatialFieldMaps`) shared by the
+  imaging and moving-isochromat workflows;
 - fixture-validated pulse-shape utilities for JMR rectangular pulse responses,
   phase quantization, and untuned segment adjustment;
 - tuned and matched CPMG Q/mistuning sweep workflows;

@@ -1052,11 +1052,28 @@ def _make_ogse_steps(
     return tuple(steps)
 
 
+def _gradient_vector(value: float, axis_index: int, ndim: int) -> tuple[float, ...]:
+    """Return a length-``ndim`` gradient with ``value`` on ``axis_index``.
+
+    The dimension-agnostic generalization of ``_gradient_tuple``: a unit gradient
+    along one spatial axis, with zeros elsewhere. The motion engine couples it to
+    moving spins as ``positions @ gradient``.
+    """
+
+    index = int(axis_index)
+    if not 0 <= index < int(ndim):
+        raise ValueError("axis_index must be in range(ndim)")
+    vector = [0.0] * int(ndim)
+    vector[index] = float(value)
+    return tuple(vector)
+
+
 def _gradient_tuple(value: float, axis: PGSEAxis) -> tuple[float, float]:
+    # 2-D specialization over the (x, z) plane: "x" -> axis 0, "z" -> axis 1.
     if axis == "x":
-        return (float(value), 0.0)
+        return _gradient_vector(value, 0, 2)  # type: ignore[return-value]
     if axis == "z":
-        return (0.0, float(value))
+        return _gradient_vector(value, 1, 2)  # type: ignore[return-value]
     raise ValueError("gradient_axis must be 'x' or 'z'")
 
 

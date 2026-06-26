@@ -1138,6 +1138,55 @@ practical reality of imaging in inhomogeneous fields. It accepts the same `rho`
 array plus maps, or an `ImagingFieldMaps` container. See the sensitive-slice
 example.
 
+### Slice-selective excitation and 3D multi-slice imaging
+
+`imaging_slice_sensitivity` is passive -- a hard pulse reading out the existing
+inhomogeneity. Real slice selection plays a *shaped* RF while a gradient is on,
+localizing a plane even in a uniform field. `make_slice_selective_excitation`
+builds this pulse (a windowed-sinc RF train carrying the slice gradient plus a
+rephasing lobe) as motion-engine steps, and `simulate_slice_profile` returns the
+through-slice profile -- a sharply bounded band whose thickness scales as the
+excitation bandwidth over the gradient.
+
+`run_multislice_imaging` is the **true-3D** workflow. A single 3D walker ensemble
+lives in a 3D `MotionFieldMaps` carrying the actual `(B0, B1)` field; each slice
+is excited (carrier offset to position it) and read out (spin-warp: readout on
+one in-plane axis, phase encode on the other) through the engine, filling that
+slice's 2D k-space. Because the slice is selected by *total* off-resonance
+(slice gradient plus local B0), a nonuniform B0 curves and displaces the excited
+slice and warps the readout -- the real-magnet behavior, not a flat-slice
+cartoon.
+
+```python
+import numpy as np
+from spin_dynamics.workflows import run_multislice_imaging, simulate_slice_profile
+
+profile = simulate_slice_profile(duration=1e-3, slice_gradient=1.5e7)
+
+rho = np.zeros((16, 5, 16)); rho[6, 2, 9] = 1.0
+volume = run_multislice_imaging(
+    rho, slice_gradient=1.5e7, fov=(0.02, 0.02, 0.02),
+    b0_map=b0_volume, b1_tx_map=b1_volume, b1_rx_map=b1_volume,  # 3D, shape of rho
+)
+print(volume.magnitude.shape)   # (nx, n_slices, nz)
+```
+
+`run_multislice_imaging_separable` is a fast approximation: it reduces the slice
+pulse to a 1D through-plane weight `w(y)` and forms each slice with the validated
+2D spin-warp workflow on the `w`-weighted density. It ignores in-plane field
+variation (the slice stays flat), trading that fidelity for speed on large
+volumes -- the engine path costs roughly `n_slices x n_phase_encode` full-ensemble
+runs. Genuinely Fourier-encoded 3D (slab-select plus a second phase encode with
+`ifftn`) is left for later. The example `plot_multislice_halbach_imaging.py`
+acquires a structured 3D phantom in a mild Halbach `(B0, B1)` saddle and shows the
+acquired slices and the 3D reconstruction.
+
+All three paths -- the slice pulse, the motion engine, and the phase-encoded
+kernels -- read the same per-voxel physics through the dimension-agnostic
+`spin_dynamics.fields` layer (`SpatialDomain`, `SpatialFieldMaps`), so the 1D, 2D,
+and 3D cases share one field representation and one gradient-coupling rule
+(`del_w_local = del_w_static + sum_d g_d * r_d`).
+
 Noise-aware workflows can pass `NoiseSpec(domain="time")` to CPMG echo
 workflows to add white noise directly to the time-domain echo samples instead
 of the received spectrum. Probe-colored noise remains spectrum-domain because

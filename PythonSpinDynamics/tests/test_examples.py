@@ -147,6 +147,7 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_rare_imaging.py",
             "examples/plot_imaging_inhomogeneity.py",
             "examples/plot_sensitive_slice.py",
+            "examples/plot_multislice_halbach_imaging.py",
             "examples/plot_wurst_flow.py",
             "examples/plot_radiation_damping.py",
             "examples/plot_radiation_damping_detuning.py",
@@ -261,6 +262,9 @@ class ExampleSmokeTests(unittest.TestCase):
         result = run_example("examples/plot_sensitive_slice.py", "--help")
         self.assertIn("--b0-curvature-hz", result.stdout)
         self.assertIn("--excitation-duration", result.stdout)
+        result = run_example("examples/plot_multislice_halbach_imaging.py", "--help")
+        self.assertIn("--b0-inhomogeneity-hz", result.stdout)
+        self.assertIn("--slice-thickness-voxels", result.stdout)
         result = run_example("examples/plot_wurst_flow.py", "--help")
         self.assertIn("--sweep-width", result.stdout)
         result = run_example("examples/plot_radiation_damping.py", "--help")

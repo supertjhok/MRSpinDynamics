@@ -158,6 +158,26 @@ Use `--b0-depth-hz` / `--b0-curvature-hz` to shape the field, and
 `--excitation-duration` to set the slice thickness (bandwidth ~ 1/duration). Only
 Matplotlib is required.
 
+## Multi-Slice 3D Imaging in a Halbach Field
+
+This example acquires a structured 3D phantom (spheres at different depths plus an
+in-plane bar) with the true-3D slice-selective workflow `run_multislice_imaging`
+in a *mild* Halbach `(B0, B1)` field -- a smooth B0 saddle across the bore and a
+gentle B1 falloff. Because the slice is selected by total off-resonance, the B0
+saddle gently curves and shifts the slices and distorts the readout. The figure
+shows a few acquired slices next to the ground-truth slices, the Halbach B0 and
+B1 maps, and a 3D voxel rendering of the reconstructed volume.
+
+```powershell
+python examples\plot_multislice_halbach_imaging.py --pixels 16 --slices 5 --output results\multislice_halbach.png
+```
+
+Use `--b0-inhomogeneity-hz` and `--b1-inhomogeneity` to set the field
+variation, and `--slice-thickness-voxels` to set the slice gradient. The engine
+path costs roughly `slices x pixels` full-ensemble sequence runs, so keep the
+grid modest; `run_multislice_imaging_separable` is the fast flat-slice
+approximation for larger volumes. Only Matplotlib is required.
+
 ## Tuned-Probe CPMG
 
 ```powershell
