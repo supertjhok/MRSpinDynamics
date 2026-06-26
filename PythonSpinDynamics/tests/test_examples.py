@@ -242,7 +242,7 @@ class ExampleSmokeTests(unittest.TestCase):
         self.assertIn("--exchange-rate", result.stdout)
         result = run_example("examples/plot_internal_gradients.py", "--help")
         self.assertIn("--grain-radius-um", result.stdout)
-        self.assertIn("--echo-spacings-ms", result.stdout)
+        self.assertIn("--b0-values-tesla", result.stdout)
         self.assertIn("--susceptibility", result.stdout)
         result = run_example("examples/plot_ogse_frequency_diffusion.py", "--help")
         self.assertIn("--slab-widths", result.stdout)
