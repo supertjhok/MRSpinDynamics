@@ -410,20 +410,23 @@ required for plotting.
 
 This example builds the internal field of a packed-grain pore space with
 `spin_dynamics.susceptibility`, summarizes the pore-space internal-gradient
-distribution, and drives a CPMG echo train of diffusing walkers through the
-internal field with no applied gradient. The internal off-resonance map shows
-the `cos(2 phi)` dipole lobes around each cylindrical grain; the CPMG decay
-grows with echo spacing because the attenuation comes purely from diffusion in
-the internal gradient.
+distribution, and demonstrates the diagnostic that actually distinguishes an
+internal gradient from an applied one. The internal off-resonance map shows the
+`cos(2 phi)` dipole lobes around each cylindrical grain. Echo-spacing-dependent
+CPMG decay is *not* by itself such a signature -- it occurs for a uniform
+applied gradient too -- so the third panel instead runs a fixed-`T_E` CPMG train
+at several `B0` values and recovers the `B0**2` scaling of the diffusion-induced
+decay rate, which follows from `G_internal` being proportional to
+`delta_chi * B0` (an applied gradient would be `B0`-independent).
 
 ```powershell
 python examples\plot_internal_gradients.py --output results\internal_gradients.png
 ```
 
 Use `--susceptibility`, `--b0-tesla`, and `--grain-radius-um` to set the
-internal-gradient strength, and `--echo-spacings-ms` to compare decay rates.
-Matplotlib is required for plotting; the field and gradient calculations need
-only NumPy.
+internal-gradient strength, and `--b0-values-tesla` to choose the fields in the
+scaling sweep. Matplotlib is required for plotting; the field and gradient
+calculations need only NumPy.
 
 ## OGSE Frequency-Resolved Diffusion
 

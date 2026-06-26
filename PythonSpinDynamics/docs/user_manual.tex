@@ -2455,11 +2455,19 @@ maps = make_susceptibility_field_maps(field)  # drop into motion helpers
 The off-resonance map is returned in the angular-frequency (rad/s) convention
 used by \code{spin\_dynamics.motion}, so it feeds the moving-isochromat sequence
 helpers directly. With no applied gradient, a CPMG echo train of diffusing
-walkers then decays purely from diffusion in the internal gradient, and the
-decay grows with echo spacing -- the \(g_\mathrm{internal}\) signature that
-background-gradient-suppressing sequences are designed to cancel. The
-\code{plot\_internal\_gradients.py} example shows the internal field, the
-internal-gradient distribution, and the echo-spacing-dependent decay end to end.
+walkers then decays purely from diffusion in the internal gradient.
+
+The acceleration of that decay with echo spacing (rate
+\(\sim G^2 D\, T_E^2\)) is the general diffusion-in-a-gradient effect and is
+\emph{not} by itself a signature of an internal gradient: a uniform applied or
+static gradient produces it too. What distinguishes a susceptibility-induced
+gradient is its field dependence. Because \(G_\mathrm{internal} \propto
+\Delta\chi\, B_0\), the diffusion-induced decay rate scales as \(B_0^2\), whereas
+an applied gradient is set by hardware and is independent of \(B_0\). The broad
+pore-space gradient \emph{distribution} is a second distinguishing feature; a
+uniform gradient would be a single value. The \code{plot\_internal\_gradients.py}
+example shows the internal field, the internal-gradient distribution, and the
+recovered \(B_0^2\) scaling of the diffusion-induced decay rate end to end.
 Background-gradient-suppressing sequences (bipolar / Cotts 13-interval PGSTE)
 are the natural next addition; the internal field produced here is their input.
 

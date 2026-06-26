@@ -67,9 +67,7 @@ directly when a full field is needed.
 `make_susceptibility_field_maps(field)` wraps the field as `MotionFieldMaps2D`,
 so the internal field drops straight into the moving-isochromat sequence
 helpers. With no applied gradient, CPMG decay then arises purely from diffusion
-through the internal gradient and grows with the echo spacing -- the standard
-`g_internal` signature that background-gradient-suppressing sequences are
-designed to cancel:
+through the internal gradient:
 
 ```python
 from spin_dynamics.sequences.motion import run_motion_cpmg_sequence
@@ -83,9 +81,16 @@ result = run_motion_cpmg_sequence(
 )
 ```
 
-See `examples/plot_internal_gradients.py` for an end-to-end packed-grain demo
-that plots the internal field, the internal-gradient distribution, and
-echo-spacing-dependent CPMG decay.
+Echo-spacing-dependent CPMG decay (the rate grows like `G**2 D T_E**2`) is *not*
+by itself a signature of internal gradients: it occurs for a uniform applied or
+static gradient too. What distinguishes a susceptibility-induced gradient is its
+field dependence -- because `G_internal` is proportional to `delta_chi * B0`,
+the diffusion-induced decay rate scales as `B0**2`, whereas an applied gradient
+is independent of `B0`. The broad pore-space gradient *distribution* above is a
+second distinguishing feature; a uniform gradient would be a single value. See
+`examples/plot_internal_gradients.py` for an end-to-end packed-grain demo that
+plots the internal field, the internal-gradient distribution, and the recovered
+`B0**2` scaling of the diffusion-induced decay rate.
 
 ## Scope and limits
 
