@@ -29,12 +29,14 @@ from spin_dynamics.nqr.inhomogeneity import (
 from spin_dynamics.nqr.full_dynamics import (
     FullNQREchoResult,
     FullNQRFIDResult,
+    FullNQRSLSEResult,
     detection_operator,
     pulse_hamiltonian,
     rf_operator_eigenbasis,
     rotating_indices,
     simulate_full_echo,
     simulate_full_fid,
+    simulate_full_slse,
     static_hamiltonian_rotating,
 )
 from spin_dynamics.nqr.model_selection import (
@@ -105,6 +107,7 @@ __all__ = [
     "EFGRephasingAnalysis",
     "FullNQREchoResult",
     "FullNQRFIDResult",
+    "FullNQRSLSEResult",
     "NQREigensystem",
     "NQRFIDDistributionResult",
     "NQRModelSelection",
@@ -143,6 +146,7 @@ __all__ = [
     "select_nqr_model",
     "simulate_full_echo",
     "simulate_full_fid",
+    "simulate_full_slse",
     "static_hamiltonian_rotating",
     "liouville_hamiltonian",
     "liouville_superoperator",

@@ -235,16 +235,45 @@ fid = simulate_full_fid(
 print(fid.signal)               # complex baseband (demodulated at the carrier)
 ```
 
-A two-pulse (Hahn-style) echo is available through `simulate_full_echo`, and an
-optional `relaxation=NQRRelaxationModel(...)` adds Liouville-space T1/T2 decay.
-The lower-level primitives `pulse_hamiltonian`, `static_hamiltonian_rotating`,
-and `detection_operator` are exposed for building custom sequences.
+A two-pulse (Hahn-style) echo is available through `simulate_full_echo`, and the
+spin-lock spin-echo (SLSE) detection train -- the chlorine-style spin-3/2
+measurement -- through `simulate_full_slse`:
+
+```python
+from spin_dynamics.nqr import QuadrupolarSite, simulate_full_slse
+
+site = QuadrupolarSite(spin=1.5, isotope="35Cl", quadrupole_frequency_hz=1.0e6, eta=0.0)
+
+slse = simulate_full_slse(
+    site,
+    nutation_hz=10e3,
+    excitation_duration_seconds=25e-6,
+    refocus_duration_seconds=50e-6,
+    echo_spacing_seconds=400e-6,
+    num_echoes=12,
+    orientations="powder",     # powder average over crystallite orientations
+    b0_tesla=0.0,              # > 0 adds a weak Zeeman perturbation
+    t2e_seconds=3e-3,
+)
+print(slse.echo_amplitudes.shape)   # one complex echo per cycle
+```
+
+It returns a `FullNQRSLSEResult` with the orientation-weighted echo train, the
+per-orientation trains, and the weights. A weak static field is applied with
+`b0_tesla > 0`; the field direction follows each sample's `b0_direction_pas`
+(use `b0_powder_average_grid` for a Zeeman powder). An optional
+`relaxation=NQRRelaxationModel(...)` adds Liouville-space T1/T2 decay (use it
+with `t2e_seconds=inf` to avoid double counting). The lower-level primitives
+`pulse_hamiltonian`, `static_hamiltonian_rotating`, and `detection_operator`
+remain exposed for building custom sequences.
 
 `examples/plot_nqr_full_powder_nutation.py` builds a spin-3/2 powder nutation
 curve from these primitives. As a validation anchor it overlays the spin-1
 curve, which converges to the classic 119-degree powder maximum in the
 weak-pulse limit, while the four-state spin-3/2 curve peaks at a slightly
-smaller flip angle (~105 degrees).
+smaller flip angle (~105 degrees). `examples/plot_nqr_spin32_slse.py` runs the
+`35Cl` powder SLSE train and shows how a weak Zeeman field detunes the
+crystallites and reshapes the decay.
 
 Two cautions specific to the full model:
 
@@ -395,9 +424,11 @@ changing the detected SLSE amplitude.
   approximation assumes a single carrier addressing one transition band, so it
   covers spin-3/2 zero-field and weak-Zeeman sequences but is not yet a general
   multi-band higher-spin (spin >= 5/2 with several excited lines) solver.
-- The selective-pulse SLSE and population-transfer workflows remain spin-1 only;
-  the equivalent spin-3/2 SLSE/2D workflows on top of the full model are future
-  work.
+- The *embedded two-level* SLSE and population-transfer workflows remain spin-1
+  only. Spin-3/2 SLSE/FID is supported through the full density-matrix model
+  (`simulate_full_slse`, `simulate_full_fid`, `simulate_full_echo`). A
+  two-frequency 2D population-transfer workflow on top of the full model is
+  still future work.
 - `select_nqr_model` is available as an explicit model-selection check, but the
   reduced workflows do not yet call it automatically (the note's recommended
   model-selection front end); for now it is advisory.

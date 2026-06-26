@@ -29,16 +29,53 @@ Conventions and scope:
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 
 import numpy as np
 
-from spin_dynamics.coupling.evolution import evolve_density
+from spin_dynamics.coupling.evolution import evolve_density, propagator
 from spin_dynamics.nqr.hamiltonians import TAU, diagonalize_site
 from spin_dynamics.nqr.operators import spin_matrices
-from spin_dynamics.nqr.relaxation import NQRRelaxationModel, propagate_density_liouville
+from spin_dynamics.nqr.orientations import (
+    OrientationSample,
+    normalize_orientations,
+    powder_average_grid,
+)
+from spin_dynamics.nqr.relaxation import (
+    NQRRelaxationModel,
+    liouville_superoperator,
+    matrix_exponential,
+    propagate_density_liouville,
+)
 from spin_dynamics.nqr.simulation import equilibrium_density
 from spin_dynamics.nqr.systems import NQREigensystem, QuadrupolarSite
+
+
+OrientationInput = str | tuple[OrientationSample, ...] | list[OrientationSample]
+
+
+def _as_orientations(orientations: OrientationInput) -> tuple[OrientationSample, ...]:
+    if isinstance(orientations, str):
+        if orientations == "powder":
+            return powder_average_grid()
+        if orientations == "single":
+            return normalize_orientations(
+                [OrientationSample(b1_direction_pas=(1.0, 0.0, 0.0))]
+            )
+        raise ValueError("orientations string must be 'powder' or 'single'")
+    return normalize_orientations(tuple(orientations))
+
+
+def _orientation_b0_vector(
+    orientation: OrientationSample, b0_tesla: float
+) -> np.ndarray | None:
+    if b0_tesla == 0:
+        return None
+    direction = orientation.b0_direction_pas
+    if direction is None:
+        direction = orientation.b1_direction_pas
+    return float(b0_tesla) * direction
 
 
 def _unit(direction) -> np.ndarray:
@@ -308,4 +345,191 @@ def simulate_full_echo(
         signal=signal,
         rf_frequency_hz=carrier,
         eigensystem=eigensystem,
+    )
+
+
+@dataclass(frozen=True)
+class FullNQRSLSEResult:
+    """Spin-lock spin-echo (SLSE) train from the full density-matrix model.
+
+    ``echo_amplitudes`` is the orientation-weighted complex echo amplitude per
+    cycle; ``local_echo_amplitudes`` holds the per-orientation trains and
+    ``orientation_weights`` their normalized weights. The model is the full
+    ``(2I+1)``-level propagation, so it is valid for the spin-3/2 zero-field line
+    that connects two Kramers doublets.
+    """
+
+    echo_times: np.ndarray
+    echo_amplitudes: np.ndarray
+    local_echo_amplitudes: np.ndarray
+    orientation_weights: np.ndarray
+    rf_frequency_hz: float
+    eigensystem: NQREigensystem
+
+
+def _step_propagators(
+    eigensystem: NQREigensystem,
+    *,
+    carrier: float,
+    nutation_hz: float,
+    excitation_phase: float,
+    refocus_phase: float,
+    b1_direction_pas,
+    excitation_duration: float,
+    refocus_duration: float,
+    free_half: float,
+    relaxation: NQRRelaxationModel | None,
+):
+    """Pre-compute the excite/refocus/free propagators for one orientation."""
+
+    excite_h = pulse_hamiltonian(
+        eigensystem, nutation_hz=nutation_hz, rf_frequency_hz=carrier,
+        phase=excitation_phase, b1_direction_pas=b1_direction_pas,
+    )
+    refocus_h = pulse_hamiltonian(
+        eigensystem, nutation_hz=nutation_hz, rf_frequency_hz=carrier,
+        phase=refocus_phase, b1_direction_pas=b1_direction_pas,
+    )
+    free_h = static_hamiltonian_rotating(eigensystem, carrier)
+    if relaxation is None:
+        return (
+            "unitary",
+            propagator(excite_h, excitation_duration),
+            propagator(refocus_h, refocus_duration),
+            propagator(free_h, free_half) if free_half > 0 else None,
+        )
+    return (
+        "liouville",
+        matrix_exponential(liouville_superoperator(excite_h, relaxation), excitation_duration),
+        matrix_exponential(liouville_superoperator(refocus_h, relaxation), refocus_duration),
+        (
+            matrix_exponential(liouville_superoperator(free_h, relaxation), free_half)
+            if free_half > 0
+            else None
+        ),
+    )
+
+
+def _apply_step(kind: str, propagator_matrix, density: np.ndarray) -> np.ndarray:
+    if propagator_matrix is None:
+        return density
+    if kind == "unitary":
+        return propagator_matrix @ density @ propagator_matrix.conj().T
+    vector = density.reshape(-1, order="F")
+    return (propagator_matrix @ vector).reshape(density.shape, order="F")
+
+
+def simulate_full_slse(
+    site: QuadrupolarSite,
+    *,
+    nutation_hz: float,
+    excitation_duration_seconds: float,
+    refocus_duration_seconds: float,
+    echo_spacing_seconds: float,
+    num_echoes: int,
+    rf_frequency_hz: float | None = None,
+    excitation_phase: float = 0.0,
+    refocus_phase: float = np.pi / 2.0,
+    orientations: OrientationInput = "single",
+    b0_tesla: float = 0.0,
+    b1_direction_pas=(1.0, 0.0, 0.0),
+    rx_direction_pas=None,
+    relaxation: NQRRelaxationModel | None = None,
+    t2e_seconds: float = np.inf,
+) -> FullNQRSLSEResult:
+    """Simulate a full density-matrix SLSE echo train (valid for spin-3/2).
+
+    The sequence is an excitation pulse followed by ``num_echoes`` cycles of
+    ``[free echo_spacing/2 - refocus/2, refocus pulse, free echo_spacing/2 -
+    refocus/2]``, sampling the demodulated coherence at each echo centre. This is
+    the spin-lock spin-echo detection train used for chlorine-style spin-3/2 NQR;
+    the full ``(2I+1)`` propagation handles the degenerate Kramers doublets that
+    the embedded two-level ``simulate_slse`` cannot.
+
+    Pass ``orientations="powder"`` for a powder average and ``b0_tesla > 0`` for a
+    weak Zeeman perturbation (the static field direction follows each sample's
+    ``b0_direction_pas``, defaulting to its RF direction). ``relaxation`` applies
+    Liouville-space ``T1``/``T2``; ``t2e_seconds`` is an optional phenomenological
+    envelope. The carrier defaults to the zero-field line of the strongest
+    transition.
+    """
+
+    if num_echoes <= 0:
+        raise ValueError("num_echoes must be positive")
+    excitation_duration = float(excitation_duration_seconds)
+    refocus_duration = float(refocus_duration_seconds)
+    echo_spacing = float(echo_spacing_seconds)
+    if excitation_duration < 0 or refocus_duration < 0:
+        raise ValueError("pulse durations must be non-negative")
+    if echo_spacing < refocus_duration:
+        raise ValueError("echo_spacing_seconds must be at least refocus_duration")
+    t2e_seconds = float(t2e_seconds)
+    if t2e_seconds <= 0:
+        raise ValueError("t2e_seconds must be positive")
+    if relaxation is not None and np.isfinite(t2e_seconds):
+        warnings.warn(
+            "both a finite t2e_seconds envelope and a Liouville relaxation model "
+            "were given; their T2 damping composes multiplicatively. Use "
+            "t2e_seconds=inf with a relaxation model to avoid double counting.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+    free_half = 0.5 * (echo_spacing - refocus_duration)
+
+    samples = _as_orientations(orientations)
+    carrier = (
+        _default_carrier_hz(diagonalize_site(site))
+        if rf_frequency_hz is None
+        else float(rf_frequency_hz)
+    )
+    echo_times = (np.arange(num_echoes, dtype=np.float64) + 1.0) * echo_spacing
+    envelope = (
+        np.exp(-echo_times / t2e_seconds) if np.isfinite(t2e_seconds) else 1.0
+    )
+
+    local: list[np.ndarray] = []
+    first_eigensystem: NQREigensystem | None = None
+    for sample in samples:
+        eigensystem = diagonalize_site(site, _orientation_b0_vector(sample, b0_tesla))
+        kind, excite_u, refocus_u, free_u = _step_propagators(
+            eigensystem,
+            carrier=carrier,
+            nutation_hz=nutation_hz,
+            excitation_phase=excitation_phase,
+            refocus_phase=refocus_phase,
+            b1_direction_pas=sample.b1_direction_pas,
+            excitation_duration=excitation_duration,
+            refocus_duration=refocus_duration,
+            free_half=free_half,
+            relaxation=relaxation,
+        )
+        detector = detection_operator(
+            eigensystem,
+            carrier,
+            sample.b1_direction_pas if rx_direction_pas is None else rx_direction_pas,
+        )
+        rho = equilibrium_density(eigensystem.levels_hz)
+        rho = _apply_step(kind, excite_u, rho)
+        echoes = np.empty(num_echoes, dtype=np.complex128)
+        for echo_idx in range(num_echoes):
+            rho = _apply_step(kind, free_u, rho)
+            rho = _apply_step(kind, refocus_u, rho)
+            rho = _apply_step(kind, free_u, rho)
+            echoes[echo_idx] = np.trace(rho @ detector)
+        local.append(echoes * envelope)
+        if first_eigensystem is None:
+            first_eigensystem = eigensystem
+
+    weights = np.array([sample.weight for sample in samples], dtype=np.float64)
+    local_echoes = np.asarray(local, dtype=np.complex128)
+    averaged = weights @ local_echoes
+    if first_eigensystem is None:
+        raise AssertionError("orientation validation should prevent empty samples")
+    return FullNQRSLSEResult(
+        echo_times=echo_times,
+        echo_amplitudes=averaged,
+        local_echo_amplitudes=local_echoes,
+        orientation_weights=weights,
+        rf_frequency_hz=carrier,
+        eigensystem=first_eigensystem,
     )

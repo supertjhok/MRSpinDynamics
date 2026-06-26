@@ -36,8 +36,11 @@ def _require_spin_one_selective_pulse_site(site: QuadrupolarSite) -> None:
 
     if not np.isclose(site.spin, 1.0):
         raise NotImplementedError(
-            "selective-pulse NQR workflows currently support spin=1 only; "
-            "spin=3/2 requires a degenerate-doublet manifold RF model"
+            "the embedded two-level selective-pulse workflows (simulate_slse, "
+            "simulate_population_transfer) support spin=1 only. For spin=3/2 use "
+            "spin_dynamics.nqr.simulate_full_slse, which propagates the full "
+            "(2I+1)-level density matrix and handles the degenerate Kramers "
+            "doublets of the zero-field line (with optional Zeeman perturbation)."
         )
 
 

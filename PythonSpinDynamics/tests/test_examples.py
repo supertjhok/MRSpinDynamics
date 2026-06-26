@@ -167,6 +167,7 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_esr_hyperfine_doublet.py",
             "examples/plot_nqr_powder_nutation.py",
             "examples/plot_nqr_full_powder_nutation.py",
+            "examples/plot_nqr_spin32_slse.py",
             "examples/plot_nqr_auto_model_selection.py",
             "examples/plot_chen2020_slse_relaxation.py",
             "examples/plot_nqr_population_transfer.py",
@@ -311,6 +312,9 @@ class ExampleSmokeTests(unittest.TestCase):
         result = run_example("examples/plot_nqr_full_powder_nutation.py", "--help")
         self.assertIn("--quadrupole-mhz", result.stdout)
         self.assertIn("--nutation-khz", result.stdout)
+        result = run_example("examples/plot_nqr_spin32_slse.py", "--help")
+        self.assertIn("--echo-spacing-us", result.stdout)
+        self.assertIn("--b0-mt", result.stdout)
         result = run_example("examples/plot_nqr_auto_model_selection.py", "--help")
         self.assertIn("--offset-khz", result.stdout)
         self.assertIn("--t2-us", result.stdout)

@@ -63,8 +63,12 @@ scoped to small scalar-coupled spin-1/2 systems.
   filtering.
 - [x] Add weak-static-B0 transition spectra for spin-1 and spin-3/2 using
   exact `H_Q + H_Z` diagonalization plus `|gamma B0| / nu_ref` regime checks.
-- [ ] Add spin-3/2 selective-pulse dynamics using a degenerate-doublet RF
-  manifold model for chlorine-style SLSE and FID simulations.
+- [x] Add spin-3/2 selective-pulse dynamics using the full `(2I+1)`-level
+  density-matrix model (`simulate_full_fid`, `simulate_full_echo`,
+  `simulate_full_slse`) for chlorine-style SLSE and FID, including powder
+  averaging and weak-Zeeman perturbations. The full RWA propagation handles the
+  degenerate Kramers doublets of the zero-field line directly, so a separate
+  reduced degenerate-doublet manifold model is not required.
 - [ ] Add probe/circuit integration where useful.
 - [x] Add initial documentation and generated API inventory.
 - [x] Add diagnostic plotting examples.
@@ -103,10 +107,11 @@ scoped to small scalar-coupled spin-1/2 systems.
 ## Deliberate Initial Limits
 
 - Dense matrices only.
-- Selective pulses only; full nonselective RF Hamiltonian propagation can be
-  added later. Spin-3/2 selective pulses are also pending because degenerate
-  doublets need a manifold RF treatment, not the current embedded two-level
-  pulse.
+- The embedded two-level *reduced* pulse path is selective-only and spin-1 only.
+  Spin-3/2 (and general) pulsed dynamics use the full `(2I+1)`-level model, whose
+  single-carrier RWA addresses one transition band -- valid for the spin-3/2
+  zero-field and weak-Zeeman regime, but not yet a general multi-band higher-spin
+  (spin >= 5/2) solver.
 - Relaxation is phenomenological (`T1`, `T2`, `T2e`) rather than a microscopic
   Redfield/dipolar parameterization.
 - Multi-site samples are initially handled by summing independent site signals.

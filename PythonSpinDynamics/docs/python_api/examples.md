@@ -546,6 +546,11 @@ both spin-1 and spin-3/2 sites.
 Use `--n-chi` and `--b1-b0-angle` to control the correlated weak-field powder
 average between the static field and RF field.
 
+The full density-matrix model adds spin-3/2 (chlorine-style) examples:
+`plot_nqr_full_powder_nutation.py` overlays the spin-1 and spin-3/2 powder
+nutation curves, and `plot_nqr_spin32_slse.py` runs the `35Cl` powder SLSE echo
+train and shows how a weak Zeeman field (`--b0-mt`) reshapes the decay.
+
 ```powershell
 python examples\plot_nqr_powder_nutation.py --output results\nqr_powder_nutation.png
 python examples\plot_nqr_population_transfer.py --output results\nqr_population_transfer.png
@@ -555,6 +560,8 @@ python examples\plot_nqr_efg_broadening.py --output results\nqr_efg_broadening.p
 python examples\plot_nqr_temperature_broadening.py --output results\nqr_temperature_broadening.png
 python examples\plot_nqr_slse_efg_broadening.py --output results\nqr_slse_efg_broadening.png
 python examples\plot_nqr_weak_b0_spectrum.py --output results\nqr_weak_b0_spectrum.png
+python examples\plot_nqr_full_powder_nutation.py --output results\nqr_full_powder_nutation.png
+python examples\plot_nqr_spin32_slse.py --output results\nqr_spin32_slse.png
 ```
 
 ## Radiation Damping

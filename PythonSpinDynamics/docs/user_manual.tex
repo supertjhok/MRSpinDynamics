@@ -990,8 +990,11 @@ reduced spin-1 selective pulse and the full \((2I+1)\)-level density-matrix
 pulse). The full-model pulse uses a single-carrier rotating-wave approximation
 addressing one transition band, so it covers spin-3/2 zero-field and
 weak-Zeeman dynamics but is not yet a general multi-band higher-spin solver. The
-reduced SLSE and population-transfer workflows remain spin-1; relaxation is
-phenomenological rather than microscopic Redfield/dipolar; no multi-site
+\emph{reduced} SLSE and population-transfer workflows remain spin-1, but
+spin-3/2 FID, echo, and SLSE run on the full model (\code{simulate\_full\_slse})
+with powder averaging and weak-Zeeman perturbations; a two-frequency 2D
+population-transfer workflow on the full model is still future work. Relaxation
+is phenomenological rather than microscopic Redfield/dipolar; no multi-site
 coupling between quadrupolar nuclei.
 }
 
@@ -1174,14 +1177,38 @@ print(fid.signal)               # complex baseband signal
 \end{lstlisting}
 
 A two-pulse (Hahn-style) echo is available through \code{simulate\_full\_echo},
-and an optional \code{relaxation=NQRRelaxationModel(...)} adds Liouville-space
-\(T_1/T_2\) decay. The lower-level primitives \code{pulse\_hamiltonian},
-\code{static\_hamiltonian\_rotating}, and \code{detection\_operator} are exposed
-for custom sequences. The full model has been validated against an exact
-lab-frame propagator (the rotating-wave error scales as the
-\(\Omega_1^2\) Bloch-Siegert shift), and its spin-1 powder nutation curve
-reproduces the classic \(119^\circ\) maximum while the spin-3/2 curve peaks at a
-slightly smaller flip angle.
+and the spin-lock spin-echo (SLSE) detection train---the chlorine-style spin-3/2
+measurement---through \code{simulate\_full\_slse}:
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.nqr import QuadrupolarSite, simulate_full_slse
+
+site = QuadrupolarSite(spin=1.5, isotope="35Cl",
+                       quadrupole_frequency_hz=1.0e6, eta=0.0)
+
+slse = simulate_full_slse(
+    site, nutation_hz=10e3,
+    excitation_duration_seconds=25e-6, refocus_duration_seconds=50e-6,
+    echo_spacing_seconds=400e-6, num_echoes=12,
+    orientations="powder",   # powder average; b0_tesla > 0 adds weak Zeeman
+    t2e_seconds=3e-3,
+)
+\end{lstlisting}
+
+\code{simulate\_full\_slse} returns a \code{FullNQRSLSEResult} with the
+orientation-weighted echo train, the per-orientation trains, and the weights.
+Pass \code{b0\_tesla > 0} for a weak Zeeman perturbation (the field direction
+follows each orientation sample; use \code{b0\_powder\_average\_grid} for a
+Zeeman powder), and an optional \code{relaxation=NQRRelaxationModel(...)} adds
+Liouville-space \(T_1/T_2\) decay. The lower-level primitives
+\code{pulse\_hamiltonian}, \code{static\_hamiltonian\_rotating}, and
+\code{detection\_operator} are exposed for custom sequences. The full model has
+been validated against an exact lab-frame propagator (the rotating-wave error
+scales as the \(\Omega_1^2\) Bloch-Siegert shift), and its spin-1 powder
+nutation curve reproduces the classic \(119^\circ\) maximum while the spin-3/2
+curve peaks at a slightly smaller flip angle. The
+\code{plot\_nqr\_spin32\_slse.py} example runs the \({}^{35}\mathrm{Cl}\) powder
+SLSE train and shows how a weak Zeeman field reshapes the decay.
 
 \section{Model Selection}
 \label{sec:nqr-model-selection}
