@@ -2469,7 +2469,7 @@ def build_landolt_review_queue(
                     page_number: extract_landolt_review_regions(page)
                     for page_number, page in enumerate(pdf.pages, start=1)
                 }
-                add_landolt_cross_page_footnotes(regions_by_page)
+                add_landolt_cross_page_context(regions_by_page)
                 page_widths = {page_number: page.width for page_number, page in enumerate(pdf.pages, start=1)}
                 rendered_pages: dict[int, Any] = {}
 
@@ -2539,7 +2539,7 @@ def extract_landolt_review_regions(page: Any) -> dict[str, dict[str, Any]]:
     return regions
 
 
-def add_landolt_cross_page_footnotes(regions_by_page: dict[int, dict[str, dict[str, Any]]]) -> None:
+def add_landolt_cross_page_context(regions_by_page: dict[int, dict[str, dict[str, Any]]]) -> None:
     footnotes_by_number: dict[str, list[tuple[int, dict[str, Any]]]] = {}
     for page_number, regions in regions_by_page.items():
         for substance_number, region in regions.items():
@@ -2559,6 +2559,35 @@ def add_landolt_cross_page_footnotes(regions_by_page: dict[int, dict[str, dict[s
             region["footnote_bbox"] = footnote_region["footnote_bbox"]
             region["footnote_text"] = footnote_region["footnote_text"]
             region["footnote_page"] = footnote_page
+            region.setdefault("table_page", page_number)
+
+    add_landolt_adjacent_table_continuations(regions_by_page)
+
+
+def add_landolt_adjacent_table_continuations(regions_by_page: dict[int, dict[str, dict[str, Any]]]) -> None:
+    for page_number, regions in regions_by_page.items():
+        for substance_number, region in regions.items():
+            related: list[dict[str, Any]] = []
+            for related_page in [page_number - 1, page_number + 1]:
+                related_region = regions_by_page.get(related_page, {}).get(substance_number)
+                if not related_region:
+                    continue
+                if not landolt_regions_are_continuations(region, related_region):
+                    continue
+                related.append(
+                    {
+                        "page": related_page,
+                        "bbox": related_region["table_bbox"],
+                        "text": related_region["table_text"],
+                    }
+                )
+            if related:
+                region["related_table_bboxes"] = sorted(related, key=lambda item: int(item["page"]))
+
+
+def landolt_regions_are_continuations(left: dict[str, Any], right: dict[str, Any]) -> bool:
+    combined = f"{left.get('table_text', '')}\n{right.get('table_text', '')}".lower()
+    return "(contd" in combined
 
 
 def landolt_line_record(line_words: list[dict[str, Any]]) -> dict[str, Any]:
@@ -2721,7 +2750,16 @@ def write_landolt_review_crop(
 
     crop_dir.mkdir(parents=True, exist_ok=True)
     table_page = int(region.get("table_page") or entry["source_page"])
-    boxes = [(table_page, region["table_bbox"])]
+    related_boxes = [
+        (int(item["page"]), item["bbox"])
+        for item in region.get("related_table_bboxes", [])
+        if item.get("bbox") is not None and item.get("page") is not None
+    ]
+    boxes = [
+        *[(page_number, box) for page_number, box in related_boxes if page_number < table_page],
+        (table_page, region["table_bbox"]),
+        *[(page_number, box) for page_number, box in related_boxes if page_number > table_page],
+    ]
     if region.get("footnote_bbox"):
         boxes.append((int(region.get("footnote_page") or table_page), region["footnote_bbox"]))
     crops = [
