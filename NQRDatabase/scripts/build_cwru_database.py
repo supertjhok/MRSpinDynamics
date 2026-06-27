@@ -1670,7 +1670,9 @@ def normalize_landolt_cas(value: str) -> str:
 def normalize_landolt_formula(value: str | None) -> str | None:
     if not value:
         return None
-    text = normalize_landolt_formula_tokens(value.replace(" ", "").replace("Q", "O"))
+    text = value.replace(" ", "").replace("Q", "O")
+    text = re.sub(r"^C(\d+)O(?=H\d*)", r"C\g<1>0", text)
+    text = normalize_landolt_formula_tokens(text)
     previous = None
     while previous != text:
         previous = text
@@ -2051,6 +2053,7 @@ def promote_accepted_landolt_reviews(state: BuildState, decisions_path: Path = L
         return
     review_rows = {row["id"]: row for row in state.landolt_review_queue.values()}
     reference_codes = landolt_reference_code_lookup(state)
+    reviewed_groups: dict[tuple[str, str, str], list[dict[str, Any]]] = {}
     for review_id, decision in sorted(decisions.items()):
         if decision.get("status") != "accepted":
             continue
@@ -2064,7 +2067,29 @@ def promote_accepted_landolt_reviews(state: BuildState, decisions_path: Path = L
         measurement_sets = decision.get("measurement_sets") or []
         if not measurement_sets:
             continue
-        promote_landolt_entry(state, promoted_entry, decision, measurement_sets, reference_codes)
+        group_key = (
+            str(promoted_entry.get("source_id") or ""),
+            str(promoted_entry.get("table_number") or ""),
+            str(promoted_entry.get("substance_number") or ""),
+        )
+        reviewed_groups.setdefault(group_key, []).append(
+            {
+                "review_id": review_id,
+                "decision": decision,
+                "entry": promoted_entry,
+                "measurement_sets": measurement_sets,
+            }
+        )
+
+    for records in reviewed_groups.values():
+        merged = merge_landolt_review_records(records)
+        promote_landolt_entry(
+            state,
+            merged["entry"],
+            merged["decision"],
+            merged["measurement_sets"],
+            reference_codes,
+        )
 
 
 def latest_landolt_review_decisions(decisions_path: Path) -> dict[str, dict[str, Any]]:
@@ -2083,8 +2108,171 @@ def latest_landolt_review_decisions(decisions_path: Path) -> dict[str, dict[str,
 def reviewed_landolt_entry(entry: dict[str, Any], decision: dict[str, Any]) -> dict[str, Any]:
     promoted = dict(entry)
     for field, value in (decision.get("field_edits") or {}).items():
+        if field == "formula_raw":
+            value = normalize_landolt_formula(value)
         promoted[field] = value
     return promoted
+
+
+def merge_landolt_review_records(records: list[dict[str, Any]]) -> dict[str, Any]:
+    if len(records) == 1:
+        record = records[0]
+        return {
+            "entry": record["entry"],
+            "decision": record["decision"],
+            "measurement_sets": normalize_landolt_merged_measurement_sets(record["measurement_sets"]),
+        }
+
+    canonical = max(records, key=landolt_review_record_score)
+    merged_entry = dict(canonical["entry"])
+    merged_decision = dict(canonical["decision"])
+    merged_decision["review_id"] = "+".join(record["review_id"] for record in sorted(records, key=landolt_record_page))
+
+    for record in sorted(records, key=landolt_review_record_score, reverse=True):
+        entry = record["entry"]
+        for field in [
+            "substance_name",
+            "cas_registry_number",
+            "formula_raw",
+            "nucleus",
+            "method",
+            "temperature_original",
+            "reference_code",
+        ]:
+            if not normalize_space(merged_entry.get(field)) and normalize_space(entry.get(field)):
+                merged_entry[field] = entry.get(field)
+    merged_entry["raw_table_text"] = "\n--- page continuation ---\n".join(
+        normalize_space(record["entry"].get("raw_table_text")) for record in sorted(records, key=landolt_record_page)
+    )
+    merged_entry["raw_footnote_text"] = next(
+        (
+            normalize_space(record["entry"].get("raw_footnote_text"))
+            for record in sorted(records, key=landolt_review_record_score, reverse=True)
+            if normalize_space(record["entry"].get("raw_footnote_text"))
+        ),
+        normalize_space(merged_entry.get("raw_footnote_text")),
+    )
+    merged_entry["notes"] = normalize_space(
+        " ".join(
+            part
+            for part in [
+                merged_entry.get("notes"),
+                "Merged from accepted Landolt continuation-page review records; redundant subset records are not promoted separately.",
+            ]
+            if part
+        )
+    )
+    all_sets: list[dict[str, Any]] = []
+    for record in sorted(records, key=landolt_record_page):
+        all_sets.extend(record["measurement_sets"])
+    return {
+        "entry": merged_entry,
+        "decision": merged_decision,
+        "measurement_sets": normalize_landolt_merged_measurement_sets(all_sets),
+    }
+
+
+def landolt_record_page(record: dict[str, Any]) -> int:
+    return int(record["entry"].get("source_page") or 0)
+
+
+def landolt_review_record_score(record: dict[str, Any]) -> tuple[int, int, int, int, int]:
+    entry = record["entry"]
+    measurement_sets = record["measurement_sets"]
+    frequency_count = sum(len(measurement_set.get("frequency_records") or []) for measurement_set in measurement_sets)
+    qcc_count = sum(len(measurement_set.get("qcc_eta_records") or []) for measurement_set in measurement_sets)
+    identity_score = sum(
+        1
+        for field in ["substance_name", "cas_registry_number", "formula_raw", "reference_code"]
+        if normalize_space(entry.get(field))
+    )
+    return (identity_score, frequency_count, qcc_count, len(measurement_sets), landolt_record_page(record))
+
+
+def normalize_landolt_merged_measurement_sets(measurement_sets: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    merged: list[dict[str, Any]] = []
+    for measurement_set in measurement_sets:
+        current = deepcopy_landolt_measurement_set(measurement_set)
+        matching = next(
+            (
+                existing
+                for existing in merged
+                if landolt_measurement_sets_share_condition(existing, current)
+            ),
+            None,
+        )
+        if matching:
+            merge_landolt_measurement_set_values(matching, current)
+        else:
+            merged.append(current)
+    normalized: list[dict[str, Any]] = []
+    for set_index, measurement_set in enumerate(merged, start=1):
+        measurement_set["set_index"] = set_index
+        for sequence_index, frequency in enumerate(measurement_set.get("frequency_records") or [], start=1):
+            frequency["sequence_index"] = sequence_index
+        for sequence_index, pair in enumerate(measurement_set.get("qcc_eta_records") or [], start=1):
+            pair["sequence_index"] = sequence_index
+        normalized.append(measurement_set)
+    return normalized
+
+
+def deepcopy_landolt_measurement_set(measurement_set: dict[str, Any]) -> dict[str, Any]:
+    return json.loads(json.dumps(measurement_set, ensure_ascii=False))
+
+
+def landolt_measurement_sets_share_condition(left: dict[str, Any], right: dict[str, Any]) -> bool:
+    left_method = normalize_space(left.get("method"))
+    right_method = normalize_space(right.get("method"))
+    methods_match = left_method == right_method or not left_method or not right_method
+    return (
+        methods_match
+        and normalize_space(left.get("temperature_original")) == normalize_space(right.get("temperature_original"))
+        and normalize_space(left.get("reference_code")) == normalize_space(right.get("reference_code"))
+    )
+
+
+def merge_landolt_measurement_set_values(target: dict[str, Any], incoming: dict[str, Any]) -> None:
+    target["frequency_records"] = merge_landolt_record_lists(
+        target.get("frequency_records") or [],
+        incoming.get("frequency_records") or [],
+        ["frequency_original"],
+    )
+    target["qcc_eta_records"] = merge_landolt_record_lists(
+        target.get("qcc_eta_records") or [],
+        incoming.get("qcc_eta_records") or [],
+        ["qcc_original", "eta_original"],
+    )
+    target["raw_set_text"] = "\n".join(
+        part
+        for part in [
+            normalize_space(target.get("raw_set_text")),
+            normalize_space(incoming.get("raw_set_text")),
+        ]
+        if part
+    )
+    target["notes"] = normalize_space(
+        " ".join(part for part in [target.get("notes"), incoming.get("notes")] if part)
+    )
+    for field in ["method", "method_description", "temperature_original", "reference_code", "remark_flag"]:
+        if not normalize_space(target.get(field)) and normalize_space(incoming.get(field)):
+            target[field] = incoming.get(field)
+
+
+def merge_landolt_record_lists(
+    existing: list[dict[str, Any]], incoming: list[dict[str, Any]], key_fields: list[str]
+) -> list[dict[str, Any]]:
+    merged = [dict(record) for record in existing]
+    seen = {
+        tuple(normalize_space(record.get(field)) for field in key_fields)
+        for record in merged
+    }
+    for record in incoming:
+        key = tuple(normalize_space(record.get(field)) for field in key_fields)
+        if key in seen:
+            continue
+        merged.append(dict(record))
+        seen.add(key)
+    return merged
 
 
 def landolt_reference_code_lookup(state: BuildState) -> dict[str, dict[str, Any]]:
@@ -2116,6 +2304,7 @@ def promote_landolt_entry(
     state.aliases.add((compound_id, f"Landolt Table {entry.get('table_number')} Substance {entry.get('substance_number')}"))
 
     previous_reference_code = normalize_space(entry.get("reference_code")) or None
+    temperature_series = landolt_temperature_series_annotations(measurement_sets)
     for set_index, measurement_set in enumerate(measurement_sets, start=1):
         set_reference_code = normalize_space(measurement_set.get("reference_code")) or previous_reference_code
         if set_reference_code:
@@ -2129,6 +2318,7 @@ def promote_landolt_entry(
             decision,
             measurement_set,
             set_index,
+            temperature_series,
         )
         qcc_site_ids = promote_landolt_qcc_eta_records(
             state,
@@ -2266,6 +2456,7 @@ def promote_landolt_frequency_records(
     decision: dict[str, Any],
     measurement_set: dict[str, Any],
     set_index: int,
+    temperature_series: dict[tuple[int, int], dict[str, Any]],
 ) -> list[str]:
     line_ids: list[str] = []
     temperature_original = normalize_space(measurement_set.get("temperature_original")) or None
@@ -2283,13 +2474,14 @@ def promote_landolt_frequency_records(
             "frequency_record": frequency,
             "promotion_note": "Landolt frequencies are stored as an independent list within the measurement set.",
         }
+        series_annotation = temperature_series.get((set_index, sequence_index), {})
         line_id = "line:" + slug(f"landolt:{entry['id']}:{set_index}:freq:{sequence_index}:{frequency_original}")
         state.lines[line_id] = {
             "id": line_id,
             "site_id": site_id,
             "frequency_khz": frequency_khz,
             "frequency_original": frequency_original,
-            "transition_label": None,
+            "transition_label": series_annotation.get("transition_label"),
             "fwhm_khz": None,
             "line_width_khz": None,
             "line_width_original": None,
@@ -2299,8 +2491,8 @@ def promote_landolt_frequency_records(
             "t2_original": None,
             "t2_star_s": None,
             "t2_star_original": None,
-            "dnu_dt_khz_per_c": None,
-            "dnu_dt_original": None,
+            "dnu_dt_khz_per_c": series_annotation.get("dnu_dt_khz_per_c"),
+            "dnu_dt_original": series_annotation.get("dnu_dt_original"),
             "polarization_factor": None,
             "polarization_factor_original": None,
             "temperature_k": landolt_temperature_k(temperature_original),
@@ -2351,6 +2543,83 @@ def promote_landolt_qcc_eta_records(
         }
         site_ids.append(site_id)
     return site_ids
+
+
+def landolt_temperature_series_annotations(measurement_sets: list[dict[str, Any]]) -> dict[tuple[int, int], dict[str, Any]]:
+    annotations: dict[tuple[int, int], dict[str, Any]] = {}
+    grouped: dict[tuple[str, int], list[tuple[int, dict[str, Any], float]]] = {}
+    for set_index, measurement_set in enumerate(measurement_sets, start=1):
+        temperature = landolt_temperature_k(measurement_set.get("temperature_original"))
+        frequency_records = measurement_set.get("frequency_records") or []
+        if temperature is None or not frequency_records:
+            continue
+        key = (
+            normalize_space(measurement_set.get("method")),
+            len(frequency_records),
+        )
+        grouped.setdefault(key, []).append((set_index, measurement_set, temperature))
+
+    series_index = 0
+    for (_method, frequency_count), records in grouped.items():
+        unique_temperatures = {temperature for _set_index, _measurement_set, temperature in records}
+        if len(records) < 2 or len(unique_temperatures) < 2:
+            continue
+        series_index += 1
+        for sequence_index in range(1, frequency_count + 1):
+            points: list[tuple[float, float, int]] = []
+            for set_index, measurement_set, temperature in records:
+                frequency_records = measurement_set.get("frequency_records") or []
+                if sequence_index > len(frequency_records):
+                    continue
+                frequency_khz = landolt_mhz_to_khz(frequency_records[sequence_index - 1].get("frequency_original"))
+                if frequency_khz is not None:
+                    points.append((temperature, frequency_khz, set_index))
+            if len(points) < 2:
+                continue
+            slope = linear_slope(points)
+            if slope is None:
+                continue
+            transition_label = f"Landolt temperature series {series_index}.{sequence_index}"
+            dnu_dt_original = (
+                f"{slope:.6g} kHz/K linear fit over "
+                f"{format_landolt_temperature_range([point[0] for point in points])}"
+            )
+            for _temperature, _frequency_khz, set_index in points:
+                annotations[(set_index, sequence_index)] = {
+                    "transition_label": transition_label,
+                    "dnu_dt_khz_per_c": slope,
+                    "dnu_dt_original": dnu_dt_original,
+                }
+    return annotations
+
+
+def normalize_landolt_reference_series_key(value: str | None) -> str:
+    codes = [
+        code
+        for token in re.split(r"[;,\s]+", normalize_space(value))
+        if (code := normalize_landolt_reference_code_token(token))
+    ]
+    return ";".join(codes)
+
+
+def linear_slope(points: list[tuple[float, float, int]]) -> float | None:
+    xs = [point[0] for point in points]
+    ys = [point[1] for point in points]
+    x_mean = sum(xs) / len(xs)
+    y_mean = sum(ys) / len(ys)
+    denominator = sum((x - x_mean) ** 2 for x in xs)
+    if denominator == 0:
+        return None
+    return sum((x - x_mean) * (y - y_mean) for x, y in zip(xs, ys)) / denominator
+
+
+def format_landolt_temperature_range(temperatures: list[float]) -> str:
+    ordered = sorted(set(temperatures))
+    if not ordered:
+        return "unknown temperatures"
+    if len(ordered) == 1:
+        return f"{ordered[0]:g} K"
+    return f"{ordered[0]:g}-{ordered[-1]:g} K"
 
 
 def promote_landolt_reference_code(
