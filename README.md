@@ -4,30 +4,61 @@
 
 # MRSpinDynamics
 
-This repository contains sibling workspaces for magnetic-resonance spin
-dynamics and ab initio quadrupolar-parameter workflows, now spanning the
-original NMR workflows, newer quadrupolar NQR and ESR/EPR extensions, and
-first-principles electric-field-gradient calculations:
+MRSpinDynamics is a research workspace for magnetic-resonance simulation,
+quadrupolar-parameter analysis, and NQR data curation.
 
-- `MATLABSpinDynamics/` contains the original MATLAB implementation and remains
-  the reference for the validated NMR Bloch-workflow behavior.
-- `PythonSpinDynamics/` contains the Python port, tests, validation fixtures,
-  examples, API documentation, and Python-native NQR/ESR additions.
-- `QuadrupolarDFT/` contains the new Python workspace for ab initio EFG,
-  quadrupolar-coupling, and NQR-parameter workflows, starting with ABINIT PAW
-  output parsing and backend-neutral tensor analysis.
-- `NQRDatabase/` contains a curated NQR spectra database build, with normalized
-  JSONL exports, an SQLite database, source/provenance tables, and a Landolt
-  review workflow.
+The repository brings together several related projects:
 
-Each workspace has its own README with setup notes, examples, and more detailed
-documentation. Start with the MATLAB README when checking reference behavior,
-and start with the Python README when working on the port or running the Python
-package.
+- simulating nuclear magnetic resonance (NMR), nuclear quadrupole resonance
+  (NQR), and electron spin resonance/electron paramagnetic resonance (ESR/EPR)
+  experiments;
+- validating a Python spin-dynamics implementation against an older MATLAB
+  reference implementation;
+- computing electric-field-gradient and quadrupolar-coupling tensors from
+  first-principles electronic-structure outputs;
+- building a machine-readable NQR spectra database from archived web pages,
+  literature tables, and reviewed PDF extracts.
 
-The repository is kept as a single GitHub project so the MATLAB reference code,
-Python implementation, NQR/ESR extension work, ab initio quadrupolar parameter
-workflows, and cross-language validation artifacts can evolve together.
+## Repository Map
+
+- `MATLABSpinDynamics/` is the original MATLAB implementation. It remains the
+  reference point for validated Bloch-equation NMR workflows and historical
+  examples.
+- `PythonSpinDynamics/` is the Python package. It contains the port of the
+  MATLAB behavior, automated tests, examples, API documentation, and newer NQR
+  and ESR/EPR simulation features.
+- `QuadrupolarDFT/` analyzes electric-field-gradient tensors from
+  first-principles calculations. These tensors determine nuclear quadrupole
+  coupling constants, which are central to NQR interpretation.
+- `NQRDatabase/` builds a curated NQR spectra database. It exports SQLite and
+  JSONL files, preserves source provenance, links measurements to citations,
+  and includes a review workflow for OCR-derived Landolt-Bornstein tables.
+- `References/` is a local, ignored source-material archive used during
+  development. It is not committed to Git because it contains copied reference
+  documents and large source captures.
+
+Each subproject has its own README or documentation folder with setup and usage
+details. Start with `PythonSpinDynamics/` for simulation work, `QuadrupolarDFT/`
+for ab initio tensor analysis, and `NQRDatabase/` for spectra data.
+
+## NQR Database Sources
+
+The `NQRDatabase/` subproject currently imports or stages data from these local
+source collections:
+
+- an earlier online NQR database associated with Case Western Reserve
+  University and the University of Florida, captured locally as Google Sites
+  HTML files;
+- U.S. Navy / Naval Research Laboratory `NQR_Data_Tables` CHM/PDF exports;
+- King's College experimental PDF notes for melamine, metformin HCl,
+  paracetamol, and a population-transfer method note;
+- H. Chihara and N. Nakamura, *Nuclear Quadrupole Resonance Spectroscopy Data*,
+  Landolt-Bornstein, Condensed Matter series, edited by K.-H. Hellwege and
+  A. M. Hellwege.
+
+Detailed source paths, imported tables, record counts, and citation handling are
+documented in `NQRDatabase/README.md`. Individual paper citations are stored in
+the database tables `literature_references` and `reference_links`.
 
 ## License
 
