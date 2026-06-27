@@ -122,6 +122,23 @@ python NQRDatabase/app/review_server.py
 Then open `http://127.0.0.1:8765`. The interface displays source-image crops,
 parsed fields, measurement sets, frequency lists, and Q.C.C./eta lists.
 
+## Explorer UI
+
+Start the human-facing database explorer with:
+
+```powershell
+python NQRDatabase/app/explorer_server.py
+```
+
+Then open `http://127.0.0.1:8766`. The explorer searches the canonical
+compound, sample, site, line, source, and reference tables. It displays compound
+metadata, frequency-line plots, measurement tables, source files, and linked
+references.
+
+When a compound has a recognizable CAS alias or name, the explorer attempts to
+load a 2D structure image from PubChem in the browser. If no image is available,
+or if the browser is offline, it falls back to the stored conventional formula.
+
 ## More Detail
 
 Build internals, staged Landolt tables, method labels, and review workflow notes

@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>NQR Spectra Explorer</title>
+    <link rel="stylesheet" href="/static/styles.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand">
+          <h1>NQR Spectra Explorer</h1>
+          <div id="stats" class="stats"></div>
+        </div>
+        <form id="searchForm" class="searchbar">
+          <input id="query" type="search" placeholder="Search compound, formula, CAS, note">
+          <button type="submit" title="Search">Search</button>
+        </form>
+      </header>
+
+      <aside class="filters">
+        <label>
+          Category
+          <select id="category"></select>
+        </label>
+        <label>
+          Isotope
+          <select id="isotope"></select>
+        </label>
+        <label>
+          Source
+          <select id="sourceType"></select>
+        </label>
+        <div class="range-grid">
+          <label>
+            Min kHz
+            <input id="freqMin" type="number" step="0.001" min="0">
+          </label>
+          <label>
+            Max kHz
+            <input id="freqMax" type="number" step="0.001" min="0">
+          </label>
+        </div>
+        <button id="clearFilters" type="button" title="Clear filters">Clear</button>
+      </aside>
+
+      <main class="content">
+        <section class="results-pane">
+          <div class="pane-heading">
+            <h2>Compounds</h2>
+            <span id="resultCount"></span>
+          </div>
+          <div id="results" class="results"></div>
+        </section>
+
+        <section class="detail-pane">
+          <div id="emptyState" class="empty-state">
+            Select a compound to inspect spectra, sites, references, and source files.
+          </div>
+          <div id="detail" class="detail hidden">
+            <div class="detail-header">
+              <div>
+                <h2 id="compoundName"></h2>
+                <div id="compoundMeta" class="meta-row"></div>
+              </div>
+              <a id="pubchemLink" class="external-link" target="_blank" rel="noreferrer">PubChem</a>
+            </div>
+
+            <div class="overview-grid">
+              <section class="structure-panel">
+                <div class="section-heading">
+                  <h3>Structure</h3>
+                  <span id="structureState"></span>
+                </div>
+                <div id="structureBox" class="structure-box"></div>
+              </section>
+
+              <section class="spectrum-panel">
+                <div class="section-heading">
+                  <h3>Line Frequencies</h3>
+                  <span id="spectrumRange"></span>
+                </div>
+                <div id="spectrumPlot" class="spectrum-plot"></div>
+              </section>
+            </div>
+
+            <section>
+              <div class="section-heading">
+                <h3>Measurements</h3>
+                <span id="measurementCount"></span>
+              </div>
+              <div id="measurements" class="measurements"></div>
+            </section>
+
+            <section class="reference-grid">
+              <div>
+                <div class="section-heading">
+                  <h3>References</h3>
+                </div>
+                <div id="references" class="references"></div>
+              </div>
+              <div>
+                <div class="section-heading">
+                  <h3>Sources</h3>
+                </div>
+                <div id="sources" class="sources"></div>
+              </div>
+            </section>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>
