@@ -15,7 +15,7 @@ import sqlite3
 from dataclasses import dataclass
 from html.parser import HTMLParser
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -2465,22 +2465,34 @@ def build_landolt_review_queue(
         pdfium_doc = pdfium.PdfDocument(str(source_path)) if pdfium else None
         try:
             with pdfplumber.open(source_path) as pdf:
+                regions_by_page = {
+                    page_number: extract_landolt_review_regions(page)
+                    for page_number, page in enumerate(pdf.pages, start=1)
+                }
+                add_landolt_cross_page_footnotes(regions_by_page)
+                page_widths = {page_number: page.width for page_number, page in enumerate(pdf.pages, start=1)}
+                rendered_pages: dict[int, Any] = {}
+
+                def rendered_page(page_number: int) -> Any:
+                    if pdfium_doc is None:
+                        return None
+                    if page_number not in rendered_pages:
+                        rendered_pages[page_number] = render_pdfium_page(pdfium_doc, page_number, scale=3.0)
+                    return rendered_pages[page_number]
+
                 for page_number, page in enumerate(pdf.pages, start=1):
                     page_entries = entries_by_source_page.get((source_id, page_number), [])
                     if not page_entries:
                         continue
-                    regions = extract_landolt_review_regions(page)
-                    rendered_page = None
+                    regions = regions_by_page[page_number]
                     for entry in page_entries:
                         region = regions.get(str(entry["substance_number"]))
                         crop_relative_path = None
                         crop_bbox_json = None
                         if generate_crops and region and pdfium_doc:
-                            if rendered_page is None:
-                                rendered_page = render_pdfium_page(pdfium_doc, page_number, scale=3.0)
                             crop_relative_path = write_landolt_review_crop(
                                 rendered_page,
-                                page.width,
+                                page_widths,
                                 region,
                                 entry,
                                 crop_dir,
@@ -2525,6 +2537,28 @@ def extract_landolt_review_regions(page: Any) -> dict[str, dict[str, Any]]:
             "footnote_text": footnote_region["text"] if footnote_region else None,
         }
     return regions
+
+
+def add_landolt_cross_page_footnotes(regions_by_page: dict[int, dict[str, dict[str, Any]]]) -> None:
+    footnotes_by_number: dict[str, list[tuple[int, dict[str, Any]]]] = {}
+    for page_number, regions in regions_by_page.items():
+        for substance_number, region in regions.items():
+            if region.get("footnote_bbox"):
+                region["footnote_page"] = page_number
+                footnotes_by_number.setdefault(substance_number, []).append((page_number, region))
+            region.setdefault("table_page", page_number)
+
+    for page_number, regions in regions_by_page.items():
+        for substance_number, region in regions.items():
+            if region.get("footnote_bbox"):
+                continue
+            candidates = footnotes_by_number.get(substance_number, [])
+            if not candidates:
+                continue
+            footnote_page, footnote_region = min(candidates, key=lambda item: abs(item[0] - page_number))
+            region["footnote_bbox"] = footnote_region["footnote_bbox"]
+            region["footnote_text"] = footnote_region["footnote_text"]
+            region["footnote_page"] = footnote_page
 
 
 def landolt_line_record(line_words: list[dict[str, Any]]) -> dict[str, Any]:
@@ -2617,22 +2651,42 @@ def add_repaired_landolt_region(
 def extract_landolt_footnote_regions(lines: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     regions: dict[str, dict[str, Any]] = {}
     current_number: str | None = None
-    for line in lines:
+    saw_table_row = False
+    in_footnotes = False
+    previous_table_bottom = 0.0
+    for line_index, line in enumerate(lines):
         stripped = line["text"]
-        match = re.match(LANDOLT_FOOTNOTE_NUMBER_PATTERN, stripped)
-        if match:
-            if is_landolt_table_row_text(stripped):
+        if is_landolt_horizontal_rule(stripped):
+            if saw_table_row:
+                in_footnotes = True
                 current_number = None
-                continue
+            continue
+        match = match_landolt_footnote_line(stripped)
+        if not in_footnotes and saw_table_row and match and float(line["bbox"][1]) > previous_table_bottom + 4.0:
+            in_footnotes = True
+        row_start = detect_landolt_table_row_start(lines, line_index)
+        if not in_footnotes and row_start:
+            saw_table_row = True
+            previous_table_bottom = max(previous_table_bottom, float(line["bbox"][3]))
+            continue
+        if not in_footnotes:
+            continue
+        if match:
             current_number = match.group("num")
             regions[current_number] = {"text": match.group("text"), "bbox": line["bbox"]}
         elif current_number and stripped:
-            if re.match(LANDOLT_ROW_NUMBER_PATTERN, stripped):
+            if match_landolt_footnote_line(stripped):
                 current_number = None
             else:
                 regions[current_number]["text"] += " " + stripped
                 regions[current_number]["bbox"] = union_bbox(regions[current_number]["bbox"], line["bbox"])
     return regions
+
+
+def match_landolt_footnote_line(text: str) -> re.Match[str] | None:
+    if is_landolt_table_row_text(text):
+        return None
+    return re.search(r"(?:^|[^\d])(?P<num>\d{2,3})\.{1,2}\s+(?P<text>.+)$", text)
 
 
 def union_bbox(left: list[float], right: list[float]) -> list[float]:
@@ -2656,8 +2710,8 @@ def clear_landolt_crop_dir(crop_dir: Path) -> None:
 
 
 def write_landolt_review_crop(
-    rendered_page: Any,
-    page_width: float,
+    rendered_page: Callable[[int], Any],
+    page_widths: dict[int, float],
     region: dict[str, Any],
     entry: dict[str, Any],
     crop_dir: Path,
@@ -2666,10 +2720,15 @@ def write_landolt_review_crop(
     from PIL import Image
 
     crop_dir.mkdir(parents=True, exist_ok=True)
-    boxes = [region["table_bbox"]]
+    table_page = int(region.get("table_page") or entry["source_page"])
+    boxes = [(table_page, region["table_bbox"])]
     if region.get("footnote_bbox"):
-        boxes.append(region["footnote_bbox"])
-    crops = [crop_rendered_bbox(rendered_page, box, scale, margin_points=8.0) for box in boxes]
+        boxes.append((int(region.get("footnote_page") or table_page), region["footnote_bbox"]))
+    crops = [
+        crop_rendered_bbox(rendered_page(page_number), box, scale, margin_points=8.0)
+        for page_number, box in boxes
+        if page_number in page_widths
+    ]
     gutter = max(18, int(6 * scale))
     width = max(crop.width for crop in crops)
     height = sum(crop.height for crop in crops) + gutter * (len(crops) - 1)
