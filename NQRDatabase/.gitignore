@@ -1,0 +1,7 @@
+app/__pycache__/
+scripts/__pycache__/
+**/*.py[cod]
+
+data/review/*.log
+data/review/debug_*.png
+data/review/landolt_crops/

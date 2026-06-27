@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Landolt NQR Review</title>
+    <link rel="stylesheet" href="/static/styles.css">
+  </head>
+  <body>
+    <div class="shell">
+      <header class="topbar">
+        <div>
+          <h1>Landolt NQR Review</h1>
+          <div id="counts" class="counts"></div>
+        </div>
+        <div class="top-actions">
+          <input id="search" type="search" placeholder="Search">
+          <button id="refresh" type="button">Refresh</button>
+        </div>
+      </header>
+
+      <aside class="sidebar">
+        <div class="filter-row" id="statusFilters"></div>
+        <div class="filter-row" id="priorityFilters"></div>
+        <div id="queue" class="queue"></div>
+      </aside>
+
+      <main class="viewer">
+        <div class="viewer-toolbar">
+          <div id="itemTitle" class="item-title">No row selected</div>
+          <div class="zoom-controls">
+            <button id="zoomOut" type="button">-</button>
+            <span id="zoomLabel">100%</span>
+            <button id="zoomIn" type="button">+</button>
+          </div>
+        </div>
+        <div class="image-wrap">
+          <img id="cropImage" alt="">
+        </div>
+        <section class="raw-panel">
+          <h2>Raw Text</h2>
+          <pre id="rawText"></pre>
+        </section>
+      </main>
+
+      <aside class="editor">
+        <form id="reviewForm">
+          <div class="status-actions">
+            <button type="button" data-status="accepted">Accept</button>
+            <button type="button" data-status="needs_manual_fix">Needs Fix</button>
+            <button type="button" data-status="rejected">Reject</button>
+            <button type="button" data-status="unreviewed">Reset</button>
+          </div>
+
+          <div class="field-grid" id="fields"></div>
+
+          <section class="site-panel">
+            <div class="section-heading">
+              <h2>Measurement Sets</h2>
+              <button id="addMeasurementSet" type="button">Add Set</button>
+            </div>
+            <div id="measurementSets" class="site-assignments"></div>
+          </section>
+
+          <label class="notes-label" for="notes">Notes</label>
+          <textarea id="notes" rows="5"></textarea>
+
+          <div class="save-row">
+            <button id="save" type="submit">Save</button>
+            <span id="saveState"></span>
+          </div>
+        </form>
+      </aside>
+    </div>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>
