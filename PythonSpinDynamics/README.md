@@ -1,91 +1,78 @@
 # PythonSpinDynamics
 
-PythonSpinDynamics is the Python package workspace within MRSpinDynamics. It
-began as the Python port of the MATLAB NMR spin-dynamics package in
-`../MATLABSpinDynamics`, and now also hosts Python-native quadrupolar NQR
-models and single-electron ESR/EPR helpers. The MATLAB Version 2 code remains
-the numerical reference for the
-validated NMR Bloch workflows; this workspace contains the Python package,
-examples, validation fixtures, tests, and user documentation.
+PythonSpinDynamics is the Python simulation package in the MRSpinDynamics
+repository. It models magnetic-resonance experiments in which spin ensembles
+evolve under magnetic fields, radio-frequency pulses, relaxation, motion,
+diffusion, exchange, and probe imperfections.
 
-The main Version 2 workflow port is mostly complete. The package includes
-ideal, tuned, untuned, and matched-probe CPMG workflows; finite echo trains;
-FID, imaging, diffusion, time-varying-field, WURST, radiation-damping, motion,
-prepolarization, BPP-style relaxation, noise, inverse-Laplace analysis, PGSE
-D-T2 examples, and pulse-optimization helpers.
+The package started as a Python port of the MATLAB NMR code in
+`../MATLABSpinDynamics`. That MATLAB implementation remains the numerical
+reference for the validated nuclear magnetic resonance (NMR) workflows. The
+Python package now also includes newer nuclear quadrupole resonance (NQR),
+electron spin resonance/electron paramagnetic resonance (ESR/EPR), exchange,
+diffusion, imaging, and analysis tools.
 
-Most MATLAB-compatible Bloch workflows still assume a bath of uncoupled
-spin-1/2 nuclei in a possibly non-uniform and time-varying \(B_0\) field;
-spin-spin effects enter those workflows indirectly through effective relaxation
-or field-map inputs. The `spin_dynamics.coupling` namespace is the explicit
-extension for small scalar-coupled spin-1/2 systems, including low-field
-J-editing, ideal TANGO-B filtering, dense Hamiltonian propagation, B0/B1
-isochromat ensembles, and initial SLIC models. The `spin_dynamics.nqr`
-namespace is the quadrupolar extension for selective pulsed NQR, SLSE, powder
-averaging, EFG inhomogeneity, weak-B0 spectra, two-frequency
-population-transfer experiments, and polarization-enhanced NQR transport with
-CIF-based proton-coupling estimates. The embedded two-level selective-pulse
-workflows are spin-1; spin-3/2 (chlorine-style) FID, echo, and SLSE -- whose
-single zero-field line connects two degenerate Kramers doublets -- run on the
-full `(2I+1)`-level density-matrix model (`simulate_full_fid`,
-`simulate_full_echo`, `simulate_full_slse`), with powder averaging and weak
-Zeeman perturbations. The `spin_dynamics.esr` namespace is the single-electron
-ESR/EPR extension for anisotropic g-tensor spectra, CW derivative display,
-static disorder, pulsed FID/Hahn echo simulations with T1/T2 relaxation, and
-first isotropic electron-nuclear hyperfine doublets. The
-`spin_dynamics.exchange` namespace adds Bloch-McConnell site/chemical exchange:
-multi-site kinetic magnetization transfer with per-site `T1`/`T2` and offset,
-lineshape coalescence, and encode-mix-detect `T2`-`T2` relaxation exchange
-(REXSY) data that inverts to an exchange map through the existing 2D
-inverse-Laplace solver. The `spin_dynamics.susceptibility` namespace generates
-the internal field from magnetic-susceptibility contrast in porous media:
-analytic 2D cylindrical-grain off-resonance maps that drop into the moving-
-isochromat pipeline, plus pore-space internal-gradient distributions for
-diffusion-in-internal-gradient studies. The bipolar 13-interval PGSTE workflow
-(`spin_dynamics.workflows.bipolar`, with the Bruker `diff_stebp` 16-step phase
-cycle) suppresses the background-gradient cross-term that would otherwise bias
-those diffusion measurements. The package still does not attempt arbitrary
-nonselective multi-quantum pulse-sequence simulation.
+This workspace contains the installable Python package, examples, tests,
+MATLAB/Octave validation fixtures, and user documentation.
 
-## Documentation
+## What It Is For
 
-- `docs/user_manual.tex` is the main LaTeX user manual, with model equations,
-  workflow examples, validation notes, and an API reference.
-- `docs/python_api/index.md` is the lightweight Markdown API index, including
-  the generated `docs/python_api/api_reference.md` inventory.
-- `docs/python_api/j_coupling.md` describes the scalar-coupled spin-1/2
-  extension layer.
-- `docs/python_api/nqr.md` describes the pulsed NQR extension layer.
-- `docs/python_api/esr.md` describes the ESR/EPR extension layer.
-- `docs/nqr_module_plan.md` tracks planned NQR milestones.
-- `docs/matlab_mapping.md` and `docs/migration_plan.md` track MATLAB-to-Python
-  mapping and remaining porting work.
-- `docs/validation_results.md` records fixture comparisons and tolerance notes.
-- `docs/radiation_damping.md` contains focused details for the radiation
-  damping model.
+Use PythonSpinDynamics when you want to:
 
-Build the manual from this directory with:
+- simulate Carr-Purcell-Meiboom-Gill (CPMG) echo trains, free-induction decays,
+  inversion-recovery trains, and related NMR pulse workflows;
+- compare ideal pulses with tuned, untuned, and matched radio-frequency probe
+  models;
+- study how non-uniform static fields, transmit/receive fields, diffusion,
+  flow, motion, or susceptibility gradients affect measured signals;
+- simulate magnetic-resonance imaging examples, including spin-warp, RARE,
+  slice-selective, and single-sided-field workflows;
+- run inverse-Laplace analyses for T1, T2, T1-T2, D-T2, and exchange maps;
+- explore small scalar-coupled spin-1/2 systems, including J-editing and
+  simple SLIC/TANGO-style filters;
+- model pulsed NQR responses for quadrupolar nuclei, including powder
+  averaging, weak static-field splitting, SLSE echo trains, and
+  population-transfer examples;
+- model single-electron ESR/EPR spectra, anisotropic g tensors, hyperfine
+  doublets, and pulsed FID/Hahn-echo responses.
 
-```powershell
-pdflatex -interaction=nonstopmode -halt-on-error -output-directory docs docs\user_manual.tex
-```
+The package is not intended to be a general-purpose arbitrary quantum
+pulse-sequence simulator. The original MATLAB-compatible NMR workflows mostly
+use baths of uncoupled spin-1/2 nuclei, with spin-spin effects represented
+through relaxation, field maps, exchange models, or explicit small-system
+extensions.
 
-Refresh the Markdown API inventory after changing public functions, classes, or
-docstrings:
+## Main Areas
 
-```powershell
-python docs\generate_api_reference.py
-```
+- `spin_dynamics.workflows` contains high-level NMR workflows such as ideal,
+  tuned, untuned, and matched-probe CPMG simulations, finite echo trains,
+  diffusion workflows, imaging workflows, time-varying-field examples, WURST
+  pulses, radiation damping, motion, and prepolarization.
+- `spin_dynamics.core`, `fields`, `probes`, `sequences`, and `parameters`
+  provide lower-level numerical pieces used by the workflows.
+- `spin_dynamics.analysis` contains inverse-Laplace and regularization helpers
+  for relaxation, diffusion, and exchange-map analysis.
+- `spin_dynamics.coupling` contains explicit small-system scalar-coupling
+  models for spin-1/2 nuclei.
+- `spin_dynamics.nqr` contains quadrupolar NQR models. Embedded two-level
+  selective-pulse workflows are spin-1; full spin-3/2 chlorine-style FID, echo,
+  and SLSE helpers use a `(2I+1)`-level density-matrix model.
+- `spin_dynamics.esr` contains single-electron ESR/EPR spectrum and pulse
+  response helpers.
+- `spin_dynamics.exchange` and `spin_dynamics.susceptibility` add
+  Bloch-McConnell exchange and internal-gradient field models.
+
+The most stable high-level imports are listed in
+`spin_dynamics.workflows.STABLE_WORKFLOW_API`. Advanced workflows may be better
+imported from their specific submodules.
 
 ## Installation
 
-PythonSpinDynamics requires Python 3.10 or newer. The core package depends on
-NumPy 1.24 or newer and does not require MATLAB at runtime. MATLAB is only
-needed when regenerating the complete MATLAB reference fixture set.
+Python 3.10 or newer is required. The core package depends on NumPy and does
+not require MATLAB at runtime. MATLAB is only needed when regenerating the full
+MATLAB reference fixture set.
 
-Create or activate a Python environment, then install the package in editable
-mode from this directory. On Windows, prefer an environment outside a
-OneDrive-synced checkout to avoid file-lock and sync overhead:
+From this directory:
 
 ```powershell
 python -m pip install -e .
@@ -97,24 +84,23 @@ Optional extras:
 python -m pip install -e ".[opt,plot,dev]"
 ```
 
-Use `opt` for SciPy-backed optimization and inverse-Laplace solves, `plot` for
-Matplotlib examples, and `dev` for test/lint tooling.
+- `opt` installs SciPy-backed optimization and inverse-Laplace tools.
+- `plot` installs Matplotlib and Pillow for plotting examples.
+- `dev` installs test and lint tooling.
+- `bench` installs benchmark tooling.
 
-For development and validation, use the editable install with all common extras:
+For day-to-day development, install the common extras:
 
 ```powershell
 python -m pip install -e ".[dev,opt,plot,bench]"
-python -m unittest tests.smoke_tests
-python -m unittest tests.fixture_tests
-python -m unittest tests.example_tests
-python -m unittest discover -s tests
-python -m ruff check src tests examples
 ```
 
-If `python` resolves to an interpreter without NumPy, activate the intended
-environment first or invoke that environment's full `python.exe` path.
+On Windows, an environment outside a OneDrive-synced checkout can reduce
+file-lock and sync overhead.
 
 ## Quick Start
+
+Run a simple tuned-probe CPMG simulation:
 
 ```python
 from spin_dynamics.workflows import run_tuned_cpmg
@@ -123,13 +109,7 @@ result = run_tuned_cpmg(numpts=101, maxoffs=10)
 print(result.echo.shape, result.snr)
 ```
 
-The most stable high-level imports are listed in
-`spin_dynamics.workflows.STABLE_WORKFLOW_API`. More specialized imaging,
-diffusion, WURST, time-varying-field, and sweep helpers remain available from
-`spin_dynamics.workflows`, but new code may prefer direct submodule imports
-when using those advanced workflows.
-
-Finite train example:
+Run a finite echo train:
 
 ```python
 from spin_dynamics.workflows import run_matched_cpmg_train
@@ -139,22 +119,10 @@ train = run_matched_cpmg_train(
     num_echoes=8,
     auto_refine_grid=True,
 )
+print(train.echo.shape)
 ```
 
-Radiation-damping FID example:
-
-```python
-from spin_dynamics.workflows import run_radiation_damping_fid
-
-fid = run_radiation_damping_fid(
-    probe="matched",
-    fill_factor=0.7,
-    equilibrium_magnetization=0.8,
-    flip_angle=1.0,
-)
-```
-
-Pulsed NQR example:
+Run a pulsed NQR SLSE example:
 
 ```python
 from spin_dynamics.nqr import QuadrupolarSite, simulate_slse, slse_sequence
@@ -167,19 +135,12 @@ sequence = slse_sequence(
     echo_spacing_seconds=1e-3,
     num_echoes=8,
 )
+
 slse = simulate_slse(site, sequence, orientations="powder", t2e_seconds=20e-3)
 print(slse.echo_amplitudes.shape)
 ```
 
-Spin-3/2 nuclei such as `35Cl` and `37Cl` are supported at the Hamiltonian and
-transition-frequency metadata level. Full spin-3/2 pulsed SLSE response still
-requires a degenerate-doublet RF manifold model, so the bundled pulsed NQR
-examples state that they are spin-1 only.
-Weak static B0 line splitting is available for both spin-1 and spin-3/2 through
-`simulate_weak_b0_spectrum`, with an explicit `|gamma B0| / nu_ref` weak-field
-regime check.
-
-ESR example:
+Run an ESR/EPR powder spectrum:
 
 ```python
 from spin_dynamics.esr import ESRSpinSystem, simulate_field_sweep
@@ -196,49 +157,51 @@ print(spectrum.fields_tesla.shape)
 
 ## Examples
 
-Examples live in `examples/` and can be run from this directory:
+Examples live in `examples/` and can be run from this directory. A few useful
+entry points are:
 
 ```powershell
 python examples\ideal_cpmg.py --numpts 101
-python examples\ideal_cpmg_train.py --numpts 101 --num-echoes 8
-python examples\probe_cpmg_compare.py --numpts 101
-python examples\matched_diffusion_cpmg.py --numpts 21 --num-echoes 3
-python examples\radiation_damping_fid.py --probe matched --points 401
+python examples\ideal_fid.py --numpts 101
+python examples\plot_ideal_workflows.py --numpts 201 --output results\ideal_workflows.png
 python examples\plot_inverse_laplace.py --output results\inverse_laplace.png
 python examples\plot_pgse_d_t2.py --output results\pgse_d_t2.png
-python examples\plot_dexsy_exchange.py --output results\dexsy_exchange.png
-python examples\plot_t2_t2_exchange.py --output results\t2_t2_exchange.png
-python examples\plot_internal_gradients.py --output results\internal_gradients.png
-python examples\plot_bipolar_pgste.py --output results\bipolar_pgste.png
-python examples\plot_cpmg_pipe_flow.py --output results\cpmg_pipe_flow.png
-python examples\plot_bpp_relaxation_temperature.py --output results\bpp_relaxation_temperature.png
-python examples\plot_t1rho_prepolarized_dispersion.py --output results\t1rho_prepolarized_dispersion.png
-python examples\plot_earth_field_prepolarized_nmr.py --output results\earth_field_prepolarized_nmr.png
 python examples\plot_nqr_powder_nutation.py --output results\nqr_powder_nutation.png
 python examples\plot_nqr_population_transfer.py --output results\nqr_population_transfer.png
-python examples\plot_nqr_slse_offset.py --output results\nqr_slse_offset.png
-python examples\plot_nqr_slse_spacing.py --output results\nqr_slse_spacing.png
-python examples\plot_nqr_efg_broadening.py --output results\nqr_efg_broadening.png
-python examples\plot_nqr_temperature_broadening.py --output results\nqr_temperature_broadening.png
-python examples\plot_nqr_slse_efg_broadening.py --output results\nqr_slse_efg_broadening.png
-python examples\plot_nqr_weak_b0_spectrum.py --output results\nqr_weak_b0_spectrum.png
-python examples\plot_nqr_spin32_slse.py --output results\nqr_spin32_slse.png
-python examples\plot_halbach_dipole_field.py --output results\halbach_dipole.png
-python examples\plot_nqr_polarization_enhancement.py --output results\nqr_polarization_enhancement.png
 python examples\plot_esr_powder_spectrum.py --output results\esr_powder_spectrum.png
 python examples\plot_esr_pulsed_echo.py --output results\esr_pulsed_echo.png
-python examples\plot_esr_relaxation.py --output results\esr_relaxation.png
-python examples\plot_esr_hyperfine_doublet.py --output results\esr_hyperfine_doublet.png
 ```
 
-The SLSE EFG broadening plot forms its spectrum from a finite acquired echo
-window. Add `--noise-snr 20 --deconvolve` to inspect time-domain receiver noise
-and regularized finite-window deconvolution.
+The full example catalog is documented in `docs/python_api/examples.md`.
 
-See the user manual and `docs/python_api/examples.md` for the full example
-catalog.
+## Documentation
 
-## Tests
+- `docs/user_manual.tex` is the LaTeX user manual with model equations,
+  examples, validation notes, and an API reference.
+- `docs/python_api/index.md` is the Markdown documentation index.
+- `docs/python_api/api_reference.md` is generated from public functions,
+  classes, and docstrings.
+- `docs/python_api/concepts.md` describes units and conventions.
+- `docs/python_api/workflows.md`, `nqr.md`, `esr.md`, `j_coupling.md`,
+  `exchange.md`, and `internal_gradients.md` describe major feature areas.
+- `docs/matlab_mapping.md`, `docs/migration_plan.md`, and
+  `docs/validation_results.md` document the MATLAB-to-Python port and fixture
+  parity checks.
+
+Build the manual from this directory with:
+
+```powershell
+pdflatex -interaction=nonstopmode -halt-on-error -output-directory docs docs\user_manual.tex
+```
+
+Refresh the generated Markdown API inventory after changing public functions,
+classes, or docstrings:
+
+```powershell
+python docs\generate_api_reference.py
+```
+
+## Tests And Validation
 
 Run the fast smoke tier during normal edit loops:
 
@@ -253,11 +216,12 @@ python -m unittest tests.fixture_tests
 python -m unittest tests.example_tests
 ```
 
-Run the full validation suite before committing numerical or public-workflow
+Run the broader validation suite before committing numerical or public-workflow
 changes:
 
 ```powershell
 python -m unittest discover -s tests
+python -m ruff check src tests examples
 ```
 
 Fixture generation scripts are in `validation/octave/`. MATLAB is required for
