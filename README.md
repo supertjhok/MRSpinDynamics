@@ -16,6 +16,9 @@ first-principles electric-field-gradient calculations:
 - `QuadrupolarDFT/` contains the new Python workspace for ab initio EFG,
   quadrupolar-coupling, and NQR-parameter workflows, starting with ABINIT PAW
   output parsing and backend-neutral tensor analysis.
+- `NQRDatabase/` contains a curated NQR spectra database build, with normalized
+  JSONL exports, an SQLite database, source/provenance tables, and a Landolt
+  review workflow.
 
 Each workspace has its own README with setup notes, examples, and more detailed
 documentation. Start with the MATLAB README when checking reference behavior,

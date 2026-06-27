@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.org/nqr/line_record.schema.json",
+  "title": "NQR line record",
+  "type": "object",
+  "required": ["line_id", "compound", "sample", "site", "line", "source"],
+  "properties": {
+    "line_id": { "type": "string" },
+    "compound": {
+      "type": "object",
+      "required": ["id", "name"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "formula": { "type": ["string", "null"] },
+        "conventional_formula": { "type": ["string", "null"] },
+        "category": { "type": ["string", "null"] }
+      },
+      "additionalProperties": true
+    },
+    "sample": {
+      "type": "object",
+      "required": ["id", "label"],
+      "properties": {
+        "id": { "type": "string" },
+        "label": { "type": "string" },
+        "form": { "type": ["string", "null"] },
+        "phase": { "type": ["string", "null"] },
+        "temperature_k": { "type": ["number", "null"] }
+      },
+      "additionalProperties": true
+    },
+    "site": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id": { "type": "string" },
+        "site_number": { "type": ["string", "null"] },
+        "isotope": { "type": ["string", "null"] },
+        "site_label": { "type": ["string", "null"] },
+        "weight_percent": { "type": ["number", "null"] },
+        "qcc_khz": { "type": ["number", "null"] },
+        "eta": { "type": ["number", "null"] }
+      },
+      "additionalProperties": true
+    },
+    "line": {
+      "type": "object",
+      "required": ["frequency_khz"],
+      "properties": {
+        "frequency_khz": { "type": ["number", "null"] },
+        "frequency_original": { "type": ["string", "null"] },
+        "t1_s": { "type": ["number", "null"] },
+        "t2_s": { "type": ["number", "null"] },
+        "t2_star_s": { "type": ["number", "null"] },
+        "fwhm_khz": { "type": ["number", "null"] },
+        "line_width_khz": { "type": ["number", "null"] },
+        "dnu_dt_khz_per_c": { "type": ["number", "null"] },
+        "polarization_factor": { "type": ["number", "null"] },
+        "form": { "type": ["string", "null"] }
+      },
+      "additionalProperties": true
+    },
+    "source": {
+      "type": "object",
+      "required": ["id", "title", "source_type"],
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "source_type": { "type": "string" },
+        "relative_path": { "type": ["string", "null"] }
+      },
+      "additionalProperties": true
+    },
+    "original_record": {
+      "type": ["object", "null"]
+    },
+    "references": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "citation_text"],
+        "properties": {
+          "id": { "type": "string" },
+          "citation_text": { "type": "string" },
+          "reference_type": { "type": ["string", "null"] },
+          "year": { "type": ["integer", "null"] },
+          "source_page": { "type": ["string", "null"] }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}
