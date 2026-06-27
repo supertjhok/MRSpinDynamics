@@ -1302,7 +1302,11 @@ def import_landolt_nitrogen_entries(
             text = page.extract_text(layout=True, x_tolerance=1, y_tolerance=3) or ""
             lines = text.splitlines()
             footnotes = extract_landolt_footnotes(lines)
-            table_blocks = repair_landolt_table_blocks(source_id, page_number, extract_landolt_table_blocks(lines))
+            table_blocks = repair_landolt_table_blocks(
+                source_id,
+                page_number,
+                extract_landolt_table_blocks_from_page(page),
+            )
             for substance_number, raw_table_text in table_blocks.items():
                 parsed = parse_landolt_table_block(raw_table_text)
                 footnote = footnotes.get(substance_number, "")
@@ -1332,6 +1336,111 @@ def import_landolt_nitrogen_entries(
                 }
 
 
+def extract_landolt_table_blocks_from_page(page: Any) -> dict[str, str]:
+    words = page.extract_words(x_tolerance=1, y_tolerance=3, keep_blank_chars=False)
+    line_records = [landolt_line_record(line) for line in group_words_into_lines(words) if line]
+    return extract_landolt_table_blocks_from_line_records(line_records)
+
+
+def extract_landolt_table_blocks_from_line_records(lines: list[dict[str, Any]]) -> dict[str, str]:
+    blocks: dict[str, list[str]] = {}
+    current_number: str | None = None
+    saw_table_row = False
+    for line_index, line in enumerate(lines):
+        text = line["text"]
+        if is_landolt_horizontal_rule(text):
+            if saw_table_row:
+                break
+            continue
+        if is_landolt_table_header_text(text):
+            continue
+        row_start = detect_landolt_table_row_start(lines, line_index)
+        if row_start:
+            current_number, cleaned_text = row_start
+            blocks[current_number] = [cleaned_text]
+            saw_table_row = True
+        elif current_number and is_landolt_table_continuation_line(line):
+            blocks[current_number].append(text)
+    return {number: "\n".join(block) for number, block in blocks.items()}
+
+
+def detect_landolt_table_row_start(
+    lines: list[dict[str, Any]], line_index: int
+) -> tuple[str, str] | None:
+    line = lines[line_index]
+    text = line["text"]
+    tokens = text.split()
+    if not tokens:
+        return None
+
+    row_token_index: int | None = None
+    number_match = re.match(LANDOLT_ROW_NUMBER_PATTERN, text)
+    if number_match:
+        row_token_index = 0
+        number = number_match.group("num")
+    else:
+        number = ""
+        for token_index, token in enumerate(tokens[:3]):
+            cleaned = token.strip(".'`\u2018\u2019")
+            if re.fullmatch(r"\d{2,3}", cleaned):
+                row_token_index = token_index
+                number = cleaned
+                break
+    if row_token_index is None:
+        return None
+
+    cleaned_tokens = tokens[row_token_index:]
+    cleaned_text = " ".join(cleaned_tokens)
+    if not re.match(LANDOLT_ROW_NUMBER_PATTERN, cleaned_text):
+        cleaned_text = f"{number} {' '.join(cleaned_tokens[1:])}".strip()
+
+    row_text = " ".join([cleaned_text, *lookahead_landolt_row_lines(lines, line_index)])
+    if is_landolt_table_row_text(row_text):
+        return number, cleaned_text
+    if "(contd" in row_text or re.search(r"\bN-14\b", row_text):
+        return number, cleaned_text
+    if cleaned_tokens[1:2] and cleaned_tokens[1] in LANDOLT_METHOD_DEFINITIONS:
+        return number, cleaned_text
+    if find_landolt_reference_code(cleaned_tokens[1:]) or len(landolt_numeric_tokens(cleaned_tokens[1:])) >= 3:
+        return number, cleaned_text
+    return None
+
+
+def lookahead_landolt_row_lines(lines: list[dict[str, Any]], line_index: int) -> list[str]:
+    texts: list[str] = []
+    for next_line in lines[line_index + 1 : line_index + 4]:
+        text = next_line["text"]
+        if is_landolt_horizontal_rule(text) or is_landolt_table_header_text(text):
+            break
+        if re.match(LANDOLT_ROW_NUMBER_PATTERN, text):
+            break
+        texts.append(text)
+    return texts
+
+
+def is_landolt_horizontal_rule(text: str) -> bool:
+    return bool(re.search(r"[-_\u2014]{8,}", text))
+
+
+def is_landolt_table_header_text(text: str) -> bool:
+    return bool(re.search(r"\b(Subst|Formula|Nucl|Q\.?C\.?C|MHz|No\.)\b", text))
+
+
+def is_landolt_table_continuation_line(line: dict[str, Any]) -> bool:
+    text = line["text"]
+    if not text or is_landolt_horizontal_rule(text) or is_landolt_table_header_text(text):
+        return False
+    if re.match(LANDOLT_ROW_NUMBER_PATTERN, text):
+        return False
+    if float(line["bbox"][0]) >= 250:
+        return True
+    if re.match(r"^\s*(?:[CDPMEX]\s+)?(?:R\.?\s*Temp|RT|\d+(?:\.\d+)?)\b", text):
+        return True
+    if re.match(r"^\s*N-?14\b", text):
+        return True
+    return False
+
+
 def extract_landolt_table_blocks(lines: list[str]) -> dict[str, str]:
     blocks: dict[str, list[str]] = {}
     current_number: str | None = None
@@ -1359,6 +1468,27 @@ def extract_landolt_table_blocks(lines: list[str]) -> dict[str, str]:
 
 
 def repair_landolt_table_blocks(source_id: str, page_number: int, blocks: dict[str, str]) -> dict[str, str]:
+    if source_id == "landolt_nitrogen_table_a_pdf" and page_number == 11:
+        blocks = dict(blocks)
+        blocks.setdefault(
+            "318",
+            "\n".join(
+                [
+                    "318 C24K.4.3(NH3) N-14 RT 1.125 1.5 0 * 87TS1",
+                ]
+            ),
+        )
+        blocks.setdefault(
+            "319",
+            "\n".join(
+                [
+                    "319 C26H56BrN N-14 178.0 0.161 0.1770 0.64 * 83PR1",
+                    "0.104",
+                    "293.0 0.177 0.1900 0.73",
+                    "0.108",
+                ]
+            ),
+        )
     if source_id == "landolt_nitrogen_table_b_pdf" and page_number == 4 and "118" in blocks:
         blocks = dict(blocks)
         blocks["118"] = "\n".join(
@@ -1389,6 +1519,9 @@ def repair_landolt_table_blocks(source_id: str, page_number: int, blocks: dict[s
                 "2.891",
             ]
         )
+    if source_id == "landolt_nitrogen_table_b_pdf" and page_number == 12:
+        blocks = dict(blocks)
+        blocks.setdefault("166", "166 H6NO4P N-14 R.Temp 0.0184 0.0246 0 65CH1")
     return blocks
 
 
@@ -1502,7 +1635,7 @@ def landolt_entry_notes(parsed: dict[str, str | None]) -> str:
 
 
 def is_landolt_room_temperature_token(value: str) -> bool:
-    return normalize_space(value).replace(".", "").lower() in {"rt", "rtemp"}
+    return normalize_space(value).replace(".", "").replace(" ", "").lower() in {"rt", "rtemp"}
 
 
 def is_landolt_table_row_text(text: str) -> bool:
@@ -1582,6 +1715,7 @@ def import_landolt_reference_codes(state: BuildState, reference_pdf: Path) -> No
                 text = page.extract_text(layout=True, x_tolerance=1, y_tolerance=3) or page.extract_text() or ""
                 pairs = extract_landolt_reference_code_pairs(text)
             for code, citation in pairs:
+                citation = clean_landolt_citation_text(citation)
                 row_id = "landolt_refcode:" + slug(f"{code}:{citation[:80]}")
                 state.landolt_reference_codes[row_id] = {
                     "id": row_id,
@@ -1592,6 +1726,25 @@ def import_landolt_reference_codes(state: BuildState, reference_pdf: Path) -> No
                     "source_page": f"p. {page_number}",
                     "extraction_confidence": "word_coordinates_two_column",
                 }
+
+
+def clean_landolt_citation_text(citation: str) -> str:
+    text = normalize_space(citation)
+    text = re.sub(r"\((\d{4})[1Il](?=\s*,)", r"(\1)", text)
+    text = re.sub(r"\((\d{4})[1Il](?=\s*$)", r"(\1)", text)
+    replacements = {
+        "Sot": "Soc",
+        "Whys": "Phys",
+        "J _ Chem": "J Chem",
+        "O.ia": "Oja",
+        "T .": "T.",
+    }
+    for before, after in replacements.items():
+        text = text.replace(before, after)
+    text = re.sub(r"\s+,", ",", text)
+    text = re.sub(r",(?=\S)", ", ", text)
+    text = re.sub(r":(?=\S)", ": ", text)
+    return normalize_space(text)
 
 
 def extract_landolt_reference_code_pairs_from_words(
@@ -2217,6 +2370,7 @@ def promote_landolt_reference_code(
     else:
         citation_text = f"Unresolved Landolt reference code {code}"
         source_page = None
+    metadata = parse_landolt_citation_metadata(citation_text)
     reference_id = "ref:" + slug(f"landolt:{code}:{citation_text[:80]}")
     state.literature_references.setdefault(
         reference_id,
@@ -2224,10 +2378,10 @@ def promote_landolt_reference_code(
             "id": reference_id,
             "citation_text": citation_text,
             "reference_type": "landolt_reference_code",
-            "authors": None,
+            "authors": metadata.get("authors"),
             "year": extract_year(citation_text),
             "title": None,
-            "journal": None,
+            "journal": metadata.get("journal"),
             "doi": None,
             "source_id": "landolt_nitrogen_references_pdf",
             "source_page": source_page or f"Landolt Table {entry.get('table_number')}",
@@ -2236,6 +2390,18 @@ def promote_landolt_reference_code(
         },
     )
     return reference_id
+
+
+def parse_landolt_citation_metadata(citation_text: str) -> dict[str, str | None]:
+    if ":" not in citation_text:
+        return {"authors": None, "journal": None}
+    authors, rest = citation_text.split(":", 1)
+    rest = rest.strip()
+    journal_match = re.match(r"(?P<journal>.+?)\s+\d+[A-Za-z]?\s*\(\d{4}\)", rest)
+    return {
+        "authors": normalize_space(authors.strip(" ;")) or None,
+        "journal": normalize_space(journal_match.group("journal")) if journal_match else None,
+    }
 
 
 def measurement_set_without_children(measurement_set: dict[str, Any]) -> dict[str, Any]:
@@ -2377,22 +2543,23 @@ def landolt_line_record(line_words: list[dict[str, Any]]) -> dict[str, Any]:
 def extract_landolt_table_regions(lines: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     regions: dict[str, dict[str, Any]] = {}
     current_number: str | None = None
-    footnote_started = False
-    for line in lines:
+    saw_table_row = False
+    for line_index, line in enumerate(lines):
         stripped = line["text"]
-        is_table_row = is_landolt_table_row_text(stripped)
-        if re.match(LANDOLT_FOOTNOTE_NUMBER_PATTERN, stripped) and not is_table_row:
-            footnote_started = True
-        if footnote_started:
+        if is_landolt_horizontal_rule(stripped):
+            if saw_table_row:
+                break
             continue
-        match = re.match(LANDOLT_ROW_NUMBER_PATTERN, stripped)
-        if match and is_table_row:
-            current_number = match.group("num")
-            regions[current_number] = {"text": stripped, "bbox": line["bbox"]}
-        elif current_number and stripped and not re.search(r"^-{5,}", stripped):
-            if re.match(r"^[.-]?\d", stripped):
-                regions[current_number]["text"] += "\n" + stripped
-                regions[current_number]["bbox"] = union_bbox(regions[current_number]["bbox"], line["bbox"])
+        if is_landolt_table_header_text(stripped):
+            continue
+        row_start = detect_landolt_table_row_start(lines, line_index)
+        if row_start:
+            current_number, cleaned_text = row_start
+            regions[current_number] = {"text": cleaned_text, "bbox": line["bbox"]}
+            saw_table_row = True
+        elif current_number and is_landolt_table_continuation_line(line):
+            regions[current_number]["text"] += "\n" + stripped
+            regions[current_number]["bbox"] = union_bbox(regions[current_number]["bbox"], line["bbox"])
     return regions
 
 
@@ -2400,29 +2567,51 @@ def repair_landolt_table_regions(
     regions: dict[str, dict[str, Any]], lines: list[dict[str, Any]]
 ) -> dict[str, dict[str, Any]]:
     line_texts = [line["text"] for line in lines]
-    if not any("C28H24N2P2PdS2" in text for text in line_texts):
-        return regions
     repaired = dict(regions)
-    specs = {
-        "118": ("118.", ["2.570", "0.42"]),
-        "119": ("C28H24N2P2PdS2", ["0.390"]),
-        "120": ("3.6157", ["3.5575", "3.5121", "3.3428"]),
-        "121": ("C28H32N2(Achiral", ["2.891"]),
-    }
-    for number, (anchor, continuations) in specs.items():
-        anchor_index = next((idx for idx, line in enumerate(lines) if anchor in line["text"]), None)
-        if anchor_index is None:
-            continue
-        region = {"text": lines[anchor_index]["text"], "bbox": lines[anchor_index]["bbox"]}
-        for line in lines[anchor_index + 1 :]:
-            text = line["text"]
-            if any(stop in text for stop in ("119.", "120.", "121.", "---", "116.")):
-                break
-            if any(marker in text for marker in continuations):
-                region["text"] += "\n" + text
-                region["bbox"] = union_bbox(region["bbox"], line["bbox"])
-        repaired[number] = region
+    if any("C28H24N2P2PdS2" in text for text in line_texts):
+        specs = {
+            "118": ("118.", ["2.570", "0.42"], ("119.", "120.", "121.", "---", "116.")),
+            "119": ("C28H24N2P2PdS2", ["0.390"], ("120.", "121.", "---", "116.")),
+            "120": ("3.6157", ["3.5575", "3.5121", "3.3428"], ("121.", "---", "116.")),
+            "121": ("C28H32N2(Achiral", ["2.891"], ("---", "116.")),
+        }
+        for number, (anchor, continuations, stops) in specs.items():
+            add_repaired_landolt_region(repaired, lines, number, anchor, continuations, stops)
+    if any("C24K.4.3(NH3)" in text for text in line_texts):
+        add_repaired_landolt_region(repaired, lines, "318", "C24K.4.3(NH3)", [], ("320 ", "---"))
+        add_repaired_landolt_region(
+            repaired,
+            lines,
+            "319",
+            "C26H56B.rN",
+            ["0.104", "293.0", "0.108"],
+            ("320 ", "---"),
+        )
+    if any("N-14 R. Temp 0.0184" in text for text in line_texts):
+        add_repaired_landolt_region(repaired, lines, "166", "N-14 R. Temp 0.0184", [], ("167.", "---"))
     return repaired
+
+
+def add_repaired_landolt_region(
+    regions: dict[str, dict[str, Any]],
+    lines: list[dict[str, Any]],
+    number: str,
+    anchor: str,
+    continuations: list[str],
+    stops: tuple[str, ...],
+) -> None:
+    anchor_index = next((idx for idx, line in enumerate(lines) if anchor in line["text"]), None)
+    if anchor_index is None:
+        return
+    region = {"text": lines[anchor_index]["text"], "bbox": lines[anchor_index]["bbox"]}
+    for line in lines[anchor_index + 1 :]:
+        text = line["text"]
+        if any(stop in text for stop in stops):
+            break
+        if any(marker in text for marker in continuations):
+            region["text"] += "\n" + text
+            region["bbox"] = union_bbox(region["bbox"], line["bbox"])
+    regions[number] = region
 
 
 def extract_landolt_footnote_regions(lines: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
