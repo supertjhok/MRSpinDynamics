@@ -11,8 +11,8 @@ examples, validation fixtures, tests, and user documentation.
 The main Version 2 workflow port is mostly complete. The package includes
 ideal, tuned, untuned, and matched-probe CPMG workflows; finite echo trains;
 FID, imaging, diffusion, time-varying-field, WURST, radiation-damping, motion,
-noise, inverse-Laplace analysis, PGSE D-T2 examples, and pulse-optimization
-helpers.
+prepolarization, BPP-style relaxation, noise, inverse-Laplace analysis, PGSE
+D-T2 examples, and pulse-optimization helpers.
 
 Most MATLAB-compatible Bloch workflows still assume a bath of uncoupled
 spin-1/2 nuclei in a possibly non-uniform and time-varying \(B_0\) field;
@@ -210,6 +210,10 @@ python examples\plot_dexsy_exchange.py --output results\dexsy_exchange.png
 python examples\plot_t2_t2_exchange.py --output results\t2_t2_exchange.png
 python examples\plot_internal_gradients.py --output results\internal_gradients.png
 python examples\plot_bipolar_pgste.py --output results\bipolar_pgste.png
+python examples\plot_cpmg_pipe_flow.py --output results\cpmg_pipe_flow.png
+python examples\plot_bpp_relaxation_temperature.py --output results\bpp_relaxation_temperature.png
+python examples\plot_t1rho_prepolarized_dispersion.py --output results\t1rho_prepolarized_dispersion.png
+python examples\plot_earth_field_prepolarized_nmr.py --output results\earth_field_prepolarized_nmr.png
 python examples\plot_nqr_powder_nutation.py --output results\nqr_powder_nutation.png
 python examples\plot_nqr_population_transfer.py --output results\nqr_population_transfer.png
 python examples\plot_nqr_slse_offset.py --output results\nqr_slse_offset.png

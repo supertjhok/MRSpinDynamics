@@ -6,6 +6,58 @@ Application code should prefer the public workflow runners below. The
 lower-level examples remain useful for validation, porting, and debugging
 individual MATLAB reference paths.
 
+## Prepolarization
+
+Use `spin_dynamics.prepolarization` when a sample relaxes in a polarizing
+magnet before an NMR sequence begins. The helpers return prepared `m0` values
+in the same normalized units used by the kernels, plus the sequence equilibrium
+`mth`:
+
+```python
+from spin_dynamics.prepolarization import prepolarized_state
+
+prepared = prepolarized_state(
+    polarizing_field_tesla=0.1,
+    detection_field_tesla=50e-6,
+    prepolarization_time_seconds=2.0,
+    t1_seconds=1.5,
+)
+
+params = prepared.as_parameters()
+```
+
+For transport and flow experiments, `prepolarized_flow_state` computes the
+residence time from path length and speed before applying the same T1 recovery
+model.
+
+## BPP Relaxation
+
+Use `spin_dynamics.relaxation` to estimate scalar `T1` and `T2` values from a
+rotational correlation time. The default BPP coefficients are proportional to
+`J(w0) + 4 J(2w0)` for `R1` and
+`1.5 J(0) + 2.5 J(w0) + J(2w0)` for `R2`; the coupling scale absorbs the
+dipolar constants and convention-specific prefactors:
+
+```python
+import numpy as np
+
+from spin_dynamics.relaxation import BPPRelaxationModel
+
+model = BPPRelaxationModel(
+    angular_frequency_rad_per_s=2 * np.pi * 2.0e6,
+    tau_ref_seconds=2.0e-9,
+    coupling_scale_per_second2=3.0e9,
+    activation_energy_j_per_mol=12_000.0,
+)
+
+rates = model.rates([280.0, 300.0, 320.0])
+params = rates.as_parameters()
+```
+
+For other dipolar conventions or phenomenological fits, provide custom
+`r1_coefficients` and `r2_coefficients` in the order
+`(J(0), J(w0), J(2w0))`.
+
 ## Public CPMG Runners
 
 Use these for application code and examples:
@@ -940,6 +992,13 @@ This path is not a MATLAB fixture-parity replacement for the fixed-grid
 `arb10` kernels. It is intended for physical motion studies where spins move
 through field maps, such as advection through inside-out B1 profiles or
 diffusion-driven CPMG attenuation in static gradients.
+
+Deterministic flow uses the same interface: pass a velocity callback that
+returns one velocity vector per particle. `plot_cpmg_pipe_flow.py` demonstrates
+an axisymmetric cylindrical pipe with Poiseuille flow, upstream residence-time
+prepolarization in a static magnet, and downstream CPMG detection by separate
+transmit/receive coil maps. Sweeping the mean velocity exposes both incomplete
+polarization and motion-induced echo dephasing.
 
 ## CPMG Imaging
 

@@ -451,6 +451,77 @@ Free-precession intervals with relaxation use the usual exponential factors:
 Finite acquisition workflows assemble these intervals from pulse-sequence
 parameters and then call the \code{arb10}-style kernels.
 
+\section{Prepolarization and BPP Relaxation}
+
+Many compact and low-field experiments do not begin at the thermal equilibrium
+magnetization of the detection field. The \code{spin\_dynamics.prepolarization}
+module computes prepared longitudinal magnetization values in the same
+normalized units used by the sequence kernels. For a sample relaxing in a
+polarizing field \(B_{\mathrm{pol}}\), then detected at \(B_{\mathrm{det}}\),
+the full polarizer equilibrium in detection-field units is
+\[
+  M_{\mathrm{pol,eq}} =
+    M_{\mathrm{det,eq}}\frac{B_{\mathrm{pol}}}{B_{\mathrm{det}}}.
+\]
+Finite prepolarization time is then just the usual longitudinal buildup:
+\[
+  M_0(t_{\mathrm{pol}}) =
+    M_{\mathrm{pol,eq}} +
+    \left(M_{\mathrm{init}}-M_{\mathrm{pol,eq}}\right)
+    \exp\left(-t_{\mathrm{pol}}/T_1\right).
+\]
+For flow or sample transport, \code{prepolarized\_flow\_state} first converts a
+path length and local speed into a residence time. The returned
+\code{PrepolarizedMagnetization} object exposes \code{m0} and \code{mth} arrays
+that can be passed into the lower-level kernels or used to initialize moving
+isochromats.
+
+The \code{spin\_dynamics.relaxation} module provides a compact BPP-style scalar
+relaxation model. The rotational spectral density is
+\[
+  J(\omega) = \frac{2\tau_c}{1+\omega^2\tau_c^2},
+\]
+with an Arrhenius temperature dependence
+\[
+  \tau_c(T) =
+    \tau_{\mathrm{ref}}
+    \exp\left[
+      \frac{E_a}{R}\left(\frac{1}{T}
+      - \frac{1}{T_{\mathrm{ref}}}\right)
+    \right].
+\]
+The default rate ratios are the common dipolar-style combinations
+\[
+  R_1 = C\left[J(\omega_0)+4J(2\omega_0)\right],
+\]
+\[
+  R_2 = C\left[\frac{3}{2}J(0)
+      +\frac{5}{2}J(\omega_0)+J(2\omega_0)\right],
+\]
+where \(C\) absorbs the spin-pair constants and convention-specific prefactors.
+Custom coefficient triples \((J(0),J(\omega_0),J(2\omega_0))\) can be supplied
+for other dipolar conventions or phenomenological fits.
+
+\begin{lstlisting}[language=Python]
+import numpy as np
+from spin_dynamics.prepolarization import prepolarized_state
+from spin_dynamics.relaxation import BPPRelaxationModel
+
+model = BPPRelaxationModel(
+    angular_frequency_rad_per_s=2*np.pi*20e6,
+    tau_ref_seconds=8e-9,
+    coupling_scale_per_second2=5e8,
+    activation_energy_j_per_mol=16e3,
+)
+rates = model.rates([280.0, 300.0, 320.0])
+prepared = prepolarized_state(
+    polarizing_field_tesla=0.1,
+    detection_field_tesla=50e-6,
+    prepolarization_time_seconds=2.0,
+    t1_seconds=rates.t1_seconds,
+)
+\end{lstlisting}
+
 \section{Echo Conversion}
 
 The echo utilities direct-sum a received spectrum \(S(\Delta\omega)\) over the
@@ -2345,6 +2416,14 @@ useful for custom trajectories. The sequence helpers split long intervals into
 substeps so field maps are sampled along the particle path rather than only at
 the beginning of an interval.
 
+The same machinery handles deterministic flow as well as diffusion. The example
+\code{plot\_cpmg\_pipe\_flow.py} seeds an axisymmetric cylindrical pipe, assigns
+a laminar Poiseuille velocity profile, computes upstream polarization from
+residence time in a static magnet, and then runs a downstream CPMG train through
+spatial transmit/receive coil maps. Increasing the mean flow velocity lowers
+the initial longitudinal magnetization and adds echo-train dephasing as spins
+move through the B0 and B1 maps during the sequence.
+
 The engine is not limited to two spatial axes. \code{make\_motion\_field\_maps}
 and \code{initialize\_ensemble\_from\_domain} build one-, two-, or
 three-dimensional \code{MotionFieldMaps} and walker ensembles over a
@@ -2874,6 +2953,7 @@ python examples\plot_halbach_dipole_field.py --rod-shape square --output results
 python examples\plot_nmr_mouse_fields.py --pixels 121 --output results\nmr_mouse_fields.png
 python examples\plot_nmr_mouse_depth_profile.py --num-depths 13 --num-d-depths 5 --seeds 4 --output results\nmr_mouse_depth.png
 python examples\plot_motion_linear.py --output results\motion_linear.png
+python examples\plot_cpmg_pipe_flow.py --output results\cpmg_pipe_flow.png
 python examples\plot_motion_diffusion_cpmg.py --output results\motion_diffusion_cpmg.png
 python examples\plot_motion_diffusion_udd.py --output results\motion_diffusion_udd.png
 python examples\plot_radiation_damping.py --output results\radiation_damping.png
@@ -2888,6 +2968,9 @@ python examples\plot_j_editing_spectrum.py --output results\j_editing_spectrum.p
 python examples\plot_j_editing_field_spread.py --output results\j_editing_field_spread.png
 python examples\plot_tango_filter.py --target 160 --output results\tango_filter.png
 python examples\plot_slic_two_spin.py --j-hz 7 --delta-hz 0.7 --output results\slic_two_spin.png
+python examples\plot_bpp_relaxation_temperature.py --output results\bpp_relaxation_temperature.png
+python examples\plot_t1rho_prepolarized_dispersion.py --output results\t1rho_prepolarized_dispersion.png
+python examples\plot_earth_field_prepolarized_nmr.py --output results\earth_field_prepolarized_nmr.png
 python examples\plot_optimization_workflows.py --numpts 11 --segments 2 --starts 2 --inverse-starts 4 --output results\optimization_workflows.png
 python examples\plot_optimization_pipeline.py --numpts 11 --refocusing-segments 2 --refocusing-starts 2 --excitation-segments 2 --excitation-starts 2 --inverse-starts 3 --output results\optimization_pipeline.png
 python examples\plot_nqr_powder_nutation.py --output results\nqr_powder_nutation.png
@@ -2939,6 +3022,8 @@ spin_dynamics.nqr
 spin_dynamics.noise
 spin_dynamics.motion
 spin_dynamics.sequences.motion
+spin_dynamics.prepolarization
+spin_dynamics.relaxation
 spin_dynamics.optimization
 \end{lstlisting}
 
@@ -2997,6 +3082,42 @@ Class & Purpose \\
 \code{PolarizationTransferResult} & Polarization-enhanced NQR transport result with sampled trajectory fields, adiabaticity metrics, and ideal enhancement factors. \\
 \code{ProtonCouplingEstimate} & CIF-based dipole-dipole proton coupling estimate for one quadrupolar nucleus. \\
 \code{RelaxationExchange2DResult} & Encode-mix-detect T2-T2 relaxation exchange (REXSY) data and longitudinal mixing propagator. \\
+\bottomrule
+\end{longtable}
+
+\section{Prepolarization and Relaxation API}
+
+\begin{lstlisting}
+from spin_dynamics.prepolarization import (
+    PrepolarizedMagnetization,
+    longitudinal_recovery,
+    field_ratio_equilibrium,
+    prepolarized_magnetization,
+    prepolarized_state,
+    residence_time_seconds,
+    prepolarized_flow_state,
+    apply_prepolarization_to_parameters,
+)
+
+from spin_dynamics.relaxation import (
+    BPPRelaxationModel,
+    BPPRelaxationRates,
+    spectral_density_lorentzian,
+    arrhenius_correlation_time,
+    bpp_relaxation_rates,
+    apply_relaxation_to_parameters,
+)
+\end{lstlisting}
+
+\begin{longtable}{p{0.43\linewidth}p{0.49\linewidth}}
+\toprule
+Symbol & Purpose \\
+\midrule
+\code{PrepolarizedMagnetization} & Prepared \code{m0}, sequence \code{mth}, and enhancement arrays for handoff to Bloch kernels or moving isochromats. \\
+\code{prepolarized\_state} & Field-ratio-normalized finite-time prepolarization for static samples. \\
+\code{prepolarized\_flow\_state} & Same buildup model with residence time computed from path length and speed. \\
+\code{BPPRelaxationModel} & Arrhenius \(\tau_c(T)\), Lorentzian spectral-density, and configurable BPP \(R_1/R_2\) model. \\
+\code{BPPRelaxationRates} & Temperature, \(\tau_c\), \(J(0)\), \(J(\omega_0)\), \(J(2\omega_0)\), \(R_1/R_2\), and \(T_1/T_2\) arrays. \\
 \bottomrule
 \end{longtable}
 

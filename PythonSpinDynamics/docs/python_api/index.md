@@ -72,6 +72,9 @@ The validated Python API currently covers:
   D-T2 kernels with manual or SNR-selected Tikhonov regularization;
 - opt-in moving-isochromat motion helpers for B0/B1 field-map sampling,
   deterministic advection, seeded diffusion, and receive summation;
+- prepolarization helpers that convert polarizer field strength, residence
+  time, and T1 into sequence-ready `m0`/`mth` arrays, plus BPP-style scalar
+  relaxation helpers for temperature-dependent `T1` and `T2`;
 - ideal-probe finite acquisition with relaxation through
   `calc_macq_ideal_probe_relax4`;
 - SPA refocusing pulse catalog, normalized SNR/FOM metric bookkeeping,

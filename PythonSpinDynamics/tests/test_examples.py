@@ -11,13 +11,20 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES = ROOT / "examples"
+SRC = ROOT / "src"
 LOCAL_TMP = ROOT / ".tmp"
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
 if str(EXAMPLES) not in sys.path:
     sys.path.insert(0, str(EXAMPLES))
 
 from _mandal2015_absolute_phase import (  # noqa: E402
     matched_filter_ratio,
     run_phase_resolved_probe_case,
+)
+from plot_cpmg_pipe_flow import (  # noqa: E402
+    make_pipe_flow_fields,
+    run_flow_case,
 )
 
 
@@ -32,6 +39,44 @@ def run_example(*args: str, cwd: Path = ROOT) -> subprocess.CompletedProcess[str
 
 
 class ExampleSmokeTests(unittest.TestCase):
+    def test_pipe_flow_example_velocity_reduces_polarization_and_first_echo(self) -> None:
+        radius = 2.0e-3
+        fields = make_pipe_flow_fields(
+            radius=radius,
+            z_extent=60.0e-3,
+            num_x=17,
+            num_z_map=81,
+            polarizer_center=-35.0e-3,
+            polarizer_length=50.0e-3,
+            coil_width=12.0e-3,
+            fringe_hz=180.0,
+            axial_gradient_hz_per_m=7000.0,
+            radial_spread_hz=35.0,
+        )
+        common = dict(
+            fields=fields,
+            radius=radius,
+            num_x=13,
+            num_z=5,
+            packet_width=4.0e-3,
+            walkers_per_cell=1,
+            polarizer_length=50.0e-3,
+            t1=1.0,
+            t2=0.18,
+            num_echoes=4,
+            echo_spacing=4.0e-3,
+            excitation_duration=120.0e-6,
+            refocusing_duration=240.0e-6,
+            substeps=2,
+        )
+        slow = run_flow_case(mean_velocity=0.005, seed=11, **common)
+        fast = run_flow_case(mean_velocity=0.20, seed=11, **common)
+
+        self.assertGreater(slow.initial_polarization, fast.initial_polarization)
+        self.assertGreater(slow.echo_magnitudes[0], fast.echo_magnitudes[0])
+        self.assertEqual(slow.echo_values.shape, (4,))
+        self.assertEqual(fast.echo_values.shape, (4,))
+
     def test_mandal2015_helper_modulates_echo_energy(self) -> None:
         baseline = run_phase_resolved_probe_case(
             probe="tuned",
@@ -132,6 +177,7 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_time_varying_sweep.py",
             "examples/plot_inverse_laplace.py",
             "examples/plot_motion_linear.py",
+            "examples/plot_cpmg_pipe_flow.py",
             "examples/plot_motion_diffusion_cpmg.py",
             "examples/plot_motion_diffusion_udd.py",
             "examples/plot_pgse_restricted_diffusion.py",
@@ -163,6 +209,9 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_j_editing_field_spread.py",
             "examples/plot_tango_filter.py",
             "examples/plot_slic_two_spin.py",
+            "examples/plot_bpp_relaxation_temperature.py",
+            "examples/plot_t1rho_prepolarized_dispersion.py",
+            "examples/plot_earth_field_prepolarized_nmr.py",
             "examples/plot_udd_cpmg_filter.py",
             "examples/plot_esr_single_crystal.py",
             "examples/plot_esr_powder_spectrum.py",
@@ -217,6 +266,10 @@ class ExampleSmokeTests(unittest.TestCase):
         self.assertIn("--auto-regularization", result.stdout)
         result = run_example("examples/plot_motion_linear.py", "--help")
         self.assertIn("--velocity", result.stdout)
+        result = run_example("examples/plot_cpmg_pipe_flow.py", "--help")
+        self.assertIn("--pipe-radius-mm", result.stdout)
+        self.assertIn("--polarizer-length-mm", result.stdout)
+        self.assertIn("--axial-gradient-hz-per-m", result.stdout)
         result = run_example("examples/plot_motion_diffusion_cpmg.py", "--help")
         self.assertIn("--diffusion", result.stdout)
         result = run_example("examples/plot_motion_diffusion_udd.py", "--help")
@@ -304,6 +357,14 @@ class ExampleSmokeTests(unittest.TestCase):
         self.assertIn("--target", result.stdout)
         result = run_example("examples/plot_slic_two_spin.py", "--help")
         self.assertIn("--delta-hz", result.stdout)
+        result = run_example("examples/plot_bpp_relaxation_temperature.py", "--help")
+        self.assertIn("--tau-ref-ns", result.stdout)
+        result = run_example("examples/plot_t1rho_prepolarized_dispersion.py", "--help")
+        self.assertIn("--spin-lock-min-khz", result.stdout)
+        self.assertIn("--prepolarizing-field-t", result.stdout)
+        result = run_example("examples/plot_earth_field_prepolarized_nmr.py", "--help")
+        self.assertIn("--earth-field-ut", result.stdout)
+        self.assertIn("--prepolarizing-field-mt", result.stdout)
         result = run_example("examples/plot_udd_cpmg_filter.py", "--help")
         self.assertIn("--min-omega-t", result.stdout)
         result = run_example("examples/plot_esr_single_crystal.py", "--help")

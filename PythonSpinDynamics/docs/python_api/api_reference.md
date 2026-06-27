@@ -694,6 +694,19 @@ No public classes or functions found.
 | function | `summarize_matched_spa_refocusing(**kwargs) -> SPASummary` | Summarize matched-probe rectangular and SPA refocusing pulses. |
 | function | `optimize_spa_phase_program(initial_phases: np.ndarray | list[float], score_fn: Callable[[np.ndarray], float], *, phase_states: np.ndarray | list[float] | None = None, max_passes: int = 1) -> SPAOptimizationResult` | Discrete coordinate-search scaffold for SPA/OCT phase optimization. |
 
+## `spin_dynamics.prepolarization`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `PrepolarizedMagnetization` | Prepared longitudinal magnetization and sequence equilibrium arrays. |
+| function | `longitudinal_recovery(initial_magnetization: float | Iterable[float] | np.ndarray, equilibrium_magnetization: float | Iterable[float] | np.ndarray, duration_seconds: float | Iterable[float] | np.ndarray, t1_seconds: float | Iterable[float] | np.ndarray) -> np.ndarray` | Return longitudinal magnetization after finite-time T1 recovery. |
+| function | `field_ratio_equilibrium(polarizing_field_tesla: float | Iterable[float] | np.ndarray, detection_field_tesla: float, *, detection_equilibrium_magnetization: float | Iterable[float] | np.ndarray = 1.0) -> np.ndarray` | Return polarizing-field equilibrium in detection-field units. |
+| function | `prepolarized_magnetization(polarizing_field_tesla: float | Iterable[float] | np.ndarray, detection_field_tesla: float, prepolarization_time_seconds: float | Iterable[float] | np.ndarray, t1_seconds: float | Iterable[float] | np.ndarray, *, initial_magnetization: float | Iterable[float] | np.ndarray = 0.0, detection_equilibrium_magnetization: float | Iterable[float] | np.ndarray = 1.0) -> np.ndarray` | Return prepared ``m0`` after relaxing in a polarizing field. |
+| function | `prepolarized_state(polarizing_field_tesla: float | Iterable[float] | np.ndarray, detection_field_tesla: float, prepolarization_time_seconds: float | Iterable[float] | np.ndarray, t1_seconds: float | Iterable[float] | np.ndarray, *, initial_magnetization: float | Iterable[float] | np.ndarray = 0.0, detection_equilibrium_magnetization: float | Iterable[float] | np.ndarray = 1.0) -> PrepolarizedMagnetization` | Return prepared ``m0``, sequence ``mth``, and enhancement arrays. |
+| function | `residence_time_seconds(path_length_meters: float | Iterable[float] | np.ndarray, speed_meters_per_second: float | Iterable[float] | np.ndarray) -> np.ndarray` | Return residence time for transport through a prepolarizing region. |
+| function | `prepolarized_flow_state(polarizing_field_tesla: float | Iterable[float] | np.ndarray, detection_field_tesla: float, path_length_meters: float | Iterable[float] | np.ndarray, speed_meters_per_second: float | Iterable[float] | np.ndarray, t1_seconds: float | Iterable[float] | np.ndarray, *, initial_magnetization: float | Iterable[float] | np.ndarray = 0.0, detection_equilibrium_magnetization: float | Iterable[float] | np.ndarray = 1.0) -> PrepolarizedMagnetization` | Return a prepolarized state for flow through a finite polarizer. |
+| function | `apply_prepolarization_to_parameters(params: Mapping[str, Any] | Any, prepared: PrepolarizedMagnetization) -> dict[str, Any]` | Return a shallow parameter copy with ``m0`` and ``mth`` replaced. |
+
 ## `spin_dynamics.pulses`
 
 | Kind | Name | Summary |
@@ -718,6 +731,17 @@ No public classes or functions found.
 | function | `solve_probe_pulse_shape(*, probe: str, absolute_phase_rad: float, pulse_kind: str = 'refocusing', numpts: int = 17, maxoffs: float = 10.0, q_value: float | None = None, mistuning_offset: float | None = None, rotating_phase_rad: float | None = None, pulse_duration_seconds: float | None = None, pulse_amplitude: float = 1.0, delay_seconds: float | None = None) -> ProbePulseShapeDiagnostics` | Solve one probe pulse shape for a requested absolute RF phase. |
 | function | `solve_probe_pulse_shape_sweep(*, probe: str, absolute_phase_rad: Sequence[float] | np.ndarray, pulse_kind: str = 'refocusing', numpts: int = 17, maxoffs: float = 10.0, q_value: float | None = None, mistuning_offset: float | None = None, rotating_phase_rad: float | None = None, pulse_duration_seconds: float | None = None, pulse_amplitude: float = 1.0, delay_seconds: float | None = None) -> ProbePulseShapeSweep` | Solve a probe pulse-shape sweep over absolute RF phase. |
 | function | `build_probe_pulse_shape_library(*, probe: str, absolute_phase_rad: Sequence[float] | np.ndarray, pulse_kind: str = 'refocusing', numpts: int = 17, maxoffs: float = 10.0, q_value: float | None = None, mistuning_offset: float | None = None, rotating_phase_rad: float | None = None, pulse_duration_seconds: float | None = None, pulse_amplitude: float = 1.0, delay_seconds: float | None = None) -> PulseShapeLibrary` | Build a probe-solved absolute-phase pulse-shape library. |
+
+## `spin_dynamics.relaxation`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `BPPRelaxationRates` | Temperature-dependent BPP rates, times, and spectral densities. |
+| class | `BPPRelaxationModel` | Configurable BPP relaxation model with Arrhenius correlation time. |
+| function | `spectral_density_lorentzian(angular_frequency_rad_per_s: float | Iterable[float] | np.ndarray, correlation_time_seconds: float | Iterable[float] | np.ndarray) -> np.ndarray` | Return the isotropic rotational spectral density ``2 tau/(1+w^2 tau^2)``. |
+| function | `arrhenius_correlation_time(temperature_kelvin: float | Iterable[float] | np.ndarray, *, tau_ref_seconds: float, reference_temperature_kelvin: float = 298.15, activation_energy_j_per_mol: float = 0.0) -> np.ndarray` | Return ``tau_c(T)`` using an Arrhenius activation energy. |
+| function | `bpp_relaxation_rates(*, angular_frequency_rad_per_s: float | Iterable[float] | np.ndarray, correlation_time_seconds: float | Iterable[float] | np.ndarray, temperature_kelvin: float | Iterable[float] | np.ndarray | None = None, coupling_scale_per_second2: float = 1.0, r1_coefficients: tuple[float, float, float] = (0.0, 1.0, 4.0), r2_coefficients: tuple[float, float, float] = (1.5, 2.5, 1.0), baseline_r1_per_second: float = 0.0, baseline_r2_per_second: float = 0.0) -> BPPRelaxationRates` | Return BPP relaxation rates from ``J(0)``, ``J(w0)``, and ``J(2w0)``. |
+| function | `apply_relaxation_to_parameters(params: Mapping[str, Any] | Any, rates: BPPRelaxationRates) -> dict[str, Any]` | Return a shallow parameter copy with ``T1`` and ``T2`` replaced. |
 
 ## `spin_dynamics.radiation_damping`
 

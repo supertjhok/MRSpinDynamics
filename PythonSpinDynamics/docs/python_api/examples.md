@@ -574,6 +574,55 @@ python examples\plot_tango_filter.py --target 160 --output results\tango_filter.
 python examples\plot_slic_two_spin.py --j-hz 7 --delta-hz 0.7 --output results\slic_two_spin.png
 ```
 
+## BPP Relaxation vs Temperature
+
+This plotting example uses `spin_dynamics.relaxation.BPPRelaxationModel` to
+compute `T1` and `T2` from an Arrhenius rotational correlation time and the
+spectral densities `J(0)`, `J(w0)`, and `J(2w0)`. The default parameters put
+`omega0 tau_c` near order unity across the sweep so the BPP turnover is visible.
+
+```powershell
+python examples\plot_bpp_relaxation_temperature.py --output results\bpp_relaxation_temperature.png
+```
+
+Use `--larmor-mhz`, `--tau-ref-ns`, `--activation-energy-kj-mol`, and
+`--coupling-scale` to tune the curve shape and absolute relaxation rates. Only
+Matplotlib is required.
+
+## Prepolarized T1rho Dispersion
+
+This plotting example combines the prepolarization and BPP relaxation helpers:
+it computes a prepared longitudinal magnetization after relaxation in a
+polarizing field, applies a simple on-resonance spin-lock `T1rho` dispersion
+model with configurable `J(w1)`, `J(w0)`, and `J(2w0)` coefficients, and plots
+the remaining locked signal after a fixed spin-lock time.
+
+```powershell
+python examples\plot_t1rho_prepolarized_dispersion.py --output results\t1rho_prepolarized_dispersion.png
+```
+
+Use `--spin-lock-min-khz` / `--spin-lock-max-khz` for the dispersion axis,
+`--spin-lock-time-s` for the readout duration, and
+`--prepolarizing-field-t` / `--prepolarization-time-s` for the preparation.
+Only Matplotlib is required.
+
+## Earth's-Field NMR with Prepolarization
+
+This plotting example models a low-field proton FID after electromagnet
+prepolarization. It computes buildup in a strong prepolarizing field, relaxation
+during the field switch or transfer delay, and a demodulated Earth's-field FID
+with Gaussian field-spread dephasing. The signal scale is normalized to the
+thermal magnetization at Earth's field, so the prepolarization gain is explicit.
+
+```powershell
+python examples\plot_earth_field_prepolarized_nmr.py --output results\earth_field_prepolarized_nmr.png
+```
+
+Use `--earth-field-ut`, `--prepolarizing-field-mt`,
+`--prepolarization-time-s`, `--transfer-delay-s`, and `--field-spread-hz` to
+explore the tradeoff between polarization buildup, transfer loss, and
+low-field linewidth. Only Matplotlib is required.
+
 ## ESR Examples
 
 These examples exercise the first single-electron ESR surface. The
@@ -808,8 +857,18 @@ and inside-out-style receive-B1 maps.
 python examples\plot_motion_linear.py --output results\motion_linear.png
 ```
 
-The second runs a simple idealized CPMG loop while Brownian walkers diffuse in
-a static gradient.
+The pipe-flow example uses the same moving-isochromat CPMG engine with a
+Poiseuille velocity callback. A cylindrical pipe is polarized upstream, then the
+flowing packet is detected by downstream transmit/receive coils. Sweeping the
+mean velocity shows incomplete prepolarization and motion-induced echo
+dephasing.
+
+```powershell
+python examples\plot_cpmg_pipe_flow.py --output results\cpmg_pipe_flow.png
+```
+
+The diffusion example runs a simple idealized CPMG loop while Brownian walkers
+diffuse in a static gradient.
 
 ```powershell
 python examples\plot_motion_diffusion_cpmg.py --output results\motion_diffusion_cpmg.png

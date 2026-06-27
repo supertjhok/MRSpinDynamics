@@ -1,0 +1,153 @@
+from __future__ import annotations
+
+import sys
+import unittest
+from dataclasses import dataclass
+from pathlib import Path
+
+import numpy as np
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+
+from spin_dynamics.relaxation import (
+    BPPRelaxationModel,
+    apply_relaxation_to_parameters,
+    arrhenius_correlation_time,
+    bpp_relaxation_rates,
+    spectral_density_lorentzian,
+)
+
+
+class RelaxationTests(unittest.TestCase):
+    def test_lorentzian_spectral_density_has_expected_limits(self) -> None:
+        tau = 2.0e-9
+
+        j0 = spectral_density_lorentzian(0.0, tau)
+        j_corner = spectral_density_lorentzian(1.0 / tau, tau)
+
+        self.assertAlmostEqual(float(j0), 2.0 * tau)
+        self.assertAlmostEqual(float(j_corner), tau)
+
+    def test_arrhenius_correlation_time_matches_reference_and_temperature_trend(self) -> None:
+        tau = arrhenius_correlation_time(
+            [280.0, 300.0, 330.0],
+            tau_ref_seconds=1.0e-9,
+            reference_temperature_kelvin=300.0,
+            activation_energy_j_per_mol=12_000.0,
+        )
+
+        self.assertAlmostEqual(float(tau[1]), 1.0e-9)
+        self.assertGreater(tau[0], tau[1])
+        self.assertGreater(tau[1], tau[2])
+
+    def test_bpp_rates_use_j0_jw_and_j2w_coefficients(self) -> None:
+        omega = 4.0e6
+        tau = 3.0e-7
+        scale = 2.0e12
+        rates = bpp_relaxation_rates(
+            angular_frequency_rad_per_s=omega,
+            correlation_time_seconds=tau,
+            coupling_scale_per_second2=scale,
+            r1_coefficients=(1.0, 2.0, 3.0),
+            r2_coefficients=(4.0, 5.0, 6.0),
+            baseline_r1_per_second=0.5,
+            baseline_r2_per_second=0.25,
+        )
+
+        j0 = spectral_density_lorentzian(0.0, tau)
+        jw = spectral_density_lorentzian(omega, tau)
+        j2w = spectral_density_lorentzian(2.0 * omega, tau)
+        expected_r1 = scale * (j0 + 2.0 * jw + 3.0 * j2w) + 0.5
+        expected_r2 = scale * (4.0 * j0 + 5.0 * jw + 6.0 * j2w) + 0.25
+        self.assertAlmostEqual(float(rates.r1_per_second), float(expected_r1))
+        self.assertAlmostEqual(float(rates.r2_per_second), float(expected_r2))
+        self.assertAlmostEqual(float(rates.t1_seconds), 1.0 / float(expected_r1))
+        self.assertAlmostEqual(float(rates.t2_seconds), 1.0 / float(expected_r2))
+
+    def test_bpp_model_broadcasts_temperature_and_frequency_arrays(self) -> None:
+        model = BPPRelaxationModel(
+            angular_frequency_rad_per_s=np.array([1.0e6, 2.0e6]),
+            tau_ref_seconds=1.0e-8,
+            coupling_scale_per_second2=1.0e10,
+            reference_temperature_kelvin=300.0,
+            activation_energy_j_per_mol=8_000.0,
+        )
+
+        rates = model.rates(np.array([290.0, 320.0]))
+
+        self.assertEqual(rates.t1_seconds.shape, (2,))
+        self.assertEqual(rates.t2_seconds.shape, (2,))
+        self.assertGreater(rates.correlation_time_seconds[0], rates.correlation_time_seconds[1])
+        self.assertTrue(np.all(rates.r1_per_second > 0.0))
+        self.assertTrue(np.all(rates.r2_per_second > 0.0))
+
+    def test_zero_coupling_and_baseline_rates_are_supported(self) -> None:
+        rates = bpp_relaxation_rates(
+            angular_frequency_rad_per_s=1.0,
+            correlation_time_seconds=1.0e-9,
+            coupling_scale_per_second2=0.0,
+        )
+        self.assertTrue(np.isinf(float(rates.t1_seconds)))
+        self.assertTrue(np.isinf(float(rates.t2_seconds)))
+
+        baseline = bpp_relaxation_rates(
+            angular_frequency_rad_per_s=1.0,
+            correlation_time_seconds=1.0e-9,
+            coupling_scale_per_second2=0.0,
+            baseline_r1_per_second=2.0,
+            baseline_r2_per_second=4.0,
+        )
+        self.assertAlmostEqual(float(baseline.t1_seconds), 0.5)
+        self.assertAlmostEqual(float(baseline.t2_seconds), 0.25)
+
+    def test_rates_return_workflow_parameter_fields(self) -> None:
+        rates = bpp_relaxation_rates(
+            angular_frequency_rad_per_s=[1.0, 2.0],
+            correlation_time_seconds=[1.0e-8, 2.0e-8],
+            coupling_scale_per_second2=1.0e9,
+        )
+
+        params = rates.as_parameters()
+        np.testing.assert_allclose(params["T1"], rates.t1_seconds)
+        np.testing.assert_allclose(params["T2"], rates.t2_seconds)
+
+    def test_apply_relaxation_to_mapping_or_dataclass(self) -> None:
+        rates = bpp_relaxation_rates(
+            angular_frequency_rad_per_s=[1.0, 2.0],
+            correlation_time_seconds=[1.0e-8, 2.0e-8],
+            coupling_scale_per_second2=1.0e9,
+        )
+
+        mapped = apply_relaxation_to_parameters({"T1": 1.0, "other": 3}, rates)
+        self.assertEqual(mapped["other"], 3)
+        np.testing.assert_allclose(mapped["T2"], rates.t2_seconds)
+
+        @dataclass(frozen=True)
+        class Params:
+            del_w: np.ndarray
+            T1: float
+            T2: float
+
+        copied = apply_relaxation_to_parameters(
+            Params(del_w=np.array([0.0, 1.0]), T1=1.0, T2=1.0),
+            rates,
+        )
+        np.testing.assert_allclose(copied["del_w"], [0.0, 1.0])
+        np.testing.assert_allclose(copied["T1"], rates.t1_seconds)
+
+    def test_invalid_inputs_raise_clear_errors(self) -> None:
+        with self.assertRaisesRegex(ValueError, "correlation_time_seconds"):
+            spectral_density_lorentzian(1.0, 0.0)
+        with self.assertRaisesRegex(ValueError, "temperature_kelvin"):
+            arrhenius_correlation_time(-1.0, tau_ref_seconds=1.0)
+        with self.assertRaisesRegex(ValueError, "r1_coefficients"):
+            bpp_relaxation_rates(
+                angular_frequency_rad_per_s=1.0,
+                correlation_time_seconds=1.0,
+                r1_coefficients=(1.0, 2.0),
+            )
+
+
+if __name__ == "__main__":
+    unittest.main()
