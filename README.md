@@ -25,3 +25,17 @@ package.
 The repository is kept as a single GitHub project so the MATLAB reference code,
 Python implementation, NQR/ESR extension work, ab initio quadrupolar parameter
 workflows, and cross-language validation artifacts can evolve together.
+
+## License
+
+Copyright (C) 2026 Soumyajit Mandal
+
+This project is licensed under the **GNU General Public License v3.0** (GPL-3.0).
+See the [LICENSE](LICENSE) file for the full text. The Python workspace is a port
+of, and therefore a derivative work of, the GPL-licensed MATLAB code, so the same
+license applies across the repository.
+
+This project bundles one third-party utility,
+`MATLABSpinDynamics/SpinDynamicsUpdated/Version_2/labelpoints`, which is
+distributed under its own BSD 3-Clause license (Copyright (c) 2017, Adam Danz);
+see that directory's `license.txt`.
