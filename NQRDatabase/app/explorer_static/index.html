@@ -16,6 +16,7 @@
         <form id="searchForm" class="searchbar">
           <input id="query" type="search" placeholder="Search compound, formula, CAS, note">
           <button type="submit" title="Search">Search</button>
+          <button id="homeButton" type="button" title="Show overview">Overview</button>
         </form>
       </header>
 
@@ -56,7 +57,33 @@
 
         <section class="detail-pane">
           <div id="emptyState" class="empty-state">
-            Select a compound to inspect spectra, sites, references, and source files.
+            <div class="home-panel">
+              <h2>NQR Database Overview</h2>
+              <p>
+                This database combines nitrogen, chlorine, potassium, and related NQR measurements from archived
+                CWRU/University of Florida pages, Navy/NRL line tables, King's College experimental notes, and
+                reviewed Landolt-Bornstein table excerpts.
+              </p>
+              <div id="homeStats" class="home-stats"></div>
+              <div class="home-grid">
+                <section>
+                  <h3>Records</h3>
+                  <p>Compounds contain one or more samples. Samples represent a reported measurement condition, often including method and temperature.</p>
+                </section>
+                <section>
+                  <h3>Sites</h3>
+                  <p>Sites hold isotope assignments and coupling parameters. The quadrupole coupling constant is displayed as <span class="symbol">C<sub>Q</sub></span>; asymmetry is <span class="symbol">η</span>.</p>
+                </section>
+                <section>
+                  <h3>Lines</h3>
+                  <p>Lines are observed transition frequencies. Relaxation times, linewidths, temperature coefficients, forms, and source temperatures are shown when recorded.</p>
+                </section>
+                <section>
+                  <h3>Landolt Assumption</h3>
+                  <p>Landolt frequency lists and <span class="symbol">C<sub>Q</sub></span>/<span class="symbol">η</span> pairs are not automatically assigned to each other unless the reviewed source makes that assignment explicit.</p>
+                </section>
+              </div>
+            </div>
           </div>
           <div id="detail" class="detail hidden">
             <div class="detail-header">

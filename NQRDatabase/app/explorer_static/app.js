@@ -2,13 +2,16 @@ const state = {
   options: null,
   results: [],
   selectedId: null,
-  selected: null
+  selected: null,
+  siteColors: new Map()
 };
 
 const els = {
   stats: document.getElementById("stats"),
+  homeStats: document.getElementById("homeStats"),
   searchForm: document.getElementById("searchForm"),
   query: document.getElementById("query"),
+  homeButton: document.getElementById("homeButton"),
   category: document.getElementById("category"),
   isotope: document.getElementById("isotope"),
   sourceType: document.getElementById("sourceType"),
@@ -39,6 +42,7 @@ async function init() {
     event.preventDefault();
     search();
   });
+  els.homeButton.addEventListener("click", showHome);
   [els.category, els.isotope, els.sourceType, els.freqMin, els.freqMax].forEach(el => {
     el.addEventListener("change", search);
   });
@@ -65,10 +69,23 @@ function renderStats(stats) {
   const counts = stats.counts || {};
   els.stats.textContent = [
     `${counts.compounds || 0} compounds`,
+    `${counts.sites || 0} sites`,
     `${counts.lines || 0} lines`,
     `${counts.references || 0} references`,
     `${counts.sources || 0} sources`
   ].join("  ");
+  if (els.homeStats) {
+    els.homeStats.innerHTML = [
+      statTile(counts.compounds || 0, "compounds"),
+      statTile(counts.sites || 0, "sites"),
+      statTile(counts.lines || 0, "frequency lines"),
+      statTile(counts.references || 0, "references")
+    ].join("");
+  }
+}
+
+function statTile(value, label) {
+  return `<div class="stat-tile"><strong>${escapeHtml(value)}</strong><span>${escapeHtml(label)}</span></div>`;
 }
 
 function renderOptions(options) {
@@ -105,8 +122,8 @@ async function search() {
   renderResults();
   if (!state.results.length) {
     clearDetail();
-  } else if (!state.results.some(row => row.id === state.selectedId)) {
-    await selectCompound(state.results[0].id);
+  } else if (state.selectedId && !state.results.some(row => row.id === state.selectedId)) {
+    showHome();
   } else {
     markSelected();
   }
@@ -152,8 +169,14 @@ function markSelected() {
 function clearDetail() {
   state.selectedId = null;
   state.selected = null;
+  state.siteColors = new Map();
   els.emptyState.classList.remove("hidden");
   els.detail.classList.add("hidden");
+}
+
+function showHome() {
+  clearDetail();
+  markSelected();
 }
 
 function renderDetail() {
@@ -173,6 +196,7 @@ function renderDetail() {
   const searchUrl = compound.structure && compound.structure.pubchem_search_url;
   els.pubchemLink.href = searchUrl || "https://pubchem.ncbi.nlm.nih.gov/";
   els.pubchemLink.style.visibility = searchUrl ? "visible" : "hidden";
+  assignSiteColors(compound.samples || []);
   renderStructure(compound);
   renderSpectrum(compound.spectrum || []);
   renderMeasurements(compound.samples || []);
@@ -229,24 +253,69 @@ function renderSpectrum(points) {
   const max = Math.max(...points.map(point => point.frequency_khz));
   const span = Math.max(max - min, 1);
   els.spectrumRange.textContent = `${formatNumber(min)}-${formatNumber(max)} kHz`;
-  for (const point of points.slice(0, 180)) {
+  const visiblePoints = points.slice(0, 180).map(point => ({
+    ...point,
+    plotLeft: 4 + ((point.frequency_khz - min) / span) * 92
+  }));
+  for (const point of visiblePoints) {
     const line = document.createElement("div");
-    const left = 4 + ((point.frequency_khz - min) / span) * 92;
     line.className = "spectrum-line";
-    line.style.left = `${left}%`;
-    line.style.height = `${38 + Math.min(120, (point.frequency_khz - min) / span * 90)}px`;
-    line.dataset.label = `${formatNumber(point.frequency_khz)} ${point.isotope || ""}`;
+    line.style.left = `${point.plotLeft}%`;
+    line.style.height = `${44 + Math.min(110, (point.frequency_khz - min) / span * 74)}px`;
+    line.style.background = siteColor(point.site_id);
     line.title = [
       `${formatNumber(point.frequency_khz)} kHz`,
       point.isotope,
       point.site_label,
       point.sample_label,
+      point.temperature_original || (point.temperature_k !== null ? `${formatNumber(point.temperature_k)} K` : ""),
+      point.method_description || point.method,
       point.source_type && humanSourceType(point.source_type)
     ].filter(Boolean).join(" | ");
     els.spectrumPlot.appendChild(line);
   }
+  renderSpectrumLabels(visiblePoints);
+  renderSpectrumLegend(visiblePoints);
   addAxisLabel(`${formatNumber(min)} kHz`, "8px");
   addAxisLabel(`${formatNumber(max)} kHz`, "calc(100% - 84px)");
+}
+
+function renderSpectrumLabels(points) {
+  const rows = [];
+  const maxRows = 7;
+  for (const point of [...points].sort((a, b) => a.plotLeft - b.plotLeft)) {
+    let rowIndex = rows.findIndex(lastLeft => point.plotLeft - lastLeft >= 9);
+    if (rowIndex === -1) {
+      rowIndex = Math.min(rows.length, maxRows - 1);
+    }
+    rows[rowIndex] = point.plotLeft;
+    const label = document.createElement("div");
+    label.className = "spectrum-label";
+    label.style.left = `${point.plotLeft}%`;
+    label.style.top = `${12 + rowIndex * 18}px`;
+    label.style.borderColor = siteColor(point.site_id);
+    label.textContent = `${formatNumber(point.frequency_khz)}${point.temperature_original ? ` @ ${formatTemperature(point.temperature_original)}` : ""}`;
+    label.title = point.title || `${formatNumber(point.frequency_khz)} kHz`;
+    els.spectrumPlot.appendChild(label);
+  }
+}
+
+function renderSpectrumLegend(points) {
+  const sites = [];
+  const seen = new Set();
+  for (const point of points) {
+    const key = point.site_id || "unassigned";
+    if (seen.has(key)) continue;
+    seen.add(key);
+    sites.push(point);
+  }
+  if (sites.length <= 1) return;
+  const legend = document.createElement("div");
+  legend.className = "spectrum-legend";
+  legend.innerHTML = sites.slice(0, 8).map(point => `
+    <span><i style="background:${siteColor(point.site_id)}"></i>${escapeHtml(point.site_label || point.isotope || "site")}</span>
+  `).join("");
+  els.spectrumPlot.appendChild(legend);
 }
 
 function addAxisLabel(text, left) {
@@ -267,66 +336,136 @@ function renderMeasurements(samples) {
   for (const sample of samples) {
     const group = document.createElement("div");
     group.className = "measurement-group";
-    const rows = [];
-    for (const site of sample.sites) {
-      if (site.lines.length) {
-        for (const line of site.lines) {
-          rows.push(lineRow(sample, site, line));
-        }
-      } else {
-        rows.push(siteOnlyRow(sample, site));
-      }
-    }
     group.innerHTML = `
       <div class="sample-title">
-        <span>${escapeHtml(sample.label)}</span>
-        <span class="muted">${sample.temperature_k !== null ? `${formatNumber(sample.temperature_k)} K` : ""}</span>
+        <div>
+          <span>${escapeHtml(sample.label)}</span>
+          <div class="sample-meta">${measurementChips(sample.measurement, sample).join("")}</div>
+        </div>
+        <span class="muted">${sample.sites.length} sites</span>
       </div>
-      <table class="line-table">
-        <thead>
-          <tr>
-            <th>Isotope / site</th>
-            <th>Frequency</th>
-            <th>Q.C.C. / eta</th>
-            <th>Source</th>
-          </tr>
-        </thead>
-        <tbody>${rows.join("")}</tbody>
-      </table>
+      <div class="site-list">
+        ${sample.sites.map(site => siteBlock(sample, site)).join("")}
+      </div>
     `;
     els.measurements.appendChild(group);
   }
 }
 
+function siteBlock(sample, site) {
+  const color = siteColor(site.id);
+  return `
+    <section class="site-block" style="--site-color:${color}">
+      <div class="site-header">
+        <div>
+          <div class="site-title">${escapeHtml(site.isotope || "unknown isotope")} ${escapeHtml(site.site_label || "site")}</div>
+          <div class="site-kind">${escapeHtml(siteKind(site))}</div>
+          <div class="site-meta">${measurementChips(site.measurement || {}, {}).join("")}</div>
+        </div>
+        <div class="site-params">${formatCoupling(site)}</div>
+      </div>
+      ${site.lines.length ? lineTable(site.lines, sample, site) : `<div class="site-empty">No frequency line assigned to this site record.</div>`}
+    </section>
+  `;
+}
+
+function lineTable(lines, sample, site) {
+  return `
+    <table class="line-table">
+      <thead>
+        <tr>
+          <th>ν</th>
+          <th>Condition</th>
+          <th>Relaxation / width</th>
+          <th>Source</th>
+        </tr>
+      </thead>
+      <tbody>${lines.map(line => lineRow(sample, site, line)).join("")}</tbody>
+    </table>
+  `;
+}
+
 function lineRow(sample, site, line) {
   return `
     <tr>
-      <td>${escapeHtml(site.isotope || "")}<br><span class="muted">${escapeHtml(site.site_label || "")}</span></td>
-      <td>${formatNumber(line.frequency_khz)} kHz<br><span class="muted">${escapeHtml(line.frequency_original || "")}</span></td>
-      <td>${formatQccEta(site)}</td>
+      <td><strong>${formatNumber(line.frequency_khz)} kHz</strong><br><span class="muted">${escapeHtml(line.frequency_original || "")}</span></td>
+      <td>${conditionDetails(line, sample)}</td>
+      <td>${lineDetails(line)}</td>
       <td>${escapeHtml(humanSourceType(line.source_type || site.source_type || ""))}</td>
     </tr>
   `;
 }
 
-function siteOnlyRow(sample, site) {
-  return `
-    <tr>
-      <td>${escapeHtml(site.isotope || "")}<br><span class="muted">${escapeHtml(site.site_label || "")}</span></td>
-      <td><span class="muted">unassigned</span></td>
-      <td>${formatQccEta(site)}</td>
-      <td>${escapeHtml(humanSourceType(site.source_type || ""))}</td>
-    </tr>
-  `;
+function formatCoupling(site) {
+  const parts = [];
+  if (site.qcc_khz !== null) parts.push(`<span><span class="symbol">C<sub>Q</sub></span> ${formatNumber(site.qcc_khz)} kHz</span>`);
+  if (site.eta !== null) parts.push(`<span><span class="symbol">η</span> ${formatNumber(site.eta)}</span>`);
+  if (!parts.length) return `<span class="muted">No ${symbolCq()} / η recorded</span>`;
+  const confidence = site.assignment_confidence ? `<br><span class="muted">${escapeHtml(site.assignment_confidence)}</span>` : "";
+  return `${parts.join(" ")}${confidence}`;
 }
 
-function formatQccEta(site) {
+function siteKind(site) {
+  if (site.lines.length && site.qcc_khz !== null) return "site with coupling parameters and frequency lines";
+  if (site.lines.length) return site.assignment_confidence === "unassigned_frequency_list" ? "frequency list" : "frequency-bearing site";
+  if (site.qcc_khz !== null || site.eta !== null) return "coupling-parameter site";
+  return "site record";
+}
+
+function conditionDetails(line, sample) {
+  const measurement = line.measurement || {};
   const parts = [];
-  if (site.qcc_khz !== null) parts.push(`${formatNumber(site.qcc_khz)} kHz`);
-  if (site.eta !== null) parts.push(`eta ${formatNumber(site.eta)}`);
-  if (!parts.length) return `<span class="muted">not recorded</span>`;
-  const confidence = site.assignment_confidence ? `<br><span class="muted">${escapeHtml(site.assignment_confidence)}</span>` : "";
-  return `${parts.join(" / ")}${confidence}`;
+  const temp = measurement.temperature_original || (line.temperature_k != null ? `${formatNumber(line.temperature_k)} K` : "");
+  if (temp) parts.push(`<span><span class="symbol">T</span> ${escapeHtml(formatTemperature(temp))}</span>`);
+  if (measurement.method_description || measurement.method) {
+    parts.push(`<span>${escapeHtml(measurement.method_description || measurement.method)}</span>`);
+  }
+  if (line.form || measurement.form) parts.push(`<span>form ${escapeHtml(line.form || measurement.form)}</span>`);
+  if (measurement.phase) parts.push(`<span>${escapeHtml(measurement.phase)}</span>`);
+  return parts.length ? parts.join("<br>") : `<span class="muted">not recorded</span>`;
+}
+
+function lineDetails(line) {
+  const parts = [];
+  if (line.t1_original) parts.push(`<span><span class="symbol">T₁</span> ${escapeHtml(line.t1_original)}</span>`);
+  if (line.t2_original) parts.push(`<span><span class="symbol">T₂</span> ${escapeHtml(line.t2_original)}</span>`);
+  if (line.t2_star_original) parts.push(`<span><span class="symbol">T₂*</span> ${escapeHtml(line.t2_star_original)}</span>`);
+  if (line.dnu_dt_original) parts.push(`<span><span class="symbol">dν/dT</span> ${escapeHtml(line.dnu_dt_original)}</span>`);
+  if (line.line_width_original) parts.push(`<span>Δν ${escapeHtml(line.line_width_original)}</span>`);
+  if (line.fwhm_khz !== null) parts.push(`<span>FWHM ${formatNumber(line.fwhm_khz)} kHz</span>`);
+  return parts.length ? parts.join("<br>") : `<span class="muted">not recorded</span>`;
+}
+
+function measurementChips(measurement, sample) {
+  const chips = [];
+  const temp = measurement && (measurement.temperature_original || (sample.temperature_k != null ? `${formatNumber(sample.temperature_k)} K` : ""));
+  if (temp) chips.push(chip(`T ${formatTemperature(temp)}`));
+  if (measurement && (measurement.method_description || measurement.method)) chips.push(chip(measurement.method_description || measurement.method));
+  if (measurement && measurement.form) chips.push(chip(`form ${measurement.form}`));
+  if (measurement && measurement.phase) chips.push(chip(measurement.phase));
+  return chips;
+}
+
+function assignSiteColors(samples) {
+  state.siteColors = new Map();
+  const palette = ["#116466", "#8a5a00", "#6f3f7a", "#2456a6", "#9b315f", "#42743b", "#6d5a2e", "#326a8a"];
+  let index = 0;
+  for (const sample of samples) {
+    for (const site of sample.sites || []) {
+      if (!state.siteColors.has(site.id)) {
+        state.siteColors.set(site.id, palette[index % palette.length]);
+        index += 1;
+      }
+    }
+  }
+}
+
+function siteColor(siteId) {
+  return state.siteColors.get(siteId) || "#116466";
+}
+
+function symbolCq() {
+  return `<span class="symbol">C<sub>Q</sub></span>`;
 }
 
 function renderReferences(references) {
@@ -373,6 +512,18 @@ function formatNumber(value) {
   if (Math.abs(number) >= 1000) return number.toFixed(1).replace(/\.0$/, "");
   if (Math.abs(number) >= 10) return number.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
   return number.toFixed(4).replace(/0+$/, "").replace(/\.$/, "");
+}
+
+function formatTemperature(value) {
+  if (!value) return "";
+  const text = String(value).trim();
+  if (/^r\.?\s*temp\.?$/i.test(text) || /^rt$/i.test(text) || /^rtemp$/i.test(text)) {
+    return "room temperature";
+  }
+  if (/^\d+(?:\.\d+)?$/.test(text)) {
+    return `${formatNumber(text)} K`;
+  }
+  return text;
 }
 
 function formatFormula(value) {

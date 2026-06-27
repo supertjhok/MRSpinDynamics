@@ -273,6 +273,7 @@ def compound_detail(compound_id: str) -> dict | None:
             [compound_id],
         ):
             sample = row_dict(sample_row)
+            sample["measurement"] = measurement_payload(sample)
             sample["sites"] = []
             for site_row in conn.execute(
                 """
@@ -285,8 +286,9 @@ def compound_detail(compound_id: str) -> dict | None:
                 [sample["id"]],
             ):
                 site = row_dict(site_row)
+                site["measurement"] = measurement_payload(site)
                 site["lines"] = [
-                    row_dict(line)
+                    line_payload(row_dict(line), sample, site)
                     for line in conn.execute(
                         """
                         SELECT lines.*, sources.title AS source_title, sources.source_type
@@ -373,14 +375,68 @@ def spectrum_payload(samples: list[dict]) -> list[dict]:
                     {
                         "frequency_khz": frequency,
                         "frequency_original": line.get("frequency_original"),
+                        "site_id": site.get("id"),
                         "isotope": site.get("isotope"),
                         "site_label": site.get("site_label"),
                         "sample_label": sample.get("label"),
                         "temperature_k": line.get("temperature_k") or sample.get("temperature_k"),
+                        "temperature_original": line.get("measurement", {}).get("temperature_original")
+                        or sample.get("measurement", {}).get("temperature_original"),
+                        "method": line.get("measurement", {}).get("method")
+                        or sample.get("measurement", {}).get("method"),
+                        "method_description": line.get("measurement", {}).get("method_description")
+                        or sample.get("measurement", {}).get("method_description"),
                         "source_type": line.get("source_type") or site.get("source_type"),
                     }
                 )
     return sorted(points, key=lambda item: item["frequency_khz"])
+
+
+def line_payload(line: dict, sample: dict, site: dict) -> dict:
+    line["measurement"] = measurement_payload(line, sample, site)
+    return line
+
+
+def measurement_payload(record: dict, sample: dict | None = None, site: dict | None = None) -> dict:
+    original = parse_original_record(record.get("original_record"))
+    measurement_set = original.get("measurement_set") if isinstance(original.get("measurement_set"), dict) else {}
+    method = measurement_set.get("method")
+    method_description = measurement_set.get("method_description")
+    temperature_original = measurement_set.get("temperature_original")
+    notes = record.get("notes") or ""
+    if not method:
+        method_match = re.search(r"Method\s+([A-Z]):\s*([^.;]+)", notes)
+        if method_match:
+            method = method_match.group(1)
+            method_description = method_description or method_match.group(2)
+    if not temperature_original:
+        temperature_match = re.search(r"Temperature original:\s*([^.;]+)", notes)
+        if temperature_match:
+            temperature_original = temperature_match.group(1)
+    if not temperature_original and record.get("temperature_k") is not None:
+        temperature_original = f"{record['temperature_k']:g} K"
+    if not temperature_original and sample and sample.get("temperature_k") is not None:
+        temperature_original = f"{sample['temperature_k']:g} K"
+    return {
+        "method": method,
+        "method_description": method_description,
+        "temperature_original": temperature_original,
+        "temperature_k": record.get("temperature_k") or (sample or {}).get("temperature_k"),
+        "form": record.get("form") or (sample or {}).get("form"),
+        "phase": record.get("phase") or (sample or {}).get("phase"),
+        "curation_method": original.get("curation_method"),
+        "source_row": original.get("row"),
+    }
+
+
+def parse_original_record(value: str | None) -> dict:
+    if not value:
+        return {}
+    try:
+        parsed = json.loads(value)
+    except (TypeError, json.JSONDecodeError):
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
 
 
 def structure_payload(compound: dict, aliases: list[str]) -> dict:

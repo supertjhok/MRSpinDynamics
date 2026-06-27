@@ -117,9 +117,14 @@ h3 {
 
 .searchbar {
   display: grid;
-  grid-template-columns: minmax(260px, 520px) auto;
+  grid-template-columns: minmax(260px, 520px) auto auto;
   gap: 8px;
   width: min(720px, 58vw);
+}
+
+#homeButton {
+  background: #fff;
+  color: var(--accent);
 }
 
 .filters {
@@ -258,6 +263,49 @@ h3 {
   text-align: center;
 }
 
+.home-panel {
+  width: min(900px, 100%);
+  display: grid;
+  gap: 16px;
+  text-align: left;
+  color: var(--ink);
+}
+
+.home-panel > p {
+  color: var(--muted);
+  max-width: 78ch;
+}
+
+.home-stats,
+.home-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.stat-tile,
+.home-grid section {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  padding: 12px;
+}
+
+.stat-tile {
+  display: grid;
+  gap: 2px;
+}
+
+.stat-tile strong {
+  color: var(--accent);
+  font-size: 22px;
+}
+
+.stat-tile span,
+.home-grid p {
+  color: var(--muted);
+}
+
 .detail {
   display: grid;
   gap: 18px;
@@ -341,21 +389,52 @@ h3 {
 .spectrum-line {
   position: absolute;
   bottom: 34px;
-  width: 2px;
+  width: 3px;
   min-height: 34px;
   background: var(--accent);
+  border-radius: 3px 3px 0 0;
 }
 
-.spectrum-line::after {
-  content: attr(data-label);
+.spectrum-label {
   position: absolute;
-  left: 5px;
-  bottom: 100%;
+  transform: translateX(-50%);
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 1px 4px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.9);
   color: var(--muted);
   font-size: 11px;
   white-space: nowrap;
-  transform: rotate(-35deg);
-  transform-origin: left bottom;
+}
+
+.spectrum-legend {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 28px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 11px;
+  pointer-events: none;
+}
+
+.spectrum-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 160px;
+}
+
+.spectrum-legend i {
+  width: 10px;
+  height: 3px;
+  border-radius: 2px;
+  flex: 0 0 auto;
 }
 
 .axis-label {
@@ -383,6 +462,59 @@ h3 {
   font-weight: 700;
 }
 
+.sample-meta,
+.site-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 5px;
+  font-weight: 400;
+}
+
+.site-list {
+  display: grid;
+  gap: 10px;
+}
+
+.site-block {
+  border-left: 4px solid var(--site-color);
+  background: #fbfcfd;
+  border-top: 1px solid var(--line);
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  border-radius: 0 8px 8px 0;
+  overflow: hidden;
+}
+
+.site-header {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+  padding: 9px 10px;
+  background: #f8fafb;
+}
+
+.site-title {
+  font-weight: 700;
+}
+
+.site-kind {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.site-params {
+  text-align: right;
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.site-empty {
+  padding: 9px 10px;
+  color: var(--muted);
+}
+
 .line-table {
   width: 100%;
   border-collapse: collapse;
@@ -392,7 +524,7 @@ h3 {
 .line-table th,
 .line-table td {
   border-bottom: 1px solid var(--line);
-  padding: 7px 6px;
+  padding: 7px 10px;
   text-align: left;
   vertical-align: top;
 }
@@ -401,6 +533,16 @@ h3 {
   color: var(--muted);
   font-size: 12px;
   background: #f8fafb;
+  padding: 7px 10px;
+}
+
+.line-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.symbol {
+  font-weight: 700;
+  color: var(--accent);
 }
 
 .reference-grid {
@@ -439,7 +581,9 @@ h3 {
   .topbar,
   .content,
   .overview-grid,
-  .reference-grid {
+  .reference-grid,
+  .home-stats,
+  .home-grid {
     grid-template-columns: 1fr;
   }
 
@@ -450,7 +594,7 @@ h3 {
 
   .searchbar {
     width: 100%;
-    grid-template-columns: 1fr auto;
+    grid-template-columns: 1fr auto auto;
   }
 
   .filters {
@@ -468,7 +612,13 @@ h3 {
   }
 
   .detail-header,
-  .sample-title {
+  .sample-title,
+  .site-header {
     flex-direction: column;
+    grid-template-columns: 1fr;
+  }
+
+  .site-params {
+    text-align: left;
   }
 }
