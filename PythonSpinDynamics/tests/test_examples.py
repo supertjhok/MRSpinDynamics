@@ -231,6 +231,7 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_nqr_slse_efg_broadening.py",
             "examples/plot_nqr_weak_b0_spectrum.py",
             "examples/plot_nqr_polarization_enhancement.py",
+            "examples/plot_nqr_database_prepolarization.py",
         ]
         for script in scripts:
             with self.subTest(script=script):
@@ -433,6 +434,11 @@ class ExampleSmokeTests(unittest.TestCase):
         self.assertIn("--coupling-target", result.stdout)
         self.assertIn("--sample-length", result.stdout)
         self.assertIn("--remanence", result.stdout)
+        result = run_example("examples/plot_nqr_database_prepolarization.py", "--help")
+        self.assertIn("--compound", result.stdout)
+        self.assertIn("--database", result.stdout)
+        self.assertIn("--cif", result.stdout)
+        self.assertIn("--coupling-target", result.stdout)
 
 
 if __name__ == "__main__":

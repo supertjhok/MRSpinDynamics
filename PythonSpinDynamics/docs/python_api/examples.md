@@ -675,6 +675,10 @@ train and shows how a weak Zeeman field (`--b0-mt`) reshapes the decay.
 The polarization-enhancement example uses a finite Halbach fringe field, a
 Glickstein-style adiabatic crossing model, and by default estimates the
 `1H-14N` coupling from the melamine CIF in `QuadrupolarDFT/structures/Melamine`.
+The database-driven variant demonstrates the same transport model using
+transition frequencies pulled from `NQRDatabase/data/exports/nqr.sqlite`;
+by default it loads glycine NQR lines, estimates the `1H-14N` coupling from the
+bundled glycine CIF, and reports the estimated signal gain for each transition.
 
 ```powershell
 python examples\plot_nqr_powder_nutation.py --output results\nqr_powder_nutation.png
@@ -688,6 +692,7 @@ python examples\plot_nqr_weak_b0_spectrum.py --output results\nqr_weak_b0_spectr
 python examples\plot_nqr_full_powder_nutation.py --output results\nqr_full_powder_nutation.png
 python examples\plot_nqr_spin32_slse.py --output results\nqr_spin32_slse.png
 python examples\plot_nqr_polarization_enhancement.py --output results\nqr_polarization_enhancement.png
+python examples\plot_nqr_database_prepolarization.py --output results\nqr_database_prepolarization.png
 ```
 
 ## Radiation Damping
