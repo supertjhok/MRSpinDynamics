@@ -232,6 +232,8 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_nqr_weak_b0_spectrum.py",
             "examples/plot_nqr_polarization_enhancement.py",
             "examples/plot_nqr_database_prepolarization.py",
+            "examples/plot_redfield_nano2_slse.py",
+            "examples/plot_redfield_water_cpmg.py",
         ]
         for script in scripts:
             with self.subTest(script=script):
@@ -439,6 +441,16 @@ class ExampleSmokeTests(unittest.TestCase):
         self.assertIn("--database", result.stdout)
         self.assertIn("--cif", result.stdout)
         self.assertIn("--coupling-target", result.stdout)
+        result = run_example("examples/plot_redfield_nano2_slse.py", "--help")
+        self.assertIn("--correlation-us", result.stdout)
+        self.assertIn("--neighbor-radius-a", result.stdout)
+        self.assertIn("--powder-angle-deg", result.stdout)
+        self.assertIn("--powder-n-theta", result.stdout)
+        result = run_example("examples/plot_redfield_water_cpmg.py", "--help")
+        self.assertIn("--tau-c-ps", result.stdout)
+        self.assertIn("--correlation-time-seconds", result.stdout)
+        self.assertIn("--echo-spacing-seconds", result.stdout)
+        self.assertIn("--hh-distance-a", result.stdout)
 
 
 if __name__ == "__main__":

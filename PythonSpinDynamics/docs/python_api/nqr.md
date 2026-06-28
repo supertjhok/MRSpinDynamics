@@ -316,6 +316,92 @@ composes multiplicatively, so coherence is damped twice. Leave
 `t2e_seconds=inf` (the default) whenever a `relaxation` model is supplied;
 `simulate_slse` warns if both are finite.
 
+### Microscopic Redfield/dipolar relaxation
+
+As a non-default alternative to scalar `T1`/`T2`, the same `relaxation=...`
+slot accepts a secular Redfield model built from fluctuating point-dipole
+couplings:
+
+```python
+from spin_dynamics.relaxation import (
+    DipolarRelaxationSource,
+    RedfieldDipolarRelaxationModel,
+    RigidSolidMotionalAveraging,
+)
+from spin_dynamics.nqr import (
+    simulate_full_slse,
+)
+
+relaxation = RedfieldDipolarRelaxationModel.from_dipolar_sources(
+    site.spin,
+    (
+        DipolarRelaxationSource(
+            vector_angstrom=(1.05, 0.20, 0.10),
+            coupling_hz=1.3e3,        # optional; computed from distance if omitted
+        ),
+    ),
+    motion=RigidSolidMotionalAveraging(correlation_time_seconds=2.0e-6),
+)
+
+result = simulate_full_slse(
+    site,
+    nutation_hz=10e3,
+    excitation_duration_seconds=25e-6,
+    refocus_duration_seconds=50e-6,
+    echo_spacing_seconds=400e-6,
+    num_echoes=12,
+    relaxation=relaxation,
+)
+```
+
+Each `DipolarRelaxationSource` represents one stochastic bath spin, normally a
+nearby proton, in the NQR principal-axis frame. It contributes the tensor
+`2*pi*d*(I - 3 n n^T)`, where
+`d = mu0 h gamma_Q gamma_b / (4*pi*r^3)`, and converts the bath spin variance
+`S(S+1)/3` into a target-spin covariance. The motion object then decides how
+that covariance is averaged before Redfield propagation.
+
+`RigidSolidMotionalAveraging` keeps the fixed-frame dipolar anisotropy and is
+the natural starting point for solid NQR. `IsotropicLiquidMotionalAveraging`
+rotationally averages the tensor covariance to a scalar isotropic fluctuation,
+which is the clean hook for liquid-state NMR-style tumbling:
+
+```python
+from spin_dynamics.relaxation import IsotropicLiquidMotionalAveraging
+
+liquid_relaxation = RedfieldDipolarRelaxationModel.from_dipolar_sources(
+    site.spin,
+    sources,
+    motion=IsotropicLiquidMotionalAveraging(correlation_time_seconds=120e-12),
+)
+```
+
+The Redfield model diagonalizes the motion-averaged covariance into independent
+fluctuating fields, decomposes the target spin operators into secular
+Bohr-frequency components of the sequence Hamiltonian, and applies the motion
+model's spectral density. The built-in regimes currently use the Lorentzian
+`J(omega) = 2*tau_c / (1 + omega^2*tau_c^2)`.
+
+This is still a compact Markovian, high-temperature treatment: it models
+stochastic dipolar relaxation, not a coherent multi-spin cluster. It is useful
+when nearby-spin geometry and a correlation time are more meaningful inputs
+than fitted scalar `T1`/`T2`. Leave `relaxation=None` for the historical default,
+or use `PhenomenologicalRelaxationModel` for the older scalar Liouville model.
+The NQR namespace re-exports these relaxation classes for compatibility, but
+their implementation lives in the shared `spin_dynamics.relaxation` module.
+
+Two plotting examples exercise the microscopic model:
+
+- `examples/plot_redfield_nano2_slse.py` reads NaNO2 EFG and CIF geometry from
+  the adjacent QuadrupolarDFT workspace, builds a rigid-solid dipolar bath, and
+  propagates coherent full-density-matrix 14N SLSE echo trains. The powder case
+  uses equal SLSE pulse lengths at the spin-1 powder optimum near 119 degrees
+  and the full-model pi/2 refocusing phase.
+- `examples/plot_redfield_water_cpmg.py` uses the same shared Redfield model for
+  a spin-1/2 proton CPMG decay in isotropically tumbling water. Its public
+  options follow the existing CPMG vocabulary (`num_echoes`,
+  `echo_spacing_seconds`) while retaining unit-suffixed plotting aliases.
+
 Offset and pulse-period sweeps are available for exploring the modulation
 discussed in SLSE detection:
 
@@ -512,9 +598,9 @@ example uses this CIF estimate by default, while still accepting a manual
 - `select_nqr_model` is available as an explicit model-selection check, but the
   reduced workflows do not yet call it automatically (the note's recommended
   model-selection front end); for now it is advisory.
-- Relaxation is available as either a scalar `T2e` envelope or a
-  phenomenological Liouville-space population/coherence model; microscopic
-  Redfield/dipolar parameterization remains future work.
+- Relaxation is available as a scalar `T2e` envelope, a phenomenological
+  Liouville-space population/coherence model, or an opt-in microscopic
+  Redfield/dipolar model for stochastic nearby-spin baths.
 - Weak-B0 Zeeman perturbations are available through the Hamiltonian and
   orientation path, but broad validation against experiments remains future
   work.

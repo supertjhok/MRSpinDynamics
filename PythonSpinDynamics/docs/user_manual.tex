@@ -451,7 +451,7 @@ Free-precession intervals with relaxation use the usual exponential factors:
 Finite acquisition workflows assemble these intervals from pulse-sequence
 parameters and then call the \code{arb10}-style kernels.
 
-\section{Prepolarization and BPP Relaxation}
+\section{Prepolarization and Relaxation}
 
 Many compact and low-field experiments do not begin at the thermal equilibrium
 magnetization of the detection field. The \code{spin\_dynamics.prepolarization}
@@ -476,8 +476,16 @@ path length and local speed into a residence time. The returned
 that can be passed into the lower-level kernels or used to initialize moving
 isochromats.
 
-The \code{spin\_dynamics.relaxation} module provides a compact BPP-style scalar
-relaxation model. The rotational spectral density is
+The \code{spin\_dynamics.relaxation} module provides shared Liouville-space
+relaxation utilities for spin-1/2 NMR and quadrupolar NQR simulations. The
+historical scalar model remains available as
+\code{PhenomenologicalRelaxationModel} (also re-exported as
+\code{NQRRelaxationModel} for compatibility). It damps populations and
+coherences in the Hamiltonian eigenbasis using supplied \(T_1\) and \(T_2\)
+values.
+
+For prepolarization and compact low-field estimates, the same module also
+provides a BPP-style scalar relaxation model. The rotational spectral density is
 \[
   J(\omega) = \frac{2\tau_c}{1+\omega^2\tau_c^2},
 \]
@@ -521,6 +529,41 @@ prepared = prepolarized_state(
     t1_seconds=rates.t1_seconds,
 )
 \end{lstlisting}
+
+For microscopic relaxation, \code{RedfieldDipolarRelaxationModel} builds a
+secular Markovian dissipator from fluctuating dipolar bath sources. A source is
+specified by a target--bath vector, gyromagnetic ratios, bath spin, and optional
+explicit coupling; if the coupling is omitted it is computed from
+\(\mu_0 h \gamma_a\gamma_b/(4\pi r^3)\). The motional model determines how the
+dipolar covariance is averaged before the Redfield spectral-density step.
+\code{RigidSolidMotionalAveraging} keeps the fixed-frame anisotropy and is the
+natural choice for NQR solids, while \code{IsotropicLiquidMotionalAveraging}
+rotationally averages the covariance for liquid-state NMR:
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.relaxation import (
+    DipolarRelaxationSource,
+    IsotropicLiquidMotionalAveraging,
+    RedfieldDipolarRelaxationModel,
+)
+
+source = DipolarRelaxationSource(
+    vector_angstrom=(1.52, 0.0, 0.0),
+    gamma_target_hz_per_t=42.57747892e6,
+    gamma_bath_hz_per_t=42.57747892e6,
+    bath_spin=0.5,
+)
+relaxation = RedfieldDipolarRelaxationModel.from_dipolar_sources(
+    0.5,
+    (source,),
+    motion=IsotropicLiquidMotionalAveraging(correlation_time_seconds=2.5e-12),
+)
+\end{lstlisting}
+
+The Redfield model is non-default and opt-in. Existing pulse-sequence
+simulators keep their historical behavior when \code{relaxation=None}. The
+examples \code{plot\_redfield\_water\_cpmg.py} and
+\code{plot\_redfield\_nano2\_slse.py} show liquid and rigid-solid regimes.
 
 \section{Echo Conversion}
 
@@ -1052,7 +1095,8 @@ sites; full \((2I+1)\)-level density-matrix FID and echo dynamics required for
 spin-3/2; automatic reduced-vs-full model selection; spin-1 and spin-3/2
 transition metadata; single-crystal and powder averages over local EFG
 orientations; SLSE echo trains; two-frequency population transfer; static EFG
-inhomogeneity; finite-window SLSE spectra; weak-B0 line splitting; and
+inhomogeneity; finite-window SLSE spectra; weak-B0 line splitting; optional
+Liouville-space phenomenological or Redfield/dipolar relaxation; and
 instrument-level polarization-enhanced NQR transport with CIF-based
 \({}^{1}\mathrm{H}\)-quadrupolar dipolar-coupling estimates.
 }
@@ -1066,9 +1110,10 @@ weak-Zeeman dynamics but is not yet a general multi-band higher-spin solver. The
 \emph{reduced} SLSE and population-transfer workflows remain spin-1, but
 spin-3/2 FID, echo, and SLSE run on the full model (\code{simulate\_full\_slse})
 with powder averaging and weak-Zeeman perturbations; a two-frequency 2D
-population-transfer workflow on the full model is still future work. Relaxation
-is phenomenological rather than microscopic Redfield/dipolar; no multi-site
-coupling between quadrupolar nuclei.
+population-transfer workflow on the full model is still future work.
+Microscopic relaxation is a stochastic Redfield/dipolar treatment, not a
+coherent multi-site quadrupolar cluster; no multi-site coherent coupling between
+quadrupolar nuclei.
 }
 
 \section{Quadrupolar Site Model}
@@ -1529,7 +1574,10 @@ The spin-lock spin-echo (SLSE) sequence is the classic pulsed NQR detection
 sequence. The helper models it as repeated selective pulses on a spin-1
 detection transition and reports echo amplitudes at the requested echo spacing.
 Echo decay can be represented by a scalar \(T_{2e}\) envelope or by a
-phenomenological Liouville-space relaxation model with \(T_1\) and \(T_2\).
+phenomenological Liouville-space relaxation model with \(T_1\) and \(T_2\). For
+quantitative powder echo trains, especially when comparing coherent powder
+signal amplitudes, prefer the full density-matrix \code{simulate\_full\_slse}
+path described above.
 
 \begin{lstlisting}[language=Python]
 from spin_dynamics.nqr import simulate_slse, slse_sequence
@@ -1692,6 +1740,25 @@ print(result.snr)
 The asymptotic CPMG runners return \code{CPMGResult} objects with the offset
 grid, asymptotic magnetization, received spectrum, time-domain echo, acquisition
 time vector, optional SNR, probe label, and the default phase-cycle metadata.
+
+Finite and diagnostic CPMG examples use the same public timing vocabulary:
+\code{num\_echoes} and \code{echo\_spacing\_seconds}. The ideal convention is a
+\(90_y\) excitation that prepares \(+I_x\), followed by \(180_x\) refocusing
+pulses and the default two-step CPMG/PAP excitation phase cycle. The microscopic
+bulk-water example keeps that convention but replaces fitted scalar \(T_2\) with
+a shared Redfield/dipolar Liouville propagator for one observed proton relaxed
+by an isotropically tumbling partner:
+
+\begin{lstlisting}[language=bash]
+python examples/plot_redfield_water_cpmg.py \
+    --echo-spacing-seconds 0.02 \
+    --correlation-time-seconds 2.5e-12 \
+    --output water_redfield_cpmg.png
+\end{lstlisting}
+
+The older unit-suffixed plotting conveniences, \code{--echo-spacing-ms} and
+\code{--tau-c-ps}, remain aliases, but new examples should prefer the seconds
+form used by the workflow API.
 
 \subsection{Uhrig Dynamical Decoupling}
 
@@ -1986,6 +2053,19 @@ fm3d = sample_halbach_dipole_field(
     length=80e-3,
     remanence=1.30,
 )
+\end{lstlisting}
+
+Microscopic Redfield/dipolar relaxation can be supplied through the same
+\code{relaxation=} slot. The NaNO2 example reads the \({}^{14}\mathrm{N}\) EFG
+parameters from the QuadrupolarDFT summary, builds nearby \({}^{23}\mathrm{Na}\)
+and \({}^{14}\mathrm{N}\) stochastic bath sources from the CIF, and propagates a
+coherent full-density-matrix SLSE train. The powder row uses equal SLSE pulse
+lengths with the spin-1 powder optimum near \(119^\circ\); the refocusing pulse
+phase is the full-model default \(\pi/2\) shift. It plots the coherent measured
+powder voltage, not magnitude- or RMS-averaged local crystallite signals:
+
+\begin{lstlisting}[language=bash]
+python examples/plot_redfield_nano2_slse.py --output nano2_redfield_slse.png
 \end{lstlisting}
 
 The 3D Halbach result exposes \code{b0\_vector}, \code{b0\_magnitude},

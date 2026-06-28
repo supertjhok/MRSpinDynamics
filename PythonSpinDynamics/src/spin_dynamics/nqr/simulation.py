@@ -19,8 +19,8 @@ from spin_dynamics.nqr.pulses import (
     apply_selective_pulse,
     selective_pulse_hamiltonian,
 )
-from spin_dynamics.nqr.relaxation import (
-    NQRRelaxationModel,
+from spin_dynamics.relaxation import (
+    NQRRelaxationLike,
     cycle_superoperator,
     effective_decay_time,
 )
@@ -206,7 +206,7 @@ def simulate_slse(
     b0_tesla: float = 0.0,
     t2e_seconds: float = np.inf,
     initial_density: np.ndarray | None = None,
-    relaxation: NQRRelaxationModel | None = None,
+    relaxation: NQRRelaxationLike | None = None,
 ) -> SLSEResult:
     """Simulate a selective-pulse SLSE echo train."""
 
@@ -330,7 +330,7 @@ def simulate_slse_offset_sweep(
     orientations: OrientationInput = "powder",
     b0_tesla: float = 0.0,
     t2e_seconds: float = np.inf,
-    relaxation: NQRRelaxationModel | None = None,
+    relaxation: NQRRelaxationLike | None = None,
     echo_index: int = -1,
 ) -> SLSESweepResult:
     """Sweep irradiation offset and return SLSE amplitude and decay estimates."""
@@ -390,7 +390,7 @@ def simulate_slse_spacing_sweep(
     orientations: OrientationInput = "powder",
     b0_tesla: float = 0.0,
     t2e_seconds: float = np.inf,
-    relaxation: NQRRelaxationModel | None = None,
+    relaxation: NQRRelaxationLike | None = None,
     echo_index: int = -1,
 ) -> SLSESweepResult:
     """Sweep SLSE pulse period and return amplitude plus effective decay."""

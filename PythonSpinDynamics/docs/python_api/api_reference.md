@@ -400,10 +400,10 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `detection_operator(eigensystem: NQREigensystem, rf_frequency_hz: float, rx_direction_pas = (1.0, 0.0, 0.0)) -> np.ndarray` | Return the baseband receive observable ``M`` with ``s = Tr(rho M)``. |
 | class | `FullNQRFIDResult` | Complex baseband FID from the full density-matrix model. |
 | class | `FullNQREchoResult` | Complex baseband echo from a full density-matrix two-pulse sequence. |
-| function | `simulate_full_fid(site: QuadrupolarSite, *, nutation_hz: float, pulse_duration_seconds: float, times_seconds: np.ndarray, rf_frequency_hz: float | None = None, phase: float = 0.0, b1_direction_pas = (1.0, 0.0, 0.0), rx_direction_pas = None, b0_vector_tesla_pas = None, relaxation: NQRRelaxationModel | None = None, initial_density: np.ndarray | None = None) -> FullNQRFIDResult` | Simulate a single-pulse full density-matrix NQR FID. |
-| function | `simulate_full_echo(site: QuadrupolarSite, *, nutation_hz: float, excitation_duration_seconds: float, refocus_duration_seconds: float, echo_spacing_seconds: float, times_seconds: np.ndarray, rf_frequency_hz: float | None = None, excitation_phase: float = 0.0, refocus_phase: float = np.pi / 2, b1_direction_pas = (1.0, 0.0, 0.0), rx_direction_pas = None, b0_vector_tesla_pas = None, relaxation: NQRRelaxationModel | None = None) -> FullNQREchoResult` | Simulate a full density-matrix two-pulse (Hahn-style) NQR echo. |
+| function | `simulate_full_fid(site: QuadrupolarSite, *, nutation_hz: float, pulse_duration_seconds: float, times_seconds: np.ndarray, rf_frequency_hz: float | None = None, phase: float = 0.0, b1_direction_pas = (1.0, 0.0, 0.0), rx_direction_pas = None, b0_vector_tesla_pas = None, relaxation: NQRRelaxationLike | None = None, initial_density: np.ndarray | None = None) -> FullNQRFIDResult` | Simulate a single-pulse full density-matrix NQR FID. |
+| function | `simulate_full_echo(site: QuadrupolarSite, *, nutation_hz: float, excitation_duration_seconds: float, refocus_duration_seconds: float, echo_spacing_seconds: float, times_seconds: np.ndarray, rf_frequency_hz: float | None = None, excitation_phase: float = 0.0, refocus_phase: float = np.pi / 2, b1_direction_pas = (1.0, 0.0, 0.0), rx_direction_pas = None, b0_vector_tesla_pas = None, relaxation: NQRRelaxationLike | None = None) -> FullNQREchoResult` | Simulate a full density-matrix two-pulse (Hahn-style) NQR echo. |
 | class | `FullNQRSLSEResult` | Spin-lock spin-echo (SLSE) train from the full density-matrix model. |
-| function | `simulate_full_slse(site: QuadrupolarSite, *, nutation_hz: float, excitation_duration_seconds: float, refocus_duration_seconds: float, echo_spacing_seconds: float, num_echoes: int, rf_frequency_hz: float | None = None, excitation_phase: float = 0.0, refocus_phase: float = np.pi / 2.0, orientations: OrientationInput = 'single', b0_tesla: float = 0.0, b1_direction_pas = (1.0, 0.0, 0.0), rx_direction_pas = None, relaxation: NQRRelaxationModel | None = None, t2e_seconds: float = np.inf) -> FullNQRSLSEResult` | Simulate a full density-matrix SLSE echo train (valid for spin-3/2). |
+| function | `simulate_full_slse(site: QuadrupolarSite, *, nutation_hz: float, excitation_duration_seconds: float, refocus_duration_seconds: float, echo_spacing_seconds: float, num_echoes: int, rf_frequency_hz: float | None = None, excitation_phase: float = 0.0, refocus_phase: float = np.pi / 2.0, orientations: OrientationInput = 'single', b0_tesla: float = 0.0, b1_direction_pas = (1.0, 0.0, 0.0), rx_direction_pas = None, relaxation: NQRRelaxationLike | None = None, t2e_seconds: float = np.inf) -> FullNQRSLSEResult` | Simulate a full density-matrix SLSE echo train (valid for spin-3/2). |
 
 ## `spin_dynamics.nqr.hamiltonians`
 
@@ -488,16 +488,7 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 
 ## `spin_dynamics.nqr.relaxation`
 
-| Kind | Name | Summary |
-| --- | --- | --- |
-| class | `NQRRelaxationModel` | Phenomenological relaxation model in the quadrupolar energy basis. |
-| function | `matrix_exponential(matrix: np.ndarray, duration: float = 1.0) -> np.ndarray` | Return ``exp(matrix * duration)`` for a small dense matrix. |
-| function | `liouville_hamiltonian(hamiltonian: np.ndarray) -> np.ndarray` | Return the commutator Liouvillian for column-stacked density matrices. |
-| function | `relaxation_superoperator(dimension: int, model: NQRRelaxationModel) -> np.ndarray` | Return a trace-preserving phenomenological relaxation superoperator. |
-| function | `liouville_superoperator(hamiltonian: np.ndarray, model: NQRRelaxationModel | None = None) -> np.ndarray` | Return Hamiltonian plus optional relaxation Liouvillian. |
-| function | `propagate_density_liouville(density: np.ndarray, hamiltonian: np.ndarray, duration: float, *, relaxation: NQRRelaxationModel | None = None) -> np.ndarray` | Propagate a density matrix with Hamiltonian and optional relaxation. |
-| function | `cycle_superoperator(steps: tuple[tuple[np.ndarray, float], ...] | list[tuple[np.ndarray, float]], *, relaxation: NQRRelaxationModel | None = None) -> np.ndarray` | Return the Liouville propagator for one repeated pulse-sequence cycle. |
-| function | `effective_decay_time(eigenvalues: np.ndarray, cycle_duration_seconds: float, *, steady_tolerance: float = 1e-10) -> float` | Estimate the dominant non-steady decay time from cycle eigenvalues. |
+No public classes or functions found.
 
 ## `spin_dynamics.nqr.sequences`
 
@@ -515,9 +506,9 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `SLSESweepResult` | SLSE response as one pulse-sequence parameter is swept. |
 | function | `equilibrium_density(levels_hz: np.ndarray) -> np.ndarray` | Return a trace-zero high-temperature density matrix in the energy basis. |
 | function | `transition_signal(density: np.ndarray, transition: NQRTransition, *, b1_direction_pas: np.ndarray | list[float] | tuple[float, float, float]) -> complex` | Return the complex single-coil signal for a transition coherence. |
-| function | `simulate_slse(site: QuadrupolarSite, sequence: SLSESequence, *, orientations: OrientationInput = 'powder', b0_tesla: float = 0.0, t2e_seconds: float = np.inf, initial_density: np.ndarray | None = None, relaxation: NQRRelaxationModel | None = None) -> SLSEResult` | Simulate a selective-pulse SLSE echo train. |
-| function | `simulate_slse_offset_sweep(site: QuadrupolarSite, transition_label: str, offsets_hz: np.ndarray | list[float] | tuple[float, ...], *, pulse_duration_seconds: float, nutation_hz: float, echo_spacing_seconds: float, num_echoes: int = 16, phase: float = 0.0, orientations: OrientationInput = 'powder', b0_tesla: float = 0.0, t2e_seconds: float = np.inf, relaxation: NQRRelaxationModel | None = None, echo_index: int = -1) -> SLSESweepResult` | Sweep irradiation offset and return SLSE amplitude and decay estimates. |
-| function | `simulate_slse_spacing_sweep(site: QuadrupolarSite, transition_label: str, echo_spacing_seconds: np.ndarray | list[float] | tuple[float, ...], *, pulse_duration_seconds: float, nutation_hz: float, num_echoes: int = 16, phase: float = 0.0, rf_offset_hz: float = 0.0, orientations: OrientationInput = 'powder', b0_tesla: float = 0.0, t2e_seconds: float = np.inf, relaxation: NQRRelaxationModel | None = None, echo_index: int = -1) -> SLSESweepResult` | Sweep SLSE pulse period and return amplitude plus effective decay. |
+| function | `simulate_slse(site: QuadrupolarSite, sequence: SLSESequence, *, orientations: OrientationInput = 'powder', b0_tesla: float = 0.0, t2e_seconds: float = np.inf, initial_density: np.ndarray | None = None, relaxation: NQRRelaxationLike | None = None) -> SLSEResult` | Simulate a selective-pulse SLSE echo train. |
+| function | `simulate_slse_offset_sweep(site: QuadrupolarSite, transition_label: str, offsets_hz: np.ndarray | list[float] | tuple[float, ...], *, pulse_duration_seconds: float, nutation_hz: float, echo_spacing_seconds: float, num_echoes: int = 16, phase: float = 0.0, orientations: OrientationInput = 'powder', b0_tesla: float = 0.0, t2e_seconds: float = np.inf, relaxation: NQRRelaxationLike | None = None, echo_index: int = -1) -> SLSESweepResult` | Sweep irradiation offset and return SLSE amplitude and decay estimates. |
+| function | `simulate_slse_spacing_sweep(site: QuadrupolarSite, transition_label: str, echo_spacing_seconds: np.ndarray | list[float] | tuple[float, ...], *, pulse_duration_seconds: float, nutation_hz: float, num_echoes: int = 16, phase: float = 0.0, rf_offset_hz: float = 0.0, orientations: OrientationInput = 'powder', b0_tesla: float = 0.0, t2e_seconds: float = np.inf, relaxation: NQRRelaxationLike | None = None, echo_index: int = -1) -> SLSESweepResult` | Sweep SLSE pulse period and return amplitude plus effective decay. |
 | function | `simulate_population_transfer(site: QuadrupolarSite, perturbation: SelectivePulse, detection_sequence: SLSESequence, *, orientations: OrientationInput = 'powder', b0_tesla: float = 0.0, t2e_seconds: float = np.inf) -> PopulationTransferResult` | Simulate a perturbation pulse followed by SLSE detection. |
 
 ## `spin_dynamics.nqr.structure_coupling`
@@ -736,12 +727,31 @@ No public classes or functions found.
 
 | Kind | Name | Summary |
 | --- | --- | --- |
+| class | `SingleSpinMatrices` | Dense angular-momentum matrices for one spin quantum number. |
+| function | `spin_dimension(spin: float) -> int` | Return the Hilbert-space dimension for one spin. |
+| function | `single_spin_matrices(spin: float) -> SingleSpinMatrices` | Return dense angular-momentum matrices for one spin. |
 | class | `BPPRelaxationRates` | Temperature-dependent BPP rates, times, and spectral densities. |
 | class | `BPPRelaxationModel` | Configurable BPP relaxation model with Arrhenius correlation time. |
+| class | `PhenomenologicalRelaxationModel` | Phenomenological relaxation model in the Hamiltonian energy basis. |
+| class | `RelaxationSuperoperator` | Protocol for relaxation models that build Hamiltonian-aware Liouvillians. |
+| class | `MotionalAveragingModel` | Protocol for motional regimes used by microscopic relaxation models. |
+| class | `DipolarRelaxationSource` | One fluctuating dipolar bath spin coupled to a target spin. |
+| class | `RigidSolidMotionalAveraging` | Rigid-lattice dipolar fluctuations for solid-state relaxation. |
+| class | `IsotropicLiquidMotionalAveraging` | Isotropic rotational averaging for liquid-state dipolar relaxation. |
+| class | `RedfieldDipolarRelaxationModel` | Secular Redfield relaxation model from fluctuating dipolar couplings. |
 | function | `spectral_density_lorentzian(angular_frequency_rad_per_s: float | Iterable[float] | np.ndarray, correlation_time_seconds: float | Iterable[float] | np.ndarray) -> np.ndarray` | Return the isotropic rotational spectral density ``2 tau/(1+w^2 tau^2)``. |
 | function | `arrhenius_correlation_time(temperature_kelvin: float | Iterable[float] | np.ndarray, *, tau_ref_seconds: float, reference_temperature_kelvin: float = 298.15, activation_energy_j_per_mol: float = 0.0) -> np.ndarray` | Return ``tau_c(T)`` using an Arrhenius activation energy. |
 | function | `bpp_relaxation_rates(*, angular_frequency_rad_per_s: float | Iterable[float] | np.ndarray, correlation_time_seconds: float | Iterable[float] | np.ndarray, temperature_kelvin: float | Iterable[float] | np.ndarray | None = None, coupling_scale_per_second2: float = 1.0, r1_coefficients: tuple[float, float, float] = (0.0, 1.0, 4.0), r2_coefficients: tuple[float, float, float] = (1.5, 2.5, 1.0), baseline_r1_per_second: float = 0.0, baseline_r2_per_second: float = 0.0) -> BPPRelaxationRates` | Return BPP relaxation rates from ``J(0)``, ``J(w0)``, and ``J(2w0)``. |
 | function | `apply_relaxation_to_parameters(params: Mapping[str, Any] | Any, rates: BPPRelaxationRates) -> dict[str, Any]` | Return a shallow parameter copy with ``T1`` and ``T2`` replaced. |
+| function | `dipolar_coupling_hz(distance_angstrom: float, *, gamma_a_hz_per_t: float = 3076600.0, gamma_b_hz_per_t: float = PROTON_GAMMA_HZ_PER_T) -> float` | Return the point-dipole coupling prefactor in Hz. |
+| function | `dipolar_coupling_tensor(vector_angstrom: Sequence[float] | np.ndarray, *, coupling_hz: float) -> np.ndarray` | Return ``2*pi*d*(I - 3 n n^T)`` for a point dipolar coupling. |
+| function | `matrix_exponential(matrix: np.ndarray, duration: float = 1.0) -> np.ndarray` | Return ``exp(matrix * duration)`` for a small dense matrix. |
+| function | `liouville_hamiltonian(hamiltonian: np.ndarray) -> np.ndarray` | Return the commutator Liouvillian for column-stacked density matrices. |
+| function | `relaxation_superoperator(dimension: int, model: RelaxationModelLike, *, hamiltonian: np.ndarray | None = None) -> np.ndarray` | Return a trace-preserving relaxation superoperator. |
+| function | `liouville_superoperator(hamiltonian: np.ndarray, model: RelaxationModelLike | None = None) -> np.ndarray` | Return Hamiltonian plus optional relaxation Liouvillian. |
+| function | `propagate_density_liouville(density: np.ndarray, hamiltonian: np.ndarray, duration: float, *, relaxation: RelaxationModelLike | None = None) -> np.ndarray` | Propagate a density matrix with Hamiltonian and optional relaxation. |
+| function | `cycle_superoperator(steps: tuple[tuple[np.ndarray, float], ...] | list[tuple[np.ndarray, float]], *, relaxation: RelaxationModelLike | None = None) -> np.ndarray` | Return the Liouville propagator for one repeated pulse-sequence cycle. |
+| function | `effective_decay_time(eigenvalues: np.ndarray, cycle_duration_seconds: float, *, steady_tolerance: float = 1e-10) -> float` | Estimate the dominant non-steady decay time from cycle eigenvalues. |
 
 ## `spin_dynamics.radiation_damping`
 

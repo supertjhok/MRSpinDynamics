@@ -18,7 +18,7 @@ from spin_dynamics.nqr.inhomogeneity import (
     simulate_slse_efg_distribution,
     temperature_efg_distribution,
 )
-from spin_dynamics.nqr.relaxation import NQRRelaxationModel
+from spin_dynamics.relaxation import NQRRelaxationModel
 from spin_dynamics.nqr.simulation import (
     PopulationTransferResult,
     SLSEResult,
