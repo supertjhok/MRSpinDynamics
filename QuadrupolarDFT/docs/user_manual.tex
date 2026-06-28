@@ -281,8 +281,10 @@ solve at each point suffices.
 The mode curvatures $\partial^2 V_{ij}/\partial Q_k^2$ in Eq.~\eqref{eq:avg} come
 from displacing the structure along each phonon mode and recomputing the EFG.
 Because the DFT runs are expensive and run outside the package, the workflow
-separates into three stages with a calculation between each. The CLI
-\code{examples/abinit/efg\_temperature.py} drives all three.
+separates into three stages with a calculation between each, preceded by an
+optional structure-relaxation stage (Stage~0) that puts the geometry at an energy
+minimum first. The CLI \code{examples/abinit/efg\_temperature.py} drives all of
+them.
 
 \section{Normal-coordinate convention}
 \label{sec:fd}
@@ -302,6 +304,36 @@ These units are consistent with $\langle Q_k^2\rangle$ from Eq.~\eqref{eq:q2}, s
 the product in Eq.~\eqref{eq:avg} is an EFG.
 \code{normal\_coordinate\_step\_si} chooses $\delta Q$ from a target maximum
 Cartesian displacement (default $0.05$\,\AA).
+
+\section{Stage 0 --- structure relaxation (optional)}
+\label{sec:relax}
+
+A static EFG is only physical at an energy minimum. On an unrelaxed geometry the
+residual forces appear as imaginary modes at $\Gamma$ and bias the equilibrium
+$\eta$, so relaxing first is the single largest source of quantitative error in
+the chain. \code{efg\_temperature.py relax} strips the EFG keywords from a
+converged static input and prepends a BFGS ionic-relaxation block
+(\code{ionmov 2}, \code{optcell 0}, \code{tolmxf}); \code{run\_relax\_wsl.sh} runs
+ABINIT. \code{efg\_temperature.py relax-collect} then reads the relaxed geometry
+from the output footer (\code{-outvars: echo values of variables after
+computation}, the same block abipy reads) and writes a relaxed static EFG input.
+
+\begin{lstlisting}
+python3 examples/abinit/efg_temperature.py relax \
+    --base examples/abinit/nano2_efg.abi --out runs/nano2_relax
+bash examples/abinit/run_relax_wsl.sh runs/nano2_relax
+python3 examples/abinit/efg_temperature.py relax-collect \
+    --base examples/abinit/nano2_efg.abi --abo runs/nano2_relax/relax.abo \
+    --out runs/nano2_relax
+\end{lstlisting}
+
+The product, \code{relaxed.abi}, is an ordinary static EFG input (EFG keywords
+intact) at the relaxed geometry; pass it as \code{--base} to Stages~1--2 in place
+of the hand-written input. The relaxation is internal-coordinates-only: the cell
+is held at the input value (\code{optcell 0}). For molecular crystals this is
+usually preferable to a full cell relaxation, which under GGA tends to over-expand
+the lattice and can worsen the EFG relative to the measured geometry; full cell
+relaxation (the quasi-harmonic thermal-expansion path) is a planned extension.
 
 \section{Stage 1 --- phonons}
 
@@ -356,6 +388,36 @@ python3 examples/abinit/efg_temperature.py collect \
     --workdir runs/nano2_disp --temperatures 0,77,150,300 --quadmom 0.02044
 \end{lstlisting}
 
+\section{Running ABINIT in parallel}
+\label{sec:parallel}
+
+The phonon and EFG runs dominate the wall-clock cost, and ABINIT (MPI-built)
+parallelizes them efficiently over $k$-points. All the runner scripts source a
+small shared helper, \code{examples/abinit/abinit\_parallel.sh}, and honor the
+\code{ABINIT\_NP} environment variable:
+
+\begin{itemize}
+  \item \code{ABINIT\_NP} unset (or \code{1}) --- serial.
+  \item \code{ABINIT\_NP=}$N$ --- launch \code{mpirun -np $N$ abinit}.
+  \item \code{ABINIT\_NP=auto} --- choose $N$ automatically (see below) and fall
+    back to serial if no MPI runtime is found.
+\end{itemize}
+
+With the default $k$-point parallelism (\code{paral\_kgb 0}), efficiency is good
+when the number of processes divides the number of $k$-points in the IBZ. The
+helper function \code{abinit\_optimal\_np} encodes this: it returns the largest
+divisor of $n_{\mathrm{kpt}}$ that is $\le$ the core count. For the NaNO$_2$ cell
+($n_{\mathrm{kpt}}=36$) on a 20-core machine that is $N=18$ (two $k$-points per
+process), which scales near-ideally ($\sim 18\times$). \code{auto} detects
+$n_{\mathrm{kpt}}$ from an existing \code{.abo} or a quick \code{abinit --dry-run},
+and the core count from \code{nproc}. Override the launcher with
+\code{ABINIT\_MPIRUN} (e.g.\ \code{mpiexec}, or \code{mpirun --oversubscribe}).
+The driver \code{nano2\_relaxation\_study.sh} uses \code{auto} by default; pass
+\code{--np}~$N$ to pin a value or \code{--np 1} to force serial.
+
+Parallelization changes only how ABINIT is launched, not the inputs, so it leaves
+all computed quantities (and any relaxed-vs-unrelaxed comparison) unchanged.
+
 % =====================================================================
 \chapter{Worked Example: NaNO$_2$ $^{14}$N}
 
@@ -390,12 +452,37 @@ temperature. The slope, $\sim -1.0$\,kHz/K, has the correct sign and order of
 magnitude relative to the measured coefficients of $-1.3$\,kHz/K ($\nu_-$) and
 $-2.2$\,kHz/K ($\nu_+$).
 
-\textbf{Caveat.} The starter geometry is unrelaxed: its static $\eta = 0.04$
-disagrees with the experimental $0.38$, the two strong lines come out
-near-degenerate ($\sim 3.7$\,MHz) rather than well split ($3.60$/$4.64$\,MHz), and
-the phonon spectrum contains imaginary modes. The pipeline is therefore validated
-as physically sensible, but quantitative agreement requires relaxing the structure
-to an energy minimum first.
+\textbf{Caveat.} The numbers above are for the \emph{unrelaxed} starter geometry:
+its static $\eta = 0.04$ disagrees with the experimental $0.38$, the two strong
+lines come out near-degenerate ($\sim 3.7$\,MHz) rather than well split
+($3.60$/$4.64$\,MHz), and the phonon spectrum contains imaginary modes. The
+pipeline is therefore validated as physically sensible, but quantitative
+agreement requires relaxing the structure to an energy minimum first --- run
+Stage~0 (\S\ref{sec:relax}) and pass the resulting \code{relaxed.abi} as the base
+input to remove the imaginary modes and correct $\eta$ before interpreting the
+absolute numbers.
+
+\textbf{Runnable comparison.} \code{examples/abinit/nano2\_relaxation\_study.sh}
+automates exactly this check: it runs the full temperature workflow on both the
+unrelaxed and the relaxed geometry and writes a side-by-side report (static EFG,
+the sweep, and $\mathrm d\nu/\mathrm dT$) scored against the measured NaNO$_2$
+$^{14}$N reference. See \code{examples/abinit/README\_relaxation\_study.md} for
+the prerequisites and the one-command invocation.
+
+\textbf{Relaxation outcome.} Running this on the starter geometry confirms the
+pipeline behaves correctly and is qualitatively improved by relaxation, but also
+exposes its current limit. Relaxing the internal coordinates removes all imaginary
+modes (the spectrum becomes dynamically stable, lowest libration $\sim 44$\,cm$^{-1}$)
+and fixes the sign of every $\mathrm d\nu/\mathrm dT$, and it moves the asymmetry
+and the line splitting toward experiment --- but only about a third of the way
+($\eta: 0.04 \to 0.14$ against the measured $0.38$; strong-line splitting
+$0.11 \to 0.37$\,MHz against $\sim 1.04$\,MHz). Because the cell was held fixed at
+the hand-entered starter (\code{optcell 0}, unconverged \code{ecut}/\code{pawecutdg}/
+\code{ngkpt}), the residual error sits in the \emph{equilibrium} geometry, not the
+vibrational average. Quantitative agreement therefore needs a converged calculation
+on an experimental structure (e.g.\ the ICSD~82857 input under
+\code{structures/NaNO2/generated/}), and, for the full slope magnitude, anharmonic
+(AIMD/PIMD) averaging near the ferroelectric transition.
 
 % =====================================================================
 \chapter{Validation Against the Measured Database}
@@ -450,6 +537,13 @@ $\Cq \leftrightarrow \nu_{\mathrm Q}$ conversion used by the simulator.
     \code{parse\_anaddb\_modes}, \code{modes\_from\_arrays}.
 \end{itemize}
 
+\section{quadrupolar\_dft.relax}
+\begin{itemize}
+  \item \code{relax\_input} (ionic-relaxation input from a static EFG input),
+    \code{parse\_relaxed\_structure} (relaxed geometry from the ABINIT output
+    footer), \code{relaxed\_input} (relaxed static EFG input for Stages~1--2).
+\end{itemize}
+
 % =====================================================================
 \chapter{Limitations and Roadmap}
 
@@ -468,12 +562,10 @@ $\Cq \leftrightarrow \nu_{\mathrm Q}$ conversion used by the simulator.
 
 \textbf{Roadmap.}
 \begin{itemize}
-  \item A structure-relaxation stage so the geometry sits at an energy minimum
-    (removing imaginary modes and correcting $\eta$), the main step toward
-    quantitative agreement.
-  \item A quasi-harmonic thermal-expansion path and AIMD/PIMD snapshot averaging
-    for strongly anharmonic systems such as NaNO$_2$ near its ferroelectric
-    transition.
+  \item Full cell relaxation (\code{optcell}) and a quasi-harmonic
+    thermal-expansion path, building on the internal-coordinate relaxation stage
+    (\S\ref{sec:relax}); plus AIMD/PIMD snapshot averaging for strongly anharmonic
+    systems such as NaNO$_2$ near its ferroelectric transition.
   \item A netCDF / phonopy phonon reader to complement the anaddb text parser.
 \end{itemize}
 

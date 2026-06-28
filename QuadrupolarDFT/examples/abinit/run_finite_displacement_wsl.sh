@@ -10,6 +10,9 @@
 # to the input, which is where `efg_temperature.py collect` looks for it.
 set -uo pipefail
 
+# Shared MPI-launch helpers (resolve the path before any cd).
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/abinit_parallel.sh"
+
 workdir="${1:-}"
 if [[ -z "$workdir" ]]; then
   echo "usage: run_finite_displacement_wsl.sh <workdir> [--dry-run]" >&2
@@ -36,6 +39,10 @@ if (( ${#inputs[@]} == 0 )); then
   exit 1
 fi
 
+# Resolve the launch command once (serial, or MPI per ABINIT_NP=<N>|auto); all
+# the displaced inputs share the same cell, so one nkpt probe covers them all.
+abinit_build_cmd "${inputs[0]}" || exit 1
+
 echo "Running ABINIT on ${#inputs[@]} input(s) in $workdir"
 done_count=0
 for input in "${inputs[@]}"; do
@@ -46,7 +53,7 @@ for input in "${inputs[@]}"; do
   echo "==> $name"
   extra=()
   (( dry_run )) && extra=(--dry-run)
-  if ! ( cd "$job_dir" && abinit "${extra[@]}" "$name.abi" > "$name.stdout" 2> "$name.stderr" ); then
+  if ! ( cd "$job_dir" && "${abinit_cmd[@]}" "$name.abi" "${extra[@]}" > "$name.stdout" 2> "$name.stderr" ); then
     echo "ERROR: ABINIT failed on $name. Diagnostic from $name.stdout:" >&2
     grep -A3 -iE "ERROR|Action:" "$job_dir/$name.stdout" 2>/dev/null | head -20 >&2
     echo "(Fix the input and re-run; outputs already produced are kept.)" >&2

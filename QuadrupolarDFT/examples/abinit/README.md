@@ -3,6 +3,24 @@
 These examples are intended to start reproducible EFG calculations, not to
 provide converged production inputs.
 
+## Relaxed-vs-unrelaxed temperature study
+
+`nano2_relaxation_study.sh` compares the finite-temperature EFG of the relaxed
+geometry against the unrelaxed one, holding everything but the geometry fixed. By
+default it runs both branches with identical settings and writes a side-by-side
+comparison against the measured NaNO2 ¹⁴N reference; pass
+`--reuse-unrelaxed <dir>` to reuse an existing unrelaxed run instead of
+recomputing it, and `--study-dir <dir>` to choose where the study is written. See
+[`README_relaxation_study.md`](README_relaxation_study.md) for the objective,
+what is held fixed, prerequisites, the one-command run, the stage-by-stage
+fallback, and how to read the report. Quick start (inside WSL, from the
+`QuadrupolarDFT` root):
+
+```bash
+bash examples/abinit/nano2_relaxation_study.sh --dry-run   # validate inputs
+bash examples/abinit/nano2_relaxation_study.sh             # full study
+```
+
 ## `nano2_efg.abi`
 
 `nano2_efg.abi` is a starter ABINIT PAW calculation for ferroelectric sodium
