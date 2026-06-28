@@ -31,6 +31,16 @@ REVIEW_DIR = PROJECT / "data" / "review"
 LANDOLT_CROP_DIR = REVIEW_DIR / "landolt_crops"
 
 
+def repo_relative_path(path: Path) -> str:
+    """Return a stable repository-relative path for generated data."""
+    return path.relative_to(ROOT).as_posix()
+
+
+def project_relative_path(path: Path) -> str:
+    """Return a stable project-relative path for generated data."""
+    return path.relative_to(PROJECT).as_posix()
+
+
 FORMULAS = {
     "4-methylimidazole": "C4H6N2",
     "Amlodipine": "C20H25ClN2O5",
@@ -617,7 +627,7 @@ def build_state(cwru_dir: Path) -> BuildState:
             "id": source_id,
             "title": title,
             "source_type": "cwru_google_sites_wayback_html",
-            "relative_path": str(path.relative_to(ROOT)),
+            "relative_path": repo_relative_path(path),
             "url": None,
             "captured_at": "2020-10-11",
             "notes": "Saved Google Sites page from the CWRU/UF NQR database snapshot.",
@@ -640,7 +650,7 @@ def build_state(cwru_dir: Path) -> BuildState:
         "id": pdf_source_id,
         "title": "NQR Database.pdf",
         "source_type": "cwru_compact_pdf",
-        "relative_path": str((ROOT / "References" / "NQR Data" / "NQR Database.pdf").relative_to(ROOT)),
+        "relative_path": repo_relative_path(ROOT / "References" / "NQR Data" / "NQR Database.pdf"),
         "url": None,
         "captured_at": None,
         "notes": "Compact PDF export of the CWRU/UF NQR database. Used here for entries missing from the local HTML snapshot.",
@@ -730,7 +740,7 @@ def add_source(
         "id": source_id,
         "title": title,
         "source_type": source_type,
-        "relative_path": str(path.relative_to(ROOT)) if path else None,
+        "relative_path": repo_relative_path(path) if path else None,
         "url": None,
         "captured_at": None,
         "notes": notes,
@@ -3050,7 +3060,7 @@ def write_landolt_review_crop(
     )
     output_path = crop_dir / filename
     combined.save(output_path)
-    return str(output_path.relative_to(PROJECT)).replace("\\", "/")
+    return project_relative_path(output_path)
 
 
 def crop_rendered_bbox(rendered_page: Any, bbox: list[float], scale: float, margin_points: float) -> Any:
