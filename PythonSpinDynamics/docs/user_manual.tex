@@ -1495,6 +1495,33 @@ therefore much larger couplings. The example
 \code{plot\_nqr\_polarization\_enhancement.py} uses the melamine CIF estimate
 by default, but accepts \code{--nh-coupling-hz} to override it.
 
+\subsection{Using the Local NQR Data and Structure Workspaces}
+
+The example \code{plot\_nqr\_database\_prepolarization.py} demonstrates how the
+separate workspaces can be used together. It reads measured transition
+frequencies, site metadata, \(T_1\) values, and provenance from the SQLite
+export in \code{../NQRDatabase/data/exports/nqr.sqlite}; it then estimates the
+effective \({}^{1}\mathrm{H}\)-\({}^{14}\mathrm{N}\) coupling from a CIF stored
+under \code{../QuadrupolarDFT/structures}; finally, it passes the resulting
+sample parameters to
+\code{simulate\_adiabatic\_polarization\_transfer}. The default case uses the
+glycine database record and the bundled glycine CIF:
+
+\begin{lstlisting}[language=bash]
+python examples/plot_nqr_database_prepolarization.py \
+    --compound Glycine \
+    --coupling-target N1 \
+    --output results/nqr_database_prepolarization.png
+\end{lstlisting}
+
+This is a useful pattern for screening real compounds. The database supplies
+experimentally reported NQR lines and relaxation metadata; the structure
+workspace supplies atom positions for nearby-proton coupling estimates and can
+also hold first-principles EFG or resonant-frequency calculations when measured
+lines are absent or need comparison. The simulation layer then converts those
+inputs into transition-by-transition ideal and practical prepolarization signal
+gains for a chosen magnet, sample geometry, and transport speed.
+
 \section{SLSE Detection}
 
 The spin-lock spin-echo (SLSE) sequence is the classic pulsed NQR detection
