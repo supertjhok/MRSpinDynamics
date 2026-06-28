@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mr-integration"
+version = "0.0.0"
+description = "Cross-project bridge: ab initio EFG, spin-dynamics simulation, and the measured NQR database."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "GPL-3.0-or-later"
+authors = [
+  { name = "Soumyajit Mandal" }
+]
+keywords = ["nqr", "efg", "dft", "spin dynamics", "validation"]
+dependencies = [
+  "numpy>=1.24",
+  "python-spin-dynamics",
+  "quadrupolar-dft",
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "Programming Language :: Python :: 3",
+  "Topic :: Scientific/Engineering :: Physics",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=7",
+  "ruff>=0.4",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"

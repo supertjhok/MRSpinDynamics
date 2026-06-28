@@ -1,0 +1,47 @@
+name: Integration
+
+on:
+  push:
+    paths:
+      - ".github/workflows/integration.yml"
+      - "integration/**"
+      - "PythonSpinDynamics/**"
+      - "QuadrupolarDFT/**"
+  pull_request:
+    paths:
+      - ".github/workflows/integration.yml"
+      - "integration/**"
+      - "PythonSpinDynamics/**"
+      - "QuadrupolarDFT/**"
+
+jobs:
+  test:
+    name: Cross-project integration (py${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - name: Install subprojects and integration layer
+        run: |
+          python -m pip install -e ./PythonSpinDynamics
+          python -m pip install -e ./QuadrupolarDFT
+          python -m pip install -e ./integration
+          python -m pip install ruff
+      - name: Lint
+        working-directory: integration
+        run: python -m ruff check src tests examples
+      - name: Tests
+        working-directory: integration
+        run: python -m unittest discover -s tests
+      - name: Demo example (DFT vs measured)
+        run: python integration/examples/nano2_dft_vs_measured.py
+      - name: Demo example (database consistency)
+        run: python integration/examples/database_consistency.py
