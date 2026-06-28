@@ -539,3 +539,41 @@ pre {
     min-height: 320px;
   }
 }
+
+/* Simulator consistency banner (mr_integration overlay) */
+#consistencyBanner:empty {
+  display: none;
+}
+
+.consistency-banner {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #e0b4b4;
+  background: #fbf1f1;
+  font-size: 13px;
+}
+
+.consistency-icon {
+  font-size: 16px;
+  line-height: 1.2;
+  color: var(--danger);
+}
+
+.consistency-heading {
+  font-weight: 600;
+  color: var(--danger);
+}
+
+.consistency-detail {
+  color: var(--ink);
+  margin-top: 2px;
+}
+
+.consistency-implied {
+  color: var(--muted);
+  margin-top: 3px;
+}

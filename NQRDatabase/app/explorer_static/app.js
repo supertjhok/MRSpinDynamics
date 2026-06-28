@@ -191,6 +191,7 @@ function renderDetail() {
   els.compoundMeta.innerHTML = [
     chip(compound.category || "uncategorized", "strong"),
     compound.conventional_formula || compound.formula ? `<span class="formula">${formatFormula(compound.conventional_formula || compound.formula)}</span>` : "",
+    consistencySummaryChip(compound.consistency_summary),
     ...(compound.aliases || []).slice(0, 6).map(alias => chip(alias))
   ].join("");
   const searchUrl = compound.structure && compound.structure.pubchem_search_url;
@@ -364,8 +365,41 @@ function siteBlock(sample, site) {
         </div>
         <div class="site-params">${formatCoupling(site)}</div>
       </div>
+      ${consistencyBanner(site.consistency)}
       ${site.lines.length ? lineTable(site.lines, sample, site) : `<div class="site-empty">No frequency line assigned to this site record.</div>`}
     </section>
+  `;
+}
+
+function consistencySummaryChip(summary) {
+  if (!summary || !summary.checked) return "";
+  if (summary.flagged) {
+    const label = summary.flagged === 1 ? "1 site flagged" : `${summary.flagged} sites flagged`;
+    return `<span class="chip consistency-chip flagged" title="Simulator check: stored parameters disagree with measured lines">⚠ ${label}</span>`;
+  }
+  return `<span class="chip consistency-chip verified" title="Stored parameters reproduce the measured lines">✓ simulator-verified</span>`;
+}
+
+function consistencyBanner(flag) {
+  if (!flag) return "";
+  const flagged = Number(flag.flagged) === 1;
+  const cls = flagged ? "flagged" : "verified";
+  const icon = flagged ? "⚠" : "✓";
+  const heading = flagged ? "Parameter / line inconsistency" : "Simulator-verified";
+  const detail = flag.detail ? `<div class="consistency-detail">${escapeHtml(flag.detail)}</div>` : "";
+  let implied = "";
+  if (flagged && flag.implied_qcc_hz !== null && flag.implied_qcc_hz !== undefined) {
+    implied = `<div class="consistency-implied">Lines imply C<sub>Q</sub> ${formatNumber(flag.implied_qcc_hz / 1e3)} kHz, η ${formatNumber(flag.implied_eta)}</div>`;
+  }
+  return `
+    <div class="consistency-banner ${cls}">
+      <span class="consistency-icon">${icon}</span>
+      <div>
+        <div class="consistency-heading">${heading}</div>
+        ${detail}
+        ${implied}
+      </div>
+    </div>
   `;
 }
 

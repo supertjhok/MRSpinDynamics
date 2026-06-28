@@ -252,6 +252,37 @@ def split_sqlite_list(value: str | None) -> list[str]:
     return sorted({item for item in value.split(",") if item})
 
 
+def table_exists(conn: sqlite3.Connection, name: str) -> bool:
+    row = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name = ?",
+        [name],
+    ).fetchone()
+    return row is not None
+
+
+def consistency_flags(conn: sqlite3.Connection, compound_id: str) -> dict[str, dict]:
+    """Return simulator-derived consistency flags keyed by site id.
+
+    The ``site_consistency_flags`` table is an optional overlay produced by the
+    integration layer; if it has not been generated the explorer simply omits
+    the badges.
+    """
+
+    if not table_exists(conn, "site_consistency_flags"):
+        return {}
+    rows = conn.execute(
+        """
+        SELECT scf.*
+        FROM site_consistency_flags scf
+        JOIN sites s ON s.id = scf.site_id
+        JOIN samples sa ON sa.id = s.sample_id
+        WHERE sa.compound_id = ?
+        """,
+        [compound_id],
+    )
+    return {row["site_id"]: row_dict(row) for row in rows}
+
+
 def compound_detail(compound_id: str) -> dict | None:
     with connect() as conn:
         compound = conn.execute(
@@ -260,6 +291,7 @@ def compound_detail(compound_id: str) -> dict | None:
         ).fetchone()
         if not compound:
             return None
+        flags = consistency_flags(conn, compound_id)
         aliases = [
             row[0]
             for row in conn.execute(
@@ -287,6 +319,7 @@ def compound_detail(compound_id: str) -> dict | None:
             ):
                 site = row_dict(site_row)
                 site["measurement"] = measurement_payload(site)
+                site["consistency"] = flags.get(site["id"])
                 site["lines"] = [
                     line_payload(row_dict(line), sample, site)
                     for line in conn.execute(
@@ -328,7 +361,22 @@ def compound_detail(compound_id: str) -> dict | None:
     payload["sources"] = sources
     payload["structure"] = structure_payload(payload, aliases)
     payload["spectrum"] = spectrum_payload(samples)
+    payload["consistency_summary"] = consistency_summary(flags)
     return payload
+
+
+def consistency_summary(flags: dict[str, dict]) -> dict | None:
+    """Roll up per-site flags into a compound-level badge, or ``None``."""
+
+    if not flags:
+        return None
+    checked = len(flags)
+    flagged = sum(1 for flag in flags.values() if flag.get("flagged"))
+    return {
+        "checked": checked,
+        "flagged": flagged,
+        "verified": checked - flagged,
+    }
 
 
 def linked_references(

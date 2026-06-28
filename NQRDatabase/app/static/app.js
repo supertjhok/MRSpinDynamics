@@ -33,6 +33,7 @@ const els = {
   cropImage: document.getElementById("cropImage"),
   rawText: document.getElementById("rawText"),
   imageWrap: document.querySelector(".image-wrap"),
+  consistencyBanner: document.getElementById("consistencyBanner"),
   fields: document.getElementById("fields"),
   measurementSets: document.getElementById("measurementSets"),
   addMeasurementSet: document.getElementById("addMeasurementSet"),
@@ -200,6 +201,7 @@ function renderDetail() {
     "",
     (item.issue_flags || []).join(", ")
   ].join("\n").trim();
+  renderConsistencyBanner(item.consistency);
   renderFields(item);
   renderMeasurementSets(item);
   els.notes.value = item.reviewer_notes || "";
@@ -213,6 +215,39 @@ function roomTemperatureNote(value) {
   return ["rt", "rtemp"].includes(token)
     ? `${value} in the temperature field means room temperature; no exact numeric value is implied.`
     : "";
+}
+
+function renderConsistencyBanner(consistency) {
+  if (!els.consistencyBanner) return;
+  if (!consistency || Number(consistency.flagged) !== 1) {
+    els.consistencyBanner.innerHTML = "";
+    return;
+  }
+  const gapKhz = Math.round((consistency.max_gap_hz || 0) / 1e3);
+  const predicted = parseJsonList(consistency.predicted_strong_mhz);
+  const implied = predicted.length
+    ? `<div class="consistency-implied">QCC/η predict strong lines near ${predicted.map(v => v + " MHz").join(", ")}</div>`
+    : "";
+  els.consistencyBanner.innerHTML = `
+    <div class="consistency-banner flagged">
+      <span class="consistency-icon">⚠</span>
+      <div>
+        <div class="consistency-heading">Simulator check: lines vs QCC/η disagree (${gapKhz} kHz)</div>
+        <div class="consistency-detail">${escapeHtml(consistency.detail || "")}</div>
+        ${implied}
+      </div>
+    </div>
+  `;
+}
+
+function parseJsonList(value) {
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (err) {
+    return [];
+  }
 }
 
 function renderFields(item) {

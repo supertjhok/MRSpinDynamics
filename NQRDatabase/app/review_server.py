@@ -151,7 +151,34 @@ def review_item(review_id: str) -> dict | None:
         payload["measurement_sets"] = reviewed_measurement_sets(conn, payload, decision)
         payload["frequency_records"] = flatten_measurement_set_records(payload["measurement_sets"], "frequency_records")
         payload["qcc_eta_records"] = flatten_measurement_set_records(payload["measurement_sets"], "qcc_eta_records")
+        payload["consistency"] = consistency_flag(conn, payload["entry_id"])
         return payload
+
+
+def table_exists(conn: sqlite3.Connection, name: str) -> bool:
+    return (
+        conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name = ?",
+            [name],
+        ).fetchone()
+        is not None
+    )
+
+
+def consistency_flag(conn: sqlite3.Connection, entry_id: str) -> dict | None:
+    """Return the simulator consistency diagnostic for one Landolt entry.
+
+    Produced by the sibling ``mr_integration`` project as an optional overlay;
+    the review GUI omits the banner when the table is absent.
+    """
+
+    if not table_exists(conn, "landolt_consistency_flags"):
+        return None
+    row = conn.execute(
+        "SELECT * FROM landolt_consistency_flags WHERE entry_id = ?",
+        [entry_id],
+    ).fetchone()
+    return dict(row) if row else None
 
 
 def row_to_payload(row: dict, decisions: dict[str, dict]) -> dict:

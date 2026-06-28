@@ -622,3 +622,70 @@ h3 {
     text-align: left;
   }
 }
+
+/* Simulator-derived consistency flags */
+.chip.consistency-chip {
+  font-weight: 600;
+}
+
+.chip.consistency-chip.verified {
+  color: var(--accent);
+  border-color: #9bc4c6;
+  background: #eef6f6;
+}
+
+.chip.consistency-chip.flagged {
+  color: var(--danger);
+  border-color: #d9a3a3;
+  background: #fbeeee;
+}
+
+.consistency-banner {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 8px 0 2px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  font-size: 13px;
+}
+
+.consistency-banner.verified {
+  border-color: #b6d6d7;
+  background: #f1f8f8;
+}
+
+.consistency-banner.flagged {
+  border-color: #e0b4b4;
+  background: #fbf1f1;
+}
+
+.consistency-icon {
+  font-size: 15px;
+  line-height: 1.3;
+}
+
+.consistency-banner.verified .consistency-icon {
+  color: var(--accent);
+}
+
+.consistency-banner.flagged .consistency-icon {
+  color: var(--danger);
+}
+
+.consistency-heading {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.consistency-detail {
+  color: var(--muted);
+  margin-top: 1px;
+}
+
+.consistency-implied {
+  color: var(--muted);
+  margin-top: 2px;
+  font-variant-numeric: tabular-nums;
+}

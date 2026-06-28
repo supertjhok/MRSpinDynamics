@@ -56,6 +56,44 @@ compound name, formula, or CAS number can be matched, the browser attempts to
 display a 2D structure image from PubChem; otherwise it falls back to the stored
 formula.
 
+When the optional consistency overlay has been generated (see below), each site
+that stores both quadrupolar parameters and lines also shows a badge indicating
+whether the stored `(C_Q, eta)` actually reproduce the measured lines, and the
+compound header summarizes how many of its sites are flagged.
+
+### Consistency Flags (simulator overlay)
+
+The sibling `integration/` project (`mr_integration`) can cross-check the
+database against the `PythonSpinDynamics` simulator: for every site that stores
+both `(qcc, eta)` and measured lines, the stored parameters must reproduce the
+lines. It writes the verdicts back as a `site_consistency_flags` table and
+`data/normalized/site_consistency_flags.jsonl`. Regenerate the overlay after a
+build with:
+
+```powershell
+python integration/scripts/write_consistency_flags.py
+```
+
+The overlay is a derived product: the database build does not depend on the
+simulator, and the explorer works with or without the overlay present. On the
+current export, 5 of 61 checked sites are flagged (e.g. several `14N` sites whose
+stored `eta` disagrees with their lines, and a `35Cl` site whose stored `C_Q`
+does not match its line), which makes them candidates for source re-review.
+
+The same project also cross-checks Landolt entries, whose frequencies and
+`QCC`/`eta` are stored as independent lists per measurement set. To route the
+inconsistent ones into the review queue:
+
+```powershell
+python integration/scripts/write_landolt_review_flags.py
+```
+
+This adds a `quad_consistency_mismatch` issue flag to the affected
+`landolt_review_queue` rows, raises their priority, and writes a
+`landolt_consistency_flags` table plus `data/normalized/
+landolt_consistency_flags.jsonl`. On the current export, 26 of 141 checked
+Landolt sets are flagged.
+
 ### Landolt Review GUI
 
 The review interface is for checking OCR/layout-derived rows from the
@@ -71,6 +109,11 @@ The review GUI displays rendered PDF crops, parsed identity fields, measurement
 sets, frequency lists, and quadrupole-coupling/asymmetry lists. It writes the
 latest review decisions to `data/review/landolt_review_decisions.jsonl`; the
 build replays those decisions when generating the canonical database.
+
+When the consistency overlay has been generated (see below), entries whose
+tabulated frequencies disagree with their reported `QCC`/`eta` carry a
+`quad_consistency_mismatch` flag, sort to the top of the queue, and show a
+diagnostic banner pointing the reviewer at the suspect field.
 
 ## Data Sources
 
