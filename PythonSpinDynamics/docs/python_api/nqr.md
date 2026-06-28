@@ -9,8 +9,10 @@ A pulsed-NQR simulator has to make one choice before propagating a sequence:
 keep every quantum level of the nucleus, or keep only the two levels of one
 selected transition. **That choice is set by how many states the RF pulse can
 actually connect, not by the number of peaks in the spectrum.** The package
-therefore offers two regimes (the reasoning is laid out in the technical note
-`References/Pulsed_NQR_Spin_Dynamics_Narrative_Rewrite`):
+therefore offers two regimes. The self-authored technical note
+[Modeling Pulsed NQR Dynamics: Spin 1, Spin 3/2, and Higher Spins](../../../References/Pulsed_NQR_Spin_Dynamics_Narrative_Rewrite.pdf)
+gives the reasoning in more detail; its LaTeX source is tracked at
+`../../../References/Pulsed_NQR_Spin_Dynamics_Narrative_Rewrite.tex`.
 
 **Reduced two-level model (`SelectivePulse`, `simulate_slse`,
 `simulate_population_transfer`).** Each RF pulse addresses one transition and is

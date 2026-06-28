@@ -33,9 +33,11 @@ The repository brings together several related projects:
 - `NQRDatabase/` builds a curated NQR spectra database. It exports SQLite and
   JSONL files, preserves source provenance, links measurements to citations,
   and includes a review workflow for OCR-derived Landolt-Bornstein tables.
-- `References/` is a local, ignored source-material archive used during
-  development. It is not committed to Git because it contains copied reference
-  documents and large source captures.
+- `References/` is mostly a local, ignored source-material archive used during
+  development. Published papers, books, copied reference documents, and large
+  source captures should not be committed. The folder does track a small number
+  of self-authored technical notes that are useful background for the public
+  subprojects.
 
 Each subproject has its own README or documentation folder with setup and usage
 details. Start with `PythonSpinDynamics/` for simulation work, `QuadrupolarDFT/`
@@ -59,6 +61,20 @@ source collections:
 Detailed source paths, imported tables, record counts, and citation handling are
 documented in `NQRDatabase/README.md`. Individual paper citations are stored in
 the database tables `literature_references` and `reference_links`.
+
+## Technical Notes
+
+Two self-authored notes in `References/` are intentionally shared with the
+repository:
+
+- [Ab Initio Electric-Field Gradients and Quadrupolar Resonances in Crystals](References/efg_quadrupolar_technical_note.pdf)
+  explains how electric-field-gradient tensors from DFT outputs connect to
+  quadrupolar coupling constants, asymmetry parameters, and NQR transition
+  frequencies. The LaTeX source is tracked beside the PDF.
+- [Modeling Pulsed NQR Dynamics: Spin 1, Spin 3/2, and Higher Spins](References/Pulsed_NQR_Spin_Dynamics_Narrative_Rewrite.pdf)
+  motivates the reduced two-level and full density-matrix NQR simulation
+  regimes used by `PythonSpinDynamics`. The LaTeX source is tracked beside the
+  PDF.
 
 ## License
 

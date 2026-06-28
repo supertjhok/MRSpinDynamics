@@ -1,5 +1,10 @@
 [Dd]esktop.ini
-References/
+References/*
+!References/README.md
+!References/efg_quadrupolar_technical_note.pdf
+!References/efg_quadrupolar_technical_note.tex
+!References/Pulsed_NQR_Spin_Dynamics_Narrative_Rewrite.pdf
+!References/Pulsed_NQR_Spin_Dynamics_Narrative_Rewrite.tex
 .tmp/
 
 PythonSpinDynamics/.conda-env/
