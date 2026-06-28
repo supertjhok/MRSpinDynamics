@@ -626,6 +626,105 @@ def arrhenius_correlation_time(
     return tau
 
 
+def stokes_einstein_debye_correlation_time(
+    hydrodynamic_radius_m: float | Iterable[float] | np.ndarray,
+    viscosity_pa_s: float | Iterable[float] | np.ndarray,
+    temperature_kelvin: float | Iterable[float] | np.ndarray,
+    *,
+    slip_factor: float = 1.0,
+) -> np.ndarray:
+    """Return the rank-2 rotational correlation time from Stokes-Einstein-Debye.
+
+    For a sphere of hydrodynamic radius ``a`` reorienting in a medium of shear
+    viscosity ``eta`` at temperature ``T``, the Debye rotational diffusion
+    constant is ``D_R = k_B T / (8 pi eta a^3)``. The rank-2 (``l = 2``)
+    reorientational correlation time relevant to dipolar and quadrupolar NMR
+    relaxation is
+
+    ``tau_c = 1 / (6 D_R) = 4 pi eta a^3 / (3 k_B T) * f``,
+
+    where the dimensionless ``slip_factor`` ``f`` rescales the stick-limit result
+    for microviscosity or slip boundary conditions (``f = 1`` is the stick limit;
+    ``f < 1`` approaches slip and is typical for small molecules). Inputs
+    broadcast against one another, so a temperature or viscosity sweep returns an
+    array of correlation times.
+    """
+
+    radius, viscosity, temperature = np.broadcast_arrays(
+        np.asarray(hydrodynamic_radius_m, dtype=np.float64),
+        np.asarray(viscosity_pa_s, dtype=np.float64),
+        np.asarray(temperature_kelvin, dtype=np.float64),
+    )
+    _require_finite_array(radius, "hydrodynamic_radius_m")
+    _require_finite_array(viscosity, "viscosity_pa_s")
+    _require_finite_array(temperature, "temperature_kelvin")
+    if np.any(radius <= 0.0):
+        raise ValueError("hydrodynamic_radius_m must be positive")
+    if np.any(viscosity <= 0.0):
+        raise ValueError("viscosity_pa_s must be positive")
+    if np.any(temperature <= 0.0):
+        raise ValueError("temperature_kelvin must be positive")
+    slip = float(slip_factor)
+    if not np.isfinite(slip) or slip <= 0.0:
+        raise ValueError("slip_factor must be positive")
+    tau = (
+        4.0 * np.pi * viscosity * radius**3 * slip
+        / (3.0 * BOLTZMANN * temperature)
+    )
+    _require_finite_array(tau, "correlation_time_seconds")
+    return tau
+
+
+@lru_cache(maxsize=None)
+def _bpp_t1_min_omega_tau(r1_coefficients: tuple[float, float, float]) -> float:
+    """Return ``omega0 * tau_c`` at the BPP ``T1`` minimum for ``R1`` weights.
+
+    The ``T1`` minimum is the ``R1`` maximum. With ``J(w) = 2 tau / (1 + w^2
+    tau^2)`` and ``R1 ~ a J(0) + b J(w0) + c J(2 w0)``, the stationary condition
+    ``dR1/dtau = 0`` is a polynomial in ``u = (w0 tau)^2``:
+
+    ``a (1+u)^2 (1+4u)^2 + b (1-u)(1+4u)^2 + c (1-4u)(1+u)^2 = 0``.
+
+    For the canonical dipolar weights ``(0, 1, 4)`` the positive real root gives
+    the textbook ``w0 tau_c ~ 0.6158``.
+    """
+
+    a, b, c = r1_coefficients
+    p1 = np.array([1.0, 2.0, 1.0])  # (1 + u)^2
+    p4 = np.array([16.0, 8.0, 1.0])  # (1 + 4u)^2
+    poly = np.polyadd(a * np.convolve(p1, p4), b * np.convolve([-1.0, 1.0], p4))
+    poly = np.polyadd(poly, c * np.convolve([-4.0, 1.0], p1))
+    roots = np.roots(poly)
+    real = roots[np.abs(roots.imag) <= 1.0e-9 * (1.0 + np.abs(roots.real))].real
+    positive = real[real > 0.0]
+    if positive.size == 0:
+        raise ValueError("r1_coefficients do not yield a T1 minimum")
+    return float(np.sqrt(np.min(positive)))
+
+
+def tau_c_from_t1_minimum(
+    angular_frequency_rad_per_s: float,
+    *,
+    r1_coefficients: tuple[float, float, float] = (0.0, 1.0, 4.0),
+) -> float:
+    """Return the correlation time at the BPP ``T1`` minimum for a Larmor freq.
+
+    A measured ``T1`` minimum versus temperature pins the absolute correlation
+    time at that temperature, independent of the dipolar coupling strength: only
+    the depth of the minimum scales with the coupling, not its location. For the
+    default dipolar weights this returns ``tau_c = 0.6158 / omega0``.
+    """
+
+    omega = float(angular_frequency_rad_per_s)
+    if not np.isfinite(omega) or omega <= 0.0:
+        raise ValueError("angular_frequency_rad_per_s must be positive")
+    coefficients = _validate_coefficients(r1_coefficients, "r1_coefficients")
+    return _bpp_t1_min_omega_tau(coefficients) / omega
+
+
+BPP_T1_MINIMUM_OMEGA_TAU = _bpp_t1_min_omega_tau((0.0, 1.0, 4.0))
+
+
 def gas_mean_speed_m_per_s(
     temperature_kelvin: float | Iterable[float] | np.ndarray,
     mass_amu: float,
