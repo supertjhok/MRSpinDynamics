@@ -11,6 +11,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from spin_dynamics.relaxation import (
+    BOLTZMANN,
+    BPP_T1_MINIMUM_OMEGA_TAU,
     BPPRelaxationModel,
     WallCollisionRelaxationModel,
     apply_relaxation_to_parameters,
@@ -22,6 +24,8 @@ from spin_dynamics.relaxation import (
     single_spin_matrices,
     sphere_surface_to_volume_per_m,
     spectral_density_lorentzian,
+    stokes_einstein_debye_correlation_time,
+    tau_c_from_t1_minimum,
     wall_collision_rate_per_second,
 )
 
@@ -47,6 +51,61 @@ class RelaxationTests(unittest.TestCase):
         self.assertAlmostEqual(float(tau[1]), 1.0e-9)
         self.assertGreater(tau[0], tau[1])
         self.assertGreater(tau[1], tau[2])
+
+    def test_stokes_einstein_debye_matches_closed_form_and_scaling(self) -> None:
+        radius = 1.45e-10
+        viscosity = 0.89e-3
+        temperature = 298.15
+
+        tau = stokes_einstein_debye_correlation_time(radius, viscosity, temperature)
+        expected = (
+            4.0 * np.pi * viscosity * radius**3 / (3.0 * BOLTZMANN * temperature)
+        )
+        self.assertAlmostEqual(float(tau), expected)
+        # Water rank-2 reorientation is a couple of picoseconds.
+        self.assertLess(1.0e-12, float(tau))
+        self.assertLess(float(tau), 5.0e-12)
+
+        # tau scales linearly with the slip factor and with viscosity.
+        half = stokes_einstein_debye_correlation_time(
+            radius, viscosity, temperature, slip_factor=0.5
+        )
+        self.assertAlmostEqual(float(half), 0.5 * float(tau))
+        sweep = stokes_einstein_debye_correlation_time(
+            radius, np.array([viscosity, 2.0 * viscosity]), temperature
+        )
+        self.assertAlmostEqual(float(sweep[1]), 2.0 * float(sweep[0]))
+
+    def test_stokes_einstein_debye_rejects_nonpositive_inputs(self) -> None:
+        with self.assertRaisesRegex(ValueError, "hydrodynamic_radius_m"):
+            stokes_einstein_debye_correlation_time(0.0, 1.0e-3, 300.0)
+        with self.assertRaisesRegex(ValueError, "viscosity_pa_s"):
+            stokes_einstein_debye_correlation_time(1.0e-10, -1.0, 300.0)
+        with self.assertRaisesRegex(ValueError, "slip_factor"):
+            stokes_einstein_debye_correlation_time(
+                1.0e-10, 1.0e-3, 300.0, slip_factor=0.0
+            )
+
+    def test_tau_c_from_t1_minimum_locates_the_r1_maximum(self) -> None:
+        self.assertAlmostEqual(BPP_T1_MINIMUM_OMEGA_TAU, 0.6158, places=3)
+
+        omega = 2.0 * np.pi * 20.0e6
+        tau_min = tau_c_from_t1_minimum(omega)
+        self.assertAlmostEqual(omega * tau_min, BPP_T1_MINIMUM_OMEGA_TAU)
+
+        # T1 is minimal (R1 maximal) at the returned correlation time.
+        neighbors = tau_min * np.array([0.5, 1.0, 2.0])
+        r1 = bpp_relaxation_rates(
+            angular_frequency_rad_per_s=omega,
+            correlation_time_seconds=neighbors,
+            coupling_scale_per_second2=1.0e10,
+        ).r1_per_second
+        self.assertGreater(r1[1], r1[0])
+        self.assertGreater(r1[1], r1[2])
+
+    def test_tau_c_from_t1_minimum_rejects_invalid_frequency(self) -> None:
+        with self.assertRaisesRegex(ValueError, "angular_frequency_rad_per_s"):
+            tau_c_from_t1_minimum(0.0)
 
     def test_bpp_rates_use_j0_jw_and_j2w_coefficients(self) -> None:
         omega = 4.0e6
