@@ -4,6 +4,21 @@ __pycache__/
 src/*.egg-info/
 .ruff_cache/
 
+# ABINIT binary and run outputs (large; never commit). The runs/ tree is
+# ignored above; these patterns also catch outputs produced anywhere else
+# (e.g. alongside a structure). Inputs (.abi/.files) and text logs are kept.
+*.nc
+*_DDB
+*_WFK
+*_WFQ
+*_1WF*
+*_DEN
+*_POT
+*_EIG
+*_EBANDS.agr
+*.abo[0-9]*
+*.run/
+
 # LaTeX build artifacts (keep user_manual.tex and user_manual.pdf)
 docs/*.aux
 docs/*.log

@@ -86,8 +86,10 @@ package — see section 6.
   relaxation levels of description, and workflow guides, but there is still no
   hosted documentation site that ties the manual, API reference, examples, and
   roadmap into one navigable publication-grade artifact.
-- `QuadrupolarDFT/runs/**` commits raw ABINIT binary outputs (`.nc`, `_DDB`,
-  `.abo0001`…) into git — should be gitignored before history bloats.
+- ~~`QuadrupolarDFT/runs/**` commits raw ABINIT binary outputs (`.nc`, `_DDB`,
+  `.abo0001`…) into git.~~ **Done** — `QuadrupolarDFT/.gitignore` ignores `runs/`
+  and explicit ABINIT binary patterns (`*.nc`, `*_DDB`, `*_WFK`, `*.abo[0-9]*`,
+  `*.run/`, …); no binary outputs are tracked.
 
 **Test / CI**
 - `PythonSpinDynamics` has the broadest CI surface. `QuadrupolarDFT` now has a
@@ -157,9 +159,9 @@ AIMD/PIMD averaging for anharmonic cases like NaNO₂ near Tc.
    `docs/publishing_plan.md`.
 6. **Database enrichment from DFT** — a "predicted vs measured" column in the
    NQR explorer UI. Visually striking, directly useful.
-7. **Repo hygiene** — gitignore ABINIT binaries, add coverage reporting, and
-   broaden CI beyond smoke/rebuild checks where the newer subprojects still
-   need deeper fixtures.
+7. **Repo hygiene** — ABINIT binaries are now gitignored (done); remaining:
+   add coverage reporting and broaden CI beyond smoke/rebuild checks where the
+   newer subprojects still need deeper fixtures.
 
 ## 5. The q-space diffusion-diffraction layer (started)
 
