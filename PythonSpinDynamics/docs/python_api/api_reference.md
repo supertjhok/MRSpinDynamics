@@ -938,6 +938,18 @@ No public classes or functions found.
 | function | `run_ogse_walkers(*, rho: Iterable[float] | np.ndarray | None = None, x_axis: Iterable[float] | np.ndarray | None = None, z_axis: Iterable[float] | np.ndarray | None = None, fields: MotionFieldMaps2D | None = None, gradient_amplitude: float = 0.05, oscillation_frequency: float = 100.0, num_periods: int = 2, samples_per_period: int = 16, diffusion_coefficient: float = 2.3e-09, gamma: float = 267500000.0, gradient_axis: PGSEAxis = 'x', walkers_per_cell: int = 128, seed: int | None = None, jitter: bool = False, excitation_duration: float = 0.0001, refocusing_duration: float = 0.0002, t1_seconds: float = np.inf, t2_seconds: float = np.inf, velocity: Velocity = None, boundary: Boundary = 'reflect', substeps_per_interval: int = 4) -> OGSEWalkerResult` | Run an oscillating-gradient spin-echo (OGSE) walker simulation. |
 | function | `run_pgse(*, backend: PGSEBackend = 'moment', **kwargs) -> PGSEMomentResult | PGSEWalkerResult` | Dispatch to the moment or random-walker PGSE backend. |
 
+## `spin_dynamics.workflows.qspace`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `QSpaceReconstructionResult` | Image-domain result reconstructed from a centered q-space grid. |
+| class | `QSpacePhaseRetrievalResult` | Constrained pore-shape estimate from magnitude-only q-space samples. |
+| function | `qspace_axes_from_real_space(x_axis: np.ndarray, z_axis: np.ndarray) -> tuple[np.ndarray, np.ndarray]` | Return centered angular q axes compatible with a real-space grid. |
+| function | `real_space_axes_from_qspace(qx_axis: np.ndarray, qz_axis: np.ndarray) -> tuple[np.ndarray, np.ndarray]` | Return centered real-space axes for a uniformly sampled q-space grid. |
+| function | `pore_form_factor_from_density(density: np.ndarray, *, normalize: bool = True) -> np.ndarray` | Return the centered complex pore form factor of a 2D density map. |
+| function | `reconstruct_qspace_image(response: np.ndarray, qx_axis: np.ndarray, qz_axis: np.ndarray, *, data_kind: QSpaceDataKind = 'complex', clip_negative: bool = False, normalize: bool = True) -> QSpaceReconstructionResult` | Reconstruct an image or autocorrelation from centered q-space samples. |
+| function | `phase_retrieve_qspace_magnitude(magnitude: np.ndarray, qx_axis: np.ndarray, qz_axis: np.ndarray, *, support: np.ndarray | None = None, iterations: int = 300, beta: float = 0.8, seed: int | None = None, input_is_intensity: bool = False, er_iterations: int = 40) -> QSpacePhaseRetrievalResult` | Estimate a non-negative pore image from magnitude-only q-space data. |
+
 ## `spin_dynamics.workflows.single_sided`
 
 | Kind | Name | Summary |

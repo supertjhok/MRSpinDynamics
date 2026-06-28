@@ -66,7 +66,7 @@ Verified end-to-end: feeding the NaNO₂ ¹⁴N C_Q/η through the conversion in
 `spin_dynamics.nqr.diagonalize_site` reproduces `quadrupolar_dft.
 nqr_frequencies_hz` to < 1 Hz (two independent Hamiltonian implementations
 agreeing is the actual proof). This is implemented in the new `integration/`
-package — see section 5.
+package — see section 6.
 
 ## 3. Other technical gaps (workspace level)
 
@@ -98,8 +98,16 @@ package — see section 5.
   regressions are invisible. ESR (newest module) has the thinnest test surface.
 
 **Physics depth** (next-frontier, from the science-impact roadmap)
-- q-space / averaged-propagator pore-size (diffusion-diffraction) — unstarted;
-  the PGSTE/walker machinery already exists, so this is mostly new analysis.
+- q-space / averaged-propagator pore-size (diffusion-diffraction) — first
+  inverse-imaging increment is now in `PythonSpinDynamics`: the existing
+  circular-pore example showed forward diffusive diffraction minima, while the
+  new `spin_dynamics.workflows.qspace` layer adds centered q-space axes, pore
+  form factors, direct complex inversion, intensity/autocorrelation inversion,
+  and support-constrained phase retrieval. The new
+  `plot_pgse_qspace_pore_imaging.py` example reconstructs a circular pore from
+  ideal and finite-SNR q-space intensity data. Remaining work is connecting the
+  inverse path directly to finite-pulse walker measurements and broader pore
+  geometries.
 - Microscopic relaxation first increment is done in `spin_dynamics.relaxation`:
   shared Liouville helpers, `PhenomenologicalRelaxationModel`, dipolar bath
   sources, rigid-solid and isotropic-liquid motional averaging, and
@@ -136,8 +144,9 @@ AIMD/PIMD averaging for anharmonic cases like NaNO₂ near Tc.
 
 1. **Close the DFT → sim → DB loop.** Highest science value, modest code.
    Started here as the `integration/` package; NaNO₂ is the seed case.
-2. **q-space diffusion-diffraction** (roadmap #4) — reuses existing PGSTE/walker
-   infrastructure.
+2. **q-space diffusion-diffraction** (roadmap #4) — first inverse-imaging
+   increment done; next value is finite-pulse/walker-to-image validation and
+   non-circular pore examples.
 3. **Validate and broaden microscopic relaxation.** The shared Redfield/dipolar
    model exists; next value is tying it to measured liquid NMR/NQR relaxation
    data, convergence checks, and clearer limits of validity.
@@ -150,7 +159,39 @@ AIMD/PIMD averaging for anharmonic cases like NaNO₂ near Tc.
    broaden CI beyond smoke/rebuild checks where the newer subprojects still
    need deeper fixtures.
 
-## 5. The `integration/` layer (in progress)
+## 5. The q-space diffusion-diffraction layer (started)
+
+Opportunity #2 is now underway in `PythonSpinDynamics`.
+
+First increment (done):
+
+- `spin_dynamics.workflows.qspace` — ideal q-space analysis helpers:
+  `qspace_axes_from_real_space`, `real_space_axes_from_qspace`,
+  `pore_form_factor_from_density`, `reconstruct_qspace_image`, and
+  `phase_retrieve_qspace_magnitude`.
+- Complex form-factor data invert directly to pore density.
+- Magnitude/intensity-only data invert directly to the pore
+  Patterson/autocorrelation image, with the non-uniqueness made explicit.
+- Support-constrained, non-negative HIO/error-reduction phase retrieval provides
+  a first pore-shape estimate from magnitude-only q-space data.
+- `examples/plot_pgse_qspace_pore_imaging.py` demonstrates the inverse path for
+  a circular pore, including a finite-SNR q-space intensity case (`--snr`) in
+  addition to the ideal response.
+- Tests validate exact complex inversion, intensity-to-autocorrelation behavior,
+  magnitude-only phase retrieval up to shift/reflection ambiguity, and q-axis
+  validation.
+
+Next increments:
+
+- Feed finite-pulse walker/PGSE or PGSTE q-space grids into the inverse layer,
+  so the reconstruction accounts for realistic pulse blurring rather than only
+  ideal short-gradient-pulse form factors.
+- Add non-circular pore examples (ellipse, slit, connected domains) and compare
+  how much shape survives magnitude-only phase retrieval at finite SNR.
+- Add sampling-window and missing-k-space studies, since real q-space pore
+  imaging is often limited more by q-coverage and SNR than by the ideal inverse.
+
+## 6. The `integration/` layer (in progress)
 
 A new top-level package, `mr_integration`, that depends on both
 `spin_dynamics` and `quadrupolar_dft` and reads the NQR SQLite export. It is the
