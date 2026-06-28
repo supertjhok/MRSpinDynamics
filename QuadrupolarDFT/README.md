@@ -102,11 +102,50 @@ the cheap bookkeeping:
 3. `vibrational_modes_from_efg` central-differences the per-job target-nucleus
    EFGs into `VibrationalMode` curvatures for the sweep.
 
+### Relaxing the structure first
+
+A static EFG is only physical at an energy minimum: an unrelaxed geometry leaves
+residual forces that surface as imaginary modes at Gamma and bias the
+equilibrium `eta`. `quadrupolar_dft.relax` adds an optional **stage 0** in front
+of the chain that emits the same artifact the chain already consumes -- a static
+EFG `.abi` at the relaxed geometry -- so nothing downstream changes:
+
+```bash
+# 0a. stage an ionic-relaxation input (internal coordinates, fixed cell)
+python examples/abinit/efg_temperature.py relax \
+    --base examples/abinit/nano2_efg.abi --out runs/nano2_relax
+bash examples/abinit/run_relax_wsl.sh runs/nano2_relax
+#    -> writes runs/nano2_relax/relax.abo (its footer echoes the relaxed geometry)
+
+# 0b. read the relaxed geometry, write a relaxed static EFG input
+python examples/abinit/efg_temperature.py relax-collect \
+    --base examples/abinit/nano2_efg.abi --abo runs/nano2_relax/relax.abo \
+    --out runs/nano2_relax
+#    -> writes runs/nano2_relax/relaxed.abi; pass it as --base to phonon/displace
+```
+
+The relaxed geometry is read from the ABINIT output footer
+(`-outvars: echo values of variables after computation`), the same block abipy
+reads. The cell is held fixed (`optcell 0`): for molecular crystals you usually
+want the geometry relaxed at the experimental cell rather than letting GGA
+over-expand the lattice. Full cell relaxation (the quasi-harmonic
+thermal-expansion path) is a later add. The generated relaxation input is a
+starting template -- verify `tolmxf`/`ntime`/k-mesh against your converged
+settings, exactly as for the DFPT template below.
+
+To compare the relaxed geometry against the unrelaxed one end to end -- running
+both branches with identical settings so only the geometry changes (or reusing an
+existing unrelaxed run via `--reuse-unrelaxed`), and scoring both against the
+measured NaNO2 14N reference -- use the one-command driver
+`examples/abinit/nano2_relaxation_study.sh`; see
+[`examples/abinit/README_relaxation_study.md`](examples/abinit/README_relaxation_study.md).
+
 ### Running the full workflow with ABINIT
 
-`examples/abinit/efg_temperature.py` drives the three stages against real ABINIT
-runs (no synthetic data). Phonon eigenvectors come from an ABINIT DFPT + anaddb
-calculation:
+`examples/abinit/efg_temperature.py` drives the (relaxation plus) three stages
+against real ABINIT runs (no synthetic data). Pass the relaxed `relaxed.abi` as
+`--base` if you ran stage 0. Phonon eigenvectors come from an ABINIT DFPT +
+anaddb calculation:
 
 ```bash
 # 1. stage and run the phonon calculation (ABINIT DFPT + anaddb)
@@ -180,8 +219,12 @@ source is tracked at
   collection (including parsing real ABINIT `.abo` outputs).
 - `src/quadrupolar_dft/abinit_phonon.py` generates the DFPT phonon and anaddb
   inputs and parses phonon eigenvectors into modes.
-- `examples/abinit/efg_temperature.py` is the three-stage CLI (phonon ->
-  displace -> collect); `examples/abinit/run_phonon_wsl.sh` runs the DFPT phonon
+- `src/quadrupolar_dft/relax.py` generates the ionic-relaxation input and parses
+  the relaxed geometry from the ABINIT output footer into a relaxed static EFG
+  input (`relax_input`, `parse_relaxed_structure`, `relaxed_input`).
+- `examples/abinit/efg_temperature.py` is the staged CLI (relax -> phonon ->
+  displace -> collect); `examples/abinit/run_relax_wsl.sh` runs the ionic
+  relaxation (stage 0), `examples/abinit/run_phonon_wsl.sh` runs the DFPT phonon
   calculation plus anaddb, and `examples/abinit/run_finite_displacement_wsl.sh`
   runs ABINIT EFG over the displaced inputs.
 - `examples/parse_abinit_efg.py` shows how to parse an ABINIT output file;
@@ -197,9 +240,11 @@ source is tracked at
 - Add backend-neutral result files with structure, pseudopotential, functional,
   and convergence provenance.
 - Finite-temperature tensor averaging is done end to end and validated on real
-  ABINIT 9.10.4 output: the harmonic average, the finite-displacement driver, and
-  the three-stage DFPT workflow (phonon -> displace -> collect). Next, in order
-  of impact: a structure-relaxation stage (so the geometry is at an energy
-  minimum -- removing imaginary modes and correcting `eta`), then a netCDF/phonopy
-  phonon reader, and AIMD/PIMD snapshot averaging for strongly anharmonic cases
-  such as NaNO2 near its ferroelectric transition.
+  ABINIT 9.10.4 output: the harmonic average, the finite-displacement driver, the
+  three-stage DFPT workflow (phonon -> displace -> collect), and a structure
+  relaxation stage (relax -> relax-collect) that puts the geometry at an energy
+  minimum before the phonon run -- removing imaginary modes and correcting `eta`.
+  Relaxation is internal-coordinates-only (fixed cell) for now. Next, in order of
+  impact: full cell relaxation (`optcell`, for thermal expansion), a
+  netCDF/phonopy phonon reader, and AIMD/PIMD snapshot averaging for strongly
+  anharmonic cases such as NaNO2 near its ferroelectric transition.
