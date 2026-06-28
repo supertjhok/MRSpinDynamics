@@ -266,6 +266,24 @@ class MotionTests(unittest.TestCase):
 
         np.testing.assert_allclose(moved, [[-0.2, 0.0]])
 
+    def test_callable_boundary_can_return_three_dimensional_positions(self) -> None:
+        def reject_positive_x(positions, *, previous_positions=None, **_):
+            pos = np.asarray(positions, dtype=np.float64).copy()
+            bad = pos[:, 0] > 0.0
+            if previous_positions is not None:
+                pos[bad] = previous_positions[bad]
+            return pos
+
+        moved = advect_diffuse_positions(
+            np.array([[-0.1, 0.0, 0.2]], dtype=np.float64),
+            1.0,
+            velocity=np.array([0.3, 0.0, 0.0], dtype=np.float64),
+            bounds=((-1.0, 1.0), (-1.0, 1.0), (-1.0, 1.0)),
+            boundary=reject_positive_x,
+        )
+
+        np.testing.assert_allclose(moved, [[-0.1, 0.0, 0.2]])
+
     def test_make_semipermeable_plane_rejects_invalid_parameters(self) -> None:
         with self.assertRaises(ValueError):
             make_semipermeable_plane(0.0, -1.0)
