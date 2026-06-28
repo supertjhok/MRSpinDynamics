@@ -33,6 +33,12 @@ The repository brings together several related projects:
 - `NQRDatabase/` builds a curated NQR spectra database. It exports SQLite and
   JSONL files, preserves source provenance, links measurements to citations,
   and includes a review workflow for OCR-derived Landolt-Bornstein tables.
+- `integration/` is the cross-project layer (`mr_integration`). It connects the
+  three subprojects into a single predict-simulate-validate loop: it converts
+  ab initio EFG/`C_Q` values into spin-dynamics NQR sites, checks the two
+  Hamiltonian implementations against each other, and compares predicted lines
+  against the measured database. See `docs/roadmap.md` for the workspace-level
+  survey and plan.
 - `References/` is mostly a local, ignored source-material archive used during
   development. Published papers, books, copied reference documents, and large
   source captures should not be committed. The folder does track a small number
