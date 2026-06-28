@@ -1,27 +1,49 @@
 # Performance
 
-The Python port prioritizes MATLAB parity and readable NumPy implementations
-before aggressive acceleration. Performance-sensitive workflows currently use
-vectorized NumPy kernels and, where useful, explicit worker chunking over
-isochromat grids.
+The Python port prioritizes MATLAB parity and readable NumPy implementations,
+then adds acceleration where benchmarks show useful wins. Performance-sensitive
+workflows use vectorized NumPy kernels, explicit worker chunking over isochromat
+grids, and optional Numba/JAX backends for selected large numerical kernels.
 
 ## Benchmark Commands
 
-Install benchmark dependencies with:
+Create or update the persistent development environment before benchmarking:
 
 ```powershell
-python -m pip install -e ".[bench,opt,plot]"
+powershell -ExecutionPolicy Bypass -File scripts\setup_dev_env.ps1
+& ".\.venv-win\Scripts\Activate.ps1"
+python scripts\verify_dev_env.py --strict
 ```
+
+For CUDA-enabled JAX benchmarks, use WSL:
+
+```bash
+JAX_CUDA=13 bash scripts/setup_dev_env_wsl.sh
+source .venv-wsl/bin/activate
+python scripts/verify_dev_env.py --strict --require-jax-gpu
+```
+
+For small GPU smoke runs, set `XLA_PYTHON_CLIENT_PREALLOCATE=false` to avoid
+JAX reserving most of the device memory before the benchmark starts.
 
 Run compact benchmark checks from `PythonSpinDynamics`:
 
 ```powershell
 python -B benchmarks\long_cpmg_workers.py --sizes 1001,4001 --workers 1,2 --num-echoes 64 --repeats 2
 python -B benchmarks\diffusion_high_q_validation.py --q-values 100,1000,2000,2500 --numpts 17 --num-echoes 2
+python examples\porous_rock_cpmg_walkers.py --grid 24 --z-cells 32 --pores 90 --walkers-per-voxel 2 --num-echoes 6 --substeps 2 --benchmark-backends --plot-output .tmp\porous_dt2.png
 ```
 
 Longer benchmark sweeps and historical results are documented in
 `benchmarks/README.md`.
+
+The full porous-rock walker challenge should be run with the JAX backend rather
+than `--benchmark-backends`, because benchmarking all backends would run the
+NumPy path on millions of walkers:
+
+```bash
+XLA_PYTHON_CLIENT_PREALLOCATE=false python examples/porous_rock_cpmg_walkers.py --backend jax --plot-output .tmp/porous_rock_challenge.png --output .tmp/porous_rock_challenge.npz
+```
 
 ## Interpreting Results
 
@@ -46,10 +68,10 @@ validated for compact cases through Q=2000 and warns above that boundary.
 
 ## Acceleration Roadmap
 
-Compiled, JIT, or GPU backends are intentionally deferred until the reference
-coverage is stronger. Good candidates for future acceleration include:
+Numba/JAX backends are opt-in and must stay tied to NumPy-reference parity
+tests and timing baselines. Current and near-term acceleration targets include:
 
 - large finite CPMG echo trains;
 - matched-probe transient response calculations;
 - broad diffusion and imaging sweeps;
-- moving-isochromat sequence simulations.
+- moving-isochromat and voxel-walker sequence simulations.

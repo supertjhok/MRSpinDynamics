@@ -2361,6 +2361,49 @@ time grows. The example
 \code{plot\_pgse\_restricted\_diffusion.py} sweeps several pore widths and
 diffusion times to show both signatures.
 
+\subsection{Large 3D Porous-Rock Walker Challenge}
+
+The example \code{porous\_rock\_cpmg\_walkers.py} is a heavier end-to-end
+stress test for the moving-walker machinery and the optional JAX/Numba walker
+backends. It builds a cylindrical rock-core analogue with a multimodal
+pore-body size distribution, connected throat voxels, constriction-dependent
+tortuosity, surface-relaxation \(T_2\), and a susceptibility-like internal
+\(B_0\) map. The sequence is a CPMG echo train with millions of walkers moving
+through the voxel pore space, rejecting proposed steps into solid voxels.
+
+Before the expensive propagation begins, the script prints geometry-only
+estimates for the expected distributions:
+\[
+  \frac{1}{T_2(\mathbf{r})}
+  =
+  \frac{1}{T_{2,\mathrm{bulk}}}
+  +
+  \frac{3\rho_2}{a_{\mathrm{relax}}(\mathbf{r})},
+  \qquad
+  D(\mathbf{r}) = \frac{D_0}{\tau(\mathbf{r})}.
+\]
+Here \(a_{\mathrm{relax}}\) is reduced near walls and in throats, while
+\(\tau\) increases in constricted regions. The printed percentiles are a useful
+analytical check on the final D-\(T_2\) plot: a healthy large run should not
+collapse to a single \(D,T_2\) point.
+
+The default challenge is intended for CUDA-enabled JAX and writes a four-panel
+verification figure containing a sampled 3D pore structure, the pore-weighted
+D-\(T_2\) histogram, the CPMG decay, and the input pore-size distribution:
+
+\begin{lstlisting}[language=bash]
+XLA_PYTHON_CLIENT_PREALLOCATE=false python examples/porous_rock_cpmg_walkers.py \
+  --backend jax \
+  --plot-output results/porous_rock_challenge.png \
+  --output results/porous_rock_challenge.npz
+\end{lstlisting}
+
+Use \code{--estimate-only} to inspect the pore-space, \(D\), \(T_2\), and rough
+runtime estimates without launching the walker propagation. Use
+\code{--grid}, \code{--z-cells}, \code{--pores}, \code{--walkers-per-voxel},
+\code{--num-echoes}, and \code{--substeps} to scale the calculation down for
+smoke tests or up for production benchmarks.
+
 In a closed two-dimensional pore the restricted signal becomes non-monotonic.
 In the narrow-pulse, long-mixing limit (\(\delta\ll a^2/D\ll\Delta\)) the
 normalized echo approaches the squared magnitude of the pore form factor, the
@@ -3147,6 +3190,7 @@ python examples\probe_parameter_sweeps.py --numpts 101
 python examples\matched_cpmg_ir_train.py --numpts 21 --num-echoes 4 --num-tau 4
 python examples\finite_probe_train_sweeps.py --numpts 21 --num-echoes 3
 python examples\matched_diffusion_cpmg.py --numpts 21 --num-echoes 3
+python examples\porous_rock_cpmg_walkers.py --estimate-only
 python examples\received_signal_noise.py --numpts 51
 python examples\radiation_damping_fid.py --probe matched --points 401
 python examples\radiation_damping_cpmg_train.py --probe tuned --numpts 21 --num-echoes 4
@@ -3182,6 +3226,7 @@ python examples\plot_motion_linear.py --output results\motion_linear.png
 python examples\plot_cpmg_pipe_flow.py --output results\cpmg_pipe_flow.png
 python examples\plot_motion_diffusion_cpmg.py --output results\motion_diffusion_cpmg.png
 python examples\plot_motion_diffusion_udd.py --output results\motion_diffusion_udd.png
+python examples\porous_rock_cpmg_walkers.py --backend jax --plot-output results\porous_rock_challenge.png --output results\porous_rock_challenge.npz
 python examples\plot_radiation_damping.py --output results\radiation_damping.png
 python examples\plot_radiation_damping_detuning.py --output results\rd_detuning.png
 python examples\plot_radiation_damping_cpmg_train.py --output results\rd_cpmg.png

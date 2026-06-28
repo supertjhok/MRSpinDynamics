@@ -9,6 +9,40 @@ Benchmark Python kernels against the active MATLAB benchmark suite:
 Start with correctness-oriented tiny cases. Add timing comparisons only after
 the NumPy implementation reproduces MATLAB output within agreed tolerances.
 
+## Environment
+
+Run benchmarks from the persistent PythonSpinDynamics development environment,
+not from whichever `python` happens to be first on `PATH`:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\setup_dev_env.ps1
+& ".\.venv-win\Scripts\Activate.ps1"
+python scripts\verify_dev_env.py --strict
+```
+
+For WSL benchmarking, use `Ubuntu-24.04` and the WSL setup script:
+
+```bash
+bash scripts/setup_dev_env_wsl.sh
+source .venv-wsl/bin/activate
+python scripts/verify_dev_env.py --strict
+```
+
+For CUDA-enabled JAX benchmarking in WSL:
+
+```bash
+JAX_CUDA=13 bash scripts/setup_dev_env_wsl.sh
+source .venv-wsl/bin/activate
+python scripts/verify_dev_env.py --strict --require-jax-gpu
+```
+
+For small GPU smoke runs on memory-limited cards, set
+`XLA_PYTHON_CLIENT_PREALLOCATE=false` so JAX does not reserve most device
+memory up front.
+
+Save the verifier output with curated timing results so NumPy/SciPy, Numba,
+JAX, `jaxlib`, and device differences are visible.
+
 ## Benchmark Policy
 
 Benchmarks serve two different purposes in this repository:
@@ -36,6 +70,7 @@ Recommended quick checks:
 ```powershell
 python -B benchmarks\long_cpmg_workers.py --sizes 1001,4001 --workers 1,2 --num-echoes 64 --repeats 2
 python -B benchmarks\diffusion_high_q_validation.py --q-values 100,1000,2000,2500 --numpts 17 --num-echoes 2
+python examples\porous_rock_cpmg_walkers.py --grid 24 --z-cells 32 --pores 90 --walkers-per-voxel 2 --num-echoes 6 --substeps 2 --benchmark-backends --plot-output .tmp\porous_dt2.png
 ```
 
 ## Long CPMG Isochromat Worker Sweep

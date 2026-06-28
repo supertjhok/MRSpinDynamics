@@ -23,7 +23,7 @@ from spin_dynamics.fields.interpolate import dlinear_sample as _dlinear_sample
 BoundaryMode = Literal["reflect", "periodic", "clip"]
 BoundaryFn = Callable[..., np.ndarray]
 # A boundary is either one of the rectangular-box modes or a callable that maps
-# ``(num_particles, 2)`` positions to confined positions. Context-aware
+# ``(num_particles, ndim)`` positions to confined positions. Context-aware
 # callables may also accept ``previous_positions``, ``dt``, ``rng``, ``time``,
 # and ``bounds`` keyword arguments.
 Boundary = BoundaryMode | BoundaryFn
@@ -713,7 +713,7 @@ def apply_boundary(
 
     pos = _positions_nd(positions).copy()
     if callable(mode):
-        return _positions2d(
+        return _positions_nd(
             _call_boundary(
                 mode,
                 pos,
@@ -722,7 +722,8 @@ def apply_boundary(
                 rng=rng,
                 time=time,
                 dt=dt,
-            )
+            ),
+            pos.shape[1],
         )
     for dim, (lower, upper) in enumerate(bounds):
         lo = float(lower)

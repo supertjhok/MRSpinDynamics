@@ -72,31 +72,54 @@ Python 3.10 or newer is required. The core package depends on NumPy and does
 not require MATLAB at runtime. MATLAB is only needed when regenerating the full
 MATLAB reference fixture set.
 
-From this directory:
+For development, examples, plotting, and benchmarking, use the repo-owned setup
+scripts from this directory. They create a persistent OS-specific virtual
+environment, install the package in editable mode, and verify the optional
+numerical stack:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\setup_dev_env.ps1
+& ".\.venv-win\Scripts\Activate.ps1"
+python scripts\verify_dev_env.py --strict
+```
+
+On WSL/Ubuntu:
+
+```bash
+bash scripts/setup_dev_env_wsl.sh
+source .venv-wsl/bin/activate
+python scripts/verify_dev_env.py --strict
+```
+
+For NVIDIA GPU JAX benchmarking in WSL:
+
+```bash
+JAX_CUDA=13 bash scripts/setup_dev_env_wsl.sh
+source .venv-wsl/bin/activate
+python scripts/verify_dev_env.py --strict --require-jax-gpu
+```
+
+The setup scripts install `.[dev,opt,plot,perf,bench]` by default:
+
+- `opt` installs SciPy-backed optimization and inverse-Laplace tools.
+- `plot` installs Matplotlib and Pillow for plotting examples.
+- `dev` installs test and lint tooling.
+- `perf` installs Numba and JAX for accelerated numerical backends.
+- `bench` installs benchmark tooling.
+
+CUDA-enabled JAX is installed separately by the WSL setup script when
+`JAX_CUDA=13` or `JAX_CUDA=12` is set, because those `jaxlib` wheels are
+Linux/driver-specific.
+
+For a minimal runtime-only editable install:
 
 ```powershell
 python -m pip install -e .
 ```
 
-Optional extras:
-
-```powershell
-python -m pip install -e ".[opt,plot,dev]"
-```
-
-- `opt` installs SciPy-backed optimization and inverse-Laplace tools.
-- `plot` installs Matplotlib and Pillow for plotting examples.
-- `dev` installs test and lint tooling.
-- `bench` installs benchmark tooling.
-
-For day-to-day development, install the common extras:
-
-```powershell
-python -m pip install -e ".[dev,opt,plot,bench]"
-```
-
-On Windows, an environment outside a OneDrive-synced checkout can reduce
-file-lock and sync overhead.
+If OneDrive file locking or WSL `/mnt/c` performance becomes a problem, keep
+the source tree here and pass an external virtual-environment path to the same
+setup scripts. See `docs/development_environment.md` for the full workflow.
 
 ## Quick Start
 
@@ -166,6 +189,8 @@ python examples\ideal_fid.py --numpts 101
 python examples\plot_ideal_workflows.py --numpts 201 --output results\ideal_workflows.png
 python examples\plot_inverse_laplace.py --output results\inverse_laplace.png
 python examples\plot_pgse_d_t2.py --output results\pgse_d_t2.png
+python examples\porous_rock_cpmg_walkers.py --estimate-only
+python examples\porous_rock_cpmg_walkers.py --backend jax --plot-output results\porous_rock_challenge.png --output results\porous_rock_challenge.npz
 python examples\plot_nqr_powder_nutation.py --output results\nqr_powder_nutation.png
 python examples\plot_nqr_population_transfer.py --output results\nqr_population_transfer.png
 python examples\plot_esr_powder_spectrum.py --output results\esr_powder_spectrum.png

@@ -49,6 +49,14 @@ Each subproject has its own README or documentation folder with setup and usage
 details. Start with `PythonSpinDynamics/` for simulation work, `QuadrupolarDFT/`
 for ab initio tensor analysis, and `NQRDatabase/` for spectra data.
 
+For PythonSpinDynamics development and benchmarking, use the persistent
+virtual-environment setup documented in
+[`PythonSpinDynamics/docs/development_environment.md`](PythonSpinDynamics/docs/development_environment.md).
+The package also provides `PythonSpinDynamics/scripts/setup_dev_env.ps1` and
+`PythonSpinDynamics/scripts/setup_dev_env_wsl.sh` so Windows and WSL runs use a
+repeatable dependency stack. The WSL setup script also supports CUDA-enabled
+JAX installation for GPU benchmarks with `JAX_CUDA=13`.
+
 ## NQR Database Sources
 
 The `NQRDatabase/` subproject currently imports or stages data from these local
