@@ -28,7 +28,7 @@ from spin_dynamics.core.kernels import (  # noqa: E402
     set_arb10_backend,
     sim_spin_dynamics_arb10,
 )
-from spin_dynamics.core.rotations import MatrixElements, rf_matrix_elements  # noqa: E402
+from spin_dynamics.core.rotations import rf_matrix_elements  # noqa: E402
 
 
 def _tiny_arb10_params(numpts: int = 9) -> dict:
