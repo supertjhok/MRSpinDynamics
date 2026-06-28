@@ -2,3 +2,10 @@ runs/
 __pycache__/
 *.pyc
 src/*.egg-info/
+.ruff_cache/
+
+# LaTeX build artifacts (keep user_manual.tex and user_manual.pdf)
+docs/*.aux
+docs/*.log
+docs/*.out
+docs/*.toc

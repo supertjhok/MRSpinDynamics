@@ -80,7 +80,8 @@ package — see section 6.
 - `version = "0.0.0"`, "Development Status :: 3 - Alpha", not on PyPI, no
   published API-docs site (the `generate_api_reference.py` + MkDocs scaffolding
   is half-built). This is the limiting factor on adoption/citation; a JOSS
-  paper is realistic given the validation depth.
+  paper is realistic given the validation depth. A detailed beta/PyPI/MkDocs
+  release plan now lives in `docs/publishing_plan.md`.
 - The Python user manual has been reorganized around model boundaries,
   relaxation levels of description, and workflow guides, but there is still no
   hosted documentation site that ties the manual, API reference, examples, and
@@ -152,7 +153,8 @@ AIMD/PIMD averaging for anharmonic cases like NaNO₂ near Tc.
    data, convergence checks, and clearer limits of validity.
 4. **JAX/Numba isochromat backend** — unlocks speed *and* autodiff pulse
    optimization. Highest engineering payoff.
-5. **Publish.** Version bump → PyPI → MkDocs site → JOSS.
+5. **Publish.** Version bump → PyPI → MkDocs site → JOSS. Detailed plan:
+   `docs/publishing_plan.md`.
 6. **Database enrichment from DFT** — a "predicted vs measured" column in the
    NQR explorer UI. Visually striking, directly useful.
 7. **Repo hygiene** — gitignore ABINIT binaries, add coverage reporting, and

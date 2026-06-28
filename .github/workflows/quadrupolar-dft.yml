@@ -1,0 +1,56 @@
+name: QuadrupolarDFT
+
+on:
+  push:
+    paths:
+      - ".github/workflows/quadrupolar-dft.yml"
+      - "QuadrupolarDFT/src/**"
+      - "QuadrupolarDFT/tests/**"
+      - "QuadrupolarDFT/examples/**"
+      - "QuadrupolarDFT/pyproject.toml"
+  pull_request:
+    paths:
+      - ".github/workflows/quadrupolar-dft.yml"
+      - "QuadrupolarDFT/src/**"
+      - "QuadrupolarDFT/tests/**"
+      - "QuadrupolarDFT/examples/**"
+      - "QuadrupolarDFT/pyproject.toml"
+
+defaults:
+  run:
+    working-directory: QuadrupolarDFT
+
+jobs:
+  test:
+    name: Tests (py${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: QuadrupolarDFT/pyproject.toml
+      - name: Install package
+        run: python -m pip install -e ".[dev]"
+      - name: Lint
+        run: python -m ruff check src tests examples
+      - name: Unit tests
+        run: python -m unittest discover -s tests
+      - name: Finite-temperature example
+        run: python examples/nano2_temperature_efg.py
+      - name: Finite-displacement workflow example
+        run: python examples/finite_displacement_workflow.py
+      - name: Finite-displacement CLI staging (no ABINIT)
+        run: |
+          python examples/abinit/efg_temperature.py phonon \
+            --base examples/abinit/nano2_efg.abi --out /tmp/ph
+          python -c "import json,numpy as np; d=np.zeros((1,8,3)); d[0,2,1]=1; d[0,3,1]=-1; json.dump({'wavenumbers_cm_inv':[150.0],'eigendisplacements':d.tolist()}, open('/tmp/modes.json','w'))"
+          python examples/abinit/efg_temperature.py displace \
+            --base examples/abinit/nano2_efg.abi --modes /tmp/modes.json \
+            --target 2 --out /tmp/disp

@@ -1,0 +1,480 @@
+\documentclass[11pt,oneside]{report}
+
+\usepackage[margin=0.95in,headheight=24pt]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{listings}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage[protrusion=true,expansion=false]{microtype}
+
+\definecolor{Ink}{HTML}{1B2430}
+\definecolor{Muted}{HTML}{5B6472}
+\definecolor{Accent}{HTML}{0077B6}
+\definecolor{AccentTwo}{HTML}{D95F02}
+\definecolor{Soft}{HTML}{F5F7FA}
+
+\renewcommand{\familydefault}{\sfdefault}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt}
+\setlist{itemsep=2pt,topsep=4pt}
+
+\hypersetup{colorlinks=true,linkcolor=Accent,urlcolor=Accent,citecolor=Accent}
+
+\lstdefinestyle{shellstyle}{
+  basicstyle=\ttfamily\small,
+  backgroundcolor=\color{Soft},
+  columns=fullflexible,
+  keepspaces=true,
+  breaklines=true,
+  frame=leftline,
+  framerule=2pt,
+  rulecolor=\color{Accent},
+  xleftmargin=0.8em,
+  framesep=0.6em,
+  showstringspaces=false
+}
+\lstset{style=shellstyle}
+\newcommand{\code}[1]{\texttt{\small #1}}
+
+\titleformat{\chapter}[block]
+  {\huge\bfseries\color{Ink}}{\color{Accent}\thechapter}{0.75em}{}
+\titlespacing*{\chapter}{0pt}{-0.15in}{1.1em}
+\titleformat{\section}{\Large\bfseries\color{Ink}}{\thesection}{0.6em}{}
+\titleformat{\subsection}{\large\bfseries\color{Ink}}{\thesubsection}{0.6em}{}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{\textcolor{Muted}{QuadrupolarDFT}}
+\rhead{\textcolor{Muted}{User Manual}}
+\cfoot{\textcolor{Muted}{\thepage}}
+\renewcommand{\headrulewidth}{0.3pt}
+
+\newcommand{\Cq}{C_{\mathrm{Q}}}
+\newcommand{\Vzz}{V_{zz}}
+
+\begin{document}
+\pagenumbering{gobble}
+\begin{titlepage}
+\pagecolor{Soft}
+\color{Ink}
+\vspace*{1.1in}
+{\Huge\bfseries QuadrupolarDFT\par}
+\vspace{0.25in}
+{\Large User Manual\par}
+\vspace{0.12in}
+{\large Ab initio electric-field gradients and finite-temperature NQR parameters\par}
+\vspace{0.45in}
+{\color{Accent}\rule{0.82\linewidth}{3pt}\par}
+\vspace{0.35in}
+\begin{minipage}{0.80\linewidth}
+\large
+QuadrupolarDFT is the electric-field-gradient (EFG) workspace within the
+MRSpinDynamics repository. It converts first-principles EFG tensors into nuclear
+quadrupolar coupling constants, asymmetry parameters, and zero-field NQR
+transition frequencies, and corrects those 0\,K static quantities to a finite
+temperature through harmonic vibrational averaging driven by a finite-displacement
+ABINIT DFPT workflow.
+\end{minipage}
+\vfill
+{\large MRSpinDynamics project \textbullet{} June 2026\par}
+\end{titlepage}
+\nopagecolor
+\clearpage
+\pagenumbering{roman}
+\tableofcontents
+\clearpage
+\pagenumbering{arabic}
+
+% =====================================================================
+\chapter{Scope and Physical Background}
+
+QuadrupolarDFT addresses one link in the magnetic-resonance modelling chain: it
+turns an \emph{ab initio} electronic-structure result into the parameters that
+control a nuclear quadrupole resonance (NQR) experiment.
+
+A nucleus with spin $I \geq 1$ carries an electric quadrupole moment $Q$ that
+couples to the electric-field-gradient (EFG) tensor $V_{ij} = \partial^2
+V/\partial x_i \partial x_j$ produced by the surrounding charge distribution. The
+EFG is symmetric and, away from the nucleus, traceless (Laplace's equation), so
+in its principal-axis system it is described by two numbers: the largest-magnitude
+component $\Vzz$ and the asymmetry parameter
+\begin{equation}
+\eta = \frac{V_{xx} - V_{yy}}{\Vzz}, \qquad |\Vzz| \geq |V_{yy}| \geq |V_{xx}|,
+\qquad 0 \leq \eta \leq 1 .
+\end{equation}
+The quadrupolar coupling constant follows from $\Vzz$ and the nuclear quadrupole
+moment,
+\begin{equation}
+\Cq = \frac{e\,Q\,\Vzz}{h},
+\label{eq:cq}
+\end{equation}
+and the zero-field NQR transition frequencies follow from $\Cq$, $\eta$ and the
+spin $I$ by diagonalizing the quadrupole Hamiltonian
+\begin{equation}
+\frac{H_{\mathrm Q}}{h} = \frac{\Cq}{4 I (2I-1)}
+  \left[\,3 I_z^2 - I(I+1) + \eta\,(I_x^2 - I_y^2)\,\right].
+\label{eq:hq}
+\end{equation}
+For spin $I=1$ (e.g.\ $^{14}$N) this gives the familiar triplet
+\begin{equation}
+\nu_{\pm} = \tfrac{3}{4}\Cq\left(1 \pm \tfrac{\eta}{3}\right), \qquad
+\nu_{0} = \nu_{+} - \nu_{-} = \tfrac{1}{2}\Cq\,\eta .
+\label{eq:spin1}
+\end{equation}
+
+\section{Why a finite-temperature correction is needed}
+
+A static DFT calculation evaluates $V_{ij}$ at a single, fixed nuclear
+configuration at $0$\,K. Measured NQR frequencies, however, are taken at finite
+temperature and are strongly temperature dependent: in molecular crystals the
+lines typically \emph{fall} as temperature rises (the Bayer law). Two physically
+distinct effects separate the static DFT number from the measurement:
+
+\begin{enumerate}
+  \item \textbf{Thermal expansion / geometry.} The lattice constants and internal
+    coordinates at temperature $T$ differ from the relaxed $0$\,K cell. This is a
+    static effect: it is captured by evaluating the EFG on a
+    temperature-appropriate structure.
+  \item \textbf{Vibrational averaging.} The nucleus samples a thermal
+    distribution of positions through the phonons. The measured EFG is the tensor
+    averaged over that motion, including zero-point motion, which is present even
+    at $0$\,K. For molecular crystals this dynamic term usually dominates:
+    low-frequency librations reorient the EFG principal axes and reduce the line
+    frequencies.
+\end{enumerate}
+
+QuadrupolarDFT provides the static layer (Chapter~\ref{ch:static}) and a harmonic
+treatment of the vibrational term (Chapters~\ref{ch:finiteT}--\ref{ch:workflow}).
+
+% =====================================================================
+\chapter{Installation and Conventions}
+
+\section{Installation}
+
+The package depends only on NumPy. From the \code{QuadrupolarDFT/} directory:
+\begin{lstlisting}
+python -m pip install -e .
+python -m pip install -e ".[dev]"     # adds ruff for linting
+python -m unittest discover -s tests
+\end{lstlisting}
+On a system whose Python is externally managed (PEP~668), the package can also be
+used without installation by setting \code{PYTHONPATH} to the \code{src/}
+directory, since NumPy is the only requirement:
+\begin{lstlisting}
+export PYTHONPATH="$PWD/src"
+python3 examples/abinit/efg_temperature.py --help
+\end{lstlisting}
+
+\section{Tensor and unit conventions}
+
+\code{EFGTensor} stores the symmetric tensor in SI units (V/m$^2$) and sorts the
+principal components as $|\Vzz| \geq |V_{yy}| \geq |V_{xx}|$. It accepts input in
+ABINIT atomic units (the default), in SI, or in the $10^{21}$\,V/m$^2$ scale, and
+exposes \code{vzz\_si} and \code{eta}. Tensor averaging
+(\code{average\_tensors}) operates on the tensor components and only then
+diagonalizes the result, so that asymmetry information survives the average.
+
+\section{Link to the spin-dynamics simulator}
+
+The companion \code{spin\_dynamics} package parameterizes a quadrupolar site by
+its $\eta=0$ transition frequency $\nu_{\mathrm Q}$. This is related to $\Cq$ by
+the prefactor of Eq.~\eqref{eq:hq}:
+\begin{equation}
+\nu_{\mathrm Q} = \Cq \cdot \frac{d}{4 I (2I-1)} =
+\begin{cases}
+\tfrac{3}{4}\,\Cq & I = 1, \\[4pt]
+\tfrac{1}{2}\,\Cq & I = \tfrac{3}{2},
+\end{cases}
+\end{equation}
+with $d = 3$ for spin~1 and $d = 6$ for spin~3/2. The cross-project
+\code{mr\_integration} layer uses this mapping to feed DFT parameters into the
+simulator and to compare predictions against the measured NQR database.
+
+% =====================================================================
+\chapter{Static EFG Workflow}
+\label{ch:static}
+
+The static path produces $\Cq$, $\eta$ and the NQR lines from an ABINIT EFG
+calculation.
+
+\begin{enumerate}
+  \item \code{format\_abinit\_efg\_block} emits the \code{nucefg}/\code{quadmom}
+    input lines that request an EFG calculation (PAW datasets are required;
+    norm-conserving pseudopotentials are not suitable).
+  \item ABINIT is run on the input (see \code{examples/abinit/run\_nano2\_efg\_wsl.sh}).
+  \item \code{parse\_abinit\_efg} parses the \code{Electric Field Gradient
+    Calculation} blocks of the output into \code{AbinitEFGRecord} objects, one per
+    atom, carrying $\Cq$, $\eta$, the principal values/axes, and the total EFG
+    tensor.
+  \item \code{coupling\_constant\_hz} and \code{nqr\_frequencies\_hz} convert a
+    tensor and a nuclear quadrupole moment into $\Cq$ and the unique zero-field
+    transition frequencies (Eqs.~\eqref{eq:cq}--\eqref{eq:hq}).
+\end{enumerate}
+
+\code{examples/parse\_abinit\_efg.py} demonstrates parsing an output file. The EFG
+components, not the total energy, must be converged against \code{ecut},
+\code{pawecutdg} and the $k$-point mesh.
+
+% =====================================================================
+\chapter{Finite-Temperature EFG}
+\label{ch:finiteT}
+
+\section{Harmonic vibrational averaging}
+
+Expanding the EFG tensor to second order in the mass-weighted phonon normal
+coordinates $Q_k$ and averaging over the harmonic distribution gives
+\begin{equation}
+\langle V_{ij}\rangle(T) = V_{ij}^{\mathrm{eq}}
+  + \tfrac{1}{2}\sum_k \frac{\partial^2 V_{ij}}{\partial Q_k^2}\,
+  \langle Q_k^2\rangle(T),
+\label{eq:avg}
+\end{equation}
+where the mean-square amplitude of mode $k$ (angular frequency $\omega_k$) is
+\begin{equation}
+\langle Q_k^2\rangle(T) = \frac{\hbar}{2\omega_k}
+  \coth\!\left(\frac{\hbar\omega_k}{2 k_{\mathrm B} T}\right).
+\label{eq:q2}
+\end{equation}
+The $\coth$ factor equals $2 n(\omega_k,T) + 1$ with $n$ the Bose--Einstein
+occupation. It tends to $1$ as $T\to 0$ (pure zero-point motion --- which is why
+the static EFG is never exactly what is measured) and to
+$2 k_{\mathrm B} T / \hbar\omega_k$ in the classical high-temperature limit. These
+quantities live in \code{quadrupolar\_dft.thermal}.
+
+\textbf{Tensor-frame averaging.} The average in Eq.~\eqref{eq:avg} is taken on the
+tensor components in a fixed crystal frame; the result is diagonalized only
+afterwards. Librational motion reorients the principal-axis system, so averaging
+$\Vzz$ or $\eta$ directly would discard exactly that effect. As a consequence
+$\eta$ is itself temperature dependent. \code{thermally\_averaged\_efg} performs
+the average and removes any residual trace (the EFG is traceless by Laplace's
+equation; the finite-difference curvatures of Section~\ref{sec:fd} amplify
+rounding noise into a spurious trace, which is projected out).
+\code{efg\_temperature\_sweep} returns $\Cq(T)$, $\eta(T)$ and the lines at each
+requested temperature.
+
+\section{The analytic Bayer limit}
+
+Where per-mode EFG curvatures are not available, the temperature \emph{form} can
+be validated directly against a measured line series with the single-libration
+Bayer--Kushida model
+\begin{equation}
+\nu(T) = \nu_0\left[1 - a\,\coth\!\left(\frac{\hbar\omega}{2 k_{\mathrm B}T}\right)\right],
+\label{eq:bayer}
+\end{equation}
+where $a$ is a small dimensionless librational amplitude.
+\code{fit\_bayer\_single\_mode} fits $(\nu_0, a, \omega)$ to measured $\nu(T)$
+data with a NumPy-only routine: for a fixed $\omega$ the model is linear in
+$\nu_0$ and $\nu_0 a$, so a grid scan over $\omega$ with a linear least-squares
+solve at each point suffices.
+
+% =====================================================================
+\chapter{The DFPT Finite-Displacement Workflow}
+\label{ch:workflow}
+
+The mode curvatures $\partial^2 V_{ij}/\partial Q_k^2$ in Eq.~\eqref{eq:avg} come
+from displacing the structure along each phonon mode and recomputing the EFG.
+Because the DFT runs are expensive and run outside the package, the workflow
+separates into three stages with a calculation between each. The CLI
+\code{examples/abinit/efg\_temperature.py} drives all three.
+
+\section{Normal-coordinate convention}
+\label{sec:fd}
+
+A phonon eigenvector $\boldsymbol\varepsilon_k$ is mass-weighted and normalized
+($\sum |\varepsilon_k|^2 = 1$). A normal-coordinate step $\delta Q$ displaces atom
+$i$ (mass $m_i$) by
+\begin{equation}
+\Delta \mathbf r_i = \delta Q\, \frac{\boldsymbol\varepsilon_{k,i}}{\sqrt{m_i}},
+\end{equation}
+and the curvature is the central difference of the EFG tensors at $0, \pm\delta Q$,
+\begin{equation}
+\frac{\partial^2 V_{ij}}{\partial Q_k^2} \approx
+  \frac{V_{ij}(+\delta Q) - 2 V_{ij}(0) + V_{ij}(-\delta Q)}{\delta Q^2}.
+\end{equation}
+These units are consistent with $\langle Q_k^2\rangle$ from Eq.~\eqref{eq:q2}, so
+the product in Eq.~\eqref{eq:avg} is an EFG.
+\code{normal\_coordinate\_step\_si} chooses $\delta Q$ from a target maximum
+Cartesian displacement (default $0.05$\,\AA).
+
+\section{Stage 1 --- phonons}
+
+\code{efg\_temperature.py phonon} writes a two-dataset ABINIT input (ground state
+plus a $\Gamma$-point DFPT response) and the matching anaddb input, derived from a
+converged static EFG input. \code{run\_phonon\_wsl.sh} runs ABINIT, selects the
+DFPT derivative database (the largest \code{*\_DDB}), and runs anaddb to produce
+the phonon frequencies and eigenvectors.
+
+\begin{lstlisting}
+python3 examples/abinit/efg_temperature.py phonon \
+    --base examples/abinit/nano2_efg.abi --out runs/nano2_ph
+bash examples/abinit/run_phonon_wsl.sh runs/nano2_ph
+\end{lstlisting}
+
+The generated DFPT input is a starting template. Two settings are required for
+PAW~+~GGA phonons and are emitted automatically: \code{iscf2 7} (the response
+driver requires \code{iscf}~$\leq 9$) and \code{pawxcdev 0} (the GGA exchange
+correlation kernel is not implemented in the development scheme). Converge the
+tolerances and $k$-mesh for production use.
+
+\section{Stage 2 --- displaced EFG runs}
+
+\code{efg\_temperature.py displace} parses the anaddb eigenvectors
+(\code{parse\_anaddb\_modes}; acoustic and imaginary modes are dropped, and modes
+are paired with frequencies by mode number so that gaps in the eigenvector output
+do not misalign them), generates one displaced EFG input per $\pm$ mode plus a
+manifest, and writes positions as fractional \code{xred} coordinates.
+\code{run\_finite\_displacement\_wsl.sh} runs ABINIT on every input.
+
+\begin{lstlisting}
+python3 examples/abinit/efg_temperature.py displace \
+    --base examples/abinit/nano2_efg.abi --anaddb runs/nano2_ph/anaddb.out \
+    --target 2 --max-modes 6 --out runs/nano2_disp
+bash examples/abinit/run_finite_displacement_wsl.sh runs/nano2_disp
+\end{lstlisting}
+
+\code{--target} is the $0$-based index of the resonant nucleus; \code{--max-modes}
+restricts the calculation to the lowest-frequency librations, which dominate the
+temperature dependence. If the anaddb eigenvector layout differs from the parser's
+expectation, \code{--modes modes.json} supplies frequencies and eigenvectors
+directly.
+
+\section{Stage 3 --- collect}
+
+\code{efg\_temperature.py collect} parses the displaced EFG outputs, central
+differences the mode curvatures, runs the temperature sweep, and reports
+$\Cq(T)$, $\eta(T)$, the lines, and $\mathrm d\nu/\mathrm dT$.
+
+\begin{lstlisting}
+python3 examples/abinit/efg_temperature.py collect \
+    --workdir runs/nano2_disp --temperatures 0,77,150,300 --quadmom 0.02044
+\end{lstlisting}
+
+% =====================================================================
+\chapter{Worked Example: NaNO$_2$ $^{14}$N}
+
+Sodium nitrite is the reference case for the workspace: its $^{14}$N parameters
+appear in the DFT runs, the spin-dynamics simulator, and the measured NQR
+database. A six-mode finite-displacement calculation on the starter geometry
+produces the temperature dependence in Table~\ref{tab:nano2}.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{rrrl}
+\toprule
+$T$ (K) & $\Cq$ (MHz) & $\eta$ & lines (MHz) \\
+\midrule
+static & $-5.173$ & $0.043$ & 0.11, 3.82, 3.94 \\
+0   & $-4.963$ & $0.016$ & 0.04, 3.70, 3.74 \\
+77  & $-4.927$ & $0.014$ & 0.03, 3.68, 3.71 \\
+150 & $-4.816$ & $0.002$ & 0.00, 3.61, 3.61 \\
+300 & $-4.534$ & $0.033$ & 0.08, 3.36, 3.44 \\
+\bottomrule
+\end{tabular}
+\caption{Finite-temperature $^{14}$N EFG of NaNO$_2$ from a six-mode harmonic
+average on the starter geometry. The slope of the two strong lines is
+$\mathrm d\nu/\mathrm dT \approx -1.0$ to $-1.1$\,kHz/K over $0$--$300$\,K.}
+\label{tab:nano2}
+\end{table}
+
+The result reproduces the expected physics with no fitting: $|\Cq|$ and the lines
+decrease smoothly with temperature (the Bayer sign), the $0$\,K value already lies
+below the static one by about $4\%$ (zero-point motion), and $\eta$ shifts with
+temperature. The slope, $\sim -1.0$\,kHz/K, has the correct sign and order of
+magnitude relative to the measured coefficients of $-1.3$\,kHz/K ($\nu_-$) and
+$-2.2$\,kHz/K ($\nu_+$).
+
+\textbf{Caveat.} The starter geometry is unrelaxed: its static $\eta = 0.04$
+disagrees with the experimental $0.38$, the two strong lines come out
+near-degenerate ($\sim 3.7$\,MHz) rather than well split ($3.60$/$4.64$\,MHz), and
+the phonon spectrum contains imaginary modes. The pipeline is therefore validated
+as physically sensible, but quantitative agreement requires relaxing the structure
+to an energy minimum first.
+
+% =====================================================================
+\chapter{Validation Against the Measured Database}
+
+The cross-project \code{mr\_integration} layer closes the loop against the
+NQRDatabase. \code{measured\_temperature\_coefficients} reads the stored
+$\mathrm d\nu/\mathrm dT$ for a compound and isotope;
+\code{compare\_temperature\_coefficients} matches a predicted set of
+$(\text{frequency}, \mathrm d\nu/\mathrm dT)$ pairs --- from either a
+\code{efg\_temperature\_sweep} (via \code{slopes\_from\_temperature\_points}) or a
+Bayer fit --- to the measured coefficients by frequency, so that a DFT temperature
+dependence can be checked against experiment. The same layer also validates the
+static $(\Cq,\eta)$ against measured line positions and supplies the
+$\Cq \leftrightarrow \nu_{\mathrm Q}$ conversion used by the simulator.
+
+% =====================================================================
+\chapter{Public API Reference}
+
+\section{quadrupolar\_dft.tensors / quadrupolar / abinit}
+\begin{itemize}
+  \item \code{EFGTensor}, \code{average\_tensors} --- tensor conventions and
+    frame-correct averaging.
+  \item \code{coupling\_constant\_hz}, \code{nqr\_frequencies\_hz} --- $\Cq$ and
+    zero-field transition frequencies.
+  \item \code{AbinitEFGRecord}, \code{parse\_abinit\_efg},
+    \code{format\_abinit\_efg\_block} --- ABINIT EFG input/output.
+\end{itemize}
+
+\section{quadrupolar\_dft.thermal}
+\begin{itemize}
+  \item \code{thermal\_quantum\_factor}, \code{bose\_occupation},
+    \code{mean\_square\_normal\_coordinate}, \code{wavenumber\_to\_angular\_frequency}.
+\end{itemize}
+
+\section{quadrupolar\_dft.vibrational}
+\begin{itemize}
+  \item \code{VibrationalMode}, \code{efg\_curvature\_central\_difference},
+    \code{thermally\_averaged\_efg}, \code{efg\_temperature\_sweep},
+    \code{ThermalEFGPoint}.
+  \item \code{bayer\_frequency}, \code{bayer\_slope\_hz\_per\_k},
+    \code{fit\_bayer\_single\_mode}, \code{BayerFit}.
+\end{itemize}
+
+\section{quadrupolar\_dft.finite\_displacement / abinit\_phonon}
+\begin{itemize}
+  \item \code{Crystal}, \code{PhononMode}, \code{parse\_abinit\_structure},
+    \code{generate\_displacement\_jobs}, \code{abinit\_input\_with\_positions},
+    \code{write\_jobs}.
+  \item \code{collect\_efg\_outputs}, \code{vibrational\_modes\_from\_collected},
+    \code{vibrational\_modes\_from\_efg}, \code{efg\_tensor\_from\_record}.
+  \item \code{phonon\_dfpt\_input}, \code{anaddb\_input},
+    \code{parse\_anaddb\_modes}, \code{modes\_from\_arrays}.
+\end{itemize}
+
+% =====================================================================
+\chapter{Limitations and Roadmap}
+
+\textbf{Current limitations.}
+\begin{itemize}
+  \item The $\Cq \leftrightarrow \nu_{\mathrm Q}$ scale and several helpers are
+    calibrated for spin~1 and spin~3/2; higher half-integer spins are not yet
+    handled by the simulator-facing conversion.
+  \item The generated DFPT input is a template; PAW DFPT settings, tolerances and
+    $k$-mesh must be checked for production accuracy.
+  \item The anaddb eigenvector parser targets ABINIT~9.x text output; a
+    \code{--modes} JSON escape hatch covers other layouts.
+  \item Finite-difference curvatures use the printed EFG precision; large
+    displacement amplitudes or extra output digits improve the second derivative.
+\end{itemize}
+
+\textbf{Roadmap.}
+\begin{itemize}
+  \item A structure-relaxation stage so the geometry sits at an energy minimum
+    (removing imaginary modes and correcting $\eta$), the main step toward
+    quantitative agreement.
+  \item A quasi-harmonic thermal-expansion path and AIMD/PIMD snapshot averaging
+    for strongly anharmonic systems such as NaNO$_2$ near its ferroelectric
+    transition.
+  \item A netCDF / phonopy phonon reader to complement the anaddb text parser.
+\end{itemize}
+
+\end{document}
