@@ -16,6 +16,9 @@
 # efg_temperature.py displace --modes modes.json.
 set -uo pipefail
 
+# Shared MPI-launch helpers (resolve the path before any cd).
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/abinit_parallel.sh"
+
 workdir="${1:-}"
 if [[ -z "$workdir" ]]; then
   echo "usage: run_phonon_wsl.sh <workdir> [--dry-run]" >&2
@@ -42,6 +45,8 @@ if ! command -v abinit >/dev/null 2>&1; then
   exit 1
 fi
 export ABI_PSPDIR="${ABI_PSPDIR:-/usr/share/abinit/psp}"
+# anaddb is always run serially below -- it is cheap and its MPI path is
+# version-sensitive; only the ABINIT DFPT step honors ABINIT_NP.
 
 if (( ! anaddb_only )); then
   if [[ ! -f phonon.abi ]]; then
@@ -49,11 +54,13 @@ if (( ! anaddb_only )); then
     echo "  Stage it first: efg_temperature.py phonon --base <static>.abi --out $workdir" >&2
     exit 1
   fi
+  # Resolve the launch command (serial, or MPI per ABINIT_NP=<N>|auto).
+  abinit_build_cmd phonon.abi || exit 1
   echo "==> ABINIT DFPT phonon in $workdir"
   extra=()
   (( dry_run )) && extra=(--dry-run)
   # Stream to the terminal AND capture to phonon.stdout/phonon.stderr.
-  if ! abinit "${extra[@]}" phonon.abi > >(tee phonon.stdout) 2> >(tee phonon.stderr >&2); then
+  if ! "${abinit_cmd[@]}" phonon.abi "${extra[@]}" > >(tee phonon.stdout) 2> >(tee phonon.stderr >&2); then
     echo "ERROR: ABINIT exited non-zero. Last lines of phonon.stderr:" >&2
     tail -n 20 phonon.stderr >&2 || true
     echo "(The DFPT input is a starting template -- check tolerances/k-mesh/PAW DFPT support.)" >&2
