@@ -1,0 +1,278 @@
+\documentclass[10pt]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[margin=0.76in]{geometry}
+\usepackage{microtype}
+\usepackage{amsmath,amssymb,bm}
+\usepackage{booktabs,tabularx,array}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{titlesec}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!55!black,
+  citecolor=blue!55!black,
+  urlcolor=blue!55!black,
+  pdftitle={Ab Initio Electric-Field Gradients and Quadrupolar Resonances in Crystals},
+  pdfauthor={Technical note prepared from the discussion}
+}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{4pt plus 1pt}
+\setlist[itemize]{leftmargin=1.35em,itemsep=1.5pt,topsep=2pt}
+\setlist[enumerate]{leftmargin=1.55em,itemsep=1.5pt,topsep=2pt}
+\titleformat{\section}{\large\bfseries}{\thesection}{0.55em}{}
+\titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{0.5em}{}
+\titlespacing*{\section}{0pt}{8pt}{3pt}
+\titlespacing*{\subsection}{0pt}{6pt}{2pt}
+\renewcommand{\arraystretch}{1.16}
+\newcommand{\V}{\mathbf{V}}
+\newcommand{\R}{\mathbf{R}}
+
+\title{\vspace{-1.25em}\textbf{Ab Initio Electric-Field Gradients and Quadrupolar Resonances in Crystals}\\[-1mm]
+\large Practical scope, accuracy, and finite-temperature corrections}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+\vspace{-2.1em}
+
+\begin{abstract}
+\noindent
+Periodic density-functional theory (DFT) can calculate the electric-field-gradient (EFG) tensor at a nucleus and hence a quadrupolar coupling constant or nuclear-quadrupole-resonance (NQR) frequency. For small ordered crystals, the calculation is readily feasible on a workstation. Its limitation is normally predictive accuracy rather than computational cost: numerical convergence can be pushed to the percent level, whereas structural, finite-temperature, exchange--correlation, and near-nuclear reconstruction errors often leave absolute couplings uncertain by roughly 10--30\%, with much larger relative errors near symmetry-forced zeros or in dynamically disordered systems. Finite-temperature values are obtained most systematically by averaging EFG \emph{tensors} over a vibrational or molecular-dynamics ensemble; there is no generally reliable scalar correction that maps a single 0 K result to room temperature.
+\end{abstract}
+
+\begin{table}[h!]
+\centering
+\caption{Open-source tools for crystalline EFG and quadrupolar calculations.}
+\label{tab:tools}
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{0.14\textwidth}>{\raggedright\arraybackslash}p{0.20\textwidth}>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}p{0.22\textwidth}@{}}
+\toprule
+\textbf{Tool} & \textbf{Electronic-structure treatment} & \textbf{EFG route and output} & \textbf{Practical role} \\
+\midrule
+ABINIT & Plane waves, PAW & \texttt{nucefg 2}; reports the tensor, principal values/axes, $V_{zz}$, $\eta$, and, with \texttt{quadmom}, $C_Q$ in MHz \cite{abinitEFG} & Direct and comparatively simple EFG-to-$C_Q$ workflow; use PAW, not norm-conserving pseudopotentials \\
+Quantum ESPRESSO + QE-GIPAW & Plane waves, USPP/PAW & \texttt{gipaw.x} EFG calculation for periodic systems \cite{qegipaw} & Natural choice in an existing QE workflow; requires suitable GIPAW-compatible datasets \\
+Elk & All-electron, full-potential LAPW & Task 115; tensor and eigenvalues written to \texttt{EFG.OUT} \cite{elkmanual} & Valuable all-electron benchmark, especially for heavy atoms or PAW validation \\
+CP2K & Gaussian/plane-wave; GPW or GAPW & \texttt{ELECTRIC\_FIELD\_GRADIENT} print section \cite{cp2kmanual} & Useful with CP2K dynamics; GAPW is preferable for core-sensitive observables \\
+Soprano & Post-processing only & Diagonalizes EFG tensors and evaluates $V_{zz}$, $\eta$, $C_Q$, and NQR quantities \cite{soprano} & Analysis and convention handling; it does not calculate the electronic structure \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Definitions and spectroscopic observables}
+
+At nuclear site $n$, the EFG is the Hessian of the electrostatic potential $\Phi$,
+\begin{equation}
+  V_{\alpha\beta}^{(n)}=
+  \left.\frac{\partial^2\Phi(\mathbf r)}{\partial x_\alpha\,\partial x_\beta}\right|_{\mathbf r=\R_n}.
+\end{equation}
+Away from a charge singularity the tensor is symmetric and traceless.  In its principal-axis system, use the common ordering
+\begin{equation}
+ |V_{zz}|\ge |V_{yy}|\ge |V_{xx}|,
+ \qquad
+ \eta=\frac{V_{xx}-V_{yy}}{V_{zz}},
+ \qquad 0\le \eta\le 1.
+\end{equation}
+For isotope-specific nuclear quadrupole moment $Q$, the coupling constant is
+\begin{equation}
+  C_Q=\frac{eQV_{zz}}{h}.
+  \label{eq:cq}
+\end{equation}
+The sign and principal-axis ordering must be checked when comparing programs or literature conventions.  In frequency units, one standard principal-axis quadrupolar Hamiltonian is
+\begin{equation}
+ \frac{\widehat H_Q}{h}=
+ \frac{C_Q}{4I(2I-1)}
+ \left[
+ 3\widehat I_z^2-I(I+1)
+ +\frac{\eta}{2}\left(\widehat I_+^2+\widehat I_-^2\right)
+ \right].
+ \label{eq:hq}
+\end{equation}
+NQR frequencies are differences between eigenvalues of Eq.~\eqref{eq:hq}.  For $I=3/2$,
+\begin{equation}
+ \nu_{\rm NQR}=\frac{|C_Q|}{2}\sqrt{1+\frac{\eta^2}{3}}.
+ \label{eq:i32}
+\end{equation}
+Thus, except where the $\eta$ dependence is unusually important, the fractional error in an NQR frequency approximately follows that in $V_{zz}$ and $C_Q$.  In high-field NMR, first-order quadrupolar splittings scale as $C_Q$, while second-order shifts and broadenings scale approximately as $C_Q^2/\nu_L$; a 10\% error in $C_Q$ therefore produces about a 20\% error in a purely second-order contribution.
+
+\section{Feasibility for simple crystals}
+
+Static EFG calculations for NaF, NaNO$_3$, KNO$_3$, and similarly small unit cells are workstation-scale.  A modern machine with roughly 8--16 CPU cores and 32--64 GB of memory is normally adequate for structural relaxation, a converged PAW ground state, and the EFG.  A single calculation may take minutes to hours; the full cutoff and $k$-mesh convergence study is often the larger cost.  ABINIT notes that its EFG evaluation adds little to the cost of the converged ground-state calculation \cite{abinitEFG}.
+
+Ideal rocksalt NaF is an important caveat: cubic site symmetry forces the EFG to zero.  It is therefore a useful numerical symmetry check, but not a useful nonzero-frequency benchmark.  Nitrate crystals remain small enough for routine static DFT, although nitrate orientation, polymorphism, internal coordinates, and librational motion can dominate the result.  High-performance computing becomes attractive for large defect/disorder supercells, hybrid functionals, long ab initio molecular dynamics (AIMD), dense snapshot sampling, or path-integral molecular dynamics (PIMD), rather than for the basic primitive-cell EFG itself.
+
+\section{Accuracy and scientific utility}
+
+A useful separation is between \emph{numerical convergence} and \emph{physical-model error}.  Cutoff, augmentation-grid, $k$-point, and self-consistency errors can often be reduced until $V_{zz}$ changes by only 1--2\%.  This does not imply comparable agreement with experiment.  The EFG is a second derivative of the potential at the nucleus and is unusually sensitive to small structural distortions, the exchange--correlation approximation, PAW reconstruction or basis completeness, semicore treatment, magnetism, relativity, the adopted quadrupole moment $Q$, and finite-temperature motion \cite{petrilli,bonhomme}.
+
+A recent $^{27}$Al benchmark reported raw mean errors of about 18\% for CASTEP and 24\% for Quantum ESPRESSO under a common semilocal-DFT protocol; calibrated correlations generally reduced average errors to roughly 10--20\%.  The asymmetry parameter showed mean absolute errors of about 0.13--0.16, whereas orientation-related quantities were more robust, with an average error near 5\% \cite{reina}.  A broader comparison covering 38 experimental EFGs reported a mean absolute percentage difference of 28.9\% \cite{choudhary}.  Percentage errors become ill-conditioned near cubic or nearly cubic sites: a small absolute residual divided by a nearly zero experimental EFG can look enormous, and small lattice distortions can even reverse the sign or principal-axis ordering.
+
+For planning purposes, not as universal confidence intervals, the following ranges are realistic:
+\begin{center}
+\small
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Situation} & \textbf{Typical absolute-$C_Q$ or frequency error} \\
+\midrule
+Numerical convergence of a fixed model & approximately 1--2\% \\
+Favorable, rigid, ordered main-group crystal & approximately 5--10\% \\
+Routine uncalibrated semilocal DFT/PAW prediction & approximately 10--30\% \\
+Near-symmetric, mobile, disordered, wrong-phase, or poorly described system & 50\% or more is possible \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Consequently, a raw DFT number is often a weak way to narrow a completely blind frequency scan: a $\pm20\%$ interval may reduce the search range by only a modest factor.  The method is more persuasive when used comparatively or inversely: predicting the number of inequivalent sites, tensor symmetry and orientation, assigning already observed lines, discriminating polymorphs or defect models, and testing whether a structural model is consistent with experiment.  System-specific calibration can also be effective; for example, a molecular correction scheme reduced the root-mean-square error of a benchmark set of $^{17}$O couplings by 31\% \cite{hartman}.
+
+\section{Finite-temperature treatment}
+
+There is no generally reliable scalar law $C_Q(T)=f(T)C_Q(0)$.  The well-founded object is the thermodynamic average of the EFG tensor.  Formally, for the nuclear Hamiltonian $\widehat H_{\rm nuc}$,
+\begin{equation}
+ \langle \V\rangle_T=
+ \frac{\mathrm{Tr}\!\left[e^{-\beta\widehat H_{\rm nuc}}\V(\widehat\R)\right]}
+      {\mathrm{Tr}\!\left[e^{-\beta\widehat H_{\rm nuc}}\right]},
+ \qquad \beta=(k_BT)^{-1}.
+ \label{eq:quantavg}
+\end{equation}
+In the classical configurational limit,
+\begin{equation}
+ \langle \V\rangle_T=
+ \frac{\int d\R\,\V(\R)e^{-\beta U(\R)}}
+      {\int d\R\,e^{-\beta U(\R)}}.
+ \label{eq:classavg}
+\end{equation}
+Practical approximations form a hierarchy.
+
+\begin{enumerate}
+ \item \textbf{Experimental structure at the measurement temperature.}  Recompute the EFG using measured lattice constants and internal coordinates.  This cheaply includes thermal expansion and any resolved static distortion, but not instantaneous vibration or libration.
+
+ \item \textbf{Harmonic or quasi-harmonic phonon sampling.}  Draw normal-mode amplitudes from the quantum thermal distribution.  For a mass-weighted normal coordinate $q_\lambda$,
+ \begin{equation}
+  \left\langle q_\lambda^2\right\rangle_T=
+  \frac{\hbar}{2\omega_\lambda}
+  \coth\!\left(\frac{\hbar\omega_\lambda}{2k_BT}\right),
+ \end{equation}
+ which includes zero-point motion.  Quasi-harmonic calculations add volume expansion.  This is a good cost--accuracy compromise for rigid crystals away from phase transitions, but harmonic phonons can misestimate EFG trends when anharmonicity is important, as demonstrated for Zn and Cd \cite{nikolaevZnCd,haas}.
+
+ \item \textbf{AIMD at the target temperature.}  Generate an NVT or NPT trajectory, select statistically independent snapshots, and evaluate an EFG tensor for each.  AIMD captures anharmonic vibration, molecular-ion libration, and local coordination changes.  In NaNO$_2$, finite-temperature DFT-MD improved the mean $^{14}$N and $^{17}$O EFGs and revealed a broad, coordination-dependent $^{23}$Na distribution absent from a static calculation \cite{wagle}.
+
+ \item \textbf{PIMD.}  Represent each nucleus by a ring polymer to include nuclear quantum effects.  This is most relevant at low temperature, for light atoms, or where zero-point motion strongly affects the local geometry; PIMD-based EFG averaging has been demonstrated for molecular solids \cite{dracinsky}.
+\end{enumerate}
+
+If snapshots are reported in different coordinate frames, first transform every EFG into the same fixed crystal or laboratory frame---without aligning away the physical molecular reorientation---and then average,
+\begin{equation}
+ \overline{\V}(T)=\sum_s w_s\,\mathbf R_s\V^{(s)}\mathbf R_s^{\mathsf T},
+ \qquad \sum_s w_s=1,
+ \label{eq:tensoravg}
+\end{equation}
+and only then diagonalize $\overline{\V}$ to obtain $V_{zz}(T)$, $\eta(T)$, $C_Q(T)$, and the transition frequencies.  Directly averaging sorted $|V_{zz}|$ values, $|C_Q|$, or nonlinear frequencies can be wrong because principal axes rotate, eigenvalues can exchange labels, and diagonalization is nonlinear.
+
+Equation~\eqref{eq:tensoravg} describes the fast-motion limit.  If jumps, reorientations, ion hopping, or domain changes are slow or comparable to the quadrupolar evolution timescale, the experiment need not show one averaged resonance: separate lines, exchange broadening, distributions, or motional narrowing may occur.  Spectral dynamics must then be modeled explicitly rather than compressed into one $C_Q(T)$.
+
+A useful composite strategy is to calculate an accurate static baseline and a cheaper finite-temperature correction with the same lower-level method at both endpoints,
+\begin{equation}
+ \V_{\rm best}(T)\approx \V_{\rm high}(0)+
+ \left[\overline{\V}_{\rm low}(T)-\V_{\rm low}(0)\right].
+ \label{eq:delta}
+\end{equation}
+The temperature shift may benefit from error cancellation, although this is not guaranteed and does not remove uncertainty in the underlying functional, pseudopotential, isotope quadrupole moment, phase, or sampling.
+
+\section{Recommended decision workflow}
+
+\begin{enumerate}
+ \item Identify the correct polymorph, isotope, measurement temperature, and whether the site is symmetry-forced to have zero EFG.
+ \item Prefer the experimental structure at that temperature when the goal is comparison with experiment; separately test a relaxed 0 K geometry to diagnose structural sensitivity.
+ \item Use a PAW or all-electron method, and converge the wave-function cutoff, augmentation grid, $k$ mesh, semicore treatment, and tensor components---not merely the total energy.
+ \item Establish the static uncertainty by comparing plausible functionals/datasets or by benchmarking against a chemically close reference.  Do not interpret a 1\% numerical convergence threshold as 1\% predictive accuracy.
+ \item Add finite-temperature physics in increasing order of cost: measured geometry, phonon/quasi-harmonic sampling, AIMD, then PIMD where justified.  Average tensors in a consistent frame and report statistical uncertainty and autocorrelation-aware effective sample size.
+ \item Use the result primarily as a structural discriminator or line-assignment aid unless system-specific validation shows that absolute frequencies are reliable to the precision required by the experiment.
+\end{enumerate}
+
+\begin{quote}
+\textbf{Bottom line.}  Small-crystal EFG calculations are computationally easy, but high-accuracy blind frequency prediction is not.  Static semilocal DFT commonly leaves 10--30\% uncertainty in absolute couplings.  Finite-temperature ensemble averaging is the established correction framework and can remove a dominant bias in dynamically active crystals, but it is not a universal route from a 0 K result to few-percent NQR accuracy.
+\end{quote}
+
+\begin{thebibliography}{99}
+\footnotesize
+\setlength{\itemsep}{0pt}
+\setlength{\parsep}{0pt}
+\setlength{\parskip}{0pt}
+
+\bibitem{abinitEFG}
+ABINIT project, \href{https://docs.abinit.org/topics/EFG/}{``Electric field gradient''} and
+\href{https://docs.abinit.org/tutorial/nuc/}{``Nuclear properties''} documentation (accessed 2026-06-25).
+
+\bibitem{qegipaw}
+D.~Ceresoli et al., \href{https://github.com/dceresoli/qe-gipaw}{\emph{QE-GIPAW: NMR and EPR spectra with Quantum ESPRESSO}} (accessed 2026-06-25).
+
+\bibitem{elkmanual}
+Elk developers, \href{https://elk.sourceforge.io/elk.pdf}{\emph{The Elk Code Manual}}, task 115 and \texttt{EFG.OUT} (accessed 2026-06-25).
+
+\bibitem{cp2kmanual}
+CP2K developers, \href{https://manual.cp2k.org/trunk/CP2K_INPUT/FORCE_EVAL/DFT/PRINT/ELECTRIC_FIELD_GRADIENT.html}{\texttt{ELECTRIC\_FIELD\_GRADIENT} input reference} and GAPW documentation (accessed 2026-06-25).
+
+\bibitem{soprano}
+Soprano developers, \href{https://ccp-nc.github.io/soprano/_autosummary/soprano.nmr.tensor.html}{``NMR tensor analysis''} (accessed 2026-06-25).
+
+\bibitem{petrilli}
+H.~M.~Petrilli, P.~E.~Blöchl, P.~Blaha, and K.~Schwarz,
+``Electric-field-gradient calculations using the projector augmented wave method,''
+\emph{Phys. Rev. B} \textbf{57}, 14690--14697 (1998),
+\href{https://doi.org/10.1103/PhysRevB.57.14690}{doi:10.1103/PhysRevB.57.14690}.
+
+\bibitem{bonhomme}
+C.~Bonhomme, C.~Gervais, F.~Babonneau, C.~Coelho, F.~Pourpoint, T.~Azaïs,
+S.~E.~Ashbrook, J.~M.~Griffin, J.~R.~Yates, F.~Mauri, and C.~J.~Pickard,
+``First-principles calculation of NMR parameters using the gauge including projector augmented wave method: A chemist's point of view,''
+\emph{Chem. Rev.} \textbf{112}, 5733--5779 (2012),
+\href{https://doi.org/10.1021/cr300108a}{doi:10.1021/cr300108a}.
+
+\bibitem{reina}
+J.~Valenzuela Reina, F.~Civaia, A.~F.~Harper, C.~Scheurer, and S.~S.~Köcher,
+``The EFG Rosetta Stone: translating between DFT calculations and solid state NMR experiments,''
+\emph{Faraday Discuss.} \textbf{255}, 266--287 (2025),
+\href{https://doi.org/10.1039/D4FD00075G}{doi:10.1039/D4FD00075G}.
+
+\bibitem{choudhary}
+K.~Choudhary, J.~N.~Ansari, I.~I.~Mazin, and K.~L.~Sauer,
+``Density functional theory-based electric field gradient database,''
+\emph{Sci. Data} \textbf{7}, 362 (2020),
+\href{https://doi.org/10.1038/s41597-020-00707-8}{doi:10.1038/s41597-020-00707-8}.
+
+\bibitem{hartman}
+J.~D.~Hartman, A.~Mathews, and J.~K.~Harper,
+``Fast and accurate electric field gradient calculations in molecular solids with density functional theory,''
+\emph{Front. Chem.} \textbf{9}, 751711 (2021),
+\href{https://doi.org/10.3389/fchem.2021.751711}{doi:10.3389/fchem.2021.751711}.
+
+\bibitem{nikolaevZnCd}
+A.~V.~Nikolaev, N.~M.~Chtchelkatchev, D.~A.~Salamatin, and A.~V.~Tsvyashchenko,
+``Towards an ab initio theory for the temperature dependence of electric-field gradient in solids: application to hexagonal lattices of Zn and Cd,''
+\emph{Phys. Rev. B} \textbf{101}, 064310 (2020),
+\href{https://doi.org/10.1103/PhysRevB.101.064310}{doi:10.1103/PhysRevB.101.064310}.
+
+\bibitem{haas}
+H.~Haas,
+``Temperature dependence of electric-field gradient in Zn and Cd: Replacing the $T^{3/2}$ law,''
+\emph{Phys. Rev. B} \textbf{109}, 064104 (2024),
+\href{https://doi.org/10.1103/PhysRevB.109.064104}{doi:10.1103/PhysRevB.109.064104}.
+
+\bibitem{wagle}
+K.~Wagle, D.~A.~Rehn, A.~E.~Mattsson, H.~E.~Mason, and M.~W.~Malone,
+``Effect of dynamical motion in ab initio calculations of solid-state nuclear magnetic and nuclear quadrupole resonance spectra,''
+\emph{Chem. Mater.} \textbf{36}, 7162--7175 (2024),
+\href{https://doi.org/10.1021/acs.chemmater.4c00883}{doi:10.1021/acs.chemmater.4c00883}.
+
+\bibitem{dracinsky}
+M.~Dračínský, P.~Bour, and P.~Hodgkinson,
+``Temperature dependence of NMR parameters calculated from path integral molecular dynamics simulations,''
+\emph{J. Chem. Theory Comput.} \textbf{12}, 968--973 (2016),
+\href{https://doi.org/10.1021/acs.jctc.5b01131}{doi:10.1021/acs.jctc.5b01131}.
+
+\end{thebibliography}
+\end{document}

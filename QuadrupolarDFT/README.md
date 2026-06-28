@@ -58,6 +58,17 @@ print(nqr_frequencies_hz(spin=2.5, cq_hz=cq_hz, eta=efg.eta))
 The tensor constructor assumes ABINIT atomic units by default. Pass
 `unit="si"` when the tensor is already in V/m^2.
 
+## Technical Note
+
+For the derivation and practical DFT context behind this workspace, see the
+self-authored note
+[Ab Initio Electric-Field Gradients and Quadrupolar Resonances in Crystals](../References/efg_quadrupolar_technical_note.pdf).
+It summarizes EFG tensor conventions, quadrupolar coupling constants,
+asymmetry parameters, NQR transition frequencies, and backend considerations
+for ABINIT, Quantum ESPRESSO/GIPAW, Elk, CP2K, and related workflows. The LaTeX
+source is tracked at
+`../References/efg_quadrupolar_technical_note.tex`.
+
 ## Layout
 
 - `src/quadrupolar_dft/tensors.py` implements EFG tensor conventions,
