@@ -1,0 +1,303 @@
+####################################################################### 
+# 
+# This file contains crystal structure data downloaded from the 
+# Cambridge Structural Database (CSD) hosted by the Cambridge 
+# Crystallographic Data Centre (CCDC).
+# 
+# Full information about CCDC data access policies and citation 
+# guidelines are available at http://www.ccdc.cam.ac.uk/access/V1 
+# 
+# Audit and citation data items may have been added by the CCDC. 
+# Please retain this information to preserve the provenance of 
+# this file and to allow appropriate attribution of the data. 
+# 
+#######################################################################
+
+data_I
+_audit_block_doi                 10.5517/cc6ldz4
+_database_code_depnum_ccdc_archive 'CCDC 196446'
+loop_
+_citation_id
+_citation_doi
+_citation_year
+1 10.1107/S0021889802007835 2002
+_audit_update_record             
+;
+2002-10-30 deposited with the CCDC.	2026-06-28 downloaded from the CCDC.
+;
+_chemical_name_systematic        
+;
+3-(2-(Diaminomethyleneamino)-1,3-thiazol-4-yl)methylthio)-N'-
+sulfamoylpropionamidine
+;
+_chemical_name_common            famotidine
+_chemical_formula_moiety         'C8 H15 N7 O2 S3'
+_chemical_formula_sum            'C8 H15 N7 O2 S3'
+_chemical_formula_structural     ?
+_chemical_formula_analytical     ?
+_chemical_formula_weight         ?
+_chemical_melting_point          ?
+_symmetry_cell_setting           Monoclinic
+_symmetry_space_group_name_H-M   'P 1 21/c 1'
+_symmetry_space_group_name_Hall  ?
+loop_
+_symmetry_equiv_pos_as_xyz
+x,y,z
+-x,1/2+y,1/2-z
+-x,-y,-z
+x,1/2-y,1/2+z
+_cell_length_a                   17.6547(4)
+_cell_length_b                   5.29320(10)
+_cell_length_c                   18.2590(3)
+_cell_angle_alpha                90.0
+_cell_angle_beta                 123.5580(10)
+_cell_angle_gamma                90.0
+_cell_volume                     1421.9
+_cell_formula_units_Z            4
+_cell_measurement_temperature    130
+_cell_special_details            
+; ?
+;
+_exptl_absorpt_coefficient_mu    ?
+_exptl_absorpt_correction_type   ?
+_exptl_absorpt_process_details   ?
+_exptl_absorpt_correction_T_min  ?
+_exptl_absorpt_correction_T_max  ?
+_exptl_special_details           
+; ?
+;
+_diffrn_ambient_temperature      130
+_diffrn_radiation_wavelength     0.8507473
+_diffrn_radiation_monochromator  'Si 111'
+_diffrn_measurement_device_type  '2 circle diffractometer'
+_refine_special_details          
+; ?
+;
+_refine_ls_matrix_type           fullcycle
+_refine_ls_R_factor_all          ?
+_refine_ls_goodness_of_fit_all   1.29
+_refine_ls_restrained_S_all      ?
+_refine_ls_restrained_S_obs      ?
+_refine_ls_number_parameters     124
+_refine_ls_number_restraints     0
+_refine_ls_number_constraints    0
+_refine_ls_hydrogen_treatment    noref
+_refine_ls_weighting_scheme      sigma
+_refine_ls_weighting_details     ?
+_refine_ls_shift/su_max          ?
+_refine_ls_shift/su_mean         ?
+_refine_ls_extinction_method     none
+_refine_ls_extinction_coef       ?
+loop_
+_atom_type_symbol
+_atom_type_description
+_atom_type_scat_source
+O O 'International Tables Vol C Table 6.1.1.4'
+N N 'International Tables Vol C Table 6.1.1.4'
+H H 'International Tables Vol C Table 6.1.1.4'
+C C 'International Tables Vol C Table 6.1.1.4'
+S S 'International Tables Vol C Table 6.1.1.4'
+_computing_data_collection       'BM16 instrument software'
+_computing_cell_refinement       DASH
+_computing_data_reduction        'BM16 instrument software'
+_computing_structure_solution    DASH
+_computing_structure_refinement  SR15LS
+_computing_molecular_graphics    ?
+_computing_publication_material  ?
+loop_
+_atom_site_label
+_atom_site_fract_x
+_atom_site_fract_y
+_atom_site_fract_z
+_atom_site_adp_type
+_atom_site_occupancy
+C1 0.3445(4) 0.5849(7) -0.1027(5) Biso 1.0
+H2 0.3199(7) 0.6130(16) -0.1602(6) Biso 1.0
+H3 0.3889(5) 0.6983(7) -0.0707(9) Biso 1.0
+C4 0.2706(3) 0.6120(10) -0.0830(3) Biso 1.0
+C5 0.1866(4) 0.4661(13) -0.1504(2) Biso 1.0
+H6 0.2916(4) 0.5499(18) -0.0290(3) Biso 1.0
+H7 0.2563(5) 0.7757(11) -0.0850(6) Biso 1.0
+N8 0.1531(6) 0.3188(15) -0.1174(3) Biso 1.0
+N9 0.1611(3) 0.4861(12) -0.2326(2) Biso 1.0
+H10 0.0915(6) 0.28(2) -0.162(3) Biso 1.0
+H11 0.173(3) 0.344(15) -0.0577(5) Biso 1.0
+S12 0.0665(2) 0.3658(5) -0.31076(16) Biso 1.0
+O13 -0.0128(4) 0.4249(13) -0.3100(4) Biso 1.0
+O14 0.0527(5) 0.4430(10) -0.3929(3) Biso 1.0
+N15 0.0725(5) 0.0587(5) -0.3043(4) Biso 1.0
+H16 0.088(7) -0.0012(16) -0.340(5) Biso 1.0
+H17 0.115(5) 0.0124(10) -0.2487(13) Biso 1.0
+S18 0.3918(3) 0.2693(5) -0.07467(19) Biso 1.0
+C19 0.4647(3) 0.2692(10) -0.1171(2) Biso 1.0
+C20 0.4096(4) 0.3210(9) -0.21366(19) Biso 1.0
+H21 0.5076(3) 0.3894(16) -0.0895(3) Biso 1.0
+H22 0.4918(5) 0.1174(14) -0.1071(4) Biso 1.0
+C23 0.4299(5) 0.4943(13) -0.2553(2) Biso 1.0
+S24 0.3560(3) 0.4657(5) -0.36786(18) Biso 1.0
+C25 0.3049(5) 0.2044(13) -0.3524(2) Biso 1.0
+N26 0.3422(5) 0.1479(11) -0.2689(2) Biso 1.0
+H27 0.4767(12) 0.604(4) -0.2280(3) Biso 1.0
+N28 0.2337(4) 0.0950(12) -0.4255(2) Biso 1.0
+C29 0.1899(5) -0.0972(15) -0.4173(3) Biso 1.0
+N30 0.2076(5) -0.1873(12) -0.3413(3) Biso 1.0
+N31 0.1211(4) -0.2026(13) -0.4902(3) Biso 1.0
+H32 0.270(4) -0.176(12) -0.2904(3) Biso 1.0
+H33 0.158(4) -0.271(11) -0.3418(6) Biso 1.0
+H34 0.097(4) -0.124(8) -0.5423(10) Biso 1.0
+H35 0.101(4) -0.357(7) -0.4881(12) Biso 1.0
+_geom_special_details            
+;
+Bond distances, angles etc. have been calculated using the
+rounded fractional coordinates. All esds are estimated
+from the variances of the (full) variance-covariance matrix.
+The cell esds are taken into account in the estimation of
+distances, angles and torsion angles
+;
+loop_
+_geom_bond_atom_site_label_1
+_geom_bond_atom_site_label_2
+_geom_bond_site_symmetry_1
+_geom_bond_site_symmetry_2
+_geom_bond_distance
+_geom_bond_publ_flag
+S12 O13 . . 1.440(9) yes
+S12 O14 . . 1.440(6) yes
+S12 N9 . . 1.612(5) yes
+S12 N15 . . 1.629(4) yes
+S18 C1 . . 1.810(6) yes
+S18 C19 . . 1.833(8) yes
+S24 C23 . . 1.728(4) yes
+S24 C25 . . 1.757(9) yes
+N8 C5 . . 1.309(11) yes
+N9 C5 . . 1.311(5) yes
+N26 C20 . . 1.395(8) yes
+N26 C25 . . 1.318(5) yes
+N28 C25 . . 1.356(7) yes
+N28 C29 . . 1.335(11) yes
+N30 C29 . . 1.331(8) yes
+N31 C29 . . 1.331(8) yes
+N8 H10 . . 0.95(4) no
+N8 H11 . . 0.95(2) no
+N15 H17 . . 0.90(3) no
+N15 H16 . . 0.89(11) no
+N30 H32 . . 0.97(5) no
+N30 H33 . . 0.98(7) no
+N31 H34 . . 0.90(3) no
+N31 H35 . . 0.90(4) no
+C1 C4 . . 1.540(11) yes
+C4 C5 . . 1.514(8) yes
+C19 C20 . . 1.495(4) yes
+C20 C23 . . 1.360(9) yes
+C1 H2 . . 0.899(12) no
+C1 H3 . . 0.900(12) no
+C4 H6 . . 0.902(7) no
+C4 H7 . . 0.898(8) no
+C19 H21 . . 0.900(9) no
+C19 H22 . . 0.901(9) no
+C23 H27 . . 0.90(2) no
+loop_
+_geom_angle_atom_site_label_1
+_geom_angle_atom_site_label_2
+_geom_angle_atom_site_label_3
+_geom_angle_site_symmetry_1
+_geom_angle_site_symmetry_2
+_geom_angle_site_symmetry_3
+_geom_angle
+_geom_angle_publ_flag
+O13 S12 O14 . . . 110.1(5) yes
+O13 S12 N9 . . . 116.3(4) yes
+O13 S12 N15 . . . 104.0(5) yes
+O14 S12 N9 . . . 107.7(4) yes
+O14 S12 N15 . . . 109.0(4) yes
+N9 S12 N15 . . . 109.6(4) yes
+C1 S18 C19 . . . 101.7(4) yes
+C23 S24 C25 . . . 89.7(3) yes
+S12 N9 C5 . . . 120.9(5) yes
+C20 N26 C25 . . . 111.6(6) yes
+C25 N28 C29 . . . 119.7(5) yes
+H10 N8 H11 . . . 122(4) no
+C5 N8 H10 . . . 109(4) no
+C5 N8 H11 . . . 118(4) no
+H16 N15 H17 . . . 109(7) no
+S12 N15 H16 . . . 110(2) no
+S12 N15 H17 . . . 109.5(7) no
+C29 N30 H32 . . . 118(3) no
+C29 N30 H33 . . . 117.4(11) no
+H32 N30 H33 . . . 125(3) no
+C29 N31 H34 . . . 120(3) no
+C29 N31 H35 . . . 120.1(16) no
+H34 N31 H35 . . . 120(3) no
+S18 C1 C4 . . . 109.7(4) yes
+C1 C4 C5 . . . 109.8(5) yes
+N8 C5 N9 . . . 128.2(6) yes
+N8 C5 C4 . . . 114.7(4) yes
+N9 C5 C4 . . . 116.8(6) yes
+S18 C19 C20 . . . 110.3(4) yes
+N26 C20 C19 . . . 118.1(4) yes
+N26 C20 C23 . . . 115.0(4) yes
+C19 C20 C23 . . . 125.6(5) no
+S24 C23 C20 . . . 110.3(5) yes
+S24 C25 N26 . . . 113.1(5) yes
+N26 C25 N28 . . . 129.7(7) yes
+S24 C25 N28 . . . 117.2(4) yes
+N28 C29 N31 . . . 118.2(5) yes
+N30 C29 N31 . . . 116.8(8) yes
+N28 C29 N30 . . . 124.9(6) yes
+S18 C1 H2 . . . 109.4(8) no
+S18 C1 H3 . . . 109.4(8) no
+C4 C1 H2 . . . 109.4(11) no
+C4 C1 H3 . . . 109.4(10) no
+H2 C1 H3 . . . 109.4(12) no
+C1 C4 H6 . . . 109.4(7) no
+C1 C4 H7 . . . 109.6(8) no
+C5 C4 H6 . . . 109.2(7) no
+C5 C4 H7 . . . 109.4(8) no
+H6 C4 H7 . . . 109.4(10) no
+S18 C19 H21 . . . 109.5(5) no
+S18 C19 H22 . . . 109.5(7) no
+C20 C19 H21 . . . 109.2(6) no
+C20 C19 H22 . . . 109.2(6) no
+H21 C19 H22 . . . 109.2(9) no
+S24 C23 H27 . . . 124.9(9) no
+C20 C23 H27 . . . 124.7(7) no
+
+loop_
+_geom_torsion_atom_site_label_1
+_geom_torsion_atom_site_label_2
+_geom_torsion_atom_site_label_3
+_geom_torsion_atom_site_label_4
+_geom_torsion_site_symmetry_1
+_geom_torsion_site_symmetry_2
+_geom_torsion_site_symmetry_3
+_geom_torsion_site_symmetry_4
+_geom_torsion
+_geom_torsion_publ_flag
+O13 S12 N9 C5 . . . . 49.5(7) no
+O14 S12 N9 C5 . . . . 173.6(6) no
+N15 S12 N9 C5 . . . . -68.0(7) no
+C19 S18 C1 C4 . . . . 172.6(4) no
+C1 S18 C19 C20 . . . . -59.1(4) no
+C23 S24 C25 N28 . . . . 178.5(7) no
+C23 S24 C25 N26 . . . . -0.3(7) no
+C25 S24 C23 C20 . . . . -3.3(6) no
+S12 N9 C5 N8 . . . . 13.5(12) no
+S12 N9 C5 C4 . . . . -172.8(5) no
+C20 N26 C25 S24 . . . . 3.7(9) no
+C20 N26 C25 N28 . . . . -174.9(8) no
+C25 N26 C20 C23 . . . . -6.4(10) no
+C25 N26 C20 C19 . . . . -174.1(7) no
+C25 N28 C29 N30 . . . . 3.4(13) no
+C29 N28 C25 S24 . . . . -177.1(7) no
+C29 N28 C25 N26 . . . . 1.4(14) no
+C25 N28 C29 N31 . . . . -179.1(8) no
+S18 C1 C4 C5 . . . . -72.7(6) no
+C1 C4 C5 N9 . . . . -43.1(7) no
+C1 C4 C5 N8 . . . . 131.6(7) no
+S18 C19 C20 C23 . . . . 130.7(7) no
+S18 C19 C20 N26 . . . . -63.0(7) no
+N26 C20 C23 S24 . . . . 6.1(9) no
+C19 C20 C23 S24 . . . . 172.7(5) no
+
+#END
+
