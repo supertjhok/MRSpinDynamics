@@ -152,6 +152,21 @@ class ExampleSmokeTests(unittest.TestCase):
             ("examples/matched_cpmg_ir_train.py", "--numpts", "9", "--num-echoes", "2", "--num-tau", "2"),
             ("examples/finite_probe_train_sweeps.py", "--numpts", "9", "--num-echoes", "2"),
             ("examples/matched_diffusion_cpmg.py", "--numpts", "17", "--num-echoes", "2"),
+            (
+                "examples/porous_rock_cpmg_walkers.py",
+                "--grid",
+                "8",
+                "--z-cells",
+                "10",
+                "--pores",
+                "18",
+                "--walkers-per-voxel",
+                "1",
+                "--num-echoes",
+                "2",
+                "--substeps",
+                "1",
+            ),
             ("examples/radiation_damping_fid.py", "--points", "41"),
             ("examples/radiation_damping_cpmg_train.py", "--numpts", "9", "--num-echoes", "2"),
             ("examples/nmr_maser.py", "--points", "41", "--duration-trd", "3"),
@@ -267,6 +282,7 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_nqr_database_prepolarization.py",
             "examples/plot_redfield_nano2_slse.py",
             "examples/plot_redfield_water_cpmg.py",
+            "examples/plot_bpp_water_t1t2_temperature.py",
         ]
         for script in scripts:
             with self.subTest(script=script):
@@ -493,6 +509,12 @@ class ExampleSmokeTests(unittest.TestCase):
         self.assertIn("--correlation-time-seconds", result.stdout)
         self.assertIn("--echo-spacing-seconds", result.stdout)
         self.assertIn("--hh-distance-a", result.stdout)
+        result = run_example("examples/plot_bpp_water_t1t2_temperature.py", "--help")
+        self.assertIn("--molecules", result.stdout)
+        self.assertIn("decane", result.stdout)
+        self.assertIn("--slip-factor", result.stdout)
+        self.assertIn("--radius-a", result.stdout)
+        self.assertIn("--viscosity-pa-s", result.stdout)
 
 
 if __name__ == "__main__":
