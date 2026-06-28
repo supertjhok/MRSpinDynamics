@@ -45,6 +45,14 @@ from .landolt_validation import (
     validate_landolt_sets,
 )
 from .pipeline import ComparisonReport, compare_dft_to_measured
+from .temperature import (
+    MeasuredTemperatureCoefficient,
+    TemperatureCoefficientComparison,
+    TemperatureCoefficientMatch,
+    compare_temperature_coefficients,
+    measured_temperature_coefficients,
+    slopes_from_temperature_points,
+)
 
 __all__ = [
     "ComparisonReport",
@@ -53,19 +61,25 @@ __all__ = [
     "LandoltReviewSummary",
     "LandoltSetRecord",
     "MeasuredLine",
+    "MeasuredTemperatureCoefficient",
     "PredictedLines",
+    "TemperatureCoefficientComparison",
+    "TemperatureCoefficientMatch",
     "SiteConsistencyReport",
     "SiteRecord",
     "check_landolt_set",
     "check_site",
     "compare_dft_to_measured",
+    "compare_temperature_coefficients",
     "cq_hz_from_nu_q",
     "default_database_path",
     "describe",
     "describe_landolt",
     "match_lines",
     "measured_lines",
+    "measured_temperature_coefficients",
     "nu_q_from_cq_hz",
+    "slopes_from_temperature_points",
     "parse_nucleus",
     "predicted_lines",
     "quadrupolar_site_from_cq",

@@ -55,6 +55,15 @@ otherwise-independent subprojects into a single
   detail. The overlay is a *derived* product, regenerated after a database
   build; the build itself never depends on the simulator.
 
+- **Temperature-coefficient validation** (`temperature`): the database stores a
+  per-line `dnu/dT` (`dnu_dt_khz_per_c`). `compare_temperature_coefficients`
+  matches a predicted `(frequency, dnu/dT)` set — from a `quadrupolar_dft`
+  finite-temperature sweep (`slopes_from_temperature_points`) or an analytic
+  Bayer fit — against the measured coefficients by frequency, so a DFT
+  temperature dependence can be validated against experiment. Demo:
+  `examples/nano2_temperature_coefficients.py` (NaNO2 14N: signs agree; the
+  single-mode model under-predicts the magnitude by the transition softening).
+
 - **Landolt review flagging** (`landolt_validation` + `landolt_review_export`):
   the canonical `sites` table holds parameters and lines together, but the
   Landolt import splits them — each measurement set has an independent list of
