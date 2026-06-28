@@ -2362,6 +2362,23 @@ method; it is tens of times faster and reproduces the same diffraction pattern
 in the \(\delta\to0\) limit. Keep the per-substep hop \(\sqrt{2D\,\dd t}\) well
 below the pore size so reflection stays accurate.
 
+The inverse problem is exposed separately in
+\code{spin\_dynamics.workflows.qspace}. Use
+\code{qspace\_axes\_from\_real\_space} and
+\code{pore\_form\_factor\_from\_density} to build ideal q-space responses for
+test phantoms. \code{reconstruct\_qspace\_image} directly inverts a complex
+form factor into pore density, but a conventional diffraction intensity
+\(|F(q)|^2\) inverts to the Patterson/autocorrelation image, not a unique pore.
+When a loose support is known, \code{phase\_retrieve\_qspace\_magnitude}
+performs support-constrained, non-negative HIO/error-reduction phase retrieval
+to estimate the pore shape from magnitude-only q-space data. The example
+\code{plot\_pgse\_qspace\_pore\_imaging.py} shows all three panels: the
+diffraction response, the autocorrelation, and the recovered pore estimate. It
+also adds a finite-SNR branch by perturbing the normalized q-space intensity
+with additive Gaussian noise (\code{--snr} is the zero-\(q\) peak divided by the
+noise standard deviation) and running the same constrained retrieval on the
+noisy data.
+
 For slow exchange between two compartments, use
 \code{make\_semipermeable\_plane}. The membrane is an internal line
 \(x=x_m\) or \(z=z_m\) inside the rectangular bounds. A walker that crosses the
@@ -3224,6 +3241,8 @@ Class & Purpose \\
 \code{PGSEMomentResult} & Deterministic PGSE or PGSE-prepared CPMG attenuation from gradient moments. \\
 \code{PGSEWalkerResult} & Random-walker PGSE signal, sequence samples, and initial particle ensemble. \\
 \code{PGSTEWalkerResult} & Random-walker stimulated-echo (PGSTE) signal, storage interval, selected-pathway phase-cycle metadata, and initial particle ensemble. \\
+\code{QSpaceReconstructionResult} & Direct q-space inverse image or autocorrelation with matched real/q axes. \\
+\code{QSpacePhaseRetrievalResult} & Magnitude-only q-space pore-shape estimate, support mask, and residual history. \\
 \code{DDEWalkerResult} & Random-walker double diffusion encoding (DDE) signal, encoding angles, and mixing time. \\
 \code{OGSEWalkerResult} & Random-walker oscillating-gradient spin-echo (OGSE) signal, oscillation frequency, and b-value. \\
 \code{BipolarPGSTEResult} & Cotts 13-interval bipolar PGSTE moment model: b-value, background cross-term bias, and the \code{diff\_stebp} phase cycle. \\

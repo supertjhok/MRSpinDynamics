@@ -736,6 +736,14 @@ of radius `a`, where `q_ang = gamma * G * delta`. Keep the per-substep hop
 `sqrt(2 D dt)` well below the pore size (raise `substeps_per_interval`) for
 accurate reflection. See the slab-pore and circular-pore diffraction examples.
 
+For pore imaging, `spin_dynamics.workflows.qspace` provides the inverse side:
+`reconstruct_qspace_image` directly inverts complex form-factor samples, while
+intensity-only `|F(q)|^2` data reconstruct to the pore autocorrelation. Use
+`phase_retrieve_qspace_magnitude` with a loose support mask to estimate the pore
+shape from magnitude-only diffraction data. The example
+`plot_pgse_qspace_pore_imaging.py` demonstrates the circular-pore case and adds
+a finite-SNR q-space intensity measurement controlled by `--snr`.
+
 For slow exchange between two compartments, use
 `spin_dynamics.motion.make_semipermeable_plane`. The membrane is an internal
 line (`x = interface` or `z = interface`) inside the rectangular bounds. A

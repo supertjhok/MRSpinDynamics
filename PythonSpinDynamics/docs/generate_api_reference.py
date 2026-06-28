@@ -85,6 +85,7 @@ MODULES = [
     "workflows.imaging_frequency",
     "workflows.imaging_types",
     "workflows.pgse",
+    "workflows.qspace",
     "workflows.single_sided",
     "workflows.slice_selective",
     "workflows.sweeps",

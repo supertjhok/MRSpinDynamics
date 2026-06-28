@@ -374,6 +374,25 @@ deeper fringe minima, and `--pore-radius` / `--diffusion-time` to move the
 diffraction features. SciPy is optional and only used to overlay the Bessel
 form-factor theory.
 
+## q-Space Pore Imaging
+
+This example is the inverse counterpart to the circular-pore diffraction plot.
+It starts from a two-dimensional q-space diffraction response in the ideal
+short-gradient-pulse, fully sampled-pore limit and reconstructs real-space
+structure. A complex form factor can be inverted directly; the usual
+magnitude-squared response `|F(q)|^2` instead gives a pore autocorrelation, so
+the example then applies finite-support, non-negative phase retrieval to
+estimate the pore image itself. The default figure includes both an ideal
+response and a finite-SNR intensity measurement with additive q-space noise.
+
+```powershell
+python examples\plot_pgse_qspace_pore_imaging.py --output results\qspace_pore_imaging.png
+```
+
+Use `--snr`, `--support-factor`, `--iterations`, and `--seed` to explore noise
+sensitivity and the magnitude-only phase-retrieval ambiguity. Only NumPy and
+Matplotlib are needed.
+
 ## PGSTE Stimulated-Echo Diffusion
 
 This example uses the stimulated-echo backend (`run_pgste_walkers`) to show why
