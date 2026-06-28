@@ -31,6 +31,11 @@ from .finite_displacement import (
     vibrational_modes_from_efg,
     write_jobs,
 )
+from .relax import (
+    parse_relaxed_structure,
+    relax_input,
+    relaxed_input,
+)
 from .vibrational import (
     BayerFit,
     ThermalEFGPoint,
@@ -75,7 +80,10 @@ __all__ = [
     "parse_abinit_efg",
     "parse_abinit_structure",
     "parse_anaddb_modes",
+    "parse_relaxed_structure",
     "phonon_dfpt_input",
+    "relax_input",
+    "relaxed_input",
     "thermal_quantum_factor",
     "thermally_averaged_efg",
     "vibrational_modes_from_collected",
