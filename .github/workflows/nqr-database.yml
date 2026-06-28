@@ -27,11 +27,29 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
+      - name: Detect local reference PDFs
+        id: references
+        shell: bash
+        run: |
+          if [[ -f "References/NQR Data/NQRdatabase/nqr_tables/NQR_data_tables_summary2.pdf" ]]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Validate checked-in artifacts
+        run: python NQRDatabase/scripts/validate_database.py
       - name: Install build dependencies
+        if: steps.references.outputs.available == 'true'
         run: python -m pip install pdfplumber
       - name: Rebuild database exports
+        if: steps.references.outputs.available == 'true'
         run: python NQRDatabase/scripts/build_database.py --output /tmp/nqr.sqlite
-      - name: Validate generated artifacts
+      - name: Validate rebuilt artifacts
+        if: steps.references.outputs.available == 'true'
         run: python NQRDatabase/scripts/validate_database.py --database /tmp/nqr.sqlite
       - name: Check generated artifacts are current
+        if: steps.references.outputs.available == 'true'
         run: git diff --exit-code -- NQRDatabase/data/normalized
+      - name: Skip rebuild without local references
+        if: steps.references.outputs.available != 'true'
+        run: echo "Reference PDFs are not present in this checkout; validated checked-in exports only."
