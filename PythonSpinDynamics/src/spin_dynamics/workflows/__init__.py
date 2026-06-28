@@ -23,6 +23,10 @@ from spin_dynamics.workflows.cpmg import (
     run_untuned_cpmg,
     run_untuned_cpmg_train,
 )
+from spin_dynamics.workflows.batched_sweeps import (
+    CPMGRelaxationSweepResult,
+    run_ideal_cpmg_relaxation_sweep,
+)
 from spin_dynamics.workflows.cpmg_ir import (
     CPMGIRTrainResult,
     MatchedCPMGIRTrainResult,
@@ -272,6 +276,8 @@ LEGACY_SWEEP_API = (
 __all__ = [
     "CPMGResult",
     "CPMGIRTrainResult",
+    "CPMGRelaxationSweepResult",
+    "run_ideal_cpmg_relaxation_sweep",
     "CPMGParameterSweepResult",
     "CPMGFiniteParameterSweepResult",
     "CPMGTrainResult",

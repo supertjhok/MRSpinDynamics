@@ -1,0 +1,7 @@
+measurement,method,N,dim,device,median_ms,speedup_vs_loop,note
+eigh_only,loop,4000,3,cpu,16.2,1.00,np.linalg.eigh per orientation
+eigh_only,batched_numpy,4000,3,cpu,2.8,5.79,one np.linalg.eigh over (N,3,3)
+eigh_only,batched_jax,4000,3,gpu,10.1,1.60,tiny matrices: GPU dispatch-bound
+eigh_only,batched_jax,4000,3,cpu,6.0,2.62,
+full_diag,loop,4000,3,cpu,402.4,1.00,diagonalize_site per orientation
+full_diag,batched_numpy,4000,3,cpu,255.3,1.58,batched eigh; transition extraction now dominates

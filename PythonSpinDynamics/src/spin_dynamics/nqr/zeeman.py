@@ -8,7 +8,10 @@ import warnings
 
 import numpy as np
 
-from spin_dynamics.nqr.hamiltonians import diagonalize_site
+from spin_dynamics.nqr.hamiltonians import (
+    diagonalize_site,
+    diagonalize_sites_over_b0,
+)
 from spin_dynamics.nqr.orientations import (
     OrientationSample,
     b0_b1_powder_average_grid,
@@ -103,8 +106,14 @@ def simulate_weak_b0_spectrum(
     intensity_tolerance: float = 1e-14,
     weak_ratio_action: str = "warn",
     weak_ratio_threshold: float = 0.05,
+    backend: str = "numpy",
 ) -> WeakB0SpectrumResult:
-    """Return a broadened transition spectrum for ``H_Q + H_Z`` in weak B0."""
+    """Return a broadened transition spectrum for ``H_Q + H_Z`` in weak B0.
+
+    ``backend`` selects the diagonalizer for the orientation scan: ``"numpy"``
+    (the reference) or ``"jax"`` (one batched GPU eigensolve over all
+    orientations, requires the optional ``jax`` extra). Results are identical.
+    """
 
     b0 = float(b0_tesla)
     if not np.isfinite(b0) or b0 < 0:
@@ -151,15 +160,25 @@ def simulate_weak_b0_spectrum(
             raise ValueError("selection_window_hz must be positive and finite")
 
     samples = _as_zeeman_orientations(orientations)
+    b0_vectors = np.array(
+        [
+            b0
+            * (
+                sample.b0_direction_pas
+                if sample.b0_direction_pas is not None
+                else sample.b1_direction_pas
+            )
+            for sample in samples
+        ],
+        dtype=np.float64,
+    ).reshape(-1, 3)
+    # One batched eigensolve over every orientation instead of a per-sample loop.
+    eigensystems = diagonalize_sites_over_b0(site, b0_vectors, backend=backend)
+
     transitions: list[WeakB0Transition] = []
     for orientation_index, sample in enumerate(samples):
-        direction = (
-            sample.b0_direction_pas
-            if sample.b0_direction_pas is not None
-            else sample.b1_direction_pas
-        )
-        b0_vector = b0 * direction
-        eigensystem = diagonalize_site(site, b0_vector)
+        b0_vector = b0_vectors[orientation_index]
+        eigensystem = eigensystems[orientation_index]
         ratio = weak_field_ratio(site, b0_vector, reference_frequency_hz=reference)
         for transition in eigensystem.transitions:
             nearest = float(
