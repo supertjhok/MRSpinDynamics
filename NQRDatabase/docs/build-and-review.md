@@ -1,36 +1,25 @@
-# NQR Database
+# Build and Review Notes
 
-Working area for a combined nuclear quadrupole resonance database built from the
-local reference material in `References/NQR Data`.
+This document describes how the NQR database is generated, reviewed, and served
+locally. It is written for maintainers who need to rebuild the database or audit
+how reviewed Landolt-Bornstein PDF data becomes canonical compound/site/line
+data.
 
-## Layout
+## Repository Layout
 
-- `schema/` - validation schemas and future database migrations.
-- `data/raw/` - source extracts copied or generated from reference material.
-- `data/normalized/` - validated, normalized records for import/export.
-- `data/exports/` - generated SQLite, JSONL, CSV, or UI-facing exports.
-- `scripts/` - import, validation, and export utilities.
-- `app/` - local review and human-facing interface utilities.
+- `schema/` - JSON schema files and future migration definitions.
+- `data/normalized/` - generated JSON Lines tables.
+- `data/exports/nqr.sqlite` - generated SQLite database used by the GUIs.
+- `data/review/landolt_review_decisions.jsonl` - append-only review decisions.
+- `scripts/build_database.py` - top-level rebuild entry point.
+- `scripts/build_cwru_database.py` - current importer and exporter.
+- `app/review_server.py` - local Landolt review GUI server.
+- `app/explorer_server.py` - local database explorer GUI server.
 
-The intended canonical model is a relational database with lossless JSONL
-exports: compounds, samples, sites, lines, pulse responses, and sources.
-Compound records include both source-style `formula` and UI-oriented
-`conventional_formula` fields. Prefer `conventional_formula` for chemical
-lookup, structure-rendering queries, and display.
+The generated normalized files and SQLite export are committed so the database
+can be used without rerunning OCR/PDF extraction on every checkout.
 
-## Current Build
-
-The current build imports:
-
-- Saved CWRU/UF Google Sites pages from `References/NQR Data/CWRU NQR Database`.
-- The compact `NQR Database.pdf` as a fallback source for entries missing from
-  the local HTML capture.
-- Navy/NRL `NQR_data_tables_summary.pdf` and
-  `NQR_data_tables_summary2.pdf` site/line summaries.
-- King's College notes for melamine, metformin HCl, and paracetamol.
-- Landolt-Bornstein NQR excerpts from `References/NQR Data/nqr_data`,
-  including source page text, column definitions, transition-frequency
-  equations, staged nitrogen table entries, and Table 9 reference codes.
+## Rebuild Command
 
 Run from the repository root:
 
@@ -38,96 +27,200 @@ Run from the repository root:
 python NQRDatabase/scripts/build_database.py
 ```
 
-Generated artifacts:
+The build reads local source material from `References/NQR Data`, replays the
+latest review decisions, and regenerates:
 
-- `data/exports/nqr.sqlite` - SQLite database.
-- `data/normalized/*.jsonl` - normalized JSONL tables.
-- `data/normalized/line_records.jsonl` - denormalized AI-friendly line records.
+- `data/exports/nqr.sqlite`
+- `data/normalized/*.jsonl`
+- `data/normalized/line_records.jsonl`
 
-Navy/NRL citations and source notes are stored in:
+The current build reports:
 
-- `literature_references`
-- `reference_links`
-- `data/normalized/literature_references.jsonl`
-- `data/normalized/reference_links.jsonl`
+- `sources=41`
+- `compounds=184`
+- `samples=250`
+- `sites=548`
+- `lines=923`
+- `literature_references=117`
+- `reference_links=1268`
+- `landolt_compound_entries=166`
+- `landolt_measurement_sets=207`
+- `landolt_frequency_records=654`
+- `landolt_qcc_eta_records=228`
+- `landolt_review_queue=166`
 
-Navy line records in `line_records.jsonl` also include linked references in a
-`references` array.
+## Source Imports
 
-Landolt material is stored in separate staging tables because the PDFs are
-OCR/layout-derived and should be checked against the page images. Accepted
-review decisions are also promoted into the canonical
-`compounds`/`samples`/`sites`/`lines`/`literature_references` records:
+The importer currently combines four source families.
 
-- `nqr_transition_equations` / `nqr_transition_equations.jsonl`
-- `landolt_column_definitions` / `landolt_column_definitions.jsonl`
-- `landolt_page_extracts` / `landolt_page_extracts.jsonl`
-- `landolt_compound_entries` / `landolt_compound_entries.jsonl`
-- `landolt_reference_codes` / `landolt_reference_codes.jsonl`
-- `landolt_measurement_sets` / `landolt_measurement_sets.jsonl`
-- `landolt_frequency_records` / `landolt_frequency_records.jsonl`
-- `landolt_qcc_eta_records` / `landolt_qcc_eta_records.jsonl`
-- `landolt_review_queue` / `landolt_review_queue.jsonl`
+1. Archived web pages from an earlier NQR database associated with Case Western
+   Reserve University and the University of Florida. These pages supply
+   compound, isotope/site, line-frequency, relaxation, linewidth, temperature,
+   and source fields where the original pages recorded them.
+2. U.S. Navy / Naval Research Laboratory NQR data tables. The summary tables
+   supply line and site records, while associated source notes are converted
+   into `literature_references` and `reference_links`.
+3. King's College experimental notes. These are manually structured into the
+   same compound/sample/site/line model and preserve acquisition notes where
+   available.
+4. Landolt-Bornstein NQR excerpts. These are OCR/layout-derived and therefore
+   pass through staging tables and the review GUI before promotion.
 
-The current Landolt staging import captures 104 nitrogen-table entries: 69
-from Table 4 and 35 from Table 9. It keeps raw formulas, frequencies, Q.C.C.,
-eta, remarks, reference codes, footnote names, CAS numbers where parsed, and
-the original row/footnote text for audit.
+Every source collection is represented in `sources`. Paper-level citations are
+stored in `literature_references`; links to compounds, sites, and lines are
+stored in `reference_links`.
 
-For Landolt rows, method/temperature/reference groups are stored as
-`landolt_measurement_sets`. Each set has its own frequency list and Q.C.C./eta
-pair list. In canonical records, each accepted measurement set becomes one
-sample. Its frequencies are stored as lines under a synthetic
-`unassigned_frequency_list` site, while each Q.C.C./eta pair is stored as a
-separate site with `assignment_confidence` set to
-`source_reported_unassigned_to_lines`. The database does not infer an
-element-wise assignment between frequency values and Q.C.C./eta values within a
-set.
+## Canonical Tables
 
-Landolt source frequencies and Q.C.C. values are in MHz. Canonical
-`frequency_khz` and `qcc_khz` values are converted to kHz, while the source text
-is preserved in `frequency_original`, site `original_record`, and the staging
-tables.
+The canonical model is:
 
-Landolt method labels are defined as:
+- `compounds` - one record per canonical compound name/formula/category.
+- `samples` - one record per reported material condition, often including
+  method and temperature.
+- `sites` - isotope/site records, including quadrupole coupling constants and
+  eta values when available.
+- `lines` - observed transition frequencies and line-level metadata.
+- `literature_references` - paper or source citations.
+- `reference_links` - provenance links from references to compounds, sites, and
+  lines.
+- `sources` - local source files and source collections.
 
-- `C` - Continuous wave method.
-- `D` - Double resonance method.
-- `P` - Pulse method.
-- `M` - NMR method.
-- `E` - Other methods.
-- `X` - Method not described in the original paper or not recorded in the
-  database at the early stage.
+Canonical numeric frequencies and quadrupole coupling constants are stored in
+kHz. Source strings are retained in `*_original` fields and JSON
+`original_record` payloads.
 
-For Landolt temperatures, source tokens such as `RT`, `RTemp`, and `R.Temp`
-mean room temperature. They are preserved as source text and do not imply an
-exact numeric temperature unless a reviewer adds one explicitly.
+The denormalized `data/normalized/line_records.jsonl` file is intended for AI
+tools, search indexes, and lightweight applications that want one record per
+line observation without joining the full schema.
 
-The Landolt review queue assigns a simple priority from OCR/coverage flags and
-points to a rendered PNG crop under `data/review/landolt_crops`. These crops
-combine the table row with the associated footnote region so reviewers can
-compare parsed values against the source image before accepting or correcting a
-row. Rebuilds replay the latest decisions from
-`data/review/landolt_review_decisions.jsonl`, so the SQLite review status and
-canonical promoted records stay in sync.
+## Landolt Staging Tables
 
-## Landolt Review GUI
+Landolt PDF-derived material is also preserved in staging tables:
 
-Run the local review interface from the repository root:
+- `nqr_transition_equations`
+- `landolt_column_definitions`
+- `landolt_page_extracts`
+- `landolt_compound_entries`
+- `landolt_reference_codes`
+- `landolt_measurement_sets`
+- `landolt_frequency_records`
+- `landolt_qcc_eta_records`
+- `landolt_review_queue`
+
+These tables retain raw row text, footnote text, parsed names/formulas/CAS
+numbers, measurement method labels, source temperatures, reference codes,
+frequencies, quadrupole-coupling constants, eta values, rendered crop paths, and
+review status.
+
+## Review GUI
+
+Start the Landolt review interface from the repository root:
 
 ```powershell
 python NQRDatabase/app/review_server.py
 ```
 
-Then open `http://127.0.0.1:8765`. The GUI reads the SQLite export, shows the
-review queue with crop images, and saves review decisions to:
+Open `http://127.0.0.1:8765`.
 
-- `data/review/landolt_review_decisions.jsonl`
+The GUI reads `data/exports/nqr.sqlite`, displays `landolt_review_queue`, and
+saves accepted/rejected decisions to:
 
-The SQLite `landolt_review_queue` status is also updated so filters reflect the
-current review session.
+```text
+data/review/landolt_review_decisions.jsonl
+```
 
-For rows with multiple method/temperature/reference groups, use the Measurement
-Sets section to review each group separately. Frequency records and Q.C.C./eta
-records are still not assigned to each other in this review workflow. The raw
-frequency/Q.C.C./eta lists remain unchanged as source evidence.
+The review workflow is:
+
+1. Compare the parsed row with the PDF crop.
+2. Correct identity fields, measurement sets, frequencies, and
+   quadrupole-coupling/eta lists as needed.
+3. Save edits.
+4. Accept the record once the reviewed values match the source evidence.
+
+The decision file is append-only. During rebuild, the latest decision for each
+`review_id` wins.
+
+## Landolt Promotion Rules
+
+Accepted Landolt review decisions are promoted into canonical records during
+the build.
+
+Some compounds span more than one PDF page. Before promotion, accepted review
+records are grouped by source, table number, and substance number. Records in
+the same group are merged so that continuation-page frequencies,
+coupling/eta pairs, references, names, formulas, and raw source text become one
+canonical promoted entry. Less-complete duplicate continuation records are not
+promoted as separate compounds.
+
+Within a Landolt measurement condition, frequency values and coupling/eta
+values are treated as independent lists. The build does not infer a one-to-one
+assignment between the two lists. Each accepted measurement set becomes one
+canonical sample:
+
+- line frequencies are stored under a synthetic unassigned frequency-list site;
+- each coupling/eta pair becomes its own site;
+- coupling/eta sites use `assignment_confidence =
+  source_reported_unassigned_to_lines`.
+
+When the same ordered frequency list is reported at multiple temperatures for a
+compound and method, the importer labels corresponding ordered positions as a
+temperature series. It fits a simple linear slope and stores it in:
+
+- `lines.transition_label`
+- `lines.dnu_dt_khz_per_c`
+- `lines.dnu_dt_original`
+
+This coefficient is a convenience annotation for obvious repeated-temperature
+series, not a claim that every line has been manually assigned to a physical
+transition.
+
+## Landolt Method Labels
+
+Landolt method labels are carried through from the source tables:
+
+- `C` - continuous wave method.
+- `D` - double resonance method.
+- `P` - pulse method.
+- `M` - NMR method.
+- `E` - other methods.
+- `X` - method not described in the original paper or not recorded in the
+  database at the early stage.
+
+Temperature tokens such as `RT`, `RTemp`, and `R.Temp` mean room temperature.
+They are preserved as source text and do not imply an exact numeric temperature
+unless the table or reviewer provides one.
+
+## Explorer GUI
+
+Start the human-facing database explorer from the repository root:
+
+```powershell
+python NQRDatabase/app/explorer_server.py
+```
+
+Open `http://127.0.0.1:8766`.
+
+The explorer serves the generated SQLite export. It provides:
+
+- an overview page explaining database terminology and assumptions;
+- search by compound name, formula, CAS number, and notes;
+- filters by category, isotope, source family, and frequency range;
+- compound detail views with samples, sites, lines, references, and sources;
+- spectrum plots with site-aware coloring when site assignments are available;
+- displayed quadrupole-coupling and eta symbols in the UI;
+- browser-side PubChem structure images when a compound can be matched.
+
+If the database is rebuilt while the explorer is running, restart the explorer
+so it opens the refreshed SQLite export.
+
+## Commit Checklist
+
+After review or importer changes:
+
+1. Rebuild with `python NQRDatabase/scripts/build_database.py`.
+2. Spot-check affected compounds in `data/exports/nqr.sqlite` or the explorer.
+3. Confirm the review queue counts still match the intended decision state.
+4. Stage the changed normalized files, SQLite export, review decision log, and
+   importer/docs changes.
+5. Leave scratch files, local logs, caches, and unrelated workspace files
+   unstaged.
