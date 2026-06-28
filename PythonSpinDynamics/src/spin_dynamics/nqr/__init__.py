@@ -1,7 +1,9 @@
 """Pulsed NQR helpers for quadrupolar spin dynamics."""
 
 from spin_dynamics.nqr.hamiltonians import (
+    batched_nqr_hamiltonians,
     diagonalize_site,
+    diagonalize_sites_over_b0,
     nqr_hamiltonian,
     quadrupole_frequency_scale_hz,
     quadrupole_hamiltonian,
@@ -178,6 +180,8 @@ __all__ = [
     "deconvolve_acquisition_window",
     "detection_operator",
     "diagonalize_site",
+    "diagonalize_sites_over_b0",
+    "batched_nqr_hamiltonians",
     "dipolar_coupling_hz",
     "dipolar_coupling_tensor",
     "equilibrium_density",

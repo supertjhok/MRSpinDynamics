@@ -44,6 +44,16 @@ bench = [
 opt = [
   "scipy>=1.11"
 ]
+numba = [
+  "numba>=0.59"
+]
+jax = [
+  "jax>=0.4.28"
+]
+perf = [
+  "numba>=0.59",
+  "jax>=0.4.28"
+]
 plot = [
   "matplotlib>=3.7",
   "pillow>=9"

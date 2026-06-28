@@ -20,6 +20,32 @@ from spin_dynamics.core.rotations import MatrixElements, rf_matrix_elements
 from spin_dynamics.radiation_damping import RadiationDampingSpec
 
 
+_VALID_BACKENDS = ("numpy", "numba", "jax")
+_DEFAULT_BACKEND = "numpy"
+
+
+def set_arb10_backend(name: str) -> None:
+    """Select the default backend for ``sim_spin_dynamics_arb10``.
+
+    ``"numpy"`` (default) is the always-available reference. ``"numba"`` uses
+    the JIT-compiled segment-loop kernel (optional ``numba`` extra). ``"jax"``
+    uses the x64 jit-compiled kernel (optional ``jax`` extra), which also
+    supports GPU and ``vmap`` and is the basis for the autodiff optimizer work.
+    The serial and chunked acquisition paths both honor this default.
+    """
+
+    if name not in _VALID_BACKENDS:
+        raise ValueError(f"backend must be one of {_VALID_BACKENDS}")
+    global _DEFAULT_BACKEND
+    _DEFAULT_BACKEND = name
+
+
+def get_arb10_backend() -> str:
+    """Return the current default ``sim_spin_dynamics_arb10`` backend."""
+
+    return _DEFAULT_BACKEND
+
+
 @dataclass(frozen=True)
 class Arb10Parameters:
     """Parameters for `sim_spin_dynamics_arb10`."""
@@ -179,13 +205,29 @@ def _apply_free_precession_step(
     mvect[2, :] = transverse * mvect[2, :]
 
 
-def sim_spin_dynamics_arb10(params: Mapping[str, Any] | Arb10Parameters | Any) -> np.ndarray:
+def sim_spin_dynamics_arb10(
+    params: Mapping[str, Any] | Arb10Parameters | Any,
+    *,
+    backend: str | None = None,
+) -> np.ndarray:
     """Simulate arbitrary-pulse spin dynamics with precomputed pulse matrices.
 
     Mirrors MATLAB `sim_spin_dynamics_arb/sim_spin_dynamics_arb10.m`.
     `Rtot` uses MATLAB-style pulse numbering in `pul`, so `pul=1` selects the
     first Python sequence entry. Free-precession segments should have `amp=0`.
+
+    `backend` selects the compute path: ``"numpy"`` (the reference) or
+    ``"numba"`` (the JIT-compiled segment loop, requires the ``numba`` extra).
+    When ``None`` the module default from :func:`set_arb10_backend` is used.
     """
+
+    resolved = _DEFAULT_BACKEND if backend is None else backend
+    if resolved == "numba":
+        return _sim_spin_dynamics_arb10_numba(params)
+    if resolved == "jax":
+        return _sim_spin_dynamics_arb10_jax(params)
+    if resolved != "numpy":
+        raise ValueError(f"backend must be one of {_VALID_BACKENDS}")
 
     tp = _as_vector(_field(params, "tp"), np.float64)
     pul = _as_vector(_field(params, "pul"), np.int64)
@@ -289,6 +331,146 @@ def _validate_arb10_inputs(
     return tp, pul, rtot, amp, acq, grad, del_w0, del_wg, t1n, t2n, m0, mth
 
 
+def _sim_spin_dynamics_arb10_numba(
+    params: Mapping[str, Any] | Arb10Parameters | Any,
+) -> np.ndarray:
+    """Numba backend for :func:`sim_spin_dynamics_arb10`.
+
+    Packs the precomputed pulse matrices into the stacked layout and runs the
+    JIT-compiled segment loop. Semantically identical to the NumPy path.
+    """
+
+    from spin_dynamics.core import _numba_kernels as nk
+
+    if not nk.NUMBA_AVAILABLE:
+        raise ImportError(
+            "backend='numba' requires the optional 'numba' extra. Install it "
+            "with `python -m pip install -e .[numba]` (or `.[perf]`)."
+        )
+
+    tp, pul, rtot, amp, acq, grad, del_w0, del_wg, t1n, t2n, m0, mth = (
+        _validate_arb10_inputs(params)
+    )
+    rstack = _stack_matrix_elements(rtot, del_w0.size)
+    n_acq = int(np.sum(acq))
+    return nk.arb10_core(
+        tp,
+        pul,
+        amp,
+        acq.astype(np.uint8),
+        grad,
+        del_w0,
+        del_wg,
+        t1n,
+        t2n,
+        m0,
+        mth,
+        rstack,
+        n_acq,
+    )
+
+
+def _sim_spin_dynamics_arb10_jax(
+    params: Mapping[str, Any] | Arb10Parameters | Any,
+) -> np.ndarray:
+    """JAX backend for :func:`sim_spin_dynamics_arb10`.
+
+    Packs the precomputed pulse matrices into the stacked layout and runs the
+    x64 jit-compiled segment kernel. Semantically identical to the NumPy path;
+    the compiled kernel is cached per sequence structure and isochromat shape.
+    """
+
+    from spin_dynamics.core import _jax_kernels as jk
+
+    if not jk.JAX_AVAILABLE:
+        raise ImportError(
+            "backend='jax' requires the optional 'jax' extra. Install it with "
+            "`python -m pip install -e .[jax]` (or `.[perf]`)."
+        )
+
+    tp, pul, rtot, amp, acq, grad, del_w0, del_wg, t1n, t2n, m0, mth = (
+        _validate_arb10_inputs(params)
+    )
+    rstack = _stack_matrix_elements(rtot, del_w0.size)
+    return jk.run_arb10(
+        tp, pul, amp, acq, grad, del_w0, del_wg, t1n, t2n, m0, mth, rstack
+    )
+
+
+def sim_spin_dynamics_arb10_batched(
+    params_list: Sequence[Mapping[str, Any] | Arb10Parameters | Any],
+) -> np.ndarray:
+    """Run many same-structured arb10 simulations in one vmapped JAX call.
+
+    All cases must share the pulse program and segment timing
+    (``tp, pul, amp, acq, grad, del_wg``); they may differ in the per-isochromat
+    fields (``del_w, T1n, T2n, m0, mth``) and the pulse matrices (``Rtot``). This
+    is the batched primitive behind GPU-accelerated parameter sweeps and
+    optimizer multistarts: a single wide program instead of a Python/thread loop.
+
+    Returns an array of shape ``(len(params_list), n_acq, numpts)``. Requires the
+    optional ``jax`` extra.
+    """
+
+    from spin_dynamics.core import _jax_kernels as jk
+
+    if not jk.JAX_AVAILABLE:
+        raise ImportError(
+            "sim_spin_dynamics_arb10_batched requires the optional 'jax' extra. "
+            "Install it with `python -m pip install -e .[jax]` (or `.[perf]`)."
+        )
+    if len(params_list) == 0:
+        raise ValueError("params_list must not be empty")
+
+    base = None
+    del_w0_b, t1n_b, t2n_b, m0_b, mth_b, rstack_b = [], [], [], [], [], []
+    for params in params_list:
+        tp, pul, rtot, amp, acq, grad, del_w0, del_wg, t1n, t2n, m0, mth = (
+            _validate_arb10_inputs(params)
+        )
+        structure = (
+            tp,
+            pul,
+            amp,
+            acq.astype(np.int64),
+            grad,
+            del_wg,
+        )
+        if base is None:
+            base = structure
+            shared = {"tp": tp, "pul": pul, "amp": amp, "acq": acq, "grad": grad, "del_wg": del_wg}
+        else:
+            for got, want, name in zip(
+                structure, base, ("tp", "pul", "amp", "acq", "grad", "del_wg")
+            ):
+                if got.shape != want.shape or not np.array_equal(got, want):
+                    raise ValueError(
+                        "all batched cases must share the same pulse program and "
+                        f"segment timing; '{name}' differs between cases"
+                    )
+        del_w0_b.append(del_w0)
+        t1n_b.append(t1n)
+        t2n_b.append(t2n)
+        m0_b.append(m0)
+        mth_b.append(mth)
+        rstack_b.append(_stack_matrix_elements(rtot, del_w0.size))
+
+    return jk.run_arb10_batched(
+        shared["tp"],
+        shared["pul"],
+        shared["amp"],
+        shared["acq"],
+        shared["grad"],
+        np.stack(del_w0_b, axis=0),
+        shared["del_wg"],
+        np.stack(t1n_b, axis=0),
+        np.stack(t2n_b, axis=0),
+        np.stack(m0_b, axis=0),
+        np.stack(mth_b, axis=0),
+        np.stack(rstack_b, axis=0),
+    )
+
+
 def _apply_matrix_step(
     mvect: np.ndarray,
     mat: MatrixElements,
@@ -302,40 +484,65 @@ def _apply_matrix_step(
     return out
 
 
+def _stack_matrix_elements(
+    rtot: Sequence[MatrixElements],
+    numpts: int,
+) -> np.ndarray:
+    """Pack a pulse-matrix sequence into a ``(num_pulses, 3, 3, numpts)`` array.
+
+    Rows index the output coherence component ``(0, -, +)`` and columns the
+    input component, matching the application order in ``sim_spin_dynamics_arb10``.
+    This stacked layout is what the Numba (and later JAX) backends consume.
+    """
+
+    num_pulses = len(rtot)
+    stack = np.empty((num_pulses, 3, 3, numpts), dtype=np.complex128)
+    for k, mat in enumerate(rtot):
+        stack[k, 0, 0] = mat.R_00
+        stack[k, 0, 1] = mat.R_0m
+        stack[k, 0, 2] = mat.R_0p
+        stack[k, 1, 0] = mat.R_m0
+        stack[k, 1, 1] = mat.R_mm
+        stack[k, 1, 2] = mat.R_mp
+        stack[k, 2, 0] = mat.R_p0
+        stack[k, 2, 1] = mat.R_pm
+        stack[k, 2, 2] = mat.R_pp
+    return stack
+
+
 def _matrix_elements_power(mat: MatrixElements, exponent: float) -> MatrixElements:
+    """Raise each isochromat's 3x3 coherence matrix to ``exponent``.
+
+    Vectorized over isochromats: NumPy's ``eig``/``inv``/``matmul`` broadcast
+    over the leading axis, so the per-isochromat Python loop is unnecessary.
+    """
+
     size = mat.R_00.size
-    arrays = {
-        "R_00": np.empty(size, dtype=np.complex128),
-        "R_0m": np.empty(size, dtype=np.complex128),
-        "R_0p": np.empty(size, dtype=np.complex128),
-        "R_m0": np.empty(size, dtype=np.complex128),
-        "R_mm": np.empty(size, dtype=np.complex128),
-        "R_mp": np.empty(size, dtype=np.complex128),
-        "R_p0": np.empty(size, dtype=np.complex128),
-        "R_pm": np.empty(size, dtype=np.complex128),
-        "R_pp": np.empty(size, dtype=np.complex128),
-    }
-    for idx in range(size):
-        full = np.array(
-            [
-                [mat.R_00[idx], mat.R_0m[idx], mat.R_0p[idx]],
-                [mat.R_m0[idx], mat.R_mm[idx], mat.R_mp[idx]],
-                [mat.R_p0[idx], mat.R_pm[idx], mat.R_pp[idx]],
-            ],
-            dtype=np.complex128,
-        )
-        vals, vecs = np.linalg.eig(full)
-        powered = vecs @ np.diag(vals**exponent) @ np.linalg.inv(vecs)
-        arrays["R_00"][idx] = powered[0, 0]
-        arrays["R_0m"][idx] = powered[0, 1]
-        arrays["R_0p"][idx] = powered[0, 2]
-        arrays["R_m0"][idx] = powered[1, 0]
-        arrays["R_mm"][idx] = powered[1, 1]
-        arrays["R_mp"][idx] = powered[1, 2]
-        arrays["R_p0"][idx] = powered[2, 0]
-        arrays["R_pm"][idx] = powered[2, 1]
-        arrays["R_pp"][idx] = powered[2, 2]
-    return MatrixElements(**arrays)
+    full = np.empty((size, 3, 3), dtype=np.complex128)
+    full[:, 0, 0] = mat.R_00
+    full[:, 0, 1] = mat.R_0m
+    full[:, 0, 2] = mat.R_0p
+    full[:, 1, 0] = mat.R_m0
+    full[:, 1, 1] = mat.R_mm
+    full[:, 1, 2] = mat.R_mp
+    full[:, 2, 0] = mat.R_p0
+    full[:, 2, 1] = mat.R_pm
+    full[:, 2, 2] = mat.R_pp
+
+    vals, vecs = np.linalg.eig(full)
+    # vecs @ diag(vals**exponent) == vecs scaled column-wise by vals**exponent.
+    powered = (vecs * (vals**exponent)[:, np.newaxis, :]) @ np.linalg.inv(vecs)
+    return MatrixElements(
+        R_00=powered[:, 0, 0].copy(),
+        R_0m=powered[:, 0, 1].copy(),
+        R_0p=powered[:, 0, 2].copy(),
+        R_m0=powered[:, 1, 0].copy(),
+        R_mm=powered[:, 1, 1].copy(),
+        R_mp=powered[:, 1, 2].copy(),
+        R_p0=powered[:, 2, 0].copy(),
+        R_pm=powered[:, 2, 1].copy(),
+        R_pp=powered[:, 2, 2].copy(),
+    )
 
 
 def _radiation_damping_weights(

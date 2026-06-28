@@ -8,7 +8,10 @@ import warnings
 import numpy as np
 
 from spin_dynamics.coupling.evolution import propagator
-from spin_dynamics.nqr.hamiltonians import diagonalize_site
+from spin_dynamics.nqr.hamiltonians import (
+    diagonalize_site,
+    diagonalize_sites_over_b0,
+)
 from spin_dynamics.nqr.orientations import (
     OrientationSample,
     normalize_orientations,
@@ -207,8 +210,14 @@ def simulate_slse(
     t2e_seconds: float = np.inf,
     initial_density: np.ndarray | None = None,
     relaxation: NQRRelaxationLike | None = None,
+    backend: str = "numpy",
 ) -> SLSEResult:
-    """Simulate a selective-pulse SLSE echo train."""
+    """Simulate a selective-pulse SLSE echo train.
+
+    ``backend`` selects the diagonalizer for the powder orientation scan:
+    ``"numpy"`` (the reference) or ``"jax"`` (one batched eigensolve over all
+    orientations, requires the optional ``jax`` extra). Results are identical.
+    """
 
     _require_spin_one_selective_pulse_site(site)
     samples = _as_orientations(orientations)
@@ -235,8 +244,19 @@ def simulate_slse(
     ) * sequence.echo_spacing_seconds
     decay = np.exp(-echo_times / t2e_seconds) if np.isfinite(t2e_seconds) else 1.0
 
-    for sample in samples:
-        eigensystem = diagonalize_site(site, _orientation_b0_vector(sample, b0_tesla))
+    # One batched eigensolve over all orientations (Phase 4) instead of a
+    # per-orientation diagonalize_site call inside the loop.
+    b0_vectors = np.array(
+        [
+            vec if (vec := _orientation_b0_vector(sample, b0_tesla)) is not None
+            else np.zeros(3, dtype=np.float64)
+            for sample in samples
+        ],
+        dtype=np.float64,
+    )
+    eigensystems = diagonalize_sites_over_b0(site, b0_vectors, backend=backend)
+
+    for sample, eigensystem in zip(samples, eigensystems):
         transition = eigensystem.transition(sequence.detection.transition_label)
         density = (
             equilibrium_density(eigensystem.levels_hz)
@@ -332,8 +352,13 @@ def simulate_slse_offset_sweep(
     t2e_seconds: float = np.inf,
     relaxation: NQRRelaxationLike | None = None,
     echo_index: int = -1,
+    backend: str = "numpy",
 ) -> SLSESweepResult:
-    """Sweep irradiation offset and return SLSE amplitude and decay estimates."""
+    """Sweep irradiation offset and return SLSE amplitude and decay estimates.
+
+    ``backend`` is forwarded to :func:`simulate_slse` for the per-offset powder
+    diagonalization (``"numpy"`` or ``"jax"``).
+    """
 
     offsets = np.asarray(offsets_hz, dtype=np.float64).reshape(-1)
     if offsets.size == 0:
@@ -362,6 +387,7 @@ def simulate_slse_offset_sweep(
             b0_tesla=b0_tesla,
             t2e_seconds=t2e_seconds,
             relaxation=relaxation,
+            backend=backend,
         )
         results.append(result)
         amplitudes[idx] = _selected_echo(result.echo_amplitudes, echo_index)
@@ -392,8 +418,13 @@ def simulate_slse_spacing_sweep(
     t2e_seconds: float = np.inf,
     relaxation: NQRRelaxationLike | None = None,
     echo_index: int = -1,
+    backend: str = "numpy",
 ) -> SLSESweepResult:
-    """Sweep SLSE pulse period and return amplitude plus effective decay."""
+    """Sweep SLSE pulse period and return amplitude plus effective decay.
+
+    ``backend`` is forwarded to :func:`simulate_slse` for the per-spacing powder
+    diagonalization (``"numpy"`` or ``"jax"``).
+    """
 
     spacings = np.asarray(echo_spacing_seconds, dtype=np.float64).reshape(-1)
     if spacings.size == 0:
@@ -424,6 +455,7 @@ def simulate_slse_spacing_sweep(
             b0_tesla=b0_tesla,
             t2e_seconds=t2e_seconds,
             relaxation=relaxation,
+            backend=backend,
         )
         results.append(result)
         amplitudes[idx] = _selected_echo(result.echo_amplitudes, echo_index)

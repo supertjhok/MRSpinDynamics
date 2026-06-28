@@ -1,0 +1,10 @@
+measurement,backend,numpts,num_echoes,median_seconds,speedup_vs_numpy
+rawkernel,numpy,4001,256,0.0737,1.00
+rawkernel,numba,4001,256,0.0426,1.73
+rawkernel,jax,4001,256,0.0546,1.35
+rawkernel,numpy,16001,256,0.2417,1.00
+rawkernel,numba,16001,256,0.1546,1.56
+rawkernel,jax,16001,256,0.1805,1.34
+rawkernel,numpy,64001,256,1.4149,1.00
+rawkernel,numba,64001,256,0.7609,1.86
+rawkernel,jax,64001,256,0.4863,2.91

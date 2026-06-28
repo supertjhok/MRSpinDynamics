@@ -88,6 +88,131 @@ best case, likely from memory bandwidth pressure and thread scheduling overhead.
 For production long-train runs, start with `num_workers=2` or `4` rather than
 blindly using all cores, then benchmark the specific echo count and grid size.
 
+## Forward Kernel & Optimizer Baseline (acceleration Phase 0)
+
+`forward_kernel.py` is the pre-acceleration baseline for the JAX/Numba work
+described in `../../docs/performance.md`. It has two timing groups matching the
+two halves of that plan:
+
+```powershell
+python -B benchmarks\forward_kernel.py --group kernel --sizes 1001,4001 --num-echoes 64 --repeats 3
+python -B benchmarks\forward_kernel.py --group optimizer --segments 8,16,32 --optimizer pattern
+```
+
+- **`kernel`** times the core segment-loop propagator end to end through the
+  finite ideal CPMG train, across isochromat-grid sizes. Phase 1 (Numba) and
+  Phase 2 (JAX) target this.
+- **`optimizer`** times a bounded refocusing phase optimization across the
+  number of phase segments and records the forward-objective **eval count** per
+  run. The eval count growing with `num_segments` is exactly the
+  finite-difference-gradient cost that Phase 3 (autodiff) removes. The default
+  `pattern` backend needs no optional dependency; pass `--optimizer scipy`
+  (requires the `opt` extra) to time the `L-BFGS-B` finite-difference path, or
+  `--optimizer jax` (requires the `jax` extra) for the autodiff path.
+
+  Autodiff results (ideal v0crit objective, numpts=801, compile cached,
+  `results/jax_optimizer_2026-06-28.csv`): at 16 segments finite-difference
+  L-BFGS takes 0.74 s / 749 evals vs autodiff 0.059 s / 45 evals (12.6×); at 32
+  segments 2.00 s / 1189 evals vs 0.060 s / 37 evals (33×). FD costs ~N extra
+  forward evals per gradient; autodiff is one reverse pass regardless of N. Note
+  the objective is multimodal and FD gradients are inaccurate on its stiff
+  `1/v0crit` term, so FD and autodiff runs from one start may reach different
+  optima — global quality comes from multistart, which autodiff makes cheap.
+
+As with the other performance benchmarks, treat the numbers as host-specific:
+run a baseline and save the command before an acceleration change, then rerun
+the same command on the same host afterward. Each later backend is additionally
+held to bit-for-bit (within tolerance) parity with the NumPy reference via the
+`tests/test_perf_golden.py` golden fixture.
+
+A third group, `rawkernel`, times `sim_spin_dynamics_arb10` directly on a
+prebuilt CPMG parameter set, isolating the segment-loop kernel from workflow
+assembly (rotation-matrix build, PAP phase cycling, echo construction). Use it
+to measure backend (`--backend numpy|numba`) changes:
+
+```bash
+python -B benchmarks/forward_kernel.py --group rawkernel --backend numba --sizes 4001,16001,64001 --num-echoes 256
+```
+
+### Numba Backend Results (Phase 1)
+
+Measured 2026-06-28 in WSL2 Ubuntu 24.04 (the Windows dev env lacks Numba),
+Python 3.12.3, NumPy 2.4.6, Numba 0.65.1, 20-logical-CPU host, BLAS pinned to 1
+thread. Curated medians in `results/numba_rawkernel_2026-06-28.csv`.
+
+Raw kernel, single thread (`num_echoes=256`):
+
+| Isochromats | numpy | numba | Speedup |
+| ---: | ---: | ---: | ---: |
+| 1,001 | 0.0178 s | 0.0107 s | 1.66× |
+| 4,001 | 0.0598 s | 0.0378 s | 1.58× |
+| 16,001 | 0.2675 s | 0.1662 s | 1.61× |
+| 64,001 | 1.3846 s | 0.7300 s | 1.90× |
+
+Chunked (`nogil`) threading at 64,001 isochromats:
+
+| Path | 1 worker | 4 workers | 8 workers |
+| --- | ---: | ---: | ---: |
+| numpy | 1.391 s | 0.656 s (2.1×) | — |
+| numba | 0.695 s | 0.215 s | 0.145 s (**9.6× vs numpy 1w**) |
+
+The single-thread Numba win is moderate (the NumPy kernel is already vectorized;
+Numba removes per-segment temporaries). The larger gain is that `nogil=True`
+lets the isochromat-chunking pool scale where NumPy's partial GIL release stalls
+near 2×. Recommendation: prefer Numba for large grids / long trains, and combine
+it with `num_workers=4`–`8` via the chunked acquisition path.
+
+### JAX Backend Results (Phase 2)
+
+Same host, jax 0.10.2 (CPU jaxlib), x64 enabled, 2026-06-28. Curated medians in
+`results/jax_rawkernel_2026-06-28.csv`. Raw kernel, `num_echoes=256`:
+
+| Isochromats | numpy | numba | jax | jax vs numpy |
+| ---: | ---: | ---: | ---: | ---: |
+| 4,001 | 0.0737 s | 0.0426 s | 0.0546 s | 1.35× |
+| 16,001 | 0.2417 s | 0.1546 s | 0.1805 s | 1.34× |
+| 64,001 | 1.4149 s | 0.7609 s | 0.4863 s | 2.91× |
+
+JAX uses `lax.scan` (one compilation regardless of train length) and XLA's own
+intra-op threading, so it scales best on large grids — overtaking single-thread
+Numba at 64k — while dispatch overhead makes it slowest on small grids. Warmups
+absorb the one-time JIT compilation; report post-warmup medians only. The CPU
+figures understate JAX: its real wins are GPU, `vmap` over sweeps, and autodiff
+(`jax.grad`) for the optimizer (Phase 3). Recommendation: Numba for CPU forward
+runs today; JAX where you need GPU, batched sweeps, or gradients.
+
+#### GPU note (RTX 4060 Ti, jax[cuda12] 0.10.2)
+
+A single forward run is **slower on this GPU than on CPU** (3.36 s vs 0.58 s at
+64k isochromats) — a lone simulation is a sequential `lax.scan` of small steps
+that starves the device. The cause is *not* FP64 (only a 1.6× complex128-vs-64
+gap on a fused micro-benchmark); it is the thin, sequential, control-flow-heavy
+per-step work. Batching many simulations with `vmap` flips this: GPU wins **6–7×**
+even at complex128 (batch=256: 0.49 s GPU vs 3.40 s CPU). So reserve the GPU for
+`vmap`-batched sweeps / optimizer multistarts, not single runs. Full numbers in
+`results/jax_gpu_2026-06-28.csv`; discussion in `../../docs/performance.md`.
+
+#### Batched kernel (`--group batch`, Phase 2b)
+
+`sim_spin_dynamics_arb10_batched` runs many same-structure simulations in one
+`vmap`. `--group batch --batch N` times it; the device is set with
+`JAX_PLATFORMS=cpu` / default (gpu). Per-case time, CPMG 4001×64 echoes, batch
+128 (`results/jax_batched_2026-06-28.csv`):
+
+| path | per-case |
+| --- | ---: |
+| numpy single (loop) | 15.0 ms |
+| numba single (loop) | 10.0 ms |
+| JAX CPU batched | 7.5 ms |
+| JAX GPU batched | 3.07 ms |
+
+The batched runner dispatches by device: a branchless, scatter-free kernel on
+GPU (avoids the `cond`/`dynamic_update_slice` that crush GPU throughput) and the
+memory-light `cond` kernel on CPU. Batching helps CPU ~2× and GPU ~4.9× vs the
+NumPy single-run baseline.
+
+## Matched Diffusion High-Q Validation
+
 ## Matched Diffusion High-Q Validation
 
 `diffusion_high_q_validation.py` runs the compact matched diffusion CPMG

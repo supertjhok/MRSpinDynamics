@@ -1,0 +1,5 @@
+measurement,backend,device,numpts,num_echoes,batch,per_case_ms,note
+single_loop,numpy,cpu,4001,64,1,15.0,rawkernel single x batch
+single_loop,numba,cpu,4001,64,1,10.0,rawkernel single x batch
+batched_vmap,jax,cpu,4001,64,128,7.50,cond kernel (memory-light)
+batched_vmap,jax,gpu,4001,64,128,3.07,branchless kernel (scatter-free)
