@@ -349,6 +349,37 @@ Use `--diffusion-time` to set the b-sweep diffusion time, and
 `--walkers-per-cell` / `--substeps` to trade runtime for smoother, more accurate
 stochastic curves. Only Matplotlib is required; SciPy is not used here.
 
+## 3D Porous-Rock CPMG Walkers
+
+This large simulation challenge uses the optimized voxel-walker backends for a
+realistic three-dimensional porous rock core. The synthetic medium is a
+cylindrical sample with a multimodal pore-size distribution, connected throats,
+constriction-dependent tortuosity, short surface-relaxation T2, and
+susceptibility-like B0 offsets. Before running the expensive CPMG train, the
+script prints analytical geometry-only estimates for the expected D and T2
+distributions so the D-T2 map can be checked against the model.
+
+The default case is intended for CUDA-enabled JAX and takes several minutes on
+an RTX-class GPU. It writes a four-panel figure: a sampled 3D pore-structure
+view, the pore-weighted D-T2 map, the CPMG decay, and the input pore-size
+distribution.
+
+```bash
+XLA_PYTHON_CLIENT_PREALLOCATE=false python examples/porous_rock_cpmg_walkers.py \
+  --backend jax \
+  --plot-output results/porous_rock_challenge.png \
+  --output results/porous_rock_challenge.npz
+```
+
+For a quick backend sanity check, reduce the geometry and echo train:
+
+```bash
+python examples/porous_rock_cpmg_walkers.py \
+  --grid 24 --z-cells 32 --pores 90 --walkers-per-voxel 2 \
+  --num-echoes 6 --substeps 2 --benchmark-backends \
+  --plot-output results/porous_rock_smoke.png
+```
+
 ## PGSE Diffusive Diffraction in a Circular Pore
 
 This example extends restricted diffusion to a genuinely two-dimensional
@@ -833,24 +864,21 @@ debugged without relying on plots.
 python examples\diagnose_optimization_backends.py --backend all --numpts 21 --segments 3
 ```
 
-On WSL2, create a virtual environment in the Linux filesystem and install the
-optional SciPy backend before running the comparison. On Windows/OneDrive
-checkouts, prefer an external unsynced environment such as
-`C:\Users\smandal\codex-envs\python-spin-dynamics`.
+Use the persistent development environment before running optional optimization
+or plotting examples:
 
 ```bash
-python3 -m venv ~/venvs/python-spin-dynamics
-source ~/venvs/python-spin-dynamics/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -e ".[opt]"
+bash scripts/setup_dev_env_wsl.sh
+source .venv-wsl/bin/activate
 python examples/diagnose_optimization_backends.py --backend all --numpts 21 --segments 3
 ```
 
-On Windows with Conda, keep the environment outside the OneDrive checkout:
+On Windows:
 
 ```powershell
-conda create -p "C:\Users\smandal\codex-envs\python-spin-dynamics" python=3.11 numpy scipy matplotlib -y
-conda run -p "C:\Users\smandal\codex-envs\python-spin-dynamics" python -m pip install -e .
+powershell -ExecutionPolicy Bypass -File scripts\setup_dev_env.ps1
+& ".\.venv-win\Scripts\Activate.ps1"
+python examples\diagnose_optimization_backends.py --backend all --numpts 21 --segments 3
 ```
 
 ## Plot Finite Train Workflows

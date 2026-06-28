@@ -43,7 +43,7 @@ Install development dependencies before running lint or optional-dependency
 validation:
 
 ```powershell
-python -m pip install -e ".[dev,opt,plot,bench]"
+python -m pip install -e ".[dev,opt,plot,perf,bench]"
 python -m ruff check src tests examples
 ```
 

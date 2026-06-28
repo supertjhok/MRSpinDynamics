@@ -1,48 +1,60 @@
 # Installation
 
-The Python package is currently a source-tree workspace. The cleanest setup is
-an editable install from `PythonSpinDynamics`:
+PythonSpinDynamics is currently a source-tree package. The recommended setup
+for development, examples, tests, plotting, and benchmarks is a persistent
+virtual environment managed by the repository scripts.
+
+From `PythonSpinDynamics` on Windows:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\setup_dev_env.ps1
+& ".\.venv-win\Scripts\Activate.ps1"
+python scripts\verify_dev_env.py --strict
+```
+
+From `PythonSpinDynamics` on WSL/Ubuntu:
+
+```bash
+bash scripts/setup_dev_env_wsl.sh
+source .venv-wsl/bin/activate
+python scripts/verify_dev_env.py --strict
+```
+
+For CUDA-enabled JAX in WSL:
+
+```bash
+JAX_CUDA=13 bash scripts/setup_dev_env_wsl.sh
+source .venv-wsl/bin/activate
+python scripts/verify_dev_env.py --strict --require-jax-gpu
+```
+
+The scripts create or update `.venv-win` on Windows or `.venv-wsl` on WSL,
+install the package in editable mode, and install the standard development
+extras:
+
+```text
+.[dev,opt,plot,perf,bench]
+```
+
+See [Development Environment](../development_environment.md) for WSL
+`Ubuntu-24.04` commands, external virtual-environment paths, smoke checks, and
+benchmarking notes.
+
+## Minimal Install
+
+For a runtime-only editable install, use:
 
 ```powershell
 python -m pip install -e .
 ```
 
-On Windows, avoid creating virtual environments inside a OneDrive-synced
-checkout. Put the environment in a local, unsynced directory and install the
-package from the source tree:
-
-```powershell
-cd "C:\Users\smandal\OneDrive - Brookhaven National Laboratory\Codex\NMR\MATLABSpinDynamics\PythonSpinDynamics"
-conda create -p "C:\Users\smandal\codex-envs\python-spin-dynamics" python=3.11 numpy scipy matplotlib -y
-conda run -p "C:\Users\smandal\codex-envs\python-spin-dynamics" python -m pip install -e .
-```
-
-Then run tests or examples with:
-
-```powershell
-& "C:\Users\smandal\codex-envs\python-spin-dynamics\python.exe" -m unittest tests.smoke_tests
-```
-
-You can also run examples directly from the source tree. The scripts in
-`examples/` add `../src` to `sys.path` automatically, so this works from either
-`PythonSpinDynamics` or `PythonSpinDynamics/examples`:
+The scripts in `examples/` also add `../src` to `sys.path` automatically, so
+simple examples can run from either `PythonSpinDynamics` or
+`PythonSpinDynamics/examples` while developing:
 
 ```powershell
 python examples\ideal_cpmg.py --numpts 101
 ```
-
-Tests can also be run directly from `PythonSpinDynamics`:
-
-```powershell
-python -m unittest discover -s tests
-```
-
-If the system `python` does not have NumPy installed, use an environment that
-does. In Codex, the bundled Python runtime has NumPy available.
-
-If an older `.venv` or `.conda-env` was created inside the checkout, verify the
-external environment first, then remove the in-tree environment to avoid
-OneDrive sync and file-lock overhead.
 
 ## Dependencies
 
@@ -51,14 +63,20 @@ Required:
 - Python 3.10 or newer
 - NumPy
 
-Optional:
+Optional extras:
 
-- Matplotlib and Pillow, for plotting and image-phantom examples. Install with
-  `python -m pip install -e .[plot]`.
-- SciPy, for `optimizer="scipy"` in pulse-optimization helpers. Install with:
+- `opt`: SciPy-backed optimization and inverse-Laplace workflows.
+- `plot`: Matplotlib and Pillow for plotting and image-phantom examples.
+- `dev`: test and lint tooling.
+- `perf`: Numba and JAX acceleration backends.
+- `bench`: benchmark tooling.
+- `jax-cuda13` / `jax-cuda12`: CUDA-enabled JAX wheels for Linux/WSL GPU
+  environments.
+
+Install a custom subset only when deliberately building a smaller environment:
 
 ```powershell
-python -m pip install -e .[opt]
+python -m pip install -e ".[opt,plot]"
 ```
 
 The package metadata is in `pyproject.toml`. The port is not yet published as a

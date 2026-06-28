@@ -50,6 +50,12 @@ numba = [
 jax = [
   "jax>=0.4.28"
 ]
+jax-cuda12 = [
+  "jax[cuda12]>=0.4.28"
+]
+jax-cuda13 = [
+  "jax[cuda13]>=0.4.28"
+]
 perf = [
   "numba>=0.59",
   "jax>=0.4.28"

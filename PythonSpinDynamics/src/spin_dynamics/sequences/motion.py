@@ -158,10 +158,12 @@ def make_motion_cpmg_sequence(
     half_free = 0.5 * float(echo_spacing) - 0.5 * float(refocusing_duration)
     if half_free < 0.0:
         raise ValueError("echo_spacing must be at least refocusing_duration")
+    zero_gradient = tuple(0.0 for _ in tuple(gradient))
 
     steps: list[MotionSequenceStep] = [
         MotionSequenceStep(
             duration=float(excitation_duration),
+            gradient=zero_gradient,
             rf_amplitude=(0.5 * np.pi) / float(excitation_duration),
             rf_phase=float(excitation_phase),
             substeps=max(1, int(substeps_per_interval)),
@@ -180,6 +182,7 @@ def make_motion_cpmg_sequence(
                 ),
                 MotionSequenceStep(
                     duration=float(refocusing_duration),
+                    gradient=zero_gradient,
                     rf_amplitude=np.pi / float(refocusing_duration),
                     rf_phase=float(refocusing_phase),
                     substeps=max(1, int(substeps_per_interval)),
@@ -239,10 +242,12 @@ def make_motion_udd_sequence(
     else:
         starts = np.empty(0, dtype=np.float64)
         stops = np.empty(0, dtype=np.float64)
+    zero_gradient = tuple(0.0 for _ in tuple(gradient))
 
     steps: list[MotionSequenceStep] = [
         MotionSequenceStep(
             duration=float(excitation_duration),
+            gradient=zero_gradient,
             rf_amplitude=(0.5 * np.pi) / float(excitation_duration),
             rf_phase=float(excitation_phase),
             substeps=max(1, int(substeps_per_interval)),
@@ -264,6 +269,7 @@ def make_motion_udd_sequence(
         steps.append(
             MotionSequenceStep(
                 duration=float(refocusing_duration),
+                gradient=zero_gradient,
                 rf_amplitude=np.pi / float(refocusing_duration),
                 rf_phase=float(refocusing_phase),
                 substeps=max(1, int(substeps_per_interval)),

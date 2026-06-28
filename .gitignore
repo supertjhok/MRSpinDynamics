@@ -9,6 +9,7 @@ References/*
 
 PythonSpinDynamics/.conda-env/
 PythonSpinDynamics/.venv/
+PythonSpinDynamics/.venv-*/
 PythonSpinDynamics/.tmp/
 PythonSpinDynamics/.pytest_cache/
 PythonSpinDynamics/.mypy_cache/

@@ -9,6 +9,7 @@ variants, packaging, and performance.
 ## Start Here
 
 - [Installation](installation.md)
+- [Development Environment](../development_environment.md)
 - [Concepts and Units](concepts.md)
 - [Examples](examples.md)
 - [Parameters](parameters.md)

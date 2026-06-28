@@ -10,7 +10,9 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from spin_dynamics.motion import (
+    ParticleEnsemble,
     initialize_ensemble_from_density,
+    make_motion_field_maps,
     make_motion_field_maps_2d,
 )
 from spin_dynamics.sequences.motion import (
@@ -221,6 +223,40 @@ class MotionSequenceTests(unittest.TestCase):
         )
 
         self.assertLess(np.abs(diffusing.signal[-1]), np.abs(no_diffusion.signal[-1]))
+
+    def test_cpmg_sequence_accepts_three_dimensional_fields(self) -> None:
+        axes = (
+            np.linspace(-0.5, 0.5, 3),
+            np.linspace(-0.5, 0.5, 3),
+            np.linspace(-0.5, 0.5, 3),
+        )
+        fields = make_motion_field_maps(axes)
+        positions = np.array(
+            [[-0.2, 0.0, 0.1], [0.2, 0.0, -0.1]],
+            dtype=np.float64,
+        )
+        magnetization = np.zeros((3, positions.shape[0]), dtype=np.complex128)
+        magnetization[0, :] = 1.0
+        ensemble = ParticleEnsemble(
+            positions=positions,
+            magnetization=magnetization,
+            weights=np.full(positions.shape[0], 0.5, dtype=np.float64),
+            diffusion_coefficient=np.zeros(positions.shape[0], dtype=np.float64),
+        )
+
+        result = run_motion_cpmg_sequence(
+            ensemble,
+            fields,
+            num_echoes=2,
+            echo_spacing=0.08,
+            excitation_duration=0.002,
+            refocusing_duration=0.004,
+            gradient=(0.0, 0.0, 0.0),
+            substeps_per_interval=2,
+        )
+
+        self.assertEqual(result.signal.shape, (2,))
+        self.assertEqual(result.final_ensemble.positions.shape, (2, 3))
 
     def test_udd_sequence_uses_uhrig_pulse_centers(self) -> None:
         steps = make_motion_udd_sequence(

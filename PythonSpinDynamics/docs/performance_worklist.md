@@ -93,5 +93,5 @@ wsl.exe -d Ubuntu-24.04 -- bash -lc "cd '/mnt/c/Users/super/OneDrive - Brookhave
 Before pushing, reproduce the GitHub smoke job:
 
 ```powershell
-wsl.exe -d Ubuntu-24.04 -- bash -lc "python3 -m venv /tmp/nmr-ci-venv && . /tmp/nmr-ci-venv/bin/activate && cd '/mnt/c/Users/super/OneDrive - Brookhaven National Laboratory/Codex/NMR/PythonSpinDynamics' && python -m pip install -q -e '.[dev,opt,plot]' && python -m unittest tests.smoke_tests && python -m ruff check src tests examples && python docs/generate_api_reference.py && git diff --exit-code docs/python_api/api_reference.md"
+wsl.exe -d Ubuntu-24.04 -- bash -lc "cd '/mnt/c/Users/super/OneDrive - Brookhaven National Laboratory/Codex/NMR/PythonSpinDynamics' && bash scripts/setup_dev_env_wsl.sh && . .venv-wsl/bin/activate && python -m unittest tests.smoke_tests && python -m ruff check src tests examples && python docs/generate_api_reference.py && git diff --exit-code docs/python_api/api_reference.md"
 ```
