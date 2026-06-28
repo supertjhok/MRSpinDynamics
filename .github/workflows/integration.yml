@@ -45,3 +45,5 @@ jobs:
         run: python integration/examples/nano2_dft_vs_measured.py
       - name: Demo example (database consistency)
         run: python integration/examples/database_consistency.py
+      - name: Demo example (temperature coefficients)
+        run: python integration/examples/nano2_temperature_coefficients.py
