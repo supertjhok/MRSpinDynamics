@@ -12,10 +12,17 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from spin_dynamics.relaxation import (
     BPPRelaxationModel,
+    WallCollisionRelaxationModel,
     apply_relaxation_to_parameters,
     arrhenius_correlation_time,
     bpp_relaxation_rates,
+    gas_mean_speed_m_per_s,
+    liouville_superoperator,
+    matrix_exponential,
+    single_spin_matrices,
+    sphere_surface_to_volume_per_m,
     spectral_density_lorentzian,
+    wall_collision_rate_per_second,
 )
 
 
@@ -135,6 +142,52 @@ class RelaxationTests(unittest.TestCase):
         )
         np.testing.assert_allclose(copied["del_w"], [0.0, 1.0])
         np.testing.assert_allclose(copied["T1"], rates.t1_seconds)
+
+    def test_wall_collision_rate_uses_kinetic_surface_sampling(self) -> None:
+        mean_speed = float(gas_mean_speed_m_per_s(300.0, 128.9047808611))
+        surface_to_volume = sphere_surface_to_volume_per_m([0.002, 0.010])
+
+        rates = wall_collision_rate_per_second(
+            surface_to_volume,
+            temperature_kelvin=300.0,
+            mass_amu=128.9047808611,
+            accommodation_probability=0.5,
+        )
+
+        np.testing.assert_allclose(rates, 0.5 * mean_speed * surface_to_volume / 4.0)
+        self.assertGreater(rates[0], rates[1])
+
+    def test_wall_collision_liouvillian_damps_traceless_spin_modes(self) -> None:
+        ops = single_spin_matrices(0.5)
+        model = WallCollisionRelaxationModel(
+            spin=0.5,
+            collision_rate_per_second=2.0e4,
+            depolarization_probability=1.5e-8,
+        )
+        generator = liouville_superoperator(np.zeros((2, 2)), model)
+
+        duration = 1000.0
+        propagated_identity = matrix_exponential(
+            generator,
+            duration,
+        ) @ ops.identity.reshape(-1, order="F")
+        propagated_ix = matrix_exponential(generator, duration) @ ops.ix.reshape(
+            -1,
+            order="F",
+        )
+
+        np.testing.assert_allclose(
+            propagated_identity.reshape((2, 2), order="F"),
+            ops.identity,
+            atol=1.0e-12,
+        )
+        expected = np.exp(-model.relaxation_rate_per_second * duration) * ops.ix
+        np.testing.assert_allclose(
+            propagated_ix.reshape((2, 2), order="F"),
+            expected,
+            rtol=1.0e-9,
+            atol=1.0e-12,
+        )
 
     def test_invalid_inputs_raise_clear_errors(self) -> None:
         with self.assertRaisesRegex(ValueError, "correlation_time_seconds"):

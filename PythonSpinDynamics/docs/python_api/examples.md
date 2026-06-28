@@ -608,6 +608,23 @@ Use `--larmor-mhz`, `--tau-ref-ns`, `--activation-energy-kj-mol`, and
 `--coupling-scale` to tune the curve shape and absolute relaxation rates. Only
 Matplotlib is required.
 
+## 129Xe Wall-Collision Relaxation
+
+This plotting example uses `spin_dynamics.relaxation.WallCollisionRelaxationModel`
+to show how gas-wall relaxation grows with container surface-to-volume ratio.
+The model computes the kinetic wall encounter rate from temperature, isotope
+mass, and geometry, then applies a per-collision spin depolarization quantum map
+in Liouville space. The reported surface relaxivity is derived from those inputs
+rather than supplied as the primary fit parameter.
+
+```powershell
+python examples\plot_wall_relaxation_xe.py --output results\wall_relaxation_xe.png
+```
+
+Use `--depolarization-probability`, `--temperature-k`,
+`--accommodation-probability`, and `--selected-diameters-mm` to explore the
+microscopic assumptions behind the equivalent wall-limited `T1`.
+
 ## Prepolarized T1rho Dispersion
 
 This plotting example combines the prepolarization and BPP relaxation helpers:

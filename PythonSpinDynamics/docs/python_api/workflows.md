@@ -58,6 +58,35 @@ For other dipolar conventions or phenomenological fits, provide custom
 `r1_coefficients` and `r2_coefficients` in the order
 `(J(0), J(w0), J(2w0))`.
 
+## Wall-Collision Relaxation
+
+Gas-wall relaxation uses a different microscopic picture than BPP or dipolar
+Redfield relaxation. `WallCollisionRelaxationModel` treats wall encounters as a
+Poisson process. The gas kinetic rate is `vbar * (S/V) / 4`, optionally scaled
+by an accommodation probability, and each encounter applies an isotropic spin
+depolarization channel:
+
+```python
+from spin_dynamics.relaxation import (
+    WallCollisionRelaxationModel,
+    sphere_surface_to_volume_per_m,
+)
+
+surface_to_volume = float(sphere_surface_to_volume_per_m(10e-3))
+relaxation = WallCollisionRelaxationModel.from_geometry(
+    0.5,
+    surface_to_volume_per_m=surface_to_volume,
+    temperature_kelvin=295.0,
+    mass_amu=128.9047808611,
+    accommodation_probability=1.0,
+    depolarization_probability=1e-8,
+)
+```
+
+This predicts `T1=T2=1/(k_wall*p_dep)` for traceless spin magnetization while
+still exposing the microscopic inputs: temperature, gas mass, container
+surface-to-volume ratio, and per-collision spin loss.
+
 ## Public CPMG Runners
 
 Use these for application code and examples:

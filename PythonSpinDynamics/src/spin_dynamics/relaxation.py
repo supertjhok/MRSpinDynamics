@@ -24,6 +24,8 @@ MU0_OVER_4PI = 1.0e-7
 PLANCK = 6.62607015e-34
 ANGSTROM = 1.0e-10
 PROTON_GAMMA_HZ_PER_T = 42.57747892e6
+BOLTZMANN = 1.380649e-23
+ATOMIC_MASS_UNIT_KG = 1.66053906660e-27
 
 
 @dataclass(frozen=True)
@@ -466,6 +468,117 @@ class RedfieldDipolarRelaxationModel:
         return out
 
 
+@dataclass(frozen=True)
+class WallCollisionRelaxationModel:
+    """Gas-wall collision relaxation from a stochastic spin map.
+
+    The model assumes the fast-diffusion/ballistic-wall limit where a gas atom
+    samples container walls as independent Poisson events. Kinetic theory gives
+    the wall encounter rate
+
+    ``k = accommodation_probability * mean_speed * (S/V) / 4``.
+
+    Each encounter applies an isotropic depolarizing spin channel with
+    probability ``depolarization_probability``. The continuous-time generator is
+    therefore ``k * (Phi - I)``, where ``Phi`` is the one-collision quantum map.
+    """
+
+    spin: float
+    collision_rate_per_second: float
+    depolarization_probability: float
+
+    def __post_init__(self) -> None:
+        spin = _validate_spin(self.spin)
+        collision_rate = float(self.collision_rate_per_second)
+        probability = float(self.depolarization_probability)
+        if not np.isfinite(collision_rate) or collision_rate < 0.0:
+            raise ValueError("collision_rate_per_second must be non-negative")
+        if not np.isfinite(probability) or probability < 0.0 or probability > 1.0:
+            raise ValueError("depolarization_probability must be in [0, 1]")
+        object.__setattr__(self, "spin", spin)
+        object.__setattr__(self, "_dimension", spin_dimension(spin))
+        object.__setattr__(self, "collision_rate_per_second", collision_rate)
+        object.__setattr__(self, "depolarization_probability", probability)
+
+    @classmethod
+    def from_geometry(
+        cls,
+        spin: float,
+        *,
+        surface_to_volume_per_m: float,
+        temperature_kelvin: float,
+        mass_amu: float,
+        depolarization_probability: float,
+        accommodation_probability: float = 1.0,
+    ) -> WallCollisionRelaxationModel:
+        """Build a wall model from gas kinetic theory and container ``S/V``."""
+
+        collision_rate = wall_collision_rate_per_second(
+            surface_to_volume_per_m,
+            temperature_kelvin=temperature_kelvin,
+            mass_amu=mass_amu,
+            accommodation_probability=accommodation_probability,
+        )
+        return cls(
+            spin=spin,
+            collision_rate_per_second=float(collision_rate),
+            depolarization_probability=depolarization_probability,
+        )
+
+    @property
+    def relaxation_rate_per_second(self) -> float:
+        """Return the decay rate of traceless spin magnetization."""
+
+        return self.collision_rate_per_second * self.depolarization_probability
+
+    @property
+    def t1_seconds(self) -> float:
+        """Return the isotropic wall-limited ``T1``."""
+
+        rate = self.relaxation_rate_per_second
+        return np.inf if rate == 0.0 else 1.0 / rate
+
+    @property
+    def t2_seconds(self) -> float:
+        """Return the isotropic wall-limited ``T2``."""
+
+        return self.t1_seconds
+
+    def equivalent_surface_relaxivity_m_per_s(
+        self,
+        *,
+        mean_speed_m_per_s: float,
+    ) -> float:
+        """Return ``rho`` such that ``rho S/V`` matches this microscopic rate."""
+
+        mean_speed = float(mean_speed_m_per_s)
+        if not np.isfinite(mean_speed) or mean_speed <= 0.0:
+            raise ValueError("mean_speed_m_per_s must be positive")
+        return 0.25 * mean_speed * self.depolarization_probability
+
+    def superoperator(self, hamiltonian: np.ndarray) -> np.ndarray:
+        """Return the Poisson collision-map generator for ``hamiltonian`` size."""
+
+        hamiltonian = np.asarray(hamiltonian, dtype=np.complex128)
+        if hamiltonian.ndim != 2 or hamiltonian.shape[0] != hamiltonian.shape[1]:
+            raise ValueError("hamiltonian must be square")
+        if hamiltonian.shape[0] != self._dimension:
+            raise ValueError("hamiltonian dimension does not match spin")
+        dimension = hamiltonian.shape[0]
+        size = dimension * dimension
+        identity_super = np.eye(size, dtype=np.complex128)
+        identity_vector = np.eye(dimension, dtype=np.complex128).reshape(
+            -1,
+            order="F",
+        )
+        reset_super = np.outer(identity_vector / dimension, identity_vector)
+        one_collision = (
+            (1.0 - self.depolarization_probability) * identity_super
+            + self.depolarization_probability * reset_super
+        )
+        return self.collision_rate_per_second * (one_collision - identity_super)
+
+
 RelaxationModelLike = PhenomenologicalRelaxationModel | RelaxationSuperoperator
 NQRRelaxationLike = RelaxationModelLike
 
@@ -511,6 +624,85 @@ def arrhenius_correlation_time(
     tau = float(tau_ref_seconds) * np.exp(exponent)
     _require_finite_array(tau, "correlation_time_seconds")
     return tau
+
+
+def gas_mean_speed_m_per_s(
+    temperature_kelvin: float | Iterable[float] | np.ndarray,
+    mass_amu: float,
+) -> np.ndarray:
+    """Return Maxwell-Boltzmann mean molecular speed for a gas species."""
+
+    temperature = np.asarray(temperature_kelvin, dtype=np.float64)
+    _require_finite_array(temperature, "temperature_kelvin")
+    if np.any(temperature <= 0.0):
+        raise ValueError("temperature_kelvin must be positive")
+    mass_kg = float(mass_amu) * ATOMIC_MASS_UNIT_KG
+    if not np.isfinite(mass_kg) or mass_kg <= 0.0:
+        raise ValueError("mass_amu must be positive")
+    return np.sqrt(8.0 * BOLTZMANN * temperature / (np.pi * mass_kg))
+
+
+def wall_collision_rate_per_second(
+    surface_to_volume_per_m: float | Iterable[float] | np.ndarray,
+    *,
+    temperature_kelvin: float,
+    mass_amu: float,
+    accommodation_probability: float = 1.0,
+) -> np.ndarray:
+    """Return gas-wall encounter rate ``vbar * (S/V) / 4``."""
+
+    surface_to_volume = np.asarray(surface_to_volume_per_m, dtype=np.float64)
+    _require_finite_array(surface_to_volume, "surface_to_volume_per_m")
+    if np.any(surface_to_volume < 0.0):
+        raise ValueError("surface_to_volume_per_m must be non-negative")
+    accommodation = float(accommodation_probability)
+    if not np.isfinite(accommodation) or accommodation < 0.0 or accommodation > 1.0:
+        raise ValueError("accommodation_probability must be in [0, 1]")
+    mean_speed = gas_mean_speed_m_per_s(temperature_kelvin, mass_amu)
+    return accommodation * mean_speed * surface_to_volume / 4.0
+
+
+def sphere_surface_to_volume_per_m(
+    diameter_m: float | Iterable[float] | np.ndarray,
+) -> np.ndarray:
+    """Return ``S/V`` for a sphere from its diameter."""
+
+    diameter = np.asarray(diameter_m, dtype=np.float64)
+    _require_finite_array(diameter, "diameter_m")
+    if np.any(diameter <= 0.0):
+        raise ValueError("diameter_m must be positive")
+    return 6.0 / diameter
+
+
+def cube_surface_to_volume_per_m(
+    edge_m: float | Iterable[float] | np.ndarray,
+) -> np.ndarray:
+    """Return ``S/V`` for a cube from its edge length."""
+
+    edge = np.asarray(edge_m, dtype=np.float64)
+    _require_finite_array(edge, "edge_m")
+    if np.any(edge <= 0.0):
+        raise ValueError("edge_m must be positive")
+    return 6.0 / edge
+
+
+def cylinder_surface_to_volume_per_m(
+    diameter_m: float | Iterable[float] | np.ndarray,
+    *,
+    aspect: float,
+) -> np.ndarray:
+    """Return ``S/V`` for a closed cylinder from diameter and ``length/diameter``."""
+
+    diameter = np.asarray(diameter_m, dtype=np.float64)
+    _require_finite_array(diameter, "diameter_m")
+    if np.any(diameter <= 0.0):
+        raise ValueError("diameter_m must be positive")
+    aspect = float(aspect)
+    if not np.isfinite(aspect) or aspect <= 0.0:
+        raise ValueError("aspect must be positive")
+    radius = 0.5 * diameter
+    length = aspect * diameter
+    return 2.0 / radius + 2.0 / length
 
 
 def bpp_relaxation_rates(

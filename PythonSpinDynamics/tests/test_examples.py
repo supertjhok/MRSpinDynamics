@@ -211,6 +211,7 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_tango_filter.py",
             "examples/plot_slic_two_spin.py",
             "examples/plot_bpp_relaxation_temperature.py",
+            "examples/plot_wall_relaxation_xe.py",
             "examples/plot_t1rho_prepolarized_dispersion.py",
             "examples/plot_earth_field_prepolarized_nmr.py",
             "examples/plot_udd_cpmg_filter.py",
@@ -367,6 +368,11 @@ class ExampleSmokeTests(unittest.TestCase):
         self.assertIn("--delta-hz", result.stdout)
         result = run_example("examples/plot_bpp_relaxation_temperature.py", "--help")
         self.assertIn("--tau-ref-ns", result.stdout)
+        result = run_example("examples/plot_wall_relaxation_xe.py", "--help")
+        self.assertIn("--depolarization-probability", result.stdout)
+        self.assertIn("--temperature-k", result.stdout)
+        self.assertIn("--selected-diameters-mm", result.stdout)
+        self.assertIn("--cylinder-aspect", result.stdout)
         result = run_example("examples/plot_t1rho_prepolarized_dispersion.py", "--help")
         self.assertIn("--spin-lock-min-khz", result.stdout)
         self.assertIn("--prepolarizing-field-t", result.stdout)

@@ -460,9 +460,10 @@ Prepolarization helpers use the same longitudinal recovery law to prepare a
 non-thermal starting magnetization. The shared
 \code{spin\_dynamics.relaxation} module adds Liouville-space relaxation models,
 including opt-in Redfield/dipolar dissipators for spin-1/2 NMR and quadrupolar
-NQR. Keeping these levels separate is important: a fitted \(T_2\), a BPP rate
-estimate, and a Redfield bath model can describe related physics, but they enter
-the sequence simulator at different points.
+NQR, plus stochastic collision models for gas-wall relaxation. Keeping these
+levels separate is important: a fitted \(T_2\), a BPP rate estimate, a Redfield
+bath model, and a wall-collision model can describe related decays, but they
+enter the sequence simulator at different points.
 
 \subsection{Bloch Relaxation in Isochromat Workflows}
 
@@ -596,16 +597,64 @@ relaxation = RedfieldDipolarRelaxationModel.from_dipolar_sources(
 )
 \end{lstlisting}
 
+Gas-wall relaxation is another microscopic Liouville model, but it is not a
+dipolar Redfield bath. The wall-collision model treats wall encounters as a
+Poisson sequence of quantum jumps. Kinetic theory supplies the encounter rate
+\[
+  k_{\mathrm{wall}} =
+    p_{\mathrm{acc}}\frac{\bar{v}}{4}\frac{S}{V},
+  \qquad
+  \bar{v} =
+    \sqrt{\frac{8 k_B T}{\pi m}},
+\]
+where \(p_{\mathrm{acc}}\) is the probability that a kinetic wall encounter
+actually samples the relaxing surface. Each encounter applies an isotropic
+depolarization channel with probability \(p_{\mathrm{dep}}\), giving the
+continuous Liouville generator \(k_{\mathrm{wall}}(\Phi-I)\). In the weak-loss
+limit this has the familiar surface-relaxivity form
+\[
+  R_{\mathrm{wall}}
+    = p_{\mathrm{dep}} k_{\mathrm{wall}}
+    = \rho_{\mathrm{eq}}\frac{S}{V},
+  \qquad
+  \rho_{\mathrm{eq}}
+    = \frac{p_{\mathrm{acc}}p_{\mathrm{dep}}\bar{v}}{4},
+\]
+but the model exposes the microscopic ingredients instead of asking the user to
+choose \(T_1\) directly.
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.relaxation import (
+    WallCollisionRelaxationModel,
+    sphere_surface_to_volume_per_m,
+)
+
+surface_to_volume = float(sphere_surface_to_volume_per_m(10e-3))
+relaxation = WallCollisionRelaxationModel.from_geometry(
+    0.5,
+    surface_to_volume_per_m=surface_to_volume,
+    temperature_kelvin=295.0,
+    mass_amu=128.9047808611,
+    accommodation_probability=1.0,
+    depolarization_probability=1e-8,
+)
+print(relaxation.t1_seconds, relaxation.collision_rate_per_second)
+\end{lstlisting}
+
 \subsection{Choosing a Relaxation Description}
 
 The Redfield model is non-default and opt-in. Existing pulse-sequence
 simulators keep their historical behavior when \code{relaxation=None}. The
-Redfield plotting examples show the two main regimes: isotropic-liquid proton
-CPMG and rigid-solid \({}^{14}\mathrm{N}\) SLSE.
+Redfield plotting examples show the two main dipolar regimes: isotropic-liquid
+proton CPMG and rigid-solid \({}^{14}\mathrm{N}\) SLSE. The wall-relaxation
+example covers a different microscopic regime, polarized gas whose dominant
+relaxation source is repeated surface contact.
 Use fitted \(T_1/T_2\) values when the experiment only needs the observed decay
 law, use BPP rates when a compact temperature- or correlation-time trend is the
 goal, and use Redfield/dipolar relaxation when the geometry and motional regime
-of the bath are part of the physics being tested.
+of the bath are part of the physics being tested. Use the wall-collision model
+when container size, gas temperature, and per-collision spin loss are the
+physics being tested.
 
 \section{Echo Conversion}
 
@@ -3146,6 +3195,7 @@ python examples\plot_j_editing_field_spread.py --output results\j_editing_field_
 python examples\plot_tango_filter.py --target 160 --output results\tango_filter.png
 python examples\plot_slic_two_spin.py --j-hz 7 --delta-hz 0.7 --output results\slic_two_spin.png
 python examples\plot_bpp_relaxation_temperature.py --output results\bpp_relaxation_temperature.png
+python examples\plot_wall_relaxation_xe.py --output results\wall_relaxation_xe.png
 python examples\plot_redfield_water_cpmg.py --output results\redfield_water_cpmg.png
 python examples\plot_redfield_nano2_slse.py --output results\redfield_nano2_slse.png
 python examples\plot_t1rho_prepolarized_dispersion.py --output results\t1rho_prepolarized_dispersion.png
