@@ -1,0 +1,7 @@
+objective,optimizer,opt_numpts,segments,evals,median_seconds,speedup_vs_fd,note
+ideal_v0crit_refocusing,scipy_fd,801,16,749,0.7364,1.00,finite-difference L-BFGS-B
+ideal_v0crit_refocusing,jax_autodiff,801,16,45,0.0585,12.59,analytic grad (compile cached)
+ideal_v0crit_refocusing,scipy_fd,801,32,1189,2.0046,1.00,finite-difference L-BFGS-B
+ideal_v0crit_refocusing,jax_autodiff,801,32,37,0.0599,33.46,analytic grad (compile cached)
+ideal_v0crit_refocusing,scipy_fd,101,8,109,0.0447,1.00,small grid
+ideal_v0crit_refocusing,jax_autodiff,101,8,13,0.6362,0.07,small grid: compile not amortized

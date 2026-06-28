@@ -1,0 +1,17 @@
+measurement,platform,dtype,batch,numpts,nseg_or_echoes,median_ms,note
+full_kernel,gpu,complex128,1,4001,256echoes,132.9,single forward run
+full_kernel,cpu,complex128,1,4001,256echoes,58.1,single forward run
+full_kernel,gpu,complex128,1,16001,256echoes,933.5,single forward run
+full_kernel,cpu,complex128,1,16001,256echoes,161.8,single forward run
+full_kernel,gpu,complex128,1,64001,256echoes,3364.8,single forward run
+full_kernel,cpu,complex128,1,64001,256echoes,584.9,single forward run
+full_kernel,gpu,complex128,1,128001,256echoes,6668.7,single forward run
+full_kernel,cpu,complex128,1,128001,256echoes,857.0,single forward run
+fused_op,gpu,complex128,1,64001,769,31.9,matmul-only micro (no cond/acq)
+fused_op,gpu,complex64,1,64001,769,20.4,matmul-only micro (no cond/acq)
+fused_op,cpu,complex128,1,64001,769,130.8,matmul-only micro (no cond/acq)
+fused_op,cpu,complex64,1,64001,769,101.6,matmul-only micro (no cond/acq)
+vmap_batch,gpu,complex128,64,2001,769,54.9,batched parallel sims
+vmap_batch,cpu,complex128,64,2001,769,353.4,batched parallel sims
+vmap_batch,gpu,complex128,256,2001,769,488.7,batched parallel sims
+vmap_batch,cpu,complex128,256,2001,769,3398.3,batched parallel sims

@@ -177,6 +177,79 @@ def scipy_maximize(
     )
 
 
+def scipy_maximize_with_grad(
+    value_and_grad_fn: Callable[[np.ndarray], tuple[float, np.ndarray]],
+    initial: np.ndarray,
+    *,
+    bounds: tuple[float, float],
+    scipy_method: str = "L-BFGS-B",
+    options: dict[str, object] | None = None,
+) -> BoundedOptimizationRun:
+    """Maximize using a caller-supplied analytic gradient (e.g. ``jax.grad``).
+
+    ``value_and_grad_fn(x)`` returns ``(score, grad)``; the gradient is handed to
+    SciPy via ``jac=True`` so each step costs one forward+backward evaluation
+    instead of the ``len(x)+1`` forward evaluations finite differencing needs.
+    """
+
+    try:
+        from scipy.optimize import minimize
+    except ImportError as exc:
+        raise ImportError(
+            "SciPy is required for the analytic-gradient optimizer. Install the "
+            "optional optimization dependencies with `python -m pip install -e .[opt]`."
+        ) from exc
+
+    lower, upper = validate_bounds(bounds)
+    x0 = np.clip(np.asarray(initial, dtype=np.float64).reshape(-1), lower, upper)
+    if x0.size == 0:
+        raise ValueError("initial_phases must not be empty")
+
+    history_scores: list[float] = []
+    history_x: list[np.ndarray] = []
+
+    def objective(x: np.ndarray) -> tuple[float, np.ndarray]:
+        phases = np.asarray(x, dtype=np.float64).reshape(-1)
+        score, grad = value_and_grad_fn(phases)
+        score = float(score)
+        grad = np.asarray(grad, dtype=np.float64).reshape(-1)
+        if not np.isfinite(score):
+            score = -np.inf
+        history_scores.append(score)
+        history_x.append(phases.copy())
+        return -score, -grad
+
+    result = minimize(
+        objective,
+        x0,
+        method=scipy_method,
+        jac=True,
+        bounds=[(lower, upper)] * x0.size,
+        options=options,
+    )
+    best_x = np.asarray(result.x, dtype=np.float64).reshape(-1)
+    best_score, _grad = value_and_grad_fn(best_x)
+    best_score = float(best_score)
+    if not np.isfinite(best_score):
+        best_score = -np.inf
+    history_scores.append(best_score)
+    history_x.append(best_x.copy())
+    initial_score = history_scores[0] if history_scores else best_score
+
+    return BoundedOptimizationRun(
+        best_x=best_x,
+        best_score=best_score,
+        history_scores=np.asarray(history_scores, dtype=np.float64),
+        history_x=tuple(history_x),
+        iterations=int(getattr(result, "nfev", max(0, len(history_scores) - 1))),
+        improved=best_score > initial_score,
+        final_step=0.0,
+        method=f"jax+scipy:{scipy_method}",
+        success=bool(result.success),
+        message=str(result.message),
+    )
+
+
 def maximize_bounded(
     score_fn: ScoreFunction,
     initial: np.ndarray,

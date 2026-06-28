@@ -1,0 +1,5 @@
+workflow,N_cases,numpts,num_echoes,loop_numpy_ms,sweep_jax_ms,device,speedup,note
+ideal_cpmg_relaxation_sweep,128,201,32,2630.0,2545.8,gpu,1.03,small grid: overhead-bound
+ideal_cpmg_relaxation_sweep,128,201,32,2466.5,2526.4,cpu,0.98,small grid: overhead-bound
+ideal_cpmg_relaxation_sweep,64,8001,64,9029.9,2528.1,gpu,3.57,kernel-dominated
+ideal_cpmg_relaxation_sweep,64,8001,64,9459.8,4201.5,cpu,2.25,kernel-dominated

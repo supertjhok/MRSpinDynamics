@@ -651,32 +651,59 @@ def optimize_ideal_v0crit_refocusing_phases(
     if initial.size == 0:
         raise ValueError("initial_phases must not be empty")
 
-    def score_fn(phases: np.ndarray) -> float:
-        evaluation = evaluate_ideal_v0crit_refocusing_pulse(
-            phases,
+    if optimizer == "jax":
+        if excitation_vector is not None:
+            raise ValueError(
+                "optimizer='jax' currently supports excitation_vector=None"
+            )
+        from spin_dynamics.optimization._bounded import scipy_maximize_with_grad
+        from spin_dynamics.optimization._jax_objectives import (
+            make_ideal_v0crit_objective,
+        )
+
+        value_and_grad = make_ideal_v0crit_objective(
+            initial.size,
             segment_fraction=segment_fraction,
             free_precession_t180=free_precession_t180,
             numpts=numpts,
             maxoffs=maxoffs,
             acquisition_time_normalized=acquisition_time_normalized,
-            excitation_vector=excitation_vector,
             v0crit_weight=v0crit_weight,
         )
-        score = float(evaluation.score)
-        return score if np.isfinite(score) else -np.inf
+        run = scipy_maximize_with_grad(
+            value_and_grad,
+            initial,
+            bounds=(lower, upper),
+            scipy_method=scipy_method,
+            options=scipy_options,
+        )
+    else:
+        def score_fn(phases: np.ndarray) -> float:
+            evaluation = evaluate_ideal_v0crit_refocusing_pulse(
+                phases,
+                segment_fraction=segment_fraction,
+                free_precession_t180=free_precession_t180,
+                numpts=numpts,
+                maxoffs=maxoffs,
+                acquisition_time_normalized=acquisition_time_normalized,
+                excitation_vector=excitation_vector,
+                v0crit_weight=v0crit_weight,
+            )
+            score = float(evaluation.score)
+            return score if np.isfinite(score) else -np.inf
 
-    run = maximize_bounded(
-        score_fn,
-        initial,
-        bounds=(lower, upper),
-        optimizer=optimizer,
-        initial_step=initial_step,
-        step_decay=step_decay,
-        min_step=min_step,
-        max_passes=max_passes,
-        scipy_method=scipy_method,
-        scipy_options=scipy_options,
-    )
+        run = maximize_bounded(
+            score_fn,
+            initial,
+            bounds=(lower, upper),
+            optimizer=optimizer,
+            initial_step=initial_step,
+            step_decay=step_decay,
+            min_step=min_step,
+            max_passes=max_passes,
+            scipy_method=scipy_method,
+            scipy_options=scipy_options,
+        )
     best_evaluation = evaluate_ideal_v0crit_refocusing_pulse(
         run.best_x,
         segment_fraction=segment_fraction,
