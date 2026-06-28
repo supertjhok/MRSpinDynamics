@@ -155,10 +155,13 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 
 | Kind | Name | Summary |
 | --- | --- | --- |
+| function | `set_arb10_backend(name: str) -> None` | Select the default backend for ``sim_spin_dynamics_arb10``. |
+| function | `get_arb10_backend() -> str` | Return the current default ``sim_spin_dynamics_arb10`` backend. |
 | class | `Arb10Parameters` | Parameters for `sim_spin_dynamics_arb10`. |
 | class | `Arb10DiffusionParameters` | Parameters for `sim_spin_dynamics_arb10_diffusion`. |
 | class | `Arb7Parameters` | Parameters for `sim_spin_dynamics_arb7`. |
-| function | `sim_spin_dynamics_arb10(params: Mapping[str, Any] | Arb10Parameters | Any) -> np.ndarray` | Simulate arbitrary-pulse spin dynamics with precomputed pulse matrices. |
+| function | `sim_spin_dynamics_arb10(params: Mapping[str, Any] | Arb10Parameters | Any, *, backend: str | None = None) -> np.ndarray` | Simulate arbitrary-pulse spin dynamics with precomputed pulse matrices. |
+| function | `sim_spin_dynamics_arb10_batched(params_list: Sequence[Mapping[str, Any] | Arb10Parameters | Any]) -> np.ndarray` | Run many same-structured arb10 simulations in one vmapped JAX call. |
 | function | `sim_spin_dynamics_arb10_radiation_damping(params: Mapping[str, Any] | Arb10Parameters | Any, radiation_damping: RadiationDampingSpec) -> np.ndarray` | Simulate `arb10` with ensemble radiation damping during free intervals. |
 | function | `sim_spin_dynamics_arb10_diffusion(params: Mapping[str, Any] | Arb10DiffusionParameters | Any) -> np.ndarray` | Simulate arbitrary-pulse dynamics with a diffusion free-precession term. |
 | function | `sim_spin_dynamics_arb10_chunked(params: Mapping[str, Any] | Arb10Parameters | Any, num_workers: int | None = None, min_chunk_size: int = 8192) -> np.ndarray` | Run `sim_spin_dynamics_arb10` on contiguous isochromat chunks. |
@@ -414,6 +417,8 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `zeeman_hamiltonian(site: QuadrupolarSite, b0_vector_tesla_pas: np.ndarray | list[float] | tuple[float, float, float]) -> np.ndarray` | Return the Zeeman Hamiltonian in radians per second. |
 | function | `nqr_hamiltonian(site: QuadrupolarSite, b0_vector_tesla_pas: np.ndarray | list[float] | tuple[float, float, float] | None = None) -> np.ndarray` | Return the quadrupole plus optional Zeeman Hamiltonian. |
 | function | `diagonalize_site(site: QuadrupolarSite, b0_vector_tesla_pas: np.ndarray | list[float] | tuple[float, float, float] | None = None, *, strength_tolerance: float = 1e-12, frequency_tolerance_hz: float = 1e-09) -> NQREigensystem` | Diagonalize a site Hamiltonian and return transition metadata. |
+| function | `batched_nqr_hamiltonians(site: QuadrupolarSite, b0_vectors_tesla_pas: np.ndarray | list[list[float]]) -> np.ndarray` | Return one Hamiltonian per static-field vector, shape ``(N, dim, dim)``. |
+| function | `diagonalize_sites_over_b0(site: QuadrupolarSite, b0_vectors_tesla_pas: np.ndarray | list[list[float]], *, backend: str = 'numpy', strength_tolerance: float = 1e-12, frequency_tolerance_hz: float = 1e-09) -> tuple[NQREigensystem, ...]` | Diagonalize one site across many static-field vectors with one ``eigh``. |
 
 ## `spin_dynamics.nqr.inhomogeneity`
 
@@ -506,9 +511,9 @@ No public classes or functions found.
 | class | `SLSESweepResult` | SLSE response as one pulse-sequence parameter is swept. |
 | function | `equilibrium_density(levels_hz: np.ndarray) -> np.ndarray` | Return a trace-zero high-temperature density matrix in the energy basis. |
 | function | `transition_signal(density: np.ndarray, transition: NQRTransition, *, b1_direction_pas: np.ndarray | list[float] | tuple[float, float, float]) -> complex` | Return the complex single-coil signal for a transition coherence. |
-| function | `simulate_slse(site: QuadrupolarSite, sequence: SLSESequence, *, orientations: OrientationInput = 'powder', b0_tesla: float = 0.0, t2e_seconds: float = np.inf, initial_density: np.ndarray | None = None, relaxation: NQRRelaxationLike | None = None) -> SLSEResult` | Simulate a selective-pulse SLSE echo train. |
-| function | `simulate_slse_offset_sweep(site: QuadrupolarSite, transition_label: str, offsets_hz: np.ndarray | list[float] | tuple[float, ...], *, pulse_duration_seconds: float, nutation_hz: float, echo_spacing_seconds: float, num_echoes: int = 16, phase: float = 0.0, orientations: OrientationInput = 'powder', b0_tesla: float = 0.0, t2e_seconds: float = np.inf, relaxation: NQRRelaxationLike | None = None, echo_index: int = -1) -> SLSESweepResult` | Sweep irradiation offset and return SLSE amplitude and decay estimates. |
-| function | `simulate_slse_spacing_sweep(site: QuadrupolarSite, transition_label: str, echo_spacing_seconds: np.ndarray | list[float] | tuple[float, ...], *, pulse_duration_seconds: float, nutation_hz: float, num_echoes: int = 16, phase: float = 0.0, rf_offset_hz: float = 0.0, orientations: OrientationInput = 'powder', b0_tesla: float = 0.0, t2e_seconds: float = np.inf, relaxation: NQRRelaxationLike | None = None, echo_index: int = -1) -> SLSESweepResult` | Sweep SLSE pulse period and return amplitude plus effective decay. |
+| function | `simulate_slse(site: QuadrupolarSite, sequence: SLSESequence, *, orientations: OrientationInput = 'powder', b0_tesla: float = 0.0, t2e_seconds: float = np.inf, initial_density: np.ndarray | None = None, relaxation: NQRRelaxationLike | None = None, backend: str = 'numpy') -> SLSEResult` | Simulate a selective-pulse SLSE echo train. |
+| function | `simulate_slse_offset_sweep(site: QuadrupolarSite, transition_label: str, offsets_hz: np.ndarray | list[float] | tuple[float, ...], *, pulse_duration_seconds: float, nutation_hz: float, echo_spacing_seconds: float, num_echoes: int = 16, phase: float = 0.0, orientations: OrientationInput = 'powder', b0_tesla: float = 0.0, t2e_seconds: float = np.inf, relaxation: NQRRelaxationLike | None = None, echo_index: int = -1, backend: str = 'numpy') -> SLSESweepResult` | Sweep irradiation offset and return SLSE amplitude and decay estimates. |
+| function | `simulate_slse_spacing_sweep(site: QuadrupolarSite, transition_label: str, echo_spacing_seconds: np.ndarray | list[float] | tuple[float, ...], *, pulse_duration_seconds: float, nutation_hz: float, num_echoes: int = 16, phase: float = 0.0, rf_offset_hz: float = 0.0, orientations: OrientationInput = 'powder', b0_tesla: float = 0.0, t2e_seconds: float = np.inf, relaxation: NQRRelaxationLike | None = None, echo_index: int = -1, backend: str = 'numpy') -> SLSESweepResult` | Sweep SLSE pulse period and return amplitude plus effective decay. |
 | function | `simulate_population_transfer(site: QuadrupolarSite, perturbation: SelectivePulse, detection_sequence: SLSESequence, *, orientations: OrientationInput = 'powder', b0_tesla: float = 0.0, t2e_seconds: float = np.inf) -> PopulationTransferResult` | Simulate a perturbation pulse followed by SLSE detection. |
 
 ## `spin_dynamics.nqr.structure_coupling`
@@ -540,7 +545,7 @@ No public classes or functions found.
 | class | `WeakB0SpectrumResult` | Powder/single-crystal weak-B0 transition spectrum. |
 | function | `zeeman_frequency_hz(site: QuadrupolarSite, b0_tesla: float | np.ndarray | Sequence[float]) -> float` | Return ``|gamma B0|`` in Hz for a scalar or vector static field. |
 | function | `weak_field_ratio(site: QuadrupolarSite, b0_tesla: float | np.ndarray | Sequence[float], *, reference_frequency_hz: float | None = None) -> float` | Return ``|gamma B0| / nu_ref`` for weak-field validity checks. |
-| function | `simulate_weak_b0_spectrum(site: QuadrupolarSite, b0_tesla: float, *, orientations: OrientationInput = 'single', transition_label: str | None = None, broadening_hz: float = 100.0, points: int = 1024, span_hz: float | None = None, selection_window_hz: float | None = None, intensity_tolerance: float = 1e-14, weak_ratio_action: str = 'warn', weak_ratio_threshold: float = 0.05) -> WeakB0SpectrumResult` | Return a broadened transition spectrum for ``H_Q + H_Z`` in weak B0. |
+| function | `simulate_weak_b0_spectrum(site: QuadrupolarSite, b0_tesla: float, *, orientations: OrientationInput = 'single', transition_label: str | None = None, broadening_hz: float = 100.0, points: int = 1024, span_hz: float | None = None, selection_window_hz: float | None = None, intensity_tolerance: float = 1e-14, weak_ratio_action: str = 'warn', weak_ratio_threshold: float = 0.05, backend: str = 'numpy') -> WeakB0SpectrumResult` | Return a broadened transition spectrum for ``H_Q + H_Z`` in weak B0. |
 
 ## `spin_dynamics.nqr.workflows`
 

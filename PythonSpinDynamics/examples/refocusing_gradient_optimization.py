@@ -94,7 +94,7 @@ def main() -> None:
     print(f"segments: {args.segments}  (pulse length = {pulse_length_t180:.2f} x T180, peak RF held constant)")
     print(f"restarts: {args.starts}   gradient backend: {grad_backend}")
     print()
-    print(f"refocused signal across band (integral |Masy|^2, higher = stronger echoes):")
+    print("refocused signal across band (integral |Masy|^2, higher = stronger echoes):")
     print(f"  rectangular 180 : {rect.axis_rms:.6f}")
     print(f"  optimized phases: {best.axis_rms:.6f}")
     print(f"  improvement     : {improvement:.2f}x")
