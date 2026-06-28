@@ -42,8 +42,8 @@ from spin_dynamics.nqr.orientations import (
     normalize_orientations,
     powder_average_grid,
 )
-from spin_dynamics.nqr.relaxation import (
-    NQRRelaxationModel,
+from spin_dynamics.relaxation import (
+    NQRRelaxationLike,
     liouville_superoperator,
     matrix_exponential,
     propagate_density_liouville,
@@ -177,7 +177,7 @@ def _propagate(
     density: np.ndarray,
     hamiltonian: np.ndarray,
     duration: float,
-    relaxation: NQRRelaxationModel | None,
+    relaxation: NQRRelaxationLike | None,
 ) -> np.ndarray:
     if duration <= 0:
         return density
@@ -226,7 +226,7 @@ def simulate_full_fid(
     b1_direction_pas=(1.0, 0.0, 0.0),
     rx_direction_pas=None,
     b0_vector_tesla_pas=None,
-    relaxation: NQRRelaxationModel | None = None,
+    relaxation: NQRRelaxationLike | None = None,
     initial_density: np.ndarray | None = None,
 ) -> FullNQRFIDResult:
     """Simulate a single-pulse full density-matrix NQR FID.
@@ -295,7 +295,7 @@ def simulate_full_echo(
     b1_direction_pas=(1.0, 0.0, 0.0),
     rx_direction_pas=None,
     b0_vector_tesla_pas=None,
-    relaxation: NQRRelaxationModel | None = None,
+    relaxation: NQRRelaxationLike | None = None,
 ) -> FullNQREchoResult:
     """Simulate a full density-matrix two-pulse (Hahn-style) NQR echo.
 
@@ -378,7 +378,7 @@ def _step_propagators(
     excitation_duration: float,
     refocus_duration: float,
     free_half: float,
-    relaxation: NQRRelaxationModel | None,
+    relaxation: NQRRelaxationLike | None,
 ):
     """Pre-compute the excite/refocus/free propagators for one orientation."""
 
@@ -434,7 +434,7 @@ def simulate_full_slse(
     b0_tesla: float = 0.0,
     b1_direction_pas=(1.0, 0.0, 0.0),
     rx_direction_pas=None,
-    relaxation: NQRRelaxationModel | None = None,
+    relaxation: NQRRelaxationLike | None = None,
     t2e_seconds: float = np.inf,
 ) -> FullNQRSLSEResult:
     """Simulate a full density-matrix SLSE echo train (valid for spin-3/2).
