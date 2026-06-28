@@ -111,11 +111,11 @@
 \vspace{0.35in}
 \begin{minipage}{0.78\linewidth}
 \large
-Simulation workflows for magnetic-resonance spin dynamics in possibly
-non-uniform and time-varying fields, with validated MATLAB-compatible
-spin-1/2 NMR Bloch kernels, Python-native analysis tools, scoped
-scalar-coupled spin-1/2 models, pulsed NQR extensions, and first ESR/EPR
-Hamiltonian and pulse-simulation helpers.
+Simulation workflows for magnetic-resonance spin dynamics across three useful
+scales: validated spin-1/2 Bloch kernels for NMR sequence and imaging work,
+small dense Hamiltonian models for explicitly quantum effects, and targeted
+extensions for pulsed NQR, ESR/EPR, exchange, relaxation, motion, and
+instrument-level field models.
 \end{minipage}
 \vfill
 {\large June 2026\par}
@@ -129,12 +129,20 @@ Hamiltonian and pulse-simulation helpers.
 
 \chapter{Physical Scope and Assumptions}
 
-The MATLAB-compatible workflow layer in PythonSpinDynamics models a bath of
-uncoupled spin-1/2 nuclei evolving in a static, spatially non-uniform, or
-time-varying main field \(B_0(\mathbf{r},t)\) and applied RF fields. The
-elementary object in that layer is an isochromat: a subensemble of spin-1/2
-nuclei that shares an offset, RF sensitivity, relaxation constants, and probe
-response.
+PythonSpinDynamics is not a single universal spin simulator. It is a set of
+closely related models, each chosen because it gives a clean description of a
+common magnetic-resonance experiment. The central question throughout the
+manual is therefore: what is represented explicitly, and what is represented by
+an effective parameter?
+
+The MATLAB-compatible workflow layer answers that question in the classical
+Bloch language. It models a bath of uncoupled spin-1/2 nuclei evolving in a
+static, spatially non-uniform, or time-varying main field
+\(B_0(\mathbf{r},t)\) and applied RF fields. The elementary object is an
+isochromat: a subensemble that shares an offset, RF sensitivity, relaxation
+constants, and probe response. Other namespaces add small quantum Hamiltonians,
+quadrupolar sites, ESR spectra, exchange, and microscopic relaxation where the
+physics requires those variables to be explicit.
 
 \scopebox{Accent}{
 \textbf{Modeled directly in the core Bloch workflows.} Independent spin-1/2
@@ -198,17 +206,17 @@ nonselective multi-quantum pulse sequences, shaped sample microstructure beyond
 the supplied field and density maps, microscopic spin noise, and large sparse
 coupled-spin simulations. Spin-spin effects enter the Bloch workflows only
 indirectly when represented by effective relaxation times such as \(T_2\) or
-\(T_2^*\). Site exchange is modeled phenomenologically by the
-\code{spin\_dynamics.exchange} layer rather than from a microscopic
-exchange Hamiltonian.
+\(T_2^*\). The Redfield/dipolar relaxation model treats fluctuating dipolar
+couplings as stochastic bath sources; it is not a coherent many-spin dipolar
+network. Site exchange is modeled phenomenologically by the
+\code{spin\_dynamics.exchange} layer rather than from a microscopic exchange
+Hamiltonian.
 }
 
-This scope is deliberate. The main package follows MATLAB's classical
-Bloch/isochromat viewpoint, which is appropriate for many pulse, probe,
-imaging, and relaxation studies where the spins can be treated as independent
-subensembles. The coupled-spin namespace adds targeted quantum spin-1/2 tools
-for scalar J-coupling phenomena without turning the full package into a general
-quantum spin Hamiltonian framework.
+This scope is deliberate. The package is strongest when the model boundary is
+chosen honestly: Bloch isochromats for independent subensembles, dense
+Hamiltonians for small quantum problems, and stochastic Redfield terms when the
+microscopic couplings are important but the bath itself is not being propagated.
 
 \section{Spin Bath Cartoon}
 
@@ -251,8 +259,9 @@ quantum spin Hamiltonian framework.
   electron-nuclear hyperfine doublets.
   \item Use \code{spin\_dynamics.nqr} when selective pulsed NQR of a small
   quadrupolar site is the phenomenon of interest.
-  \item Do not use the package for chemical exchange, large coupled-spin
-  networks, or arbitrary nonselective multi-quantum coherence pathways.
+  \item Use \code{spin\_dynamics.exchange} for Bloch-McConnell site exchange.
+  \item Do not use the package for large coherent coupled-spin networks or
+  arbitrary nonselective multi-quantum coherence pathways.
 \end{itemize}
 
 \chapter{Overview}
@@ -263,17 +272,21 @@ remains the reference for numerical behavior, while this workspace provides a
 typed, testable Python API for simulations, validation fixtures, examples, and
 new analysis workflows.
 
-The supported surface currently includes ideal, tuned, untuned, and matched
-probe CPMG workflows; Uhrig dynamical decoupling (UDD) timing and
-moving-isochromat sequence helpers; finite echo trains; FID; phase-encoded and
-frequency-encoded (spin-warp / RARE) imaging; diffusion
-CPMG; time-varying-field CPMG; WURST inversion and matched WURST-CPMG;
-radiation damping; moving-isochromat motion helpers; received-signal noise;
-inverse-Laplace analysis; compact pulse-optimization scaffolds; and small
-spin-1/2 scalar-coupling tools for low-field J-editing, TANGO-B filtering, and
-SLIC-style spin-lock response; and early pulsed NQR helpers for quadrupolar
-sites, powder averaging, SLSE, two-frequency population transfer, EFG
-inhomogeneity, spin-3/2 transition metadata, and weak-static-field spectra.
+Read the manual in layers. Chapters 1--4 define the model boundaries and shared
+conventions. Chapters~\ref{chap:jcoupling}, \ref{chap:esr}, and
+\ref{chap:nqr} introduce the explicitly quantum extensions. Chapter
+\ref{chap:workflows} then returns to experiment-level workflows: CPMG, FID,
+imaging, diffusion, motion, field sources, phase cycling, exchange, analysis,
+and optimization. The final chapters collect runnable examples, validation
+status, API tables, and known gaps.
+
+The supported surface includes ideal, tuned, untuned, and matched-probe CPMG
+workflows; finite echo trains; FID; phase-encoded and frequency-encoded
+imaging; diffusion and moving-isochromat simulations; WURST and UDD timing
+helpers; radiation damping; receiver noise; inverse-Laplace analysis; compact
+optimization scaffolds; small spin-1/2 scalar-coupling models; pulsed NQR;
+ESR/EPR; Bloch-McConnell exchange; susceptibility fields; and opt-in
+Liouville-space relaxation models.
 
 \section{Package Layout}
 
@@ -334,6 +347,11 @@ python -m unittest discover -s tests
 \end{lstlisting}
 
 \chapter{Model Conventions}
+
+This chapter collects conventions that appear across several workflows. The
+details are intentionally close to the equations, because most user mistakes in
+this package come from mixing coordinate conventions, timing conventions, or
+relaxation levels of description.
 
 \section{Coherence Ordering}
 
@@ -434,9 +452,23 @@ an effective axis set by RF phase, RF amplitude, and off-resonance offset.
 \end{tikzpicture}
 \end{center}
 
-\section{Relaxation}
+\section{Initial Magnetization and Relaxation}
 
-Free-precession intervals with relaxation use the usual exponential factors:
+Relaxation appears in PythonSpinDynamics at three different levels. The Bloch
+workflows use \(T_1\) and \(T_2\) factors attached to free-precession intervals.
+Prepolarization helpers use the same longitudinal recovery law to prepare a
+non-thermal starting magnetization. The shared
+\code{spin\_dynamics.relaxation} module adds Liouville-space relaxation models,
+including opt-in Redfield/dipolar dissipators for spin-1/2 NMR and quadrupolar
+NQR. Keeping these levels separate is important: a fitted \(T_2\), a BPP rate
+estimate, and a Redfield bath model can describe related physics, but they enter
+the sequence simulator at different points.
+
+\subsection{Bloch Relaxation in Isochromat Workflows}
+
+In the MATLAB-compatible Bloch kernels, relaxation is diagonal in the local
+magnetization basis. Free-precession intervals use the usual exponential
+factors:
 \[
   M_{xy}(t+\Delta t) =
     M_{xy}(t)\exp\left(-\frac{\Delta t}{T_2}\right)
@@ -451,7 +483,7 @@ Free-precession intervals with relaxation use the usual exponential factors:
 Finite acquisition workflows assemble these intervals from pulse-sequence
 parameters and then call the \code{arb10}-style kernels.
 
-\section{Prepolarization and Relaxation}
+\subsection{Preparing Longitudinal Magnetization}
 
 Many compact and low-field experiments do not begin at the thermal equilibrium
 magnetization of the detection field. The \code{spin\_dynamics.prepolarization}
@@ -476,13 +508,7 @@ path length and local speed into a residence time. The returned
 that can be passed into the lower-level kernels or used to initialize moving
 isochromats.
 
-The \code{spin\_dynamics.relaxation} module provides shared Liouville-space
-relaxation utilities for spin-1/2 NMR and quadrupolar NQR simulations. The
-historical scalar model remains available as
-\code{PhenomenologicalRelaxationModel} (also re-exported as
-\code{NQRRelaxationModel} for compatibility). It damps populations and
-coherences in the Hamiltonian eigenbasis using supplied \(T_1\) and \(T_2\)
-values.
+\subsection{BPP Scalar Rate Estimates}
 
 For prepolarization and compact low-field estimates, the same module also
 provides a BPP-style scalar relaxation model. The rotational spectral density is
@@ -530,15 +556,25 @@ prepared = prepolarized_state(
 )
 \end{lstlisting}
 
+\subsection{Liouville-Space Relaxation Models}
+
+The \code{spin\_dynamics.relaxation} module provides shared Liouville-space
+utilities for spin-1/2 NMR and quadrupolar NQR simulations. The historical
+scalar model remains available as the phenomenological relaxation class and is
+also re-exported as \code{NQRRelaxationModel} for compatibility. It damps
+populations and coherences in the Hamiltonian eigenbasis using supplied \(T_1\)
+and \(T_2\) values. This is still a phenomenological model, but it now lives in
+the shared relaxation layer rather than in NQR-specific code.
+
 For microscopic relaxation, \code{RedfieldDipolarRelaxationModel} builds a
 secular Markovian dissipator from fluctuating dipolar bath sources. A source is
 specified by a target--bath vector, gyromagnetic ratios, bath spin, and optional
 explicit coupling; if the coupling is omitted it is computed from
 \(\mu_0 h \gamma_a\gamma_b/(4\pi r^3)\). The motional model determines how the
-dipolar covariance is averaged before the Redfield spectral-density step.
+dipolar covariance is averaged before the Redfield spectral-density step:
 \code{RigidSolidMotionalAveraging} keeps the fixed-frame anisotropy and is the
 natural choice for NQR solids, while \code{IsotropicLiquidMotionalAveraging}
-rotationally averages the covariance for liquid-state NMR:
+rotationally averages the covariance for liquid-state NMR.
 
 \begin{lstlisting}[language=Python]
 from spin_dynamics.relaxation import (
@@ -560,10 +596,16 @@ relaxation = RedfieldDipolarRelaxationModel.from_dipolar_sources(
 )
 \end{lstlisting}
 
+\subsection{Choosing a Relaxation Description}
+
 The Redfield model is non-default and opt-in. Existing pulse-sequence
 simulators keep their historical behavior when \code{relaxation=None}. The
-examples \code{plot\_redfield\_water\_cpmg.py} and
-\code{plot\_redfield\_nano2\_slse.py} show liquid and rigid-solid regimes.
+Redfield plotting examples show the two main regimes: isotropic-liquid proton
+CPMG and rigid-solid \({}^{14}\mathrm{N}\) SLSE.
+Use fitted \(T_1/T_2\) values when the experiment only needs the observed decay
+law, use BPP rates when a compact temperature- or correlation-time trend is the
+goal, and use Redfield/dipolar relaxation when the geometry and motional regime
+of the bath are part of the physics being tested.
 
 \section{Echo Conversion}
 
@@ -1579,6 +1621,20 @@ quantitative powder echo trains, especially when comparing coherent powder
 signal amplitudes, prefer the full density-matrix \code{simulate\_full\_slse}
 path described above.
 
+Microscopic Redfield/dipolar relaxation can be supplied through the same
+\code{relaxation=} slot on the full-density-matrix path. The NaNO2 example reads
+the \({}^{14}\mathrm{N}\) EFG parameters from the QuadrupolarDFT summary, builds
+nearby \({}^{23}\mathrm{Na}\) and \({}^{14}\mathrm{N}\) stochastic bath sources
+from the CIF, and propagates a coherent SLSE train. The powder row uses equal
+SLSE pulse lengths with the spin-1 powder optimum near \(119^\circ\); the
+refocusing pulse phase is the full-model default \(\pi/2\) shift. It plots the
+coherent measured powder voltage, not magnitude- or RMS-averaged local
+crystallite signals:
+
+\begin{lstlisting}[language=bash]
+python examples/plot_redfield_nano2_slse.py --output nano2_redfield_slse.png
+\end{lstlisting}
+
 \begin{lstlisting}[language=Python]
 from spin_dynamics.nqr import simulate_slse, slse_sequence
 
@@ -1721,8 +1777,13 @@ spin-1 \code{x}, \code{y}, and \code{z} transitions. Off-diagonal features
 indicate that perturbation and detection frequencies are connected through the
 same quadrupolar site.
 
-\chapter{First Workflows}
+\chapter{Workflow Guides}
 \label{chap:workflows}
+
+This chapter is the practical half of the manual. The earlier chapters define
+the model layers; the sections below show how those layers are assembled into
+experimental workflows. The order is roughly from the most common NMR building
+blocks to more specialized field, motion, exchange, and analysis tools.
 
 \section{CPMG}
 
@@ -2053,19 +2114,6 @@ fm3d = sample_halbach_dipole_field(
     length=80e-3,
     remanence=1.30,
 )
-\end{lstlisting}
-
-Microscopic Redfield/dipolar relaxation can be supplied through the same
-\code{relaxation=} slot. The NaNO2 example reads the \({}^{14}\mathrm{N}\) EFG
-parameters from the QuadrupolarDFT summary, builds nearby \({}^{23}\mathrm{Na}\)
-and \({}^{14}\mathrm{N}\) stochastic bath sources from the CIF, and propagates a
-coherent full-density-matrix SLSE train. The powder row uses equal SLSE pulse
-lengths with the spin-1 powder optimum near \(119^\circ\); the refocusing pulse
-phase is the full-model default \(\pi/2\) shift. It plots the coherent measured
-powder voltage, not magnitude- or RMS-averaged local crystallite signals:
-
-\begin{lstlisting}[language=bash]
-python examples/plot_redfield_nano2_slse.py --output nano2_redfield_slse.png
 \end{lstlisting}
 
 The 3D Halbach result exposes \code{b0\_vector}, \code{b0\_magnitude},
@@ -3014,7 +3062,11 @@ validation.
 
 The example scripts can be run from \code{PythonSpinDynamics}; each script also
 works from inside \code{examples/} by adding the local source tree to
-\code{sys.path} when needed.
+\code{sys.path} when needed. Treat the chapter as a runnable index rather than
+a tutorial: the explanatory chapters above describe the model choices, while
+these commands provide quick checks and reproducible figures. Start with the
+plain scripts when checking installation and with the plotting scripts when
+comparing physical effects.
 
 \begin{lstlisting}[language=bash]
 python examples\ideal_cpmg.py --numpts 101
@@ -3077,6 +3129,8 @@ python examples\plot_j_editing_field_spread.py --output results\j_editing_field_
 python examples\plot_tango_filter.py --target 160 --output results\tango_filter.png
 python examples\plot_slic_two_spin.py --j-hz 7 --delta-hz 0.7 --output results\slic_two_spin.png
 python examples\plot_bpp_relaxation_temperature.py --output results\bpp_relaxation_temperature.png
+python examples\plot_redfield_water_cpmg.py --output results\redfield_water_cpmg.png
+python examples\plot_redfield_nano2_slse.py --output results\redfield_nano2_slse.png
 python examples\plot_t1rho_prepolarized_dispersion.py --output results\t1rho_prepolarized_dispersion.png
 python examples\plot_earth_field_prepolarized_nmr.py --output results\earth_field_prepolarized_nmr.png
 python examples\plot_optimization_workflows.py --numpts 11 --segments 2 --starts 2 --inverse-starts 4 --output results\optimization_workflows.png
@@ -3210,6 +3264,11 @@ from spin_dynamics.prepolarization import (
 from spin_dynamics.relaxation import (
     BPPRelaxationModel,
     BPPRelaxationRates,
+    DipolarRelaxationSource,
+    IsotropicLiquidMotionalAveraging,
+    PhenomenologicalRelaxationModel,
+    RedfieldDipolarRelaxationModel,
+    RigidSolidMotionalAveraging,
     spectral_density_lorentzian,
     arrhenius_correlation_time,
     bpp_relaxation_rates,
@@ -3226,6 +3285,11 @@ Symbol & Purpose \\
 \code{prepolarized\_flow\_state} & Same buildup model with residence time computed from path length and speed. \\
 \code{BPPRelaxationModel} & Arrhenius \(\tau_c(T)\), Lorentzian spectral-density, and configurable BPP \(R_1/R_2\) model. \\
 \code{BPPRelaxationRates} & Temperature, \(\tau_c\), \(J(0)\), \(J(\omega_0)\), \(J(2\omega_0)\), \(R_1/R_2\), and \(T_1/T_2\) arrays. \\
+\code{PhenomenologicalRelaxationModel} & Shared Liouville-space population/coherence damping from supplied \(T_1/T_2\) values. \\
+\code{DipolarRelaxationSource} & Target--bath dipolar source geometry, gyromagnetic ratios, bath spin, and optional explicit coupling. \\
+\code{RigidSolidMotionalAveraging} & Fixed-frame dipolar covariance for rigid solids and NQR-style orientation-dependent relaxation. \\
+\code{IsotropicLiquidMotionalAveraging} & Rotationally averaged dipolar covariance for liquid-state NMR. \\
+\code{RedfieldDipolarRelaxationModel} & Secular Markovian Liouville-space dissipator built from stochastic dipolar bath sources. \\
 \bottomrule
 \end{longtable}
 
@@ -3819,13 +3883,16 @@ strong inverse-excitation cancellation parity remain validation targets.
 
 \chapter{Known Gaps}
 
-The Python port is intentionally conservative where MATLAB parity still
-matters. The largest remaining gaps are broader high-Q matched-probe validation,
-full historical MATLAB \code{.mat} structure parity, broad \code{fmincon}
-parity, paper-level scalar-coupling fixture comparisons, relaxation-aware
-coupled-spin pulse-sequence runners, full nonselective quadrupolar pulse
-propagation, experimental NQR fixture comparisons, ESR anisotropic hyperfine
-and multi-electron interactions, and acceleration backends beyond the current
+The Python port is intentionally conservative where MATLAB parity still matters.
+The largest remaining gaps fall into three groups. First are parity and
+validation gaps: broader high-Q matched-probe validation, full historical
+MATLAB \code{.mat} structure parity, broad \code{fmincon} parity, and
+paper-level scalar-coupling fixture comparisons. Second are physics extensions:
+relaxation-aware dense coupled-spin pulse-sequence runners, full nonselective
+quadrupolar pulse propagation, experimental NQR fixture comparisons, ESR
+anisotropic hyperfine and multi-electron interactions, and coherent many-spin
+dipolar networks beyond the stochastic Redfield treatment. Third are
+implementation extensions, especially acceleration backends beyond the current
 NumPy implementation.
 
 New work should add small reference fixtures first, then a NumPy implementation,
