@@ -1,6 +1,16 @@
-# PythonSpinDynamics Publishing Plan
+# PythonSpinDynamics Publishing Plan (deferred / future option)
 
 _Last updated: 2026-06-28_
+
+> **Status: not the current release model.** MRSpinDynamics is released as a
+> single citable workspace unit (one repo version, one GitHub Release, one Zenodo
+> DOI) — see [`release_process.md`](release_process.md). This document describes a
+> **possible future** direction: publishing `PythonSpinDynamics` as an
+> independently versioned PyPI distribution. It is kept for reference and should
+> only be revisited if there is concrete demand for `pip install`-able subpackages.
+> Note the dependency ordering it would require: `python-spin-dynamics` would have
+> to be on PyPI before `quadrupolar-dft`, and both before `mr-integration` (which
+> imports them), so a standalone PyPI release of the whole stack is non-trivial.
 
 This plan turns roadmap item **Publish** into a repeatable release process for
 `PythonSpinDynamics`: beta versioning, PyPI/TestPyPI publication, MkDocs-hosted

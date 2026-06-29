@@ -1,0 +1,33 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using the metadata below."
+title: "MRSpinDynamics"
+abstract: >-
+  A research workspace for magnetic-resonance simulation, quadrupolar-parameter
+  analysis, and NQR data curation. It bundles a validated Python spin-dynamics
+  package (NMR, NQR, and ESR/EPR), an ab initio electric-field-gradient and
+  quadrupolar-coupling workflow, a curated machine-readable NQR spectra database
+  with provenance, and a cross-project layer that closes the
+  predict-simulate-validate loop between them.
+type: software
+authors:
+  - family-names: Mandal
+    given-names: Soumyajit
+version: 0.1.0
+date-released: 2026-06-28
+license: GPL-3.0-or-later
+repository-code: "https://github.com/supertjhok/MRSpinDynamics"
+url: "https://github.com/supertjhok/MRSpinDynamics"
+keywords:
+  - NMR
+  - NQR
+  - ESR
+  - EPR
+  - spin dynamics
+  - magnetic resonance
+  - quadrupolar coupling
+  - electric field gradient
+  - DFT
+  - CPMG
+# After the first GitHub Release is archived on Zenodo, add the minted DOI here
+# (and a doi: field on the matching entry in CHANGELOG.md / README badge):
+# doi: 10.5281/zenodo.XXXXXXX

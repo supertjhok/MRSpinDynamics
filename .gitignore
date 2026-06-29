@@ -16,6 +16,10 @@ PythonSpinDynamics/.mypy_cache/
 PythonSpinDynamics/.ruff_cache/
 PythonSpinDynamics/results/
 PythonSpinDynamics/src/*.egg-info/
+PythonSpinDynamics/*.egg-info/
+PythonSpinDynamics/build/
+PythonSpinDynamics/dist/
+PythonSpinDynamics/site/
 PythonSpinDynamics/**/__pycache__/
 PythonSpinDynamics/**/*.py[cod]
 PythonSpinDynamics/**/*.npz

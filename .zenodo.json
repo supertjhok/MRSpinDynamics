@@ -1,0 +1,22 @@
+{
+  "title": "MRSpinDynamics",
+  "description": "A research workspace for magnetic-resonance simulation, quadrupolar-parameter analysis, and NQR data curation: a validated Python spin-dynamics package (NMR, NQR, ESR/EPR), an ab initio electric-field-gradient and quadrupolar-coupling workflow, a curated machine-readable NQR spectra database with provenance, and a cross-project layer closing the predict-simulate-validate loop.",
+  "upload_type": "software",
+  "access_right": "open",
+  "license": "GPL-3.0-or-later",
+  "creators": [
+    { "name": "Mandal, Soumyajit" }
+  ],
+  "keywords": [
+    "NMR",
+    "NQR",
+    "ESR",
+    "EPR",
+    "spin dynamics",
+    "magnetic resonance",
+    "quadrupolar coupling",
+    "electric field gradient",
+    "DFT",
+    "CPMG"
+  ]
+}
