@@ -27,6 +27,8 @@ MODULES = [
     "core.kernels",
     "core.numerics",
     "core.rotations",
+    "esr.deer",
+    "esr.dipolar",
     "esr.distributions",
     "esr.hamiltonians",
     "esr.hyperfine",

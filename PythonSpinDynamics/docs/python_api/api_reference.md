@@ -188,6 +188,30 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `calc_v0crit(del_w: np.ndarray, n: np.ndarray, alpha: np.ndarray) -> np.ndarray` | Calculate the critical-velocity parameter for a refocusing cycle. |
 | function | `calc_rotation_matrix(del_w: np.ndarray, w_1: np.ndarray | float, tp: np.ndarray, phi: np.ndarray, amp: np.ndarray) -> MatrixElements` | Calculate the equivalent rotation matrix of a composite pulse. |
 
+## `spin_dynamics.esr.deer`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `DeerKernel` | Powder-averaged DEER kernel mapping a distance distribution to a trace. |
+| class | `DeerDistanceResult` | Recovered distance distribution from a DEER form factor. |
+| function | `deer_pair_trace(times_seconds, distance_nm: float, theta_rad: float, *, lambda_depth: float = 1.0, g_a: float = FREE_ELECTRON_G, g_b: float = FREE_ELECTRON_G) -> np.ndarray` | Return the DEER form factor for a single spin pair at fixed orientation. |
+| function | `deer_powder_kernel(times_seconds, distances_nm, *, lambda_depth: float = 1.0, n_theta: int = 2001, g_a: float = FREE_ELECTRON_G, g_b: float = FREE_ELECTRON_G) -> DeerKernel` | Return the powder-averaged DEER kernel ``K[t, r]``. |
+| function | `gaussian_distance_distribution(distances_nm, mean_nm: float, sigma_nm: float) -> np.ndarray` | Return a normalized Gaussian distance distribution on a distance grid. |
+| function | `simulate_deer(times_seconds, distances_nm, distribution, *, lambda_depth: float = 1.0, n_theta: int = 2001, g_a: float = FREE_ELECTRON_G, g_b: float = FREE_ELECTRON_G) -> np.ndarray` | Return the DEER form factor for a distance distribution. |
+| function | `deer_dipolar_spectrum(times_seconds, form_factor, *, zero_fill: int = 4) -> tuple[np.ndarray, np.ndarray]` | Return the dipolar (Pake) spectrum of a DEER form factor. |
+| function | `extract_distance_distribution(times_seconds, form_factor, distances_nm, *, lambda_depth: float = 1.0, snr: float = 100.0, n_theta: int = 2001, regularization_order: int = 2, g_a: float = FREE_ELECTRON_G, g_b: float = FREE_ELECTRON_G) -> DeerDistanceResult` | Recover a distance distribution ``P(r)`` from a DEER form factor. |
+| function | `deer_pair_trace_quantum(times_seconds, distance_nm: float, theta_rad: float, *, pump_flip_rad: float = np.pi, tau1_seconds: float = 2e-07, tau2_seconds: float = 2e-06, observer_offset_hz: float = 5000000.0, pump_offset_hz: float = 0.0, g_a: float = FREE_ELECTRON_G, g_b: float = FREE_ELECTRON_G) -> np.ndarray` | Simulate the four-pulse DEER form factor from the spin Hamiltonian. |
+
+## `spin_dynamics.esr.dipolar`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `dipolar_constant_hz_nm3(g_a: float = FREE_ELECTRON_G, g_b: float = FREE_ELECTRON_G) -> float` | Return the perpendicular dipolar constant ``nu_perp * r^3`` in Hz nm^3. |
+| function | `dipolar_frequency_hz(distance_nm: float | np.ndarray, *, g_a: float = FREE_ELECTRON_G, g_b: float = FREE_ELECTRON_G) -> float | np.ndarray` | Return the perpendicular dipolar frequency ``nu_perp(r)`` in Hz. |
+| function | `distance_from_dipolar_frequency_nm(frequency_hz: float | np.ndarray, *, g_a: float = FREE_ELECTRON_G, g_b: float = FREE_ELECTRON_G) -> float | np.ndarray` | Return the distance (nm) for a perpendicular dipolar frequency in Hz. |
+| function | `dipolar_angular_frequency_hz(distance_nm: float | np.ndarray, theta_rad: float | np.ndarray, *, g_a: float = FREE_ELECTRON_G, g_b: float = FREE_ELECTRON_G) -> float | np.ndarray` | Return the orientation-dependent dipolar frequency in Hz. |
+| function | `secular_dipolar_hamiltonian(distance_nm: float, theta_rad: float, *, g_a: float = FREE_ELECTRON_G, g_b: float = FREE_ELECTRON_G) -> np.ndarray` | Return the secular two-electron dipolar Hamiltonian in radians per second. |
+
 ## `spin_dynamics.esr.distributions`
 
 | Kind | Name | Summary |
