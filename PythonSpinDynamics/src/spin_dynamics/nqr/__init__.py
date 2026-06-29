@@ -109,6 +109,7 @@ from spin_dynamics.nqr.simulation import (
     simulate_slse_offset_sweep,
     simulate_slse_spacing_sweep,
     simulate_sorc,
+    sorc_powder_pathway_signal,
     sorc_powder_theory_signal,
     transition_signal,
 )
@@ -232,6 +233,7 @@ __all__ = [
     "simulate_sorc",
     "simulate_weak_b0_spectrum",
     "single_crystal_orientation",
+    "sorc_powder_pathway_signal",
     "slse_sequence",
     "sorc_powder_theory_signal",
     "sorc_sequence",

@@ -23,10 +23,8 @@ from spin_dynamics.nqr import (  # noqa: E402
     QuadrupolarSite,
     diagonalize_site,
     fid_powder_theory_signal,
-    powder_average_grid,
-    simulate_sorc,
+    sorc_powder_pathway_signal,
     sorc_powder_theory_signal,
-    sorc_sequence,
 )
 
 
@@ -41,33 +39,54 @@ def _paper_nutation_hz(powder_90_us: float) -> float:
     return 0.33 / (float(powder_90_us) * 1e-6)
 
 
+def _sorc_theory_grid(
+    offsets_hz: np.ndarray,
+    half_spacings_seconds: np.ndarray,
+    flip_angles_radians: np.ndarray,
+    *,
+    quadrature_points: int = 512,
+) -> np.ndarray:
+    offsets = np.asarray(offsets_hz, dtype=np.float64).reshape(-1)
+    taus = np.asarray(half_spacings_seconds, dtype=np.float64).reshape(-1)
+    flips = np.asarray(flip_angles_radians, dtype=np.float64).reshape(-1)
+    if not (offsets.size == taus.size == flips.size):
+        raise ValueError("offsets, spacings, and flip angles must have same size")
+
+    mu, weights = np.polynomial.legendre.leggauss(int(quadrature_points))
+    phase = 2.0 * np.pi * offsets[:, np.newaxis] * taus[:, np.newaxis]
+    flip_projection = flips[:, np.newaxis] * mu[np.newaxis, :]
+    numerator = 0.5 * np.sin(flip_projection) * np.sin(phase)
+    denominator = 1.0 - (
+        np.cos(0.5 * flip_projection) ** 2 * np.cos(phase) ** 2
+    )
+    with np.errstate(divide="ignore", invalid="ignore"):
+        ratio = np.divide(
+            numerator,
+            denominator,
+            out=np.zeros_like(numerator),
+            where=np.abs(denominator) > 1e-14,
+        )
+    return np.abs(
+        np.sum(weights[np.newaxis, :] * mu[np.newaxis, :] * ratio, axis=1)
+    )
+
+
 def _simulate_sweep(
     *,
-    site: QuadrupolarSite,
-    transition: str,
-    line_frequency_hz: float,
     offsets_hz: np.ndarray,
     two_tau_seconds: np.ndarray,
     pulse_width_seconds: np.ndarray,
     nutation_hz: float,
     num_pulses: int,
-    orientations,
+    quadrature_points: int,
 ) -> np.ndarray:
-    amplitudes = np.empty(offsets_hz.size, dtype=np.float64)
-    for idx, (offset, two_tau, pulse_width) in enumerate(
-        zip(offsets_hz, two_tau_seconds, pulse_width_seconds)
-    ):
-        sequence = sorc_sequence(
-            transition,
-            pulse_duration_seconds=float(pulse_width),
-            nutation_hz=nutation_hz,
-            half_spacing_seconds=0.5 * float(two_tau),
-            num_pulses=num_pulses,
-            rf_frequency_hz=line_frequency_hz + float(offset),
-        )
-        result = simulate_sorc(site, sequence, orientations=orientations)
-        amplitudes[idx] = abs(result.signal_amplitudes[-1])
-    return amplitudes
+    return sorc_powder_pathway_signal(
+        offsets_hz,
+        0.5 * two_tau_seconds,
+        2.0 * np.pi * nutation_hz * pulse_width_seconds,
+        num_pulses,
+        quadrature_points=quadrature_points,
+    )
 
 
 def _parse_args() -> argparse.Namespace:
@@ -85,12 +104,11 @@ def _parse_args() -> argparse.Namespace:
         help="Pulse width corresponding to the paper's powder 90 deg pulse.",
     )
     parser.add_argument("--num-pulses", type=int, default=96)
-    parser.add_argument("--n-theta", type=int, default=6)
-    parser.add_argument("--n-phi", type=int, default=12)
+    parser.add_argument("--quadrature-points", type=int, default=512)
     parser.add_argument(
         "--simulation-points",
         type=int,
-        default=31,
+        default=13,
         help="Sparse numerical SORC markers per sweep.",
     )
     parser.add_argument(
@@ -126,7 +144,6 @@ def main() -> None:
     )
     line_frequency_hz = diagonalize_site(site).transition(args.transition).frequency_hz
     nutation_hz = _paper_nutation_hz(args.powder_90_us)
-    orientations = powder_average_grid(args.n_theta, args.n_phi)
 
     offset_dense = np.linspace(-3.0e3, 3.0e3, 601)
     offset_sparse = np.linspace(-3.0e3, 3.0e3, args.simulation_points)
@@ -137,6 +154,7 @@ def main() -> None:
         offset_dense,
         0.5 * two_tau_offset,
         phi_offset,
+        quadrature_points=args.quadrature_points,
         normalize=True,
     )
 
@@ -145,16 +163,11 @@ def main() -> None:
     spacing_offset_hz = -2.05e3
     width_spacing = 20.0e-6
     phi_spacing = 2.0 * np.pi * nutation_hz * width_spacing
-    spacing_theory = np.array(
-        [
-            sorc_powder_theory_signal(
-                [spacing_offset_hz],
-                0.5 * two_tau,
-                phi_spacing,
-            )[0]
-            for two_tau in two_tau_dense
-        ],
-        dtype=np.float64,
+    spacing_theory = _sorc_theory_grid(
+        np.full_like(two_tau_dense, spacing_offset_hz),
+        0.5 * two_tau_dense,
+        np.full_like(two_tau_dense, phi_spacing),
+        quadrature_points=args.quadrature_points,
     )
     spacing_theory = _normalize(spacing_theory)
 
@@ -162,16 +175,11 @@ def main() -> None:
     widths_sparse = np.linspace(0.0, 120.0e-6, args.simulation_points)
     two_tau_width = 1.71e-3
     width_offset_hz = -2.05e3
-    width_theory = np.array(
-        [
-            sorc_powder_theory_signal(
-                [width_offset_hz],
-                0.5 * two_tau_width,
-                2.0 * np.pi * nutation_hz * width,
-            )[0]
-            for width in widths_dense
-        ],
-        dtype=np.float64,
+    width_theory = _sorc_theory_grid(
+        np.full_like(widths_dense, width_offset_hz),
+        np.full_like(widths_dense, 0.5 * two_tau_width),
+        2.0 * np.pi * nutation_hz * widths_dense,
+        quadrature_points=args.quadrature_points,
     )
     width_theory = _normalize(width_theory)
     fid_theory = fid_powder_theory_signal(
@@ -187,37 +195,28 @@ def main() -> None:
     offset_sim = spacing_sim = width_sim = None
     if not args.no_simulation:
         offset_sim = _simulate_sweep(
-            site=site,
-            transition=args.transition,
-            line_frequency_hz=line_frequency_hz,
             offsets_hz=offset_sparse,
             two_tau_seconds=np.full_like(offset_sparse, two_tau_offset),
             pulse_width_seconds=np.full_like(offset_sparse, width_offset),
             nutation_hz=nutation_hz,
             num_pulses=args.num_pulses,
-            orientations=orientations,
+            quadrature_points=args.quadrature_points,
         )
         spacing_sim = _simulate_sweep(
-            site=site,
-            transition=args.transition,
-            line_frequency_hz=line_frequency_hz,
             offsets_hz=np.full_like(two_tau_sparse, spacing_offset_hz),
             two_tau_seconds=two_tau_sparse,
             pulse_width_seconds=np.full_like(two_tau_sparse, width_spacing),
             nutation_hz=nutation_hz,
             num_pulses=args.num_pulses,
-            orientations=orientations,
+            quadrature_points=args.quadrature_points,
         )
         width_sim = _simulate_sweep(
-            site=site,
-            transition=args.transition,
-            line_frequency_hz=line_frequency_hz,
             offsets_hz=np.full_like(widths_sparse, width_offset_hz),
             two_tau_seconds=np.full_like(widths_sparse, two_tau_width),
             pulse_width_seconds=widths_sparse,
             nutation_hz=nutation_hz,
             num_pulses=args.num_pulses,
-            orientations=orientations,
+            quadrature_points=args.quadrature_points,
         )
 
     fig, axes = plt.subplots(1, 3, figsize=(14.0, 4.5), constrained_layout=True)
@@ -230,7 +229,7 @@ def main() -> None:
             "o",
             ms=3,
             color="C1",
-            label="density matrix",
+            label="finite-N SORC",
         )
     axes[0].set_xlabel("frequency offset delta f (kHz)")
     axes[0].set_ylabel("normalized signal magnitude")
@@ -239,7 +238,15 @@ def main() -> None:
 
     axes[1].plot(two_tau_dense * 1e3, spacing_theory, color="C0")
     if spacing_sim is not None:
-        axes[1].plot(two_tau_sparse * 1e3, _normalize(spacing_sim), "o", ms=3, color="C1")
+        axes[1].plot(
+            two_tau_sparse * 1e3,
+            _normalize(spacing_sim),
+            "o",
+            ms=3,
+            color="C1",
+            label="finite-N SORC",
+        )
+        axes[1].legend()
     axes[1].set_xlabel("pulse separation 2 tau (ms)")
     axes[1].set_ylabel("normalized signal magnitude")
     axes[1].set_title("Spacing Sweep, delta f = -2.05 kHz")
@@ -254,7 +261,14 @@ def main() -> None:
         label="abs(FID theory)",
     )
     if width_sim is not None:
-        axes[2].plot(widths_sparse * 1e6, _normalize(width_sim), "o", ms=3, color="C1")
+        axes[2].plot(
+            widths_sparse * 1e6,
+            _normalize(width_sim),
+            "o",
+            ms=3,
+            color="C1",
+            label="finite-N SORC",
+        )
     axes[2].set_xlabel("pulse width tw (us)")
     axes[2].set_ylabel("normalized signal")
     axes[2].set_title("Pulse-Width Sweep")

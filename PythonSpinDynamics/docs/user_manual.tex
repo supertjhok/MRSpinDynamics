@@ -1801,6 +1801,50 @@ sweep = simulate_slse_offset_sweep(
 )
 \end{lstlisting}
 
+\section{SORC Detection}
+
+The strong off-resonance comb (SORC) sequence is represented as
+\((\tau-\phi-\tau)^N\), with the observation sampled between repeated
+off-resonant pulses. The default \code{simulate\_sorc} path follows the
+finite-\(N\) pathway recurrence used by Konnai, Odano, and Asaji (2008). As the
+number of pulses grows, this recurrence converges to the published steady-state
+powder expression and retains the expected \(\Delta\omega\tau\) comb
+periodicity. Use \code{model="coherent"} only when the desired calculation is
+the closed unitary transient train rather than the dephased SORC pathway model.
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.nqr import QuadrupolarSite, simulate_sorc, sorc_sequence
+
+site = QuadrupolarSite(
+    spin=1,
+    isotope="14N",
+    quadrupole_frequency_hz=4.2e6,
+    eta=0.3,
+)
+sequence = sorc_sequence(
+    "x",
+    pulse_duration_seconds=20e-6,
+    nutation_hz=16.5e3,
+    half_spacing_seconds=0.8e-3,
+    num_pulses=96,
+    rf_frequency_hz=4.60425e6 - 2.05e3,
+)
+
+result = simulate_sorc(site, sequence, orientations="powder")
+print(result.signal_amplitudes[-1])
+\end{lstlisting}
+
+For direct paper-style comparisons,
+\code{sorc\_powder\_pathway\_signal} evaluates the finite-\(N\) recurrence in
+Konnai's one-dimensional powder angle, which avoids aliasing from coarse
+spherical orientation grids in long pulse-width sweeps.
+\code{sorc\_powder\_theory\_signal} evaluates the corresponding infinite-\(N\)
+steady-state response, while \code{fid\_powder\_theory\_signal} gives the
+spin-1 powder FID pulse-width response. The example
+\code{examples/plot\_nqr\_sorc\_konnai2008.py} overlays finite-\(N\) SORC
+markers with the infinite-\(N\) theory curves for the offset, spacing, and
+pulse-width sweeps in the paper.
+
 \section{EFG Inhomogeneity and SLSE Spectra}
 
 Static EFG disorder is modeled as an isochromat ensemble of independent
@@ -3947,9 +3991,14 @@ from spin_dynamics.nqr import (
     transition_drive_scale,
     NQRRelaxationModel,
     slse_sequence,
+    sorc_sequence,
     simulate_slse,
+    simulate_sorc,
     simulate_slse_offset_sweep,
     simulate_slse_spacing_sweep,
+    sorc_powder_theory_signal,
+    sorc_powder_pathway_signal,
+    fid_powder_theory_signal,
     gaussian_efg_distribution,
     temperature_efg_distribution,
     simulate_fid_efg_distribution,
@@ -3994,8 +4043,12 @@ Object & Purpose \\
 \code{apply\_selective\_pulse} & Embedded two-level RF propagation in the energy basis. \\
 \code{NQRRelaxationModel} & Phenomenological Liouville-space population/coherence relaxation rates. \\
 \code{slse\_sequence} & Convenience builder for SLSE detection. \\
+\code{sorc\_sequence} & Convenience builder for the strong off-resonance comb sequence. \\
 \code{simulate\_slse} & Selective-pulse SLSE echo train for a fixed orientation or powder. \\
+\code{simulate\_sorc} & Finite-pulse SORC pathway train by default, with optional coherent transient propagation. \\
 \code{simulate\_slse\_offset\_sweep}, \code{simulate\_slse\_spacing\_sweep} & SLSE diagnostics versus RF offset or pulse period. \\
+\code{sorc\_powder\_theory\_signal}, \code{sorc\_powder\_pathway\_signal} & Infinite-\(N\) and finite-\(N\) powder SORC responses for Konnai-style comparisons. \\
+\code{fid\_powder\_theory\_signal} & Spin-1 powder FID pulse-width response used beside SORC pulse-width sweeps. \\
 \code{gaussian\_efg\_distribution}, \code{temperature\_efg\_distribution} & Static EFG isochromat distributions. \\
 \code{simulate\_fid\_efg\_distribution} & Time-domain FID and FFT spectrum from an EFG distribution. \\
 \code{simulate\_slse\_acquisition\_spectrum} & Finite-window acquired SLSE echo and spectrum, with noise and optional deconvolution. \\
