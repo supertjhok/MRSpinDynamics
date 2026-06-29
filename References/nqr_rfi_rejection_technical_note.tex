@@ -1,0 +1,413 @@
+\documentclass[10pt]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[margin=0.76in]{geometry}
+\usepackage{microtype}
+\usepackage{amsmath,amssymb,bm}
+\usepackage{booktabs,tabularx,array}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{titlesec}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!55!black,
+  citecolor=blue!55!black,
+  urlcolor=blue!55!black,
+  pdftitle={Radio-Frequency-Interference Rejection for Pulsed NQR},
+  pdfauthor={Technical note prepared from the discussion}
+}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{4pt plus 1pt}
+\setlist[itemize]{leftmargin=1.35em,itemsep=1.5pt,topsep=2pt}
+\setlist[enumerate]{leftmargin=1.55em,itemsep=1.5pt,topsep=2pt}
+\titleformat{\section}{\large\bfseries}{\thesection}{0.55em}{}
+\titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{0.5em}{}
+\titlespacing*{\section}{0pt}{8pt}{3pt}
+\titlespacing*{\subsection}{0pt}{6pt}{2pt}
+\renewcommand{\arraystretch}{1.16}
+
+\newcommand{\B}{\mathbf B}
+\newcommand{\cvec}{\mathbf c}
+\newcommand{\hvec}{\mathbf h}
+\newcommand{\xvec}{\mathbf x}
+\newcommand{\E}{\mathbb E}
+\newcommand{\NQR}{\mathrm{NQR}}
+\newcommand{\RFI}{\mathrm{RFI}}
+
+\title{\vspace{-1.3em}\textbf{Radio-Frequency-Interference Rejection for Pulsed NQR}\\[-1mm]
+\large Reference-coil cancellation, vector pickup, and gated acquisition}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+\vspace{-2.1em}
+
+\begin{abstract}
+\noindent
+Ambient radio-frequency interference (RFI) is a practical limiting factor for
+low-frequency \({}^{14}\mathrm N\) nuclear-quadrupole-resonance (NQR)
+experiments.  The difficult case is coherent interference, often from AM
+broadcast stations or nearby electronics, that overlaps the NQR detection band.
+This note summarizes candidate mitigation methods and proposes a simulation
+roadmap for MRSpinDynamics.  The central recommendation is to model RFI as a
+vector magnetic field and to support multi-channel reference-coil cancellation
+from the beginning.  In pulsed NQR sequences such as SLSE and SORC, the NQR
+receiver is only scientifically useful in the gaps between RF pulses, whereas
+reference detectors may run continuously; the implementation should therefore
+treat cancellation as a masked/gated estimation problem rather than as ordinary
+continuous denoising of a single sampled waveform.
+\end{abstract}
+
+\section{Why this belongs in the NQR model}
+
+\({}^{14}\mathrm N\) NQR lines for energetic materials and other nitrogenous
+solids can lie in the same frequency range as strong environmental emitters.
+In the RAND landmine-detection review, the TNT NQR frequencies are reported as
+roughly \(790\)--\(900~\mathrm{kHz}\), directly in the AM broadcast band; the
+review states that environmental RF interference can overwhelm TNT responses
+and that practical NQR systems have used coil design plus a separate RFI
+monitoring antenna followed by subtraction \cite{rand2003}.  A later appendix
+in the same review calls out commercial AM stations within about
+\(20~\mathrm{kHz}\) of the TNT detection frequencies and nearby electromagnetic
+noise sources as current NQR limitations \cite{rand2003}.
+
+This is not only a filtering problem.  The desired NQR signal is transient,
+weak, sequence-gated, and often detected with matched filters or echo
+integration.  A stationary notch filter may reduce a carrier but can also
+distort the baseline, remove useful spectral content, or leave time-varying AM
+sidebands.  A physically faithful simulator should instead expose the
+experimenter to the trade space among passive rejection, reference-channel
+subtraction, active cancellation, pulse gating, and detection bias.
+
+\section{Signal model}
+
+Let the primary NQR receive channel after analog front-end conditioning be
+\begin{equation}
+  y[n] = s_{\NQR}[n]\,m[n]
+       + \sum_{q=0}^{Q-1} (g_q * u_q)[n]
+       + \eta_y[n],
+  \label{eq:scalar-primary}
+\end{equation}
+where \(s_{\NQR}\) is the desired NQR response, \(m[n]\in\{0,1\}\) is the
+receive-valid mask that removes RF-pulse and ringdown intervals, \(u_q\) are
+external interference sources, \(g_q\) are their transfer functions into the
+primary channel, and \(\eta_y\) is receiver noise.
+
+For a reference-coil system, the measured reference vector is
+\begin{equation}
+  \xvec[n] =
+  \begin{bmatrix}x_1[n]&x_2[n]&\cdots&x_K[n]\end{bmatrix}^{T},
+\end{equation}
+and the cleaned primary channel is estimated as
+\begin{equation}
+  \widehat{s}_{\NQR}[n]
+    = y[n] - \sum_{k=1}^{K}(h_k*x_k)[n].
+  \label{eq:mimo-canceller}
+\end{equation}
+The filters \(h_k\) may be complex scalars, short FIR filters, frequency-domain
+transfer functions, or adaptive filters.  This is the NQR analogue of adaptive
+noise cancellation \cite{widrow1975,haykin2002}, RFI reference-antenna
+cancellation in radio astronomy \cite{mitchell2010,finger2018}, and
+external-sensor EMI subtraction in low-field MRI \cite{srinivas2021}.
+
+\section{The magnetic field is a vector}
+
+A single reference coil measures only one projection of the RFI magnetic field.
+For a small loop with effective pickup vector \(\cvec_k\), the idealized
+reference voltage is proportional to
+\begin{equation}
+  x_k(t) \propto
+  \frac{d}{dt}\int_{A_k}\B_{\RFI}(\mathbf r,t)\cdot d\mathbf A
+  \approx
+  \cvec_k^{T}\frac{d\B_{\RFI}(\mathbf r_k,t)}{dt}.
+\end{equation}
+The primary NQR receive coil has its own pickup vector \(\cvec_y\).  In the
+far-field or spatially uniform limit,
+\begin{equation}
+  y_{\RFI}(t)\approx \cvec_y^{T}\dot{\B}_{\RFI}(t),
+  \qquad
+  \xvec(t)\approx C^{T}\dot{\B}_{\RFI}(t),
+\end{equation}
+where \(C=[\cvec_1,\ldots,\cvec_K]\).  If \(C\) spans the component of
+\(\dot{\B}_{\RFI}\) that couples into the primary coil, the primary interference
+projection can be estimated.  If not, the cancellation is rank-deficient.
+
+For distant AM transmitters, the wavelength is hundreds of meters and the field
+may be nearly uniform over the probe.  Three approximately orthogonal
+reference coils near the instrument can then be a reasonable first-order model.
+For local electronics, shield currents, cable pickup, or re-radiating metal,
+the RFI can be near-field and spatially structured.  A single three-axis
+reference station may then fail; the next model is multiple vector stations,
+with \(K=3P\) channels for \(P\) physical reference locations.  Electric-field
+pickup can also enter through cabling and preamplifier imperfections, so the
+software model should allow reference channels that are not purely magnetic.
+
+\section{Pulsed acquisition changes the estimation problem}
+
+In SLSE, SORC, and related pulsed NQR sequences, the primary receive channel is
+blanked or unusable during transmit pulses and during subsequent ringdown.  The
+desired NQR signal is only acquired in gaps.  Reference detectors, by contrast,
+can often run continuously because they are physically decoupled from the NQR
+transmit/receive coil or can tolerate the pulse feedthrough.
+
+The cancellation problem should therefore be written with masks.  Let
+\(\mathcal G\) be the set of valid receive samples in the pulse gaps and
+\(\mathcal B\) be a set of samples believed to contain no NQR response, such as
+pre-shot baselines, late-time tails, off-resonance shots, or inter-scan
+calibration windows.  A fixed FIR canceller can be estimated by
+\begin{equation}
+  \widehat{\hvec}
+    =
+  \arg\min_{\hvec}
+  \sum_{n\in\mathcal B}
+  \left|y[n]-\Phi_x[n]\hvec\right|^2
+  + \lambda \|\hvec\|_2^2,
+  \label{eq:gated-ls}
+\end{equation}
+where \(\Phi_x[n]\) is the tapped-delay design row assembled from the
+continuous reference channels.  The cleaned NQR data are then computed only on
+\(\mathcal G\).  Continuous reference acquisition is still useful because it
+allows:
+\begin{itemize}
+  \item interpolation of the RFI phase and amplitude across transmit blanking;
+  \item tracking of AM modulation envelopes and beat notes over the full shot;
+  \item estimation from pulse-contaminated reference intervals while excluding
+        those intervals from the primary objective;
+  \item transfer-function updates between shots without corrupting the NQR
+        response in the detection gaps.
+\end{itemize}
+
+This masking is essential for simulation.  A method that appears to work on
+continuous synthetic FIDs may fail once the primary channel only contributes
+short windows separated by high-power RF pulses.
+
+\section{Candidate RFI-rejection methods}
+
+\begin{table}[h!]
+\centering
+\caption{RFI mitigation methods to represent in MRSpinDynamics.}
+\label{tab:methods}
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{0.19\textwidth}>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}p{0.25\textwidth}@{}}
+\toprule
+\textbf{Method} & \textbf{Useful model} & \textbf{Main failure mode} \\
+\midrule
+Passive shielding and cabling hygiene &
+Lower the coupled \(g_q\) before digitization; low-field MRI work emphasizes
+diagnostic noise measurements, grounding, cabling, and shielding as prerequisites
+for reaching coil-noise limits \cite{guallart2025}. &
+Does not remove unavoidable broadcast pickup; cannot be studied as a digital
+post-processing algorithm alone. \\
+Coil balancing or gradiometry &
+Common-mode rejection of spatially smooth ambient magnetic fields, at the cost
+of changing sample sensitivity. &
+Near-field RFI gradients and sample-signal cancellation. \\
+Static notch or spectral excision &
+Remove known narrowband carriers after acquisition. &
+Signal distortion, AM sidebands, ringing, and data loss near the NQR line. \\
+Reference-channel least squares or Wiener cancellation &
+Estimate Eq.~\eqref{eq:mimo-canceller} from baseline windows, off-resonance shots,
+or late-time gaps. &
+Reference channels do not span the primary RFI; reference noise is injected. \\
+Adaptive LMS/NLMS/RLS cancellation &
+Track slowly changing interference amplitude, phase, and transfer functions.
+This is the classical adaptive-noise-canceller family \cite{widrow1975,haykin2002}. &
+Adaptation can subtract NQR signal if trained on contaminated windows; LMS may
+converge too slowly or misadjust under low reference SNR. \\
+Multi-reference cancellation &
+Use several reference channels or vector stations; radio astronomy analyses show
+that two-reference structures avoid some residual-RFI floors that remain in
+single-reference cancellers \cite{mitchell2010}. &
+More reference noise and more calibration degrees of freedom. \\
+AM carrier/envelope tracking &
+Represent AM stations as carrier plus sidebands/envelope and track a compact
+parametric model. &
+Breaks when interference is broadband, nonstationary, or multi-source. \\
+Active cancellation coils &
+Drive compensation coils to null the field at the receive coil, optionally with
+digital post-cleanup. &
+Loop stability, actuator saturation, transmit-pulse feedthrough, and accidental
+nulling of useful sample signal. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Active cancellation architecture}
+
+Active RFI cancellation adds one or more drive coils with command vector
+\(\mathbf a[n]\).  The primary channel becomes
+\begin{equation}
+  y[n] = s_{\NQR}[n]m[n] + y_{\RFI}[n] + (G_a*\mathbf a)[n] + \eta_y[n].
+\end{equation}
+The controller chooses \(\mathbf a\) to minimize the primary RFI estimate, using
+reference coils and calibration of the actuator-to-sensor transfer functions.
+The natural simulation layers are:
+\begin{enumerate}
+  \item feedforward cancellation, where references predict the required actuator
+        waveform without using the primary NQR channel as an error signal during
+        receive gaps;
+  \item feedback cancellation during baseline windows, with adaptation frozen
+        during expected NQR signal windows;
+  \item hybrid analog/digital cancellation, where active coils prevent front-end
+        saturation and digital reference subtraction removes residuals.
+\end{enumerate}
+The simulator should explicitly represent actuator limits and closed-loop
+stability.  Digital post-processing can repair additive contamination after
+linear acquisition, but it cannot recover data lost to LNA compression, ADC
+clipping, or transmit-pulse recovery artifacts.
+
+\section{Simulation observables}
+
+The RFI module should report more than a cleaned waveform.  Useful diagnostics
+include:
+\begin{itemize}
+  \item RFI suppression in dB, measured in the primary receive gaps;
+  \item matched-filter or echo-integral NQR SNR before and after cancellation;
+  \item NQR amplitude and phase bias caused by cancellation;
+  \item residual spectral lines and residual autocorrelation;
+  \item reference-noise injection into the cleaned primary channel;
+  \item conditioning/rank of the reference-channel design matrix;
+  \item fraction of samples masked by transmit pulses and ringdown;
+  \item clipping or front-end saturation flags before digital cancellation;
+  \item false-alarm and detection-probability changes for a chosen detector.
+\end{itemize}
+
+\section{Implementation plan for MRSpinDynamics}
+
+\subsection{Phase 1: synthetic RFI and reference channels}
+
+Add a small signal-processing layer that can generate coherent RFI sources and
+reference measurements independent of any NQR sequence:
+\begin{itemize}
+  \item narrowband tones, AM-modulated carriers, chirps, broadband colored noise,
+        and impulsive local interference;
+  \item vector magnetic-field sources \(\B_{\RFI}(t)\), with optional electric
+        pickup channels;
+  \item reference coil objects with pickup vectors, locations, bandwidths, noise
+        floors, gain/phase errors, saturation limits, and optional NQR leakage;
+  \item primary receive pickup vectors coupled to existing NQR orientation and
+        receiver conventions.
+\end{itemize}
+
+\subsection{Phase 2: masks for pulsed NQR sequences}
+
+Expose receive-valid masks from SLSE, SORC, FID, and full-density-matrix NQR
+simulations.  The mask should distinguish transmit pulse, ringdown, valid
+receive, and optional baseline-only windows.  Reference channels should be
+sampled continuously over the same shot clock.  This allows a cancellation
+algorithm to train on \(\mathcal B\), apply on \(\mathcal G\), and ignore
+samples where the primary receiver would be blanked.
+
+\subsection{Phase 3: cancellers}
+
+Implement cancellers as pure numerical transforms with explicit fit/apply
+separation:
+\begin{itemize}
+  \item scalar complex subtraction for a single reference channel;
+  \item multi-channel ridge least-squares FIR cancellation using Eq.~\eqref{eq:gated-ls};
+  \item frequency-domain transfer-function cancellation for stationary RFI;
+  \item LMS/NLMS and RLS adaptive cancellers with mask-aware freeze/update
+        controls;
+  \item parametric AM carrier trackers as a baseline for broadcast-like RFI.
+\end{itemize}
+Each canceller should return coefficients, cleaned data, predicted RFI,
+reference-noise estimates, and mask-aware diagnostics.
+
+\subsection{Phase 4: active cancellation}
+
+Add optional compensation coils after the passive/digital path is validated.
+The first implementation can be feedforward with known actuator transfer
+functions.  Later versions can add feedback adaptation, stability margins, and
+closed-loop interaction between compensation coils, reference sensors, and the
+primary receive coil.
+
+\subsection{Phase 5: examples and tests}
+
+Examples should start with intentionally simple cases and then add the
+pathologies that matter experimentally:
+\begin{enumerate}
+  \item a single AM carrier near a \({}^{14}\mathrm N\) line with one reference
+        coil;
+  \item three-axis reference coils cancelling a time-varying RFI polarization;
+  \item rank-deficient one-axis cancellation that leaves a residual in the
+        primary coil;
+  \item SLSE receive gaps with continuous references and transmit/ringdown masks;
+  \item reference-channel NQR leakage showing amplitude bias;
+  \item preamplifier or ADC clipping showing when digital cancellation is too
+        late;
+  \item active feedforward cancellation followed by digital residual cleanup.
+\end{enumerate}
+Unit tests should verify analytic least-squares recovery in noise-free cases,
+known dB suppression in seeded stochastic cases, no update during masked NQR
+windows, and preservation of a synthetic NQR matched-filter amplitude when
+reference leakage is zero.
+
+\section{Open design questions}
+
+\begin{itemize}
+  \item Should RFI live under \texttt{spin\_dynamics.nqr} or in a shared
+        \texttt{spin\_dynamics.interference} namespace usable by low-field MRI
+        and ESR examples?
+  \item Should reference coils use the existing orientation objects, or should
+        they have their own lab-frame geometry model?
+  \item What is the right default for transmit-pulse feedthrough into reference
+        channels: blank, clip, saturate, or preserve for controller tracking?
+  \item How should matched-filter detection report uncertainty after adaptive
+        cancellation, given injected reference noise and fitted degrees of
+        freedom?
+  \item How much active-cancellation control theory belongs in the package
+        versus being represented as calibrated transfer functions and actuator
+        limits?
+\end{itemize}
+
+\begin{thebibliography}{9}
+
+\bibitem{rand2003}
+J. MacDonald, J. R. Lockwood, J. McFee, T. Altshuler, T. Broach,
+L. Carin, R. Harmon, C. Rappaport, W. Scott, and R. Weaver,
+\emph{Alternatives for Landmine Detection}, RAND Corporation, MR-1608,
+2003.
+\url{https://www.rand.org/content/dam/rand/pubs/monograph_reports/MR1608/RAND_MR1608.pdf}.
+
+\bibitem{widrow1975}
+B. Widrow, J. R. Glover, J. M. McCool, J. Kaunitz, C. S. Williams,
+R. H. Hearn, J. R. Zeidler, E. Dong, and R. C. Goodlin,
+``Adaptive noise cancelling: principles and applications,''
+\emph{Proceedings of the IEEE}, vol. 63, no. 12, pp. 1692--1716, 1975.
+
+\bibitem{haykin2002}
+S. Haykin, \emph{Adaptive Filter Theory}, 4th ed., Prentice Hall, 2002.
+
+\bibitem{mitchell2010}
+D. A. Mitchell, J. G. Robertson, and R. J. Sault,
+``Alternative adaptive filter structures for improved radio frequency
+interference cancellation in radio astronomy,'' arXiv:1004.0938, 2010.
+\url{https://arxiv.org/abs/1004.0938}.
+
+\bibitem{finger2018}
+R. Finger, F. Curotto, R. Fuentes, R. Duan, L. Bronfman, and D. Li,
+``A FPGA-based fast converging digital adaptive filter for real-time RFI
+mitigation on ground based radio telescopes,'' arXiv:1805.06376, 2018.
+\url{https://arxiv.org/abs/1805.06376}.
+
+\bibitem{srinivas2021}
+S. A. Srinivas, S. F. Cauley, J. P. Stockmann, C. R. Sappo,
+C. E. Vaughn, L. L. Wald, W. A. Grissom, and C. Z. Cooley,
+``External Dynamic InTerference Estimation and Removal (EDITER) for low
+field MRI,'' arXiv:2104.08680, 2021.
+\url{https://arxiv.org/abs/2104.08680}.
+
+\bibitem{guallart2025}
+T. Guallart-Naval and J. Alonso,
+``Electromagnetic noise characterization and suppression in low-field MRI
+systems,'' arXiv:2507.20413, 2025.
+\url{https://arxiv.org/abs/2507.20413}.
+
+\end{thebibliography}
+
+\end{document}

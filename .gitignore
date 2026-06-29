@@ -5,6 +5,8 @@ References/*
 !References/efg_quadrupolar_technical_note.tex
 !References/Pulsed_NQR_Spin_Dynamics_Narrative_Rewrite.pdf
 !References/Pulsed_NQR_Spin_Dynamics_Narrative_Rewrite.tex
+!References/nqr_rfi_rejection_technical_note.pdf
+!References/nqr_rfi_rejection_technical_note.tex
 .tmp/
 
 PythonSpinDynamics/.conda-env/

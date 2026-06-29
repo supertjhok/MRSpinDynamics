@@ -16,3 +16,7 @@ assumptions and derivations used by the public subprojects:
   (`Pulsed_NQR_Spin_Dynamics_Narrative_Rewrite.tex`) explains when pulsed NQR
   simulations can use a reduced two-level model and when they require the full
   density-matrix treatment.
+- [Radio-Frequency-Interference Rejection for Pulsed NQR](nqr_rfi_rejection_technical_note.pdf)
+  (`nqr_rfi_rejection_technical_note.tex`) sketches RFI models, vector
+  reference-coil cancellation, pulsed receive gating, active cancellation, and
+  an implementation plan for future NQR interference-rejection features.
