@@ -119,15 +119,19 @@ Ported and validated:
   the inverse-problem machinery in `analysis.regularization`, and an independent
   two-electron density-matrix simulation of the full four-pulse sequence that
   reproduces the analytic kernel to floating-point precision.
-- electron-nuclear correlation spectroscopy for an S=1/2, I=1/2 pair
-  (`spin_dynamics.esr.eseem`, `esr.hyscore`, `esr.endor`): the secular plus
-  pseudosecular `HyperfineCoupling`, the nuclear frequencies and modulation
-  depth, analytic two- and three-pulse ESEEM with a density-matrix engine (using
-  electron coherence-pathway selection, plus an explicit phase-cycled variant
-  shown to match it), 2D HYSCORE with cross-peaks at the nuclear frequencies, and
-  Davies/Mims ENDOR including the Mims `sin^2(pi nu tau)` blind spots. All
-  density-matrix traces reproduce the analytic results to floating-point
-  precision.
+- electron-nuclear correlation spectroscopy for an S=1/2 electron coupled to a
+  nucleus of spin I=1/2, 1, or 3/2 (`spin_dynamics.esr.eseem`, `esr.hyscore`,
+  `esr.endor`): the secular plus pseudosecular `HyperfineCoupling` with an
+  optional nuclear quadrupole interaction (`quadrupole_hz`, `eta`, reusing the
+  NQR quadrupole Hamiltonian), per-manifold nuclear frequencies by
+  diagonalization (`manifold_frequencies`), the spin-1/2 closed-form nuclear
+  frequencies and modulation depth, analytic two- and three-pulse ESEEM with a
+  density-matrix engine (electron coherence-pathway selection plus an explicit
+  phase-cycled variant shown to match it), 2D HYSCORE with cross-peaks at the
+  nuclear frequencies, and Davies/Mims ENDOR including the Mims `sin^2(pi nu
+  tau)` blind spots. The spin-1/2 density-matrix traces reproduce the analytic
+  results to floating-point precision, and the I=1 `14N` exact-cancellation
+  regime reproduces the pure-quadrupole NQR lines.
 
 Remaining gaps:
 
@@ -165,9 +169,10 @@ Remaining gaps:
   term (the factor-of-4 difference from the open-circuit `4*k*T*R` form is the
   matched 1/2-voltage / 1/4-power transfer); absolute SNR magnitudes still
   benefit from validation against a measured noise figure;
-- ESEEM/HYSCORE/ENDOR beyond a single I=1/2 nucleus: integer and half-integer
-  nuclei with a nuclear quadrupole interaction (notably 14N), anisotropic
-  hyperfine `A` tensors with powder averaging, and multiple coupled nuclei;
+- ESEEM/HYSCORE/ENDOR beyond a single I<=3/2 nucleus with a field-collinear
+  quadrupole tensor: spin I>3/2, anisotropic hyperfine `A` tensors with powder
+  averaging, tilted (Euler-rotated) quadrupole tensors, and multiple coupled
+  nuclei;
 - finite/shaped DEER pump pulses and explicit excitation-bandwidth selection (the
   DEER and ESEEM/HYSCORE models use ideal spin-selective pulses); anisotropic
   hyperfine and exchange couplings in the CW/echo helpers; higher-spin zero-field

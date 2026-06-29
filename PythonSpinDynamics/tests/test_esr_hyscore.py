@@ -31,7 +31,14 @@ class HyscoreTests(unittest.TestCase):
     def test_cross_peak_positions_are_swapped_nuclear_frequencies(self) -> None:
         nu_alpha, nu_beta = nuclear_frequencies(self.coupling)
         positions = cross_peak_positions(self.coupling)
-        self.assertEqual(positions, ((nu_alpha, nu_beta), (nu_beta, nu_alpha)))
+        # For a spin-1/2 nucleus there is one cross-peak pair and its mirror.
+        self.assertEqual(len(positions), 2)
+        as_sets = {tuple(round(v, 3) for v in pair) for pair in positions}
+        expected = {
+            (round(nu_alpha, 3), round(nu_beta, 3)),
+            (round(nu_beta, 3), round(nu_alpha, 3)),
+        }
+        self.assertEqual(as_sets, expected)
 
     def test_signal_is_real_with_expected_shape(self) -> None:
         signal = hyscore_signal(self.t1, self.t2, self.coupling, tau_seconds=self.tau)

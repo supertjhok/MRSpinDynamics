@@ -229,22 +229,23 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | Kind | Name | Summary |
 | --- | --- | --- |
 | class | `EndorSpectrum` | An ENDOR spectrum sampled on a radiofrequency axis. |
-| function | `endor_frequencies(coupling: HyperfineCoupling) -> tuple[float, float]` | Return the ENDOR line positions ``(nu_alpha, nu_beta)`` in Hz. |
+| function | `endor_frequencies(coupling: HyperfineCoupling) -> np.ndarray` | Return the ENDOR line positions in Hz (all manifold transitions, sorted). |
 | function | `mims_blind_spot_factor(frequency_hz: float, tau_seconds: float) -> float` | Return the Mims ENDOR response factor ``sin^2(pi nu tau)`` for one line. |
-| function | `davies_endor_spectrum(frequencies_hz, coupling: HyperfineCoupling, *, linewidth_hz: float = 100000.0) -> EndorSpectrum` | Return a Davies ENDOR spectrum (both lines, no blind spots). |
+| function | `davies_endor_spectrum(frequencies_hz, coupling: HyperfineCoupling, *, linewidth_hz: float = 100000.0) -> EndorSpectrum` | Return a Davies ENDOR spectrum (all lines with equal weight, no blind spots). |
 | function | `mims_endor_spectrum(frequencies_hz, coupling: HyperfineCoupling, *, tau_seconds: float, linewidth_hz: float = 100000.0) -> EndorSpectrum` | Return a Mims ENDOR spectrum with ``tau``-dependent blind-spot weighting. |
 
 ## `spin_dynamics.esr.eseem`
 
 | Kind | Name | Summary |
 | --- | --- | --- |
-| class | `HyperfineCoupling` | Secular model of one electron (S=1/2) coupled to one nucleus (I=1/2). |
-| function | `filter_electron_coherence(density: np.ndarray, order: int) -> np.ndarray` | Keep only the requested electron coherence order of a 4x4 density matrix. |
+| class | `HyperfineCoupling` | Secular model of one S=1/2 electron coupled to one nucleus. |
+| function | `filter_electron_coherence(density: np.ndarray, order: int, *, nuclear_spin: float = 0.5) -> np.ndarray` | Keep only the requested electron coherence order of a density matrix. |
 | function | `electron_nuclear_hamiltonian(coupling: HyperfineCoupling, *, electron_offset_hz: float = 0.0) -> np.ndarray` | Return the secular electron-nuclear Hamiltonian in radians per second. |
-| function | `nuclear_frequencies(coupling: HyperfineCoupling) -> tuple[float, float]` | Return the two nuclear transition frequencies ``(nu_alpha, nu_beta)`` in Hz. |
-| function | `modulation_depth(coupling: HyperfineCoupling) -> float` | Return the ESEEM modulation-depth parameter ``k`` in ``[0, 1]``. |
-| function | `two_pulse_eseem(times_seconds, coupling: HyperfineCoupling) -> np.ndarray` | Return the analytic two-pulse ESEEM trace ``V(tau)``. |
-| function | `three_pulse_eseem(times_seconds, coupling: HyperfineCoupling, *, tau_seconds: float) -> np.ndarray` | Return the analytic three-pulse (stimulated-echo) ESEEM trace ``V(T)``. |
+| function | `manifold_frequencies(coupling: HyperfineCoupling) -> tuple[np.ndarray, np.ndarray]` | Return nuclear transition frequencies in the two electron manifolds. |
+| function | `nuclear_frequencies(coupling: HyperfineCoupling) -> tuple[float, float]` | Return the two spin-1/2 nuclear frequencies ``(nu_alpha, nu_beta)`` in Hz. |
+| function | `modulation_depth(coupling: HyperfineCoupling) -> float` | Return the spin-1/2 ESEEM modulation-depth parameter ``k`` in ``[0, 1]``. |
+| function | `two_pulse_eseem(times_seconds, coupling: HyperfineCoupling) -> np.ndarray` | Return the analytic spin-1/2 two-pulse ESEEM trace ``V(tau)``. |
+| function | `three_pulse_eseem(times_seconds, coupling: HyperfineCoupling, *, tau_seconds: float) -> np.ndarray` | Return the analytic spin-1/2 three-pulse (stimulated-echo) trace ``V(T)``. |
 | function | `eseem_spectrum(times_seconds, signal, *, zero_fill: int = 4) -> tuple[np.ndarray, np.ndarray]` | Return the ESEEM frequency spectrum ``(frequencies_hz, magnitude)``. |
 | function | `two_pulse_eseem_quantum(times_seconds, coupling: HyperfineCoupling, *, electron_offset_hz: float = 0.0) -> np.ndarray` | Density-matrix two-pulse ESEEM, normalized to ``V(0) = 1``. |
 | function | `three_pulse_eseem_quantum(times_seconds, coupling: HyperfineCoupling, *, tau_seconds: float) -> np.ndarray` | Density-matrix three-pulse ESEEM, normalized to the unmodulated echo. |
@@ -286,7 +287,7 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | --- | --- | --- |
 | class | `HyscoreSpectrum` | 2D HYSCORE spectrum on centered frequency axes. |
 | function | `hyscore_signal(t1_seconds, t2_seconds, coupling: HyperfineCoupling, *, tau_seconds: float) -> np.ndarray` | Return the 2D HYSCORE time-domain signal ``V[t1, t2]``. |
-| function | `cross_peak_positions(coupling: HyperfineCoupling) -> tuple[tuple[float, float], ...]` | Return the analytic HYSCORE cross-peak positions in Hz. |
+| function | `cross_peak_positions(coupling: HyperfineCoupling) -> tuple[tuple[float, float], ...]` | Return the HYSCORE cross-peak positions in Hz. |
 | function | `hyscore_spectrum(t1_seconds, t2_seconds, signal, *, zero_fill: int = 4) -> HyscoreSpectrum` | Return the 2D HYSCORE magnitude spectrum on centered frequency axes. |
 
 ## `spin_dynamics.esr.lineshapes`

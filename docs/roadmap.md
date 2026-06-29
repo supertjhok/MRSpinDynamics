@@ -320,17 +320,23 @@ secular/pseudosecular `HyperfineCoupling` for an S=1/2, I=1/2 pair, analytic two
 and three-pulse ESEEM with density-matrix validation (electron coherence-pathway
 selection, plus an explicit phase-cycled variant proven to match it to ~1e-15),
 2D HYSCORE with cross-peaks at the nuclear frequencies, and Davies/Mims ENDOR
-with the Mims blind spots. Examples `plot_esr_deer.py` and
-`plot_esr_eseem_hyscore.py`; the previously thin ESR test surface gained ~90
-tests across `test_esr_deer/coverage/eseem/hyscore/endor.py`. **Remaining:**
-nuclei with a nuclear quadrupole interaction (especially ¹⁴N), anisotropic
-hyperfine `A` tensors with powder averaging, and finite/shaped pump pulses.
+with the Mims blind spots. Third increment generalizes the same engine to
+**quadrupolar nuclei (I=1, 3/2)**: `HyperfineCoupling` gained `nuclear_spin`,
+`quadrupole_hz`, and `eta` (the quadrupole term reuses the NQR Hamiltonian),
+`manifold_frequencies` returns the per-manifold nuclear frequencies by
+diagonalization, and the ESEEM/HYSCORE/ENDOR sequences work for any of these
+spins — validated against the ¹⁴N exact-cancellation NQR lines. Examples
+`plot_esr_deer.py` and `plot_esr_eseem_hyscore.py`; the previously thin ESR test
+surface gained ~100 tests across
+`test_esr_deer/coverage/eseem/hyscore/endor/quadrupolar.py`. **Remaining:** spin
+I>3/2, anisotropic hyperfine `A` tensors with powder averaging, tilted
+quadrupole tensors, multiple coupled nuclei, and finite/shaped pump pulses.
 
 **What.** Turn the nascent single-electron ESR module into a *distance-* and
 *weak-coupling-* measuring tool: four-pulse DEER/PELDOR yielding a dipolar
 evolution trace and an inter-spin distance distribution P(r) (done), plus two-
 and three-pulse ESEEM, 2-D HYSCORE, and Davies/Mims ENDOR for resolving weak
-hyperfine couplings (done for I=1/2).
+hyperfine couplings (done for I=1/2, 1, and 3/2).
 
 **Why it matters.** DEER is *the* structural-biology EPR experiment —
 nanometer distance distributions between site-directed spin labels constrain

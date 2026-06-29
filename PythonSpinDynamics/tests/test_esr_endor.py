@@ -22,7 +22,10 @@ from spin_dynamics.esr import (  # noqa: E402
 class EndorFrequencyTests(unittest.TestCase):
     def test_endor_frequencies_match_nuclear_frequencies(self) -> None:
         coupling = HyperfineCoupling(larmor_hz=14.5e6, secular_hz=3.0e6, pseudosecular_hz=2.0e6)
-        self.assertEqual(endor_frequencies(coupling), nuclear_frequencies(coupling))
+        np.testing.assert_allclose(
+            np.sort(endor_frequencies(coupling)),
+            np.sort(nuclear_frequencies(coupling)),
+        )
 
 
 class DaviesEndorTests(unittest.TestCase):
@@ -43,7 +46,7 @@ class DaviesEndorTests(unittest.TestCase):
 
     def test_no_blind_spots_equal_intensities(self) -> None:
         result = davies_endor_spectrum(self.axis, self.coupling, linewidth_hz=5.0e4)
-        self.assertEqual(result.line_intensities, (1.0, 1.0))
+        np.testing.assert_allclose(result.line_intensities, 1.0)
 
     def test_linewidth_validation(self) -> None:
         with self.assertRaises(ValueError):
@@ -63,14 +66,17 @@ class MimsEndorTests(unittest.TestCase):
         self.assertAlmostEqual(mims_blind_spot_factor(nu, 2.0 / nu), 0.0, places=12)
         self.assertAlmostEqual(mims_blind_spot_factor(nu, 0.5 / nu), 1.0, places=12)
 
+    def _intensity_at(self, result, frequency_hz: float) -> float:
+        idx = int(np.argmin(np.abs(result.line_positions_hz - frequency_hz)))
+        return float(result.line_intensities[idx])
+
     def test_alpha_line_suppressed_at_its_blind_spot(self) -> None:
         nu_alpha, _ = nuclear_frequencies(self.coupling)
         blind_tau = 1.0 / nu_alpha
         result = mims_endor_spectrum(
             self.axis, self.coupling, tau_seconds=blind_tau, linewidth_hz=5.0e4
         )
-        # The alpha line intensity (first) is the blind-spot-suppressed one.
-        self.assertAlmostEqual(result.line_intensities[0], 0.0, places=9)
+        self.assertAlmostEqual(self._intensity_at(result, nu_alpha), 0.0, places=9)
 
     def test_intensities_recover_away_from_blind_spots(self) -> None:
         nu_alpha, _ = nuclear_frequencies(self.coupling)
@@ -78,7 +84,7 @@ class MimsEndorTests(unittest.TestCase):
         result = mims_endor_spectrum(
             self.axis, self.coupling, tau_seconds=good_tau, linewidth_hz=5.0e4
         )
-        self.assertAlmostEqual(result.line_intensities[0], 1.0, places=9)
+        self.assertAlmostEqual(self._intensity_at(result, nu_alpha), 1.0, places=9)
 
     def test_tau_validation(self) -> None:
         with self.assertRaises(ValueError):

@@ -1,16 +1,16 @@
-"""HYSCORE (hyperfine sublevel correlation) 2D spectroscopy for S=1/2, I=1/2.
+"""HYSCORE (hyperfine sublevel correlation) 2D spectroscopy for an S=1/2 electron.
 
 HYSCORE is the four-pulse experiment ``pi/2 - tau - pi/2 - t1 - pi - t2 - pi/2 -
 tau - echo``. The central ``pi`` pulse transfers nuclear coherence between the
-two electron manifolds, so coherence that evolves at ``nu_alpha`` during ``t1``
-evolves at ``nu_beta`` during ``t2`` (and vice versa). The 2D spectrum therefore
-shows cross-peaks at ``(nu_alpha, nu_beta)`` and ``(nu_beta, nu_alpha)`` whose
-positions reveal the hyperfine coupling and whose quadrant distinguishes the
-weak- from the strong-coupling regime.
+two electron manifolds, so coherence that evolves at a manifold-alpha frequency
+during ``t1`` evolves at a manifold-beta frequency during ``t2`` (and vice
+versa). The 2D spectrum therefore shows cross-peaks at every
+``(nu_alpha, nu_beta)`` / ``(nu_beta, nu_alpha)`` pair of nuclear frequencies,
+whose positions reveal the hyperfine (and, for ``I >= 1``, quadrupole) coupling.
 
 This module simulates the sequence with the density-matrix engine and electron
-coherence-pathway selection from :mod:`spin_dynamics.esr.eseem`, and provides the
-2D spectrum plus the analytic cross-peak positions.
+coherence-pathway selection from :mod:`spin_dynamics.esr.eseem`; it works for any
+nuclear spin (``I = 1/2``, ``1``, ``3/2``).
 """
 
 from __future__ import annotations
@@ -21,17 +21,13 @@ import numpy as np
 
 from spin_dynamics.coupling.evolution import evolve_density
 from spin_dynamics.esr.eseem import (
-    SPLUS,
     HyperfineCoupling,
     _ideal_pulse,
+    _operators,
     electron_nuclear_hamiltonian,
     filter_electron_coherence,
-    nuclear_frequencies,
+    manifold_frequencies,
 )
-from spin_dynamics.nqr.operators import spin_matrices
-
-_SM = spin_matrices(0.5)
-_RHO0 = np.kron(_SM.iz, _SM.identity)
 
 
 @dataclass(frozen=True)
@@ -67,32 +63,45 @@ def hyscore_signal(
     if tau < 0 or not np.isfinite(tau):
         raise ValueError("tau_seconds must be non-negative and finite")
 
+    spin = coupling.nuclear_spin
+    ops = _operators(spin)
     hamiltonian = electron_nuclear_hamiltonian(coupling)
-    p90 = _ideal_pulse(np.pi / 2.0, "y")
-    p180 = _ideal_pulse(np.pi, "x")
+    p90 = _ideal_pulse(np.pi / 2.0, "y", nuclear_spin=spin)
+    p180 = _ideal_pulse(np.pi, "x", nuclear_spin=spin)
 
     # Preparation through the first two pulses and the fixed tau delay.
-    prepared = filter_electron_coherence(p90 @ _RHO0 @ p90.conj().T, +1)
+    prepared = filter_electron_coherence(p90 @ ops.thermal @ p90.conj().T, +1, nuclear_spin=spin)
     prepared = evolve_density(prepared, hamiltonian, tau)
-    prepared = filter_electron_coherence(p90 @ prepared @ p90.conj().T, 0)
+    prepared = filter_electron_coherence(p90 @ prepared @ p90.conj().T, 0, nuclear_spin=spin)
 
     signal = np.empty((t1.size, t2.size), dtype=np.float64)
     for i, first in enumerate(t1):
         mixed = evolve_density(prepared, hamiltonian, float(first))
-        mixed = filter_electron_coherence(p180 @ mixed @ p180.conj().T, 0)
+        mixed = filter_electron_coherence(p180 @ mixed @ p180.conj().T, 0, nuclear_spin=spin)
         for j, second in enumerate(t2):
             rho = evolve_density(mixed, hamiltonian, float(second))
-            rho = filter_electron_coherence(p90 @ rho @ p90.conj().T, -1)
+            rho = filter_electron_coherence(p90 @ rho @ p90.conj().T, -1, nuclear_spin=spin)
             rho = evolve_density(rho, hamiltonian, tau)
-            signal[i, j] = float(np.real(np.trace(rho @ SPLUS)))
+            signal[i, j] = float(np.real(np.trace(rho @ ops.splus)))
     return signal
 
 
 def cross_peak_positions(coupling: HyperfineCoupling) -> tuple[tuple[float, float], ...]:
-    """Return the analytic HYSCORE cross-peak positions in Hz."""
+    """Return the HYSCORE cross-peak positions in Hz.
 
-    nu_alpha, nu_beta = nuclear_frequencies(coupling)
-    return ((nu_alpha, nu_beta), (nu_beta, nu_alpha))
+    Cross-peaks correlate a manifold-alpha frequency with a manifold-beta
+    frequency (and the mirror). For a spin-1/2 nucleus this is the single pair
+    ``(nu_alpha, nu_beta)`` and its reflection; for ``I >= 1`` there is one such
+    pair for every alpha/beta frequency combination.
+    """
+
+    alpha, beta = manifold_frequencies(coupling)
+    positions: list[tuple[float, float]] = []
+    for nu_a in alpha:
+        for nu_b in beta:
+            positions.append((float(nu_a), float(nu_b)))
+            positions.append((float(nu_b), float(nu_a)))
+    return tuple(positions)
 
 
 def hyscore_spectrum(
