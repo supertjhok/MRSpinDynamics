@@ -1,7 +1,7 @@
 """CPMG workflow entry points.
 
 MATLAB reference folder:
-    SpinDynamicsUpdated/Version_2/code/CPMG_Asymp_Examples
+    MATLABSpinDynamics/Version_3/code/CPMG_Asymp_Examples
 """
 
 from __future__ import annotations

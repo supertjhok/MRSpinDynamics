@@ -10,7 +10,7 @@ available in a stock Octave install.
 - Octave: GNU Octave 11.3.0
 - Python: bundled Codex Python runtime
 - NumPy: 2.3.5
-- MATLAB reference tree: `../MATLABSpinDynamics/SpinDynamicsUpdated/Version_2/code`
+- MATLAB reference tree: `../MATLABSpinDynamics/Version_3/code`
 
 ## Fixture Generation
 

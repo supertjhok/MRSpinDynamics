@@ -98,7 +98,7 @@
 \color{Ink}
 \vspace*{0.55in}
 \begin{center}
-\NMRSpinDynamicsLogo[0.85]
+\MRSpinDynamicsLogo[0.85]
 \end{center}
 \vspace{0.45in}
 {\Huge\bfseries MATLABSpinDynamics\par}
@@ -196,16 +196,16 @@ classical magnetization vectors under prescribed fields and circuit response.
 \section{MATLAB Path Setup}
 
 No packaging step is required. From the \code{MATLABSpinDynamics} directory,
-add the active Version 2 code tree to the MATLAB path:
+add the active Version 3 code tree to the MATLAB path:
 
 \begin{lstlisting}
 repo = pwd;
-addpath(genpath(fullfile(repo, 'SpinDynamicsUpdated', 'Version_2', 'code')));
+addpath(genpath(fullfile(repo, 'Version_3', 'code')));
 \end{lstlisting}
 
 For a script launched elsewhere, replace \code{pwd} with the absolute path to
 \code{MATLABSpinDynamics}. The exact minimum MATLAB release has not been pinned.
-Use a recent MATLAB release for the current Version 2 scripts and graphics.
+Use a recent MATLAB release for the current Version 3 scripts and graphics.
 
 \section{Core and Optional Dependencies}
 
@@ -223,10 +223,12 @@ workflows using \code{fmincon} or \code{optimoptions}. \\
 Image Processing Toolbox & Imaging examples that call \code{imresize} or
 \code{rgb2gray}. \\
 MATLAB Coder and C/C++ compiler & Optional MEX/code-generation build scripts
-under \code{SpinDynamicsUpdated/Version\_2/code/mex}. Configure the compiler
-with \code{mex -setup}. \\
+under \code{Version\_3/code/mex}. Configure the compiler
+with \code{mex -setup}. Generated MEX/codegen outputs are local build artifacts
+and are ignored by Git. \\
 \code{export\_fig} & Optional third-party File Exchange helper used by some
-plotting/export scripts. Historical export paths may need local edits. \\
+plotting/export scripts through \code{safe\_export\_fig}. Missing
+\code{export\_fig} causes exports to be skipped with a warning. \\
 \bottomrule
 \end{longtable}
 
@@ -240,13 +242,13 @@ functions from being used.
 \toprule
 Path & Purpose \\
 \midrule
-\path{SpinDynamicsUpdated/Version_2/code} & Recommended active MATLAB code. \\
-\path{SpinDynamicsUpdated/Version_1} & Earlier updated implementation kept for
+\path{Version_3/code} & Recommended active MATLAB code. \\
+\path{Version_2} & Earlier updated implementation kept for
 historical comparison. \\
-\path{SpinDynamics} & Legacy original implementation. \\
+\path{Version_1} & Legacy original implementation. \\
 \path{docs/QUICK_START.md} & Practical starting guide for common MATLAB runs. \\
 \path{docs/VERSION_GUIDE.md} & Map of active, legacy, and repeated functions. \\
-\path{docs/VERSION_2_WORKFLOWS.md} & Workflow-oriented guide to Version 2 scripts. \\
+\path{docs/VERSION_3_WORKFLOWS.md} & Workflow-oriented guide to Version 3 scripts. \\
 \path{docs/SPEED_AUDIT.md} & Performance observations and acceleration notes. \\
 \bottomrule
 \end{longtable}
@@ -504,8 +506,9 @@ reduce the number of starts or replace \code{parfor} loops with ordinary
 \section{Generated or Compiled Kernels}
 
 The \code{mex} folder contains optional build scripts for compiled kernels.
-These are not required for ordinary use. They require MATLAB Coder and a
-configured compiler:
+These are not required for ordinary use. Generated MEX files and codegen
+reports are ignored release artifacts. Rebuild them locally with MATLAB Coder
+and a configured compiler:
 
 \begin{lstlisting}
 mex -setup
@@ -513,7 +516,7 @@ mex -setup
 
 \chapter{Validation and Porting Notes}
 
-The sibling Python package uses this MATLAB Version 2 tree as its numerical
+The sibling Python package uses this MATLAB Version 3 tree as its numerical
 reference. When changing MATLAB behavior, update the relevant fixture scripts
 and document whether the Python port should follow the new behavior or preserve
 older compatibility.
@@ -531,10 +534,9 @@ Good validation practice is:
 \chapter{Known Caveats}
 
 This repository contains multiple generations of related functions. Names are
-sometimes repeated across folders, and some scripts contain historical absolute
-paths for figure export. Prefer the active Version 2 code tree for new work,
-check \code{docs/VERSION\_GUIDE.md} when a function appears in more than one
-place, and keep local path edits out of numerical changes.
+sometimes repeated across folders. Prefer the active Version 3 code tree for new
+work, check \code{docs/VERSION\_GUIDE.md} when a function appears in more than
+one place, and keep local path edits out of numerical changes.
 
 The code is strongest as a research reference and simulation toolkit. It is not
 currently packaged as a MATLAB Toolbox app, and it does not try to hide every

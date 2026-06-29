@@ -1,8 +1,8 @@
 # Python API Documentation
 
 This directory documents the Python port as it exists today. The MATLAB
-implementation under `../MATLABSpinDynamics/SpinDynamicsUpdated/Version_2/code`
-remains the reference implementation, but the major Version 2 workflow port is
+implementation under `../MATLABSpinDynamics/Version_3/code`
+remains the reference implementation, but the major Version 3 workflow port is
 now mostly complete; remaining work is mainly validation depth, specialized
 variants, packaging, and performance.
 

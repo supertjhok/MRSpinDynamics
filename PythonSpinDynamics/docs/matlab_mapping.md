@@ -5,7 +5,7 @@
 The recommended MATLAB source tree is:
 
 ```text
-../MATLABSpinDynamics/SpinDynamicsUpdated/Version_2/code
+../MATLABSpinDynamics/Version_3/code
 ```
 
 ## Current Python Package Map

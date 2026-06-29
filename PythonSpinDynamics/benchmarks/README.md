@@ -3,7 +3,7 @@
 Benchmark Python kernels against the active MATLAB benchmark suite:
 
 ```text
-../MATLABSpinDynamics/SpinDynamicsUpdated/Version_2/code/benchmarks
+../MATLABSpinDynamics/Version_3/code/benchmarks
 ```
 
 Start with correctness-oriented tiny cases. Add timing comparisons only after

@@ -1,7 +1,7 @@
 """Python equivalents of active MATLAB parameter constructors.
 
 MATLAB reference folder:
-    SpinDynamicsUpdated/Version_2/code/Params
+    MATLABSpinDynamics/Version_3/code/Params
 """
 
 from __future__ import annotations

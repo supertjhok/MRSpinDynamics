@@ -1,9 +1,9 @@
 """Continuous refocusing-pulse phase optimization helpers.
 
 MATLAB references:
-    SpinDynamicsUpdated/Version_2/code/opt_pulse/opt_ref_pulse_tuned.m
-    SpinDynamicsUpdated/Version_2/code/opt_pulse/opt_ref_pulse_untuned.m
-    SpinDynamicsUpdated/Version_2/code/opt_pulse/opt_ref_pulse_matched.m
+    MATLABSpinDynamics/Version_3/code/opt_pulse/opt_ref_pulse_tuned.m
+    MATLABSpinDynamics/Version_3/code/opt_pulse/opt_ref_pulse_untuned.m
+    MATLABSpinDynamics/Version_3/code/opt_pulse/opt_ref_pulse_matched.m
 """
 
 from __future__ import annotations

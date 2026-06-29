@@ -1,7 +1,7 @@
 """Excitation-pulse phase optimization helpers.
 
 MATLAB references:
-    SpinDynamicsUpdated/Version_2/code/opt_pulse/opt_exc_pulse_tuned.m
+    MATLABSpinDynamics/Version_3/code/opt_pulse/opt_exc_pulse_tuned.m
 """
 
 from __future__ import annotations

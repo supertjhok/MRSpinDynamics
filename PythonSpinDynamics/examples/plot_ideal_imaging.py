@@ -25,11 +25,10 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def _default_image_path() -> Path:
     candidates = [
-        ROOT.parent / "SpinDynamicsUpdated" / "Version_2" / "code" / "Images" / "flower.png",
+        ROOT.parent / "Version_3" / "code" / "Images" / "flower.png",
         ROOT.parent
         / "MATLABSpinDynamics"
-        / "SpinDynamicsUpdated"
-        / "Version_2"
+        / "Version_3"
         / "code"
         / "Images"
         / "flower.png",

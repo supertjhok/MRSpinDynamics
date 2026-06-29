@@ -3,8 +3,8 @@
 This repository contains several generations of MATLAB spin-dynamics code. The
 current documentation policy is:
 
-1. Treat `SpinDynamicsUpdated/Version_2` as the active MATLAB implementation.
-2. Treat `SpinDynamicsUpdated/Version_1` and `SpinDynamics` as legacy/reference
+1. Treat `Version_3` as the active MATLAB implementation.
+2. Treat `Version_1` and `Version_2` as legacy/reference
    implementations unless a specific historical comparison is needed.
 3. Document the active function families first, then document legacy copies only
    where they explain an important algorithmic change.
@@ -13,15 +13,15 @@ This guide is an initial audit. It is meant to help organize future
 documentation, Python conversion, compiled numerical kernels, and GUI work.
 
 For a practical first run, see [`QUICK_START.md`](QUICK_START.md). For a map of
-active `Version_2` workflows, see
-[`VERSION_2_WORKFLOWS.md`](VERSION_2_WORKFLOWS.md). For a first pass at speed
+active `Version_3` workflows, see
+[`VERSION_3_WORKFLOWS.md`](VERSION_3_WORKFLOWS.md). For a first pass at speed
 and modernization targets, see [`SPEED_AUDIT.md`](SPEED_AUDIT.md).
 
 ## Repository Generations
 
-### `SpinDynamics`
+### `Version_1`
 
-Original/historical code. It contains:
+Original/historical SpinDynamics code. It contains:
 
 - `code/basic`: early general spin-dynamics routines and plotting scripts.
 - `code/matched_probe`: matched-probe simulation routines, examples, and image
@@ -29,20 +29,21 @@ Original/historical code. It contains:
 - `code/circsim_new`: tuned-probe circuit simulation and OCT-related work.
 - `code/diffusion`: older diffusion/coherence calculations.
 - `reports`: DOCX/PDF reports that explain probe and OCT theory.
-- `references`: literature PDFs used by the models.
+- `references`: local literature PDFs used while developing the models. These
+  PDFs are ignored for public release.
 
 Use this tree mainly as background material.
 
-### `SpinDynamicsUpdated/Version_1`
+### `Version_2`
 
-Intermediate reorganization. Many files from `SpinDynamics` were copied into a
+Intermediate reorganization. Many files from `Version_1` were copied into a
 flatter `code` tree and partially grouped into folders such as `calc_macq`,
 `calc_masy`, `calc_rot`, `Sim_CPMG`, and `circuit_simulation`.
 
 Use this tree mainly for understanding how the current folder organization
 evolved.
 
-### `SpinDynamicsUpdated/Version_2`
+### `Version_3`
 
 Recommended active MATLAB implementation. The root `README.md` already points
 users here. This version adds or expands:
@@ -52,12 +53,13 @@ users here. This version adds or expands:
 - WURST inversion routines;
 - diffusion examples and diffusion-aware acquisition calculations;
 - time-varying-field simulations;
-- MEX build scripts and generated MEX artifacts;
+- MEX build scripts; generated MEX/codegen artifacts are rebuilt locally and
+  ignored by Git;
 - a more structured folder layout for current code.
 
-## Active `Version_2` Code Map
+## Active `Version_3` Code Map
 
-The most important active folders under `SpinDynamicsUpdated/Version_2/code`
+The most important active folders under `Version_3/code`
 are:
 
 | Folder | Role |
@@ -79,7 +81,7 @@ are:
 | `Imaging_demo` | Imaging examples for ideal, tuned, and matched probe cases. |
 | `OCT_Pulse_Examples` and `opt_pulse` | OCT/SPA pulse construction, optimization, and plotting scripts. |
 | `Wurst_Inversion` | WURST pulse and inversion simulation routines. |
-| `mex` | MATLAB Coder/MEX build scripts and generated MEX artifacts. |
+| `mex` | MATLAB Coder/MEX build scripts. Generated MEX/codegen artifacts are ignored. |
 | `time_varying_field` | Time-varying-field CPMG simulations and comparisons. |
 
 ## Repeated Function Names
@@ -91,22 +93,23 @@ same-named copies are often not byte-identical.
 This means documentation should avoid saying "these are duplicates" unless the
 files have been compared. The safer terms are:
 
-- `active`: the `Version_2` implementation to document and use;
+- `active`: the `Version_3` implementation to document and use;
 - `legacy`: older copy retained for reference;
 - `variant`: same conceptual function, but with a different model, parameter
   convention, or performance tradeoff;
-- `generated`: MEX/codegen output or build artifact.
+- `generated`: local MEX/codegen output, result file, or build artifact that
+  should generally stay ignored.
 
 High-frequency repeated names include:
 
 | Function | Copies Found | Initial interpretation |
 | --- | ---: | --- |
-| `calc_time_domain_echo.m` | 6 | Echo calculation migrated across historical trees. Active copy is in `Version_2/code/calc_echo`. |
-| `sim_spin_dynamics_asymp_mag3.m` | 6 | Core asymptotic simulator used across older and current examples. Active copy is in `Version_2/code/sim_spin_dynamics_asymp`. |
-| `calc_rot_axis_arba3.m` | 6 | Rotation-axis helper used broadly by CPMG/OCT workflows. Active copy is in `Version_2/code/calc_rot`. |
-| `sim_matched_probe_coil_Q.m` | 6 | Q-comparison/mistuning study variants. Active usage is split between `CompareQ` and `CompareMistuned`. |
+| `calc_time_domain_echo.m` | 6 | Echo calculation migrated across historical trees. Active copy is in `Version_3/code/calc_echo`. |
+| `sim_spin_dynamics_asymp_mag3.m` | 6 | Core asymptotic simulator used across older and current examples. Active copy is in `Version_3/code/sim_spin_dynamics_asymp`. |
+| `calc_rot_axis_arba3.m` | 6 | Rotation-axis helper used broadly by CPMG/OCT workflows. Active copy is in `Version_3/code/calc_rot`. |
+| `sim_matched_probe_coil_Q.m` | legacy copies plus active CompareQ workflow | Q-comparison variants. The active short CompareMistuned script was renamed to `sim_matched_probe_coil_Q_short.m` to avoid a MATLAB path-order collision. |
 | `sim_spin_dynamics_arb6.m` | 5 | Earlier arbitrary-pulse simulator. Newer active numerical kernel is likely `sim_spin_dynamics_arb10.m`. |
-| `set_params_matched.m` | 4 | Matched-probe parameter setup evolved across versions. Active copy is in `Version_2/code/Params`. |
+| `set_params_matched.m` | 4 | Matched-probe parameter setup evolved across versions. Active copy is in `Version_3/code/Params`. |
 
 ## Core Numerical Routine Lineage
 
@@ -133,7 +136,7 @@ Recommended documentation stance:
 
 ## Parameter Set Naming
 
-`Version_2/code/Params` contains the active parameter constructors:
+`Version_3/code/Params` contains the active parameter constructors:
 
 - `set_params_ideal.m`
 - `set_params_ideal_FID.m`
@@ -171,9 +174,8 @@ as final API documentation.
 Recommended documentation order:
 
 1. Expand the root `README.md` with a quick-start path that adds the active
-   `Version_2/code` folders to MATLAB's path and runs one minimal example.
-2. Add a `docs/version-2-map.md` page describing the active folder structure and
-   the main workflows.
+   `Version_3/code` folders to MATLAB's path and runs one minimal example.
+2. Maintain `docs/VERSION_3_WORKFLOWS.md` as the active folder/workflow map.
 3. Add one page per workflow:
    - CPMG asymptotic examples;
    - FID examples;
@@ -195,9 +197,9 @@ blocks.
 
 ## Open Questions
 
-- Which `Version_2` examples should be considered canonical smoke tests?
-- Should generated files such as `.mexw64`, `.mldatx`, `.asv`, `~`, `.fig`, and
-  large `.mat` result artifacts remain in the repository?
+- Which `Version_3` examples should be considered canonical smoke tests?
+- Which, if any, small generated fixtures should be promoted from ignored local
+  artifacts into tracked validation data?
 - Should legacy functions be moved under an explicit `legacy/` tree in a future
   cleanup, or only documented as legacy for now?
 - Which routines must preserve MATLAB output exactly before Python conversion?

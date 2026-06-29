@@ -1,8 +1,8 @@
 """Pulse-shape utilities and compact probe pulse responses.
 
 MATLAB reference folders:
-    SpinDynamicsUpdated/Version_2/code/Pulse Shape
-    SpinDynamicsUpdated/Version_2/code/opt_pulse
+    MATLABSpinDynamics/Version_3/code/Pulse Shape
+    MATLABSpinDynamics/Version_3/code/opt_pulse
 """
 
 from __future__ import annotations
