@@ -23,7 +23,9 @@ The repository brings together several related projects:
 
 - `MATLABSpinDynamics/` is the original MATLAB implementation. It remains the
   reference point for validated Bloch-equation NMR workflows and historical
-  examples.
+  examples. Many core routines also run in GNU Octave; optimization, MATLAB
+  Coder/MEX, `parfor`, and some graphics/toolbox workflows still require
+  MATLAB or small script edits.
 - `PythonSpinDynamics/` is the Python package. It contains the port of the
   MATLAB behavior, automated tests, examples, API documentation, and newer NQR
   and ESR/EPR simulation features.

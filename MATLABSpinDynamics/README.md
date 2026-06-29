@@ -41,6 +41,14 @@ Use a recent MATLAB release. The exact minimum release has not been pinned; the
 current code uses ordinary MATLAB scripts/functions plus features such as
 `parfor`, local helper functions, and modern graphics/export workflows.
 
+Most core numerical functions and base examples are also GNU Octave-compatible.
+This is how many Python parity fixtures were generated. A compact Octave smoke
+check against `Version_3/code` currently covers representative echo,
+parameter-constructor, and ideal asymptotic-magnetization routines. Workflows
+that use `fmincon`, `optimoptions`, MATLAB Coder/MEX, `parfor`, or MATLAB-only
+graphics/toolbox features still require MATLAB or local script edits; in a
+stock Octave install, optimization workflows are the main gap.
+
 Core ideal CPMG/FID and many basic probe examples use base MATLAB. Additional
 workflows require optional components:
 
