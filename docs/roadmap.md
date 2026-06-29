@@ -155,8 +155,12 @@ AIMD/PIMD averaging for anharmonic cases like NaNO₂ near Tc.
    data, convergence checks, and clearer limits of validity.
 4. **JAX/Numba isochromat backend** — unlocks speed *and* autodiff pulse
    optimization. Highest engineering payoff.
-5. **Publish.** Version bump → PyPI → MkDocs site → JOSS. Detailed plan:
-   `docs/publishing_plan.md`.
+5. **Publish.** Release the workspace as a single citable unit: one repo version,
+   one GitHub Release, one Zenodo DOI. Process: `docs/release_process.md`
+   (scaffolding — `CITATION.cff`, `.zenodo.json`, `CHANGELOG.md`, version-sync
+   scripts, and the release workflow — is in place; remaining is the one-time
+   Zenodo↔GitHub hookup and tagging `v0.1.0`). Independent PyPI publication of a
+   subpackage is a deferred future option (`docs/publishing_plan.md`).
 6. **Database enrichment from DFT** — a "predicted vs measured" column in the
    NQR explorer UI. Visually striking, directly useful.
 7. **Repo hygiene** — ABINIT binaries are now gitignored (done); remaining:

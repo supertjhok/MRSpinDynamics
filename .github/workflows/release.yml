@@ -1,0 +1,50 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (without leading v), e.g. 0.1.0"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  github-release:
+    name: Create GitHub Release (Zenodo archives it)
+    runs-on: ubuntu-latest
+    env:
+      PYTHONUTF8: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Resolve version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "value=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Verify workspace versions agree with the tag
+        run: |
+          python scripts/check_versions.py
+          declared=$(python scripts/check_versions.py | awk '/workspace version is/ {print $NF}')
+          if [ "$declared" != "${{ steps.version.outputs.value }}" ]; then
+            echo "Tag/input ${{ steps.version.outputs.value }} != declared $declared" >&2
+            exit 1
+          fi
+      - name: Build release notes from CHANGELOG
+        run: python scripts/extract_changelog.py "${{ steps.version.outputs.value }}" > release_notes.md
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.value }}
+          name: v${{ steps.version.outputs.value }}
+          body_path: release_notes.md

@@ -1,0 +1,34 @@
+name: Workspace
+
+on:
+  push:
+    paths:
+      - ".github/workflows/workspace.yml"
+      - "CITATION.cff"
+      - "CHANGELOG.md"
+      - "scripts/**"
+      - "**/pyproject.toml"
+  pull_request:
+    paths:
+      - ".github/workflows/workspace.yml"
+      - "CITATION.cff"
+      - "CHANGELOG.md"
+      - "scripts/**"
+      - "**/pyproject.toml"
+
+jobs:
+  versions:
+    name: Workspace version consistency
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check versions agree across CITATION.cff and pyproject files
+        run: python scripts/check_versions.py
+      - name: Check CHANGELOG has a section for the current version
+        run: |
+          version=$(python scripts/check_versions.py | awk '/workspace version is/ {print $NF}')
+          python scripts/extract_changelog.py "$version" > /dev/null
+          echo "CHANGELOG has a section for $version"
