@@ -309,10 +309,23 @@ lineshape → MAS → MQMAS), and it compounds with the DFT and database work.
 
 ### F2. Pulsed dipolar EPR: DEER/PELDOR and ESEEM/HYSCORE
 
+**Status: first increment (four-pulse DEER) done.** `spin_dynamics.esr.dipolar`
++ `spin_dynamics.esr.deer` add the point-dipole coupling (canonical 52.04 MHz
+nm³, derived from constants), single-pair and powder-averaged DEER kernels, a
+forward model from a distance distribution P(r), the dipolar (Pake) spectrum,
+Tikhonov-regularized P(r) recovery (reusing `analysis.regularization`), and an
+independent two-electron density-matrix simulation of the full four-pulse
+sequence that reproduces the analytic kernel to ~1e-14. Example
+`plot_esr_deer.py`; the previously thin ESR test surface gained 40 tests
+(`test_esr_deer.py`, `test_esr_coverage.py`). **Remaining:** finite/shaped pump
+pulses and excitation-bandwidth selection (the model uses ideal selective
+pulses + an explicit modulation depth), then the ESEEM/HYSCORE increment below.
+
 **What.** Turn the nascent single-electron ESR module into a *distance-* and
 *weak-coupling-* measuring tool: four-pulse DEER/PELDOR yielding a dipolar
-evolution trace and an inter-spin distance distribution P(r), plus two- and
-three-pulse ESEEM and 2-D HYSCORE for resolving weak hyperfine couplings.
+evolution trace and an inter-spin distance distribution P(r) (done), plus two-
+and three-pulse ESEEM and 2-D HYSCORE for resolving weak hyperfine couplings
+(next).
 
 **Why it matters.** DEER is *the* structural-biology EPR experiment —
 nanometer distance distributions between site-directed spin labels constrain
@@ -322,14 +335,14 @@ These are the highest-citation pulsed-EPR methods and are entirely absent.
 
 **Build on.** `esr/systems.py` already has g-tensors, `esr/hyperfine.py` the
 hyperfine coupling, `esr/pulsed.py` rectangular-pulse FID/Hahn echo with
-Liouville T1/T2, and `esr/orientations.py` powder grids. What is new: a *two-electron*
-system with a dipolar coupling term (reuse the dipolar tensor math already in
-`relaxation.py`), the DEER pump/observe pulse bookkeeping, and the
-Tikhonov-regularized P(r) extraction — which can reuse the regularized
-inverse-problem machinery in `analysis/regularization.py` and `analysis/ilt.py`.
+Liouville T1/T2, and `esr/orientations.py` powder grids. The DEER increment
+reused exactly this plus the regularized inverse-problem machinery in
+`analysis/regularization.py`. For ESEEM/HYSCORE the new piece is nuclear
+modulation under the hyperfine Hamiltonian during the pulse delays and the 2-D
+correlation processing for HYSCORE.
 
-**Effort.** Medium. DEER first (highest impact, mostly two-spin dipolar evolution +
-an inversion already supported by the analysis layer), ESEEM/HYSCORE second.
+**Effort.** Medium. DEER (done) was mostly two-spin dipolar evolution + an
+inversion already supported by the analysis layer; ESEEM/HYSCORE is next.
 
 ### F3. NQR detection-science toolkit (explosives, narcotics, pharma screening)
 
