@@ -425,10 +425,12 @@ print(sweep.selected_echo_amplitudes)
 
 The strong off-resonance comb (SORC) sequence is represented as
 `(tau - phi - tau)^N`, with the signal sampled in the observation window between
-pulses. Unlike the simple non-relaxing SLSE loop, `simulate_sorc` explicitly
-propagates the off-resonance free-precession halves around each pulse, so the
-response carries the `delta_omega * tau` periodicity discussed by Konnai,
-Odano, and Asaji (2008):
+pulses. By default, `simulate_sorc` iterates the finite-pulse SORC pathway
+recurrence used by Konnai, Odano, and Asaji (2008); as `N` grows, it converges
+to the published steady-state denominator and carries the expected
+`delta_omega * tau` periodicity. Pass `model="coherent"` only when you want the
+closed, finite unitary transient train rather than the dephased pathway
+approximation:
 
 ```python
 from spin_dynamics.nqr import QuadrupolarSite, simulate_sorc, sorc_sequence
@@ -447,12 +449,16 @@ result = simulate_sorc(site, sequence, orientations="powder")
 print(result.signal_amplitudes[-1])
 ```
 
-Two closed-form comparison helpers are also exposed:
+Two powder comparison helpers are also exposed:
+`sorc_powder_pathway_signal` evaluates the same finite-`N` pathway recurrence
+directly in Konnai's one-dimensional powder angle, avoiding coarse spherical
+grid aliasing in pulse-width sweeps, while
 `sorc_powder_theory_signal` evaluates the steady-state powder expression used
 for the Konnai SORC offset, spacing, and pulse-width plots, and
 `fid_powder_theory_signal` returns the spin-1 powder FID pulse-width response.
-The example `examples/plot_nqr_sorc_konnai2008.py` overlays the density-matrix
-SORC simulation with these theory curves for the three key paper sweeps.
+The example `examples/plot_nqr_sorc_konnai2008.py` overlays finite-`N`
+pathway markers with these infinite-`N` theory curves for the three key paper
+sweeps.
 
 ## EFG Inhomogeneity
 

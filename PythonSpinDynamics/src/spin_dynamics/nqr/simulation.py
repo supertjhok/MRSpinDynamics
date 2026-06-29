@@ -22,6 +22,7 @@ from spin_dynamics.nqr.pulses import (
     SelectivePulse,
     apply_selective_pulse,
     selective_pulse_hamiltonian,
+    transition_drive_scale,
 )
 from spin_dynamics.relaxation import (
     NQRRelaxationLike,
@@ -168,6 +169,62 @@ def sorc_powder_theory_signal(
     signal = np.abs(
         np.sum(weights[np.newaxis, :] * mu[np.newaxis, :] * ratio, axis=1)
     )
+    if normalize:
+        scale = float(np.max(signal))
+        if scale > 0:
+            signal = signal / scale
+    return signal
+
+
+def sorc_powder_pathway_signal(
+    frequency_offsets_hz: np.ndarray | list[float] | tuple[float, ...],
+    half_spacing_seconds: float | np.ndarray | list[float] | tuple[float, ...],
+    flip_angle_radians: float | np.ndarray | list[float] | tuple[float, ...],
+    num_pulses: int,
+    *,
+    quadrature_points: int = 512,
+    normalize: bool = False,
+) -> np.ndarray:
+    """Return the finite-pulse SORC powder pathway recurrence response."""
+
+    offsets, taus, flips = np.broadcast_arrays(
+        np.asarray(frequency_offsets_hz, dtype=np.float64),
+        np.asarray(half_spacing_seconds, dtype=np.float64),
+        np.asarray(flip_angle_radians, dtype=np.float64),
+    )
+    shape = offsets.shape
+    offsets = offsets.reshape(-1)
+    taus = taus.reshape(-1)
+    flips = flips.reshape(-1)
+    num_pulses = int(num_pulses)
+    quadrature_points = int(quadrature_points)
+    if offsets.size == 0:
+        raise ValueError("frequency_offsets_hz must not be empty")
+    if np.any(~np.isfinite(offsets)) or np.any(~np.isfinite(taus)):
+        raise ValueError("offsets and half spacings must be finite")
+    if np.any(taus < 0):
+        raise ValueError("half spacings must be non-negative")
+    if np.any(~np.isfinite(flips)):
+        raise ValueError("flip_angle_radians must be finite")
+    if num_pulses <= 0:
+        raise ValueError("num_pulses must be positive")
+    if quadrature_points <= 0:
+        raise ValueError("quadrature_points must be positive")
+
+    mu, weights = np.polynomial.legendre.leggauss(quadrature_points)
+    phase = TAU * offsets[:, np.newaxis] * taus[:, np.newaxis]
+    flip_projection = flips[:, np.newaxis] * mu[np.newaxis, :]
+    source = 0.5 * mu[np.newaxis, :] * np.sin(flip_projection) * np.sin(phase)
+    retention = np.cos(0.5 * flip_projection) ** 2 * np.cos(phase) ** 2
+    denominator = 1.0 - retention
+    with np.errstate(divide="ignore", invalid="ignore"):
+        finite = source * np.divide(
+            1.0 - retention**num_pulses,
+            denominator,
+            out=np.full_like(source, float(num_pulses)),
+            where=np.abs(denominator) > 1e-14,
+        )
+    signal = np.abs(np.sum(weights[np.newaxis, :] * finite, axis=1)).reshape(shape)
     if normalize:
         scale = float(np.max(signal))
         if scale > 0:
@@ -438,14 +495,25 @@ def simulate_sorc(
     t2e_seconds: float = np.inf,
     initial_density: np.ndarray | None = None,
     backend: str = "numpy",
+    model: str = "pathway",
 ) -> SORCResult:
-    """Simulate a spin-1 SORC train with explicit off-resonance free evolution.
+    """Simulate a spin-1 SORC train.
 
-    The sequence is propagated as repeated ``tau - pulse - tau`` blocks, and the
-    signal is sampled at the middle of the observation window after each block.
+    The default ``model="pathway"`` iterates the finite-pulse SORC recurrence
+    whose large-``N`` limit is the Konnai/Mikhaltsevitch-Rudakov steady-state
+    expression. ``model="coherent"`` propagates repeated unitary
+    ``tau - pulse - tau`` blocks from an initial density matrix; it is useful
+    for transients, but it is not the dephased pathway model behind the Konnai
+    denominator. ``model="steady_state"`` returns the infinite-``N`` pathway
+    limit directly.
     """
 
     _require_spin_one_selective_pulse_site(site)
+    model = str(model)
+    if model not in {"pathway", "steady_state", "coherent"}:
+        raise ValueError("model must be 'pathway', 'steady_state', or 'coherent'")
+    if initial_density is not None and model != "coherent":
+        raise ValueError("initial_density requires model='coherent'")
     samples = _as_orientations(orientations)
     t2e_seconds = float(t2e_seconds)
     if t2e_seconds <= 0:
@@ -472,19 +540,58 @@ def simulate_sorc(
         ],
         dtype=np.float64,
     )
-    eigensystems = diagonalize_sites_over_b0(site, b0_vectors, backend=backend)
+    if np.all(b0_vectors == 0.0):
+        eigensystems = (diagonalize_site(site),) * len(samples)
+    else:
+        eigensystems = diagonalize_sites_over_b0(site, b0_vectors, backend=backend)
 
     local: list[np.ndarray] = []
     first_eigensystem: NQREigensystem | None = None
     first_transition: NQRTransition | None = None
     for sample, eigensystem in zip(samples, eigensystems):
         transition = eigensystem.transition(sequence.detection.transition_label)
+        detuning_hz = _pulse_detuning_hz(sequence.detection, transition)
+        if model in {"pathway", "steady_state"}:
+            drive = transition_drive_scale(transition, sample.b1_direction_pas)
+            flip = (
+                TAU
+                * sequence.detection.nutation_hz
+                * sequence.detection.duration_seconds
+                * drive
+            )
+            phase = TAU * detuning_hz * sequence.half_spacing_seconds
+            numerator = 0.5 * drive * np.sin(flip) * np.sin(phase)
+            denominator = 1.0 - (
+                np.cos(0.5 * flip) ** 2 * np.cos(phase) ** 2
+            )
+            retention = 1.0 - denominator
+            if model == "steady_state":
+                if abs(denominator) <= 1e-14:
+                    signals = np.zeros(sequence.num_pulses, dtype=np.complex128)
+                else:
+                    steady = numerator / denominator
+                    signals = np.full(
+                        sequence.num_pulses,
+                        steady,
+                        dtype=np.complex128,
+                    )
+            else:
+                signals = np.zeros(sequence.num_pulses, dtype=np.complex128)
+                signal = 0.0
+                for pulse_idx in range(sequence.num_pulses):
+                    signal = numerator + retention * signal
+                    signals[pulse_idx] = signal
+            local.append(signals * decay)
+            if first_eigensystem is None:
+                first_eigensystem = eigensystem
+                first_transition = transition
+            continue
+
         density = (
             equilibrium_density(eigensystem.levels_hz)
             if initial_density is None
             else np.asarray(initial_density, dtype=np.complex128).copy()
         )
-        detuning_hz = _pulse_detuning_hz(sequence.detection, transition)
         pulse_hamiltonian = selective_pulse_hamiltonian(
             site.dimension,
             transition,

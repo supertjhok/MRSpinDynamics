@@ -51,6 +51,7 @@ from spin_dynamics.nqr import (  # noqa: E402
     simulate_sorc,
     simulate_weak_b0_spectrum,
     slse_sequence,
+    sorc_powder_pathway_signal,
     sorc_powder_theory_signal,
     sorc_sequence,
     spin_matrices,
@@ -392,10 +393,63 @@ H2 H 0.5 0 0
             orientations=[OrientationSample((1.0, 0.0, 0.0))],
             t2e_seconds=0.2,
             initial_density=density,
+            model="coherent",
         )
 
         expected = np.exp(-result.observation_times / 0.2)
         np.testing.assert_allclose(result.signal_amplitudes.real, expected)
+
+    def test_sorc_pathway_converges_to_konnai_powder_theory(self) -> None:
+        offsets = np.array([-312.5, 0.0, 312.5, 625.0])
+        tau = 0.8e-3
+        flip = 0.66 * np.pi
+        simulated = sorc_powder_pathway_signal(
+            offsets,
+            tau,
+            flip,
+            num_pulses=256,
+            quadrature_points=64,
+            normalize=True,
+        )
+        theory = sorc_powder_theory_signal(
+            offsets,
+            tau,
+            flip,
+            quadrature_points=64,
+            normalize=True,
+        )
+
+        np.testing.assert_allclose(simulated, theory, atol=1e-10)
+
+    def test_sorc_pathway_matches_theory_for_long_pulse_width_sweep(self) -> None:
+        widths = np.linspace(0.0, 120e-6, 13)
+        nutation_hz = 16.5e3
+        offset_hz = -2.05e3
+        tau = 0.5 * 1.71e-3
+        flips = 2.0 * np.pi * nutation_hz * widths
+
+        simulated = sorc_powder_pathway_signal(
+            np.full_like(widths, offset_hz),
+            np.full_like(widths, tau),
+            flips,
+            num_pulses=256,
+            quadrature_points=128,
+            normalize=True,
+        )
+        theory = np.array(
+            [
+                sorc_powder_theory_signal(
+                    [offset_hz],
+                    tau,
+                    flip,
+                    quadrature_points=128,
+                )[0]
+                for flip in flips
+            ]
+        )
+        theory = theory / np.max(theory)
+
+        np.testing.assert_allclose(simulated, theory, atol=1e-10)
 
     def test_spin_three_halves_selective_pulses_require_manifold_model(self) -> None:
         site = QuadrupolarSite(spin=1.5, quadrupole_frequency_hz=900.0, eta=0.0)
