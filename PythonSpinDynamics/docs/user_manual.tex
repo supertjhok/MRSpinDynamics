@@ -965,16 +965,18 @@ constants are expressed in hertz.
 anisotropic \(g\)-tensor single-crystal and powder spectra, CW absorption or
 first-derivative display, static \(g\)-strain and field-strain broadening,
 rectangular pulsed ESR FID and Hahn-echo simulations, Liouville-space
-\(T_1/T_2\) relaxation, and first electron-nuclear isotropic hyperfine
-doublets.
+\(T_1/T_2\) relaxation, first electron-nuclear isotropic hyperfine
+doublets, and four-pulse DEER/PELDOR distance measurement with \(P(r)\)
+recovery (Section~\ref{sec:deer}).
 }
 
 \scopebox{AccentTwo}{
 \textbf{Current limits:} electron spin \(S=1/2\) only in the main ESR system;
 dense matrices only; hyperfine couplings are isotropic \(A\,\mathbf{S}\cdot
-\mathbf{I}\); no anisotropic \(A\) tensors, exchange, electron-electron dipolar
-coupling, higher-spin zero-field splitting, saturation, or microwave resonator
-model yet.
+\mathbf{I}\). The DEER model uses the secular point-dipole coupling in the
+weak-coupling observer/pump regime. No anisotropic \(A\) tensors, exchange,
+higher-spin zero-field splitting, ESEEM/HYSCORE, saturation, or microwave
+resonator model yet.
 }
 
 \section{Zeeman Hamiltonian and \(g\) Tensors}
@@ -1170,6 +1172,68 @@ approximately \(A\) in frequency, or by
   \Delta B \approx \frac{A}{(\mu_B/h)g}
 \]
 in a field-swept spectrum.
+
+\section{Pulsed Dipolar ESR: DEER/PELDOR}
+\label{sec:deer}
+
+Double electron-electron resonance (DEER, also PELDOR) measures the dipolar
+coupling between two electron spins, and hence the nanometre distance between
+them. The \code{spin\_dynamics.esr.dipolar} and \code{spin\_dynamics.esr.deer}
+modules provide the point-dipole coupling, the four-pulse DEER forward model,
+and regularized recovery of a distance distribution \(P(r)\).
+
+The secular dipolar coupling between two spectrally distinct electron spins is
+\[
+  \nu_{dd}(r,\theta) = \nu_\perp(r)\,(1 - 3\cos^2\theta),
+  \qquad
+  \nu_\perp(r) = \frac{\mu_0}{4\pi}\,\frac{g_a g_b \mu_B^2}{h\,r^3},
+\]
+which for two free-electron \(g\) values gives the canonical
+\(\nu_\perp \approx 52.04~\mathrm{MHz}\) at \(r = 1~\mathrm{nm}\)
+(\code{dipolar\_constant\_hz\_nm3}). A pump pulse on the partner spin inverts the
+local dipolar field, modulating the observer echo. For a single pair the DEER
+form factor is
+\[
+  F(t) = 1 - \lambda\bigl(1 - \cos(2\pi\nu_{dd}(r,\theta)\,t)\bigr),
+\]
+where the modulation depth \(\lambda = \sin^2(\beta/2)\) is set by the pump flip
+angle \(\beta\). Averaging over an isotropic orientation distribution gives the
+powder kernel, whose dipolar (Pake) spectrum has its singularity at
+\(\nu_\perp\) and an edge at \(2\nu_\perp\).
+
+\begin{lstlisting}[language=Python]
+import numpy as np
+
+from spin_dynamics.esr import (
+    deer_dipolar_spectrum,
+    extract_distance_distribution,
+    gaussian_distance_distribution,
+    simulate_deer,
+)
+
+times = np.linspace(0.0, 2.5e-6, 100)
+distances = np.linspace(1.5, 4.0, 60)
+truth = gaussian_distance_distribution(distances, 2.5, 0.2)
+
+form_factor = simulate_deer(times, distances, truth, lambda_depth=0.35)
+freqs, pake = deer_dipolar_spectrum(times, form_factor)
+recovered = extract_distance_distribution(
+    times, form_factor, distances, lambda_depth=0.35, snr=300.0
+)
+\end{lstlisting}
+
+Distance recovery solves the regularized non-negative least-squares problem
+\(K\,p \approx F\) using the SNR-informed Tikhonov selector from
+\code{spin\_dynamics.analysis.regularization} with the DEER powder kernel as the
+design matrix (SciPy required for the non-negative solve).
+
+The analytic kernel is validated against an independent two-electron
+density-matrix simulation of the full four-pulse sequence
+(\code{deer\_pair\_trace\_quantum}): with ideal spin-selective observer and pump
+pulses it reproduces \(F(t)\) to floating-point precision for every orientation
+and pump flip angle, and the observer echo refocuses the observer offset.
+Higher-resolution pulsed-dipolar methods (ESEEM, HYSCORE) are not yet
+implemented.
 
 \chapter{Pulsed NQR Models}
 \label{chap:nqr}
