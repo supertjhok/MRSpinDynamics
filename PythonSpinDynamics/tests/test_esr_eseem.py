@@ -15,6 +15,7 @@ from spin_dynamics.esr import (  # noqa: E402
     modulation_depth,
     nuclear_frequencies,
     three_pulse_eseem,
+    three_pulse_eseem_phase_cycled,
     three_pulse_eseem_quantum,
     two_pulse_eseem,
     two_pulse_eseem_quantum,
@@ -91,6 +92,24 @@ class ThreePulseEseemTests(unittest.TestCase):
         analytic = three_pulse_eseem(self.T, self.coupling, tau_seconds=self.tau)
         quantum = three_pulse_eseem_quantum(self.T, self.coupling, tau_seconds=self.tau)
         np.testing.assert_allclose(quantum, analytic, atol=1e-9)
+
+    def test_phase_cycle_reproduces_coherence_filtered_pathway(self) -> None:
+        # The coherence-order projection is the idealized limit of a phase cycle;
+        # an explicit 4-step cycle on each pulse must reproduce it exactly.
+        times = np.linspace(0.0, 6.0e-6, 60)
+        filtered = three_pulse_eseem_quantum(times, self.coupling, tau_seconds=self.tau)
+        cycled = three_pulse_eseem_phase_cycled(
+            times, self.coupling, tau_seconds=self.tau, n_phase=4
+        )
+        analytic = three_pulse_eseem(times, self.coupling, tau_seconds=self.tau)
+        np.testing.assert_allclose(cycled, filtered, atol=1e-9)
+        np.testing.assert_allclose(cycled, analytic, atol=1e-9)
+
+    def test_phase_cycle_requires_enough_steps(self) -> None:
+        with self.assertRaises(ValueError):
+            three_pulse_eseem_phase_cycled(
+                self.T, self.coupling, tau_seconds=self.tau, n_phase=3
+            )
 
     def test_only_basic_frequencies_appear(self) -> None:
         # 3p-ESEEM shows nu_alpha and nu_beta but not their sum/difference.
