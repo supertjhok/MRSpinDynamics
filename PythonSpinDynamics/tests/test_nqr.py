@@ -30,6 +30,7 @@ from spin_dynamics.nqr import (  # noqa: E402
     dipolar_coupling_hz,
     efg_line_spectrum,
     equilibrium_density,
+    fid_powder_theory_signal,
     gaussian_efg_distribution,
     ideal_spin1_enhancement_factors,
     estimate_proton_dipolar_couplings_from_cif,
@@ -47,8 +48,11 @@ from spin_dynamics.nqr import (  # noqa: E402
     simulate_slse_efg_distribution,
     simulate_slse_offset_sweep,
     simulate_slse_spacing_sweep,
+    simulate_sorc,
     simulate_weak_b0_spectrum,
     slse_sequence,
+    sorc_powder_theory_signal,
+    sorc_sequence,
     spin_matrices,
     weak_field_ratio,
     zeeman_frequency_hz,
@@ -344,6 +348,54 @@ H2 H 0.5 0 0
 
         expected = np.exp(-result.echo_times / 0.2)
         np.testing.assert_allclose(result.echo_amplitudes.real, expected)
+
+    def test_sorc_powder_theory_has_konnai_offset_zeros(self) -> None:
+        tau = 0.8e-3
+        zeros = sorc_powder_theory_signal(
+            [0.0, 1.0 / (2.0 * tau), 2.0 / (2.0 * tau)],
+            tau,
+            0.66 * np.pi,
+        )
+        antinode = sorc_powder_theory_signal(
+            [0.5 / (2.0 * tau)],
+            tau,
+            0.66 * np.pi,
+        )
+
+        np.testing.assert_allclose(zeros, 0.0, atol=1e-12)
+        self.assertGreater(float(antinode[0]), 0.1)
+
+    def test_fid_powder_theory_peaks_near_spin_one_powder_pulse(self) -> None:
+        flip_angles = np.linspace(0.05, 4.0, 400)
+        signal = fid_powder_theory_signal(flip_angles)
+        peak_angle = float(flip_angles[int(np.argmax(signal))])
+
+        self.assertGreater(peak_angle, 1.9)
+        self.assertLess(peak_angle, 2.2)
+
+    def test_sorc_accepts_initial_coherence_and_applies_t2e_decay(self) -> None:
+        site = QuadrupolarSite(spin=1, quadrupole_frequency_hz=900.0, eta=0.3)
+        transition = diagonalize_site(site).transition("x")
+        density = np.zeros((3, 3), dtype=np.complex128)
+        density[transition.upper, transition.lower] = 1.0
+        sequence = sorc_sequence(
+            "x",
+            pulse_duration_seconds=0.0,
+            nutation_hz=0.0,
+            half_spacing_seconds=0.05,
+            num_pulses=3,
+        )
+
+        result = simulate_sorc(
+            site,
+            sequence,
+            orientations=[OrientationSample((1.0, 0.0, 0.0))],
+            t2e_seconds=0.2,
+            initial_density=density,
+        )
+
+        expected = np.exp(-result.observation_times / 0.2)
+        np.testing.assert_allclose(result.signal_amplitudes.real, expected)
 
     def test_spin_three_halves_selective_pulses_require_manifold_model(self) -> None:
         site = QuadrupolarSite(spin=1.5, quadrupole_frequency_hz=900.0, eta=0.0)

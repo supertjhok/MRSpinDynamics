@@ -524,18 +524,24 @@ No public classes or functions found.
 | Kind | Name | Summary |
 | --- | --- | --- |
 | class | `SLSESequence` | Spin-lock spin-echo detection sequence. |
+| class | `SORCSequence` | Strong off-resonance comb sequence, ``(tau - phi - tau)^N``. |
 | function | `slse_sequence(transition_label: str, *, pulse_duration_seconds: float, nutation_hz: float, echo_spacing_seconds: float, num_echoes: int, phase: float = 0.0, rf_frequency_hz: float | None = None) -> SLSESequence` | Build a rectangular-pulse SLSE sequence. |
+| function | `sorc_sequence(transition_label: str, *, pulse_duration_seconds: float, nutation_hz: float, half_spacing_seconds: float, num_pulses: int, phase: float = 0.0, rf_frequency_hz: float | None = None) -> SORCSequence` | Build a rectangular-pulse SORC sequence. |
 
 ## `spin_dynamics.nqr.simulation`
 
 | Kind | Name | Summary |
 | --- | --- | --- |
 | class | `SLSEResult` | Simulated SLSE echo train. |
+| class | `SORCResult` | Simulated strong off-resonance comb observation train. |
 | class | `PopulationTransferResult` | Perturbation plus SLSE detection result. |
 | class | `SLSESweepResult` | SLSE response as one pulse-sequence parameter is swept. |
 | function | `equilibrium_density(levels_hz: np.ndarray) -> np.ndarray` | Return a trace-zero high-temperature density matrix in the energy basis. |
 | function | `transition_signal(density: np.ndarray, transition: NQRTransition, *, b1_direction_pas: np.ndarray | list[float] | tuple[float, float, float]) -> complex` | Return the complex single-coil signal for a transition coherence. |
+| function | `sorc_powder_theory_signal(frequency_offsets_hz: np.ndarray | list[float] | tuple[float, ...], half_spacing_seconds: float, flip_angle_radians: float, *, quadrature_points: int = 512, normalize: bool = False) -> np.ndarray` | Return the Konnai/Mikhaltsevitch-Rudakov SORC powder response. |
+| function | `fid_powder_theory_signal(flip_angle_radians: np.ndarray | list[float] | tuple[float, ...], *, normalize: bool = False, absolute: bool = False) -> np.ndarray` | Return the spin-1 powder FID pulse-width response used for SORC checks. |
 | function | `simulate_slse(site: QuadrupolarSite, sequence: SLSESequence, *, orientations: OrientationInput = 'powder', b0_tesla: float = 0.0, t2e_seconds: float = np.inf, initial_density: np.ndarray | None = None, relaxation: NQRRelaxationLike | None = None, backend: str = 'numpy') -> SLSEResult` | Simulate a selective-pulse SLSE echo train. |
+| function | `simulate_sorc(site: QuadrupolarSite, sequence: SORCSequence, *, orientations: OrientationInput = 'powder', b0_tesla: float = 0.0, t2e_seconds: float = np.inf, initial_density: np.ndarray | None = None, backend: str = 'numpy') -> SORCResult` | Simulate a spin-1 SORC train with explicit off-resonance free evolution. |
 | function | `simulate_slse_offset_sweep(site: QuadrupolarSite, transition_label: str, offsets_hz: np.ndarray | list[float] | tuple[float, ...], *, pulse_duration_seconds: float, nutation_hz: float, echo_spacing_seconds: float, num_echoes: int = 16, phase: float = 0.0, orientations: OrientationInput = 'powder', b0_tesla: float = 0.0, t2e_seconds: float = np.inf, relaxation: NQRRelaxationLike | None = None, echo_index: int = -1, backend: str = 'numpy') -> SLSESweepResult` | Sweep irradiation offset and return SLSE amplitude and decay estimates. |
 | function | `simulate_slse_spacing_sweep(site: QuadrupolarSite, transition_label: str, echo_spacing_seconds: np.ndarray | list[float] | tuple[float, ...], *, pulse_duration_seconds: float, nutation_hz: float, num_echoes: int = 16, phase: float = 0.0, rf_offset_hz: float = 0.0, orientations: OrientationInput = 'powder', b0_tesla: float = 0.0, t2e_seconds: float = np.inf, relaxation: NQRRelaxationLike | None = None, echo_index: int = -1, backend: str = 'numpy') -> SLSESweepResult` | Sweep SLSE pulse period and return amplitude plus effective decay. |
 | function | `simulate_population_transfer(site: QuadrupolarSite, perturbation: SelectivePulse, detection_sequence: SLSESequence, *, orientations: OrientationInput = 'powder', b0_tesla: float = 0.0, t2e_seconds: float = np.inf) -> PopulationTransferResult` | Simulate a perturbation pulse followed by SLSE detection. |

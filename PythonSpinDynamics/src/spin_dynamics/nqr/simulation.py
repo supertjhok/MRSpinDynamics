@@ -9,6 +9,7 @@ import numpy as np
 
 from spin_dynamics.coupling.evolution import propagator
 from spin_dynamics.nqr.hamiltonians import (
+    TAU,
     diagonalize_site,
     diagonalize_sites_over_b0,
 )
@@ -27,7 +28,7 @@ from spin_dynamics.relaxation import (
     cycle_superoperator,
     effective_decay_time,
 )
-from spin_dynamics.nqr.sequences import SLSESequence
+from spin_dynamics.nqr.sequences import SLSESequence, SORCSequence
 from spin_dynamics.nqr.systems import NQREigensystem, NQRTransition, QuadrupolarSite
 
 
@@ -59,6 +60,18 @@ class SLSEResult:
     eigensystem: NQREigensystem
     local_effective_t2eff_seconds: np.ndarray | None = None
     local_cycle_eigenvalues: np.ndarray | None = None
+
+
+@dataclass(frozen=True)
+class SORCResult:
+    """Simulated strong off-resonance comb observation train."""
+
+    observation_times: np.ndarray
+    signal_amplitudes: np.ndarray
+    local_signal_amplitudes: np.ndarray
+    orientation_weights: np.ndarray
+    transition: NQRTransition
+    eigensystem: NQREigensystem
 
 
 @dataclass(frozen=True)
@@ -107,6 +120,85 @@ def transition_signal(
     receive = np.vdot(direction, transition.dipole_vector)
     coherence = density[transition.upper, transition.lower]
     return complex(receive * coherence)
+
+
+def sorc_powder_theory_signal(
+    frequency_offsets_hz: np.ndarray | list[float] | tuple[float, ...],
+    half_spacing_seconds: float,
+    flip_angle_radians: float,
+    *,
+    quadrature_points: int = 512,
+    normalize: bool = False,
+) -> np.ndarray:
+    """Return the Konnai/Mikhaltsevitch-Rudakov SORC powder response.
+
+    This is the steady-state powder expression used by Konnai et al. for the
+    SORC sequence ``(tau - phi - tau)^N``. It predicts zeros whenever
+    ``delta_omega * tau = n * pi``. The result is proportional to the signal
+    amplitude; set ``normalize=True`` for unit-maximum magnitudes.
+    """
+
+    offsets = np.asarray(frequency_offsets_hz, dtype=np.float64).reshape(-1)
+    tau = float(half_spacing_seconds)
+    phi = float(flip_angle_radians)
+    quadrature_points = int(quadrature_points)
+    if offsets.size == 0:
+        raise ValueError("frequency_offsets_hz must not be empty")
+    if not np.isfinite(tau) or tau < 0:
+        raise ValueError("half_spacing_seconds must be non-negative and finite")
+    if not np.isfinite(phi):
+        raise ValueError("flip_angle_radians must be finite")
+    if quadrature_points <= 0:
+        raise ValueError("quadrature_points must be positive")
+
+    mu, weights = np.polynomial.legendre.leggauss(quadrature_points)
+    phase = TAU * offsets[:, np.newaxis] * tau
+    flip_projection = phi * mu[np.newaxis, :]
+    numerator = 0.5 * np.sin(flip_projection) * np.sin(phase)
+    denominator = 1.0 - (
+        np.cos(0.5 * flip_projection) ** 2 * np.cos(phase) ** 2
+    )
+    with np.errstate(divide="ignore", invalid="ignore"):
+        ratio = np.divide(
+            numerator,
+            denominator,
+            out=np.zeros_like(numerator),
+            where=np.abs(denominator) > 1e-14,
+        )
+    signal = np.abs(
+        np.sum(weights[np.newaxis, :] * mu[np.newaxis, :] * ratio, axis=1)
+    )
+    if normalize:
+        scale = float(np.max(signal))
+        if scale > 0:
+            signal = signal / scale
+    return signal
+
+
+def fid_powder_theory_signal(
+    flip_angle_radians: np.ndarray | list[float] | tuple[float, ...],
+    *,
+    normalize: bool = False,
+    absolute: bool = False,
+) -> np.ndarray:
+    """Return the spin-1 powder FID pulse-width response used for SORC checks."""
+
+    phi = np.asarray(flip_angle_radians, dtype=np.float64)
+    if not np.all(np.isfinite(phi)):
+        raise ValueError("flip_angle_radians must be finite")
+    with np.errstate(divide="ignore", invalid="ignore"):
+        signal = (2.0 / phi) * (np.sin(phi) / phi - np.cos(phi))
+    small = np.abs(phi) < 1e-6
+    if np.any(small):
+        signal = np.asarray(signal, dtype=np.float64)
+        signal[small] = (2.0 / 3.0) * phi[small]
+    if absolute:
+        signal = np.abs(signal)
+    if normalize:
+        scale = float(np.max(np.abs(signal)))
+        if scale > 0:
+            signal = signal / scale
+    return signal
 
 
 def _orientation_b0_vector(
@@ -334,6 +426,114 @@ def simulate_slse(
             if local_eigenvalues
             else None
         ),
+    )
+
+
+def simulate_sorc(
+    site: QuadrupolarSite,
+    sequence: SORCSequence,
+    *,
+    orientations: OrientationInput = "powder",
+    b0_tesla: float = 0.0,
+    t2e_seconds: float = np.inf,
+    initial_density: np.ndarray | None = None,
+    backend: str = "numpy",
+) -> SORCResult:
+    """Simulate a spin-1 SORC train with explicit off-resonance free evolution.
+
+    The sequence is propagated as repeated ``tau - pulse - tau`` blocks, and the
+    signal is sampled at the middle of the observation window after each block.
+    """
+
+    _require_spin_one_selective_pulse_site(site)
+    samples = _as_orientations(orientations)
+    t2e_seconds = float(t2e_seconds)
+    if t2e_seconds <= 0:
+        raise ValueError("t2e_seconds must be positive")
+
+    cycle_duration = (
+        2.0 * sequence.half_spacing_seconds
+        + sequence.detection.duration_seconds
+    )
+    observation_times = (
+        np.arange(sequence.num_pulses, dtype=np.float64) + 1.0
+    ) * cycle_duration
+    decay = (
+        np.exp(-observation_times / t2e_seconds)
+        if np.isfinite(t2e_seconds)
+        else 1.0
+    )
+
+    b0_vectors = np.array(
+        [
+            vec if (vec := _orientation_b0_vector(sample, b0_tesla)) is not None
+            else np.zeros(3, dtype=np.float64)
+            for sample in samples
+        ],
+        dtype=np.float64,
+    )
+    eigensystems = diagonalize_sites_over_b0(site, b0_vectors, backend=backend)
+
+    local: list[np.ndarray] = []
+    first_eigensystem: NQREigensystem | None = None
+    first_transition: NQRTransition | None = None
+    for sample, eigensystem in zip(samples, eigensystems):
+        transition = eigensystem.transition(sequence.detection.transition_label)
+        density = (
+            equilibrium_density(eigensystem.levels_hz)
+            if initial_density is None
+            else np.asarray(initial_density, dtype=np.complex128).copy()
+        )
+        detuning_hz = _pulse_detuning_hz(sequence.detection, transition)
+        pulse_hamiltonian = selective_pulse_hamiltonian(
+            site.dimension,
+            transition,
+            nutation_hz=sequence.detection.nutation_hz,
+            phase=sequence.detection.phase,
+            b1_direction_pas=sample.b1_direction_pas,
+            detuning_hz=detuning_hz,
+        )
+        free_hamiltonian = selective_pulse_hamiltonian(
+            site.dimension,
+            transition,
+            nutation_hz=0.0,
+            detuning_hz=detuning_hz,
+        )
+        pulse_unitary = propagator(
+            pulse_hamiltonian,
+            sequence.detection.duration_seconds,
+        )
+        pulse_dagger = pulse_unitary.conj().T
+        free_unitary = propagator(free_hamiltonian, sequence.half_spacing_seconds)
+        free_dagger = free_unitary.conj().T
+
+        signals = np.zeros(sequence.num_pulses, dtype=np.complex128)
+        for pulse_idx in range(sequence.num_pulses):
+            density = free_unitary @ density @ free_dagger
+            density = pulse_unitary @ density @ pulse_dagger
+            density = free_unitary @ density @ free_dagger
+            signals[pulse_idx] = transition_signal(
+                density,
+                transition,
+                b1_direction_pas=sample.b1_direction_pas,
+            )
+        local.append(signals * decay)
+        if first_eigensystem is None:
+            first_eigensystem = eigensystem
+            first_transition = transition
+
+    weights = np.array([sample.weight for sample in samples], dtype=np.float64)
+    local_signals = np.asarray(local, dtype=np.complex128)
+    averaged = weights @ local_signals
+    if first_eigensystem is None or first_transition is None:
+        raise AssertionError("orientation validation should prevent empty samples")
+    return SORCResult(
+        observation_times=observation_times,
+        signal_amplitudes=averaged,
+        local_signal_amplitudes=local_signals,
+        orientation_weights=weights,
+        transition=first_transition,
+        eigensystem=first_eigensystem,
     )
 
 

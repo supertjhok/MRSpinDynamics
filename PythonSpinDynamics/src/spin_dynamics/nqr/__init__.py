@@ -93,17 +93,23 @@ from spin_dynamics.relaxation import (
 )
 from spin_dynamics.nqr.sequences import (
     SLSESequence,
+    SORCSequence,
     slse_sequence,
+    sorc_sequence,
 )
 from spin_dynamics.nqr.simulation import (
     PopulationTransferResult,
     SLSEResult,
+    SORCResult,
     SLSESweepResult,
     equilibrium_density,
+    fid_powder_theory_signal,
     simulate_population_transfer,
     simulate_slse,
     simulate_slse_offset_sweep,
     simulate_slse_spacing_sweep,
+    simulate_sorc,
+    sorc_powder_theory_signal,
     transition_signal,
 )
 from spin_dynamics.nqr.systems import (
@@ -153,6 +159,8 @@ __all__ = [
     "SLSESequence",
     "SLSEResult",
     "SLSESweepResult",
+    "SORCResult",
+    "SORCSequence",
     "SelectivePulse",
     "SpinMatrices",
     "WeakB0SpectrumResult",
@@ -187,6 +195,7 @@ __all__ = [
     "equilibrium_density",
     "effective_decay_time",
     "efg_line_spectrum",
+    "fid_powder_theory_signal",
     "estimate_proton_dipolar_couplings",
     "estimate_proton_dipolar_couplings_from_cif",
     "fid_spectrum",
@@ -220,9 +229,12 @@ __all__ = [
     "simulate_slse_efg_distribution",
     "simulate_slse_offset_sweep",
     "simulate_slse_spacing_sweep",
+    "simulate_sorc",
     "simulate_weak_b0_spectrum",
     "single_crystal_orientation",
     "slse_sequence",
+    "sorc_powder_theory_signal",
+    "sorc_sequence",
     "spherical_direction",
     "spin_dimension",
     "spin_matrices",

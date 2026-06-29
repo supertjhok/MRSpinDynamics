@@ -421,6 +421,39 @@ sweep = simulate_slse_offset_sweep(
 print(sweep.selected_echo_amplitudes)
 ```
 
+## SORC
+
+The strong off-resonance comb (SORC) sequence is represented as
+`(tau - phi - tau)^N`, with the signal sampled in the observation window between
+pulses. Unlike the simple non-relaxing SLSE loop, `simulate_sorc` explicitly
+propagates the off-resonance free-precession halves around each pulse, so the
+response carries the `delta_omega * tau` periodicity discussed by Konnai,
+Odano, and Asaji (2008):
+
+```python
+from spin_dynamics.nqr import QuadrupolarSite, simulate_sorc, sorc_sequence
+
+site = QuadrupolarSite(spin=1, isotope="14N", quadrupole_frequency_hz=4.2e6, eta=0.3)
+sequence = sorc_sequence(
+    "x",
+    pulse_duration_seconds=20e-6,
+    nutation_hz=16.5e3,
+    half_spacing_seconds=0.8e-3,
+    num_pulses=96,
+    rf_frequency_hz=4.60425e6 - 2.05e3,
+)
+
+result = simulate_sorc(site, sequence, orientations="powder")
+print(result.signal_amplitudes[-1])
+```
+
+Two closed-form comparison helpers are also exposed:
+`sorc_powder_theory_signal` evaluates the steady-state powder expression used
+for the Konnai SORC offset, spacing, and pulse-width plots, and
+`fid_powder_theory_signal` returns the spin-1 powder FID pulse-width response.
+The example `examples/plot_nqr_sorc_konnai2008.py` overlays the density-matrix
+SORC simulation with these theory curves for the three key paper sweeps.
+
 ## EFG Inhomogeneity
 
 Static EFG disorder is modeled as an isochromat-style ensemble of independent
