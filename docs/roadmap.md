@@ -309,23 +309,28 @@ lineshape → MAS → MQMAS), and it compounds with the DFT and database work.
 
 ### F2. Pulsed dipolar EPR: DEER/PELDOR and ESEEM/HYSCORE
 
-**Status: first increment (four-pulse DEER) done.** `spin_dynamics.esr.dipolar`
-+ `spin_dynamics.esr.deer` add the point-dipole coupling (canonical 52.04 MHz
-nm³, derived from constants), single-pair and powder-averaged DEER kernels, a
-forward model from a distance distribution P(r), the dipolar (Pake) spectrum,
+**Status: DEER and the ESEEM/HYSCORE/ENDOR family done.** First increment —
+`spin_dynamics.esr.dipolar` + `esr.deer` — adds the point-dipole coupling
+(canonical 52.04 MHz nm³, derived from constants), single-pair and
+powder-averaged DEER kernels, a P(r) forward model, the dipolar (Pake) spectrum,
 Tikhonov-regularized P(r) recovery (reusing `analysis.regularization`), and an
-independent two-electron density-matrix simulation of the full four-pulse
-sequence that reproduces the analytic kernel to ~1e-14. Example
-`plot_esr_deer.py`; the previously thin ESR test surface gained 40 tests
-(`test_esr_deer.py`, `test_esr_coverage.py`). **Remaining:** finite/shaped pump
-pulses and excitation-bandwidth selection (the model uses ideal selective
-pulses + an explicit modulation depth), then the ESEEM/HYSCORE increment below.
+independent two-electron density-matrix check matching the analytic kernel to
+~1e-14. Second increment — `esr.eseem` + `esr.hyscore` + `esr.endor` — adds the
+secular/pseudosecular `HyperfineCoupling` for an S=1/2, I=1/2 pair, analytic two-
+and three-pulse ESEEM with density-matrix validation (electron coherence-pathway
+selection, plus an explicit phase-cycled variant proven to match it to ~1e-15),
+2D HYSCORE with cross-peaks at the nuclear frequencies, and Davies/Mims ENDOR
+with the Mims blind spots. Examples `plot_esr_deer.py` and
+`plot_esr_eseem_hyscore.py`; the previously thin ESR test surface gained ~90
+tests across `test_esr_deer/coverage/eseem/hyscore/endor.py`. **Remaining:**
+nuclei with a nuclear quadrupole interaction (especially ¹⁴N), anisotropic
+hyperfine `A` tensors with powder averaging, and finite/shaped pump pulses.
 
 **What.** Turn the nascent single-electron ESR module into a *distance-* and
 *weak-coupling-* measuring tool: four-pulse DEER/PELDOR yielding a dipolar
 evolution trace and an inter-spin distance distribution P(r) (done), plus two-
-and three-pulse ESEEM and 2-D HYSCORE for resolving weak hyperfine couplings
-(next).
+and three-pulse ESEEM, 2-D HYSCORE, and Davies/Mims ENDOR for resolving weak
+hyperfine couplings (done for I=1/2).
 
 **Why it matters.** DEER is *the* structural-biology EPR experiment —
 nanometer distance distributions between site-directed spin labels constrain

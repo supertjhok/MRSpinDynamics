@@ -224,6 +224,32 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `simulate_field_sweep_distribution(samples: list[ESRDistributionSample] | tuple[ESRDistributionSample, ...], microwave_frequency_hz: float, *, orientations: OrientationInput = 'single', broadening_tesla: float = 0.0001, points: int = 1024, span_tesla: float | None = None, fields_tesla: np.ndarray | list[float] | tuple[float, ...] | None = None, lineshape: str = 'gaussian', detection_mode: str = 'absorption') -> ESRFieldDistributionResult` | Return a field-swept ESR spectrum averaged over static disorder. |
 | function | `simulate_frequency_spectrum_distribution(samples: list[ESRDistributionSample] | tuple[ESRDistributionSample, ...], b0_tesla: float, *, orientations: OrientationInput = 'single', broadening_hz: float = 1000000.0, points: int = 1024, span_hz: float | None = None, frequencies_hz: np.ndarray | list[float] | tuple[float, ...] | None = None, lineshape: str = 'gaussian', detection_mode: str = 'absorption') -> ESRFrequencyDistributionResult` | Return a frequency-swept ESR spectrum averaged over static disorder. |
 
+## `spin_dynamics.esr.endor`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `EndorSpectrum` | An ENDOR spectrum sampled on a radiofrequency axis. |
+| function | `endor_frequencies(coupling: HyperfineCoupling) -> tuple[float, float]` | Return the ENDOR line positions ``(nu_alpha, nu_beta)`` in Hz. |
+| function | `mims_blind_spot_factor(frequency_hz: float, tau_seconds: float) -> float` | Return the Mims ENDOR response factor ``sin^2(pi nu tau)`` for one line. |
+| function | `davies_endor_spectrum(frequencies_hz, coupling: HyperfineCoupling, *, linewidth_hz: float = 100000.0) -> EndorSpectrum` | Return a Davies ENDOR spectrum (both lines, no blind spots). |
+| function | `mims_endor_spectrum(frequencies_hz, coupling: HyperfineCoupling, *, tau_seconds: float, linewidth_hz: float = 100000.0) -> EndorSpectrum` | Return a Mims ENDOR spectrum with ``tau``-dependent blind-spot weighting. |
+
+## `spin_dynamics.esr.eseem`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `HyperfineCoupling` | Secular model of one electron (S=1/2) coupled to one nucleus (I=1/2). |
+| function | `filter_electron_coherence(density: np.ndarray, order: int) -> np.ndarray` | Keep only the requested electron coherence order of a 4x4 density matrix. |
+| function | `electron_nuclear_hamiltonian(coupling: HyperfineCoupling, *, electron_offset_hz: float = 0.0) -> np.ndarray` | Return the secular electron-nuclear Hamiltonian in radians per second. |
+| function | `nuclear_frequencies(coupling: HyperfineCoupling) -> tuple[float, float]` | Return the two nuclear transition frequencies ``(nu_alpha, nu_beta)`` in Hz. |
+| function | `modulation_depth(coupling: HyperfineCoupling) -> float` | Return the ESEEM modulation-depth parameter ``k`` in ``[0, 1]``. |
+| function | `two_pulse_eseem(times_seconds, coupling: HyperfineCoupling) -> np.ndarray` | Return the analytic two-pulse ESEEM trace ``V(tau)``. |
+| function | `three_pulse_eseem(times_seconds, coupling: HyperfineCoupling, *, tau_seconds: float) -> np.ndarray` | Return the analytic three-pulse (stimulated-echo) ESEEM trace ``V(T)``. |
+| function | `eseem_spectrum(times_seconds, signal, *, zero_fill: int = 4) -> tuple[np.ndarray, np.ndarray]` | Return the ESEEM frequency spectrum ``(frequencies_hz, magnitude)``. |
+| function | `two_pulse_eseem_quantum(times_seconds, coupling: HyperfineCoupling, *, electron_offset_hz: float = 0.0) -> np.ndarray` | Density-matrix two-pulse ESEEM, normalized to ``V(0) = 1``. |
+| function | `three_pulse_eseem_quantum(times_seconds, coupling: HyperfineCoupling, *, tau_seconds: float) -> np.ndarray` | Density-matrix three-pulse ESEEM, normalized to the unmodulated echo. |
+| function | `three_pulse_eseem_phase_cycled(times_seconds, coupling: HyperfineCoupling, *, tau_seconds: float, n_phase: int = 4) -> np.ndarray` | Three-pulse ESEEM selected by an explicit phase cycle. |
+
 ## `spin_dynamics.esr.hamiltonians`
 
 | Kind | Name | Summary |
@@ -253,6 +279,15 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `hyperfine_hamiltonian(system: ElectronNuclearSystem, b0_vector_tesla_g: np.ndarray | Sequence[float]) -> np.ndarray` | Return Zeeman plus isotropic hyperfine Hamiltonian. |
 | function | `diagonalize_hyperfine_system(system: ElectronNuclearSystem, b0_vector_tesla_g: np.ndarray | Sequence[float], *, strength_tolerance: float = 1e-12, frequency_tolerance_hz: float = 1e-09) -> HyperfineEigensystem` | Diagonalize a hyperfine Hamiltonian and return ESR-active transitions. |
 | function | `simulate_hyperfine_field_sweep(system: ElectronNuclearSystem, microwave_frequency_hz: float, *, b0_direction_g: np.ndarray | Sequence[float] = (0.0, 0.0, 1.0), b1_direction_g: np.ndarray | Sequence[float] = (1.0, 0.0, 0.0), broadening_hz: float = 1000000.0, points: int = 1024, span_tesla: float | None = None, fields_tesla: np.ndarray | list[float] | tuple[float, ...] | None = None, lineshape: str = 'gaussian', detection_mode: str = 'absorption', intensity_tolerance: float = 1e-14) -> HyperfineFieldSweepResult` | Return a field-swept ESR spectrum including isotropic hyperfine coupling. |
+
+## `spin_dynamics.esr.hyscore`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `HyscoreSpectrum` | 2D HYSCORE spectrum on centered frequency axes. |
+| function | `hyscore_signal(t1_seconds, t2_seconds, coupling: HyperfineCoupling, *, tau_seconds: float) -> np.ndarray` | Return the 2D HYSCORE time-domain signal ``V[t1, t2]``. |
+| function | `cross_peak_positions(coupling: HyperfineCoupling) -> tuple[tuple[float, float], ...]` | Return the analytic HYSCORE cross-peak positions in Hz. |
+| function | `hyscore_spectrum(t1_seconds, t2_seconds, signal, *, zero_fill: int = 4) -> HyscoreSpectrum` | Return the 2D HYSCORE magnitude spectrum on centered frequency axes. |
 
 ## `spin_dynamics.esr.lineshapes`
 

@@ -966,17 +966,19 @@ anisotropic \(g\)-tensor single-crystal and powder spectra, CW absorption or
 first-derivative display, static \(g\)-strain and field-strain broadening,
 rectangular pulsed ESR FID and Hahn-echo simulations, Liouville-space
 \(T_1/T_2\) relaxation, first electron-nuclear isotropic hyperfine
-doublets, and four-pulse DEER/PELDOR distance measurement with \(P(r)\)
-recovery (Section~\ref{sec:deer}).
+doublets, four-pulse DEER/PELDOR distance measurement with \(P(r)\)
+recovery (Section~\ref{sec:deer}), and ESEEM, HYSCORE, and ENDOR of an
+\(I=1/2\) nucleus (Section~\ref{sec:eseem}).
 }
 
 \scopebox{AccentTwo}{
 \textbf{Current limits:} electron spin \(S=1/2\) only in the main ESR system;
-dense matrices only; hyperfine couplings are isotropic \(A\,\mathbf{S}\cdot
-\mathbf{I}\). The DEER model uses the secular point-dipole coupling in the
-weak-coupling observer/pump regime. No anisotropic \(A\) tensors, exchange,
-higher-spin zero-field splitting, ESEEM/HYSCORE, saturation, or microwave
-resonator model yet.
+dense matrices only. The DEER model uses the secular point-dipole coupling in
+the weak-coupling observer/pump regime, and the ESEEM/HYSCORE/ENDOR model treats
+a single \(I=1/2\) nucleus with secular plus pseudosecular hyperfine. No
+anisotropic \(A\) tensors, nuclear quadrupole interaction (e.g.
+\(^{14}\mathrm{N}\)), exchange, higher-spin zero-field splitting, saturation, or
+microwave resonator model yet.
 }
 
 \section{Zeeman Hamiltonian and \(g\) Tensors}
@@ -1232,8 +1234,74 @@ density-matrix simulation of the full four-pulse sequence
 (\code{deer\_pair\_trace\_quantum}): with ideal spin-selective observer and pump
 pulses it reproduces \(F(t)\) to floating-point precision for every orientation
 and pump flip angle, and the observer echo refocuses the observer offset.
-Higher-resolution pulsed-dipolar methods (ESEEM, HYSCORE) are not yet
-implemented.
+
+\section{ESEEM, HYSCORE, and ENDOR}
+\label{sec:eseem}
+
+While DEER measures electron-electron distances, ESEEM (electron spin echo
+envelope modulation), HYSCORE (hyperfine sublevel correlation), and ENDOR
+(electron-nuclear double resonance) measure the weak hyperfine coupling between
+an electron and a nearby nucleus. The modules
+\code{spin\_dynamics.esr.eseem}, \code{spin\_dynamics.esr.hyscore}, and
+\code{spin\_dynamics.esr.endor} model an \(S=1/2\) electron coupled to an
+\(I=1/2\) nucleus in the secular approximation,
+\[
+  H = -\omega_I I_z + A\,S_z I_z + B\,S_z I_x ,
+\]
+parameterized by \code{HyperfineCoupling(larmor\_hz, secular\_hz,
+pseudosecular\_hz)}. Only the pseudosecular part \(B\) makes the nuclear
+quantization axis differ between the two electron manifolds, so ESEEM and its
+relatives vanish for purely isotropic coupling. The two nuclear (ENDOR)
+frequencies and modulation depth are
+\[
+  \nu_{\alpha,\beta} = \sqrt{(\omega_I \pm A/2)^2 + (B/2)^2}, \qquad
+  k = \left(\frac{\omega_I B}{\nu_\alpha \nu_\beta}\right)^2 .
+\]
+
+\textbf{ESEEM.} \code{two\_pulse\_eseem} and \code{three\_pulse\_eseem} return the
+analytic two- and three-pulse envelopes, and \code{eseem\_spectrum} their
+frequency spectrum (peaks at \(\nu_\alpha\), \(\nu_\beta\), and -- for two-pulse
+-- their sums and differences). Each has a density-matrix counterpart
+(\code{*\_quantum}) that propagates the spin Hamiltonian through ideal pulses and
+reproduces the analytic trace to floating-point precision.
+
+\begin{lstlisting}[language=Python]
+import numpy as np
+
+from spin_dynamics.esr import HyperfineCoupling, three_pulse_eseem, eseem_spectrum
+
+coupling = HyperfineCoupling(larmor_hz=14.5e6, secular_hz=3e6, pseudosecular_hz=2e6)
+times = np.linspace(0.0, 8e-6, 400)
+trace = three_pulse_eseem(times, coupling, tau_seconds=200e-9)
+freqs, spectrum = eseem_spectrum(times, trace)
+\end{lstlisting}
+
+\textbf{Coherence selection and phase cycling.} The stimulated-echo and HYSCORE
+pathways are isolated in simulation by electron coherence-order filtering. This
+is the idealized limit of an experimental phase cycle: shifting a pulse phase by
+\(\varphi\) multiplies a pathway of coherence-order change \(\Delta p\) by
+\(e^{-i\Delta p\varphi}\), so cycling \(\varphi\) and weighting the record by
+\(e^{+i\Delta p_\mathrm{desired}\varphi}\) selects that pathway.
+\code{three\_pulse\_eseem\_phase\_cycled} performs the explicit cycle (four steps
+per pulse suffice because the electron coherence order spans only
+\(\{-1,0,+1\}\)) and reproduces the coherence-filtered result to numerical
+precision.
+
+\textbf{HYSCORE.} \code{hyscore\_signal} simulates the 2D four-pulse experiment
+and \code{hyscore\_spectrum} returns its 2D spectrum, whose cross-peaks appear at
+\((\nu_\alpha, \nu_\beta)\) and \((\nu_\beta, \nu_\alpha)\)
+(\code{cross\_peak\_positions}). Choose the dwell time so the nuclear
+frequencies stay below the Nyquist limit, or the cross-peaks alias.
+
+\textbf{ENDOR.} \code{endor\_frequencies} returns the line positions, and
+\code{davies\_endor\_spectrum} / \code{mims\_endor\_spectrum} return the analytic
+Davies and Mims responses. Mims ENDOR carries the \(\tau\)-dependent blind-spot
+factor \(\sin^2(\pi\nu\tau)\), which suppresses a line whenever \(\nu\tau\) is an
+integer.
+
+The model is restricted to a single \(I=1/2\) nucleus in the secular regime.
+Half-integer and integer nuclei with a nuclear quadrupole interaction (notably
+\(^{14}\mathrm{N}\)) are the natural next extension.
 
 \chapter{Pulsed NQR Models}
 \label{chap:nqr}
