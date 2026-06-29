@@ -207,6 +207,19 @@ For a script launched elsewhere, replace \code{pwd} with the absolute path to
 \code{MATLABSpinDynamics}. The exact minimum MATLAB release has not been pinned.
 Use a recent MATLAB release for the current Version 3 scripts and graphics.
 
+\section{GNU Octave Compatibility}
+
+Most core numerical functions and base examples are compatible with GNU Octave.
+The Python port's parity fixtures were largely generated from MATLAB/Octave
+reference scripts, and a compact Octave smoke check against \code{Version\_3/code}
+currently covers representative echo, parameter-constructor, and ideal
+asymptotic-magnetization routines.
+
+Octave compatibility is not universal. Workflows that use \code{fmincon},
+\code{optimoptions}, MATLAB Coder/MEX generation, \code{parfor}, or MATLAB-only
+graphics/toolbox behavior still require MATLAB or local script edits. In a
+stock Octave install, optimization workflows are the main gap.
+
 \section{Core and Optional Dependencies}
 
 \begin{longtable}{L{0.31\linewidth}L{0.58\linewidth}}
