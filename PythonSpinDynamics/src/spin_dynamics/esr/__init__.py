@@ -19,6 +19,30 @@ from spin_dynamics.esr.dipolar import (
     distance_from_dipolar_frequency_nm,
     secular_dipolar_hamiltonian,
 )
+from spin_dynamics.esr.endor import (
+    EndorSpectrum,
+    davies_endor_spectrum,
+    endor_frequencies,
+    mims_blind_spot_factor,
+    mims_endor_spectrum,
+)
+from spin_dynamics.esr.eseem import (
+    HyperfineCoupling,
+    electron_nuclear_hamiltonian,
+    eseem_spectrum,
+    modulation_depth,
+    nuclear_frequencies,
+    three_pulse_eseem,
+    three_pulse_eseem_quantum,
+    two_pulse_eseem,
+    two_pulse_eseem_quantum,
+)
+from spin_dynamics.esr.hyscore import (
+    HyscoreSpectrum,
+    cross_peak_positions,
+    hyscore_signal,
+    hyscore_spectrum,
+)
 from spin_dynamics.esr.hamiltonians import (
     diagonalize_system,
     effective_g_value,
@@ -178,4 +202,23 @@ __all__ = [
     "static_hamiltonian_rotating",
     "static_disorder_grid",
     "zeeman_hamiltonian",
+    # Pulsed dipolar / electron-nuclear correlation spectroscopy
+    "HyperfineCoupling",
+    "HyscoreSpectrum",
+    "EndorSpectrum",
+    "nuclear_frequencies",
+    "modulation_depth",
+    "electron_nuclear_hamiltonian",
+    "two_pulse_eseem",
+    "two_pulse_eseem_quantum",
+    "three_pulse_eseem",
+    "three_pulse_eseem_quantum",
+    "eseem_spectrum",
+    "hyscore_signal",
+    "hyscore_spectrum",
+    "cross_peak_positions",
+    "endor_frequencies",
+    "davies_endor_spectrum",
+    "mims_endor_spectrum",
+    "mims_blind_spot_factor",
 ]
