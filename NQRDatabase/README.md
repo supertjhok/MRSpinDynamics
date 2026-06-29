@@ -203,3 +203,15 @@ material and the latest Landolt review decisions.
 
 For build details, review workflow notes, Landolt method labels, and promotion
 semantics, see `docs/build-and-review.md`.
+
+## License
+
+This subproject has **two licenses** — see [`DATA_LICENSE.md`](DATA_LICENSE.md):
+
+- **Code** (`app/`, `scripts/`, `schema/`): **GPL-3.0-or-later** ([`LICENSE`](LICENSE)).
+- **Curated data** (`data/`): **CC-BY-4.0**. Individual measurements are facts;
+  CC-BY applies to the curation/compilation. The underlying values were compiled
+  from third-party sources (Landolt-Börnstein, U.S. Navy/NRL, King's College, and
+  others) and are stored as factual values with citations, not as reproductions of
+  the original copyrighted documents. Cite both this database (via the repository
+  DOI) and the original source for any value you use.

@@ -248,3 +248,14 @@ source is tracked at
   impact: full cell relaxation (`optcell`, for thermal expansion), a
   netCDF/phonopy phonon reader, and AIMD/PIMD snapshot averaging for strongly
   anharmonic cases such as NaNO2 near its ferroelectric transition.
+
+## License
+
+Code is licensed under **GPL-3.0-or-later**; see [`LICENSE`](LICENSE). Part of the
+[MRSpinDynamics](https://github.com/supertjhok/MRSpinDynamics) workspace, released
+and versioned as a single unit.
+
+**Crystal-structure (CIF) files under `structures/` are third-party data and are
+NOT covered by this license.** Most come from proprietary databases (ICSD, CCDC)
+that restrict redistribution — see
+[`structures/README.md`](structures/README.md) before reusing them.

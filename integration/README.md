@@ -138,3 +138,9 @@ cd integration && python -m unittest discover -s tests
 
 Database-backed tests skip automatically if `NQRDatabase/data/exports/nqr.sqlite`
 is absent.
+
+## License
+
+Licensed under **GPL-3.0-or-later**; see [`LICENSE`](LICENSE). Part of the
+[MRSpinDynamics](https://github.com/supertjhok/MRSpinDynamics) workspace, which is
+released and versioned as a single unit.

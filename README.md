@@ -113,12 +113,27 @@ version DOI.
 
 Copyright (C) 2026 Soumyajit Mandal
 
-This project is licensed under the **GNU General Public License v3.0** (GPL-3.0).
-See the [LICENSE](LICENSE) file for the full text. The Python workspace is a port
-of, and therefore a derivative work of, the GPL-licensed MATLAB code, so the same
-license applies across the repository.
+**Code** is licensed under the **GNU General Public License v3.0** (GPL-3.0); see
+the [LICENSE](LICENSE) file for the full text. The Python workspace is a port of,
+and therefore a derivative work of, the GPL-licensed MATLAB code, so the same
+license applies to code across the repository. Each subproject also carries its own
+`LICENSE` copy (`PythonSpinDynamics/`, `QuadrupolarDFT/`, `integration/`,
+`NQRDatabase/`) for when it is viewed in isolation.
 
-This project bundles one third-party utility,
+**Curated data** is licensed separately. The NQR spectra database under
+`NQRDatabase/data/` is released under **CC-BY-4.0** — see
+[`NQRDatabase/DATA_LICENSE.md`](NQRDatabase/DATA_LICENSE.md). Individual
+measurements are facts; CC-BY applies to the original curation and compilation, and
+the underlying values were compiled from third-party sources (Landolt-Börnstein,
+U.S. Navy/NRL, King's College, and others) and stored as factual values with
+citations.
+
+**Third-party crystal structures.** Most CIF files under
+`QuadrupolarDFT/structures/` come from proprietary databases (ICSD, CCDC) that
+restrict redistribution. They are not covered by the licenses above — see
+[`QuadrupolarDFT/structures/README.md`](QuadrupolarDFT/structures/README.md).
+
+This project also bundles one third-party utility,
 `MATLABSpinDynamics/Version_3/labelpoints`, which is
 distributed under its own BSD 3-Clause license (Copyright (c) 2017, Adam Danz);
 see that directory's `license.txt`.
