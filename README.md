@@ -92,6 +92,18 @@ repository:
   regimes used by `PythonSpinDynamics`. The LaTeX source is tracked beside the
   PDF.
 
+## Releases and Citation
+
+MRSpinDynamics is released as a single citable unit: the whole repository is
+versioned together, tagged once (`v<version>`), published as one GitHub Release,
+and archived on Zenodo for a citable DOI. The current version and per-component
+release notes are in [`CHANGELOG.md`](CHANGELOG.md); the process is documented in
+[`docs/release_process.md`](docs/release_process.md).
+
+To cite this software, use the metadata in [`CITATION.cff`](CITATION.cff) (GitHub
+renders a "Cite this repository" button from it). Once the first release is
+archived, the Zenodo DOI will be added here and to `CITATION.cff`.
+
 ## License
 
 Copyright (C) 2026 Soumyajit Mandal
