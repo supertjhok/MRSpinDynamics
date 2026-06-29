@@ -1,8 +1,8 @@
 """SPA pulse catalog and performance-metric helpers.
 
 MATLAB references:
-    SpinDynamicsUpdated/Version_2/code/OCT_Pulse_Examples/SPA_pulse_list.m
-    SpinDynamicsUpdated/Version_2/code/OCT_Pulse_Examples/SPA_optimization_*.m
+    MATLABSpinDynamics/Version_3/code/OCT_Pulse_Examples/SPA_pulse_list.m
+    MATLABSpinDynamics/Version_3/code/OCT_Pulse_Examples/SPA_optimization_*.m
 """
 
 from __future__ import annotations

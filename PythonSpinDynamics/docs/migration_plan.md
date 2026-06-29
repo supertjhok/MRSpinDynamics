@@ -2,14 +2,14 @@
 
 ## Reference Policy
 
-- Keep `SpinDynamicsUpdated/Version_2/code` as the active MATLAB reference.
-- Keep `SpinDynamicsUpdated/Version_1` and `SpinDynamics` as legacy references.
+- Keep `MATLABSpinDynamics/Version_3/code` as the active MATLAB reference.
+- Keep `MATLABSpinDynamics/Version_1` and `MATLABSpinDynamics/Version_2` as legacy references.
 - Do not move or rewrite MATLAB files as part of the Python port.
 
 ## Current Assessment
 
 As of the WURST-flow port, the major MATLAB-to-Python migration phase is mostly
-closed for the active Version 2 workflow set. The Python package now covers the
+closed for the active Version 3 workflow set. The Python package now covers the
 core spin kernels, ideal/tuned/untuned/matched CPMG paths, finite trains,
 CPMG-IR, probe sweeps, diffusion, imaging including T1 preparation, noise,
 inverse Laplace analysis, moving-isochromat sequence primitives, optimization

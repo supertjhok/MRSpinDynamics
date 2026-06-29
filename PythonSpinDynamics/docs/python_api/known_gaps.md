@@ -1,7 +1,7 @@
 # Known Gaps
 
 The main MATLAB-to-Python porting phase is now largely complete for the
-canonical Version 2 workflows. The remaining gaps are mostly validation depth,
+canonical Version 3 workflows. The remaining gaps are mostly validation depth,
 specialized variants, packaging polish, and performance backends rather than
 missing primary workflows.
 

@@ -1,9 +1,9 @@
 """Result export helpers for optimization driver outputs.
 
 MATLAB references:
-    SpinDynamicsUpdated/Version_2/code/opt_pulse/opt_ref_pulse_*_repeat.m
-    SpinDynamicsUpdated/Version_2/code/opt_pulse/opt_exc_pulse_tuned_repeat.m
-    SpinDynamicsUpdated/Version_2/code/opt_pulse/opt_exc_pulse_tuned_inv_repeat.m
+    MATLABSpinDynamics/Version_3/code/opt_pulse/opt_ref_pulse_*_repeat.m
+    MATLABSpinDynamics/Version_3/code/opt_pulse/opt_exc_pulse_tuned_repeat.m
+    MATLABSpinDynamics/Version_3/code/opt_pulse/opt_exc_pulse_tuned_inv_repeat.m
 """
 
 from __future__ import annotations

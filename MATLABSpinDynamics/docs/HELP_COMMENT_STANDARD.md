@@ -1,6 +1,6 @@
 # MATLAB Help Comment Standard
 
-Use this format for active scripts in `SpinDynamicsUpdated/Version_2/code`.
+Use this format for active scripts in `Version_3/code`.
 The help block should be the first nonblank content in the file so MATLAB's
 `help script_name` command can show useful guidance.
 

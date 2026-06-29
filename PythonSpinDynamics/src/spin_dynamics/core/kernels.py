@@ -1,9 +1,9 @@
 """Arbitrary-pulse spin-dynamics kernels.
 
 Primary MATLAB references:
-    SpinDynamicsUpdated/Version_2/code/sim_spin_dynamics_arb/sim_spin_dynamics_arb10.m
-    SpinDynamicsUpdated/Version_2/code/sim_spin_dynamics_arb/sim_spin_dynamics_arb9.m
-    SpinDynamicsUpdated/Version_2/code/sim_spin_dynamics_arb/sim_spin_dynamics_arb_relax_diff.m
+    MATLABSpinDynamics/Version_3/code/sim_spin_dynamics_arb/sim_spin_dynamics_arb10.m
+    MATLABSpinDynamics/Version_3/code/sim_spin_dynamics_arb/sim_spin_dynamics_arb9.m
+    MATLABSpinDynamics/Version_3/code/sim_spin_dynamics_arb/sim_spin_dynamics_arb_relax_diff.m
 """
 
 from __future__ import annotations

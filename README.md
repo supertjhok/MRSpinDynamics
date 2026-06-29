@@ -100,6 +100,6 @@ of, and therefore a derivative work of, the GPL-licensed MATLAB code, so the sam
 license applies across the repository.
 
 This project bundles one third-party utility,
-`MATLABSpinDynamics/SpinDynamicsUpdated/Version_2/labelpoints`, which is
+`MATLABSpinDynamics/Version_3/labelpoints`, which is
 distributed under its own BSD 3-Clause license (Copyright (c) 2017, Adam Danz);
 see that directory's `license.txt`.

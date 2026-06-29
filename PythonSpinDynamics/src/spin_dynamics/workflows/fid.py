@@ -1,7 +1,7 @@
 """FID workflow entry points.
 
 MATLAB reference folder:
-    SpinDynamicsUpdated/Version_2/code/FID_Example
+    MATLABSpinDynamics/Version_3/code/FID_Example
 """
 
 from __future__ import annotations

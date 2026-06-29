@@ -1,7 +1,7 @@
 """Time-domain echo utilities.
 
 MATLAB reference:
-    SpinDynamicsUpdated/Version_2/code/calc_echo/calc_time_domain_echo.m
+    MATLABSpinDynamics/Version_3/code/calc_echo/calc_time_domain_echo.m
 """
 
 from __future__ import annotations

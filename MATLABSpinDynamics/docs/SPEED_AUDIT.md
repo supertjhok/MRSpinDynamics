@@ -7,7 +7,7 @@ good candidates for profiling, MEX compilation, or future Python/C translation.
 
 ## High-Level Findings
 
-1. The active imaging simulators in `SpinDynamicsUpdated/Version_2/code/Sim_CPMG`
+1. The active imaging simulators in `Version_3/code/Sim_CPMG`
    are already heavily optimized relative to older code. They precompute pulse
    rotation matrices, allocate the image output up front, and use `parfor` over
    image rows.
@@ -32,7 +32,7 @@ good candidates for profiling, MEX compilation, or future Python/C translation.
 ### `sim_spin_dynamics_arb10.m`
 
 Path:
-`SpinDynamicsUpdated/Version_2/code/sim_spin_dynamics_arb/sim_spin_dynamics_arb10.m`
+`Version_3/code/sim_spin_dynamics_arb/sim_spin_dynamics_arb10.m`
 
 Strengths:
 
@@ -48,13 +48,13 @@ Strengths:
 This should be the reference implementation for future compiled kernels and for
 the first Python port of arbitrary-pulse spin dynamics.
 
-### Version 2 Imaging Simulators
+### Version 3 Imaging Simulators
 
 Paths:
 
-- `SpinDynamicsUpdated/Version_2/code/Sim_CPMG/sim_cpmg_ideal_probe_img.m`
-- `SpinDynamicsUpdated/Version_2/code/Sim_CPMG/sim_cpmg_matched_probe_img.m`
-- `SpinDynamicsUpdated/Version_2/code/Sim_CPMG/sim_cpmg_tuned_probe_img.m`
+- `Version_3/code/Sim_CPMG/sim_cpmg_ideal_probe_img.m`
+- `Version_3/code/Sim_CPMG/sim_cpmg_matched_probe_img.m`
+- `Version_3/code/Sim_CPMG/sim_cpmg_tuned_probe_img.m`
 
 Strengths:
 
@@ -84,7 +84,7 @@ optimization.
 ### Diffusion-Aware Arbitrary-Pulse Kernel
 
 Path:
-`SpinDynamicsUpdated/Version_2/code/sim_spin_dynamics_arb/sim_spin_dynamics_arb_relax_diff.m`
+`Version_3/code/sim_spin_dynamics_arb/sim_spin_dynamics_arb_relax_diff.m`
 
 Likely issue:
 
@@ -109,8 +109,8 @@ Create an `arb10`-style diffusion kernel:
 
 Paths:
 
-- `SpinDynamicsUpdated/Version_2/code/calc_macq_diff/calc_macq_matched_probe_relax_diff.m`
-- `SpinDynamicsUpdated/Version_2/code/calc_macq_diff/calc_macq_matched_probe_relax_diff_noRx.m`
+- `Version_3/code/calc_macq_diff/calc_macq_matched_probe_relax_diff.m`
+- `Version_3/code/calc_macq_diff/calc_macq_matched_probe_relax_diff_noRx.m`
 
 Likely issue:
 
@@ -130,11 +130,11 @@ builder.
 
 Examples:
 
-- `SpinDynamicsUpdated/Version_2/code/sim_spin_dynamics_arb/sim_spin_dynamics_arb6.m`
-- `SpinDynamicsUpdated/Version_2/code/sim_spin_dynamics_arb/sim_spin_dynamics_arb7.m`
-- `SpinDynamicsUpdated/Version_2/code/sim_spin_dynamics_arb/sim_spin_dynamics_arb8.m`
-- `SpinDynamics/code/basic/sim_spin_dynamics_arb*.m`
-- `SpinDynamics/code/matched_probe/sim_spin_dynamics_arb*.m`
+- `Version_3/code/sim_spin_dynamics_arb/sim_spin_dynamics_arb6.m`
+- `Version_3/code/sim_spin_dynamics_arb/sim_spin_dynamics_arb7.m`
+- `Version_3/code/sim_spin_dynamics_arb/sim_spin_dynamics_arb8.m`
+- `Version_1/code/basic/sim_spin_dynamics_arb*.m`
+- `Version_1/code/matched_probe/sim_spin_dynamics_arb*.m`
 
 Observed patterns:
 
@@ -152,8 +152,8 @@ and migrate active workflows to `arb10`-style kernels.
 
 Paths:
 
-- `SpinDynamics/code/diffusion/coherences.m`
-- `SpinDynamics/code/diffusion/coherences_new.m`
+- `Version_1/code/diffusion/coherences.m`
+- `Version_1/code/diffusion/coherences_new.m`
 
 Observed patterns:
 
@@ -169,7 +169,7 @@ consider algorithmic pruning or memoization before low-level optimization.
 ### Historical GPU Attempt
 
 Path:
-`SpinDynamics/code/basic/sim_spin_dynamics_allpw_gpu.m`
+`Version_1/code/basic/sim_spin_dynamics_allpw_gpu.m`
 
 Observed patterns:
 
@@ -186,10 +186,10 @@ future Python/C/Numba/CUDA implementation.
 
 Examples:
 
-- `SpinDynamicsUpdated/Version_2/code/OCT_Pulse_Examples/TunedProbe_OCT.m`
-- `SpinDynamicsUpdated/Version_2/code/opt_pulse/opt_ref_pulse_tuned.m`
-- `SpinDynamicsUpdated/Version_2/code/opt_pulse/opt_ref_pulse_untuned.m`
-- many older `SpinDynamics/code/basic/opt_*` scripts.
+- `Version_3/code/OCT_Pulse_Examples/TunedProbe_OCT.m`
+- `Version_3/code/opt_pulse/opt_ref_pulse_tuned.m`
+- `Version_3/code/opt_pulse/opt_ref_pulse_untuned.m`
+- many older `Version_1/code/basic/opt_*` scripts.
 
 Observed patterns:
 
@@ -204,9 +204,9 @@ calculations, and benchmark-sized regression tests for optimized pulse quality.
 
 ## Existing Compiled Artifacts
 
-Compiled artifacts and codegen output exist for the active arbitrary-pulse
-kernel, including `sim_spin_dynamics_arb10_mex.mexw64` under
-`SpinDynamicsUpdated/Version_2/code/mex`.
+Compiled artifacts and codegen output are local build products for the active
+arbitrary-pulse kernel. They are intentionally ignored and should be rebuilt
+from the tracked MEX/codegen scripts when needed.
 
 Recommendation:
 Add a small build note later that records:
@@ -215,15 +215,15 @@ Add a small build note later that records:
 - build command or script;
 - expected input structure fields and fixed/dynamic sizes;
 - how to verify MEX output against MATLAB output;
-- whether generated artifacts should be committed or rebuilt by users.
+- which small generated fixtures, if any, should be tracked for validation.
 
 ## Suggested Benchmark Set
 
 A small repeatable benchmark suite now lives in
-`SpinDynamicsUpdated/Version_2/code/benchmarks`. Run it from MATLAB with:
+`Version_3/code/benchmarks`. Run it from MATLAB with:
 
 ```matlab
-cd SpinDynamicsUpdated/Version_2/code/benchmarks
+cd Version_3/code/benchmarks
 results = run_spin_dynamics_benchmarks;
 ```
 
@@ -250,7 +250,7 @@ for call-tree diagnosis. Keep plotting disabled during benchmarks.
 | Medium | Add MEX build/verification notes for `arb10` | Supports compiled-routine goal and reproducibility. |
 | Medium | Clean diffusion acquisition wrappers after profiling | Repeated concatenation may matter after kernel speedups. |
 | Medium | Add serial/parallel imaging switch | Makes imaging easier to run without editing code while preserving `parfor`. |
-| Low | Legacy `SpinDynamics/code/basic` optimization | Mostly historical; migrate users to active Version 2 kernels instead. |
+| Low | Legacy `Version_1/code/basic` optimization | Mostly historical; migrate users to active Version 3 kernels instead. |
 | Low | Historical GPU code | Superseded by current vectorized/codegen approach. |
 
 ## Next Recommended Work

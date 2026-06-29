@@ -1,17 +1,17 @@
 # MATLABSpinDynamics
 
 MATLABSpinDynamics is the MATLAB NMR reference implementation within the
-MRSpinDynamics repository. It contains the original MATLAB functions, later
-Version 2 workflows, probe-circuit models, pulse-design helpers, imaging
+MRSpinDynamics repository. It contains the original MATLAB functions, successive
+Version 2 and Version 3 workflows, probe-circuit models, pulse-design helpers, imaging
 examples, and validation material used by the Python port.
 
 The active implementation is in:
 
 ```matlab
-SpinDynamicsUpdated/Version_2/code
+Version_3/code
 ```
 
-The older `SpinDynamics` and `SpinDynamicsUpdated/Version_1` trees are kept for
+The older `Version_1` and `Version_2` trees are kept for
 historical comparison.
 
 ## Physical Scope
@@ -30,11 +30,11 @@ relaxation constants or supplied field maps.
 ## Installation Requirements
 
 No MATLAB toolbox package installation is required. Clone or copy the repository
-and add the active Version 2 code tree to the MATLAB path:
+and add the active Version 3 code tree to the MATLAB path:
 
 ```matlab
 repo = pwd;  % run from MATLABSpinDynamics
-addpath(genpath(fullfile(repo, 'SpinDynamicsUpdated', 'Version_2', 'code')));
+addpath(genpath(fullfile(repo, 'Version_3', 'code')));
 ```
 
 Use a recent MATLAB release. The exact minimum release has not been pinned; the
@@ -50,10 +50,16 @@ workflows require optional components:
   that call `fmincon` or `optimoptions`.
 - Image Processing Toolbox: imaging examples that call `imresize` or `rgb2gray`.
 - MATLAB Coder plus a configured C/C++ compiler: optional MEX/code-generation
-  build scripts under `code/mex`.
+  build scripts under `code/mex`. Generated MEX/codegen outputs are local
+  build artifacts and are ignored by Git.
 - `export_fig`: optional third-party File Exchange helper used by some plotting
-  or export scripts. Several historical scripts also contain hard-coded export
-  paths that should be edited or commented out for local use.
+  or export scripts through `safe_export_fig`. When unavailable, exports are
+  skipped with a warning.
+
+Literature PDFs and generated MATLAB artifacts such as `.fig`, `.mat`, MEX
+outputs, codegen reports, and result folders are intentionally ignored. The
+self-authored reports under `Version_1/reports` remain part of the source
+tree.
 
 ## Documentation
 
@@ -62,7 +68,7 @@ workflows require optional components:
   notes, and an API-style function-family reference.
 - `docs/QUICK_START.md` gives a practical MATLAB entry point.
 - `docs/VERSION_GUIDE.md` maps active and legacy folders.
-- `docs/VERSION_2_WORKFLOWS.md` summarizes Version 2 workflow scripts.
+- `docs/VERSION_3_WORKFLOWS.md` summarizes Version 3 workflow scripts.
 - `docs/SPEED_AUDIT.md` records performance notes and acceleration targets.
 
 Build the manual from this directory with:
@@ -75,7 +81,7 @@ pdflatex -interaction=nonstopmode -halt-on-error -output-directory docs docs\use
 
 ```matlab
 repo = pwd;  % run from MATLABSpinDynamics
-addpath(genpath(fullfile(repo, 'SpinDynamicsUpdated', 'Version_2', 'code')));
+addpath(genpath(fullfile(repo, 'Version_3', 'code')));
 
 numpts = 2001;
 maxoffs = 20;
@@ -101,13 +107,13 @@ masy = (masy1 - masy2)/2;
 ```
 
 For more complete runnable workflows, start with `docs/QUICK_START.md` and the
-scripts in `SpinDynamicsUpdated/Version_2/code`.
+scripts in `Version_3/code`.
 
 ## Python Port
 
 The sibling `../PythonSpinDynamics` repository contains the Python port. Its
 README and manual describe Python-specific installation, validation status,
-examples, and API conventions. The MATLAB Version 2 implementation remains the
+examples, and API conventions. The MATLAB Version 3 implementation remains the
 numerical reference for the port.
 
 ## Contact

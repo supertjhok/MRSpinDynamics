@@ -30,3 +30,12 @@ MATLABSpinDynamics/docs/*.out
 MATLABSpinDynamics/docs/*.toc
 MATLABSpinDynamics/**/*.asv
 MATLABSpinDynamics/**/*~
+MATLABSpinDynamics/Version_1/references/*.pdf
+MATLABSpinDynamics/Version_3/results/
+MATLABSpinDynamics/**/codegen/
+MATLABSpinDynamics/**/*.fig
+MATLABSpinDynamics/**/*.mat
+MATLABSpinDynamics/**/*.mex*
+MATLABSpinDynamics/**/*.mldatx
+MATLABSpinDynamics/**/*.nb
+MATLABSpinDynamics/**/tmp-*.log

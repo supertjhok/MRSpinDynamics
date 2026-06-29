@@ -1,9 +1,9 @@
 """Finite-acquisition workflow helpers.
 
 MATLAB references:
-    SpinDynamicsUpdated/Version_2/code/calc_macq/calc_macq_ideal_probe_relax4.m
-    SpinDynamicsUpdated/Version_2/code/calc_macq/calc_macq_tuned_probe_relax4.m
-    SpinDynamicsUpdated/Version_2/code/calc_macq/calc_macq_matched_probe_relax4.m
+    MATLABSpinDynamics/Version_3/code/calc_macq/calc_macq_ideal_probe_relax4.m
+    MATLABSpinDynamics/Version_3/code/calc_macq/calc_macq_tuned_probe_relax4.m
+    MATLABSpinDynamics/Version_3/code/calc_macq/calc_macq_matched_probe_relax4.m
 """
 
 from __future__ import annotations

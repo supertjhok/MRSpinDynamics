@@ -1,8 +1,8 @@
 """Rotation matrix and effective-axis calculations.
 
 MATLAB references:
-    SpinDynamicsUpdated/Version_2/code/calc_rot
-    SpinDynamicsUpdated/Version_2/code/sim_spin_dynamics_asymp/sim_spin_dynamics_asymp_mag3.m
+    MATLABSpinDynamics/Version_3/code/calc_rot
+    MATLABSpinDynamics/Version_3/code/sim_spin_dynamics_asymp/sim_spin_dynamics_asymp_mag3.m
 """
 
 from __future__ import annotations

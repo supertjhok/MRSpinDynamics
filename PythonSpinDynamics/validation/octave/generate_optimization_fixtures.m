@@ -87,8 +87,8 @@ end
 function matlab_code = resolve_matlab_code(repo_root)
     parent = fileparts(repo_root);
     candidates = {
-        fullfile(parent, 'SpinDynamicsUpdated', 'Version_2', 'code'), ...
-        fullfile(parent, 'MATLABSpinDynamics', 'SpinDynamicsUpdated', 'Version_2', 'code')
+        fullfile(parent, 'Version_3', 'code'), ...
+        fullfile(parent, 'MATLABSpinDynamics', 'Version_3', 'code')
     };
     for idx = 1:numel(candidates)
         if exist(candidates{idx}, 'dir') == 7
