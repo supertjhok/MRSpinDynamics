@@ -29,7 +29,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from spin_dynamics.esr.eseem import HyperfineCoupling, nuclear_frequencies
+from spin_dynamics.esr.eseem import HyperfineCoupling, manifold_frequencies
 
 
 @dataclass(frozen=True)
@@ -38,15 +38,20 @@ class EndorSpectrum:
 
     frequencies_hz: np.ndarray
     spectrum: np.ndarray
-    line_positions_hz: tuple[float, float]
-    line_intensities: tuple[float, float]
+    line_positions_hz: np.ndarray
+    line_intensities: np.ndarray
     method: str
 
 
-def endor_frequencies(coupling: HyperfineCoupling) -> tuple[float, float]:
-    """Return the ENDOR line positions ``(nu_alpha, nu_beta)`` in Hz."""
+def endor_frequencies(coupling: HyperfineCoupling) -> np.ndarray:
+    """Return the ENDOR line positions in Hz (all manifold transitions, sorted).
 
-    return nuclear_frequencies(coupling)
+    For a spin-1/2 nucleus these are ``[nu_alpha, nu_beta]``; for ``I >= 1`` they
+    are every nuclear transition frequency in both electron manifolds.
+    """
+
+    alpha, beta = manifold_frequencies(coupling)
+    return np.sort(np.concatenate([alpha, beta]))
 
 
 def mims_blind_spot_factor(frequency_hz: float, tau_seconds: float) -> float:
@@ -78,20 +83,21 @@ def davies_endor_spectrum(
     *,
     linewidth_hz: float = 1.0e5,
 ) -> EndorSpectrum:
-    """Return a Davies ENDOR spectrum (both lines, no blind spots)."""
+    """Return a Davies ENDOR spectrum (all lines with equal weight, no blind spots)."""
 
     axis = _frequency_axis(frequencies_hz)
     width = float(linewidth_hz)
     if width <= 0 or not np.isfinite(width):
         raise ValueError("linewidth_hz must be positive and finite")
-    nu_alpha, nu_beta = nuclear_frequencies(coupling)
-    intensities = (1.0, 1.0)
-    spectrum = intensities[0] * _lineshape(axis, nu_alpha, width)
-    spectrum = spectrum + intensities[1] * _lineshape(axis, nu_beta, width)
+    lines = endor_frequencies(coupling)
+    intensities = np.ones(lines.size, dtype=np.float64)
+    spectrum = np.zeros(axis.size, dtype=np.float64)
+    for nu, weight in zip(lines, intensities):
+        spectrum = spectrum + weight * _lineshape(axis, float(nu), width)
     return EndorSpectrum(
         frequencies_hz=axis,
         spectrum=spectrum,
-        line_positions_hz=(nu_alpha, nu_beta),
+        line_positions_hz=lines,
         line_intensities=intensities,
         method="davies",
     )
@@ -113,17 +119,17 @@ def mims_endor_spectrum(
     tau = float(tau_seconds)
     if tau <= 0 or not np.isfinite(tau):
         raise ValueError("tau_seconds must be positive and finite")
-    nu_alpha, nu_beta = nuclear_frequencies(coupling)
-    intensities = (
-        mims_blind_spot_factor(nu_alpha, tau),
-        mims_blind_spot_factor(nu_beta, tau),
+    lines = endor_frequencies(coupling)
+    intensities = np.array(
+        [mims_blind_spot_factor(float(nu), tau) for nu in lines], dtype=np.float64
     )
-    spectrum = intensities[0] * _lineshape(axis, nu_alpha, width)
-    spectrum = spectrum + intensities[1] * _lineshape(axis, nu_beta, width)
+    spectrum = np.zeros(axis.size, dtype=np.float64)
+    for nu, weight in zip(lines, intensities):
+        spectrum = spectrum + weight * _lineshape(axis, float(nu), width)
     return EndorSpectrum(
         frequencies_hz=axis,
         spectrum=spectrum,
-        line_positions_hz=(nu_alpha, nu_beta),
+        line_positions_hz=lines,
         line_intensities=intensities,
         method="mims",
     )

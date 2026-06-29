@@ -968,16 +968,18 @@ rectangular pulsed ESR FID and Hahn-echo simulations, Liouville-space
 \(T_1/T_2\) relaxation, first electron-nuclear isotropic hyperfine
 doublets, four-pulse DEER/PELDOR distance measurement with \(P(r)\)
 recovery (Section~\ref{sec:deer}), and ESEEM, HYSCORE, and ENDOR of an
-\(I=1/2\) nucleus (Section~\ref{sec:eseem}).
+\(I = 1/2\), \(1\), or \(3/2\) nucleus including the nuclear quadrupole
+interaction (Section~\ref{sec:eseem}).
 }
 
 \scopebox{AccentTwo}{
 \textbf{Current limits:} electron spin \(S=1/2\) only in the main ESR system;
 dense matrices only. The DEER model uses the secular point-dipole coupling in
 the weak-coupling observer/pump regime, and the ESEEM/HYSCORE/ENDOR model treats
-a single \(I=1/2\) nucleus with secular plus pseudosecular hyperfine. No
-anisotropic \(A\) tensors, nuclear quadrupole interaction (e.g.
-\(^{14}\mathrm{N}\)), exchange, higher-spin zero-field splitting, saturation, or
+a single \(I \le 3/2\) nucleus with secular plus pseudosecular hyperfine and a
+field-collinear quadrupole tensor. No anisotropic \(A\) tensors, tilted
+quadrupole tensors, multiple coupled nuclei, exchange, higher-spin zero-field
+splitting, saturation, or
 microwave resonator model yet.
 }
 
@@ -1243,20 +1245,29 @@ envelope modulation), HYSCORE (hyperfine sublevel correlation), and ENDOR
 (electron-nuclear double resonance) measure the weak hyperfine coupling between
 an electron and a nearby nucleus. The modules
 \code{spin\_dynamics.esr.eseem}, \code{spin\_dynamics.esr.hyscore}, and
-\code{spin\_dynamics.esr.endor} model an \(S=1/2\) electron coupled to an
-\(I=1/2\) nucleus in the secular approximation,
+\code{spin\_dynamics.esr.endor} model an \(S=1/2\) electron coupled to a nucleus
+(\(I = 1/2\), \(1\), or \(3/2\)) in the secular approximation,
 \[
-  H = -\omega_I I_z + A\,S_z I_z + B\,S_z I_x ,
+  H = -\omega_I I_z + S_z (A\,I_z + B\,I_x) + H_Q ,
 \]
 parameterized by \code{HyperfineCoupling(larmor\_hz, secular\_hz,
-pseudosecular\_hz)}. Only the pseudosecular part \(B\) makes the nuclear
-quantization axis differ between the two electron manifolds, so ESEEM and its
-relatives vanish for purely isotropic coupling. The two nuclear (ENDOR)
-frequencies and modulation depth are
+pseudosecular\_hz, nuclear\_spin, quadrupole\_hz, eta)}. For \(I \ge 1\) the
+nuclear quadrupole term \(H_Q\) (quadrupole frequency \(\nu_Q\) and asymmetry
+\(\eta\); principal axis taken collinear with the static field) reuses the NQR
+quadrupole Hamiltonian. ESEEM requires the nuclear quantization axis to differ
+between the two electron manifolds, which the pseudosecular \(B\) and the
+quadrupole both provide. For \(I = 1/2\) the two nuclear (ENDOR) frequencies and
+modulation depth have the closed forms
 \[
   \nu_{\alpha,\beta} = \sqrt{(\omega_I \pm A/2)^2 + (B/2)^2}, \qquad
-  k = \left(\frac{\omega_I B}{\nu_\alpha \nu_\beta}\right)^2 .
+  k = \left(\frac{\omega_I B}{\nu_\alpha \nu_\beta}\right)^2 ;
 \]
+for any spin, \code{manifold\_frequencies} returns the nuclear transition
+frequencies in each electron manifold by diagonalization. The classic
+\(^{14}\mathrm{N}\) (\(I = 1\)) \emph{exact-cancellation} regime, where the
+hyperfine field cancels the nuclear Zeeman in one manifold and leaves the three
+pure-quadrupole (NQR) lines \(\nu_\pm = \nu_Q(1 \pm \eta/3)\),
+\(\nu_0 = \tfrac{2}{3}\nu_Q\eta\), is reproduced by this model.
 
 \textbf{ESEEM.} \code{two\_pulse\_eseem} and \code{three\_pulse\_eseem} return the
 analytic two- and three-pulse envelopes, and \code{eseem\_spectrum} their
@@ -1299,9 +1310,11 @@ Davies and Mims responses. Mims ENDOR carries the \(\tau\)-dependent blind-spot
 factor \(\sin^2(\pi\nu\tau)\), which suppresses a line whenever \(\nu\tau\) is an
 integer.
 
-The model is restricted to a single \(I=1/2\) nucleus in the secular regime.
-Half-integer and integer nuclei with a nuclear quadrupole interaction (notably
-\(^{14}\mathrm{N}\)) are the natural next extension.
+The model covers a single nucleus of spin \(I = 1/2\), \(1\), or \(3/2\) in the
+secular regime, with the quadrupole principal axis collinear with the static
+field. Anisotropic hyperfine \(A\) tensors with powder averaging, an arbitrary
+quadrupole-tensor orientation, and multiple coupled nuclei are the natural next
+extensions.
 
 \chapter{Pulsed NQR Models}
 \label{chap:nqr}
