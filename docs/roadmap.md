@@ -70,11 +70,20 @@ package — see section 6.
 
 ## 3. Other technical gaps (workspace level)
 
-**Performance / scale** (explicitly deferred in `known_gaps.md`)
-- No compiled or GPU backend. ~65k LOC of dense NumPy isochromat propagation.
-  A JAX/Numba engine would buy both speed *and* autodiff (the optimization
-  module currently uses pattern search + SciPy).
-- NQR module is dense-matrices-only — blocks spin ≥ 5/2 and multi-band solvers.
+**Performance / scale**
+- ~~No compiled or GPU backend.~~ **Done** — the JAX/Numba acceleration
+  workstream (Phases 0–4) is merged to main: opt-in Numba (`nogil` threaded) and
+  JAX (`lax.scan`, vmap-batched, x64) backends for the `arb10` isochromat kernel,
+  a batched primitive for sweeps/multistarts, batched NQR/ESR diagonalization, and
+  — the headline — a **reverse-mode autodiff optimizer** that replaced
+  finite-difference gradients (12–33× fewer evaluations on the ported objective).
+  Full status in `docs/performance.md`. Remaining backend polish: GPU pays off only
+  for vmap-batched work (a single sequential run is dispatch-bound), and only the
+  ideal v0crit objective is JAX-ported so far (tuned/untuned/matched still route
+  through the NumPy probe machinery).
+- The NQR single-spin operator layer already builds matrices for any
+  integer/half-integer spin; the real spin ≥ 5/2 gap is the high-field
+  second-order-quadrupolar / MAS regime, not the operators (see §7, F1).
 
 **Packaging / distribution**
 - `version = "0.0.0"`, "Development Status :: 3 - Alpha", not on PyPI, no
@@ -153,8 +162,10 @@ AIMD/PIMD averaging for anharmonic cases like NaNO₂ near Tc.
 3. **Validate and broaden microscopic relaxation.** The shared Redfield/dipolar
    model exists; next value is tying it to measured liquid NMR/NQR relaxation
    data, convergence checks, and clearer limits of validity.
-4. **JAX/Numba isochromat backend** — unlocks speed *and* autodiff pulse
-   optimization. Highest engineering payoff.
+4. ~~**JAX/Numba isochromat backend** — unlocks speed *and* autodiff pulse
+   optimization.~~ **Done** (Phases 0–4 merged; `docs/performance.md`). The
+   autodiff machinery it unlocked is now the launchpad for **GRAPE / optimal
+   control** — see §7, F8 — and for Bayesian inference (§7, F6).
 5. **Publish.** Release the workspace as a single citable unit: one repo version,
    one GitHub Release, one Zenodo DOI. Process: `docs/release_process.md`
    (scaffolding — `CITATION.cff`, `.zenodo.json`, `CHANGELOG.md`, version-sync
@@ -251,3 +262,230 @@ checked Landolt sets are flagged — e.g. a `QCC` OCR error (313 MHz for a line 
 Later increments: feed DFT η/C_Q distributions into the simulator's
 EFG-broadening models; widen DFT coverage so the predict-vs-measured loop runs
 over more than NaNO₂; extend Landolt checking beyond ¹⁴N once spin ≥ 5/2 lands.
+
+## 7. Next scientific frontiers (creative roadmap)
+
+Sections 1–6 trace a workspace that has closed its first predict→simulate→validate
+loop and ported the MATLAB physics. The questions below are deliberately
+forward-looking: each is a *new physics regime* rather than a stabilization task,
+each builds on machinery that already exists, and each is chosen for science reach
+per unit of new code. They are ranked by impact ÷ effort.
+
+A recurring enabler shows up in several of these: the single-spin operator layer
+(`spin_dynamics.nqr.operators`) already constructs angular-momentum matrices for
+**any** integer or half-integer spin (`validate_spin`, `spin_dimension = 2I+1`),
+and `coupling/hamiltonians.py` already builds Zeeman + isotropic/secular J +
+RF Hamiltonians in a full coupled-spin Hilbert space. The frontiers below mostly
+add *new Hamiltonian terms, regimes, and observables* on top of that substrate,
+not new linear algebra.
+
+### F1. High-field quadrupolar solid-state NMR: second-order lineshapes, MAS, MQMAS
+
+**What.** A high-field counterpart to the existing zero-field NQR engine:
+the second-order quadrupolar broadening of the central transition, magic-angle
+spinning (MAS) averaging, and the multiple-quantum MAS (MQMAS) and
+satellite-transition MAS (STMAS) correlation experiments that remove it.
+
+**Why it matters.** This is the single largest untapped audience for the package.
+Half-integer quadrupolar nuclei — ²⁷Al (5/2), ¹⁷O (5/2), ⁵¹V (7/2), ⁷¹Ga,
+⁹³Nb (9/2), ²⁰⁹Bi (9/2) — dominate the solid-state NMR of glasses, zeolites,
+minerals, ceramics, battery cathodes, and heterogeneous catalysts. MQMAS is the
+workhorse that makes those spectra interpretable. Today the simulator stops at
+spin-1 and spin-3/2 in the *zero-field* limit; nothing models the high-field
+second-order regime.
+
+**Build on.** The operator layer already generalizes to any I; `nqr.zeeman`
+already mixes a Zeeman term into the quadrupolar Hamiltonian; `nqr.orientations`
+and the powder-averaging in `full_dynamics` already exist. What is new: the
+second-order average Hamiltonian (or exact diagonalization in a tilted frame),
+a spinning-frame time-dependence for MAS, and the 2-D shear/processing for MQMAS.
+This is also the unlock that lets the `integration/` ν_Q convention and the
+Landolt validator finally run for the *majority* of catalogued nuclei rather than
+just ¹⁴N — directly retiring the "extend Landolt checking beyond ¹⁴N once spin ≥
+5/2 lands" note above and widening the DFT→sim→DB loop to ²⁷Al/¹⁷O/⁵¹V.
+
+**Effort.** Large, but high-leverage and incremental (static second-order
+lineshape → MAS → MQMAS), and it compounds with the DFT and database work.
+
+### F2. Pulsed dipolar EPR: DEER/PELDOR and ESEEM/HYSCORE
+
+**What.** Turn the nascent single-electron ESR module into a *distance-* and
+*weak-coupling-* measuring tool: four-pulse DEER/PELDOR yielding a dipolar
+evolution trace and an inter-spin distance distribution P(r), plus two- and
+three-pulse ESEEM and 2-D HYSCORE for resolving weak hyperfine couplings.
+
+**Why it matters.** DEER is *the* structural-biology EPR experiment —
+nanometer distance distributions between site-directed spin labels constrain
+protein conformations and complexes; the same physics maps spin-label distances
+in polymers and MOFs. ESEEM/HYSCORE map ligand nuclei around metal centers.
+These are the highest-citation pulsed-EPR methods and are entirely absent.
+
+**Build on.** `esr/systems.py` already has g-tensors, `esr/hyperfine.py` the
+hyperfine coupling, `esr/pulsed.py` rectangular-pulse FID/Hahn echo with
+Liouville T1/T2, and `esr/orientations.py` powder grids. What is new: a *two-electron*
+system with a dipolar coupling term (reuse the dipolar tensor math already in
+`relaxation.py`), the DEER pump/observe pulse bookkeeping, and the
+Tikhonov-regularized P(r) extraction — which can reuse the regularized
+inverse-problem machinery in `analysis/regularization.py` and `analysis/ilt.py`.
+
+**Effort.** Medium. DEER first (highest impact, mostly two-spin dipolar evolution +
+an inversion already supported by the analysis layer), ESEEM/HYSCORE second.
+
+### F3. NQR detection-science toolkit (explosives, narcotics, pharma screening)
+
+**What.** An application layer for ¹⁴N NQR *detection*: SORC/SSFP and SLSE
+steady-state detection trains, temperature-compensated frequency tracking, RF
+interference (RFI) modeling and mitigation, and quantitative
+probability-of-detection / ROC curves versus SNR, scan time, and temperature drift.
+
+**Why it matters.** NQR is a deployed standoff technique for explosives (RDX,
+TNT, PETN, ammonium nitrate) and contraband, and an emerging pharmaceutical
+quality-control method. This is the one frontier that exercises *all four*
+subprojects at once: the database already holds ¹⁴N compounds (melamine,
+metformin, paracetamol) and the U.S. Navy/NRL NQR data tables; the simulator has
+spin-3/2 SLSE and full-density-matrix ¹⁴N dynamics; the DFT side supplies the
+temperature coefficients that detection hardware must track. It is a compelling,
+translational story for a methods paper.
+
+**Build on.** `nqr.full_dynamics.simulate_full_slse`, `nqr.sequences`, the
+finite-temperature dν/dT from `quadrupolar_dft.vibrational`, and the measured
+lines + temperature series already in `NQRDatabase`. What is new: steady-state
+SORC/SSFP trains, a detection-statistics layer (matched filter, ROC/PoD), and an
+RFI noise model layered onto the existing `noise.py`.
+
+**Effort.** Medium, mostly orchestration of existing primitives plus a small
+detection-statistics module — high visibility for modest new physics.
+
+### F4. Zero- to ultralow-field (ZULF) NMR and J-spectroscopy
+
+**What.** Evolution of J-coupled spin systems at zero and ultralow field, where
+chemical shift vanishes and the spectrum is governed by scalar couplings —
+including the heteronuclear J-spectra and the field-cycling
+(prepolarize-high / detect-low) protocol that ZULF instruments use.
+
+**Why it matters.** ZULF NMR is a fast-growing, magnet-free modality
+(spectrometers built around atomic magnetometers) that gives sharp, absolute
+J-resolved spectra and pairs naturally with hyperpolarization. It is low-cost to
+realize experimentally and currently has thin open-source simulation support.
+
+**Build on.** `coupling/hamiltonians.py` already provides
+`isotropic_j_hamiltonian` and `zeeman_hamiltonian` over a coupled-spin Hilbert
+space — ZULF is largely the *zero-Zeeman* evolution of exactly that Hamiltonian
+with a sudden field drop. `prepolarization.py` already models high-field
+prepolarization for the field-cycling step. What is new: the sudden-transition
+(non-adiabatic) field switch, a magnetometer-style detection operator, and
+zero-field selection rules / observables.
+
+**Effort.** Small-to-medium — arguably the highest novelty per line of new code,
+because the Hamiltonian substrate is already present.
+
+### F5. Hyperpolarization and long-lived states: PHIP/SABRE and singlet order
+
+**What.** Parahydrogen-induced polarization (PHIP/SABRE) source terms and
+long-lived singlet-state (LLS) preparation, storage, and readout — including
+singlet relaxation times far longer than T1.
+
+**Why it matters.** Hyperpolarization gives the 10³–10⁵ signal gains behind
+metabolic MRI and trace-analyte NMR; long-lived singlet order extends the clock
+on which hyperpolarized information survives. Both are high-impact and chronically
+under-served by open simulators.
+
+**Build on.** The `coupling/slic.py` SLIC module already models the
+spin-locking-induced crossing used to access singlet order, and the coupled-spin
+Hamiltonians are in place. What is new: a parahydrogen singlet initial state and
+addition operator, singlet/triplet basis projectors, and a singlet-specific
+relaxation channel layered onto `relaxation.py`.
+
+**Effort.** Medium; strong synergy with F4 (ZULF) since singlet order is often
+prepared and read at low field.
+
+### F6. Bayesian inverse inference: fitting spin parameters to measured spectra
+
+**What.** Invert the existing forward simulators: given a measured FID, echo
+train, lineshape, or DEER trace, infer posterior distributions over the physical
+parameters (C_Q, η, T1, T2, D, P(r), exchange rates) with calibrated uncertainty.
+
+**Why it matters.** It converts the package from a forward simulator into a
+*data-analysis* tool — the thing experimentalists actually need at the bench — and
+it turns the validated forward models into likelihoods. It also naturally extends
+the `integration/` consistency validators from "flag/keep" to "fit and report a
+posterior," and gives the database a principled way to reconcile predicted and
+measured values.
+
+**Build on.** The forward models across `nqr`, `sequences`, `workflows`,
+`exchange`, and ESR; the regularized inversion already in `analysis/`; and the
+optimization drivers in `optimization/`. The JAX backend is **already merged**,
+so its reverse-mode autodiff can supply the gradients that gradient-based MCMC
+(HMC/NUTS) and simulation-based inference want — no new engine required. What is
+new: a thin likelihood/MCMC (or simulation-based inference) layer with priors and
+posterior-predictive checks.
+
+**Effort.** Medium; the autodiff substrate it needs already exists (roadmap §4
+item 4 is done), so the work is the inference layer, not the gradients.
+
+### F7. Mechanism-resolved relaxation and field-cycling relaxometry (NMRD)
+
+**What.** Add the *quadrupolar* relaxation mechanism (T1Q for spin ≥ 1, the
+dominant channel for many quadrupolar nuclei) alongside the existing dipolar
+Redfield model, and a field-cycling relaxometry workflow that produces NMRD
+profiles — T1 as a function of Larmor frequency.
+
+**Why it matters.** NMRD profiles are the standard fingerprint for molecular
+dynamics, MRI contrast-agent design, and porous-media surface relaxivity;
+quadrupolar relaxation governs line widths and detectability throughout the NQR
+work. This deepens the physics already started in `relaxation.py` rather than
+opening a new front.
+
+**Build on.** `relaxation.py` (Redfield/dipolar spectral densities, motional
+averaging) and `prepolarization.py` (the high-field polarize step of a
+field-cycling experiment). What is new: the quadrupolar coupling spectral density
+and a field-swept T1 driver.
+
+**Effort.** Small-to-medium; a focused extension of an existing module.
+
+### F8. GRAPE and quantum optimal control
+
+**What.** A general gradient-based optimal-control layer: optimize the *full*
+piecewise-constant control waveform (amplitude and phase, or I/Q) of an arbitrary
+pulse to drive a spin system to a target — either state-to-state transfer fidelity
+or full propagator/gate fidelity — using reverse-mode autodiff through the
+differentiable forward kernel. GRAPE first; a Krotov variant and a *robust*
+ensemble objective (averaging fidelity over B1-inhomogeneity and offset
+distributions) as follow-ons.
+
+**Why it matters.** Optimal-control pulses are the modern route to broadband,
+B1-inhomogeneity-robust, low-power, or sharply selective excitation, inversion,
+and refocusing. That is directly useful for the package's existing strengths:
+single-sided / NMR-MOUSE hardware with huge static gradients and B1 falloff,
+selective control of quadrupolar transitions, and — paired with F1 —
+central-transition-selective pulses for half-integer quadrupolar nuclei, and —
+paired with F2 — shaped DEER pump pulses. It generalizes the package's *current*
+autodiff optimizer, which today covers only the single ideal-v0crit
+refocusing-phase objective, into a reusable optimal-control toolkit.
+
+**Build on.** This is now a short step rather than a new engine, precisely because
+the JAX/Numba workstream is merged: the differentiable `lax.scan` forward kernel
+(`core/_jax_kernels.py`), the `jax.value_and_grad` + jit objective factory
+(`optimization/_jax_objectives.py`), the analytic-gradient L-BFGS-B driver
+(`optimization/_bounded.py::scipy_maximize_with_grad`), and the vmap **batched**
+primitive (Phase 2b) for multistarts and ensemble/robust averaging all already
+exist. What is new: a general control parameterization (a time grid of
+amplitudes/phases, not just composite-pulse phases), state-transfer and
+propagator/gate fidelity objectives, and the robust ensemble objective.
+
+**Effort.** Medium — mostly generalizing existing autodiff machinery — with high
+payoff because it composes with F1 (selective pulses), F2 (DEER pump pulses), and
+the single-sided/MOUSE workflows.
+
+### Cross-cutting note
+
+The **JAX/Numba acceleration backend is done and merged** (roadmap §4 item 4,
+`docs/performance.md`), so it is no longer a blocking prerequisite — it is an
+*enabler already in hand*. Three frontiers cash in on it directly: F8 (GRAPE)
+generalizes its autodiff optimizer, F6 (Bayesian inference) reuses its gradients
+for HMC/SBI, and F1/F2 lean on its vmap-batched primitive for the embarrassingly
+parallel MAS/MQMAS and DEER powder averages (where GPU batching pays off, even
+though a single sequential run is dispatch-bound). The remaining backend polish —
+JAX-porting the tuned/untuned/matched objectives and broadening GPU-batched
+adoption — is incremental and best done in service of these science frontiers
+rather than as standalone infrastructure.
