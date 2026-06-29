@@ -266,6 +266,7 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_esr_pulsed_echo.py",
             "examples/plot_esr_relaxation.py",
             "examples/plot_esr_hyperfine_doublet.py",
+            "examples/plot_esr_deer.py",
             "examples/plot_nqr_powder_nutation.py",
             "examples/plot_nqr_full_powder_nutation.py",
             "examples/plot_nqr_spin32_slse.py",
@@ -445,6 +446,9 @@ class ExampleSmokeTests(unittest.TestCase):
         result = run_example("examples/plot_esr_hyperfine_doublet.py", "--help")
         self.assertIn("--hyperfine-mhz", result.stdout)
         self.assertIn("--nuclear-gamma-mhz-per-t", result.stdout)
+        result = run_example("examples/plot_esr_deer.py", "--help")
+        self.assertIn("--mean-nm", result.stdout)
+        self.assertIn("--lambda-depth", result.stdout)
         result = run_example("examples/plot_nqr_powder_nutation.py", "--help")
         self.assertIn("--max-angle", result.stdout)
         self.assertIn("supports spin=1 only", result.stdout)
