@@ -653,6 +653,7 @@ No public classes or functions found.
 | class | `PhaseCycle` | A reusable phase-cycle scan table. |
 | function | `cpmg_two_step_phase_cycle(*, excitation_name: str = 'excitation', excitation_phase_rad: float = np.pi / 2.0) -> PhaseCycle` | Return the default two-step CPMG/PAP excitation phase cycle. |
 | function | `pgste_stimulated_echo_phase_cycle() -> PhaseCycle` | Return the selected-pathway PGSTE stimulated-echo phase table. |
+| function | `eseem_stimulated_echo_phase_cycle(n_phase: int = 4) -> PhaseCycle` | Return the phase cycle selecting the three-pulse ESEEM stimulated echo. |
 | function | `diff_stebp_phase_cycle() -> PhaseCycle` | Return the 16-step Bruker ``diff_stebp`` 13-interval bipolar PGSTE cycle. |
 
 ## `spin_dynamics.optimization.drivers`

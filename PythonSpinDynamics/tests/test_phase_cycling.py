@@ -10,12 +10,36 @@ from spin_dynamics.phase_cycling import (
     PhaseStep,
     cpmg_two_step_phase_cycle,
     diff_stebp_phase_cycle,
+    eseem_stimulated_echo_phase_cycle,
     pgste_stimulated_echo_phase_cycle,
 )
 from spin_dynamics.workflows import run_ideal_cpmg_train, run_pgste_walkers
 
 
 class PhaseCyclingTests(unittest.TestCase):
+    def test_eseem_stimulated_echo_cycle_structure_and_receiver_phases(self) -> None:
+        cycle = eseem_stimulated_echo_phase_cycle(n_phase=4)
+
+        self.assertEqual(cycle.name, "eseem_stimulated_echo")
+        self.assertEqual(cycle.num_steps, 4**3)
+        self.assertEqual(
+            tuple(cycle.pulse_names),
+            ("excitation_90", "store_90", "read_90"),
+        )
+        # Normalized weights sum to unit modulus.
+        self.assertAlmostEqual(float(np.sum(np.abs(cycle.branch_weights))), 1.0)
+        # Each receiver phase selects dp = (+1, -1, -1): rec = -(phi1 - phi2 - phi3).
+        phi1 = cycle.pulse_phases("excitation_90")
+        phi2 = cycle.pulse_phases("store_90")
+        phi3 = cycle.pulse_phases("read_90")
+        expected = np.exp(1j * (phi1 - phi2 - phi3)) / cycle.num_steps
+        np.testing.assert_allclose(cycle.branch_weights, expected, atol=1e-12)
+        self.assertEqual(eseem_stimulated_echo_phase_cycle(5).num_steps, 5**3)
+
+    def test_eseem_cycle_requires_enough_phase_steps(self) -> None:
+        with self.assertRaises(ValueError):
+            eseem_stimulated_echo_phase_cycle(n_phase=3)
+
     def test_cpmg_two_step_cycle_combines_like_existing_subtraction(self) -> None:
         cycle = cpmg_two_step_phase_cycle()
         first = np.array([1.0 + 2.0j, 3.0 - 1.0j])
