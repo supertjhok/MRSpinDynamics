@@ -316,26 +316,30 @@ def three_pulse_eseem_phase_cycled(
     """Three-pulse ESEEM selected by an explicit phase cycle.
 
     This is the experimental counterpart of the coherence-order projection used
-    by :func:`three_pulse_eseem_quantum`. Each of the three pulses is stepped
-    through ``n_phase`` equally spaced phases and the records are combined with
-    receiver weight ``exp(+i sum_j dp_j phi_j)`` for the stimulated-echo pathway
-    ``dp = (+1, -1, -1)``. Because the electron coherence order spans only
-    ``{-1, 0, +1}``, ``n_phase = 4`` already isolates the pathway exactly, and the
-    result matches the coherence-order-filtered simulation to numerical
-    precision -- a direct check that the filtering stands in for a phase cycle.
+    by :func:`three_pulse_eseem_quantum`. It reuses the package phase-cycle
+    machinery: :func:`spin_dynamics.phase_cycling.eseem_stimulated_echo_phase_cycle`
+    builds the ``n_phase``-per-pulse scan table that selects the stimulated-echo
+    pathway ``dp = (+1, -1, -1)``, each branch is simulated by stepping the three
+    pulse phases, and :meth:`PhaseCycle.combine` performs the receiver-weighted
+    combination. Because the electron coherence order spans only ``{-1, 0, +1}``,
+    ``n_phase = 4`` already isolates the pathway exactly, and the result matches
+    the coherence-order-filtered simulation to numerical precision -- a direct
+    check that the filtering stands in for a phase cycle.
     """
+
+    from spin_dynamics.phase_cycling import eseem_stimulated_echo_phase_cycle
 
     t = _times(times_seconds)
     tau = float(tau_seconds)
     if tau < 0 or not np.isfinite(tau):
         raise ValueError("tau_seconds must be non-negative and finite")
-    n_phase = int(n_phase)
-    if n_phase < 4:
-        raise ValueError("n_phase must be at least 4 to resolve the pathway")
-    phases = 2.0 * np.pi * np.arange(n_phase) / n_phase
-    delta_p = (1, -1, -1)
 
-    def amplitudes(pseudosecular_hz: float) -> np.ndarray:
+    cycle = eseem_stimulated_echo_phase_cycle(n_phase)
+    phases1 = cycle.pulse_phases("excitation_90")
+    phases2 = cycle.pulse_phases("store_90")
+    phases3 = cycle.pulse_phases("read_90")
+
+    def branch_signals(pseudosecular_hz: float) -> list[np.ndarray]:
         local = HyperfineCoupling(
             larmor_hz=coupling.larmor_hz,
             secular_hz=coupling.secular_hz,
@@ -343,36 +347,26 @@ def three_pulse_eseem_phase_cycled(
         )
         hamiltonian = electron_nuclear_hamiltonian(local)
         rho0 = np.kron(_SZ, _EYE)
-        acc = np.zeros(t.size, dtype=np.complex128)
-        for phi1 in phases:
+        signals: list[np.ndarray] = []
+        for phi1, phi2, phi3 in zip(phases1, phases2, phases3):
             pulse1 = _phased_pulse(np.pi / 2.0, phi1)
-            for phi2 in phases:
-                pulse2 = _phased_pulse(np.pi / 2.0, phi2)
-                prepared = evolve_density(
-                    pulse1 @ rho0 @ pulse1.conj().T, hamiltonian, tau
-                )
-                prepared = pulse2 @ prepared @ pulse2.conj().T
-                for phi3 in phases:
-                    pulse3 = _phased_pulse(np.pi / 2.0, phi3)
-                    weight = np.exp(
-                        1j
-                        * (
-                            delta_p[0] * phi1
-                            + delta_p[1] * phi2
-                            + delta_p[2] * phi3
-                        )
-                    )
-                    for idx, value in enumerate(t):
-                        rho = evolve_density(prepared, hamiltonian, float(value))
-                        rho = pulse3 @ rho @ pulse3.conj().T
-                        rho = evolve_density(rho, hamiltonian, tau)
-                        acc[idx] += weight * np.trace(rho @ SPLUS)
-        return acc / float(n_phase**3)
+            pulse2 = _phased_pulse(np.pi / 2.0, phi2)
+            pulse3 = _phased_pulse(np.pi / 2.0, phi3)
+            prepared = evolve_density(pulse1 @ rho0 @ pulse1.conj().T, hamiltonian, tau)
+            prepared = pulse2 @ prepared @ pulse2.conj().T
+            branch = np.empty(t.size, dtype=np.complex128)
+            for idx, value in enumerate(t):
+                rho = evolve_density(prepared, hamiltonian, float(value))
+                rho = pulse3 @ rho @ pulse3.conj().T
+                rho = evolve_density(rho, hamiltonian, tau)
+                branch[idx] = np.trace(rho @ SPLUS)
+            signals.append(branch)
+        return signals
 
-    signal = amplitudes(coupling.pseudosecular_hz)
+    signal = cycle.combine(branch_signals(coupling.pseudosecular_hz))
     # Divide by the complex unmodulated echo so its (axis-dependent) phase
     # cancels, leaving the real modulation.
-    reference = complex(np.mean(amplitudes(0.0)))
+    reference = complex(np.mean(cycle.combine(branch_signals(0.0))))
     if reference == 0:
         raise ValueError("degenerate echo reference; check coupling parameters")
     return np.real(signal / reference)

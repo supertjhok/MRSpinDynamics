@@ -216,6 +216,49 @@ def pgste_stimulated_echo_phase_cycle() -> PhaseCycle:
     )
 
 
+def eseem_stimulated_echo_phase_cycle(n_phase: int = 4) -> PhaseCycle:
+    """Return the phase cycle selecting the three-pulse ESEEM stimulated echo.
+
+    The three 90-degree pulses (``excitation_90``, ``store_90``, ``read_90``) are
+    each stepped through ``n_phase`` equally spaced phases, and the receiver phase
+    of every branch is set to ``-(Delta p . phi)`` for the stimulated-echo pathway
+    ``Delta p = (+1, -1, -1)``. Receiver-weighted combination then keeps that
+    pathway and rejects the others. ``n_phase = 4`` already isolates it exactly
+    because the electron coherence order spans only ``{-1, 0, +1}``.
+    """
+
+    n_phase = int(n_phase)
+    if n_phase < 4:
+        raise ValueError("n_phase must be at least 4 to resolve the pathway")
+    delta_p = {"excitation_90": 1, "store_90": -1, "read_90": -1}
+    phases = 2.0 * np.pi * np.arange(n_phase) / n_phase
+    steps = tuple(
+        PhaseStep(
+            pulse_phases={
+                "excitation_90": phi1,
+                "store_90": phi2,
+                "read_90": phi3,
+            },
+            receiver_phase_rad=-(
+                delta_p["excitation_90"] * phi1
+                + delta_p["store_90"] * phi2
+                + delta_p["read_90"] * phi3
+            ),
+            weight=1.0,
+            label=f"eseem_{i1}{i2}{i3}",
+        )
+        for i1, phi1 in enumerate(phases)
+        for i2, phi2 in enumerate(phases)
+        for i3, phi3 in enumerate(phases)
+    )
+    return PhaseCycle(
+        steps=steps,
+        pulse_names=("excitation_90", "store_90", "read_90"),
+        normalize=True,
+        name="eseem_stimulated_echo",
+    )
+
+
 def diff_stebp_phase_cycle() -> PhaseCycle:
     """Return the 16-step Bruker ``diff_stebp`` 13-interval bipolar PGSTE cycle.
 
@@ -266,5 +309,6 @@ __all__ = [
     "PhaseStep",
     "cpmg_two_step_phase_cycle",
     "diff_stebp_phase_cycle",
+    "eseem_stimulated_echo_phase_cycle",
     "pgste_stimulated_echo_phase_cycle",
 ]
