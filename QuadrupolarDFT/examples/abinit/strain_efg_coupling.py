@@ -42,8 +42,6 @@ import csv
 import json
 from pathlib import Path
 
-import numpy as np
-
 from quadrupolar_dft import (
     cif_structure_metadata,
     collect_strain_derivatives,
