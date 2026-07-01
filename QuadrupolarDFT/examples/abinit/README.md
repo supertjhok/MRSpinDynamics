@@ -106,3 +106,62 @@ cd runs/nano2_efg
 ABI_PSPDIR=/usr/share/abinit/psp stdbuf -oL -eL abinit nano2_efg.abi \
   2> >(tee nano2_efg.stderr >&2) | tee nano2_efg.stdout
 ```
+
+## Glycine Strain-To-EFG Coupling
+
+`strain_efg_coupling.py` stages homogeneous-strain EFG calculations and collects
+the completed ABINIT outputs into transition-drive couplings in `Hz/strain`.
+The default CIF check points at bundled glycine CCDC 189379 and verifies that it
+is the non-centrosymmetric `P 21` polymorph before staging piezoelectric jobs.
+
+From the `QuadrupolarDFT` root:
+
+```bash
+PYTHONPATH=src python3 examples/abinit/strain_efg_coupling.py check
+
+PYTHONPATH=src python3 examples/abinit/strain_efg_coupling.py prepare-base \
+  --out runs/glycine_static/glycine_efg.abi
+
+bash examples/abinit/run_static_efg_wsl.sh \
+  runs/glycine_static/glycine_efg.abi
+
+PYTHONPATH=src python3 examples/abinit/strain_efg_coupling.py generate \
+  --base runs/glycine_static/glycine_efg.abi \
+  --target-atom-index 1 \
+  --out runs/glycine_strain
+
+bash examples/abinit/run_strain_efg_wsl.sh runs/glycine_strain
+
+PYTHONPATH=src python3 examples/abinit/strain_efg_coupling.py collect \
+  --workdir runs/glycine_strain \
+  --quadmom 0.02044 \
+  --strain-peak 1e-5 \
+  --json runs/glycine_strain/couplings.json \
+  --csv runs/glycine_strain/couplings.csv
+```
+
+Use `--dry-run` on `run_strain_efg_wsl.sh` to ask ABINIT to validate all staged
+inputs without running the full SCF:
+
+```bash
+bash examples/abinit/run_strain_efg_wsl.sh runs/glycine_strain --dry-run
+```
+
+`--target-atom-index` is zero-based.  The generated glycine base input expands
+the `P 21` symmetry operations; for the bundled CIF, `prepare-base` reports two
+equivalent nitrogen candidates, indices `1` and `11`.
+
+The Ubuntu Noble ABINIT package ships glycine-compatible H/C/N/O PAW XML files
+in `Pseudodojo_paw_pw_standard`, but those datasets can stop on PAW-sphere
+overlap for short X-H bonds in molecular crystals.  For exploratory runs, you
+can deliberately allow overlap with, for example:
+
+```bash
+PYTHONPATH=src python3 examples/abinit/strain_efg_coupling.py prepare-base \
+  --out runs/glycine_static/glycine_efg.abi \
+  --pawovlp 25
+```
+
+Treat this as a workaround, not a converged production setting.  For publishable
+EFGs, prefer validating against smaller-radius PAW datasets or an ABINIT build
+with a vetted pseudopotential set.

@@ -5,3 +5,6 @@
 # language bar and show up as "Wolfram Language". It is a one-off supporting
 # calculation, not part of the codebase, so exclude it from the language stats.
 MATLABSpinDynamics/SpinDynamics/code/circsim_new/damped_driven_harmonic_oscillator.nb linguist-vendored
+
+# ABINIT helper scripts are run under WSL/bash and must keep LF line endings.
+QuadrupolarDFT/examples/abinit/*.sh text eol=lf

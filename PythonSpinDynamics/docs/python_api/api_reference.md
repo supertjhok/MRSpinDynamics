@@ -530,6 +530,23 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `b0_powder_average_grid(n_theta: int = 16, n_phi: int = 32, *, b1_direction_pas: np.ndarray | list[float] | tuple[float, float, float] = (1.0, 0.0, 0.0)) -> tuple[OrientationSample, ...]` | Return a powder grid over static-field directions in the PAS. |
 | function | `normalize_orientations(orientations: tuple[OrientationSample, ...] | list[OrientationSample]) -> tuple[OrientationSample, ...]` | Return orientation samples with weights normalized to unity. |
 
+## `spin_dynamics.nqr.piezo_detection`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `PiezoelectricCrystal` | Rectangular piezoelectric sample between full-area electrodes. |
+| class | `PiezoNQRLine` | One quadrupolar transition used by the detection model. |
+| class | `PiezoNQRCoupling` | Strain-to-transition coupling and drive geometry. |
+| class | `PiezoDetectionResult` | Detection estimate for one piezoelectrically driven NQR line. |
+| function | `glycine_crystal_from_cif(path: str | Path, *, thickness_m: float = 0.0005, electrode_area_m2: float = 2.5e-05, d_eff_m_per_v: float = 6.1e-12, relative_permittivity: float = 10.0, sound_velocity_m_s: float = 2500.0, mechanical_q: float = 100.0, mode_shape_factor: float = 0.5) -> PiezoelectricCrystal` | Build glycine crystal parameters from CIF density and formula data. |
+| function | `glycine_site_from_qcc(qcc_hz: float = 1193000.0, eta: float = 0.528) -> QuadrupolarSite` | Return the spin-1 ``14N`` glycine site using the NQRDatabase convention. |
+| function | `default_glycine_nqr_lines() -> tuple[PiezoNQRLine, ...]` | Return glycine ``14N`` lines from the bundled NQRDatabase values. |
+| function | `load_glycine_nqr_lines_from_sqlite(path: str | Path) -> tuple[PiezoNQRLine, ...]` | Load deduplicated glycine ``14N`` lines from an NQRDatabase SQLite export. |
+| function | `resonant_strain_peak(crystal: PiezoelectricCrystal, voltage_rms: float) -> float` | Return peak strain at a resonantly enhanced acoustic antinode. |
+| function | `simulate_piezoelectric_nqr_detection(crystal: PiezoelectricCrystal, line: PiezoNQRLine, coupling: PiezoNQRCoupling | None = None, *, voltage_rms: float = 10.0, detuning_hz: float = 0.0, temperature_k: float = 300.0, spin_temperature_enhancement: float = 1.0, readout_efficiency: float = 1.0, power_noise_density_w_per_sqrt_hz: float = 1e-15, fractional_noise_density_per_sqrt_hz: float = 1e-06, integration_time_seconds: float = 1.0) -> PiezoDetectionResult` | Estimate electrical/acoustic detectability for one NQR transition. |
+| function | `acoustic_strain_energy(crystal: PiezoelectricCrystal, strain_peak: float) -> float` | Return peak standing-wave strain energy for the active volume. |
+| function | `nuclear_absorbed_power(spin_count: float, frequency_hz: float, t1_seconds: float, *, temperature_k: float = 300.0, spin_temperature_enhancement: float = 1.0, saturation_parameter: float = 1.0, spin_dimension: int = 3) -> float` | Return steady resonant power absorbed by a high-temperature transition. |
+
 ## `spin_dynamics.nqr.polarization_enhancement`
 
 | Kind | Name | Summary |

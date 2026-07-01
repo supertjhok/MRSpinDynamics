@@ -419,6 +419,132 @@ Parallelization changes only how ABINIT is launched, not the inputs, so it leave
 all computed quantities (and any relaxed-vs-unrelaxed comparison) unchanged.
 
 % =====================================================================
+\chapter{Finite-Strain EFG Drive Couplings}
+\label{ch:strain}
+
+Piezoelectric NQR drive needs a different DFT derivative from the
+finite-temperature workflow.  Instead of displacing atoms along optical phonon
+normal modes, the experiment applies a macroscopic strain field through the
+piezoelectric crystal.  To first order,
+\[
+  V_{ij}(\boldsymbol\epsilon)
+    \simeq V_{ij}(0)
+      + \sum_{\mu} \frac{\partial V_{ij}}{\partial \epsilon_{\mu}}\,
+        \epsilon_{\mu},
+\]
+where $\mu \in \{xx,yy,zz,yz,xz,xy\}$ is the symmetric strain component in Voigt
+notation.  The transition-drive coefficient is obtained by projecting
+$\partial V_{ij}/\partial\epsilon_\mu$ into the eigenbasis of the equilibrium
+quadrupolar Hamiltonian.  This is the quantity used by the piezoelectric
+drive/detection model in PythonSpinDynamics.
+
+\section{Glycine polymorph guard}
+
+The bundled glycine structure is CCDC~189379, space group \code{P 21}.  This
+non-centrosymmetric polymorph is symmetry-allowed to be piezoelectric, whereas
+centrosymmetric glycine polymorphs are not useful for an electric-field-driven
+piezoelectric transducer.  The CLI therefore performs a CIF metadata check
+before writing jobs:
+
+\begin{lstlisting}
+PYTHONPATH=src python3 examples/abinit/strain_efg_coupling.py check
+\end{lstlisting}
+
+For CCDC~189379, the expanded ABINIT cell contains two symmetry-related nitrogen
+sites.  The zero-based target indices printed by \code{prepare-base} are
+\code{1} and \code{11}; the example below uses index~\code{1}.
+
+\section{Static and strained ABINIT jobs}
+
+The strain workflow begins by preparing a static EFG input directly from the CIF.
+On Ubuntu's packaged ABINIT~9.10.4 PAW set, the glycine H/C/N/O XML files are in
+\code{Pseudodojo\_paw\_pw\_standard}.  Those PAW spheres overlap on short X--H
+bonds, so the exploratory run used \code{pawovlp 25}; production calculations
+should replace this with smaller-radius PAW datasets or a validated
+pseudopotential choice.
+
+\begin{lstlisting}
+PYTHONPATH=src python3 examples/abinit/strain_efg_coupling.py prepare-base \
+  --out runs/glycine_static/glycine_efg.abi \
+  --pawovlp 25
+
+bash examples/abinit/run_static_efg_wsl.sh \
+  runs/glycine_static/glycine_efg.abi
+\end{lstlisting}
+
+After the static input is validated, the generator writes the equilibrium plus
+central-difference strained structures:
+
+\begin{lstlisting}
+PYTHONPATH=src python3 examples/abinit/strain_efg_coupling.py generate \
+  --base runs/glycine_static/glycine_efg.abi \
+  --target-atom-index 1 \
+  --out runs/glycine_strain
+
+bash examples/abinit/run_strain_efg_wsl.sh runs/glycine_strain
+\end{lstlisting}
+
+The collection step parses each \code{.abo}, finite-differences the target
+nucleus EFG tensor, diagonalizes the equilibrium spin-1 Hamiltonian, and writes
+JSON/CSV coupling tables:
+
+\begin{lstlisting}
+PYTHONPATH=src python3 examples/abinit/strain_efg_coupling.py collect \
+  --workdir runs/glycine_strain \
+  --quadmom 0.02044 \
+  --strain-peak 1e-5 \
+  --json runs/glycine_strain/couplings.json \
+  --csv runs/glycine_strain/couplings.csv
+\end{lstlisting}
+
+\section{First-pass glycine result}
+
+The exploratory glycine calculation completed all 13 jobs (equilibrium plus
+$\pm$ strains for six components).  The equilibrium EFG at the target nitrogen
+was
+\[
+  (V_{xx},V_{yy},V_{zz})
+    = (-1.9249,-1.2972,3.2221)\times 10^{21}\ \mathrm{V/m^2},
+  \qquad \eta = 0.1948,
+\]
+corresponding to $\Cq = 1.5925$\,MHz for $^{14}$N.  The NQRDatabase glycine
+amine-$^{14}$N entry is $\Cq=1.193$\,MHz and $\eta=0.528$, with observed lines at
+737 and 1052\,kHz.  Thus the DFT run captures the MHz scale but makes the tensor
+too axial; absolute frequencies are not yet production quality.
+
+\begin{table}[htbp]
+\centering
+\begin{tabular}{llrrr}
+\toprule
+Transition & Best strain & Frequency (kHz) & Coupling (MHz/strain) &
+Rabi at $10^{-5}$ strain (Hz) \\
+\midrule
+$1\to2$ & $xz$ & 155.124 & 1.456 & 7.28 \\
+$0\to1$ & $yy$ & 1116.801 & 1.844 & 9.22 \\
+$0\to2$ & $xz$ & 1271.924 & 2.189 & 10.95 \\
+\bottomrule
+\end{tabular}
+\caption{Strongest projected quadrupolar drive coefficients from the first-pass
+glycine finite-strain calculation.  The Rabi rate assumes a peak acoustic strain
+of $10^{-5}$.}
+\label{tab:glycine-strain-drive}
+\end{table}
+
+For the experimental two-line glycine model in PythonSpinDynamics, the strongest
+DFT coefficients are mapped onto the observed lower and upper lines as practical
+drive estimates: the lower 737\,kHz line uses the $yy$-driven $0\to1$ coefficient
+($1.844$\,MHz/strain), and the upper 1052\,kHz line uses the $xz$-driven
+$0\to2$ coefficient ($2.189$\,MHz/strain).  This keeps the detection model tied
+to measured frequencies while using DFT-scale electric-field-gradient
+derivatives.
+
+\textbf{Reliability checklist.} Before using these couplings as design numbers,
+repeat the workflow with converged \code{ecut}, \code{pawecutdg}, and
+\code{ngkpt}; relax at least the hydrogen positions or use a neutron-quality
+structure; verify the symmetry-related nitrogen index~\code{11}; and remove or
+quantify the effect of \code{pawovlp 25}.
+
+% =====================================================================
 \chapter{Worked Example: NaNO$_2$ $^{14}$N}
 
 Sodium nitrite is the reference case for the workspace: its $^{14}$N parameters
@@ -535,6 +661,20 @@ $\Cq \leftrightarrow \nu_{\mathrm Q}$ conversion used by the simulator.
     \code{vibrational\_modes\_from\_efg}, \code{efg\_tensor\_from\_record}.
   \item \code{phonon\_dfpt\_input}, \code{anaddb\_input},
     \code{parse\_anaddb\_modes}, \code{modes\_from\_arrays}.
+\end{itemize}
+
+\section{quadrupolar\_dft.strain\_coupling}
+\begin{itemize}
+  \item \code{generate\_strain\_jobs}, \code{write\_strain\_jobs} --- central
+    finite-difference homogeneous strain inputs.
+  \item \code{collect\_strain\_derivatives} --- parse strained EFG outputs and
+    compute $\partial V_{ij}/\partial\epsilon_\mu$.
+  \item \code{strain\_transition\_couplings} --- project strain derivatives onto
+    spin-1 quadrupolar transition matrix elements.
+  \item \code{glycine\_static\_efg\_input\_from\_cif},
+    \code{cif\_structure\_metadata},
+    \code{space\_group\_is\_likely\_centrosymmetric} --- glycine setup and
+    polymorph guards for piezoelectric work.
 \end{itemize}
 
 \section{quadrupolar\_dft.relax}

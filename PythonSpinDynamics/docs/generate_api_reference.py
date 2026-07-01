@@ -55,6 +55,7 @@ MODULES = [
     "nqr.model_selection",
     "nqr.operators",
     "nqr.orientations",
+    "nqr.piezo_detection",
     "nqr.polarization_enhancement",
     "nqr.pulses",
     "nqr.relaxation",
@@ -179,7 +180,9 @@ def _module_symbols(path: Path) -> list[Symbol]:
         elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and _is_public(
             node.name
         ):
-            symbols.append(Symbol("function", node.name, _signature(node), _summary(node)))
+            symbols.append(
+                Symbol("function", node.name, _signature(node), _summary(node))
+            )
     return symbols
 
 
