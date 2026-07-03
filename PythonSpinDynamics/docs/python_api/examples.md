@@ -735,6 +735,24 @@ both spin-1 and spin-3/2 sites.
 Use `--n-chi` and `--b1-b0-angle` to control the correlated weak-field powder
 average between the static field and RF field.
 
+`plot_nqr_slse_sorc_sensitivity.py` compares the SNR per unit time of SLSE and
+steady-state SORC honestly, and finds them *comparable* rather than the often-quoted
+`sqrt(T1/T2e)` SORC win (which is an artifact of a T1-independent steady-state
+model). It grounds the comparison in a real material, `14N` in NaNO2: `T1` and the
+spin-locked `T2e` emerge from a microscopic dipolar Redfield model built from the
+actual neighbour spins, and the fast reversible `T2*` is the Van Vleck rigid-lattice
+second moment of the same neighbour list (~1 ms here, weak because `14N` has a small
+gyromagnetic ratio). Sweeping the correlation time `tau_c` (the temperature knob)
+walks the sample over `T1/T2e ~ 1` to `100`. Both sequences are propagated in one
+common full density-matrix framework from the same equilibrium and detection
+operator (the SORC steady state is the affine fixed point of its cycle with an
+equilibrium-target source, so it carries `T1` correctly), read with a matched-filter
+`sqrt(energy)` SNR, and fully optimized over flip, offset, and spacing. On a single
+crystal the two stay within ~15% across the whole range (mild crossover near
+`T1/T2e ~ 5`); on a powder SORC pulls modestly ahead (~1.1-1.3x) because its
+small-tip steady state is far more uniform across crystallite orientations than the
+SLSE 90/180 echo, whose refocusing efficiency has orientation-dependent nulls.
+
 The full density-matrix model adds spin-3/2 (chlorine-style) examples:
 `plot_nqr_full_powder_nutation.py` overlays the spin-1 and spin-3/2 powder
 nutation curves, and `plot_nqr_spin32_slse.py` runs the `35Cl` powder SLSE echo
@@ -804,6 +822,7 @@ python examples\plot_nqr_powder_nutation.py --output results\nqr_powder_nutation
 python examples\plot_nqr_population_transfer.py --output results\nqr_population_transfer.png
 python examples\plot_nqr_slse_offset.py --output results\nqr_slse_offset.png
 python examples\plot_nqr_slse_spacing.py --output results\nqr_slse_spacing.png
+python examples\plot_nqr_slse_sorc_sensitivity.py --output results\nqr_slse_sorc_sensitivity.png
 python examples\plot_nqr_efg_broadening.py --output results\nqr_efg_broadening.png
 python examples\plot_nqr_temperature_broadening.py --output results\nqr_temperature_broadening.png
 python examples\plot_nqr_slse_efg_broadening.py --output results\nqr_slse_efg_broadening.png
