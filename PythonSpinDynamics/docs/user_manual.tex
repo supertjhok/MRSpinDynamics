@@ -1935,6 +1935,40 @@ spin-1 powder FID pulse-width response. The example
 markers with the infinite-\(N\) theory curves for the offset, spacing, and
 pulse-width sweeps in the paper.
 
+\subsection{Sensitivity per Unit Time: SLSE vs.\ Steady-State SORC}
+
+The two schemes trade off very differently against relaxation. The figure of
+merit is SNR per unit \(\sqrt{\text{time}}\), because averaging \(N\)
+acquisitions improves SNR as \(\sqrt{N}\) with \(N = T/t_{\text{scan}}\). SLSE
+excites the full magnetization, matched-filters a decaying echo train of energy
+\(E \sim \sqrt{T_{2e}/2t_E}\), then waits a repetition time \(T_R\) for
+longitudinal recovery, giving
+
+\[
+  S_{\mathrm{SLSE}} \propto E\,(1-e^{-T_R/T_1})/\sqrt{T_R},
+\]
+
+whose optimum over \(T_R\) (peak of \((1-e^{-x})/\sqrt{x}\) at \(x^\star\approx
+1.256\)) carries the classic \(1/\sqrt{T_1}\) penalty. SORC pulses continuously
+and settles into a steady state that emits signal \(a_{ss}\) every cycle
+\(t_c\) with a near-unity duty cycle, so \(S_{\mathrm{SORC}} \propto
+a_{ss}/\sqrt{t_c}\), independent of \(T_1\) for \(t_c \ll T_{2e} \ll T_1\). The
+ratio therefore grows as
+
+\[
+  \frac{S_{\mathrm{SORC}}}{S_{\mathrm{SLSE}}} \propto \sqrt{T_1/T_{2e}},
+\]
+
+because the SLSE duty cycle collapses to \(\sim T_{2e}/T_1\) while SORC stays near
+one. \code{examples/plot\_nqr\_slse\_sorc\_sensitivity.py} quantifies this for a
+single crystal and a powder, reproducing the \(\sqrt{T_1/T_{2e}}\) law (fitted
+log-log slope \(0.50\)). It evaluates the SLSE echo train with the full
+density-matrix \code{simulate\_full\_slse} -- essential for the powder, where the
+embedded two-level \code{simulate\_slse} lets per-orientation coherences dephase
+and under-reports the train -- and the SORC steady state with the reduced Konnai
+pathway, normalizing each scheme to its own model's single-pulse coil signal so
+the ratio is a true physical sensitivity ratio.
+
 \section{EFG Inhomogeneity and SLSE Spectra}
 
 Static EFG disorder is modeled as an isochromat ensemble of independent

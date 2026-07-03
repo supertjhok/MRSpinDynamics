@@ -735,6 +735,19 @@ both spin-1 and spin-3/2 sites.
 Use `--n-chi` and `--b1-b0-angle` to control the correlated weak-field powder
 average between the static field and RF field.
 
+`plot_nqr_slse_sorc_sensitivity.py` quantifies why steady-state SORC beats SLSE
+in SNR per unit time when `T1/T2e` is large. Both schemes draw signal from the
+same equilibrium magnetization, but SLSE must wait `~T1` for longitudinal
+recovery between scans while SORC pulses continuously at a near-unity duty cycle.
+The example takes the SLSE echo train from `simulate_slse` and the SORC
+steady-state amplitude from `simulate_sorc(model="steady_state")` (same
+`transition_signal` amplitude convention), layers on a matched-filter
+SNR-per-sqrt-time model with an optimized SLSE repetition time and echo count,
+and sweeps `T1/T2e` for a single crystal and a powder. It reproduces the analytic
+`sqrt(T1/T2e)` advantage law (fitted log-log slope 0.50), plots the collapsing
+SLSE duty cycle that drives it, and shows the SORC off-resonance operating point
+with its Konnai `delta_omega*tau = n*pi` nulls.
+
 The full density-matrix model adds spin-3/2 (chlorine-style) examples:
 `plot_nqr_full_powder_nutation.py` overlays the spin-1 and spin-3/2 powder
 nutation curves, and `plot_nqr_spin32_slse.py` runs the `35Cl` powder SLSE echo
@@ -804,6 +817,7 @@ python examples\plot_nqr_powder_nutation.py --output results\nqr_powder_nutation
 python examples\plot_nqr_population_transfer.py --output results\nqr_population_transfer.png
 python examples\plot_nqr_slse_offset.py --output results\nqr_slse_offset.png
 python examples\plot_nqr_slse_spacing.py --output results\nqr_slse_spacing.png
+python examples\plot_nqr_slse_sorc_sensitivity.py --output results\nqr_slse_sorc_sensitivity.png
 python examples\plot_nqr_efg_broadening.py --output results\nqr_efg_broadening.png
 python examples\plot_nqr_temperature_broadening.py --output results\nqr_temperature_broadening.png
 python examples\plot_nqr_slse_efg_broadening.py --output results\nqr_slse_efg_broadening.png
