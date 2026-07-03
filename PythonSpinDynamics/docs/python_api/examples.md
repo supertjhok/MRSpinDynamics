@@ -789,6 +789,13 @@ survives around the resonance, while the per-bin Wiener canceller removes it and
 recovers the in-band NQR echo without bias. The panels overlay the recovered
 transfer on the true coupling response and plot the multiple-coherence spectrum,
 which reads out which frequencies the reference can explain.
+`plot_nqr_rfi_kalman_tracker.py` demonstrates the reference-free
+`kalman_harmonic_canceller`. With no reference channel, it tracks the slowly
+drifting complex amplitude of an in-band AM carrier with a Kalman filter and
+subtracts it, freezing its updates during the SLSE echo windows so it coasts
+through the NQR response. The panels show the tracked envelope against the true
+amplitude modulation and the spectrum before and after, where the carrier peak is
+notched out while the nearby NQR line survives.
 
 ```powershell
 python examples\plot_nqr_powder_nutation.py --output results\nqr_powder_nutation.png
@@ -808,6 +815,7 @@ python examples\plot_nqr_rfi_statistical_study.py --output results\nqr_rfi_stati
 python examples\plot_nqr_rfi_robust_impulsive.py --output results\nqr_rfi_robust_impulsive.png
 python examples\plot_nqr_rfi_active_feedforward.py --output results\nqr_rfi_active_feedforward.png
 python examples\plot_nqr_rfi_frequency_domain.py --output results\nqr_rfi_frequency_domain.png
+python examples\plot_nqr_rfi_kalman_tracker.py --output results\nqr_rfi_kalman_tracker.png
 ```
 
 ## Radiation Damping

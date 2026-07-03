@@ -53,6 +53,7 @@ MODULES = [
     "interference.diagnostics",
     "interference.masks",
     "interference.sources",
+    "interference.trackers",
     "motion",
     "noise",
     "nqr.full_dynamics",

@@ -290,6 +290,7 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_nqr_rfi_robust_impulsive.py",
             "examples/plot_nqr_rfi_active_feedforward.py",
             "examples/plot_nqr_rfi_frequency_domain.py",
+            "examples/plot_nqr_rfi_kalman_tracker.py",
             "examples/plot_redfield_nano2_slse.py",
             "examples/plot_redfield_water_cpmg.py",
             "examples/plot_bpp_water_t1t2_temperature.py",
@@ -536,6 +537,10 @@ class ExampleSmokeTests(unittest.TestCase):
         self.assertIn("--segment-length", result.stdout)
         self.assertIn("--resonance-khz", result.stdout)
         self.assertIn("--fir-taps", result.stdout)
+        result = run_example("examples/plot_nqr_rfi_kalman_tracker.py", "--help")
+        self.assertIn("--carrier-khz", result.stdout)
+        self.assertIn("--process-std", result.stdout)
+        self.assertIn("--drift-depth", result.stdout)
         result = run_example("examples/plot_redfield_nano2_slse.py", "--help")
         self.assertIn("--correlation-us", result.stdout)
         self.assertIn("--neighbor-radius-a", result.stdout)

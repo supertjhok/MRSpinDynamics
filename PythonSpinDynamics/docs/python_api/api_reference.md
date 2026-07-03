@@ -493,6 +493,12 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `MagneticDipoleSource` | A near-field magnetic-dipole RFI source with a ``1/r**3`` pattern. |
 | function | `total_field(sources: list[RFISource] | tuple[RFISource, ...], positions: np.ndarray) -> np.ndarray` | Return the summed field ``(P, 3, N)`` of several sources at ``positions``. |
 
+## `spin_dynamics.interference.trackers`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `kalman_harmonic_canceller(primary: np.ndarray, frequencies_hz: np.ndarray | list[float] | tuple[float, ...], sample_rate_hz: float, *, update_mask: np.ndarray | None = None, process_std: float = 0.001, measurement_std: float = 1.0, initial_amplitude_std: float = 1.0) -> CancellationResult` | Track and subtract drifting narrowband carriers with a Kalman filter. |
+
 ## `spin_dynamics.motion`
 
 | Kind | Name | Summary |

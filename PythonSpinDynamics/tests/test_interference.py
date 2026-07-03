@@ -29,6 +29,7 @@ from spin_dynamics.interference import (
     frequency_domain_canceller,
     gated_ridge_fir_canceller,
     joint_signal_reference_canceller,
+    kalman_harmonic_canceller,
     mask_from_intervals,
     matched_filter_snr_improvement,
     reference_design_diagnostics,
@@ -716,6 +717,90 @@ class NQRMaskAdapterTests(unittest.TestCase):
         )
         mask = sorc_acquisition_mask(seq, 1e6, initial_gap_is_baseline=False)
         self.assertTrue(np.all(mask.signal_mask[:40]))
+
+
+class KalmanHarmonicTrackerTests(unittest.TestCase):
+    @staticmethod
+    def _rms(values):
+        return float(np.sqrt(np.mean(np.abs(values) ** 2)))
+
+    def test_tracks_and_removes_stationary_tone(self):
+        fs = 2_000.0
+        n = 2000
+        t = np.arange(n) / fs
+        y = 1.5 * np.cos(2 * np.pi * 200.0 * t + 0.7)
+
+        result = kalman_harmonic_canceller(
+            y, [200.0], fs, process_std=1e-4, measurement_std=0.1
+        )
+
+        self.assertLess(self._rms(result.cleaned[500:]), 0.02 * self._rms(y))
+        self.assertEqual(result.coefficient_history.shape, (n, 1))
+
+    def test_tracks_amplitude_modulated_carrier(self):
+        rng = np.random.default_rng(41)
+        fs = 5_000.0
+        n = 5000
+        t = np.arange(n) / fs
+        drift = np.cumsum(rng.normal(scale=0.01, size=n))
+        drift = np.convolve(drift, np.ones(51) / 51.0, mode="same")
+        envelope = 1.0 + 0.5 * drift
+        y = envelope * np.cos(2 * np.pi * 800.0 * t)
+
+        result = kalman_harmonic_canceller(
+            y, [800.0], fs, process_std=5e-3, measurement_std=0.2
+        )
+
+        self.assertLess(self._rms(result.cleaned[800:]), 0.1 * self._rms(y[800:]))
+
+    def test_frozen_updates_preserve_signal_burst(self):
+        fs = 4_000.0
+        n = 4000
+        t = np.arange(n) / fs
+        carrier = 2.0 * np.cos(2 * np.pi * 150.0 * t)
+        burst = np.zeros(n)
+        burst[1800:2200] = 1.0 * np.hanning(400) * np.cos(2 * np.pi * 600.0 * t[1800:2200])
+        y = carrier + burst
+        update = np.ones(n, dtype=bool)
+        update[1750:2250] = False
+
+        result = kalman_harmonic_canceller(
+            y, [150.0], fs, update_mask=update, process_std=1e-3, measurement_std=0.2
+        )
+
+        region = slice(1800, 2200)
+        recovered = np.real(result.cleaned[region])
+        # The burst survives; the carrier is suppressed around it.
+        self.assertGreater(np.corrcoef(recovered, burst[region])[0, 1], 0.9)
+        self.assertLess(self._rms(result.cleaned[500:1500]), 0.1 * self._rms(carrier))
+        frozen = result.coefficient_history[1750:2250]
+        np.testing.assert_allclose(
+            frozen, np.repeat(frozen[0:1], frozen.shape[0], axis=0), atol=1e-12
+        )
+
+    def test_tracks_multiple_carriers(self):
+        fs = 4_000.0
+        n = 4000
+        t = np.arange(n) / fs
+        y = np.cos(2 * np.pi * 300.0 * t) + 0.7 * np.cos(2 * np.pi * 900.0 * t + 1.1)
+
+        result = kalman_harmonic_canceller(
+            y, [300.0, 900.0], fs, process_std=1e-4, measurement_std=0.1
+        )
+
+        self.assertEqual(result.coefficient_history.shape, (n, 2))
+        self.assertLess(self._rms(result.cleaned[600:]), 0.03 * self._rms(y))
+
+    def test_validation(self):
+        y = np.ones(64)
+        with self.assertRaises(ValueError):
+            kalman_harmonic_canceller(y + 1j, [100.0], 1_000.0)
+        with self.assertRaises(ValueError):
+            kalman_harmonic_canceller(y, [], 1_000.0)
+        with self.assertRaises(ValueError):
+            kalman_harmonic_canceller(y, [100.0], 1_000.0, process_std=0.0)
+        with self.assertRaises(ValueError):
+            kalman_harmonic_canceller(y, [100.0], 1_000.0, update_mask=np.ones(10, bool))
 
 
 class ActiveFeedforwardTests(unittest.TestCase):

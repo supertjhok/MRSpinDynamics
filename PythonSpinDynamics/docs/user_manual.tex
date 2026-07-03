@@ -2109,6 +2109,20 @@ which parts of the band are cancellable. Application is exact for a pass-through
 and approximate when the coupling impulse response approaches the segment length
 (per-segment circular convolution); the first and last segment are edge-tapered.
 
+All of the above need a correlated reference. When the interferer is narrowband
+and no clean reference exists, \code{kalman\_harmonic\_canceller} exploits its
+structure directly. Each carrier \(f_j\) is modelled as
+\(I_j\cos(\omega_j n) - Q_j\sin(\omega_j n)\) with the quadratures
+\([I_j, Q_j]\) following a random walk, and a Kalman filter tracks them from the
+(scalar) primary. The subtracted estimate is the \emph{a priori} prediction, so
+the current sample's NQR content never enters the carrier estimate, and
+measurement updates are frozen wherever \code{update\_mask} is false, letting the
+tracker coast through the echo windows rather than absorb them. The knobs are the
+process standard deviation (how fast the amplitude may drift) and the measurement
+standard deviation (the observation-noise scale). Because it needs only the
+carrier frequencies, it removes a drifting amplitude-modulated broadcast line
+sitting on top of the NQR line with no reference channel at all.
+
 \subsection{Echo-Aware Joint Fitting}
 
 For SLSE, the echo train itself has strong temporal structure. Reference-only
@@ -4400,6 +4414,7 @@ from spin_dynamics.interference import (
     gated_ridge_fir_canceller,
     robust_fir_canceller,
     frequency_domain_canceller,
+    kalman_harmonic_canceller,
     windowed_ridge_fir_canceller,
     adaptive_lms_canceller,
     adaptive_rls_canceller,
@@ -4436,6 +4451,7 @@ Object & Purpose \\
 \code{scalar\_canceller}, \code{gated\_ridge\_fir\_canceller} & Stationary masked least-squares reference cancellers. \\
 \code{robust\_fir\_canceller} & Outlier-robust Huber IRLS reference canceller for impulsive switching-transient pickup. \\
 \code{frequency\_domain\_canceller} & Per-frequency multi-reference Wiener canceller (WOLA) for frequency-dependent coupling; returns the transfer and coherence spectra. \\
+\code{kalman\_harmonic\_canceller} & Reference-free Kalman tracker of drifting narrowband carriers, with mask-aware update freezing. \\
 \code{windowed\_ridge\_fir\_canceller} & Offline RFI canceller with one regularized reference transfer function per time window. \\
 \code{adaptive\_lms\_canceller}, \code{adaptive\_rls\_canceller} & Mask-aware adaptive cancellers whose coefficient updates can freeze during signal windows. \\
 \code{joint\_signal\_reference\_canceller} & Fixed joint fit of reference-derived RFI and a supplied signal basis. \\

@@ -574,9 +574,12 @@ The source layer models **both** limiting cases the note calls out:
   a per-bin multi-reference transfer from averaged cross-spectra and applies it by
   weighted overlap-add, for strongly frequency-dependent (resonant, long
   impulse-response) coupling; it also returns the multiple-coherence spectrum as a
-  cancellability diagnostic. Follow-ons include compact parametric AM/Kalman
-  trackers, sparse/low-rank decompositions for impulsive pickup, and
-  simulator-trained or self-supervised ANN denoisers.
+  cancellability diagnostic. A reference-free parametric tracker
+  (`kalman_harmonic_canceller`, `interference/trackers.py`) follows the drifting
+  complex amplitude of narrowband carriers with a Kalman filter and subtracts
+  them, freezing updates in the signal gaps -- for AM broadcast lines with no
+  clean reference. Follow-ons include sparse/low-rank decompositions for impulsive
+  pickup and simulator-trained or self-supervised ANN denoisers.
 - **Phase 4 — diagnostics + active cancellation** (`interference/diagnostics.py`):
   dB suppression in gaps, matched-filter SNR before/after (reusing
   `noise.estimate_matched_filter_snr`), amplitude/phase bias, residual lines,
@@ -611,7 +614,7 @@ The source layer models **both** limiting cases the note calls out:
   T2e, better heavy-tail handling for failed decay fits, and stronger priors on
   the echo envelope.
 
-**Status:** Phases 0–5 are all implemented (54 tests in
+**Status:** Phases 0–5 are all implemented (59 tests in
 `tests/test_interference.py`, ruff clean). Phase 0–2 provide the masks, vector
 sources, reference coils, and the SLSE/SORC mask adapter. Phase 3 cancellers
 cover the full ladder: fixed gated least-squares for stationary coupling,
@@ -619,8 +622,9 @@ adaptive LMS/NLMS/RLS for time-varying AM-like coupling (coefficient updates
 frozen outside trusted windows), offline windowed ridge for non-real-time
 cleanup, joint signal/reference fits that separate an SLSE echo basis from
 reference-correlated RFI, a Huber IRLS robust FIR for impulsive
-switching-transient pickup, and a frequency-domain Wiener canceller for
-frequency-dependent coupling (with a coherence-spectrum diagnostic). Phase 4
+switching-transient pickup, a frequency-domain Wiener canceller for
+frequency-dependent coupling (with a coherence-spectrum diagnostic), and a
+reference-free Kalman harmonic tracker for drifting narrowband carriers. Phase 4
 diagnostics provide suppression, matched-
 filter SNR improvement, signal bias, residual lines, design-matrix conditioning,
 saturation flags, and the reference-noise-injection ("canceller noise figure")

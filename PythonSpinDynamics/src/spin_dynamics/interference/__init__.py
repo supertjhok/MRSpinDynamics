@@ -11,8 +11,10 @@ synthetic RFI sources -- uniform far-field and near-field dipole -- with their
 temporal waveforms (:mod:`~spin_dynamics.interference.sources`), the
 reference-coil pickup model (:mod:`~spin_dynamics.interference.coils`), the
 cancellers that consume ``(y, X, mask)`` -- fixed gated/robust least squares,
-offline windowed and joint signal/reference fits, and adaptive LMS/NLMS/RLS
-(:mod:`~spin_dynamics.interference.cancellers`), the diagnostics that score a
+offline windowed and joint signal/reference fits, adaptive LMS/NLMS/RLS, and a
+per-frequency Wiener canceller (:mod:`~spin_dynamics.interference.cancellers`),
+the reference-free parametric Kalman harmonic tracker
+(:mod:`~spin_dynamics.interference.trackers`), the diagnostics that score a
 cancellation -- suppression, matched-filter SNR, signal bias, residual lines,
 design conditioning, injected reference noise, and saturation
 (:mod:`~spin_dynamics.interference.diagnostics`), and the active feedforward path
@@ -71,6 +73,9 @@ from spin_dynamics.interference.masks import (
     blank_mask,
     mask_from_intervals,
 )
+from spin_dynamics.interference.trackers import (
+    kalman_harmonic_canceller,
+)
 from spin_dynamics.interference.sources import (
     MagneticDipoleSource,
     RFISource,
@@ -121,6 +126,7 @@ __all__ = [
     "gated_ridge_fir_canceller",
     "impulsive_waveform",
     "joint_signal_reference_canceller",
+    "kalman_harmonic_canceller",
     "matched_filter_snr_improvement",
     "mask_from_intervals",
     "reference_design_diagnostics",
