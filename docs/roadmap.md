@@ -646,8 +646,10 @@ reference-count scaling, including the echo-aware joint fit),
 ADC saturation), `plot_nqr_rfi_frequency_domain.py` (resonant coupling: scalar <
 FIR < frequency-domain, with the coherence spectrum), and
 `plot_nqr_rfi_kalman_tracker.py` (reference-free removal of a drifting in-band AM
-carrier). Remaining named follow-ons: ANN denoisers and
-Numba acceleration of the adaptive loops.
+carrier). The adaptive LMS/RLS inner loops are now Numba-accelerated
+(`interference/_numba_cancellers.py`, opt-in with a NumPy fallback and a
+pure-Python parity test). The one remaining named follow-on is
+simulator-trained / self-supervised ANN denoisers.
 
 ### Cross-cutting note
 

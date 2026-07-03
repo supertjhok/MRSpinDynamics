@@ -594,6 +594,45 @@ class CancellerTests(unittest.TestCase):
         self.assertLess(float(np.sqrt(np.mean(np.abs(result.sparse_component) ** 2))), 1e-9)
         np.testing.assert_allclose(result.coefficients, ridge.coefficients, atol=1e-6)
 
+    def test_numba_kernels_match_numpy_paths(self):
+        from spin_dynamics.interference import _numba_cancellers as nk
+        from spin_dynamics.interference.cancellers import (
+            _initial_coefficients,
+            _tapped_design,
+        )
+
+        rng = np.random.default_rng(61)
+        n = 300
+        x = rng.normal(size=(2, n)) + 1j * rng.normal(size=(2, n))
+        y = (rng.normal(size=n) + 1j * rng.normal(size=n)).astype(np.complex128)
+        update = np.ones(n, dtype=bool)
+        update[100:150] = False
+        design = _tapped_design(x, 2)
+        update_u8 = update.astype(np.uint8)
+
+        lms_ref = adaptive_lms_canceller(y, x, update, taps=2, step=0.3, normalized=True)
+        predicted, history = nk.lms_kernel(
+            design, y, update_u8, 0.3, True, 1e-12, 0.0,
+            _initial_coefficients(None, 2, 2).copy(),
+        )
+        np.testing.assert_allclose(predicted, lms_ref.predicted, atol=1e-12)
+        np.testing.assert_allclose(
+            history.reshape(n, 2, 2), lms_ref.coefficient_history, atol=1e-12
+        )
+
+        rls_ref = adaptive_rls_canceller(
+            y, x, update, taps=2, forgetting=0.99, initial_covariance=100.0
+        )
+        predicted_r, history_r = nk.rls_kernel(
+            design, y, update_u8, complex(0.99),
+            _initial_coefficients(None, 2, 2).copy(),
+            (100.0 * np.eye(4, dtype=np.complex128)).copy(),
+        )
+        np.testing.assert_allclose(predicted_r, rls_ref.predicted, atol=1e-9)
+        np.testing.assert_allclose(
+            history_r.reshape(n, 2, 2), rls_ref.coefficient_history, atol=1e-9
+        )
+
     def test_sparse_canceller_validation(self):
         x = np.ones(64)
         with self.assertRaises(ValueError):

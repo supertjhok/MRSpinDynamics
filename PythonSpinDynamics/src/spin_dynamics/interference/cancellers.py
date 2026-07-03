@@ -35,6 +35,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from spin_dynamics.interference import _numba_cancellers as _nk
+
 
 @dataclass(frozen=True)
 class CancellationResult:
@@ -785,16 +787,23 @@ def adaptive_lms_canceller(
     update = _mask(update_mask, y.size, "update_mask")
     design = _tapped_design(x, taps)
     coeff = _initial_coefficients(initial_coefficients, x.shape[0], taps)
-    predicted = np.zeros_like(y)
-    history = np.zeros((y.size, coeff.size), dtype=np.complex128)
 
-    for idx, phi in enumerate(design):
-        predicted[idx] = phi @ coeff
-        error = y[idx] - predicted[idx]
-        if update[idx]:
-            scale = epsilon + float(np.vdot(phi, phi).real) if normalized else 1.0
-            coeff = (1.0 - leak) * coeff + (step / scale) * phi.conj() * error
-        history[idx] = coeff
+    if _nk.NUMBA_AVAILABLE:
+        state = coeff.copy()
+        predicted, history = _nk.lms_kernel(
+            design, y, update.astype(np.uint8), step, bool(normalized), epsilon, leak, state
+        )
+        coeff = state
+    else:
+        predicted = np.zeros_like(y)
+        history = np.zeros((y.size, coeff.size), dtype=np.complex128)
+        for idx, phi in enumerate(design):
+            predicted[idx] = phi @ coeff
+            error = y[idx] - predicted[idx]
+            if update[idx]:
+                scale = epsilon + float(np.vdot(phi, phi).real) if normalized else 1.0
+                coeff = (1.0 - leak) * coeff + (step / scale) * phi.conj() * error
+            history[idx] = coeff
 
     return CancellationResult(
         cleaned=y - predicted,
@@ -834,19 +843,26 @@ def adaptive_rls_canceller(
     design = _tapped_design(x, taps)
     coeff = _initial_coefficients(initial_coefficients, x.shape[0], taps)
     covariance = initial_covariance * np.eye(coeff.size, dtype=np.complex128)
-    predicted = np.zeros_like(y)
-    history = np.zeros((y.size, coeff.size), dtype=np.complex128)
 
-    for idx, phi in enumerate(design):
-        predicted[idx] = phi @ coeff
-        error = y[idx] - predicted[idx]
-        if update[idx]:
-            p_phi = covariance @ phi.conj()
-            denom = forgetting + phi @ p_phi
-            gain = p_phi / denom
-            coeff = coeff + gain * error
-            covariance = (covariance - np.outer(gain, phi @ covariance)) / forgetting
-        history[idx] = coeff
+    if _nk.NUMBA_AVAILABLE:
+        state = coeff.copy()
+        predicted, history = _nk.rls_kernel(
+            design, y, update.astype(np.uint8), complex(forgetting), state, covariance.copy()
+        )
+        coeff = state
+    else:
+        predicted = np.zeros_like(y)
+        history = np.zeros((y.size, coeff.size), dtype=np.complex128)
+        for idx, phi in enumerate(design):
+            predicted[idx] = phi @ coeff
+            error = y[idx] - predicted[idx]
+            if update[idx]:
+                p_phi = covariance @ phi.conj()
+                denom = forgetting + phi @ p_phi
+                gain = p_phi / denom
+                coeff = coeff + gain * error
+                covariance = (covariance - np.outer(gain, phi @ covariance)) / forgetting
+            history[idx] = coeff
 
     return CancellationResult(
         cleaned=y - predicted,
