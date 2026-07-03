@@ -53,6 +53,7 @@ class CancellationResult:
     transfer_function: np.ndarray | None = None
     coherence: np.ndarray | None = None
     frequencies: np.ndarray | None = None
+    sparse_component: np.ndarray | None = None
 
 
 @dataclass(frozen=True)
@@ -661,6 +662,92 @@ def windowed_joint_signal_reference_canceller(
         coefficient_history=history,
         signal_estimate=signal_estimate,
         signal_coefficients=signal_coeff,
+    )
+
+
+def _soft_threshold(values: np.ndarray, penalty: float) -> np.ndarray:
+    """Complex soft-threshold (vector shrinkage) toward zero by ``penalty``."""
+
+    magnitude = np.abs(values)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        scale = np.where(magnitude > penalty, 1.0 - penalty / magnitude, 0.0)
+    return values * scale
+
+
+def sparse_reference_canceller(
+    primary: np.ndarray,
+    references: np.ndarray,
+    fit_mask: np.ndarray,
+    *,
+    sparse_penalty: float,
+    taps: int = 1,
+    ridge: float = 0.0,
+    max_iter: int = 50,
+    tol: float = 1.0e-6,
+) -> CancellationResult:
+    """Split the primary into reference-explained RFI plus a sparse impulse term.
+
+    The robust FIR (:func:`robust_fir_canceller`) keeps impulsive outliers from
+    biasing the fitted transfer, but the impulses themselves remain in the
+    cleaned output. This canceller instead *models* them: it minimises
+
+        ||y - D h - s||^2 (on the fit set) + ridge ||h||^2 + sparse_penalty ||s||_1
+
+    by alternating a ridge least-squares update of the FIR coefficients ``h``
+    (fitted on ``fit_mask`` with ``s`` removed, so the coherent transfer stays
+    unbiased) with a soft-threshold update of the sparse impulse estimate ``s``
+    over the whole record. ``sparse_penalty`` sets the impulse threshold: choose
+    it above the NQR echo amplitude and below the switching-transient amplitude,
+    so the bursts are captured while the signal passes through.
+
+    ``cleaned`` removes both the coherent RFI ``D h`` and the impulses ``s``;
+    ``sparse_component`` returns the estimated impulse train, and ``predicted``
+    is their sum.
+    """
+
+    y, x = _validate_xy(primary, references)
+    taps = _positive_int(taps, "taps")
+    ridge = _nonnegative_float(ridge, "ridge")
+    sparse_penalty = _nonnegative_float(sparse_penalty, "sparse_penalty")
+    if sparse_penalty <= 0.0:
+        raise ValueError("sparse_penalty must be positive")
+    max_iter = _positive_int(max_iter, "max_iter")
+    tol = _nonnegative_float(tol, "tol")
+    fit = _mask(fit_mask, y.size, "fit_mask")
+    valid = fit.copy()
+    valid[: taps - 1] = False
+    if not np.any(valid):
+        raise ValueError("fit_mask selects no samples with enough FIR history")
+
+    design = _tapped_design(x, taps)
+    a = design[valid]
+    normal = a.conj().T @ a
+    if ridge > 0.0:
+        normal = normal + ridge * np.eye(normal.shape[0], dtype=np.complex128)
+
+    sparse = np.zeros(y.size, dtype=np.complex128)
+    coeff = np.zeros(x.shape[0] * taps, dtype=np.complex128)
+    iterations = 0
+    for iterations in range(1, max_iter + 1):
+        rhs = a.conj().T @ (y - sparse)[valid]
+        new_coeff = np.linalg.solve(normal, rhs)
+        residual = y - design @ new_coeff
+        new_sparse = _soft_threshold(residual, sparse_penalty)
+        change = np.linalg.norm(new_coeff - coeff) + np.linalg.norm(new_sparse - sparse)
+        coeff = new_coeff
+        sparse = new_sparse
+        if change <= tol * (np.linalg.norm(coeff) + np.linalg.norm(sparse) + 1.0e-30):
+            break
+
+    coherent = design @ coeff
+    predicted = coherent + sparse
+    return CancellationResult(
+        cleaned=y - predicted,
+        predicted=predicted,
+        coefficients=coeff.reshape(x.shape[0], taps),
+        fit_mask=fit,
+        sparse_component=sparse,
+        iterations=iterations,
     )
 
 

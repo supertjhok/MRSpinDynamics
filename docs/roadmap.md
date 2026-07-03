@@ -578,8 +578,11 @@ The source layer models **both** limiting cases the note calls out:
   (`kalman_harmonic_canceller`, `interference/trackers.py`) follows the drifting
   complex amplitude of narrowband carriers with a Kalman filter and subtracts
   them, freezing updates in the signal gaps -- for AM broadcast lines with no
-  clean reference. Follow-ons include sparse/low-rank decompositions for impulsive
-  pickup and simulator-trained or self-supervised ANN denoisers.
+  clean reference. A sparse-decomposition canceller (`sparse_reference_canceller`)
+  splits the primary into a reference-explained coherent term and an
+  L1/soft-threshold sparse impulse term, so the switching transients are modelled
+  and *removed* (not merely down-weighted like the robust fit). Follow-ons include
+  simulator-trained or self-supervised ANN denoisers.
 - **Phase 4 — diagnostics + active cancellation** (`interference/diagnostics.py`):
   dB suppression in gaps, matched-filter SNR before/after (reusing
   `noise.estimate_matched_filter_snr`), amplitude/phase bias, residual lines,
@@ -624,7 +627,8 @@ cleanup, joint signal/reference fits that separate an SLSE echo basis from
 reference-correlated RFI, a Huber IRLS robust FIR for impulsive
 switching-transient pickup, a frequency-domain Wiener canceller for
 frequency-dependent coupling (with a coherence-spectrum diagnostic), and a
-reference-free Kalman harmonic tracker for drifting narrowband carriers. Phase 4
+reference-free Kalman harmonic tracker for drifting narrowband carriers, and a
+sparse-decomposition canceller that models and removes impulsive bursts. Phase 4
 diagnostics provide suppression, matched-
 filter SNR improvement, signal bias, residual lines, design-matrix conditioning,
 saturation flags, and the reference-noise-injection ("canceller noise figure")
@@ -642,8 +646,8 @@ reference-count scaling, including the echo-aware joint fit),
 ADC saturation), `plot_nqr_rfi_frequency_domain.py` (resonant coupling: scalar <
 FIR < frequency-domain, with the coherence spectrum), and
 `plot_nqr_rfi_kalman_tracker.py` (reference-free removal of a drifting in-band AM
-carrier). Remaining named follow-ons: a sparse/low-rank (RPCA) canceller for
-impulsive pickup, ANN denoisers, and Numba acceleration of the adaptive loops.
+carrier). Remaining named follow-ons: ANN denoisers and
+Numba acceleration of the adaptive loops.
 
 ### Cross-cutting note
 

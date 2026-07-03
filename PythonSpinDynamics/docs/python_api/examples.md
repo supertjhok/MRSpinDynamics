@@ -770,7 +770,9 @@ impulsive switching transients conducted directly into the primary receiver,
 which the remote references cannot see. Because those bursts are outliers to the
 reference model, ordinary gated least squares biases the fitted coherent-RFI
 transfer; the Huber-IRLS `robust_fir_canceller` down-weights them and recovers
-roughly 30 dB more coherent suppression and lower in-band NQR amplitude bias. The
+roughly 30 dB more coherent suppression and lower in-band NQR amplitude bias. It
+also overlays `sparse_reference_canceller`, which additionally models the bursts
+as an L1-sparse term and removes them (the robust output keeps them), and the
 final panel uses `reference_noise_injection` to plot the injected-noise-versus-
 suppressed-RFI trade-off and its break-even reference-noise floor.
 `plot_nqr_rfi_active_feedforward.py` demonstrates the compensation-coil model in

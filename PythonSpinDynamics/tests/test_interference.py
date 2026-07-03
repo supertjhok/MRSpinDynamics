@@ -40,6 +40,7 @@ from spin_dynamics.interference import (
     robust_fir_canceller,
     scalar_canceller,
     saturation_diagnostics,
+    sparse_reference_canceller,
     signal_bias,
     tone_waveform,
     total_field,
@@ -550,6 +551,53 @@ class CancellerTests(unittest.TestCase):
         self.assertLess(signal_error, 0.2 * float(np.sqrt(np.mean(signal[interior] ** 2))))
         self.assertTrue(np.all(result.coherence >= 0.0))
         self.assertTrue(np.all(result.coherence <= 1.0))
+
+    def test_sparse_canceller_removes_coherent_rfi_and_impulses(self):
+        rng = np.random.default_rng(37)
+        n = 1500
+        ref = rng.normal(size=n)
+        delayed = np.zeros_like(ref)
+        delayed[1:] = ref[:-1]
+        true = np.array([0.8, -0.35])
+        rfi = true[0] * ref + true[1] * delayed
+        signal = np.zeros(n)
+        signal[700:900] = 0.3 * np.hanning(200)
+        impulse = np.zeros(n)
+        spikes = rng.choice(np.arange(5, n), size=15, replace=False)
+        impulse[spikes] = rng.choice([-1.0, 1.0], size=15) * rng.uniform(3.0, 6.0, size=15)
+        y = rfi + signal + impulse
+        fit = np.ones(n, dtype=bool)
+        fit[680:920] = False
+
+        # Penalty above the NQR echo amplitude (0.3) and below the bursts (>=3).
+        result = sparse_reference_canceller(
+            y, ref.reshape(1, -1), fit, taps=2, sparse_penalty=0.5
+        )
+
+        np.testing.assert_allclose(result.coefficients[0], true, atol=0.05)
+        self.assertTrue(np.all(np.abs(result.sparse_component[spikes]) > 1.0))
+        residual = np.real(result.cleaned) - signal
+        self.assertLess(float(np.sqrt(np.mean(residual**2))), 0.09)
+
+    def test_sparse_canceller_reduces_to_ridge_for_large_penalty(self):
+        rng = np.random.default_rng(38)
+        n = 800
+        ref = rng.normal(size=n)
+        y = 0.6 * ref + 0.05 * rng.normal(size=n)
+        fit = np.ones(n, dtype=bool)
+
+        result = sparse_reference_canceller(
+            y, ref.reshape(1, -1), fit, taps=1, sparse_penalty=100.0
+        )
+        ridge = gated_ridge_fir_canceller(y, ref.reshape(1, -1), fit, taps=1)
+
+        self.assertLess(float(np.sqrt(np.mean(np.abs(result.sparse_component) ** 2))), 1e-9)
+        np.testing.assert_allclose(result.coefficients, ridge.coefficients, atol=1e-6)
+
+    def test_sparse_canceller_validation(self):
+        x = np.ones(64)
+        with self.assertRaises(ValueError):
+            sparse_reference_canceller(x, x.reshape(1, -1), np.ones(64, bool), sparse_penalty=0.0)
 
     def test_frequency_domain_canceller_validation(self):
         x = np.ones(100)

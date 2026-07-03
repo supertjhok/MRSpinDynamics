@@ -2085,6 +2085,17 @@ is a robust (MAD-based) scale of the residual re-estimated each iteration, and
 tail are down-weighted so the fit tracks the stationary RFI path; the returned
 \code{fit\_weights} expose which samples were treated as outliers.
 
+The robust fit protects the coherent-transfer estimate but leaves the impulses in
+the cleaned output. \code{sparse\_reference\_canceller} instead models them,
+minimising \(\lVert y - \Phi h - s\rVert^2 + \lambda\lVert h\rVert^2 +
+\mu\lVert s\rVert_1\) by alternating a ridge least-squares update of the FIR
+coefficients (fitted on the mask with \(s\) removed, so the transfer stays
+unbiased) with a soft-threshold update of the sparse impulse estimate \(s\) over
+the whole record. With \(\mu\) set above the NQR echo amplitude and below the
+switching-transient amplitude, the bursts are captured in \(s\) while the signal
+passes through, and \code{cleaned} has both the coherent RFI \(\Phi h\) and the
+impulses \(s\) removed.
+
 When the reference-to-primary coupling is strongly frequency dependent -- a
 resonant probe or a long impulse response -- a compact FIR would need many taps.
 \code{frequency\_domain\_canceller} instead estimates a complex transfer
@@ -4428,6 +4439,7 @@ from spin_dynamics.interference import (
     scalar_canceller,
     gated_ridge_fir_canceller,
     robust_fir_canceller,
+    sparse_reference_canceller,
     frequency_domain_canceller,
     kalman_harmonic_canceller,
     windowed_ridge_fir_canceller,
@@ -4468,6 +4480,7 @@ Object & Purpose \\
 \code{coil\_voltage}, \code{reference\_matrix} & Simulate one pickup channel or stacked reference matrix for a set of sources. \\
 \code{scalar\_canceller}, \code{gated\_ridge\_fir\_canceller} & Stationary masked least-squares reference cancellers. \\
 \code{robust\_fir\_canceller} & Outlier-robust Huber IRLS reference canceller for impulsive switching-transient pickup. \\
+\code{sparse\_reference\_canceller} & Splits the primary into reference-explained RFI and an L1-sparse impulse term, modelling and removing the bursts. \\
 \code{frequency\_domain\_canceller} & Per-frequency multi-reference Wiener canceller (WOLA) for frequency-dependent coupling; returns the transfer and coherence spectra. \\
 \code{kalman\_harmonic\_canceller} & Reference-free Kalman tracker of drifting narrowband carriers, with mask-aware update freezing. \\
 \code{windowed\_ridge\_fir\_canceller} & Offline RFI canceller with one regularized reference transfer function per time window. \\

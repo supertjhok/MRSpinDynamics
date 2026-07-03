@@ -46,6 +46,7 @@ from spin_dynamics.interference.cancellers import (
     joint_signal_reference_canceller,
     robust_fir_canceller,
     scalar_canceller,
+    sparse_reference_canceller,
     windowed_joint_signal_reference_canceller,
     windowed_ridge_fir_canceller,
 )
@@ -146,6 +147,7 @@ __all__ = [
     "scalar_canceller",
     "saturation_diagnostics",
     "signal_bias",
+    "sparse_reference_canceller",
     "tone_waveform",
     "total_field",
     "windowed_ridge_fir_canceller",

@@ -55,6 +55,7 @@ from spin_dynamics.interference import (  # noqa: E402
     rfi_suppression_db,
     robust_fir_canceller,
     signal_bias,
+    sparse_reference_canceller,
     tone_waveform,
 )
 from spin_dynamics.nqr import slse_acquisition_mask, slse_sequence  # noqa: E402
@@ -218,12 +219,24 @@ def _run_cancellers(record: dict[str, object], args: argparse.Namespace) -> dict
         ridge=args.ridge,
         huber_delta=args.huber_delta,
     )
+    # The sparse canceller additionally models and removes the impulses, so its
+    # cleaned output has the bursts subtracted (unlike the robust one, which only
+    # protects the coherent-transfer fit).
+    sparse = sparse_reference_canceller(
+        primary,
+        references,
+        fit,
+        taps=args.taps,
+        ridge=args.ridge,
+        sparse_penalty=args.sparse_penalty,
+    )
     return {
         "truth_model": truth_model,
         "l2_model": l2_model,
         "robust_model": robust_model,
         "l2": l2_model.apply(primary, references),
         "robust": robust,
+        "sparse": sparse,
     }
 
 
@@ -278,6 +291,11 @@ def _diagnostics(
     diag["break_even_sigma"] = (
         removed / injection.noise_gain if injection.noise_gain > 0 else np.inf
     )
+
+    # NQR recovery over the full echo mask (including impulse-hit samples): the
+    # robust output still carries the bursts, the sparse output removes them.
+    diag["robust_echo_rms"] = _rms(np.real(results["robust"].cleaned)[echo] - clean[echo])
+    diag["sparse_echo_rms"] = _rms(np.real(results["sparse"].cleaned)[echo] - clean[echo])
     return diag
 
 
@@ -300,6 +318,12 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--taps", type=int, default=1)
     parser.add_argument("--ridge", type=float, default=1e-6)
     parser.add_argument("--huber-delta", type=float, default=1.345)
+    parser.add_argument(
+        "--sparse-penalty",
+        type=float,
+        default=2.0,
+        help="Impulse threshold for the sparse canceller (above NQR, below bursts).",
+    )
     parser.add_argument("--rfi-rms", type=float, default=1.0)
     parser.add_argument("--rfi-to-signal", type=float, default=12.0)
     parser.add_argument("--impulse-ratio", type=float, default=18.0)
@@ -337,14 +361,17 @@ def _plot(
     receive = record["receive_mask"]
     l2_cleaned = np.real(results["l2"].cleaned)
     robust_cleaned = np.real(results["robust"].cleaned)
+    sparse_cleaned = np.real(results["sparse"].cleaned)
     weights = results["robust"].fit_weights
 
     fig, axes = plt.subplots(2, 3, figsize=(15.0, 8.0), constrained_layout=True)
 
-    # (0,0) Full record overview.
+    # (0,0) Full record overview. Robust leaves the bursts in (it only protects
+    # the fit); the sparse canceller models and removes them too.
     axes[0, 0].plot(times_ms, primary, color="0.7", lw=0.6, label="contaminated")
+    axes[0, 0].plot(times_ms, robust_cleaned, color="C0", lw=0.7, label="robust cleaned")
+    axes[0, 0].plot(times_ms, sparse_cleaned, color="C4", lw=0.7, label="sparse cleaned")
     axes[0, 0].plot(times_ms, clean, color="C2", lw=1.0, label="clean NQR")
-    axes[0, 0].plot(times_ms, robust_cleaned, color="C0", lw=0.8, label="robust cleaned")
     axes[0, 0].set_title("SLSE Record with Impulsive Pickup")
     axes[0, 0].set_xlabel("time (ms)")
     axes[0, 0].set_ylabel("primary channel")
@@ -494,6 +521,10 @@ def _print_summary(diag: dict[str, object], args: argparse.Namespace) -> None:
     print(
         f"coherent RFI removed RMS={diag['removed_rfi_rms']:.4f}, "
         f"break-even sigma={diag['break_even_sigma']:.4f}"
+    )
+    print(
+        f"echo-window NQR recovery RMS: robust={diag['robust_echo_rms']:.4f} "
+        f"-> sparse={diag['sparse_echo_rms']:.4f} (impulses modelled and removed)"
     )
 
 
