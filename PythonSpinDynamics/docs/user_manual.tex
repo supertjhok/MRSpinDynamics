@@ -1963,18 +1963,89 @@ matched-filter energy \(\sqrt{\int|s(t)|^2\,dt}\) of each acquisition window, an
 flip angle, RF offset, and pulse spacing are optimized for each scheme at each
 \(\tau_c\).
 
-The result: on a single crystal the two stay within \(\sim 15\%\) of each other
-across the whole \(T_1/T_{2e}\) range (SORC marginally ahead when warm, SLSE
-marginally ahead when cold, crossing unity near \(T_1/T_{2e}\approx 5\)) -- neither
-grows a running advantage. The naive \(\sqrt{T_1/T_{2e}}\) law is the \(T_1\)-blind
-Konnai steady state; the opposite ``SLSE wins increasingly'' claim is under-optimizing
-the SORC flip (its optimum is a small tip \(\sim 10\text{--}20^\circ\), a
-balanced-SSFP-like high-retention comb, not a large pulse). The one robust
-asymmetry is in the \emph{powder}: SORC pulls modestly ahead (\(\sim 1.1\text{--}1.3\times\))
-because its small-tip steady state is far more uniform across the crystallite
-orientation distribution, whereas the SLSE \(90/180\) echo has a strongly
-orientation-dependent refocusing efficiency (some crystallites sit near a nutation
-null) and so loses more to powder averaging.
+\paragraph{Result 1: comparable sensitivity, with a mild crossover.}
+On a single crystal the two schemes stay within \(\sim 15\%\) of each other across
+the entire \(T_1/T_{2e}\) range. SORC is marginally ahead when the sample is warm
+(\(T_1/T_{2e}\lesssim 5\)) and SLSE marginally ahead when it is cold, the ratio
+crossing unity near \(T_1/T_{2e}\approx 5\) (Table~\ref{tab:slse-sorc}). Neither
+grows a running advantage. The often-quoted \(\sqrt{T_1/T_{2e}}\) law would predict
+SORC winning by more than an order of magnitude at the cold end; it does not,
+because that law comes from a \(T_1\)-\emph{independent} steady-state model (the
+reduced Konnai pathway). Once the SORC steady state is forced to carry \(T_1\)
+through its equilibrium-target source, its per-time signal falls off with
+relaxation at essentially the same rate as SLSE's. The mirror-image error --
+``SLSE wins increasingly'' -- comes from under-optimizing the SORC flip angle: its
+true optimum is a \emph{small} tip (\(\sim 10\text{--}20^\circ\)), a
+balanced-SSFP-like high-retention comb, and coarse large-flip grids miss it.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{rrrrrr}
+\toprule
+\(T_1/T_{2e}\) & \(T_1\) (ms) & \(T_{2e}\) (ms) & \multicolumn{2}{c}{SNR\(/\sqrt{\text{time}}\) (a.u.)} & \(\dfrac{\text{SORC}}{\text{SLSE}}\) \\
+\cmidrule(lr){4-5}
+& & & SLSE & SORC & \\
+\midrule
+0.8   & 134  & 165  & 0.230 & 0.248 & 1.08 \\
+1.2   & 156  & 134  & 0.197 & 0.221 & 1.12 \\
+2.6   & 255  & 100  & 0.136 & 0.152 & 1.12 \\
+8.0   & 482  & 60   & 0.076 & 0.070 & 0.91 \\
+29    & 949  & 33   & 0.040 & 0.036 & 0.89 \\
+112   & 1891 & 17   & 0.020 & 0.018 & 0.88 \\
+\bottomrule
+\end{tabular}
+\caption{Optimized single-crystal sensitivity of SLSE and steady-state SORC for
+\({}^{14}\mathrm{N}\) in NaNO\(_2\), swept over the dipolar correlation time
+(\(T_2^\ast \approx 1.07\,\mathrm{ms}\) throughout). Both schemes are fully
+optimized over flip, offset, and spacing in one common normalization.}
+\label{tab:slse-sorc}
+\end{table}
+
+\paragraph{Result 2: SORC is more robust to powder averaging.}
+The one robust \emph{sensitivity} asymmetry appears when the single crystal is
+replaced by a powder. At \(T_1/T_{2e}\approx 29\) the SLSE sensitivity drops by
+\(\sim 30\%\) from crystal to powder while SORC barely moves, so SORC leads by
+\(\sim 1.3\times\) on the powder (and \(\sim 1.1\times\) with fixed operating
+points; the effect is grid-converged from a \(4\times 6\) to a \(9\times 18\)
+orientation mesh). The mechanism is the per-orientation spread of the signal: the
+SLSE \(90/180\) echo has a strongly orientation-dependent refocusing efficiency --
+across the powder its per-crystallite echo energy varies by more than an order of
+magnitude, with some crystallites sitting near a nutation null -- whereas SORC's
+small-tip steady state is nearly uniform across orientations (its per-crystallite
+energy varies by only a factor of a few). A powder therefore averages away much of
+the SLSE signal but little of the SORC signal. This is a genuine, potentially
+useful result for powder samples, not a grid artifact.
+
+\paragraph{Result 3: SORC draws less average RF power.}
+Because both schemes drive the same coil at the same nutation frequency, the peak
+(in-pulse) RF power is identical and the \emph{average} RF power is peak power
+times duty cycle; the average-power ratio is thus a pure duty-cycle ratio. At the
+optima SORC draws only \(\sim 0.2\text{--}0.4\times\) the average power of SLSE
+across the whole sweep. This is the opposite of the intuition that a
+\emph{continuously} pulsing comb must dissipate more: SORC's small \(\sim
+15^\circ\) tip makes each pulse very short (here \(\sim 1.7\,\mu\mathrm{s}\) every
+\(260\,\mu\mathrm{s}\), a \(0.6\%\) duty), whereas the SLSE matched filter prefers
+\emph{wide} pulses (\(\sim 70^\circ\)) at the \emph{shortest} allowed echo spacing,
+giving a much higher in-train duty (\(\sim 4\%\)). Even after amortizing SLSE's
+duty over its \(T_1\)-recovery idle time, SORC stays the lower-power method. One
+caveat keeps this an operating-point statement rather than a fundamental bound:
+SLSE's sensitivity is nearly flat in echo spacing near the optimum, so it could be
+run at a longer spacing -- and hence lower power -- at little cost in SNR; the
+example simply reports the matched-filter optimum, which happens to be
+power-hungry.
+
+\paragraph{Putting it together.}
+For this material the two classic pulsed-NQR detection families are close enough
+in raw sensitivity that the decision is driven by the \emph{secondary}
+properties the example quantifies: SORC is somewhat more forgiving on powders and
+runs at lower average RF power (attractive for portable, battery, or
+heating-sensitive work), but only as a continuously running steady state; SLSE is
+a simple pulse-and-recover experiment that reaches the same crystal sensitivity
+and is marginally better in the cold, long-\(T_1\) regime. The broader lesson is
+methodological: a fair sensitivity comparison of two pulse sequences requires a
+common signal normalization, grounded (not hand-inserted) relaxation times, and a
+full optimization of \emph{both} sequences -- dropping any one of these reproduces
+one of the folklore ``advantage laws.''
 
 \section{EFG Inhomogeneity and SLSE Spectra}
 

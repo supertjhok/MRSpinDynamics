@@ -43,6 +43,16 @@ is far more uniform across the crystallite orientation distribution, whereas the
 SLSE 90/180 echo has a strongly orientation-dependent refocusing efficiency (some
 crystallites sit near a nutation null), so it loses more to powder averaging.
 
+A second asymmetry is in **average RF power**. Both schemes drive the same coil
+at the same nutation frequency, so peak power is identical and the average-power
+ratio is just a duty-cycle ratio. At the optima SORC actually draws *less* average
+power (~0.2-0.3x SLSE): its small ~15 deg tip makes each pulse short even though it
+fires continuously, whereas the SLSE matched filter wants wide ~70 deg pulses at
+the shortest allowed spacing (a high in-train duty). So the naive "continuous SORC
+must dissipate more power" is also wrong here -- though note SLSE could trade to a
+longer echo spacing for lower power at little SNR cost, so this is an operating-
+point statement, not a fundamental bound.
+
 Run with ``--output nqr_slse_sorc_sensitivity.png`` to save, or omit it to show.
 """
 
@@ -219,18 +229,26 @@ def slse_matched_energy(site, eig, carrier, relax, nut, *, flip, offset, te,
     return _trapz(shape, tw), shape, tw
 
 
-def slse_sensitivity(q_echo, t2e, te, t1):
-    """Best matched-filter SNR / sqrt(time) over echo count K and repetition T_R."""
+def slse_sensitivity(q_echo, t2e, te, t1, *, operating_point=False):
+    """Best matched-filter SNR / sqrt(time) over echo count K and repetition T_R.
+
+    With ``operating_point=True`` also return the optimal ``(K, T_R)`` so the
+    average RF duty cycle at the optimum can be evaluated.
+    """
 
     if not np.isfinite(t2e) or t2e <= 0 or q_echo <= 0:
-        return 0.0
+        return (0.0, 0, np.inf) if operating_point else 0.0
     counts = np.arange(1, 4000)
     envelope = (1.0 - np.exp(-2.0 * counts * te / t2e)) / (1.0 - np.exp(-2.0 * te / t2e))
     e_train = np.sqrt(q_echo * envelope)
     t_acq = counts * te
     t_rep = np.maximum(t_acq, _X_STAR * t1)
     recovery = (1.0 - np.exp(-t_rep / t1)) / np.sqrt(t_rep)
-    return float(np.max(e_train * recovery))
+    score = e_train * recovery
+    idx = int(np.argmax(score))
+    if operating_point:
+        return float(score[idx]), int(counts[idx]), float(t_rep[idx])
+    return float(score[idx])
 
 
 def slse_optimize(site, eig, carrier, relax, nut, t1, orientations, m2, *,
@@ -245,10 +263,10 @@ def slse_optimize(site, eig, carrier, relax, nut, t1, orientations, m2, *,
                 q_echo, _, _ = slse_matched_energy(
                     site, eig, carrier, relax, nut, flip=flip, offset=offset, te=te,
                     orientations=orientations, m2=m2)
-                sens = slse_sensitivity(q_echo, t2e, te, t1)
+                sens, k_opt, t_rep = slse_sensitivity(q_echo, t2e, te, t1, operating_point=True)
                 if sens > best["sensitivity"]:
                     best = {"sensitivity": sens, "flip": flip, "offset": offset,
-                            "te": te, "t2e": t2e}
+                            "te": te, "t2e": t2e, "num_echoes": k_opt, "t_rep": t_rep}
     return best
 
 
@@ -317,6 +335,47 @@ def sorc_optimize(site, eig, carrier, relax, nut, orientations, m2, *, flips, ph
     return best
 
 
+# ------------------------------------------------------------------- RF power
+
+def _pulse_seconds(flip_deg, nut):
+    return np.deg2rad(flip_deg) / (2.0 * np.pi * nut)
+
+
+def average_rf_power(slse_opt, sorc_opt, nut):
+    """Average RF power (relative to peak) at each optimum, and the SORC/SLSE ratio.
+
+    Both schemes drive the same coil at the same nutation frequency, so the peak
+    (in-pulse) power is identical and the *average* RF power is just peak x duty
+    cycle. The comparison is therefore a duty-cycle ratio. Two duties matter:
+
+    * ``duty_active`` -- the in-train pulse density, ``t_p / cycle``. SORC's small
+      tip makes each pulse short, but it fires every ``2 tau``; SLSE fires one
+      wider refocusing pulse every ``t_E``.
+    * ``duty_avg`` -- the experiment-averaged duty. SORC is a *continuous* steady
+      state (no dead time), so its average equals its active duty. SLSE spends
+      most of a repetition ``T_R ~ 1.26 T_1`` recovering with the transmitter
+      **off**, so its ``(K+1)`` pulses are amortized over ``T_R`` and its average
+      duty collapses far below its active duty.
+    """
+
+    tp_slse = _pulse_seconds(slse_opt["flip"], nut)
+    tp_sorc = _pulse_seconds(sorc_opt["flip"], nut)
+    cycle_sorc = 2.0 * sorc_opt["tau"] + tp_sorc
+
+    active_slse = tp_slse / slse_opt["te"]
+    active_sorc = tp_sorc / cycle_sorc
+    # SLSE: one excitation + K refocusing pulses amortized over the repetition T_R.
+    avg_slse = (slse_opt.get("num_echoes", 0) + 1) * tp_slse / slse_opt.get("t_rep", np.inf)
+    avg_sorc = active_sorc  # continuous steady state, no recovery dead time
+
+    return {
+        "active_slse": active_slse, "active_sorc": active_sorc,
+        "avg_slse": avg_slse, "avg_sorc": avg_sorc,
+        "ratio_active": active_sorc / active_slse if active_slse > 0 else np.inf,
+        "ratio_avg": avg_sorc / avg_slse if avg_slse > 0 else np.inf,
+    }
+
+
 # --------------------------------------------------------------------------- run
 
 def _parse_args():
@@ -350,11 +409,14 @@ def _sweep(site, eig, carrier, sources, nut, tau_list, crystal, m2):
                              flips=flips_slse, offsets=offs, spacings=spac)
         sorc = sorc_optimize(site, eig, carrier, relax, nut, crystal, m2,
                             flips=flips_sorc, phases=phases, taus=taus)
+        power = average_rf_power(slse, sorc, nut)
         rows.append({"tau_c": tau_c, "t1": t1, "t2": t2, "t2e": t2e,
-                     "slse": slse, "sorc": sorc})
+                     "slse": slse, "sorc": sorc, "power": power})
         print(f"tau_c={tau_c*1e6:5.1f}us T1={t1*1e3:7.1f}ms T2e={t2e*1e3:6.1f}ms "
               f"(T1/T2e={t1/t2e:5.1f}) SLSE={slse['sensitivity']:.3e} "
-              f"SORC={sorc['sensitivity']:.3e} SORC/SLSE={sorc['sensitivity']/slse['sensitivity']:.3f}")
+              f"SORC={sorc['sensitivity']:.3e} SORC/SLSE={sorc['sensitivity']/slse['sensitivity']:.3f} "
+              f"| RF duty avg SLSE={power['avg_slse']*100:.2f}% SORC={power['avg_sorc']*100:.2f}% "
+              f"(SORC/SLSE={power['ratio_avg']:.1f}x)")
     return rows
 
 
@@ -431,6 +493,7 @@ def _plot(plt, args, rows, ref, curves, slse_shape, slse_tw, sorc_shape, sorc_tw
     ratio_t = t1 / t2e
     slse_s = np.array([r["slse"]["sensitivity"] for r in rows])
     sorc_s = np.array([r["sorc"]["sensitivity"] for r in rows])
+    power_avg = np.array([r["power"]["ratio_avg"] for r in rows])
     order = np.argsort(ratio_t)
 
     fig, ax = plt.subplots(3, 3, figsize=(15.0, 12.0), constrained_layout=True)
@@ -450,11 +513,18 @@ def _plot(plt, args, rows, ref, curves, slse_shape, slse_tw, sorc_shape, sorc_tw
     ax[0, 1].set_title("Optimized sensitivity (single crystal)")
     ax[0, 1].legend(fontsize=8)
 
-    ax[0, 2].semilogx(ratio_t[order], (sorc_s / slse_s)[order], "o-", color="C0")
+    ax[0, 2].semilogx(ratio_t[order], (sorc_s / slse_s)[order], "o-", color="C0",
+                      label="sensitivity")
     ax[0, 2].axhline(1.0, color="0.5", lw=0.8, ls=":")
     ax[0, 2].set_xlabel(r"$T_1 / T_{2e}$")
-    ax[0, 2].set_ylabel("SORC / SLSE")
-    ax[0, 2].set_title("Advantage ratio (crystal)")
+    ax[0, 2].set_ylabel("SORC / SLSE  sensitivity", color="C0")
+    ax[0, 2].tick_params(axis="y", labelcolor="C0")
+    ax[0, 2].set_title("Sensitivity vs. RF-power cost (crystal)")
+    axp = ax[0, 2].twinx()
+    axp.semilogx(ratio_t[order], power_avg[order], "s--", color="C4", label="avg RF power")
+    axp.set_ylabel("SORC / SLSE  avg RF power", color="C4")
+    axp.tick_params(axis="y", labelcolor="C4")
+    axp.set_ylim(bottom=0.0)
 
     ax[1, 0].plot(curves["flips"], curves["slse_flip"], color="C3", label="SLSE")
     ax[1, 0].plot(curves["flips"], curves["sorc_flip"], color="C2", label="SORC")
@@ -502,6 +572,7 @@ def _plot(plt, args, rows, ref, curves, slse_shape, slse_tw, sorc_shape, sorc_tw
     ax[2, 2].axis("off")
     ratio_x = ref["sorc"]["sensitivity"] / ref["slse"]["sensitivity"]
     ratio_p = sorc_p["sensitivity"] / slse_p["sensitivity"]
+    pw = ref["power"]
     lines = [
         "Honest comparison (NaNO2 14N):",
         "* T1, T2e emerge from the microscopic",
@@ -519,8 +590,14 @@ def _plot(plt, args, rows, ref, curves, slse_shape, slse_tw, sorc_shape, sorc_tw
         f"SLSE opt: flip={ref['slse']['flip']:.0f}deg, "
         f"te={ref['slse']['te']*1e6:.0f}us",
         "",
-        "=> comparable on a crystal; SORC's",
-        "   small tip is more powder-robust.",
+        "Avg RF power (same coil & B1):",
+        f"  SLSE {pw['avg_slse']*100:.2f}%  SORC {pw['avg_sorc']*100:.2f}% duty",
+        f"  => SORC draws {pw['ratio_avg']:.2f}x SLSE's avg power",
+        "     (small tip beats wide short-te pulses).",
+        "",
+        "=> comparable SNR on a crystal; SORC is",
+        "   more powder-robust AND lower-power,",
+        "   at the cost of continuous operation.",
     ]
     ax[2, 2].text(0.02, 0.98, "\n".join(lines), va="top", ha="left", fontsize=9,
                   family="monospace", transform=ax[2, 2].transAxes)
