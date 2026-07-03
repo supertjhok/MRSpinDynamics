@@ -782,6 +782,13 @@ never clips and the NQR echo is recovered with far lower bias. Two sweeps show
 the physical limits of feedforward: a causal actuator latency bounds the
 cancellation bandwidth, and a finite compensation-coil drive range bounds how
 deep the null can go.
+`plot_nqr_rfi_frequency_domain.py` demonstrates `frequency_domain_canceller` on a
+resonant coupling path (a long, ringing impulse response). A scalar canceller and
+a modest FIR cannot match the frequency-dependent transfer, so residual RFI
+survives around the resonance, while the per-bin Wiener canceller removes it and
+recovers the in-band NQR echo without bias. The panels overlay the recovered
+transfer on the true coupling response and plot the multiple-coherence spectrum,
+which reads out which frequencies the reference can explain.
 
 ```powershell
 python examples\plot_nqr_powder_nutation.py --output results\nqr_powder_nutation.png
@@ -800,6 +807,7 @@ python examples\plot_nqr_rfi_cancellation.py --output results\nqr_rfi_cancellati
 python examples\plot_nqr_rfi_statistical_study.py --output results\nqr_rfi_statistical_study.png
 python examples\plot_nqr_rfi_robust_impulsive.py --output results\nqr_rfi_robust_impulsive.png
 python examples\plot_nqr_rfi_active_feedforward.py --output results\nqr_rfi_active_feedforward.png
+python examples\plot_nqr_rfi_frequency_domain.py --output results\nqr_rfi_frequency_domain.png
 ```
 
 ## Radiation Damping

@@ -50,6 +50,9 @@ class CancellationResult:
     signal_coefficients: np.ndarray | None = None
     fit_weights: np.ndarray | None = None
     iterations: int | None = None
+    transfer_function: np.ndarray | None = None
+    coherence: np.ndarray | None = None
+    frequencies: np.ndarray | None = None
 
 
 @dataclass(frozen=True)
@@ -780,3 +783,117 @@ def _initial_coefficients(
     if coeff.shape == (channels * taps,):
         return coeff.copy()
     raise ValueError("initial_coefficients must have shape (K, taps) or (K*taps,)")
+
+
+def _segment_starts(num_samples: int, length: int, hop: int) -> list[int]:
+    if length > num_samples:
+        raise ValueError("segment_length must not exceed the record length")
+    starts = list(range(0, num_samples - length + 1, hop))
+    last = num_samples - length
+    if not starts:
+        starts = [0]
+    elif starts[-1] != last:
+        starts.append(last)
+    return starts
+
+
+def frequency_domain_canceller(
+    primary: np.ndarray,
+    references: np.ndarray,
+    fit_mask: np.ndarray | None = None,
+    *,
+    segment_length: int = 256,
+    hop: int | None = None,
+    ridge: float = 0.0,
+    sample_rate_hz: float = 1.0,
+) -> CancellationResult:
+    """Cancel RFI with a per-frequency multi-reference Wiener transfer function.
+
+    Where the FIR cancellers estimate a short time-domain transfer, this fits a
+    complex transfer ``W_k(f)`` in every DFT bin from averaged cross-spectra and
+    applies it by weighted overlap-add (WOLA). It suits interference whose
+    reference-to-primary coupling is strongly frequency dependent (resonant
+    probes, long impulse responses), where a compact FIR would need many taps.
+
+    Cross-spectra are accumulated over Hann-windowed segments that lie entirely
+    inside ``fit_mask`` (normally the baseline set ``B``); the NQR signal is
+    uncorrelated with the references, so leaving it in only adds estimator
+    variance, but gating removes it. The per-bin solution is
+    ``W(f) = (S_xx(f) + ridge I)^-1 s_xy(f)`` and the predicted RFI spectrum is
+    ``W(f)^H X(f)``. The returned result carries ``transfer_function`` (shape
+    ``(K, segment_length)``), the multiple-``coherence`` spectrum in ``[0, 1]``
+    (the fraction of primary power the references explain at each frequency), and
+    the ``frequencies`` grid.
+
+    Application is exact for a pass-through (references equal to the primary) but
+    only approximate for a non-trivial ``W`` when the coupling impulse response
+    approaches ``segment_length`` (per-segment circular convolution), so choose
+    ``segment_length`` well above the expected impulse-response length. The first
+    and last ``segment_length`` samples are tapered by the overlap-add windows;
+    score results and downstream estimates on the interior.
+    """
+
+    y, x = _validate_xy(primary, references)
+    length = _positive_int(segment_length, "segment_length")
+    ridge = _nonnegative_float(ridge, "ridge")
+    sample_rate_hz = float(sample_rate_hz)
+    if not np.isfinite(sample_rate_hz) or sample_rate_hz <= 0.0:
+        raise ValueError("sample_rate_hz must be positive and finite")
+    step = length // 2 if hop is None else _positive_int(hop, "hop")
+    channels = x.shape[0]
+    window = np.hanning(length + 1)[:-1] if length > 1 else np.ones(1)
+    fit = _mask(fit_mask, y.size, "fit_mask")
+    starts = _segment_starts(y.size, length, step)
+
+    s_xx = np.zeros((length, channels, channels), dtype=np.complex128)
+    s_xy = np.zeros((length, channels), dtype=np.complex128)
+    s_yy = np.zeros(length, dtype=np.float64)
+    fitted_segments = 0
+    for start in starts:
+        stop = start + length
+        if not np.all(fit[start:stop]):
+            continue
+        xf = np.fft.fft(x[:, start:stop] * window, axis=1)  # (K, L)
+        yf = np.fft.fft(y[start:stop] * window)  # (L,)
+        s_xx += np.einsum("kf,jf->fkj", xf, np.conj(xf))
+        s_xy += (xf * np.conj(yf)[np.newaxis, :]).T
+        s_yy += np.abs(yf) ** 2
+        fitted_segments += 1
+    if fitted_segments == 0:
+        raise ValueError("fit_mask contains no full segment for spectral estimation")
+
+    eye = np.eye(channels, dtype=np.complex128)
+    transfer = np.zeros((length, channels), dtype=np.complex128)
+    coherence = np.zeros(length, dtype=np.float64)
+    for bin_index in range(length):
+        loaded = s_xx[bin_index] + ridge * eye
+        weights = np.linalg.solve(loaded, s_xy[bin_index])
+        transfer[bin_index] = weights
+        if s_yy[bin_index] > 0.0:
+            explained = float(np.real(np.vdot(s_xy[bin_index], weights)))
+            coherence[bin_index] = min(max(explained / s_yy[bin_index], 0.0), 1.0)
+
+    numerator = np.zeros(y.size, dtype=np.complex128)
+    denominator = np.zeros(y.size, dtype=np.float64)
+    window_energy = window * window
+    for start in starts:
+        stop = start + length
+        xf = np.fft.fft(x[:, start:stop] * window, axis=1)  # (K, L)
+        predicted_spectrum = np.einsum("fk,kf->f", np.conj(transfer), xf)
+        segment = np.fft.ifft(predicted_spectrum)
+        numerator[start:stop] += window * segment
+        denominator[start:stop] += window_energy
+    predicted = np.zeros(y.size, dtype=np.complex128)
+    valid = denominator > 0.0
+    predicted[valid] = numerator[valid] / denominator[valid]
+
+    frequencies = np.fft.fftfreq(length, d=1.0 / sample_rate_hz)
+    return CancellationResult(
+        cleaned=y - predicted,
+        predicted=predicted,
+        coefficients=transfer.T,
+        fit_mask=fit,
+        transfer_function=transfer.T,
+        coherence=coherence,
+        frequencies=frequencies,
+    )

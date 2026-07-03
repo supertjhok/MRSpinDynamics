@@ -26,6 +26,7 @@ from spin_dynamics.interference import (
     feedforward_cancel,
     fit_gated_ridge_fir,
     fit_scalar_canceller,
+    frequency_domain_canceller,
     gated_ridge_fir_canceller,
     joint_signal_reference_canceller,
     mask_from_intervals,
@@ -491,6 +492,63 @@ class CancellerTests(unittest.TestCase):
         l2 = gated_ridge_fir_canceller(y, references, fit, taps=1)
 
         np.testing.assert_allclose(robust.coefficients, l2.coefficients, atol=5e-3)
+
+    def test_frequency_domain_canceller_passthrough_is_exact(self):
+        rng = np.random.default_rng(31)
+        n = 2048
+        length = 256
+        x = rng.normal(size=n)
+
+        result = frequency_domain_canceller(x, x.reshape(1, -1), segment_length=length)
+
+        # Interior reconstruction is exact (edges taper to a zero Hann window).
+        np.testing.assert_allclose(result.cleaned[length : n - length], 0.0, atol=1e-9)
+        self.assertEqual(result.transfer_function.shape, (1, length))
+        self.assertEqual(result.coherence.shape, (length,))
+        interior_coherence = result.coherence[np.abs(result.frequencies) > 0.02]
+        self.assertGreater(float(np.mean(interior_coherence)), 0.99)
+
+    def test_frequency_domain_canceller_removes_frequency_dependent_coupling(self):
+        rng = np.random.default_rng(33)
+        n = 4096
+        fs = 4_000.0
+        t = np.arange(n, dtype=np.float64) / fs
+        reference = rng.normal(size=n)
+        impulse_response = np.array([1.0, -0.7, 0.35, -0.1])
+        rfi = np.convolve(reference, impulse_response)[:n]
+        signal = 0.5 * np.cos(2 * np.pi * 300.0 * t)
+        primary = rfi + signal
+
+        result = frequency_domain_canceller(
+            primary, reference.reshape(1, -1), segment_length=256, sample_rate_hz=fs
+        )
+
+        # Suppression is scored on the interior; the first/last segment_length
+        # samples are tapered by the overlap-add windows.
+        interior_mask = np.zeros(n, dtype=bool)
+        interior_mask[256 : n - 256] = True
+        suppression = rfi_suppression_db(
+            primary, result.cleaned, interior_mask, clean_signal=signal
+        ).suppression_db
+        self.assertGreater(suppression, 20.0)
+        # The uncorrelated tone survives the cancellation.
+        interior = slice(256, n - 256)
+        signal_error = float(
+            np.sqrt(np.mean(np.abs(result.cleaned[interior] - signal[interior]) ** 2))
+        )
+        self.assertLess(signal_error, 0.2 * float(np.sqrt(np.mean(signal[interior] ** 2))))
+        self.assertTrue(np.all(result.coherence >= 0.0))
+        self.assertTrue(np.all(result.coherence <= 1.0))
+
+    def test_frequency_domain_canceller_validation(self):
+        x = np.ones(100)
+        with self.assertRaises(ValueError):
+            frequency_domain_canceller(x, x.reshape(1, -1), segment_length=200)
+        with self.assertRaises(ValueError):
+            frequency_domain_canceller(x, x.reshape(1, -1), segment_length=32, sample_rate_hz=0.0)
+        empty_fit = np.zeros(100, dtype=bool)
+        with self.assertRaises(ValueError):
+            frequency_domain_canceller(x, x.reshape(1, -1), empty_fit, segment_length=32)
 
 
 class DiagnosticTests(unittest.TestCase):

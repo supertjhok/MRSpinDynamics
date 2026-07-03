@@ -438,6 +438,7 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `windowed_joint_signal_reference_canceller(primary: np.ndarray, references: np.ndarray, fit_mask: np.ndarray, signal_basis: np.ndarray, *, taps: int = 1, window_samples: int = 1024, reference_ridge: float = 0.0, smoothness: float = 0.0, signal_ridge: float = 0.0) -> CancellationResult` | Fit windowed reference RFI and structured signal terms jointly. |
 | function | `adaptive_lms_canceller(primary: np.ndarray, references: np.ndarray, update_mask: np.ndarray | None = None, *, taps: int = 1, step: float = 0.1, normalized: bool = True, epsilon: float = 1e-12, leak: float = 0.0, initial_coefficients: np.ndarray | None = None) -> CancellationResult` | Apply mask-aware LMS/NLMS cancellation for time-varying transfer paths. |
 | function | `adaptive_rls_canceller(primary: np.ndarray, references: np.ndarray, update_mask: np.ndarray | None = None, *, taps: int = 1, forgetting: float = 0.995, initial_covariance: float = 1000.0, initial_coefficients: np.ndarray | None = None) -> CancellationResult` | Apply a mask-aware recursive least-squares reference canceller. |
+| function | `frequency_domain_canceller(primary: np.ndarray, references: np.ndarray, fit_mask: np.ndarray | None = None, *, segment_length: int = 256, hop: int | None = None, ridge: float = 0.0, sample_rate_hz: float = 1.0) -> CancellationResult` | Cancel RFI with a per-frequency multi-reference Wiener transfer function. |
 
 ## `spin_dynamics.interference.coils`
 

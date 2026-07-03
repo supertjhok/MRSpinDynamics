@@ -2085,6 +2085,30 @@ is a robust (MAD-based) scale of the residual re-estimated each iteration, and
 tail are down-weighted so the fit tracks the stationary RFI path; the returned
 \code{fit\_weights} expose which samples were treated as outliers.
 
+When the reference-to-primary coupling is strongly frequency dependent -- a
+resonant probe or a long impulse response -- a compact FIR would need many taps.
+\code{frequency\_domain\_canceller} instead estimates a complex transfer
+\(W_k(f)\) in every DFT bin from averaged cross-spectra over Hann-windowed
+segments that lie inside the fit mask,
+
+\[
+  W(f) = \bigl(S_{xx}(f) + \lambda I\bigr)^{-1} s_{xy}(f),
+  \qquad
+  \widehat{Y}(f) = W(f)^{\mathsf H} X(f),
+\]
+
+with \(S_{xx}(f)=\sum_{\mathrm{seg}} X X^{\mathsf H}\) and
+\(s_{xy}(f)=\sum_{\mathrm{seg}} X\,\overline{Y}\). The prediction is returned to
+the time domain by weighted overlap-add. Because the NQR signal is uncorrelated
+with the references it does not bias \(W\), only adds estimator variance, so
+gating to the baseline set is helpful but not required. The result also carries
+the multiple-coherence spectrum
+\(\gamma^2(f)=s_{xy}^{\mathsf H} S_{xx}^{-1} s_{xy}/S_{yy}\in[0,1]\), the fraction
+of primary power the references explain at each frequency -- a direct readout of
+which parts of the band are cancellable. Application is exact for a pass-through
+and approximate when the coupling impulse response approaches the segment length
+(per-segment circular convolution); the first and last segment are edge-tapered.
+
 \subsection{Echo-Aware Joint Fitting}
 
 For SLSE, the echo train itself has strong temporal structure. Reference-only
@@ -4375,6 +4399,7 @@ from spin_dynamics.interference import (
     scalar_canceller,
     gated_ridge_fir_canceller,
     robust_fir_canceller,
+    frequency_domain_canceller,
     windowed_ridge_fir_canceller,
     adaptive_lms_canceller,
     adaptive_rls_canceller,
@@ -4410,6 +4435,7 @@ Object & Purpose \\
 \code{coil\_voltage}, \code{reference\_matrix} & Simulate one pickup channel or stacked reference matrix for a set of sources. \\
 \code{scalar\_canceller}, \code{gated\_ridge\_fir\_canceller} & Stationary masked least-squares reference cancellers. \\
 \code{robust\_fir\_canceller} & Outlier-robust Huber IRLS reference canceller for impulsive switching-transient pickup. \\
+\code{frequency\_domain\_canceller} & Per-frequency multi-reference Wiener canceller (WOLA) for frequency-dependent coupling; returns the transfer and coherence spectra. \\
 \code{windowed\_ridge\_fir\_canceller} & Offline RFI canceller with one regularized reference transfer function per time window. \\
 \code{adaptive\_lms\_canceller}, \code{adaptive\_rls\_canceller} & Mask-aware adaptive cancellers whose coefficient updates can freeze during signal windows. \\
 \code{joint\_signal\_reference\_canceller} & Fixed joint fit of reference-derived RFI and a supplied signal basis. \\
