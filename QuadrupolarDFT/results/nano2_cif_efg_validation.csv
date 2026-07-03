@@ -1,0 +1,6 @@
+rank,case_id,icsd_code,cif_file,status,metadata_score,metadata_verdict,temperature_k,space_group,mean_cq_mhz,mean_abs_cq_mhz,mean_eta,eta_error,cq_percent_error,rms_line_error_khz,transitions_mhz,notes
+1,nano2_icsd15400_efg,15400,structures/NaNO2/EntryWithCollCode15400.cif,ok,73.000,diagnostic comparison,,I m 2 m,-5.09305,5.09305,0.117642,-0.262358,-6.83448,570.502,"0.299578, 3.669998, 3.969576",
+2,nano2_icsd174034_efg,174034,structures/NaNO2/EntryWithCollCode174034.cif,ok,75.000,strong comparison,423,I m 2 m,-4.98012,4.98012,0.124143,-0.255857,-8.90025,595.726,"0.309124, 3.580528, 3.889652",
+3,nano2_icsd82857_efg,82857,structures/NaNO2/EntryWithCollCode82857.cif,ok,96.000,best target,295,I m 2 m,-5.03405,5.03405,0.111906,-0.268093,-7.91381,597.249,"0.281671, 3.634699, 3.916370",
+4,nano2_icsd68707_efg,68707,structures/NaNO2/EntryWithCollCode68707.cif,ok,85.000,strong comparison,120,I m 2 m,-5.01545,5.01545,0.107784,-0.272216,-8.25394,609.548,"0.270291, 3.626443, 3.896734",
+5,nano2_icsd280361_efg,280361,structures/NaNO2/EntryWithCollCode280361.cif,ok,82.000,strong comparison,30,I m 2 m,-5.01507,5.01507,0.106677,-0.273323,-8.26085,611.415,"0.267495, 3.627558, 3.895053",
