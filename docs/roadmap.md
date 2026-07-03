@@ -630,15 +630,20 @@ filter SNR improvement, signal bias, residual lines, design-matrix conditioning,
 saturation flags, and the reference-noise-injection ("canceller noise figure")
 estimate; active cancellation adds `CompensationActuator` + `feedforward_cancel`
 for pre-ADC subtraction through a compensation coil. Everything shares the
-`(y, X, mask)` contract. Phase 5 ships three plotted workflows:
-`plot_nqr_rfi_cancellation.py` ties masks, continuous references, cancellers, and
-leakage/clipping failure modes to the diagnostics; `plot_nqr_rfi_statistical_study.py`
-quantifies noise robustness and reference-count scaling for near-field RFI via
-NQR parameter-estimation accuracy (including the echo-aware joint fit for SLSE
-trains); and `plot_nqr_rfi_robust_impulsive.py` contrasts the robust and L2
-cancellers under impulsive pickup and plots the reference-noise-injection
-break-even. The remaining named work is the feedforward-example plot plus the
-frequency-domain / parametric-AM / ANN follow-on cancellers.
+`(y, X, mask)` contract, and measured records join it through `RFIRecording` +
+`nqr_recording_from_samples` (`slse_/sorc_mask_from_metadata` reconstruct the
+gating for a window of ADC samples from the echo-spacing metadata, since the
+labels are not recorded per sample). Phase 5 ships six plotted workflows:
+`plot_nqr_rfi_cancellation.py` (masks/references/cancellers/leakage/clipping vs
+diagnostics), `plot_nqr_rfi_statistical_study.py` (Monte-Carlo robustness and
+reference-count scaling, including the echo-aware joint fit),
+`plot_nqr_rfi_robust_impulsive.py` (robust vs L2 + injection break-even),
+`plot_nqr_rfi_active_feedforward.py` (digital-too-late vs active feedforward under
+ADC saturation), `plot_nqr_rfi_frequency_domain.py` (resonant coupling: scalar <
+FIR < frequency-domain, with the coherence spectrum), and
+`plot_nqr_rfi_kalman_tracker.py` (reference-free removal of a drifting in-band AM
+carrier). Remaining named follow-ons: a sparse/low-rank (RPCA) canceller for
+impulsive pickup, ANN denoisers, and Numba acceleration of the adaptive loops.
 
 ### Cross-cutting note
 

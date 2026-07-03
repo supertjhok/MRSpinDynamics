@@ -52,6 +52,7 @@ MODULES = [
     "interference.coils",
     "interference.diagnostics",
     "interference.masks",
+    "interference.recordings",
     "interference.sources",
     "interference.trackers",
     "motion",

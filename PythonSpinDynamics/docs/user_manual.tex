@@ -2253,6 +2253,21 @@ full scale and contrasts digital-too-late against active feedforward, then sweep
 both limits. Because the digitized active residual is again linear, a digital
 canceller can be run on it afterward for the last few decibels.
 
+\subsection{Loading Measured Records}
+
+A measured acquisition is just windows of ADC samples: a primary channel and one
+or more reference channels on a shared clock. The gating the cancellers need is
+not recorded per sample -- it is reconstructed from the pulse-sequence timing.
+\code{slse\_mask\_from\_metadata} and \code{sorc\_mask\_from\_metadata} rebuild an
+acquisition mask of exactly the recorded sample count from the echo spacing,
+detection duration, pulse count, ringdown, and baseline offsets;
+\code{nqr\_recording\_from\_samples} pairs the sample windows with that mask and
+returns an \code{RFIRecording} that drops straight into the
+\code{(primary, references, mask)} contract. \code{save\_rfi\_recording} and
+\code{load\_rfi\_recording} round-trip a recording through a NumPy \code{.npz}
+archive, storing the reconstructed mask as its label array so no re-derivation is
+needed on reload.
+
 \subsection{Typical Monte Carlo Results}
 
 The example
@@ -4429,6 +4444,9 @@ from spin_dynamics.interference import (
     saturation_diagnostics,
     CompensationActuator,
     feedforward_cancel,
+    RFIRecording,
+    save_rfi_recording,
+    load_rfi_recording,
 )
 
 from spin_dynamics.nqr import slse_acquisition_mask, sorc_acquisition_mask
@@ -4464,6 +4482,8 @@ Object & Purpose \\
 \code{reference\_noise\_injection} & White noise a canceller injects into the cleaned output from noisy references (the ``noise figure'' of cancellation). \\
 \code{saturation\_diagnostics} & Samples whose magnitude reaches or exceeds a specified front-end threshold. \\
 \code{CompensationActuator}, \code{feedforward\_cancel} & Active feedforward: a compensation coil subtracts RFI before the ADC, with latency, drive-range, gain/phase, and noise limits. \\
+\code{RFIRecording}, \code{save\_rfi\_recording}, \code{load\_rfi\_recording} & Container and ``.npz'' I/O pairing measured ADC windows with a reconstructed acquisition mask. \\
+\code{nqr\_recording\_from\_samples}, \code{slse\_/sorc\_mask\_from\_metadata} & Rebuild the gating for a window of ADC samples from echo-spacing metadata (in \code{spin\_dynamics.nqr}). \\
 \bottomrule
 \end{longtable}
 

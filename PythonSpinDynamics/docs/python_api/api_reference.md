@@ -478,6 +478,14 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `blank_mask(sample_rate_hz: float, num_samples: int, *, fill: SampleLabel = SampleLabel.SIGNAL) -> AcquisitionMask` | Return a mask with every sample set to ``fill``. |
 | function | `mask_from_intervals(sample_rate_hz: float, duration_seconds: float, *, transmit: Sequence[Interval] | None = None, ringdown: Sequence[Interval] | None = None, baseline: Sequence[Interval] | None = None, fill: SampleLabel = SampleLabel.SIGNAL) -> AcquisitionMask` | Build a mask from second-valued intervals on a shot clock. |
 
+## `spin_dynamics.interference.recordings`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `RFIRecording` | A measured RFI record: ADC sample windows plus a reconstructed mask. |
+| function | `save_rfi_recording(path: str | Path, recording: RFIRecording) -> None` | Write a recording to a NumPy ``.npz`` archive. |
+| function | `load_rfi_recording(path: str | Path) -> RFIRecording` | Load a recording previously written by :func:`save_rfi_recording`. |
+
 ## `spin_dynamics.interference.sources`
 
 | Kind | Name | Summary |
@@ -594,6 +602,9 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | --- | --- | --- |
 | function | `slse_acquisition_mask(sequence: SLSESequence, sample_rate_hz: float, *, ringdown_seconds: float = 0.0, pre_baseline_seconds: float = 0.0, post_baseline_seconds: float = 0.0, baseline_intervals: Sequence[Interval] | None = None) -> AcquisitionMask` | Return a transmit/ringdown/signal/baseline mask for an SLSE train. |
 | function | `sorc_acquisition_mask(sequence: SORCSequence, sample_rate_hz: float, *, ringdown_seconds: float = 0.0, pre_baseline_seconds: float = 0.0, post_baseline_seconds: float = 0.0, baseline_intervals: Sequence[Interval] | None = None, initial_gap_is_baseline: bool = True) -> AcquisitionMask` | Return a transmit/ringdown/signal/baseline mask for a SORC train. |
+| function | `slse_mask_from_metadata(num_samples: int, sample_rate_hz: float, *, echo_spacing_seconds: float, detection_duration_seconds: float, num_echoes: int, ringdown_seconds: float = 0.0, start_offset_seconds: float = 0.0, post_baseline_seconds: float = 0.0, baseline_intervals: Sequence[Interval] | None = None) -> AcquisitionMask` | Reconstruct an SLSE acquisition mask over a window of ``num_samples`` ADC samples. |
+| function | `sorc_mask_from_metadata(num_samples: int, sample_rate_hz: float, *, half_spacing_seconds: float, detection_duration_seconds: float, num_pulses: int, ringdown_seconds: float = 0.0, start_offset_seconds: float = 0.0, post_baseline_seconds: float = 0.0, baseline_intervals: Sequence[Interval] | None = None, initial_gap_is_baseline: bool = True) -> AcquisitionMask` | Reconstruct a SORC acquisition mask over a window of ``num_samples`` ADC samples. |
+| function | `nqr_recording_from_samples(primary: np.ndarray, references: np.ndarray | None, sample_rate_hz: float, *, sequence: str = 'slse', **timing) -> RFIRecording` | Pair measured ADC windows with a mask reconstructed from sequence timing. |
 
 ## `spin_dynamics.nqr.model_selection`
 

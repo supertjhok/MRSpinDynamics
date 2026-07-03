@@ -52,8 +52,18 @@ from spin_dynamics.interference._signal import (
     spectral_lowpass,
     spectral_phase_shift,
 )
+from spin_dynamics.interference import (
+    RFIRecording,
+    load_rfi_recording,
+    save_rfi_recording,
+)
 from spin_dynamics.nqr import slse_acquisition_mask, slse_sequence
 from spin_dynamics.nqr import sorc_acquisition_mask, sorc_sequence
+from spin_dynamics.nqr import (
+    nqr_recording_from_samples,
+    slse_mask_from_metadata,
+    sorc_mask_from_metadata,
+)
 from spin_dynamics.interference.sources import MU0
 
 
@@ -717,6 +727,130 @@ class NQRMaskAdapterTests(unittest.TestCase):
         )
         mask = sorc_acquisition_mask(seq, 1e6, initial_gap_is_baseline=False)
         self.assertTrue(np.all(mask.signal_mask[:40]))
+
+
+class RecordingIOTests(unittest.TestCase):
+    def _mask(self, num_samples=900):
+        return slse_mask_from_metadata(
+            num_samples,
+            50e3,
+            echo_spacing_seconds=2e-3,
+            detection_duration_seconds=200e-6,
+            num_echoes=6,
+            ringdown_seconds=100e-6,
+            start_offset_seconds=3e-3,
+            post_baseline_seconds=3e-3,
+        )
+
+    def test_metadata_mask_matches_sequence_mask(self):
+        seq = slse_sequence(
+            "x",
+            pulse_duration_seconds=200e-6,
+            nutation_hz=10e3,
+            echo_spacing_seconds=2e-3,
+            num_echoes=6,
+        )
+        from_sequence = slse_acquisition_mask(
+            seq, 50e3, ringdown_seconds=100e-6, pre_baseline_seconds=3e-3, post_baseline_seconds=3e-3
+        )
+        from_metadata = slse_mask_from_metadata(
+            from_sequence.num_samples,
+            50e3,
+            echo_spacing_seconds=2e-3,
+            detection_duration_seconds=200e-6,
+            num_echoes=6,
+            ringdown_seconds=100e-6,
+            start_offset_seconds=3e-3,
+            post_baseline_seconds=3e-3,
+        )
+        self.assertTrue(np.array_equal(from_sequence.labels, from_metadata.labels))
+
+    def test_sorc_metadata_mask_matches_sequence_mask(self):
+        seq = sorc_sequence(
+            "x",
+            pulse_duration_seconds=10e-6,
+            nutation_hz=10e3,
+            half_spacing_seconds=40e-6,
+            num_pulses=2,
+        )
+        from_sequence = sorc_acquisition_mask(seq, 1e6, ringdown_seconds=5e-6)
+        from_metadata = sorc_mask_from_metadata(
+            from_sequence.num_samples,
+            1e6,
+            half_spacing_seconds=40e-6,
+            detection_duration_seconds=10e-6,
+            num_pulses=2,
+            ringdown_seconds=5e-6,
+        )
+        self.assertTrue(np.array_equal(from_sequence.labels, from_metadata.labels))
+
+    def test_recording_from_samples_pairs_mask_to_window(self):
+        rng = np.random.default_rng(51)
+        n = 900
+        primary = rng.normal(size=n)
+        references = rng.normal(size=(3, n))
+        recording = nqr_recording_from_samples(
+            primary,
+            references,
+            50e3,
+            sequence="slse",
+            echo_spacing_seconds=2e-3,
+            detection_duration_seconds=200e-6,
+            num_echoes=6,
+            ringdown_seconds=100e-6,
+            start_offset_seconds=3e-3,
+            post_baseline_seconds=3e-3,
+        )
+        self.assertEqual(recording.num_samples, n)
+        self.assertEqual(recording.num_references, 3)
+        self.assertEqual(recording.mask.num_samples, n)
+        self.assertEqual(recording.metadata["sequence"], "slse")
+
+    def test_reference_free_recording_allows_no_references(self):
+        primary = np.zeros(900)
+        recording = nqr_recording_from_samples(
+            primary,
+            None,
+            50e3,
+            sequence="slse",
+            echo_spacing_seconds=2e-3,
+            detection_duration_seconds=200e-6,
+            num_echoes=6,
+        )
+        self.assertEqual(recording.num_references, 0)
+
+    def test_save_load_round_trip(self):
+        import tempfile
+
+        rng = np.random.default_rng(52)
+        n = 900
+        recording = RFIRecording(
+            primary=rng.normal(size=n),
+            references=rng.normal(size=(2, n)),
+            sample_rate_hz=50e3,
+            mask=self._mask(n),
+            metadata={"compound": "TNT", "sequence": "slse"},
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "record.npz"
+            save_rfi_recording(path, recording)
+            loaded = load_rfi_recording(path)
+
+        np.testing.assert_allclose(loaded.primary, recording.primary)
+        np.testing.assert_allclose(loaded.references, recording.references)
+        self.assertTrue(np.array_equal(loaded.mask.labels, recording.mask.labels))
+        self.assertEqual(loaded.metadata["compound"], "TNT")
+
+    def test_recording_validation(self):
+        with self.assertRaises(ValueError):
+            RFIRecording(
+                primary=np.zeros(900),
+                references=np.zeros((2, 800)),
+                sample_rate_hz=50e3,
+                mask=self._mask(900),
+            )
+        with self.assertRaises(ValueError):
+            nqr_recording_from_samples(np.zeros(900), None, 50e3, sequence="unknown")
 
 
 class KalmanHarmonicTrackerTests(unittest.TestCase):

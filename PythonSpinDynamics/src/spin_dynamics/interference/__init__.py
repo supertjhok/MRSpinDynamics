@@ -73,6 +73,11 @@ from spin_dynamics.interference.masks import (
     blank_mask,
     mask_from_intervals,
 )
+from spin_dynamics.interference.recordings import (
+    RFIRecording,
+    load_rfi_recording,
+    save_rfi_recording,
+)
 from spin_dynamics.interference.trackers import (
     kalman_harmonic_canceller,
 )
@@ -100,6 +105,7 @@ __all__ = [
     "MatchedFilterImprovementResult",
     "MagneticDipoleSource",
     "RFISource",
+    "RFIRecording",
     "RFISuppressionResult",
     "RFIWaveform",
     "ReferenceCoil",
@@ -127,6 +133,7 @@ __all__ = [
     "impulsive_waveform",
     "joint_signal_reference_canceller",
     "kalman_harmonic_canceller",
+    "load_rfi_recording",
     "matched_filter_snr_improvement",
     "mask_from_intervals",
     "reference_design_diagnostics",
@@ -135,6 +142,7 @@ __all__ = [
     "residual_spectral_lines",
     "rfi_suppression_db",
     "robust_fir_canceller",
+    "save_rfi_recording",
     "scalar_canceller",
     "saturation_diagnostics",
     "signal_bias",
