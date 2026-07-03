@@ -107,6 +107,37 @@ ABI_PSPDIR=/usr/share/abinit/psp stdbuf -oL -eL abinit nano2_efg.abi \
   2> >(tee nano2_efg.stderr >&2) | tee nano2_efg.stdout
 ```
 
+## NaNO2 CIF EFG validation sweep
+
+`nano2_cif_efg_validation.sh` validates the CIF ranking from
+`examples/check_nano2_cifs.py` with actual static ABINIT EFG simulations. It
+stages the top full-occupancy ferroelectric CIFs, runs each input through the
+MPI-aware static runner, then ranks the completed simulations against the
+room-temperature `14N` reference (`|C_Q| = 5.466667 MHz`, `eta = 0.38`).
+
+```bash
+bash examples/abinit/nano2_cif_efg_validation.sh --dry-run
+bash examples/abinit/nano2_cif_efg_validation.sh
+bash examples/abinit/nano2_cif_efg_validation.sh --np 18
+```
+
+By default `ABINIT_NP=auto`, so `abinit_parallel.sh` chooses an MPI process
+count from the IBZ k-point count and available cores. The generated reports are
+`results/nano2_cif_efg_validation.csv` and
+`results/nano2_cif_efg_validation.md`.
+
+High-temperature `I m m m` CIFs are usually partial-occupancy/disordered models;
+they are skipped by default because a literal symmetry expansion can put split
+sites on top of each other and trigger ABINIT PAW sphere-overlap aborts. To test
+those deliberately, pass `--include-partial-occupancy`. The driver continues
+after individual ABINIT failures and records them in the report; use
+`--stop-on-failure` only when debugging a single input. To collect an interrupted
+run without launching more ABINIT jobs:
+
+```bash
+bash examples/abinit/nano2_cif_efg_validation.sh --collect-only --allow-missing
+```
+
 ## Glycine Strain-To-EFG Coupling
 
 `strain_efg_coupling.py` stages homogeneous-strain EFG calculations and collects

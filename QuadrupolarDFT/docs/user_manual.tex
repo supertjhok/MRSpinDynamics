@@ -610,6 +610,30 @@ on an experimental structure (e.g.\ the ICSD~82857 input under
 \code{structures/NaNO2/generated/}), and, for the full slope magnitude, anharmonic
 (AIMD/PIMD) averaging near the ferroelectric transition.
 
+\textbf{CIF validation outcome.} The bundled NaNO$_2$ CIFs now have a two-stage
+check. \nolinkurl{examples/check_nano2_cifs.py} first ranks the available
+structures by phase, temperature, occupancy and crystallographic metadata; for
+the room-temperature ferroelectric NQR reference, ICSD~82857 is the best
+structural target. \nolinkurl{examples/abinit/nano2_cif_efg_validation.sh} then stages the
+top full-occupancy CIFs, runs static EFG calculations through the MPI-aware
+ABINIT wrapper, and compares the resulting $^{14}$N lines against the measured
+NaNO$_2$ reference. In the first validation sweep the best simulated line
+agreement came from ICSD~15400, but the full-occupancy ferroelectric structures
+all gave the same qualitative answer: $|\Cq|$ was close, while $\eta$ remained
+too small ($\eta \simeq 0.11$--$0.12$ versus the measured $0.38$).
+
+\textbf{Interpretation.} The NaNO$_2$ asymmetry error is therefore not fixed by
+choosing a different bundled CIF. The dominant missing ingredient is more likely
+the local equilibrium tensor itself: convergence of the EFG tensor components,
+cell/internal-coordinate relaxation against the chosen functional and PAW data,
+possible functional or PAW-dataset dependence, and eventually anharmonic or
+snapshot averaging close to the ferroelectric transition. High-temperature
+\code{I m m m} CIFs should also be treated carefully: the available entries are
+partial-occupancy/disordered models, and a literal static expansion can place
+split sites nearly on top of each other, causing ABINIT PAW sphere-overlap
+aborts. Use those only after constructing an ordered approximant, not as ordinary
+static EFG inputs.
+
 % =====================================================================
 \chapter{Validation Against the Measured Database}
 
