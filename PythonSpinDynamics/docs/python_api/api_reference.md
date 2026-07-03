@@ -413,6 +413,14 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `velocity_array(velocity, positions: np.ndarray, time: float) -> np.ndarray` | Return a per-particle velocity array matching ``positions``. |
 | function | `gradient_offset(positions: np.ndarray, gradient) -> np.ndarray` | Return the Lagrangian gradient-induced offset ``positions @ gradient``. |
 
+## `spin_dynamics.interference.active`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `CompensationActuator` | Analog feedforward path from a commanded field to the field at the primary. |
+| class | `ActiveCancellationResult` | Outcome of an analog feedforward cancellation before and after the ADC. |
+| function | `feedforward_cancel(primary: np.ndarray, references: np.ndarray, model, actuator: CompensationActuator, sample_rate_hz: float, *, adc_saturation: float | None = None, rng: np.random.Generator | None = None, seed: int | None = None) -> ActiveCancellationResult` | Cancel RFI at the primary with a compensation coil before digitisation. |
+
 ## `spin_dynamics.interference.cancellers`
 
 | Kind | Name | Summary |
@@ -423,6 +431,8 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `gated_ridge_fir_canceller(primary: np.ndarray, references: np.ndarray, fit_mask: np.ndarray, *, taps: int = 1, ridge: float = 0.0) -> CancellationResult` | Fit and apply a gated ridge-LS FIR canceller. |
 | function | `fit_scalar_canceller(primary: np.ndarray, references: np.ndarray, fit_mask: np.ndarray, *, ridge: float = 0.0) -> LinearCancellerModel` | Fit a zero-lag multi-reference scalar canceller on ``fit_mask`` samples. |
 | function | `scalar_canceller(primary: np.ndarray, references: np.ndarray, fit_mask: np.ndarray, *, ridge: float = 0.0) -> CancellationResult` | Fit and apply a zero-lag multi-reference scalar canceller. |
+| function | `fit_robust_fir(primary: np.ndarray, references: np.ndarray, fit_mask: np.ndarray, *, taps: int = 1, ridge: float = 0.0, huber_delta: float = 1.345, max_iter: int = 25, tol: float = 1e-06, scale: float | None = None) -> LinearCancellerModel` | Fit an outlier-robust FIR canceller by Huber IRLS on baseline samples. |
+| function | `robust_fir_canceller(primary: np.ndarray, references: np.ndarray, fit_mask: np.ndarray, *, taps: int = 1, ridge: float = 0.0, huber_delta: float = 1.345, max_iter: int = 25, tol: float = 1e-06, scale: float | None = None) -> CancellationResult` | Fit and apply a Huber-IRLS robust FIR canceller. |
 | function | `windowed_ridge_fir_canceller(primary: np.ndarray, references: np.ndarray, fit_mask: np.ndarray, *, taps: int = 1, window_samples: int = 1024, ridge: float = 0.0, smoothness: float = 0.0) -> CancellationResult` | Apply an offline windowed ridge-FIR canceller with smooth coefficients. |
 | function | `joint_signal_reference_canceller(primary: np.ndarray, references: np.ndarray, fit_mask: np.ndarray, signal_basis: np.ndarray, *, taps: int = 1, reference_ridge: float = 0.0, signal_ridge: float = 0.0) -> CancellationResult` | Fit reference-derived RFI and structured signal terms jointly. |
 | function | `windowed_joint_signal_reference_canceller(primary: np.ndarray, references: np.ndarray, fit_mask: np.ndarray, signal_basis: np.ndarray, *, taps: int = 1, window_samples: int = 1024, reference_ridge: float = 0.0, smoothness: float = 0.0, signal_ridge: float = 0.0) -> CancellationResult` | Fit windowed reference RFI and structured signal terms jointly. |
@@ -449,12 +459,14 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `ResidualSpectrumResult` | FFT spectrum and the largest residual spectral lines. |
 | class | `DesignMatrixDiagnostics` | Rank and conditioning diagnostics for a tapped reference matrix. |
 | class | `SaturationDiagnostics` | Samples that exceed a symmetric front-end threshold. |
+| class | `ReferenceNoiseInjectionResult` | White noise a canceller injects into the cleaned output via its references. |
 | function | `rfi_suppression_db(before: np.ndarray, after: np.ndarray, mask: np.ndarray | None = None, *, clean_signal: np.ndarray | None = None) -> RFISuppressionResult` | Return RMS suppression in dB on ``mask``. |
 | function | `matched_filter_snr_improvement(clean_signal: np.ndarray, before_signals: np.ndarray, after_signals: np.ndarray, *, pnoise: np.ndarray | None = None, frequencies: np.ndarray | None = None, offsets: np.ndarray | None = None, noise_scale: float = 1.0, matched_filter: np.ndarray | None = None) -> MatchedFilterImprovementResult` | Estimate matched-filter SNR improvement from cancellation. |
 | function | `signal_bias(clean_signal: np.ndarray, cleaned_signal: np.ndarray, mask: np.ndarray | None = None) -> SignalBiasResult` | Estimate amplitude and phase bias of ``cleaned_signal`` vs ``clean_signal``. |
 | function | `residual_spectral_lines(residual: np.ndarray, sample_rate_hz: float, mask: np.ndarray | None = None, *, top_n: int = 5) -> ResidualSpectrumResult` | Return FFT amplitudes and the largest residual spectral lines. |
 | function | `reference_design_diagnostics(references: np.ndarray, mask: np.ndarray | None = None, *, taps: int = 1, rtol: float | None = None) -> DesignMatrixDiagnostics` | Return rank and condition number of the tapped reference design matrix. |
 | function | `saturation_diagnostics(signal: np.ndarray, threshold: float) -> SaturationDiagnostics` | Flag samples whose magnitude reaches or exceeds ``threshold``. |
+| function | `reference_noise_injection(coefficients: np.ndarray, reference_noise_sigma: np.ndarray | float) -> ReferenceNoiseInjectionResult` | Estimate the reference-channel noise a canceller injects into its output. |
 
 ## `spin_dynamics.interference.masks`
 

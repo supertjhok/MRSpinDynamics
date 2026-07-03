@@ -2071,6 +2071,20 @@ This is the recommended first offline method when the front end has not
 saturated. It does not need to run in real time, and it can use future samples
 to estimate slowly varying coupling.
 
+Impulsive pickup---Poisson-timed switching transients whose bursts are large and
+rare---violates the Gaussian-residual assumption of squared-error fitting: a
+handful of spiky samples dominate the normal equations and drag
+\(\widehat{\mathbf{h}}\) away from the coherent coupling. The robust canceller
+\code{robust\_fir\_canceller} replaces the \(\ell_2\) loss with a Huber loss,
+minimized by iteratively reweighted least squares. Each iteration solves the
+weighted normal equations \(\Phi^{\mathsf H} W \Phi\,\mathbf{h} =
+\Phi^{\mathsf H} W \mathbf{y}\) with \(W=\operatorname{diag}(w_n)\), where
+\(w_n = 1\) for \(|r_n|\le\delta s\) and \(w_n=\delta s/|r_n|\) otherwise, \(s\)
+is a robust (MAD-based) scale of the residual re-estimated each iteration, and
+\(\delta\) (default \(1.345\)) is the transition point. Samples in the impulsive
+tail are down-weighted so the fit tracks the stationary RFI path; the returned
+\code{fit\_weights} expose which samples were treated as outliers.
+
 \subsection{Echo-Aware Joint Fitting}
 
 For SLSE, the echo train itself has strong temporal structure. Reference-only
@@ -2157,6 +2171,10 @@ The diagnostics layer also provides:
   \item amplitude and phase bias of the recovered signal;
   \item prominent residual spectral lines;
   \item reference design rank and condition number;
+  \item the reference-noise-injection estimate, i.e.\ the white noise a fitted
+  canceller passes from noisy reference channels into the cleaned output
+  (\(\mathrm{var}=\sum_k \sigma_k^2 \sum_l |h_{k,l}|^2\)), the ``noise figure''
+  that decides whether suppression is a net win;
   \item saturation flags for front-end clipping checks.
 \end{itemize}
 
@@ -2164,6 +2182,38 @@ Saturation is a hard boundary. If the primary channel clips before digitization,
 linear reference cancellation cannot reconstruct the lost waveform. Offline
 methods are appropriate only when the RFI remains inside the linear dynamic
 range of the receiver.
+
+\subsection{Active Feedforward Cancellation}
+
+When the interferer would saturate the receiver, the cure is to cancel it in the
+analog domain, before the amplifier and ADC, so the digitizer only ever sees the
+residual. The \code{spin\_dynamics.\allowbreak interference.\allowbreak active}
+module models this with a \code{CompensationActuator} and \code{feedforward\_cancel}.
+A fitted linear model (the same \code{LinearCancellerModel} used for digital
+cancellation, typically calibrated on the reference chain) supplies the commanded
+compensation field \(\widehat{r}_n\) from the continuous references. The actuator
+realizes it imperfectly, and the residual seen by the ADC is
+
+\[
+  y^{\mathrm{res}}_n = y_n - g\,\widetilde{r}_{\,n-L},
+\]
+
+where \(g\) is the analog gain/phase mismatch, \(L\) the causal actuator latency,
+and \(\widetilde{r}\) the commanded field after any drive-range clip and
+bandwidth limit. The ADC then clips \(y^{\mathrm{res}}\) rather than \(y\). This
+is the decisive difference from digital cancellation \code{model.apply(clip(y))},
+which subtracts \emph{after} the clip and cannot recover saturated peaks.
+
+Two physical limits bound feedforward. The causal latency limits the cancellation
+bandwidth: a tone at angular frequency \(\omega\) is only suppressed by the factor
+\(|1 - g\,e^{-i\omega L}|\), so cancellation fails (and eventually \emph{adds}
+interference) once \(\omega L\) approaches \(\pi\). The finite drive range
+\code{max\_field} caps how much of a large interferer the coil can oppose, so deep
+nulls require both low latency and adequate headroom. The example
+\code{examples/plot\_nqr\_rfi\_active\_feedforward.py} drives the primary well past
+full scale and contrasts digital-too-late against active feedforward, then sweeps
+both limits. Because the digitized active residual is again linear, a digital
+canceller can be run on it afterward for the last few decibels.
 
 \subsection{Typical Monte Carlo Results}
 
@@ -4324,6 +4374,7 @@ from spin_dynamics.interference import (
     reference_matrix,
     scalar_canceller,
     gated_ridge_fir_canceller,
+    robust_fir_canceller,
     windowed_ridge_fir_canceller,
     adaptive_lms_canceller,
     adaptive_rls_canceller,
@@ -4334,7 +4385,10 @@ from spin_dynamics.interference import (
     signal_bias,
     residual_spectral_lines,
     reference_design_diagnostics,
+    reference_noise_injection,
     saturation_diagnostics,
+    CompensationActuator,
+    feedforward_cancel,
 )
 
 from spin_dynamics.nqr import slse_acquisition_mask, sorc_acquisition_mask
@@ -4355,6 +4409,7 @@ Object & Purpose \\
 \code{ReferenceCoil} & Pickup coil with vector sensitivity, position, optional noise, saturation, and NQR leakage. \\
 \code{coil\_voltage}, \code{reference\_matrix} & Simulate one pickup channel or stacked reference matrix for a set of sources. \\
 \code{scalar\_canceller}, \code{gated\_ridge\_fir\_canceller} & Stationary masked least-squares reference cancellers. \\
+\code{robust\_fir\_canceller} & Outlier-robust Huber IRLS reference canceller for impulsive switching-transient pickup. \\
 \code{windowed\_ridge\_fir\_canceller} & Offline RFI canceller with one regularized reference transfer function per time window. \\
 \code{adaptive\_lms\_canceller}, \code{adaptive\_rls\_canceller} & Mask-aware adaptive cancellers whose coefficient updates can freeze during signal windows. \\
 \code{joint\_signal\_reference\_canceller} & Fixed joint fit of reference-derived RFI and a supplied signal basis. \\
@@ -4364,7 +4419,9 @@ Object & Purpose \\
 \code{signal\_bias} & Complex gain, amplitude bias, and phase bias of the recovered signal. \\
 \code{residual\_spectral\_lines} & Largest residual FFT lines after cancellation. \\
 \code{reference\_design\_diagnostics} & Rank and condition number of a tapped reference design matrix. \\
+\code{reference\_noise\_injection} & White noise a canceller injects into the cleaned output from noisy references (the ``noise figure'' of cancellation). \\
 \code{saturation\_diagnostics} & Samples whose magnitude reaches or exceeds a specified front-end threshold. \\
+\code{CompensationActuator}, \code{feedforward\_cancel} & Active feedforward: a compensation coil subtracts RFI before the ADC, with latency, drive-range, gain/phase, and noise limits. \\
 \bottomrule
 \end{longtable}
 

@@ -763,6 +763,25 @@ reference-only cleanup and an echo-aware joint fit: the latter solves one
 offline ridge problem for windowed reference-derived RFI plus an SLSE echo-train
 basis spanning a small resonant-frequency/T2e grid, then scores the fitted NQR
 component.
+`plot_nqr_rfi_robust_impulsive.py` focuses on the outlier-robust canceller and
+the reference-noise-injection diagnostic. It contaminates an in-band SLSE record
+with coherent broadcast-band carriers (spanned by three reference coils) and
+impulsive switching transients conducted directly into the primary receiver,
+which the remote references cannot see. Because those bursts are outliers to the
+reference model, ordinary gated least squares biases the fitted coherent-RFI
+transfer; the Huber-IRLS `robust_fir_canceller` down-weights them and recovers
+roughly 30 dB more coherent suppression and lower in-band NQR amplitude bias. The
+final panel uses `reference_noise_injection` to plot the injected-noise-versus-
+suppressed-RFI trade-off and its break-even reference-noise floor.
+`plot_nqr_rfi_active_feedforward.py` demonstrates the compensation-coil model in
+`spin_dynamics.interference.active`. A strong in-band interferer drives the
+primary past its ADC full scale; digital cancellation applied after the clip
+cannot recover the saturated peaks, while `feedforward_cancel` commands a
+`CompensationActuator` that subtracts the RFI before the ADC so the digitiser
+never clips and the NQR echo is recovered with far lower bias. Two sweeps show
+the physical limits of feedforward: a causal actuator latency bounds the
+cancellation bandwidth, and a finite compensation-coil drive range bounds how
+deep the null can go.
 
 ```powershell
 python examples\plot_nqr_powder_nutation.py --output results\nqr_powder_nutation.png
@@ -779,6 +798,8 @@ python examples\plot_nqr_polarization_enhancement.py --output results\nqr_polari
 python examples\plot_nqr_database_prepolarization.py --output results\nqr_database_prepolarization.png
 python examples\plot_nqr_rfi_cancellation.py --output results\nqr_rfi_cancellation.png
 python examples\plot_nqr_rfi_statistical_study.py --output results\nqr_rfi_statistical_study.png
+python examples\plot_nqr_rfi_robust_impulsive.py --output results\nqr_rfi_robust_impulsive.png
+python examples\plot_nqr_rfi_active_feedforward.py --output results\nqr_rfi_active_feedforward.png
 ```
 
 ## Radiation Damping

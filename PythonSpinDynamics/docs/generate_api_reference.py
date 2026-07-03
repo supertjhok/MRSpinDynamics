@@ -47,6 +47,7 @@ MODULES = [
     "fields.magnetostatics",
     "fields.maps",
     "fields.positions",
+    "interference.active",
     "interference.cancellers",
     "interference.coils",
     "interference.diagnostics",

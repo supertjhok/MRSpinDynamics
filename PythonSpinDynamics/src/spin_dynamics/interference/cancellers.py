@@ -19,6 +19,14 @@ Joint signal/reference fits add an explicit signal subspace, such as an SLSE
 echo-train basis, so offline cleanup can separate structured NQR response from
 reference-correlated RFI instead of treating all primary-channel structure as
 interference.
+
+Ordinary (L2) least squares assumes the fit residual is Gaussian. Impulsive
+pickup -- Poisson-timed switching transients whose bursts are large and rare --
+violates that: a handful of spiky samples dominate the squared-error normal
+equations and drag the fitted transfer function away from the coherent coupling.
+The robust FIR canceller replaces the L2 loss with a Huber loss solved by
+iteratively reweighted least squares, so samples in the impulsive tail are
+down-weighted and the fit tracks the stationary RFI path instead of the spikes.
 """
 
 from __future__ import annotations
@@ -40,6 +48,8 @@ class CancellationResult:
     coefficient_history: np.ndarray | None = None
     signal_estimate: np.ndarray | None = None
     signal_coefficients: np.ndarray | None = None
+    fit_weights: np.ndarray | None = None
+    iterations: int | None = None
 
 
 @dataclass(frozen=True)
@@ -230,6 +240,184 @@ def scalar_canceller(
     """Fit and apply a zero-lag multi-reference scalar canceller."""
 
     return gated_ridge_fir_canceller(primary, references, fit_mask, taps=1, ridge=ridge)
+
+
+def _huber_weights(
+    residual: np.ndarray,
+    delta: float,
+    scale: float | None,
+) -> tuple[np.ndarray, float]:
+    """Return Huber IRLS weights and the robust residual scale.
+
+    ``scale`` is a robust dispersion of the residual magnitudes; when ``None`` it
+    is estimated as ``1.4826 * median(|residual|)`` (a MAD-style proxy for the
+    RMS of the coherent-fit residual, robust to the impulsive tail). Samples with
+    ``|r| > delta * scale`` receive weight ``delta * scale / |r|`` so their
+    contribution to the normal equations grows linearly rather than
+    quadratically; the rest keep unit weight.
+    """
+
+    magnitude = np.abs(residual)
+    if scale is None:
+        median = float(np.median(magnitude))
+        s = 1.4826 * median
+    else:
+        s = float(scale)
+    if not np.isfinite(s) or s <= 0.0:
+        s = 1.0
+    threshold = delta * s
+    weights = np.ones(magnitude.shape, dtype=np.float64)
+    tail = magnitude > threshold
+    weights[tail] = threshold / magnitude[tail]
+    return weights, s
+
+
+def _fit_robust_fir(
+    primary: np.ndarray,
+    references: np.ndarray,
+    fit_mask: np.ndarray,
+    *,
+    taps: int,
+    ridge: float,
+    huber_delta: float,
+    max_iter: int,
+    tol: float,
+    scale: float | None,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, int]:
+    """Huber IRLS core: return (coeff (K,taps), full-length weights, fit, iters)."""
+
+    y, x = _validate_xy(primary, references)
+    taps = _positive_int(taps, "taps")
+    ridge = _nonnegative_float(ridge, "ridge")
+    huber_delta = _nonnegative_float(huber_delta, "huber_delta")
+    if huber_delta <= 0.0:
+        raise ValueError("huber_delta must be positive")
+    max_iter = _positive_int(max_iter, "max_iter")
+    tol = _nonnegative_float(tol, "tol")
+    if scale is not None:
+        scale = _nonnegative_float(scale, "scale")
+        if scale <= 0.0:
+            raise ValueError("scale must be positive when supplied")
+    fit = _mask(fit_mask, y.size, "fit_mask")
+    valid = fit.copy()
+    valid[: taps - 1] = False
+    if not np.any(valid):
+        raise ValueError("fit_mask selects no samples with enough FIR history")
+
+    design = _tapped_design(x, taps)
+    a = design[valid]
+    target = y[valid]
+    ridge_eye = ridge * np.eye(a.shape[1], dtype=np.complex128) if ridge > 0.0 else None
+
+    def _solve(weights: np.ndarray) -> np.ndarray:
+        root = np.sqrt(weights)[:, np.newaxis]
+        aw = a * root
+        normal = aw.conj().T @ aw
+        if ridge_eye is not None:
+            normal = normal + ridge_eye
+        rhs = aw.conj().T @ (target * np.sqrt(weights))
+        return np.linalg.solve(normal, rhs)
+
+    weights = np.ones(a.shape[0], dtype=np.float64)
+    coeff = _solve(weights)
+    iterations = 0
+    for iterations in range(1, max_iter + 1):
+        residual = target - a @ coeff
+        weights, _ = _huber_weights(residual, huber_delta, scale)
+        new_coeff = _solve(weights)
+        change = np.linalg.norm(new_coeff - coeff)
+        coeff = new_coeff
+        if change <= tol * (np.linalg.norm(coeff) + 1.0e-30):
+            break
+
+    full_weights = np.ones(y.size, dtype=np.float64)
+    full_weights[valid] = weights
+    return coeff.reshape(x.shape[0], taps), full_weights, fit, iterations
+
+
+def fit_robust_fir(
+    primary: np.ndarray,
+    references: np.ndarray,
+    fit_mask: np.ndarray,
+    *,
+    taps: int = 1,
+    ridge: float = 0.0,
+    huber_delta: float = 1.345,
+    max_iter: int = 25,
+    tol: float = 1.0e-6,
+    scale: float | None = None,
+) -> LinearCancellerModel:
+    """Fit an outlier-robust FIR canceller by Huber IRLS on baseline samples.
+
+    This is the impulsive-pickup counterpart of :func:`fit_gated_ridge_fir`. The
+    fitted transfer function minimises a Huber loss instead of squared error, so
+    rare, large switching transients in the fit residual are down-weighted rather
+    than allowed to dominate the normal equations. ``huber_delta`` is the
+    transition point in units of the robust residual scale (MAD-based by default;
+    override with ``scale``); smaller values reject more aggressively.
+
+    Returns the same :class:`LinearCancellerModel` as the L2 fit, so it can be
+    applied to fresh records with :meth:`LinearCancellerModel.apply`.
+    """
+
+    coeff, _, fit, _ = _fit_robust_fir(
+        primary,
+        references,
+        fit_mask,
+        taps=taps,
+        ridge=ridge,
+        huber_delta=huber_delta,
+        max_iter=max_iter,
+        tol=tol,
+        scale=scale,
+    )
+    return LinearCancellerModel(
+        coefficients=coeff, taps=coeff.shape[1], ridge=float(ridge), fit_mask=fit
+    )
+
+
+def robust_fir_canceller(
+    primary: np.ndarray,
+    references: np.ndarray,
+    fit_mask: np.ndarray,
+    *,
+    taps: int = 1,
+    ridge: float = 0.0,
+    huber_delta: float = 1.345,
+    max_iter: int = 25,
+    tol: float = 1.0e-6,
+    scale: float | None = None,
+) -> CancellationResult:
+    """Fit and apply a Huber-IRLS robust FIR canceller.
+
+    The returned :class:`CancellationResult` carries ``fit_weights`` (the final
+    per-sample IRLS weights, ``1.0`` outside the fit set) and ``iterations``, so
+    callers can see which samples were treated as impulsive outliers.
+    """
+
+    coeff, full_weights, fit, iterations = _fit_robust_fir(
+        primary,
+        references,
+        fit_mask,
+        taps=taps,
+        ridge=ridge,
+        huber_delta=huber_delta,
+        max_iter=max_iter,
+        tol=tol,
+        scale=scale,
+    )
+    model = LinearCancellerModel(
+        coefficients=coeff, taps=coeff.shape[1], ridge=float(ridge), fit_mask=fit
+    )
+    result = model.apply(primary, references)
+    return CancellationResult(
+        cleaned=result.cleaned,
+        predicted=result.predicted,
+        coefficients=result.coefficients,
+        fit_mask=fit,
+        fit_weights=full_weights,
+        iterations=iterations,
+    )
 
 
 def windowed_ridge_fir_canceller(
