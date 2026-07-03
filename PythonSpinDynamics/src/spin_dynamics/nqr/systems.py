@@ -11,7 +11,16 @@ from spin_dynamics.nqr.operators import spin_dimension, validate_spin
 
 @dataclass(frozen=True)
 class QuadrupolarSite:
-    """One quadrupolar nucleus in its EFG principal-axis system."""
+    """One quadrupolar nucleus in its EFG principal-axis system.
+
+    Supports any integer or half-integer ``spin`` above 1/2.
+    ``quadrupole_frequency_hz`` (nu_Q) is the ``eta = 0`` *fundamental* (lowest)
+    zero-field transition frequency -- the ``0 <-> 1`` line for integer spin and
+    the ``1/2 <-> 3/2`` line for half-integer spin. For spin > 3/2 the higher
+    (satellite) axial lines then fall at ``2 nu_Q``, ``3 nu_Q``, ...; build a site
+    from the quadrupole coupling constant ``C_Q`` instead via
+    ``spin_dynamics.nqr.quadrupolar_site`` / ``mr_integration.conversions``.
+    """
 
     spin: float = 1.0
     quadrupole_frequency_hz: float = 1.0e6

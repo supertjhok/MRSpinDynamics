@@ -139,6 +139,14 @@ from spin_dynamics.nqr.systems import (
     NQRTransition,
     QuadrupolarSite,
 )
+from spin_dynamics.nqr.isotopes import (
+    QUADRUPOLAR_ISOTOPES,
+    NuclearIsotope,
+    cq_hz_from_nu_q,
+    nu_q_from_cq_hz,
+    quadrupolar_isotope,
+    quadrupolar_site,
+)
 from spin_dynamics.nqr.structure_coupling import (
     GAMMA_14N_HZ_PER_T,
     CIFAtom,
@@ -170,6 +178,12 @@ __all__ = [
     "NQRModelSelection",
     "NQRTransition",
     "NQRRelaxationModel",
+    "NuclearIsotope",
+    "QUADRUPOLAR_ISOTOPES",
+    "cq_hz_from_nu_q",
+    "nu_q_from_cq_hz",
+    "quadrupolar_isotope",
+    "quadrupolar_site",
     "OrientationSample",
     "PiezoDetectionResult",
     "PiezoNQRCoupling",
