@@ -1,6 +1,6 @@
 # MRSpinDynamics — Repository Survey and Roadmap
 
-_Last updated: 2026-06-28_
+_Last updated: 2026-07-01_
 
 This is a workspace-level survey and forward plan. Subproject-specific
 status lives in each subproject's own docs (e.g.
@@ -500,6 +500,115 @@ propagator/gate fidelity objectives, and the robust ensemble objective.
 **Effort.** Medium — mostly generalizing existing autodiff machinery — with high
 payoff because it composes with F1 (selective pulses), F2 (DEER pump pulses), and
 the single-sided/MOUSE workflows.
+
+## 8. RFI rejection for pulsed NQR (started)
+
+Frontier **F3** (NQR detection-science toolkit) named RFI modelling and
+mitigation as one of its pillars. That slice is now underway in
+`PythonSpinDynamics`, guided by the technical note
+`References/nqr_rfi_rejection_technical_note.tex`. The central physics: ¹⁴N NQR
+lines for energetic/nitrogenous solids (TNT ≈ 0.79–0.9 MHz) fall inside the AM
+broadcast band, so coherent interference overlaps the detection band and cannot
+be removed by a stationary notch without distorting the line. The faithful model
+is (a) RFI as a **vector magnetic field**, (b) **multi-channel reference-coil
+cancellation**, and (c) a **masked/gated** estimation problem, because in SLSE /
+SORC the primary receiver is only useful in the gaps between RF pulses while
+reference detectors run continuously.
+
+### Design decisions (resolving the note's open questions)
+
+- **Namespace:** a new top-level `spin_dynamics.interference` package, *not*
+  `nqr.interference`. The vector-field model, reference coils, and cancellers are
+  sequence- and physics-agnostic (reusable by low-field MRI and ESR); only the
+  gating/mask *adapter* is NQR-specific and lives in `nqr/` (Phase 2).
+- **Reference coils:** a new lightweight `ReferenceCoil` dataclass, distinct from
+  `nqr.OrientationSample` (which carries powder-averaging weights, not lab
+  geometry). It reuses the existing PAS 3-vector + `np.dot` projection idiom so
+  primary-coil coupling stays consistent with `nqr.transition_signal`.
+- **Cancellers (Phase 3):** pure numerical transforms with explicit `fit`/`apply`
+  separation, consuming `(y, X, mask)` arrays — no dependency on the simulation
+  objects, so they are unit-testable against analytic least-squares limits.
+- **Transmit feedthrough into references:** *preserve* by default (continuous
+  reference acquisition through the pulse is the whole point), with a per-coil
+  saturation/clip override to demonstrate the "digital cancellation too late"
+  pathology.
+
+### Spatial regimes (both required)
+
+The source layer models **both** limiting cases the note calls out:
+
+- **Spatially uniform, distant** sources (AM transmitters, wavelength ≫ probe):
+  a plane-wave source whose field is position-independent over the probe, so a
+  small set of ≈orthogonal reference axes can span it.
+- **Spatially non-uniform, near-field** sources (switching power converters,
+  cable pickup, re-radiating metal): a magnetic-dipole source with a genuine
+  `1/r³` field pattern and gradients, so a single reference station is
+  rank-deficient and multiple vector stations are needed.
+
+### Phased plan
+
+- **Phase 0 — sample-clock + mask primitives** (`interference/masks.py`):
+  `AcquisitionMask` labelling each sample transmit / ringdown / signal-gap (𝒢) /
+  baseline (ℬ), with an interval builder. Substrate for the gated least-squares
+  objective and the NQR mask adapter.
+- **Phase 1 — synthetic RFI + reference channels** (`interference/sources.py`,
+  `coils.py`): vector field sources (uniform + dipole) driven by tone / AM /
+  chirp / colored-noise / impulsive waveforms; `ReferenceCoil` with pickup
+  vector, location, gain/phase error, noise floor, saturation, and optional NQR
+  leakage; Faraday (`c·dB/dt`) pickup and a stacked reference matrix `X`, plus the
+  coupling matrix `C` for rank/conditioning diagnostics.
+- **Phase 2 — NQR mask adapter** (`nqr/interference.py`): turn
+  `SLSESequence` / `SORCSequence` timing into an `AcquisitionMask` on a shared
+  shot clock, including transmit, ringdown, signal-gap, and optional baseline
+  windows.
+- **Phase 3 — digital cancellers** (`interference/cancellers.py`): online/causal
+  baselines (scalar complex subtraction, gated ridge-LS FIR, LMS/NLMS/RLS with
+  mask-aware freeze), plus offline/batch cancellers for cases where RFI does not
+  saturate the front-end. The first offline method is a windowed ridge-LS FIR
+  with smoothness regularization between adjacent coefficient windows, intended
+  for randomly modulated AM-like coupling. Follow-ons include frequency-domain
+  transfer functions, compact parametric AM/Kalman trackers, robust/sparse
+  decompositions for impulsive pickup, and simulator-trained or self-supervised
+  ANN denoisers.
+- **Phase 4 — diagnostics + active cancellation** (`interference/diagnostics.py`):
+  dB suppression in gaps, matched-filter SNR before/after (reusing
+  `noise.estimate_matched_filter_snr`), amplitude/phase bias, residual lines,
+  design-matrix conditioning, and saturation flags. Follow-ons include explicit
+  reference-noise injection estimates and optional feedforward compensation
+  coils.
+- **Phase 5 — examples + tests**: plotted workflows for the note's escalating
+  cases (single AM carrier → 3-axis time-varying polarization → rank-deficient
+  one-axis residual → SLSE gaps → reference NQR leakage → ADC clipping → active
+  feedforward). The first example, `examples/plot_nqr_rfi_cancellation.py`,
+  covers the digital/reference-channel cases; active feedforward remains a
+  later plotted example once the compensation-coil model exists.
+  `examples/plot_nqr_rfi_statistical_study.py` adds the experimental design
+  layer: Monte Carlo confidence intervals for method robustness versus
+  initial-echo SNR and near-field performance versus the number of tri-axial
+  reference stations, with resonant-frequency, initial-amplitude, and T2e
+  estimation errors as endpoints. It keeps both the out-of-band null/control
+  case and the harder in-band overlap case where RFI contaminates the estimator
+  bandwidth. These examples include reference-only cancellation and a first
+  echo-aware joint estimator: `windowed_joint_signal_reference_canceller` fits
+  windowed, smoothed reference-derived RFI terms together with an SLSE
+  echo-train basis spanning a small resonant-frequency/T2e grid, then scores the
+  fitted NQR component. Follow-ons include nonlinear refinement of frequency and
+  T2e, better heavy-tail handling for failed decay fits, and stronger priors on
+  the echo envelope.
+
+**Status:** Phases 0, 1, and 2 are implemented. Phase 3 core cancellers are now
+started: fixed gated least-squares tools cover stationary coupling, adaptive
+LMS/NLMS/RLS covers time-varying AM-like coupling with coefficient updates
+frozen outside trusted windows, and offline windowed ridge covers non-real-time
+cleanup when the primary channel remains linear. Phase 4 diagnostic primitives
+are started: suppression, SNR improvement, signal bias, residual-line,
+conditioning, and saturation checks are available. Downstream phases build on
+the `(y, X, mask)` contract without rework. Phase 5 examples are started with a
+multi-panel pulsed-NQR RFI cancellation plot tying together masks, continuous
+references, cancellers, leakage/clipping failure modes, and diagnostics.
+The companion statistical study quantifies noise robustness and reference-count
+scaling for near-field RFI using NQR parameter-estimation accuracy, including a
+first echo-aware joint fit for SLSE echo trains.
 
 ### Cross-cutting note
 

@@ -28,6 +28,10 @@ from spin_dynamics.nqr.inhomogeneity import (
     simulate_slse_efg_distribution,
     temperature_efg_distribution,
 )
+from spin_dynamics.nqr.interference import (
+    slse_acquisition_mask,
+    sorc_acquisition_mask,
+)
 from spin_dynamics.nqr.full_dynamics import (
     FullNQREchoResult,
     FullNQRFIDResult,
@@ -259,8 +263,10 @@ __all__ = [
     "simulate_sorc",
     "simulate_weak_b0_spectrum",
     "single_crystal_orientation",
+    "slse_acquisition_mask",
     "sorc_powder_pathway_signal",
     "slse_sequence",
+    "sorc_acquisition_mask",
     "sorc_powder_theory_signal",
     "sorc_sequence",
     "spherical_direction",

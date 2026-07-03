@@ -746,6 +746,23 @@ The database-driven variant demonstrates the same transport model using
 transition frequencies pulled from `NQRDatabase/data/exports/nqr.sqlite`;
 by default it loads glycine NQR lines, estimates the `1H-14N` coupling from the
 bundled glycine CIF, and reports the estimated signal gain for each transition.
+The RFI-cancellation example is synthetic rather than material-specific: it
+combines a pulsed SLSE acquisition mask, continuous reference channels,
+randomly modulated AM-like interference, rank-deficient references,
+reference-signal leakage, clipping, offline windowed ridge cleanup, and the
+Phase-4 diagnostics in one plotted workflow.
+`plot_nqr_rfi_statistical_study.py` then runs a Monte Carlo study with
+confidence intervals to quantify cancellation robustness versus initial-echo
+SNR and near-field performance versus the number of tri-axial reference
+stations, using NQR parameter errors (resonant frequency, initial amplitude,
+and T2e) as the endpoint. Its default `--rfi-spectral-mode in-band` is the
+challenging case where the interferer overlaps the estimator bandwidth; pass
+`--rfi-spectral-mode out-of-band` to save the useful null/control case where
+the RFI mostly averages out of the echo estimator. The study now includes both
+reference-only cleanup and an echo-aware joint fit: the latter solves one
+offline ridge problem for windowed reference-derived RFI plus an SLSE echo-train
+basis spanning a small resonant-frequency/T2e grid, then scores the fitted NQR
+component.
 
 ```powershell
 python examples\plot_nqr_powder_nutation.py --output results\nqr_powder_nutation.png
@@ -760,6 +777,8 @@ python examples\plot_nqr_full_powder_nutation.py --output results\nqr_full_powde
 python examples\plot_nqr_spin32_slse.py --output results\nqr_spin32_slse.png
 python examples\plot_nqr_polarization_enhancement.py --output results\nqr_polarization_enhancement.png
 python examples\plot_nqr_database_prepolarization.py --output results\nqr_database_prepolarization.png
+python examples\plot_nqr_rfi_cancellation.py --output results\nqr_rfi_cancellation.png
+python examples\plot_nqr_rfi_statistical_study.py --output results\nqr_rfi_statistical_study.png
 ```
 
 ## Radiation Damping

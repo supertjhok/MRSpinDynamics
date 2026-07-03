@@ -7,6 +7,7 @@ __all__ = [
     "core",
     "esr",
     "exchange",
+    "interference",
     "motion",
     "noise",
     "nqr",

@@ -170,6 +170,15 @@ models are documented in Chapter~\ref{chap:nqr}.
 }
 
 \scopebox{Accent}{
+\textbf{RFI and reference-channel rejection.} The
+\code{spin\_dynamics.interference} namespace models radio-frequency
+interference as a vector magnetic field, samples it with primary and reference
+coils, and removes it with masked, adaptive, windowed, or echo-aware joint
+estimators. The RFI tools are sequence agnostic; the NQR layer supplies SLSE and
+SORC acquisition masks on the same sample clock.
+}
+
+\scopebox{Accent}{
 \textbf{ESR/EPR extension.} The \code{spin\_dynamics.esr} namespace adds
 single-electron spin-1/2 ESR tools, including scalar or anisotropic \(g\)
 tensors, single-crystal and powder spectra, CW absorption/derivative
@@ -1984,6 +1993,252 @@ Noise is added to the complex time-domain acquisition before the FFT. The
 optional deconvolution performs a regularized inversion of the same finite-window
 FFT operator. It is useful for exploring acquisition-window broadening, but it
 can amplify noise and should be checked across plausible SNR values.
+
+\section{RFI Rejection and Echo-Aware SLSE Fitting}
+
+Low-field pulsed NQR is often limited by coherent radio-frequency interference
+(RFI), not only by receiver noise. This is especially true for
+\({}^{14}\mathrm{N}\) compounds whose transition frequencies can lie in or near
+the AM broadcast band. The new \code{spin\_dynamics.interference} layer treats
+this as a reference-channel estimation problem on the same shot clock as the
+NQR sequence. It is deliberately split into two parts:
+
+\begin{itemize}
+  \item sequence-independent RFI sources, pickup coils, cancellers, and
+  diagnostics in \code{spin\_dynamics.\allowbreak interference};
+  \item NQR-specific mask adapters, such as \code{slse\_acquisition\_mask}, in
+  \code{spin\_dynamics.nqr}.
+\end{itemize}
+
+The mask is essential. During transmit and ringdown the primary receiver is not
+a faithful linear measurement of the field, while the reference channels may
+continue to observe the environment. During quiet receive intervals the primary
+sample can be modeled as
+\[
+  y_n = s_n(\theta) + r_n + \epsilon_n,
+\]
+where \(s_n(\theta)\) is the NQR response, \(r_n\) is the RFI coupled into the
+primary channel, and \(\epsilon_n\) is receiver noise. The reference array
+\(X\in\mathbb{C}^{K\times N}\) contains \(K\) auxiliary pickup channels,
+\[
+  x_{k,n} =
+  \mathbf{c}_k^{\mathsf T}
+  \frac{\dd}{\dd t}\mathbf{B}_{\mathrm{RFI}}(\mathbf{p}_k,t_n)
+  + \ell_k s_n + \xi_{k,n},
+\]
+with pickup vector \(\mathbf{c}_k\), coil position \(\mathbf{p}_k\), optional
+NQR leakage \(\ell_k\), and reference noise \(\xi_{k,n}\). Far-field RFI is
+represented by a nearly uniform vector field. Near-field RFI is represented by
+magnetic dipole sources with the usual \(1/r^3\) spatial pattern, which makes
+multiple reference stations valuable because each station sees a different
+linear mixture of the interfering sources.
+
+\subsection{Masked and Windowed Reference Cancellation}
+
+The simplest stationary reference canceller predicts the RFI in the primary
+channel by a tapped linear model,
+\[
+  \widehat{r}_n =
+  \sum_{k=1}^{K}\sum_{\ell=0}^{L-1} h_{k,\ell}\,x_{k,n-\ell}.
+\]
+Let \(\phi_n\) be the row vector of tapped reference samples at time \(n\), and
+let \(B\) be the boolean fitting mask. Gated ridge fitting solves
+\[
+  \widehat{\mathbf{h}}
+  =
+  \arg\min_{\mathbf{h}}
+  \sum_{n\in B}|y_n-\phi_n\mathbf{h}|^2
+  + \lambda\|\mathbf{h}\|_2^2.
+\]
+For SLSE, \(B\) should exclude transmit, ringdown, and expected echo windows
+when the method does not explicitly model the NQR signal. The scalar canceller
+is the \(L=1\) case. The FIR form allows small group delays or front-end phase
+shifts between the reference and primary chains.
+
+Time-varying interferers, such as randomly modulated AM-like carriers or moving
+near-field sources, are not well described by one global coefficient vector.
+Two alternatives are implemented. Mask-aware LMS/NLMS/RLS produces a continuous
+prediction but freezes coefficient updates outside trusted windows. The offline
+windowed ridge method fits one coefficient vector per window,
+\(\mathbf{h}_w\), and regularizes adjacent windows:
+\[
+  \min_{\{\mathbf{h}_w\}}
+  \sum_w\sum_{n\in B_w}|y_n-\phi_n\mathbf{h}_w|^2
+  + \lambda\sum_w\|\mathbf{h}_w\|_2^2
+  + \alpha\sum_{w>0}\|\mathbf{h}_w-\mathbf{h}_{w-1}\|_2^2.
+\]
+This is the recommended first offline method when the front end has not
+saturated. It does not need to run in real time, and it can use future samples
+to estimate slowly varying coupling.
+
+\subsection{Echo-Aware Joint Fitting}
+
+For SLSE, the echo train itself has strong temporal structure. Reference-only
+cancellation uses this structure only indirectly through masks and diagnostics;
+it does not prevent the RFI model from absorbing echo-like primary-channel
+structure. The echo-aware joint estimator adds an explicit signal subspace.
+Let \(\Psi\in\mathbb{C}^{N\times M}\) be a basis for plausible NQR echo trains.
+The fixed joint model is
+\[
+  \mathbf{y} \approx \Phi\mathbf{h}+\Psi\mathbf{a},
+\]
+where \(\Phi\) is the tapped reference design matrix and \(\mathbf{a}\) are
+signal-basis coefficients. The fitted reference contribution is still the RFI
+estimate, while \(\Psi\widehat{\mathbf{a}}\) is the fitted NQR component.
+
+The practical SLSE example uses the windowed form,
+\[
+\begin{split}
+  \min_{\{\mathbf{h}_w\},\mathbf{a}}\quad
+  &\sum_w\sum_{n\in B_w}
+    \left|y_n-\phi_n\mathbf{h}_w-\psi_n\mathbf{a}\right|^2 \\
+  &+ \lambda_{\mathrm{ref}}\sum_w\|\mathbf{h}_w\|_2^2
+   + \alpha\sum_{w>0}\|\mathbf{h}_w-\mathbf{h}_{w-1}\|_2^2
+   + \lambda_s\|\mathbf{a}\|_2^2.
+\end{split}
+\]
+Here \(\psi_n\) is the row of the SLSE basis at sample \(n\). Unlike the
+reference-only methods, this fit may include the echo windows because the echo
+has its own model block. The implementation is
+\code{windowed\_joint\_signal\_\allowbreak reference\_canceller}. It returns
+both a cleaned waveform \(y-\widehat{r}\) and \code{signal\_estimate}, the
+fitted NQR component. For parameter estimation, the example scores
+\code{signal\_estimate} because that is the quantity the joint estimator is
+designed to recover.
+
+The default SLSE basis in
+\code{examples/plot\_nqr\_rfi\_statistical\_study.py} is a small grid of echo
+trains,
+\[
+  \psi_{\nu,T_{2e}}(t_n)
+  =
+  \sum_j
+  g(t_n-\tau_j)
+  \exp(-\tau_j/T_{2e})
+  \exp(\ii 2\pi\nu\tau_j),
+\]
+where \(g\) is the echo-window template and \(\tau_j\) are the expected echo
+centers. The command-line options
+\code{--echo-aware-frequency-span-hz},
+\code{--echo-aware-frequency-points}, and
+\code{--echo-aware-t2e-grid-ms} control this dictionary. This is still a linear
+ridge problem because the frequencies and decay constants are gridded. A future
+nonlinear refinement step can use the best grid component as an initial guess
+for continuous \(\nu\) and \(T_{2e}\).
+
+\subsection{Parameter Endpoints and Diagnostics}
+
+RFI suppression in dB is a useful engineering diagnostic, but it is not the
+experimental endpoint. For NQR detection, the important quantities are the
+resonant frequency, initial echo amplitude, and decay constant \(T_{2e}\). The
+statistical example projects the recovered record onto the echo templates,
+producing complex responses \(c_j\) at echo times \(\tau_j\). It then estimates
+\[
+  \widehat{\nu}
+  =
+  \frac{1}{2\pi}\frac{\dd}{\dd\tau}
+  \operatorname{unwrap}\arg c(\tau),
+\]
+and fits
+\[
+  \log |c_j|
+  \approx
+  \log A_0 - \tau_j/T_{2e}.
+\]
+The plotted endpoints are therefore
+\(|\widehat{\nu}-\nu|\), relative \(A_0\) error, and relative \(T_{2e}\) error,
+all averaged over Monte Carlo trials with approximate 95\% confidence
+intervals of the mean.
+
+The diagnostics layer also provides:
+\begin{itemize}
+  \item RFI suppression using the clean signal when available;
+  \item matched-filter SNR improvement;
+  \item amplitude and phase bias of the recovered signal;
+  \item prominent residual spectral lines;
+  \item reference design rank and condition number;
+  \item saturation flags for front-end clipping checks.
+\end{itemize}
+
+Saturation is a hard boundary. If the primary channel clips before digitization,
+linear reference cancellation cannot reconstruct the lost waveform. Offline
+methods are appropriate only when the RFI remains inside the linear dynamic
+range of the receiver.
+
+\subsection{Typical Monte Carlo Results}
+
+The example
+\code{examples/plot\_nqr\_rfi\_statistical\_study.py} synthesizes five
+independent near-field magnetic-dipole RFI sources, tri-axial reference
+stations, a complex SLSE echo train, receiver noise calibrated by initial echo
+SNR, and randomly modulated AM-like interference. It compares one-station
+scalar cancellation, all-station scalar cancellation, offline windowed ridge,
+NLMS adaptation, and the echo-aware joint fit.
+
+The most important control is spectral overlap. With the command-line default
+\code{--rfi-spectral-mode in-band}, the RFI carrier is placed near the echo
+phase frequency and contaminates the NQR parameter estimator. With
+\code{--rfi-spectral-mode out-of-band}, the same machinery is a null/control
+case: the interference mostly averages out of the echo estimator, so parameter
+error is dominated by receiver noise.
+
+For 48 in-band Monte Carlo trials, the default example produced:
+
+\begin{center}
+\begin{tabular}{lrrrr}
+\toprule
+Method & \multicolumn{2}{c}{Frequency error (Hz)} &
+\multicolumn{2}{c}{Relative \(T_{2e}\) error} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+& SNR 4 & SNR 35 & SNR 4 & SNR 35 \\
+\midrule
+1 station scalar & 25.09 & 19.76 & 4.659 & 3.901 \\
+all stations scalar & 27.21 & 8.03 & 3.507 & 0.467 \\
+windowed ridge & 26.05 & 3.19 & 3.584 & 0.195 \\
+NLMS adaptive & 29.26 & 8.05 & 6.041 & 0.345 \\
+echo-aware joint & 5.08 & 2.31 & 7.813 & 0.258 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The echo-aware method gives the clearest improvement in resonant-frequency
+accuracy when the RFI overlaps the NQR estimator, especially at low initial
+echo SNR. Its low-SNR \(T_{2e}\) estimates remain heavy-tailed because decay
+fitting is sensitive to failed or over-regularized late echoes; this is a real
+limitation of the first linear-grid method, not a plotting artifact. At high
+SNR, windowed ridge and echo-aware joint fitting are both useful, with the joint
+method favoring frequency recovery and the windowed method sometimes giving a
+slightly cleaner decay estimate.
+
+The same run also tests near-field reference-count scaling at initial echo
+SNR 12. For windowed ridge, going from one to five tri-axial stations improved
+mean frequency error from 15.44 to 8.43 Hz and relative \(T_{2e}\) error from
+2.848 to 0.877. For the echo-aware joint fit, the corresponding frequency
+error was already much lower, 3.38 to 2.57 Hz, and relative \(T_{2e}\) error
+improved from 2.959 to 0.547. The suppression diagnostic is much larger for the
+joint fit because the reported endpoint is the fitted NQR component rather than
+only the waveform after subtracting predicted RFI.
+
+In the out-of-band control, all methods become mostly noise-limited at high
+SNR: frequency errors collapse to roughly 0.2--0.4 Hz and relative \(T_{2e}\)
+errors to about 0.05. That null result is valuable. It shows why RFI rejection
+must be evaluated with spectral overlap and NQR parameter endpoints; residual
+power alone can make a benign out-of-band interferer look experimentally
+important, or make an in-band interferer look acceptable when it is biasing the
+frequency and decay estimates.
+
+\begin{lstlisting}[language=bash]
+python examples/plot_nqr_rfi_cancellation.py \
+    --output results/nqr_rfi_cancellation.png
+
+python examples/plot_nqr_rfi_statistical_study.py \
+    --rfi-spectral-mode in-band \
+    --output results/nqr_rfi_statistical_study.png
+
+python examples/plot_nqr_rfi_statistical_study.py \
+    --rfi-spectral-mode out-of-band \
+    --output results/nqr_rfi_statistical_outofband_control.png
+\end{lstlisting}
 
 \section{Two-Frequency Population Transfer}
 
@@ -4046,6 +4301,70 @@ Object & Purpose \\
 \code{electron\_nuclear\_system} & Convenience builder for isotropic electron-nuclear hyperfine systems. \\
 \code{diagonalize\_hyperfine\_system} & Exact dense energy levels and ESR-active transitions for a hyperfine system. \\
 \code{simulate\_hyperfine\_field\_sweep} & Field-swept ESR spectrum including isotropic electron-nuclear hyperfine coupling. \\
+\bottomrule
+\end{longtable}
+
+\section{Interference and RFI API}
+
+\begin{lstlisting}
+from spin_dynamics.interference import (
+    AcquisitionMask,
+    SampleLabel,
+    mask_from_intervals,
+    RFIWaveform,
+    tone_waveform,
+    am_carrier_waveform,
+    chirp_waveform,
+    colored_noise_waveform,
+    impulsive_waveform,
+    UniformPlaneWaveSource,
+    MagneticDipoleSource,
+    ReferenceCoil,
+    coil_voltage,
+    reference_matrix,
+    scalar_canceller,
+    gated_ridge_fir_canceller,
+    windowed_ridge_fir_canceller,
+    adaptive_lms_canceller,
+    adaptive_rls_canceller,
+    joint_signal_reference_canceller,
+    windowed_joint_signal_reference_canceller,
+    rfi_suppression_db,
+    matched_filter_snr_improvement,
+    signal_bias,
+    residual_spectral_lines,
+    reference_design_diagnostics,
+    saturation_diagnostics,
+)
+
+from spin_dynamics.nqr import slse_acquisition_mask, sorc_acquisition_mask
+\end{lstlisting}
+
+\begin{longtable}{p{0.42\linewidth}p{0.50\linewidth}}
+\toprule
+Object & Purpose \\
+\midrule
+\code{AcquisitionMask}, \code{SampleLabel} & Per-sample transmit, ringdown, signal, and baseline labels on one shot clock. \\
+\code{mask\_from\_intervals} & Build a generic acquisition mask from second-valued intervals. \\
+\code{slse\_acquisition\_mask}, \code{sorc\_acquisition\_mask} & Convert NQR SLSE or SORC sequence timing into an acquisition mask with optional baseline windows. \\
+\code{RFIWaveform} & Real sampled interference waveform with a sample rate. \\
+\code{tone\_waveform}, \code{am\_carrier\_waveform} & Narrowband and amplitude-modulated RFI waveform helpers. \\
+\code{chirp\_waveform}, \code{colored\_noise\_waveform}, \code{impulsive\_waveform} & Broadband, drifting, and transient RFI waveform helpers. \\
+\code{UniformPlaneWaveSource} & Far-field RFI source with spatially uniform vector polarization. \\
+\code{MagneticDipoleSource} & Near-field magnetic-dipole source with \(1/r^3\) spatial dependence. \\
+\code{ReferenceCoil} & Pickup coil with vector sensitivity, position, optional noise, saturation, and NQR leakage. \\
+\code{coil\_voltage}, \code{reference\_matrix} & Simulate one pickup channel or stacked reference matrix for a set of sources. \\
+\code{scalar\_canceller}, \code{gated\_ridge\_fir\_canceller} & Stationary masked least-squares reference cancellers. \\
+\code{windowed\_ridge\_fir\_canceller} & Offline RFI canceller with one regularized reference transfer function per time window. \\
+\code{adaptive\_lms\_canceller}, \code{adaptive\_rls\_canceller} & Mask-aware adaptive cancellers whose coefficient updates can freeze during signal windows. \\
+\code{joint\_signal\_reference\_canceller} & Fixed joint fit of reference-derived RFI and a supplied signal basis. \\
+\code{windowed\_joint\_signal\_\allowbreak reference\_canceller} & Offline echo-aware joint fit with windowed reference coefficients and global signal-basis coefficients. \\
+\code{rfi\_suppression\_db} & RMS RFI suppression in dB, optionally relative to a known clean signal. \\
+\code{matched\_filter\_snr\_improvement} & Matched-filter SNR before and after cleanup. \\
+\code{signal\_bias} & Complex gain, amplitude bias, and phase bias of the recovered signal. \\
+\code{residual\_spectral\_lines} & Largest residual FFT lines after cancellation. \\
+\code{reference\_design\_diagnostics} & Rank and condition number of a tapped reference design matrix. \\
+\code{saturation\_diagnostics} & Samples whose magnitude reaches or exceeds a specified front-end threshold. \\
 \bottomrule
 \end{longtable}
 

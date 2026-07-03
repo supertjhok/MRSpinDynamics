@@ -285,6 +285,8 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_nqr_weak_b0_spectrum.py",
             "examples/plot_nqr_polarization_enhancement.py",
             "examples/plot_nqr_database_prepolarization.py",
+            "examples/plot_nqr_rfi_cancellation.py",
+            "examples/plot_nqr_rfi_statistical_study.py",
             "examples/plot_redfield_nano2_slse.py",
             "examples/plot_redfield_water_cpmg.py",
             "examples/plot_bpp_water_t1t2_temperature.py",

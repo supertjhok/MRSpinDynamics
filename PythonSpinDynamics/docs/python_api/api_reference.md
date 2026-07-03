@@ -413,6 +413,73 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `velocity_array(velocity, positions: np.ndarray, time: float) -> np.ndarray` | Return a per-particle velocity array matching ``positions``. |
 | function | `gradient_offset(positions: np.ndarray, gradient) -> np.ndarray` | Return the Lagrangian gradient-induced offset ``positions @ gradient``. |
 
+## `spin_dynamics.interference.cancellers`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `CancellationResult` | Cleaned primary data and the RFI estimate produced by a canceller. |
+| class | `LinearCancellerModel` | Fixed multi-reference FIR canceller fitted by gated ridge least squares. |
+| function | `fit_gated_ridge_fir(primary: np.ndarray, references: np.ndarray, fit_mask: np.ndarray, *, taps: int = 1, ridge: float = 0.0) -> LinearCancellerModel` | Fit a fixed FIR reference canceller on baseline samples only. |
+| function | `gated_ridge_fir_canceller(primary: np.ndarray, references: np.ndarray, fit_mask: np.ndarray, *, taps: int = 1, ridge: float = 0.0) -> CancellationResult` | Fit and apply a gated ridge-LS FIR canceller. |
+| function | `fit_scalar_canceller(primary: np.ndarray, references: np.ndarray, fit_mask: np.ndarray, *, ridge: float = 0.0) -> LinearCancellerModel` | Fit a zero-lag multi-reference scalar canceller on ``fit_mask`` samples. |
+| function | `scalar_canceller(primary: np.ndarray, references: np.ndarray, fit_mask: np.ndarray, *, ridge: float = 0.0) -> CancellationResult` | Fit and apply a zero-lag multi-reference scalar canceller. |
+| function | `windowed_ridge_fir_canceller(primary: np.ndarray, references: np.ndarray, fit_mask: np.ndarray, *, taps: int = 1, window_samples: int = 1024, ridge: float = 0.0, smoothness: float = 0.0) -> CancellationResult` | Apply an offline windowed ridge-FIR canceller with smooth coefficients. |
+| function | `joint_signal_reference_canceller(primary: np.ndarray, references: np.ndarray, fit_mask: np.ndarray, signal_basis: np.ndarray, *, taps: int = 1, reference_ridge: float = 0.0, signal_ridge: float = 0.0) -> CancellationResult` | Fit reference-derived RFI and structured signal terms jointly. |
+| function | `windowed_joint_signal_reference_canceller(primary: np.ndarray, references: np.ndarray, fit_mask: np.ndarray, signal_basis: np.ndarray, *, taps: int = 1, window_samples: int = 1024, reference_ridge: float = 0.0, smoothness: float = 0.0, signal_ridge: float = 0.0) -> CancellationResult` | Fit windowed reference RFI and structured signal terms jointly. |
+| function | `adaptive_lms_canceller(primary: np.ndarray, references: np.ndarray, update_mask: np.ndarray | None = None, *, taps: int = 1, step: float = 0.1, normalized: bool = True, epsilon: float = 1e-12, leak: float = 0.0, initial_coefficients: np.ndarray | None = None) -> CancellationResult` | Apply mask-aware LMS/NLMS cancellation for time-varying transfer paths. |
+| function | `adaptive_rls_canceller(primary: np.ndarray, references: np.ndarray, update_mask: np.ndarray | None = None, *, taps: int = 1, forgetting: float = 0.995, initial_covariance: float = 1000.0, initial_coefficients: np.ndarray | None = None) -> CancellationResult` | Apply a mask-aware recursive least-squares reference canceller. |
+
+## `spin_dynamics.interference.coils`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `ReferenceCoil` | A pickup coil that senses one projection of the RFI field. |
+| function | `coil_voltage(coil: ReferenceCoil, sources: list[RFISource] | tuple[RFISource, ...], *, nqr_signal: np.ndarray | None = None, rng: np.random.Generator | None = None, seed: int | None = None) -> np.ndarray` | Return the measured voltage of one coil under the given RFI sources. |
+| function | `reference_matrix(coils: list[ReferenceCoil] | tuple[ReferenceCoil, ...], sources: list[RFISource] | tuple[RFISource, ...], *, nqr_signal: np.ndarray | None = None, rng: np.random.Generator | None = None, seed: int | None = None) -> np.ndarray` | Return the stacked reference observation ``X`` with shape ``(K, N)``. |
+| function | `coupling_matrix(coils: list[ReferenceCoil] | tuple[ReferenceCoil, ...]) -> np.ndarray` | Return ``C = [c_1, ..., c_K]`` (shape ``(3, K)``) of coil pickup vectors. |
+
+## `spin_dynamics.interference.diagnostics`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `RFISuppressionResult` | RMS RFI level before and after cancellation on a selected mask. |
+| class | `MatchedFilterImprovementResult` | Matched-filter SNR before and after cancellation. |
+| class | `SignalBiasResult` | Complex gain, amplitude bias, phase bias, and residual error. |
+| class | `ResidualLine` | One prominent residual spectral line. |
+| class | `ResidualSpectrumResult` | FFT spectrum and the largest residual spectral lines. |
+| class | `DesignMatrixDiagnostics` | Rank and conditioning diagnostics for a tapped reference matrix. |
+| class | `SaturationDiagnostics` | Samples that exceed a symmetric front-end threshold. |
+| function | `rfi_suppression_db(before: np.ndarray, after: np.ndarray, mask: np.ndarray | None = None, *, clean_signal: np.ndarray | None = None) -> RFISuppressionResult` | Return RMS suppression in dB on ``mask``. |
+| function | `matched_filter_snr_improvement(clean_signal: np.ndarray, before_signals: np.ndarray, after_signals: np.ndarray, *, pnoise: np.ndarray | None = None, frequencies: np.ndarray | None = None, offsets: np.ndarray | None = None, noise_scale: float = 1.0, matched_filter: np.ndarray | None = None) -> MatchedFilterImprovementResult` | Estimate matched-filter SNR improvement from cancellation. |
+| function | `signal_bias(clean_signal: np.ndarray, cleaned_signal: np.ndarray, mask: np.ndarray | None = None) -> SignalBiasResult` | Estimate amplitude and phase bias of ``cleaned_signal`` vs ``clean_signal``. |
+| function | `residual_spectral_lines(residual: np.ndarray, sample_rate_hz: float, mask: np.ndarray | None = None, *, top_n: int = 5) -> ResidualSpectrumResult` | Return FFT amplitudes and the largest residual spectral lines. |
+| function | `reference_design_diagnostics(references: np.ndarray, mask: np.ndarray | None = None, *, taps: int = 1, rtol: float | None = None) -> DesignMatrixDiagnostics` | Return rank and condition number of the tapped reference design matrix. |
+| function | `saturation_diagnostics(signal: np.ndarray, threshold: float) -> SaturationDiagnostics` | Flag samples whose magnitude reaches or exceeds ``threshold``. |
+
+## `spin_dynamics.interference.masks`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `SampleLabel` | Per-sample acquisition state on the shot clock. |
+| class | `AcquisitionMask` | Per-sample receive-state labels sharing one shot clock. |
+| function | `blank_mask(sample_rate_hz: float, num_samples: int, *, fill: SampleLabel = SampleLabel.SIGNAL) -> AcquisitionMask` | Return a mask with every sample set to ``fill``. |
+| function | `mask_from_intervals(sample_rate_hz: float, duration_seconds: float, *, transmit: Sequence[Interval] | None = None, ringdown: Sequence[Interval] | None = None, baseline: Sequence[Interval] | None = None, fill: SampleLabel = SampleLabel.SIGNAL) -> AcquisitionMask` | Build a mask from second-valued intervals on a shot clock. |
+
+## `spin_dynamics.interference.sources`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `RFIWaveform` | A real, scalar interference waveform sampled on a shot clock. |
+| function | `tone_waveform(num_samples: int, sample_rate_hz: float, *, frequency_hz: float, amplitude: float = 1.0, phase_rad: float = 0.0) -> RFIWaveform` | Return a single narrowband tone ``A cos(2*pi*f*t + phi)``. |
+| function | `am_carrier_waveform(num_samples: int, sample_rate_hz: float, *, carrier_hz: float, modulation_hz: float, modulation_depth: float = 0.5, amplitude: float = 1.0, phase_rad: float = 0.0) -> RFIWaveform` | Return an amplitude-modulated carrier (broadcast-AM model). |
+| function | `chirp_waveform(num_samples: int, sample_rate_hz: float, *, start_hz: float, stop_hz: float, amplitude: float = 1.0, phase_rad: float = 0.0) -> RFIWaveform` | Return a linear-frequency chirp sweeping ``start_hz`` -> ``stop_hz``. |
+| function | `colored_noise_waveform(num_samples: int, sample_rate_hz: float, *, amplitude: float = 1.0, exponent: float = 0.0, seed: int | None = None, rng: np.random.Generator | None = None) -> RFIWaveform` | Return broadband noise with a power-law spectrum ``S(f) ~ f**(-exponent)``. |
+| function | `impulsive_waveform(num_samples: int, sample_rate_hz: float, *, event_rate_hz: float, amplitude: float = 1.0, decay_seconds: float = 1e-05, ring_hz: float = 0.0, seed: int | None = None, rng: np.random.Generator | None = None) -> RFIWaveform` | Return impulsive bursts (a switching-transient model). |
+| class | `RFISource` | A vector-field RFI source evaluated at lab-frame positions. |
+| class | `UniformPlaneWaveSource` | A spatially uniform (far-field) RFI source. |
+| class | `MagneticDipoleSource` | A near-field magnetic-dipole RFI source with a ``1/r**3`` pattern. |
+| function | `total_field(sources: list[RFISource] | tuple[RFISource, ...], positions: np.ndarray) -> np.ndarray` | Return the summed field ``(P, 3, N)`` of several sources at ``positions``. |
+
 ## `spin_dynamics.motion`
 
 | Kind | Name | Summary |
@@ -501,6 +568,13 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `simulate_fid_efg_distribution(distribution: EFGDistribution, transition_label: str, times_seconds: np.ndarray | list[float] | tuple[float, ...], *, excitation: SelectivePulse, carrier_frequency_hz: float | None = None, orientations: OrientationInput = 'single', t2_seconds: float = np.inf, zero_fill_factor: int = 2, window: str = 'hann', rephase_action: str = 'warn', rephase_safety_factor: float = 1.25) -> NQRFIDDistributionResult` | Simulate a selective-pulse NQR FID from a static EFG distribution. |
 | function | `simulate_slse_efg_distribution(distribution: EFGDistribution, sequence, *, orientations: OrientationInput = 'powder', b0_tesla: float = 0.0, t2e_seconds: float = np.inf, relaxation = None, rephase_action: str = 'warn', rephase_safety_factor: float = 1.25) -> SLSEDistributionResult` | Simulate an SLSE echo train summed over a static EFG distribution. |
 | function | `simulate_slse_acquisition_spectrum(distribution: EFGDistribution, sequence, *, acquisition_duration_seconds: float, acquisition_points: int = 256, echo_index: int = -1, carrier_frequency_hz: float | None = None, orientations: OrientationInput = 'powder', b0_tesla: float = 0.0, t2e_seconds: float = np.inf, relaxation = None, zero_fill_factor: int = 2, spectrum_window: str = 'none', noise: NoiseSpec | Mapping | float | int | None = None, deconvolution_strength: float | None = None, rephase_action: str = 'warn', rephase_safety_factor: float = 1.25) -> SLSEAcquisitionSpectrumResult` | Simulate the spectrum of one finite-window acquired SLSE echo. |
+
+## `spin_dynamics.nqr.interference`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `slse_acquisition_mask(sequence: SLSESequence, sample_rate_hz: float, *, ringdown_seconds: float = 0.0, pre_baseline_seconds: float = 0.0, post_baseline_seconds: float = 0.0, baseline_intervals: Sequence[Interval] | None = None) -> AcquisitionMask` | Return a transmit/ringdown/signal/baseline mask for an SLSE train. |
+| function | `sorc_acquisition_mask(sequence: SORCSequence, sample_rate_hz: float, *, ringdown_seconds: float = 0.0, pre_baseline_seconds: float = 0.0, post_baseline_seconds: float = 0.0, baseline_intervals: Sequence[Interval] | None = None, initial_gap_is_baseline: bool = True) -> AcquisitionMask` | Return a transmit/ringdown/signal/baseline mask for a SORC train. |
 
 ## `spin_dynamics.nqr.model_selection`
 
