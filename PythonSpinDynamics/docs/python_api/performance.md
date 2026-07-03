@@ -75,3 +75,12 @@ tests and timing baselines. Current and near-term acceleration targets include:
 - matched-probe transient response calculations;
 - broad diffusion and imaging sweeps;
 - moving-isochromat and voxel-walker sequence simulations.
+
+The adaptive RFI cancellers (`adaptive_lms_canceller`, `adaptive_rls_canceller`)
+are inherently sequential per-sample recursive filters, so their inner loops are
+Numba-compiled in `interference/_numba_cancellers.py` (`nogil`, `cache`). The
+public cancellers use the compiled `lms_kernel` / `rls_kernel` when `numba` is
+installed and fall back to the NumPy per-sample loop otherwise; a parity test
+runs the kernels as pure Python and checks them against the NumPy path so the two
+stay bit-close (`atol` 1e-12 for LMS, 1e-9 for RLS) regardless of whether the
+extra is present.

@@ -413,6 +413,14 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `velocity_array(velocity, positions: np.ndarray, time: float) -> np.ndarray` | Return a per-particle velocity array matching ``positions``. |
 | function | `gradient_offset(positions: np.ndarray, gradient) -> np.ndarray` | Return the Lagrangian gradient-induced offset ``positions @ gradient``. |
 
+## `spin_dynamics.interference.active`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `CompensationActuator` | Analog feedforward path from a commanded field to the field at the primary. |
+| class | `ActiveCancellationResult` | Outcome of an analog feedforward cancellation before and after the ADC. |
+| function | `feedforward_cancel(primary: np.ndarray, references: np.ndarray, model, actuator: CompensationActuator, sample_rate_hz: float, *, adc_saturation: float | None = None, rng: np.random.Generator | None = None, seed: int | None = None) -> ActiveCancellationResult` | Cancel RFI at the primary with a compensation coil before digitisation. |
+
 ## `spin_dynamics.interference.cancellers`
 
 | Kind | Name | Summary |
@@ -423,11 +431,15 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `gated_ridge_fir_canceller(primary: np.ndarray, references: np.ndarray, fit_mask: np.ndarray, *, taps: int = 1, ridge: float = 0.0) -> CancellationResult` | Fit and apply a gated ridge-LS FIR canceller. |
 | function | `fit_scalar_canceller(primary: np.ndarray, references: np.ndarray, fit_mask: np.ndarray, *, ridge: float = 0.0) -> LinearCancellerModel` | Fit a zero-lag multi-reference scalar canceller on ``fit_mask`` samples. |
 | function | `scalar_canceller(primary: np.ndarray, references: np.ndarray, fit_mask: np.ndarray, *, ridge: float = 0.0) -> CancellationResult` | Fit and apply a zero-lag multi-reference scalar canceller. |
+| function | `fit_robust_fir(primary: np.ndarray, references: np.ndarray, fit_mask: np.ndarray, *, taps: int = 1, ridge: float = 0.0, huber_delta: float = 1.345, max_iter: int = 25, tol: float = 1e-06, scale: float | None = None) -> LinearCancellerModel` | Fit an outlier-robust FIR canceller by Huber IRLS on baseline samples. |
+| function | `robust_fir_canceller(primary: np.ndarray, references: np.ndarray, fit_mask: np.ndarray, *, taps: int = 1, ridge: float = 0.0, huber_delta: float = 1.345, max_iter: int = 25, tol: float = 1e-06, scale: float | None = None) -> CancellationResult` | Fit and apply a Huber-IRLS robust FIR canceller. |
 | function | `windowed_ridge_fir_canceller(primary: np.ndarray, references: np.ndarray, fit_mask: np.ndarray, *, taps: int = 1, window_samples: int = 1024, ridge: float = 0.0, smoothness: float = 0.0) -> CancellationResult` | Apply an offline windowed ridge-FIR canceller with smooth coefficients. |
 | function | `joint_signal_reference_canceller(primary: np.ndarray, references: np.ndarray, fit_mask: np.ndarray, signal_basis: np.ndarray, *, taps: int = 1, reference_ridge: float = 0.0, signal_ridge: float = 0.0) -> CancellationResult` | Fit reference-derived RFI and structured signal terms jointly. |
 | function | `windowed_joint_signal_reference_canceller(primary: np.ndarray, references: np.ndarray, fit_mask: np.ndarray, signal_basis: np.ndarray, *, taps: int = 1, window_samples: int = 1024, reference_ridge: float = 0.0, smoothness: float = 0.0, signal_ridge: float = 0.0) -> CancellationResult` | Fit windowed reference RFI and structured signal terms jointly. |
+| function | `sparse_reference_canceller(primary: np.ndarray, references: np.ndarray, fit_mask: np.ndarray, *, sparse_penalty: float, taps: int = 1, ridge: float = 0.0, max_iter: int = 50, tol: float = 1e-06) -> CancellationResult` | Split the primary into reference-explained RFI plus a sparse impulse term. |
 | function | `adaptive_lms_canceller(primary: np.ndarray, references: np.ndarray, update_mask: np.ndarray | None = None, *, taps: int = 1, step: float = 0.1, normalized: bool = True, epsilon: float = 1e-12, leak: float = 0.0, initial_coefficients: np.ndarray | None = None) -> CancellationResult` | Apply mask-aware LMS/NLMS cancellation for time-varying transfer paths. |
 | function | `adaptive_rls_canceller(primary: np.ndarray, references: np.ndarray, update_mask: np.ndarray | None = None, *, taps: int = 1, forgetting: float = 0.995, initial_covariance: float = 1000.0, initial_coefficients: np.ndarray | None = None) -> CancellationResult` | Apply a mask-aware recursive least-squares reference canceller. |
+| function | `frequency_domain_canceller(primary: np.ndarray, references: np.ndarray, fit_mask: np.ndarray | None = None, *, segment_length: int = 256, hop: int | None = None, ridge: float = 0.0, sample_rate_hz: float = 1.0) -> CancellationResult` | Cancel RFI with a per-frequency multi-reference Wiener transfer function. |
 
 ## `spin_dynamics.interference.coils`
 
@@ -449,12 +461,14 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `ResidualSpectrumResult` | FFT spectrum and the largest residual spectral lines. |
 | class | `DesignMatrixDiagnostics` | Rank and conditioning diagnostics for a tapped reference matrix. |
 | class | `SaturationDiagnostics` | Samples that exceed a symmetric front-end threshold. |
+| class | `ReferenceNoiseInjectionResult` | White noise a canceller injects into the cleaned output via its references. |
 | function | `rfi_suppression_db(before: np.ndarray, after: np.ndarray, mask: np.ndarray | None = None, *, clean_signal: np.ndarray | None = None) -> RFISuppressionResult` | Return RMS suppression in dB on ``mask``. |
 | function | `matched_filter_snr_improvement(clean_signal: np.ndarray, before_signals: np.ndarray, after_signals: np.ndarray, *, pnoise: np.ndarray | None = None, frequencies: np.ndarray | None = None, offsets: np.ndarray | None = None, noise_scale: float = 1.0, matched_filter: np.ndarray | None = None) -> MatchedFilterImprovementResult` | Estimate matched-filter SNR improvement from cancellation. |
 | function | `signal_bias(clean_signal: np.ndarray, cleaned_signal: np.ndarray, mask: np.ndarray | None = None) -> SignalBiasResult` | Estimate amplitude and phase bias of ``cleaned_signal`` vs ``clean_signal``. |
 | function | `residual_spectral_lines(residual: np.ndarray, sample_rate_hz: float, mask: np.ndarray | None = None, *, top_n: int = 5) -> ResidualSpectrumResult` | Return FFT amplitudes and the largest residual spectral lines. |
 | function | `reference_design_diagnostics(references: np.ndarray, mask: np.ndarray | None = None, *, taps: int = 1, rtol: float | None = None) -> DesignMatrixDiagnostics` | Return rank and condition number of the tapped reference design matrix. |
 | function | `saturation_diagnostics(signal: np.ndarray, threshold: float) -> SaturationDiagnostics` | Flag samples whose magnitude reaches or exceeds ``threshold``. |
+| function | `reference_noise_injection(coefficients: np.ndarray, reference_noise_sigma: np.ndarray | float) -> ReferenceNoiseInjectionResult` | Estimate the reference-channel noise a canceller injects into its output. |
 
 ## `spin_dynamics.interference.masks`
 
@@ -464,6 +478,14 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `AcquisitionMask` | Per-sample receive-state labels sharing one shot clock. |
 | function | `blank_mask(sample_rate_hz: float, num_samples: int, *, fill: SampleLabel = SampleLabel.SIGNAL) -> AcquisitionMask` | Return a mask with every sample set to ``fill``. |
 | function | `mask_from_intervals(sample_rate_hz: float, duration_seconds: float, *, transmit: Sequence[Interval] | None = None, ringdown: Sequence[Interval] | None = None, baseline: Sequence[Interval] | None = None, fill: SampleLabel = SampleLabel.SIGNAL) -> AcquisitionMask` | Build a mask from second-valued intervals on a shot clock. |
+
+## `spin_dynamics.interference.recordings`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `RFIRecording` | A measured RFI record: ADC sample windows plus a reconstructed mask. |
+| function | `save_rfi_recording(path: str | Path, recording: RFIRecording) -> None` | Write a recording to a NumPy ``.npz`` archive. |
+| function | `load_rfi_recording(path: str | Path) -> RFIRecording` | Load a recording previously written by :func:`save_rfi_recording`. |
 
 ## `spin_dynamics.interference.sources`
 
@@ -479,6 +501,12 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `UniformPlaneWaveSource` | A spatially uniform (far-field) RFI source. |
 | class | `MagneticDipoleSource` | A near-field magnetic-dipole RFI source with a ``1/r**3`` pattern. |
 | function | `total_field(sources: list[RFISource] | tuple[RFISource, ...], positions: np.ndarray) -> np.ndarray` | Return the summed field ``(P, 3, N)`` of several sources at ``positions``. |
+
+## `spin_dynamics.interference.trackers`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `kalman_harmonic_canceller(primary: np.ndarray, frequencies_hz: np.ndarray | list[float] | tuple[float, ...], sample_rate_hz: float, *, update_mask: np.ndarray | None = None, process_std: float = 0.001, measurement_std: float = 1.0, initial_amplitude_std: float = 1.0) -> CancellationResult` | Track and subtract drifting narrowband carriers with a Kalman filter. |
 
 ## `spin_dynamics.motion`
 
@@ -575,6 +603,9 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | --- | --- | --- |
 | function | `slse_acquisition_mask(sequence: SLSESequence, sample_rate_hz: float, *, ringdown_seconds: float = 0.0, pre_baseline_seconds: float = 0.0, post_baseline_seconds: float = 0.0, baseline_intervals: Sequence[Interval] | None = None) -> AcquisitionMask` | Return a transmit/ringdown/signal/baseline mask for an SLSE train. |
 | function | `sorc_acquisition_mask(sequence: SORCSequence, sample_rate_hz: float, *, ringdown_seconds: float = 0.0, pre_baseline_seconds: float = 0.0, post_baseline_seconds: float = 0.0, baseline_intervals: Sequence[Interval] | None = None, initial_gap_is_baseline: bool = True) -> AcquisitionMask` | Return a transmit/ringdown/signal/baseline mask for a SORC train. |
+| function | `slse_mask_from_metadata(num_samples: int, sample_rate_hz: float, *, echo_spacing_seconds: float, detection_duration_seconds: float, num_echoes: int, ringdown_seconds: float = 0.0, start_offset_seconds: float = 0.0, post_baseline_seconds: float = 0.0, baseline_intervals: Sequence[Interval] | None = None) -> AcquisitionMask` | Reconstruct an SLSE acquisition mask over a window of ``num_samples`` ADC samples. |
+| function | `sorc_mask_from_metadata(num_samples: int, sample_rate_hz: float, *, half_spacing_seconds: float, detection_duration_seconds: float, num_pulses: int, ringdown_seconds: float = 0.0, start_offset_seconds: float = 0.0, post_baseline_seconds: float = 0.0, baseline_intervals: Sequence[Interval] | None = None, initial_gap_is_baseline: bool = True) -> AcquisitionMask` | Reconstruct a SORC acquisition mask over a window of ``num_samples`` ADC samples. |
+| function | `nqr_recording_from_samples(primary: np.ndarray, references: np.ndarray | None, sample_rate_hz: float, *, sequence: str = 'slse', **timing) -> RFIRecording` | Pair measured ADC windows with a mask reconstructed from sequence timing. |
 
 ## `spin_dynamics.nqr.model_selection`
 

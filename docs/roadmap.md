@@ -566,16 +566,37 @@ The source layer models **both** limiting cases the note calls out:
   mask-aware freeze), plus offline/batch cancellers for cases where RFI does not
   saturate the front-end. The first offline method is a windowed ridge-LS FIR
   with smoothness regularization between adjacent coefficient windows, intended
-  for randomly modulated AM-like coupling. Follow-ons include frequency-domain
-  transfer functions, compact parametric AM/Kalman trackers, robust/sparse
-  decompositions for impulsive pickup, and simulator-trained or self-supervised
-  ANN denoisers.
+  for randomly modulated AM-like coupling. A Huber IRLS robust FIR
+  (`fit_robust_fir` / `robust_fir_canceller`) handles impulsive switching-transient
+  pickup, whose rare large bursts would otherwise dominate the L2 normal
+  equations; it exposes the final per-sample IRLS weights so flagged outliers are
+  visible. A frequency-domain Wiener canceller (`frequency_domain_canceller`) fits
+  a per-bin multi-reference transfer from averaged cross-spectra and applies it by
+  weighted overlap-add, for strongly frequency-dependent (resonant, long
+  impulse-response) coupling; it also returns the multiple-coherence spectrum as a
+  cancellability diagnostic. A reference-free parametric tracker
+  (`kalman_harmonic_canceller`, `interference/trackers.py`) follows the drifting
+  complex amplitude of narrowband carriers with a Kalman filter and subtracts
+  them, freezing updates in the signal gaps -- for AM broadcast lines with no
+  clean reference. A sparse-decomposition canceller (`sparse_reference_canceller`)
+  splits the primary into a reference-explained coherent term and an
+  L1/soft-threshold sparse impulse term, so the switching transients are modelled
+  and *removed* (not merely down-weighted like the robust fit). Follow-ons include
+  simulator-trained or self-supervised ANN denoisers.
 - **Phase 4 — diagnostics + active cancellation** (`interference/diagnostics.py`):
   dB suppression in gaps, matched-filter SNR before/after (reusing
   `noise.estimate_matched_filter_snr`), amplitude/phase bias, residual lines,
-  design-matrix conditioning, and saturation flags. Follow-ons include explicit
-  reference-noise injection estimates and optional feedforward compensation
-  coils.
+  design-matrix conditioning, saturation flags, and the reference-noise-injection
+  estimate (`reference_noise_injection`: the canceller "noise figure", i.e. the
+  white noise a fitted model passes from noisy references into the cleaned
+  output, `var = sum_k sigma_k^2 sum_l |h[k,l]|^2`), which pairs with the
+  conditioning number to say whether cancellation is a net win. Active
+  cancellation now has a first model in `interference/active.py`
+  (`CompensationActuator` + `feedforward_cancel`): a fitted linear model commands
+  a compensation coil that subtracts the RFI *before* the ADC, so a saturating
+  interferer never clips the receiver -- the digital-cancellation-is-too-late
+  pathology. The actuator carries the real feedforward limits (causal latency,
+  finite drive range, gain/phase/bandwidth mismatch, drive noise).
 - **Phase 5 — examples + tests**: plotted workflows for the note's escalating
   cases (single AM carrier → 3-axis time-varying polarization → rank-deficient
   one-axis residual → SLSE gaps → reference NQR leakage → ADC clipping → active
@@ -596,19 +617,39 @@ The source layer models **both** limiting cases the note calls out:
   T2e, better heavy-tail handling for failed decay fits, and stronger priors on
   the echo envelope.
 
-**Status:** Phases 0, 1, and 2 are implemented. Phase 3 core cancellers are now
-started: fixed gated least-squares tools cover stationary coupling, adaptive
-LMS/NLMS/RLS covers time-varying AM-like coupling with coefficient updates
-frozen outside trusted windows, and offline windowed ridge covers non-real-time
-cleanup when the primary channel remains linear. Phase 4 diagnostic primitives
-are started: suppression, SNR improvement, signal bias, residual-line,
-conditioning, and saturation checks are available. Downstream phases build on
-the `(y, X, mask)` contract without rework. Phase 5 examples are started with a
-multi-panel pulsed-NQR RFI cancellation plot tying together masks, continuous
-references, cancellers, leakage/clipping failure modes, and diagnostics.
-The companion statistical study quantifies noise robustness and reference-count
-scaling for near-field RFI using NQR parameter-estimation accuracy, including a
-first echo-aware joint fit for SLSE echo trains.
+**Status:** Phases 0–5 are all implemented (59 tests in
+`tests/test_interference.py`, ruff clean). Phase 0–2 provide the masks, vector
+sources, reference coils, and the SLSE/SORC mask adapter. Phase 3 cancellers
+cover the full ladder: fixed gated least-squares for stationary coupling,
+adaptive LMS/NLMS/RLS for time-varying AM-like coupling (coefficient updates
+frozen outside trusted windows), offline windowed ridge for non-real-time
+cleanup, joint signal/reference fits that separate an SLSE echo basis from
+reference-correlated RFI, a Huber IRLS robust FIR for impulsive
+switching-transient pickup, a frequency-domain Wiener canceller for
+frequency-dependent coupling (with a coherence-spectrum diagnostic), and a
+reference-free Kalman harmonic tracker for drifting narrowband carriers, and a
+sparse-decomposition canceller that models and removes impulsive bursts. Phase 4
+diagnostics provide suppression, matched-
+filter SNR improvement, signal bias, residual lines, design-matrix conditioning,
+saturation flags, and the reference-noise-injection ("canceller noise figure")
+estimate; active cancellation adds `CompensationActuator` + `feedforward_cancel`
+for pre-ADC subtraction through a compensation coil. Everything shares the
+`(y, X, mask)` contract, and measured records join it through `RFIRecording` +
+`nqr_recording_from_samples` (`slse_/sorc_mask_from_metadata` reconstruct the
+gating for a window of ADC samples from the echo-spacing metadata, since the
+labels are not recorded per sample). Phase 5 ships six plotted workflows:
+`plot_nqr_rfi_cancellation.py` (masks/references/cancellers/leakage/clipping vs
+diagnostics), `plot_nqr_rfi_statistical_study.py` (Monte-Carlo robustness and
+reference-count scaling, including the echo-aware joint fit),
+`plot_nqr_rfi_robust_impulsive.py` (robust vs L2 + injection break-even),
+`plot_nqr_rfi_active_feedforward.py` (digital-too-late vs active feedforward under
+ADC saturation), `plot_nqr_rfi_frequency_domain.py` (resonant coupling: scalar <
+FIR < frequency-domain, with the coherence spectrum), and
+`plot_nqr_rfi_kalman_tracker.py` (reference-free removal of a drifting in-band AM
+carrier). The adaptive LMS/RLS inner loops are now Numba-accelerated
+(`interference/_numba_cancellers.py`, opt-in with a NumPy fallback and a
+pure-Python parity test). The one remaining named follow-on is
+simulator-trained / self-supervised ANN denoisers.
 
 ### Cross-cutting note
 

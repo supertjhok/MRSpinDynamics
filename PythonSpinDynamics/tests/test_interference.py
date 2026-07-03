@@ -11,6 +11,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from spin_dynamics.interference import (
     AcquisitionMask,
+    CompensationActuator,
     MagneticDipoleSource,
     ReferenceCoil,
     SampleLabel,
@@ -22,17 +23,24 @@ from spin_dynamics.interference import (
     coil_voltage,
     colored_noise_waveform,
     coupling_matrix,
+    feedforward_cancel,
+    fit_gated_ridge_fir,
     fit_scalar_canceller,
+    frequency_domain_canceller,
     gated_ridge_fir_canceller,
     joint_signal_reference_canceller,
+    kalman_harmonic_canceller,
     mask_from_intervals,
     matched_filter_snr_improvement,
     reference_design_diagnostics,
     reference_matrix,
+    reference_noise_injection,
     residual_spectral_lines,
     rfi_suppression_db,
+    robust_fir_canceller,
     scalar_canceller,
     saturation_diagnostics,
+    sparse_reference_canceller,
     signal_bias,
     tone_waveform,
     total_field,
@@ -45,8 +53,18 @@ from spin_dynamics.interference._signal import (
     spectral_lowpass,
     spectral_phase_shift,
 )
+from spin_dynamics.interference import (
+    RFIRecording,
+    load_rfi_recording,
+    save_rfi_recording,
+)
 from spin_dynamics.nqr import slse_acquisition_mask, slse_sequence
 from spin_dynamics.nqr import sorc_acquisition_mask, sorc_sequence
+from spin_dynamics.nqr import (
+    nqr_recording_from_samples,
+    slse_mask_from_metadata,
+    sorc_mask_from_metadata,
+)
 from spin_dynamics.interference.sources import MU0
 
 
@@ -449,6 +467,187 @@ class CancellerTests(unittest.TestCase):
         np.testing.assert_allclose(result.predicted, rfi, atol=2e-5)
         np.testing.assert_allclose(result.cleaned, signal, atol=2e-5)
 
+    def test_robust_fir_resists_impulsive_outliers_that_bias_least_squares(self):
+        rng = np.random.default_rng(21)
+        n = 2000
+        x = rng.normal(size=n)
+        delayed = np.zeros_like(x)
+        delayed[1:] = x[:-1]
+        true = np.array([0.8, -0.35])
+        references = x.reshape(1, -1)
+        rfi = true[0] * x + true[1] * delayed
+        y = rfi + rng.normal(scale=0.05, size=n)
+        spikes = rng.choice(np.arange(5, n), size=40, replace=False)
+        y[spikes] += rng.normal(scale=40.0, size=spikes.size)
+        fit = np.ones(n, dtype=bool)
+
+        robust = robust_fir_canceller(y, references, fit, taps=2, huber_delta=1.345)
+        l2 = gated_ridge_fir_canceller(y, references, fit, taps=2)
+        robust_err = float(np.linalg.norm(robust.coefficients[0] - true))
+        l2_err = float(np.linalg.norm(l2.coefficients[0] - true))
+
+        self.assertGreater(l2_err, 0.02)
+        self.assertLess(robust_err, 0.25 * l2_err)
+        self.assertGreaterEqual(robust.iterations, 1)
+        self.assertTrue(np.all(robust.fit_weights[spikes] < 1.0))
+        self.assertEqual(robust.fit_weights.shape, (n,))
+
+    def test_robust_fir_matches_least_squares_without_outliers(self):
+        rng = np.random.default_rng(22)
+        n = 800
+        x = rng.normal(size=n)
+        references = x.reshape(1, -1)
+        y = 0.6 * x + rng.normal(scale=0.02, size=n)
+        fit = np.ones(n, dtype=bool)
+
+        robust = robust_fir_canceller(y, references, fit, taps=1, huber_delta=1.345)
+        l2 = gated_ridge_fir_canceller(y, references, fit, taps=1)
+
+        np.testing.assert_allclose(robust.coefficients, l2.coefficients, atol=5e-3)
+
+    def test_frequency_domain_canceller_passthrough_is_exact(self):
+        rng = np.random.default_rng(31)
+        n = 2048
+        length = 256
+        x = rng.normal(size=n)
+
+        result = frequency_domain_canceller(x, x.reshape(1, -1), segment_length=length)
+
+        # Interior reconstruction is exact (edges taper to a zero Hann window).
+        np.testing.assert_allclose(result.cleaned[length : n - length], 0.0, atol=1e-9)
+        self.assertEqual(result.transfer_function.shape, (1, length))
+        self.assertEqual(result.coherence.shape, (length,))
+        interior_coherence = result.coherence[np.abs(result.frequencies) > 0.02]
+        self.assertGreater(float(np.mean(interior_coherence)), 0.99)
+
+    def test_frequency_domain_canceller_removes_frequency_dependent_coupling(self):
+        rng = np.random.default_rng(33)
+        n = 4096
+        fs = 4_000.0
+        t = np.arange(n, dtype=np.float64) / fs
+        reference = rng.normal(size=n)
+        impulse_response = np.array([1.0, -0.7, 0.35, -0.1])
+        rfi = np.convolve(reference, impulse_response)[:n]
+        signal = 0.5 * np.cos(2 * np.pi * 300.0 * t)
+        primary = rfi + signal
+
+        result = frequency_domain_canceller(
+            primary, reference.reshape(1, -1), segment_length=256, sample_rate_hz=fs
+        )
+
+        # Suppression is scored on the interior; the first/last segment_length
+        # samples are tapered by the overlap-add windows.
+        interior_mask = np.zeros(n, dtype=bool)
+        interior_mask[256 : n - 256] = True
+        suppression = rfi_suppression_db(
+            primary, result.cleaned, interior_mask, clean_signal=signal
+        ).suppression_db
+        self.assertGreater(suppression, 20.0)
+        # The uncorrelated tone survives the cancellation.
+        interior = slice(256, n - 256)
+        signal_error = float(
+            np.sqrt(np.mean(np.abs(result.cleaned[interior] - signal[interior]) ** 2))
+        )
+        self.assertLess(signal_error, 0.2 * float(np.sqrt(np.mean(signal[interior] ** 2))))
+        self.assertTrue(np.all(result.coherence >= 0.0))
+        self.assertTrue(np.all(result.coherence <= 1.0))
+
+    def test_sparse_canceller_removes_coherent_rfi_and_impulses(self):
+        rng = np.random.default_rng(37)
+        n = 1500
+        ref = rng.normal(size=n)
+        delayed = np.zeros_like(ref)
+        delayed[1:] = ref[:-1]
+        true = np.array([0.8, -0.35])
+        rfi = true[0] * ref + true[1] * delayed
+        signal = np.zeros(n)
+        signal[700:900] = 0.3 * np.hanning(200)
+        impulse = np.zeros(n)
+        spikes = rng.choice(np.arange(5, n), size=15, replace=False)
+        impulse[spikes] = rng.choice([-1.0, 1.0], size=15) * rng.uniform(3.0, 6.0, size=15)
+        y = rfi + signal + impulse
+        fit = np.ones(n, dtype=bool)
+        fit[680:920] = False
+
+        # Penalty above the NQR echo amplitude (0.3) and below the bursts (>=3).
+        result = sparse_reference_canceller(
+            y, ref.reshape(1, -1), fit, taps=2, sparse_penalty=0.5
+        )
+
+        np.testing.assert_allclose(result.coefficients[0], true, atol=0.05)
+        self.assertTrue(np.all(np.abs(result.sparse_component[spikes]) > 1.0))
+        residual = np.real(result.cleaned) - signal
+        self.assertLess(float(np.sqrt(np.mean(residual**2))), 0.09)
+
+    def test_sparse_canceller_reduces_to_ridge_for_large_penalty(self):
+        rng = np.random.default_rng(38)
+        n = 800
+        ref = rng.normal(size=n)
+        y = 0.6 * ref + 0.05 * rng.normal(size=n)
+        fit = np.ones(n, dtype=bool)
+
+        result = sparse_reference_canceller(
+            y, ref.reshape(1, -1), fit, taps=1, sparse_penalty=100.0
+        )
+        ridge = gated_ridge_fir_canceller(y, ref.reshape(1, -1), fit, taps=1)
+
+        self.assertLess(float(np.sqrt(np.mean(np.abs(result.sparse_component) ** 2))), 1e-9)
+        np.testing.assert_allclose(result.coefficients, ridge.coefficients, atol=1e-6)
+
+    def test_numba_kernels_match_numpy_paths(self):
+        from spin_dynamics.interference import _numba_cancellers as nk
+        from spin_dynamics.interference.cancellers import (
+            _initial_coefficients,
+            _tapped_design,
+        )
+
+        rng = np.random.default_rng(61)
+        n = 300
+        x = rng.normal(size=(2, n)) + 1j * rng.normal(size=(2, n))
+        y = (rng.normal(size=n) + 1j * rng.normal(size=n)).astype(np.complex128)
+        update = np.ones(n, dtype=bool)
+        update[100:150] = False
+        design = _tapped_design(x, 2)
+        update_u8 = update.astype(np.uint8)
+
+        lms_ref = adaptive_lms_canceller(y, x, update, taps=2, step=0.3, normalized=True)
+        predicted, history = nk.lms_kernel(
+            design, y, update_u8, 0.3, True, 1e-12, 0.0,
+            _initial_coefficients(None, 2, 2).copy(),
+        )
+        np.testing.assert_allclose(predicted, lms_ref.predicted, atol=1e-12)
+        np.testing.assert_allclose(
+            history.reshape(n, 2, 2), lms_ref.coefficient_history, atol=1e-12
+        )
+
+        rls_ref = adaptive_rls_canceller(
+            y, x, update, taps=2, forgetting=0.99, initial_covariance=100.0
+        )
+        predicted_r, history_r = nk.rls_kernel(
+            design, y, update_u8, complex(0.99),
+            _initial_coefficients(None, 2, 2).copy(),
+            (100.0 * np.eye(4, dtype=np.complex128)).copy(),
+        )
+        np.testing.assert_allclose(predicted_r, rls_ref.predicted, atol=1e-9)
+        np.testing.assert_allclose(
+            history_r.reshape(n, 2, 2), rls_ref.coefficient_history, atol=1e-9
+        )
+
+    def test_sparse_canceller_validation(self):
+        x = np.ones(64)
+        with self.assertRaises(ValueError):
+            sparse_reference_canceller(x, x.reshape(1, -1), np.ones(64, bool), sparse_penalty=0.0)
+
+    def test_frequency_domain_canceller_validation(self):
+        x = np.ones(100)
+        with self.assertRaises(ValueError):
+            frequency_domain_canceller(x, x.reshape(1, -1), segment_length=200)
+        with self.assertRaises(ValueError):
+            frequency_domain_canceller(x, x.reshape(1, -1), segment_length=32, sample_rate_hz=0.0)
+        empty_fit = np.zeros(100, dtype=bool)
+        with self.assertRaises(ValueError):
+            frequency_domain_canceller(x, x.reshape(1, -1), empty_fit, segment_length=32)
+
 
 class DiagnosticTests(unittest.TestCase):
     def test_rfi_suppression_uses_clean_residual_when_available(self):
@@ -518,6 +717,37 @@ class DiagnosticTests(unittest.TestCase):
         self.assertAlmostEqual(result.saturated_fraction, 0.5)
         self.assertTrue(np.array_equal(result.saturated_mask, [False, False, True, True]))
 
+    def test_reference_noise_injection_matches_closed_form(self):
+        coefficients = np.array([[0.6, 0.0], [0.0, 0.8]], dtype=np.complex128)
+        sigma = np.array([1.0, 0.5])
+
+        result = reference_noise_injection(coefficients, sigma)
+
+        np.testing.assert_allclose(result.per_channel_rms, [0.6, 0.4])
+        self.assertAlmostEqual(result.injected_rms, float(np.sqrt(0.52)), places=12)
+        self.assertAlmostEqual(result.noise_gain, 1.0, places=12)
+
+    def test_reference_noise_injection_predicts_measured_output_noise(self):
+        rng = np.random.default_rng(31)
+        n = 200_000
+        h = np.array([0.6 - 0.2j, 0.3 + 0.1j])
+        sigma = np.array([0.7, 1.3])
+        noise = np.vstack(
+            [rng.normal(scale=sigma[0], size=n), rng.normal(scale=sigma[1], size=n)]
+        )
+        injected = h @ noise  # what a scalar canceller subtracts from the primary
+        measured_rms = float(np.sqrt(np.mean(np.abs(injected) ** 2)))
+
+        result = reference_noise_injection(h, sigma)
+
+        self.assertAlmostEqual(result.injected_rms, measured_rms, delta=0.01 * measured_rms)
+
+    def test_reference_noise_injection_accepts_scalar_sigma(self):
+        result = reference_noise_injection(np.array([3.0, 4.0]), 2.0)
+
+        self.assertAlmostEqual(result.injected_rms, 2.0 * 5.0, places=12)
+        np.testing.assert_allclose(result.reference_noise_sigma, [2.0, 2.0])
+
 
 class NQRMaskAdapterTests(unittest.TestCase):
     def test_slse_mask_places_pulses_after_pre_baseline(self):
@@ -584,6 +814,316 @@ class NQRMaskAdapterTests(unittest.TestCase):
         )
         mask = sorc_acquisition_mask(seq, 1e6, initial_gap_is_baseline=False)
         self.assertTrue(np.all(mask.signal_mask[:40]))
+
+
+class RecordingIOTests(unittest.TestCase):
+    def _mask(self, num_samples=900):
+        return slse_mask_from_metadata(
+            num_samples,
+            50e3,
+            echo_spacing_seconds=2e-3,
+            detection_duration_seconds=200e-6,
+            num_echoes=6,
+            ringdown_seconds=100e-6,
+            start_offset_seconds=3e-3,
+            post_baseline_seconds=3e-3,
+        )
+
+    def test_metadata_mask_matches_sequence_mask(self):
+        seq = slse_sequence(
+            "x",
+            pulse_duration_seconds=200e-6,
+            nutation_hz=10e3,
+            echo_spacing_seconds=2e-3,
+            num_echoes=6,
+        )
+        from_sequence = slse_acquisition_mask(
+            seq, 50e3, ringdown_seconds=100e-6, pre_baseline_seconds=3e-3, post_baseline_seconds=3e-3
+        )
+        from_metadata = slse_mask_from_metadata(
+            from_sequence.num_samples,
+            50e3,
+            echo_spacing_seconds=2e-3,
+            detection_duration_seconds=200e-6,
+            num_echoes=6,
+            ringdown_seconds=100e-6,
+            start_offset_seconds=3e-3,
+            post_baseline_seconds=3e-3,
+        )
+        self.assertTrue(np.array_equal(from_sequence.labels, from_metadata.labels))
+
+    def test_sorc_metadata_mask_matches_sequence_mask(self):
+        seq = sorc_sequence(
+            "x",
+            pulse_duration_seconds=10e-6,
+            nutation_hz=10e3,
+            half_spacing_seconds=40e-6,
+            num_pulses=2,
+        )
+        from_sequence = sorc_acquisition_mask(seq, 1e6, ringdown_seconds=5e-6)
+        from_metadata = sorc_mask_from_metadata(
+            from_sequence.num_samples,
+            1e6,
+            half_spacing_seconds=40e-6,
+            detection_duration_seconds=10e-6,
+            num_pulses=2,
+            ringdown_seconds=5e-6,
+        )
+        self.assertTrue(np.array_equal(from_sequence.labels, from_metadata.labels))
+
+    def test_recording_from_samples_pairs_mask_to_window(self):
+        rng = np.random.default_rng(51)
+        n = 900
+        primary = rng.normal(size=n)
+        references = rng.normal(size=(3, n))
+        recording = nqr_recording_from_samples(
+            primary,
+            references,
+            50e3,
+            sequence="slse",
+            echo_spacing_seconds=2e-3,
+            detection_duration_seconds=200e-6,
+            num_echoes=6,
+            ringdown_seconds=100e-6,
+            start_offset_seconds=3e-3,
+            post_baseline_seconds=3e-3,
+        )
+        self.assertEqual(recording.num_samples, n)
+        self.assertEqual(recording.num_references, 3)
+        self.assertEqual(recording.mask.num_samples, n)
+        self.assertEqual(recording.metadata["sequence"], "slse")
+
+    def test_reference_free_recording_allows_no_references(self):
+        primary = np.zeros(900)
+        recording = nqr_recording_from_samples(
+            primary,
+            None,
+            50e3,
+            sequence="slse",
+            echo_spacing_seconds=2e-3,
+            detection_duration_seconds=200e-6,
+            num_echoes=6,
+        )
+        self.assertEqual(recording.num_references, 0)
+
+    def test_save_load_round_trip(self):
+        import tempfile
+
+        rng = np.random.default_rng(52)
+        n = 900
+        recording = RFIRecording(
+            primary=rng.normal(size=n),
+            references=rng.normal(size=(2, n)),
+            sample_rate_hz=50e3,
+            mask=self._mask(n),
+            metadata={"compound": "TNT", "sequence": "slse"},
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "record.npz"
+            save_rfi_recording(path, recording)
+            loaded = load_rfi_recording(path)
+
+        np.testing.assert_allclose(loaded.primary, recording.primary)
+        np.testing.assert_allclose(loaded.references, recording.references)
+        self.assertTrue(np.array_equal(loaded.mask.labels, recording.mask.labels))
+        self.assertEqual(loaded.metadata["compound"], "TNT")
+
+    def test_recording_validation(self):
+        with self.assertRaises(ValueError):
+            RFIRecording(
+                primary=np.zeros(900),
+                references=np.zeros((2, 800)),
+                sample_rate_hz=50e3,
+                mask=self._mask(900),
+            )
+        with self.assertRaises(ValueError):
+            nqr_recording_from_samples(np.zeros(900), None, 50e3, sequence="unknown")
+
+
+class KalmanHarmonicTrackerTests(unittest.TestCase):
+    @staticmethod
+    def _rms(values):
+        return float(np.sqrt(np.mean(np.abs(values) ** 2)))
+
+    def test_tracks_and_removes_stationary_tone(self):
+        fs = 2_000.0
+        n = 2000
+        t = np.arange(n) / fs
+        y = 1.5 * np.cos(2 * np.pi * 200.0 * t + 0.7)
+
+        result = kalman_harmonic_canceller(
+            y, [200.0], fs, process_std=1e-4, measurement_std=0.1
+        )
+
+        self.assertLess(self._rms(result.cleaned[500:]), 0.02 * self._rms(y))
+        self.assertEqual(result.coefficient_history.shape, (n, 1))
+
+    def test_tracks_amplitude_modulated_carrier(self):
+        rng = np.random.default_rng(41)
+        fs = 5_000.0
+        n = 5000
+        t = np.arange(n) / fs
+        drift = np.cumsum(rng.normal(scale=0.01, size=n))
+        drift = np.convolve(drift, np.ones(51) / 51.0, mode="same")
+        envelope = 1.0 + 0.5 * drift
+        y = envelope * np.cos(2 * np.pi * 800.0 * t)
+
+        result = kalman_harmonic_canceller(
+            y, [800.0], fs, process_std=5e-3, measurement_std=0.2
+        )
+
+        self.assertLess(self._rms(result.cleaned[800:]), 0.1 * self._rms(y[800:]))
+
+    def test_frozen_updates_preserve_signal_burst(self):
+        fs = 4_000.0
+        n = 4000
+        t = np.arange(n) / fs
+        carrier = 2.0 * np.cos(2 * np.pi * 150.0 * t)
+        burst = np.zeros(n)
+        burst[1800:2200] = 1.0 * np.hanning(400) * np.cos(2 * np.pi * 600.0 * t[1800:2200])
+        y = carrier + burst
+        update = np.ones(n, dtype=bool)
+        update[1750:2250] = False
+
+        result = kalman_harmonic_canceller(
+            y, [150.0], fs, update_mask=update, process_std=1e-3, measurement_std=0.2
+        )
+
+        region = slice(1800, 2200)
+        recovered = np.real(result.cleaned[region])
+        # The burst survives; the carrier is suppressed around it.
+        self.assertGreater(np.corrcoef(recovered, burst[region])[0, 1], 0.9)
+        self.assertLess(self._rms(result.cleaned[500:1500]), 0.1 * self._rms(carrier))
+        frozen = result.coefficient_history[1750:2250]
+        np.testing.assert_allclose(
+            frozen, np.repeat(frozen[0:1], frozen.shape[0], axis=0), atol=1e-12
+        )
+
+    def test_tracks_multiple_carriers(self):
+        fs = 4_000.0
+        n = 4000
+        t = np.arange(n) / fs
+        y = np.cos(2 * np.pi * 300.0 * t) + 0.7 * np.cos(2 * np.pi * 900.0 * t + 1.1)
+
+        result = kalman_harmonic_canceller(
+            y, [300.0, 900.0], fs, process_std=1e-4, measurement_std=0.1
+        )
+
+        self.assertEqual(result.coefficient_history.shape, (n, 2))
+        self.assertLess(self._rms(result.cleaned[600:]), 0.03 * self._rms(y))
+
+    def test_validation(self):
+        y = np.ones(64)
+        with self.assertRaises(ValueError):
+            kalman_harmonic_canceller(y + 1j, [100.0], 1_000.0)
+        with self.assertRaises(ValueError):
+            kalman_harmonic_canceller(y, [], 1_000.0)
+        with self.assertRaises(ValueError):
+            kalman_harmonic_canceller(y, [100.0], 1_000.0, process_std=0.0)
+        with self.assertRaises(ValueError):
+            kalman_harmonic_canceller(y, [100.0], 1_000.0, update_mask=np.ones(10, bool))
+
+
+class ActiveFeedforwardTests(unittest.TestCase):
+    @staticmethod
+    def _rms(values):
+        return float(np.sqrt(np.mean(np.abs(values) ** 2)))
+
+    def _model_reproducing(self, rfi, signal):
+        # Fit a unit transfer on baseline samples where only the RFI is present.
+        primary = rfi + signal
+        references = rfi.reshape(1, -1)
+        baseline = np.abs(signal) <= 0.0
+        return fit_gated_ridge_fir(primary, references, baseline, taps=1), primary, references
+
+    def test_ideal_actuator_matches_digital_subtraction(self):
+        n = 400
+        t = np.arange(n, dtype=np.float64) / 1_000.0
+        rfi = np.cos(2 * np.pi * 60.0 * t)
+        signal = np.zeros(n)
+        signal[150:250] = 0.5 * np.hanning(100)
+        model, primary, references = self._model_reproducing(rfi, signal)
+
+        result = feedforward_cancel(
+            primary, references, model, CompensationActuator(), 1_000.0
+        )
+
+        np.testing.assert_allclose(result.digitized, signal, atol=1e-9)
+        self.assertEqual(result.clipped_fraction, 0.0)
+
+    def test_active_avoids_saturation_that_defeats_digital_cancellation(self):
+        n = 500
+        t = np.arange(n, dtype=np.float64) / 1_000.0
+        rfi = 8.0 * np.cos(2 * np.pi * 50.0 * t)
+        signal = np.zeros(n)
+        signal[200:300] = 0.3 * np.hanning(100)
+        model, primary, references = self._model_reproducing(rfi, signal)
+        saturation = 4.0  # the raw RFI (amplitude 8) saturates the ADC
+
+        digital = model.apply(np.clip(primary, -saturation, saturation), references)
+        active = feedforward_cancel(
+            primary, references, model, CompensationActuator(), 1_000.0,
+            adc_saturation=saturation,
+        )
+
+        digital_err = self._rms(np.real(digital.cleaned) - signal)
+        active_err = self._rms(active.digitized - signal)
+        self.assertLess(active_err, 0.02 * digital_err)
+        self.assertEqual(active.clipped_fraction, 0.0)
+
+    def test_latency_limits_high_frequency_cancellation(self):
+        n = 1024
+        fs = 1_000.0
+        t = np.arange(n, dtype=np.float64) / fs
+        high = np.cos(2 * np.pi * 400.0 * t)
+        low = np.cos(2 * np.pi * 5.0 * t)
+        model_hi = fit_gated_ridge_fir(high, high.reshape(1, -1), np.ones(n, bool), taps=1)
+        model_lo = fit_gated_ridge_fir(low, low.reshape(1, -1), np.ones(n, bool), taps=1)
+
+        ideal = feedforward_cancel(high, high.reshape(1, -1), model_hi, CompensationActuator(), fs)
+        delayed_hi = feedforward_cancel(
+            high, high.reshape(1, -1), model_hi, CompensationActuator(latency_samples=1), fs
+        )
+        delayed_lo = feedforward_cancel(
+            low, low.reshape(1, -1), model_lo, CompensationActuator(latency_samples=1), fs
+        )
+
+        self.assertLess(self._rms(ideal.analog_residual), 1e-9)
+        self.assertGreater(self._rms(delayed_hi.analog_residual), 1.0)
+        # A one-sample delay barely affects a low-frequency tone.
+        self.assertLess(
+            self._rms(delayed_lo.analog_residual),
+            0.1 * self._rms(delayed_hi.analog_residual),
+        )
+
+    def test_finite_drive_range_leaves_partial_residual(self):
+        n = 256
+        t = np.arange(n, dtype=np.float64) / 1_000.0
+        rfi = 5.0 * np.cos(2 * np.pi * 40.0 * t)
+        references = rfi.reshape(1, -1)
+        model = fit_gated_ridge_fir(rfi, references, np.ones(n, bool), taps=1)
+
+        limited = feedforward_cancel(
+            rfi, references, model, CompensationActuator(max_field=2.0), 1_000.0
+        )
+        full = feedforward_cancel(rfi, references, model, CompensationActuator(), 1_000.0)
+
+        self.assertLess(self._rms(full.analog_residual), 1e-9)
+        self.assertGreater(self._rms(limited.analog_residual), 0.5)
+
+    def test_actuator_and_feedforward_validation(self):
+        with self.assertRaises(ValueError):
+            CompensationActuator(latency_samples=-1)
+        with self.assertRaises(ValueError):
+            CompensationActuator(max_field=-1.0)
+        with self.assertRaises(ValueError):
+            CompensationActuator().realize(np.ones(4), 1_000.0, rng=np.random.default_rng(0), seed=1)
+        n = 32
+        rfi = np.cos(np.arange(n) / 3.0)
+        references = rfi.reshape(1, -1)
+        model = fit_gated_ridge_fir(rfi, references, np.ones(n, bool), taps=1)
+        with self.assertRaises(ValueError):
+            feedforward_cancel(rfi, references, model, CompensationActuator(), 1_000.0, adc_saturation=-1.0)
 
     def test_nqr_mask_accepts_absolute_baseline_windows(self):
         seq = slse_sequence(

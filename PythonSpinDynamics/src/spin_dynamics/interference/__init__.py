@@ -1,16 +1,32 @@
 """RFI modelling and reference-coil cancellation for magnetic resonance.
 
 This package models radio-frequency interference (RFI) as a vector magnetic
-field, senses it with reference and primary pickup coils, and (in later phases)
-cancels it as a masked/gated estimation problem. It is deliberately
-sequence-agnostic so low-field MRI and ESR can reuse it; the NQR-specific
-mask adapter lives in :mod:`spin_dynamics.nqr`.
+field, senses it with reference and primary pickup coils, and cancels it as a
+masked/gated estimation problem. It is deliberately sequence-agnostic so
+low-field MRI and ESR can reuse it; the NQR-specific mask adapter lives in
+:mod:`spin_dynamics.nqr`.
 
-Phase 0 provides the sample-clock and receive-valid masks; Phase 1 provides the
-synthetic RFI sources (uniform far-field and near-field dipole) and the
-reference-coil pickup model. See ``docs/roadmap.md`` section 8.
+The layers are: acquisition masks (:mod:`~spin_dynamics.interference.masks`),
+synthetic RFI sources -- uniform far-field and near-field dipole -- with their
+temporal waveforms (:mod:`~spin_dynamics.interference.sources`), the
+reference-coil pickup model (:mod:`~spin_dynamics.interference.coils`), the
+cancellers that consume ``(y, X, mask)`` -- fixed gated/robust least squares,
+offline windowed and joint signal/reference fits, adaptive LMS/NLMS/RLS, and a
+per-frequency Wiener canceller (:mod:`~spin_dynamics.interference.cancellers`),
+the reference-free parametric Kalman harmonic tracker
+(:mod:`~spin_dynamics.interference.trackers`), the diagnostics that score a
+cancellation -- suppression, matched-filter SNR, signal bias, residual lines,
+design conditioning, injected reference noise, and saturation
+(:mod:`~spin_dynamics.interference.diagnostics`), and the active feedforward path
+that cancels RFI with a compensation coil before digitisation
+(:mod:`~spin_dynamics.interference.active`). See ``docs/roadmap.md`` section 8.
 """
 
+from spin_dynamics.interference.active import (
+    ActiveCancellationResult,
+    CompensationActuator,
+    feedforward_cancel,
+)
 from spin_dynamics.interference.coils import (
     ReferenceCoil,
     coil_voltage,
@@ -23,16 +39,21 @@ from spin_dynamics.interference.cancellers import (
     adaptive_lms_canceller,
     adaptive_rls_canceller,
     fit_gated_ridge_fir,
+    fit_robust_fir,
     fit_scalar_canceller,
+    frequency_domain_canceller,
     gated_ridge_fir_canceller,
     joint_signal_reference_canceller,
+    robust_fir_canceller,
     scalar_canceller,
+    sparse_reference_canceller,
     windowed_joint_signal_reference_canceller,
     windowed_ridge_fir_canceller,
 )
 from spin_dynamics.interference.diagnostics import (
     DesignMatrixDiagnostics,
     MatchedFilterImprovementResult,
+    ReferenceNoiseInjectionResult,
     RFISuppressionResult,
     ResidualLine,
     ResidualSpectrumResult,
@@ -40,6 +61,7 @@ from spin_dynamics.interference.diagnostics import (
     SignalBiasResult,
     matched_filter_snr_improvement,
     reference_design_diagnostics,
+    reference_noise_injection,
     residual_spectral_lines,
     rfi_suppression_db,
     saturation_diagnostics,
@@ -51,6 +73,14 @@ from spin_dynamics.interference.masks import (
     SampleLabel,
     blank_mask,
     mask_from_intervals,
+)
+from spin_dynamics.interference.recordings import (
+    RFIRecording,
+    load_rfi_recording,
+    save_rfi_recording,
+)
+from spin_dynamics.interference.trackers import (
+    kalman_harmonic_canceller,
 )
 from spin_dynamics.interference.sources import (
     MagneticDipoleSource,
@@ -67,16 +97,20 @@ from spin_dynamics.interference.sources import (
 
 __all__ = [
     "AcquisitionMask",
+    "ActiveCancellationResult",
     "CancellationResult",
+    "CompensationActuator",
     "DesignMatrixDiagnostics",
     "Interval",
     "LinearCancellerModel",
     "MatchedFilterImprovementResult",
     "MagneticDipoleSource",
     "RFISource",
+    "RFIRecording",
     "RFISuppressionResult",
     "RFIWaveform",
     "ReferenceCoil",
+    "ReferenceNoiseInjectionResult",
     "ResidualLine",
     "ResidualSpectrumResult",
     "SampleLabel",
@@ -91,20 +125,29 @@ __all__ = [
     "coil_voltage",
     "colored_noise_waveform",
     "coupling_matrix",
+    "feedforward_cancel",
     "fit_gated_ridge_fir",
+    "fit_robust_fir",
     "fit_scalar_canceller",
+    "frequency_domain_canceller",
     "gated_ridge_fir_canceller",
     "impulsive_waveform",
     "joint_signal_reference_canceller",
+    "kalman_harmonic_canceller",
+    "load_rfi_recording",
     "matched_filter_snr_improvement",
     "mask_from_intervals",
     "reference_design_diagnostics",
     "reference_matrix",
+    "reference_noise_injection",
     "residual_spectral_lines",
     "rfi_suppression_db",
+    "robust_fir_canceller",
+    "save_rfi_recording",
     "scalar_canceller",
     "saturation_diagnostics",
     "signal_bias",
+    "sparse_reference_canceller",
     "tone_waveform",
     "total_field",
     "windowed_ridge_fir_canceller",

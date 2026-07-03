@@ -79,6 +79,22 @@ class SaturationDiagnostics:
     saturated_count: int
 
 
+@dataclass(frozen=True)
+class ReferenceNoiseInjectionResult:
+    """White noise a canceller injects into the cleaned output via its references.
+
+    ``injected_rms`` is the RMS of the noise term the canceller adds by
+    subtracting a noisy reference model; ``per_channel_rms`` breaks it down by
+    reference channel; ``noise_gain`` is the coefficient two-norm (the injected
+    RMS per unit reference noise, independent of the assumed noise floor).
+    """
+
+    injected_rms: float
+    per_channel_rms: np.ndarray
+    noise_gain: float
+    reference_noise_sigma: np.ndarray
+
+
 def rfi_suppression_db(
     before: np.ndarray,
     after: np.ndarray,
@@ -277,6 +293,64 @@ def saturation_diagnostics(
         saturated_fraction=float(np.mean(saturated)),
         max_abs=float(np.max(np.abs(values))),
         saturated_count=int(np.sum(saturated)),
+    )
+
+
+def reference_noise_injection(
+    coefficients: np.ndarray,
+    reference_noise_sigma: np.ndarray | float,
+) -> ReferenceNoiseInjectionResult:
+    """Estimate the reference-channel noise a canceller injects into its output.
+
+    A reference canceller subtracts ``predicted[n] = sum_{k,l} h[k, l] X[k, n-l]``.
+    Independent white measurement noise on reference channel ``k`` (standard
+    deviation ``sigma_k``) therefore passes through the fitted coefficients into
+    ``cleaned = primary - predicted``, adding a zero-mean noise term of variance
+
+        var = sum_k sigma_k**2 * sum_l |h[k, l]|**2
+
+    (samples are independent in time and across channels). This is the intrinsic
+    cost of cancellation: an ill-conditioned or over-fitted reference model can
+    suppress RFI while *adding* white noise. Read alongside ``rfi_suppression_db``
+    and ``reference_design_diagnostics`` it says whether cancellation is a net
+    win -- suppression only helps if the injected noise stays below the RFI it
+    removes.
+
+    ``coefficients`` accepts the ``(K, taps)`` array returned by the fixed
+    cancellers (or a flat ``(K,)`` / ``(K*taps,)`` vector). For adaptive
+    cancellers pass the final ``coefficients`` field. ``reference_noise_sigma`` is
+    the per-channel noise floor (e.g. ``[coil.noise_sigma for coil in coils]``)
+    or a scalar applied to every channel.
+    """
+
+    coeff = np.asarray(coefficients, dtype=np.complex128)
+    if coeff.ndim == 1:
+        coeff = coeff.reshape(-1, 1)
+    if coeff.ndim != 2:
+        raise ValueError("coefficients must have shape (K, taps), (K,), or (K*taps,)")
+    if coeff.size == 0:
+        raise ValueError("coefficients must contain at least one entry")
+    if not np.all(np.isfinite(coeff)):
+        raise ValueError("coefficients must be finite")
+    channels = coeff.shape[0]
+
+    sigma = np.asarray(reference_noise_sigma, dtype=np.float64).reshape(-1)
+    if sigma.size == 1:
+        sigma = np.full(channels, float(sigma[0]))
+    if sigma.size != channels:
+        raise ValueError("reference_noise_sigma must be scalar or length K")
+    if np.any(sigma < 0.0) or not np.all(np.isfinite(sigma)):
+        raise ValueError("reference_noise_sigma must be non-negative and finite")
+
+    channel_energy = np.sum(np.abs(coeff) ** 2, axis=1)
+    per_channel_rms = sigma * np.sqrt(channel_energy)
+    injected_rms = float(np.sqrt(np.sum(per_channel_rms**2)))
+    noise_gain = float(np.sqrt(np.sum(channel_energy)))
+    return ReferenceNoiseInjectionResult(
+        injected_rms=injected_rms,
+        per_channel_rms=per_channel_rms,
+        noise_gain=noise_gain,
+        reference_noise_sigma=sigma,
     )
 
 

@@ -763,6 +763,41 @@ reference-only cleanup and an echo-aware joint fit: the latter solves one
 offline ridge problem for windowed reference-derived RFI plus an SLSE echo-train
 basis spanning a small resonant-frequency/T2e grid, then scores the fitted NQR
 component.
+`plot_nqr_rfi_robust_impulsive.py` focuses on the outlier-robust canceller and
+the reference-noise-injection diagnostic. It contaminates an in-band SLSE record
+with coherent broadcast-band carriers (spanned by three reference coils) and
+impulsive switching transients conducted directly into the primary receiver,
+which the remote references cannot see. Because those bursts are outliers to the
+reference model, ordinary gated least squares biases the fitted coherent-RFI
+transfer; the Huber-IRLS `robust_fir_canceller` down-weights them and recovers
+roughly 30 dB more coherent suppression and lower in-band NQR amplitude bias. It
+also overlays `sparse_reference_canceller`, which additionally models the bursts
+as an L1-sparse term and removes them (the robust output keeps them), and the
+final panel uses `reference_noise_injection` to plot the injected-noise-versus-
+suppressed-RFI trade-off and its break-even reference-noise floor.
+`plot_nqr_rfi_active_feedforward.py` demonstrates the compensation-coil model in
+`spin_dynamics.interference.active`. A strong in-band interferer drives the
+primary past its ADC full scale; digital cancellation applied after the clip
+cannot recover the saturated peaks, while `feedforward_cancel` commands a
+`CompensationActuator` that subtracts the RFI before the ADC so the digitiser
+never clips and the NQR echo is recovered with far lower bias. Two sweeps show
+the physical limits of feedforward: a causal actuator latency bounds the
+cancellation bandwidth, and a finite compensation-coil drive range bounds how
+deep the null can go.
+`plot_nqr_rfi_frequency_domain.py` demonstrates `frequency_domain_canceller` on a
+resonant coupling path (a long, ringing impulse response). A scalar canceller and
+a modest FIR cannot match the frequency-dependent transfer, so residual RFI
+survives around the resonance, while the per-bin Wiener canceller removes it and
+recovers the in-band NQR echo without bias. The panels overlay the recovered
+transfer on the true coupling response and plot the multiple-coherence spectrum,
+which reads out which frequencies the reference can explain.
+`plot_nqr_rfi_kalman_tracker.py` demonstrates the reference-free
+`kalman_harmonic_canceller`. With no reference channel, it tracks the slowly
+drifting complex amplitude of an in-band AM carrier with a Kalman filter and
+subtracts it, freezing its updates during the SLSE echo windows so it coasts
+through the NQR response. The panels show the tracked envelope against the true
+amplitude modulation and the spectrum before and after, where the carrier peak is
+notched out while the nearby NQR line survives.
 
 ```powershell
 python examples\plot_nqr_powder_nutation.py --output results\nqr_powder_nutation.png
@@ -779,6 +814,10 @@ python examples\plot_nqr_polarization_enhancement.py --output results\nqr_polari
 python examples\plot_nqr_database_prepolarization.py --output results\nqr_database_prepolarization.png
 python examples\plot_nqr_rfi_cancellation.py --output results\nqr_rfi_cancellation.png
 python examples\plot_nqr_rfi_statistical_study.py --output results\nqr_rfi_statistical_study.png
+python examples\plot_nqr_rfi_robust_impulsive.py --output results\nqr_rfi_robust_impulsive.png
+python examples\plot_nqr_rfi_active_feedforward.py --output results\nqr_rfi_active_feedforward.png
+python examples\plot_nqr_rfi_frequency_domain.py --output results\nqr_rfi_frequency_domain.png
+python examples\plot_nqr_rfi_kalman_tracker.py --output results\nqr_rfi_kalman_tracker.png
 ```
 
 ## Radiation Damping
