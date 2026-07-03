@@ -1937,37 +1937,44 @@ pulse-width sweeps in the paper.
 
 \subsection{Sensitivity per Unit Time: SLSE vs.\ Steady-State SORC}
 
-The two schemes trade off very differently against relaxation. The figure of
-merit is SNR per unit \(\sqrt{\text{time}}\), because averaging \(N\)
-acquisitions improves SNR as \(\sqrt{N}\) with \(N = T/t_{\text{scan}}\). SLSE
-excites the full magnetization, matched-filters a decaying echo train of energy
-\(E \sim \sqrt{T_{2e}/2t_E}\), then waits a repetition time \(T_R\) for
-longitudinal recovery, giving
+The two schemes are often quoted with a \(\sqrt{T_1/T_{2e}}\) advantage for SORC,
+but that law is an artifact of a \(T_1\)-independent steady-state model. Done
+honestly -- both sequences fully optimized in one common full density-matrix
+framework -- the schemes are \emph{comparable}. The figure of merit is SNR per
+unit \(\sqrt{\text{time}}\), because averaging \(N\) acquisitions improves SNR as
+\(\sqrt{N}\) with \(N = T/t_{\text{scan}}\).
 
-\[
-  S_{\mathrm{SLSE}} \propto E\,(1-e^{-T_R/T_1})/\sqrt{T_R},
-\]
+\code{examples/plot\_nqr\_slse\_sorc\_sensitivity.py} grounds the comparison in a
+specific material, \({}^{14}\mathrm{N}\) in NaNO\(_2\), whose three relaxation
+times are not inserted by hand: \(T_1\) and the spin-locked \(T_{2e}\) emerge from
+a microscopic dipolar Redfield model built from the actual neighbour spins
+(\code{RedfieldDipolarRelaxationModel.from\_dipolar\_sources}), and the fast
+reversible \(T_2^\ast\) is the Van Vleck rigid-lattice second moment of the same
+neighbour list (\(\sim 1\,\mathrm{ms}\) here -- weak, because \({}^{14}\mathrm{N}\)
+has a small gyromagnetic ratio, so it is set mostly by the \({}^{23}\mathrm{Na}\)
+neighbours). The correlation time \(\tau_c\) is the temperature knob; sweeping it
+walks the sample over \(T_1/T_{2e}\sim 1\) to \(100\) while \(T_2^\ast\) stays
+fixed. Both sequences are propagated from the same equilibrium \(\rho_{\mathrm{eq}}\)
+and read with the same detection operator (one common normalization, no
+per-scheme scaling); the SORC steady state is the affine fixed point of its cycle
+with an equilibrium-target source \((I-M)\rho_{\mathrm{eq}}\), so it correctly
+carries the \(T_1\) that replenishes the polarization. Sensitivity is the
+matched-filter energy \(\sqrt{\int|s(t)|^2\,dt}\) of each acquisition window, and
+flip angle, RF offset, and pulse spacing are optimized for each scheme at each
+\(\tau_c\).
 
-whose optimum over \(T_R\) (peak of \((1-e^{-x})/\sqrt{x}\) at \(x^\star\approx
-1.256\)) carries the classic \(1/\sqrt{T_1}\) penalty. SORC pulses continuously
-and settles into a steady state that emits signal \(a_{ss}\) every cycle
-\(t_c\) with a near-unity duty cycle, so \(S_{\mathrm{SORC}} \propto
-a_{ss}/\sqrt{t_c}\), independent of \(T_1\) for \(t_c \ll T_{2e} \ll T_1\). The
-ratio therefore grows as
-
-\[
-  \frac{S_{\mathrm{SORC}}}{S_{\mathrm{SLSE}}} \propto \sqrt{T_1/T_{2e}},
-\]
-
-because the SLSE duty cycle collapses to \(\sim T_{2e}/T_1\) while SORC stays near
-one. \code{examples/plot\_nqr\_slse\_sorc\_sensitivity.py} quantifies this for a
-single crystal and a powder, reproducing the \(\sqrt{T_1/T_{2e}}\) law (fitted
-log-log slope \(0.50\)). It evaluates the SLSE echo train with the full
-density-matrix \code{simulate\_full\_slse} -- essential for the powder, where the
-embedded two-level \code{simulate\_slse} lets per-orientation coherences dephase
-and under-reports the train -- and the SORC steady state with the reduced Konnai
-pathway, normalizing each scheme to its own model's single-pulse coil signal so
-the ratio is a true physical sensitivity ratio.
+The result: on a single crystal the two stay within \(\sim 15\%\) of each other
+across the whole \(T_1/T_{2e}\) range (SORC marginally ahead when warm, SLSE
+marginally ahead when cold, crossing unity near \(T_1/T_{2e}\approx 5\)) -- neither
+grows a running advantage. The naive \(\sqrt{T_1/T_{2e}}\) law is the \(T_1\)-blind
+Konnai steady state; the opposite ``SLSE wins increasingly'' claim is under-optimizing
+the SORC flip (its optimum is a small tip \(\sim 10\text{--}20^\circ\), a
+balanced-SSFP-like high-retention comb, not a large pulse). The one robust
+asymmetry is in the \emph{powder}: SORC pulls modestly ahead (\(\sim 1.1\text{--}1.3\times\))
+because its small-tip steady state is far more uniform across the crystallite
+orientation distribution, whereas the SLSE \(90/180\) echo has a strongly
+orientation-dependent refocusing efficiency (some crystallites sit near a nutation
+null) and so loses more to powder averaging.
 
 \section{EFG Inhomogeneity and SLSE Spectra}
 

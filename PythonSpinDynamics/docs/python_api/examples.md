@@ -735,18 +735,23 @@ both spin-1 and spin-3/2 sites.
 Use `--n-chi` and `--b1-b0-angle` to control the correlated weak-field powder
 average between the static field and RF field.
 
-`plot_nqr_slse_sorc_sensitivity.py` quantifies why steady-state SORC beats SLSE
-in SNR per unit time when `T1/T2e` is large. Both schemes draw signal from the
-same equilibrium magnetization, but SLSE must wait `~T1` for longitudinal
-recovery between scans while SORC pulses continuously at a near-unity duty cycle.
-The example takes the SLSE echo train from `simulate_slse` and the SORC
-steady-state amplitude from `simulate_sorc(model="steady_state")` (same
-`transition_signal` amplitude convention), layers on a matched-filter
-SNR-per-sqrt-time model with an optimized SLSE repetition time and echo count,
-and sweeps `T1/T2e` for a single crystal and a powder. It reproduces the analytic
-`sqrt(T1/T2e)` advantage law (fitted log-log slope 0.50), plots the collapsing
-SLSE duty cycle that drives it, and shows the SORC off-resonance operating point
-with its Konnai `delta_omega*tau = n*pi` nulls.
+`plot_nqr_slse_sorc_sensitivity.py` compares the SNR per unit time of SLSE and
+steady-state SORC honestly, and finds them *comparable* rather than the often-quoted
+`sqrt(T1/T2e)` SORC win (which is an artifact of a T1-independent steady-state
+model). It grounds the comparison in a real material, `14N` in NaNO2: `T1` and the
+spin-locked `T2e` emerge from a microscopic dipolar Redfield model built from the
+actual neighbour spins, and the fast reversible `T2*` is the Van Vleck rigid-lattice
+second moment of the same neighbour list (~1 ms here, weak because `14N` has a small
+gyromagnetic ratio). Sweeping the correlation time `tau_c` (the temperature knob)
+walks the sample over `T1/T2e ~ 1` to `100`. Both sequences are propagated in one
+common full density-matrix framework from the same equilibrium and detection
+operator (the SORC steady state is the affine fixed point of its cycle with an
+equilibrium-target source, so it carries `T1` correctly), read with a matched-filter
+`sqrt(energy)` SNR, and fully optimized over flip, offset, and spacing. On a single
+crystal the two stay within ~15% across the whole range (mild crossover near
+`T1/T2e ~ 5`); on a powder SORC pulls modestly ahead (~1.1-1.3x) because its
+small-tip steady state is far more uniform across crystallite orientations than the
+SLSE 90/180 echo, whose refocusing efficiency has orientation-dependent nulls.
 
 The full density-matrix model adds spin-3/2 (chlorine-style) examples:
 `plot_nqr_full_powder_nutation.py` overlays the spin-1 and spin-3/2 powder
