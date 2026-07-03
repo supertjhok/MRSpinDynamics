@@ -42,10 +42,11 @@ def _require_spin_one_selective_pulse_site(site: QuadrupolarSite) -> None:
     if not np.isclose(site.spin, 1.0):
         raise NotImplementedError(
             "the embedded two-level selective-pulse workflows (simulate_slse, "
-            "simulate_population_transfer) support spin=1 only. For spin=3/2 use "
-            "spin_dynamics.nqr.simulate_full_slse, which propagates the full "
-            "(2I+1)-level density matrix and handles the degenerate Kramers "
-            "doublets of the zero-field line (with optional Zeeman perturbation)."
+            "simulate_population_transfer) support spin=1 only. For any spin > 1 use "
+            "spin_dynamics.nqr.simulate_full_slse / simulate_full_fid / "
+            "simulate_full_echo, which propagate the full (2I+1)-level density matrix "
+            "and handle the degenerate Kramers doublets of the zero-field line (with "
+            "optional Zeeman perturbation)."
         )
 
 

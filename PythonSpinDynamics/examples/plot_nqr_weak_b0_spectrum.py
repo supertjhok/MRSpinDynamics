@@ -1,4 +1,4 @@
-"""Plot static weak-B0 NQR spectra for spin-1 or spin-3/2 sites."""
+"""Plot static weak-B0 NQR spectra for any quadrupolar spin (>= 1)."""
 
 from __future__ import annotations
 
@@ -44,11 +44,14 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description=__doc__,
         epilog=(
-            "Spin support: this static-transition example supports spin=1 and "
-            "spin=3/2. It does not simulate spin-3/2 pulsed dynamics."
+            "Spin support: this static-transition example supports any quadrupolar "
+            "spin (1, 3/2, 5/2, 7/2, 9/2); it maps the Zeeman splitting of the "
+            "zero-field lines and does not simulate pulsed dynamics."
         ),
     )
-    parser.add_argument("--spin", choices=["1", "1.5"], default="1.5")
+    parser.add_argument(
+        "--spin", choices=["1", "1.5", "2.5", "3.5", "4.5"], default="1.5"
+    )
     parser.add_argument("--isotope", default="35Cl")
     parser.add_argument("--eta", type=float, default=0.1)
     parser.add_argument("--quadrupole-mhz", type=float, default=30.0)

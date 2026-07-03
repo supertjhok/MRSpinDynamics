@@ -567,7 +567,7 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 
 | Kind | Name | Summary |
 | --- | --- | --- |
-| function | `quadrupole_frequency_scale_hz(site: QuadrupolarSite) -> float` | Return the Hamiltonian scale matching the public frequency parameter. |
+| function | `quadrupole_frequency_scale_hz(site: QuadrupolarSite) -> float` | Return the Hamiltonian prefactor matching the public frequency parameter. |
 | function | `quadrupole_hamiltonian(site: QuadrupolarSite) -> np.ndarray` | Return the zero-field quadrupole Hamiltonian in radians per second. |
 | function | `zeeman_hamiltonian(site: QuadrupolarSite, b0_vector_tesla_pas: np.ndarray | list[float] | tuple[float, float, float]) -> np.ndarray` | Return the Zeeman Hamiltonian in radians per second. |
 | function | `nqr_hamiltonian(site: QuadrupolarSite, b0_vector_tesla_pas: np.ndarray | list[float] | tuple[float, float, float] | None = None) -> np.ndarray` | Return the quadrupole plus optional Zeeman Hamiltonian. |
@@ -620,6 +620,8 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | --- | --- | --- |
 | function | `validate_spin(spin: float) -> float` | Return a validated integer or half-integer spin quantum number. |
 | function | `spin_dimension(spin: float) -> int` | Return the Hilbert-space dimension for one spin. |
+| function | `is_half_integer_spin(spin: float) -> bool` | Return ``True`` for half-integer spin (1/2, 3/2, 5/2, ...). |
+| function | `fundamental_operator_gap(spin: float) -> float` | Return the ``eta=0`` fundamental-transition gap ``d`` of the quadrupole operator. |
 | class | `SpinMatrices` | Dense single-spin angular momentum matrices. |
 | function | `spin_matrices(spin: float) -> SpinMatrices` | Return dense angular-momentum matrices for one spin. |
 

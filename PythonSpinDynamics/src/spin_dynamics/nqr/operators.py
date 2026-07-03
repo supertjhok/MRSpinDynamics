@@ -27,6 +27,25 @@ def spin_dimension(spin: float) -> int:
     return int(round(2.0 * spin + 1.0))
 
 
+def is_half_integer_spin(spin: float) -> bool:
+    """Return ``True`` for half-integer spin (1/2, 3/2, 5/2, ...)."""
+
+    return round(2.0 * validate_spin(spin)) % 2 == 1
+
+
+def fundamental_operator_gap(spin: float) -> float:
+    """Return the ``eta=0`` fundamental-transition gap ``d`` of the quadrupole operator.
+
+    In the units of ``3 Iz^2 - I(I+1) + eta(Ix^2 - Iy^2)`` the lowest transition
+    (``0 <-> 1`` for integer spin, ``1/2 <-> 3/2`` for half-integer spin) spans
+    ``d = 3`` or ``d = 6`` respectively. This links the public
+    ``quadrupole_frequency_hz`` (nu_Q, the fundamental line) to the operator
+    prefactor ``nu_Q / d`` and to ``C_Q`` via ``nu_Q = C_Q d / (4 I (2I-1))``.
+    """
+
+    return 6.0 if is_half_integer_spin(spin) else 3.0
+
+
 @dataclass(frozen=True)
 class SpinMatrices:
     """Dense single-spin angular momentum matrices."""

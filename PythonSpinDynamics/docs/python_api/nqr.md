@@ -111,7 +111,32 @@ and `y` lines both collapse as `eta -> 0`), **not** `e**2 q Q / h` itself. With
 For spin-3/2 nuclei such as `35Cl` and `37Cl`, the Hamiltonian likewise uses
 `quadrupole_frequency_hz` as the eta-zero NQR line frequency, so the zero-field
 line is `quadrupole_frequency_hz * sqrt(1 + eta**2 / 3)`. The transition
-inventory omits zero-frequency Kramers-doublet transitions.
+inventory omits Kramers-doublet transitions (their sub-Hz numerical splitting is
+filtered by a level-spread-relative floor).
+
+**Spin > 3/2 (5/2, 7/2, 9/2).** Any integer or half-integer spin above 1/2 is
+supported. `quadrupole_frequency_hz` is always the eta-zero *fundamental* (lowest)
+line -- the `1/2 <-> 3/2` line for half-integer spin -- and the higher (satellite)
+axial lines follow at `2 nu_Q`, `3 nu_Q`, ... So a half-integer spin `I` shows
+`I - 1/2` lines (spin-5/2 -> `nu_Q, 2 nu_Q`; spin-7/2 -> `nu_Q, 2 nu_Q, 3 nu_Q`),
+and `eta != 0` shifts them and switches on a weak combination line. Internally the
+operator is `H/h = C_Q/(4 I (2I-1)) * [3 Iz^2 - I(I+1) + eta(Ix^2 - Iy^2)]` with
+`nu_Q = C_Q * d / (4 I (2I-1))` and `d = 3` (integer) or `6` (half-integer); this
+reproduces the spin-1 and spin-3/2 values exactly. Build a site for a named
+nucleus directly from `C_Q` or `nu_Q` with the isotope presets:
+
+```python
+from spin_dynamics.nqr import quadrupolar_site, diagonalize_site
+
+al = quadrupolar_site("27Al", cq_hz=3.0e6, eta=0.1)   # spin-5/2, gamma filled in
+for t in diagonalize_site(al).transitions:
+    print(t.label, t.frequency_hz)                    # nu_Q and 2 nu_Q (+ combination)
+```
+
+`quadrupolar_site(isotope, cq_hz=... | nu_q_hz=..., eta=...)` fills spin and the
+gyromagnetic ratio from `QUADRUPOLAR_ISOTOPES` (27Al, 51V, 55Mn, 63/65Cu, 93Nb,
+121/123Sb, 209Bi, 17O, ...); `nu_q_from_cq_hz` / `cq_hz_from_nu_q` are the
+standalone conversions.
 
 Selective-pulse `nutation_hz` is the *effective two-level Rabi frequency* of the
 addressed transition at full RF coupling (`Omega / (2 pi)` for the embedded
@@ -157,9 +182,11 @@ print(weak.max_perturbation_ratio)
 print(weak.offsets_hz, weak.spectrum)
 ```
 
-This static-transition machinery supports both spin-1 and spin-3/2 sites. It
-does not require the spin-3/2 pulsed manifold model, so it can already be used
-to inspect chlorine line splitting and powder broadening in weak fields.
+This static-transition machinery supports any quadrupolar spin (1, 3/2, 5/2, 7/2,
+9/2): it only diagonalizes `H_Q + H_Z`, so it maps the Zeeman splitting of every
+zero-field line and its powder broadening without needing the pulsed manifold
+model -- useful for chlorine, but equally for the multi-line `27Al` or `51V`
+spectrum.
 
 When no `transition_label` is given, the reference frequency `nu_ref` (the
 denominator of the perturbation ratio and the zero of the `offsets_hz` axis) is
@@ -215,11 +242,12 @@ because they rely on the isolated-transition reduction. Spin-3/2 sequences use
 the full density-matrix model described next, which drives the whole
 four-state manifold rather than one embedded two-level pair.
 
-## Full Density-Matrix Sequences (spin-3/2 and general)
+## Full Density-Matrix Sequences (spin-3/2 and higher)
 
 `spin_dynamics.nqr.full_dynamics` propagates the complete `(2I+1)`-level density
 matrix in a rotating frame at the pulse carrier. It is the required model for
-spin-3/2 and also runs for spin-1. A single-pulse FID:
+spin-3/2 and runs for any spin -- spin-1 through spin-9/2 (`27Al`, `51V`, `93Nb`,
+...). A single-pulse FID:
 
 ```python
 import numpy as np
@@ -283,9 +311,17 @@ Two cautions specific to the full model:
   Rabi rate on a transition `a-b` is `2*nutation_hz*|<a|e1.I|b>|`, so a pulse
   calibrated on one line is a different flip angle on another -- the physical
   effect the full model captures.
-- It uses a single-carrier rotating-wave approximation valid when one carrier
-  addresses one transition band (the spin-3/2 zero-field and weak-Zeeman
-  regime). It is not yet a general multi-band higher-spin solver.
+- It uses a single-carrier rotating-wave approximation. Analysis of the level and
+  transition structure (`diagonalize_site`) is exact for any spin, but the *pulsed*
+  model is faithful only near the **fundamental (lowest) NQR line**, where the
+  addressed transition maps to a single-quantum coherence. This is the default
+  carrier (the strongest line, which is the fundamental for half-integer spin), and
+  it is reliable when the pulse is spectrally selective (Rabi rate and detuning
+  small compared with the spacing to the nearest other line). Driving a higher /
+  satellite line of a spin > 3/2 nucleus (e.g. `2 nu_Q`) causes a winding collision
+  that would silently select the wrong transition; the model emits a `RuntimeWarning`
+  in that case rather than returning a wrong answer. Correct satellite-line pulsing
+  needs exact time-domain propagation (a planned follow-up).
 
 SLSE can also use a Liouville-space relaxation model instead of only applying a
 post-hoc echo envelope:

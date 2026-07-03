@@ -191,8 +191,79 @@ def _propagate(
 def _default_carrier_hz(eigensystem: NQREigensystem) -> float:
     if not eigensystem.transitions:
         raise ValueError("site has no RF-active transitions")
+    # The strongest RF-active line. For half-integer spin the fundamental
+    # (lowest, 1/2<->3/2) transition has the largest transverse matrix element, so
+    # this also selects the fundamental for spin-5/2, 7/2, 9/2 -- the carrier the
+    # single-carrier RWA is faithful to.
     strongest = max(eigensystem.transitions, key=lambda t: t.strength)
     return float(strongest.frequency_hz)
+
+
+def _warn_if_rwa_carrier_invalid(
+    eigensystem: NQREigensystem, rf_frequency_hz: float
+) -> None:
+    """Warn if the carrier does not address a single-quantum coherence.
+
+    The winding-number RWA is faithful only when the carrier sits on the
+    fundamental (lowest) NQR line, where the addressed transition maps to a
+    ``|delta n| = 1`` coherence. Driving a higher/satellite line of a spin > 3/2
+    nucleus causes a winding collision that silently selects the wrong transition;
+    this detects that case (the nearest transition to the carrier does not map to
+    ``|delta n| = 1``) and warns rather than returning a wrong answer.
+    """
+
+    transitions = eigensystem.transitions
+    if not transitions:
+        return
+    indices = rotating_indices(eigensystem.levels_hz, rf_frequency_hz)
+    target = min(
+        transitions, key=lambda t: abs(t.frequency_hz - float(rf_frequency_hz))
+    )
+    delta_n = abs(int(indices[target.upper] - indices[target.lower]))
+    if delta_n != 1:
+        warnings.warn(
+            "the RF carrier does not map the nearest NQR transition to a "
+            f"single-quantum (|delta n| = 1) coherence (got |delta n| = {delta_n}); "
+            "the single-carrier full-dynamics model is faithful only near the "
+            "fundamental (lowest) line. Driving a higher/satellite line needs exact "
+            "time-domain propagation (not yet implemented).",
+            RuntimeWarning,
+            stacklevel=3,
+        )
+
+
+def _sample_free_evolution(
+    density: np.ndarray,
+    free_hamiltonian: np.ndarray,
+    relaxation: NQRRelaxationLike | None,
+    times: np.ndarray,
+    detector: np.ndarray,
+) -> np.ndarray:
+    """Return ``Tr(rho(t) @ detector)`` sampled at ``times`` under free evolution.
+
+    ``rho(t) = exp(L t) rho`` with a *constant* generator ``L``, so the propagator
+    is diagonalized once and every sample is an O(dim^2) reconstruction instead of
+    a fresh matrix exponential per point. Without relaxation the rotating-frame
+    static Hamiltonian is diagonal, so evolution is an elementwise phase and no
+    eigensolve is needed.
+    """
+
+    times = np.asarray(times, dtype=np.float64).reshape(-1)
+    # s = Tr(rho @ M) = sum_ij rho_ij M_ji, so the column-stacked detector dual is
+    # vec(M^T); s(t) = vec(M^T) . vec(rho(t)).
+    if relaxation is None:
+        omega = np.real(np.diag(free_hamiltonian))
+        omega_ab = omega[:, None] - omega[None, :]  # rho_ab evolves as exp(-i w_ab t)
+        weight = density * detector.T  # rho_ab * M_ba summed = the signal
+        phase = np.exp(-1j * omega_ab[None, :, :] * times[:, None, None])
+        return np.einsum("ab,tab->t", weight, phase)
+
+    generator = liouville_superoperator(free_hamiltonian, relaxation)
+    values, vectors = np.linalg.eig(generator)
+    modes = np.linalg.solve(vectors, density.reshape(-1, order="F"))
+    dual = detector.T.reshape(-1, order="F") @ vectors
+    coefficients = dual * modes
+    return np.exp(np.outer(times, values)) @ coefficients
 
 
 @dataclass(frozen=True)
@@ -240,6 +311,7 @@ def simulate_full_fid(
     carrier = _default_carrier_hz(eigensystem) if rf_frequency_hz is None else float(
         rf_frequency_hz
     )
+    _warn_if_rwa_carrier_invalid(eigensystem, carrier)
     times = np.asarray(times_seconds, dtype=np.float64).reshape(-1)
     if times.size == 0:
         raise ValueError("times_seconds must not be empty")
@@ -266,13 +338,7 @@ def simulate_full_fid(
         carrier,
         b1_direction_pas if rx_direction_pas is None else rx_direction_pas,
     )
-
-    signal = np.empty(times.size, dtype=np.complex128)
-    current = 0.0
-    for idx, sample_time in enumerate(times):
-        rho = _propagate(rho, free, float(sample_time) - current, relaxation)
-        current = float(sample_time)
-        signal[idx] = np.trace(rho @ detector)
+    signal = _sample_free_evolution(rho, free, relaxation, times, detector)
     return FullNQRFIDResult(
         times_seconds=times,
         signal=signal,
@@ -308,6 +374,7 @@ def simulate_full_echo(
     carrier = _default_carrier_hz(eigensystem) if rf_frequency_hz is None else float(
         rf_frequency_hz
     )
+    _warn_if_rwa_carrier_invalid(eigensystem, carrier)
     times = np.asarray(times_seconds, dtype=np.float64).reshape(-1)
     if times.size == 0:
         raise ValueError("times_seconds must not be empty")
@@ -334,12 +401,7 @@ def simulate_full_echo(
         carrier,
         b1_direction_pas if rx_direction_pas is None else rx_direction_pas,
     )
-    signal = np.empty(times.size, dtype=np.complex128)
-    current = 0.0
-    for idx, sample_time in enumerate(times):
-        rho = _propagate(rho, free, float(sample_time) - current, relaxation)
-        current = float(sample_time)
-        signal[idx] = np.trace(rho @ detector)
+    signal = _sample_free_evolution(rho, free, relaxation, times, detector)
     return FullNQREchoResult(
         times_seconds=times,
         signal=signal,
@@ -477,11 +539,13 @@ def simulate_full_slse(
     free_half = 0.5 * (echo_spacing - refocus_duration)
 
     samples = _as_orientations(orientations)
+    zero_field_eigensystem = diagonalize_site(site)
     carrier = (
-        _default_carrier_hz(diagonalize_site(site))
+        _default_carrier_hz(zero_field_eigensystem)
         if rf_frequency_hz is None
         else float(rf_frequency_hz)
     )
+    _warn_if_rwa_carrier_invalid(zero_field_eigensystem, carrier)
     echo_times = (np.arange(num_echoes, dtype=np.float64) + 1.0) * echo_spacing
     envelope = (
         np.exp(-echo_times / t2e_seconds) if np.isfinite(t2e_seconds) else 1.0
