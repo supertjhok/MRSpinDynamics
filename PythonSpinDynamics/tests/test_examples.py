@@ -239,6 +239,7 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_ogse_frequency_diffusion.py",
             "examples/plot_rare_imaging.py",
             "examples/plot_imaging_inhomogeneity.py",
+            "examples/plot_bssfp_field_inhomogeneity.py",
             "examples/plot_sensitive_slice.py",
             "examples/plot_multislice_halbach_imaging.py",
             "examples/plot_halbach_dipole_field.py",
@@ -384,6 +385,9 @@ class ExampleSmokeTests(unittest.TestCase):
         result = run_example("examples/plot_imaging_inhomogeneity.py", "--help")
         self.assertIn("--b0-spread-hz", result.stdout)
         self.assertIn("--num-offsets", result.stdout)
+        result = run_example("examples/plot_bssfp_field_inhomogeneity.py", "--help")
+        self.assertIn("--b0-inhomogeneity-hz", result.stdout)
+        self.assertIn("--num-dummy-tr", result.stdout)
         result = run_example("examples/plot_sensitive_slice.py", "--help")
         self.assertIn("--b0-curvature-hz", result.stdout)
         self.assertIn("--excitation-duration", result.stdout)
