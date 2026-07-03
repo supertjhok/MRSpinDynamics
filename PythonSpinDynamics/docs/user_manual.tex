@@ -1936,6 +1936,7 @@ markers with the infinite-\(N\) theory curves for the offset, spacing, and
 pulse-width sweeps in the paper.
 
 \subsection{Sensitivity per Unit Time: SLSE vs.\ Steady-State SORC}
+\label{subsec:slse-sorc}
 
 The two schemes are often quoted with a \(\sqrt{T_1/T_{2e}}\) advantage for SORC,
 but that law is an artifact of a \(T_1\)-independent steady-state model. Done
@@ -2731,6 +2732,75 @@ receive B1; \code{refocusing=True} also applies the 180-degree refocusing
 efficiency for the spin-echo sensitive volume. The example
 \code{plot\_sensitive\_slice.py} visualizes the curved, non-uniform slice in a
 single-sided-like field.
+
+\subsection{Balanced SSFP: Steady-State Imaging and Off-Resonance Banding}
+
+Balanced SSFP (bSSFP; also TrueFISP, FIESTA, balanced FFE) is the workhorse
+steady-state gradient echo. Unlike the spin-echo imagers above, it never lets the
+magnetization recover to equilibrium between excitations: a train of small-flip
+pulses at a short, fixed \(T_R\) drives a \emph{steady state}, and every gradient
+moment---readout and phase encode---is rewound to zero each \(T_R\) (the
+``balanced'' condition). \code{run\_bssfp\_imaging} builds exactly this on the same
+moving-isochromat engine and the same \code{(B0, B1)} field maps as
+\code{run\_spin\_warp\_imaging}, so the two are directly comparable: it is a
+continuous train of balanced \(T_R\)s with a phase-cycled RF phase, one k-space
+line acquired per \(T_R\), reconstructed with the same
+\code{reconstruct\_image\_from\_kspace}.
+
+\begin{lstlisting}[language=Python]
+import numpy as np
+from spin_dynamics.workflows import run_bssfp_imaging, bssfp_optimal_flip_deg
+
+rho = np.zeros((32, 32)); rho[8:24, 10:22] = 1.0
+t1 = np.full((32, 32), 0.3); t2 = np.full((32, 32), 0.1)
+
+img = run_bssfp_imaging(
+    rho, t1_map=t1, t2_map=t2,
+    b0_map=b0_rad_per_s,             # off-resonance -> banding
+    b1_tx_map=b1_relative,           # flip shading
+    flip_angle_deg=bssfp_optimal_flip_deg(0.3, 0.1),
+    num_dummy_tr=200,                # dummy TRs to reach the steady state
+    phase_increment_deg=180.0,       # phase cycling: passband centred on resonance
+)                                    # img.magnitude has shape (px, pz, 1)
+\end{lstlisting}
+
+The appeal is SNR. On resonance the steady-state signal is high---at the optimal
+flip \(\cos\alpha^\star = (T_1/T_2 - 1)/(T_1/T_2 + 1)\) it reaches
+\(\tfrac{1}{2} M_0 \sqrt{T_2/T_1}\) (\code{bssfp\_optimal\_flip\_deg} returns
+\(\alpha^\star\))---which is why bSSFP is a favourite at low field, where SNR is
+scarce. The catch is the flip side of ``balanced'': each \(T_R\) rewinds the
+\emph{gradient} phase but not the \emph{B0} phase, so the steady state depends on
+the per-\(T_R\) off-resonance precession. Its off-resonance response
+(\code{bssfp\_steady\_state\_signal}, computed with the same engine primitives but
+no gradients) is flat over a passband and then drops to periodic nulls---the
+bSSFP ``dark bands''---spaced \(1/T_R\) in frequency. The RF phase increment sets
+where the passband sits: \(180^\circ\) centres it on resonance with nulls at
+\(\pm 1/(2T_R)\); \(0^\circ\) shifts it half a band, nulls at \(0, \pm 1/T_R\).
+
+In an inhomogeneous B0 those bands cut across the object as signal voids, and B1
+(flip-angle) inhomogeneity shades the image. This is the steady-state
+SNR-versus-robustness trade-off, the imaging cousin of the steady-state SORC
+result of Section~\ref{subsec:slse-sorc}---a steady-state sequence buys
+sensitivity but pays in off-resonance and field-inhomogeneity sensitivity. The example
+\code{plot\_bssfp\_field\_inhomogeneity.py} makes this concrete for a phantom in
+mildly inhomogeneous fields: it plots the banding profile and the T2/T1 flip
+response, then images the phantom four ways---uniform (reference), a mild B0
+residual (\(\sim\)~a band across the FOV) that carves a dark banding void, a
+transmit-B1 gradient that shades the image, and a \emph{phase-cycled} pair
+(increments \(180^\circ\) and \(0^\circ\), whose passbands are complementary)
+combined by maximum, the standard fix that fills the bands back in at twice the
+scan time.
+
+Two practical points fall out of running bSSFP honestly. First, the steady state
+must be established: \code{num\_dummy\_tr} balanced dummy TRs (with an optional
+\(\alpha/2\) ``catalyzation'' that lands the magnetization near the steady-state
+cone and suppresses the oscillatory transient) are played before acquisition, and
+too few of them leaves a transient that modulates the phase-encode lines and
+blurs or shifts the image---so a few \(\times\, T_1/T_R\) dummies are needed.
+Second, because the RF phase is cycled, the receiver phase must follow it: each
+acquired line is demodulated by its transmit phase, without which the alternating
+pulse phase imprints a \((-1)^{\text{line}}\) modulation on k-space that shifts the
+image by half the field of view along the phase-encode axis.
 
 \subsection{Slice-Selective Excitation and 3D Multi-Slice Imaging}
 
