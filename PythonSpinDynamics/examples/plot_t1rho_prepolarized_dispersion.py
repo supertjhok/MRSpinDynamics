@@ -1,4 +1,11 @@
-"""Plot prepolarized T1rho relaxation dispersion from a BPP spectral density."""
+"""Plot prepolarized T1rho relaxation dispersion versus temperature.
+
+Sweeps temperature (through the Arrhenius correlation time) and spin-lock
+nutation frequency, using the shared on-resonance spin-lock rate
+:func:`spin_dynamics.relaxation.t1rho_relaxation_rate`. See
+``plot_t1rho_molecular_size_dispersion.py`` for the companion example that sweeps
+molecular size instead of temperature.
+"""
 
 from __future__ import annotations
 
@@ -14,39 +21,8 @@ add_src_to_path()
 from spin_dynamics.prepolarization import prepolarized_state  # noqa: E402
 from spin_dynamics.relaxation import (  # noqa: E402
     BPPRelaxationModel,
-    spectral_density_lorentzian,
+    t1rho_relaxation_rate,
 )
-
-
-def t1rho_rate(
-    spin_lock_angular_rad_per_s: np.ndarray,
-    larmor_angular_rad_per_s: float,
-    correlation_time_seconds: np.ndarray,
-    *,
-    coupling_scale_per_second2: float,
-    lock_coefficient: float = 1.0,
-    omega0_coefficient: float = 2.5,
-    two_omega0_coefficient: float = 1.0,
-    baseline_rate_per_second: float = 0.0,
-) -> np.ndarray:
-    """Return a simple on-resonance spin-lock relaxation-dispersion model."""
-
-    omega1 = np.asarray(spin_lock_angular_rad_per_s, dtype=np.float64)
-    tau = np.asarray(correlation_time_seconds, dtype=np.float64)
-    j_lock = spectral_density_lorentzian(omega1[np.newaxis, :], tau[:, np.newaxis])
-    jw = spectral_density_lorentzian(larmor_angular_rad_per_s, tau)[:, np.newaxis]
-    j2w = spectral_density_lorentzian(2.0 * larmor_angular_rad_per_s, tau)[
-        :, np.newaxis
-    ]
-    return (
-        float(coupling_scale_per_second2)
-        * (
-            float(lock_coefficient) * j_lock
-            + float(omega0_coefficient) * jw
-            + float(two_omega0_coefficient) * j2w
-        )
-        + float(baseline_rate_per_second)
-    )
 
 
 def build_t1rho_dispersion(args: argparse.Namespace) -> dict[str, np.ndarray]:
@@ -76,14 +52,17 @@ def build_t1rho_dispersion(args: argparse.Namespace) -> dict[str, np.ndarray]:
         prepolarization_time_seconds=args.prepolarization_time_s,
         t1_seconds=rates.t1_seconds,
     )
-    r1rho = t1rho_rate(
-        omega1,
+    r1rho = t1rho_relaxation_rate(
+        omega1[np.newaxis, :],
         omega0,
-        rates.correlation_time_seconds,
+        rates.correlation_time_seconds[:, np.newaxis],
         coupling_scale_per_second2=args.coupling_scale,
-        lock_coefficient=args.lock_coefficient,
-        omega0_coefficient=args.omega0_coefficient,
-        two_omega0_coefficient=args.two_omega0_coefficient,
+        coefficients=(
+            args.lock_coefficient,
+            args.omega0_coefficient,
+            args.two_omega0_coefficient,
+        ),
+        lock_harmonic=args.lock_harmonic,
         baseline_rate_per_second=args.baseline_r1rho,
     )
     t1rho = np.divide(
@@ -114,8 +93,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description=__doc__,
         epilog=(
-            "The T1rho formula is a compact on-resonance dispersion model with "
-            "configurable coefficients multiplying J(w1), J(w0), and J(2w0)."
+            "The T1rho rate is the on-resonance dipolar spin-lock model "
+            "C[a J(k w1) + b J(w0) + c J(2 w0)]; with the defaults (k=2, "
+            "a,b,c=1.5,2.5,1.0) the weak-lock limit reduces to R2."
         ),
     )
     parser.add_argument("--temp-min-k", type=float, default=250.0)
@@ -133,9 +113,10 @@ def main() -> None:
     parser.add_argument("--baseline-r1", type=float, default=0.0)
     parser.add_argument("--baseline-r2", type=float, default=0.0)
     parser.add_argument("--baseline-r1rho", type=float, default=0.0)
-    parser.add_argument("--lock-coefficient", type=float, default=1.0)
+    parser.add_argument("--lock-coefficient", type=float, default=1.5)
     parser.add_argument("--omega0-coefficient", type=float, default=2.5)
     parser.add_argument("--two-omega0-coefficient", type=float, default=1.0)
+    parser.add_argument("--lock-harmonic", type=float, default=2.0)
     parser.add_argument("--prepolarizing-field-t", type=float, default=0.1)
     parser.add_argument("--detection-field-t", type=float, default=0.02)
     parser.add_argument("--prepolarization-time-s", type=float, default=5.0)

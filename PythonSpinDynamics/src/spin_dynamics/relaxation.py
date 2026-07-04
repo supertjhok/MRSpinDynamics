@@ -859,6 +859,168 @@ def bpp_relaxation_rates(
     )
 
 
+@dataclass(frozen=True)
+class PrepolarizedT1rhoExperiment:
+    """Prepolarized spin-lock (``T1rho``) readout over a correlation-time grid.
+
+    Fields are shaped ``(n_sizes, n_locks)`` for the two-dimensional arrays and
+    ``(n_sizes,)`` / ``(n_locks,)`` for the axis arrays, where ``n_sizes`` is the
+    number of correlation times (e.g. molecule sizes) and ``n_locks`` the number
+    of spin-lock amplitudes.
+    """
+
+    spin_lock_angular_rad_per_s: np.ndarray
+    correlation_time_seconds: np.ndarray
+    spin_lock_time_seconds: float
+    r1rho_per_second: np.ndarray
+    t1rho_seconds: np.ndarray
+    prepared_m0: np.ndarray
+    locked_signal: np.ndarray
+
+
+def t1rho_relaxation_rate(
+    spin_lock_angular_rad_per_s: float | Iterable[float] | np.ndarray,
+    larmor_angular_rad_per_s: float,
+    correlation_time_seconds: float | Iterable[float] | np.ndarray,
+    *,
+    coupling_scale_per_second2: float = 1.0,
+    coefficients: tuple[float, float, float] = (1.5, 2.5, 1.0),
+    lock_harmonic: float = 2.0,
+    baseline_rate_per_second: float = 0.0,
+) -> np.ndarray:
+    """Return the on-resonance spin-lock relaxation rate ``R1rho``.
+
+    Implements the on-resonance dipolar ``T1rho`` rate (Kowalewski Chpt 4.3;
+    Stanford RAD226b Lecture 11, "Relaxation in the Rotating Frame")::
+
+        R1rho = C [ a J(k w1) + b J(w0) + c J(2 w0) ] + baseline,
+
+    with the module Lorentzian ``J(w) = 2 tau / (1 + (w tau)^2)``, weights
+    ``(a, b, c) = coefficients``, ``k = lock_harmonic``, ``w1`` the spin-lock
+    nutation frequency ``gamma B1``, ``w0`` the Larmor frequency, and
+    ``C = coupling_scale_per_second2``.
+
+    The dipolar result probes the spectral density at ``2 w1`` (hence the default
+    ``lock_harmonic = 2``). With the default dipolar weights ``(1.5, 2.5, 1.0)``
+    the ``w1 -> 0`` limit reproduces the BPP transverse rate ``R2`` (because
+    ``J(0) = 2 tau``), so a spin-lock dispersion measurement interpolates between
+    ``R2`` at weak lock and a reduced plateau once ``w1`` climbs past ``1/tau_c``.
+    That dispersion is strongest for slow tumblers (large molecules, long
+    ``tau_c``) and vanishes for fast tumblers, which is the physical content of a
+    ``T1rho`` dispersion curve.
+
+    ``spin_lock_angular_rad_per_s`` and ``correlation_time_seconds`` broadcast
+    against one another. To build a ``(n_sizes, n_locks)`` grid pass the
+    correlation times on the first axis (``tau[:, None]``) and the spin-lock
+    amplitudes on the second (``w1[None, :]``).
+    """
+
+    omega1 = np.asarray(spin_lock_angular_rad_per_s, dtype=np.float64)
+    tau = np.asarray(correlation_time_seconds, dtype=np.float64)
+    _require_finite_array(omega1, "spin_lock_angular_rad_per_s")
+    if np.any(omega1 < 0.0):
+        raise ValueError("spin_lock_angular_rad_per_s must be non-negative")
+    omega0 = float(larmor_angular_rad_per_s)
+    if not np.isfinite(omega0) or omega0 <= 0.0:
+        raise ValueError("larmor_angular_rad_per_s must be positive")
+    _require_nonnegative(coupling_scale_per_second2, "coupling_scale_per_second2")
+    _require_nonnegative(baseline_rate_per_second, "baseline_rate_per_second")
+    a, b, c = _validate_coefficients(coefficients, "coefficients")
+    harmonic = float(lock_harmonic)
+    if not np.isfinite(harmonic) or harmonic <= 0.0:
+        raise ValueError("lock_harmonic must be positive")
+
+    j_lock = spectral_density_lorentzian(harmonic * omega1, tau)
+    j_w0 = spectral_density_lorentzian(omega0, tau)
+    j_2w0 = spectral_density_lorentzian(2.0 * omega0, tau)
+    scale = float(coupling_scale_per_second2)
+    return scale * (a * j_lock + b * j_w0 + c * j_2w0) + float(
+        baseline_rate_per_second
+    )
+
+
+def simulate_prepolarized_t1rho(
+    *,
+    spin_lock_angular_rad_per_s: Iterable[float] | np.ndarray,
+    larmor_angular_rad_per_s: float,
+    correlation_time_seconds: Iterable[float] | np.ndarray,
+    spin_lock_time_seconds: float,
+    coupling_scale_per_second2: float,
+    polarizing_field_tesla: float | Iterable[float] | np.ndarray,
+    detection_field_tesla: float,
+    prepolarization_time_seconds: float | Iterable[float] | np.ndarray,
+    t1_seconds: float | Iterable[float] | np.ndarray,
+    coefficients: tuple[float, float, float] = (1.5, 2.5, 1.0),
+    lock_harmonic: float = 2.0,
+    baseline_rate_per_second: float = 0.0,
+    initial_magnetization: float | Iterable[float] | np.ndarray = 0.0,
+    detection_equilibrium_magnetization: float | Iterable[float] | np.ndarray = 1.0,
+) -> PrepolarizedT1rhoExperiment:
+    """Simulate a prepolarized spin-lock (``T1rho``) readout.
+
+    Sequence (Stanford RAD226b Lecture 11, slide "The T1rho experiment"):
+
+    1. Prepolarize in ``polarizing_field_tesla`` for
+       ``prepolarization_time_seconds`` with lab-frame ``t1_seconds`` recovery,
+       giving a prepared longitudinal magnetization ``m0`` in detection-field
+       units (``m0 = 1`` is detection-field thermal equilibrium).
+    2. A ``(pi/2)_{-y}`` pulse tips ``m0`` onto the spin-lock (``+x``) axis.
+    3. An on-resonance spin lock of amplitude ``spin_lock_angular_rad_per_s``
+       holds the magnetization for ``spin_lock_time_seconds`` (``TSL``) while it
+       decays at ``R1rho`` from :func:`t1rho_relaxation_rate`.
+    4. Readout of the surviving locked magnetization
+       ``S = m0 * exp(-TSL * R1rho)``.
+
+    ``correlation_time_seconds`` (per size), ``t1_seconds`` (per size),
+    ``polarizing_field_tesla`` and ``prepolarization_time_seconds`` are aligned on
+    the size axis; ``spin_lock_angular_rad_per_s`` spans the lock axis. The result
+    arrays are ``(n_sizes, n_locks)``.
+    """
+
+    from . import prepolarization as _prepolarization
+
+    tau = np.atleast_1d(np.asarray(correlation_time_seconds, dtype=np.float64))
+    omega1 = np.atleast_1d(np.asarray(spin_lock_angular_rad_per_s, dtype=np.float64))
+    if tau.ndim != 1 or omega1.ndim != 1:
+        raise ValueError(
+            "correlation_time_seconds and spin_lock_angular_rad_per_s must be 1-D"
+        )
+    tsl = float(spin_lock_time_seconds)
+    if not np.isfinite(tsl) or tsl < 0.0:
+        raise ValueError("spin_lock_time_seconds must be non-negative and finite")
+
+    r1rho = t1rho_relaxation_rate(
+        omega1[np.newaxis, :],
+        larmor_angular_rad_per_s,
+        tau[:, np.newaxis],
+        coupling_scale_per_second2=coupling_scale_per_second2,
+        coefficients=coefficients,
+        lock_harmonic=lock_harmonic,
+        baseline_rate_per_second=baseline_rate_per_second,
+    )
+    t1rho = _rate_to_time(r1rho)
+
+    prepared = _prepolarization.prepolarized_state(
+        polarizing_field_tesla,
+        detection_field_tesla,
+        prepolarization_time_seconds,
+        t1_seconds,
+        initial_magnetization=initial_magnetization,
+        detection_equilibrium_magnetization=detection_equilibrium_magnetization,
+    )
+    m0 = np.broadcast_to(prepared.m0, tau.shape).astype(np.float64)
+    locked_signal = m0[:, np.newaxis] * np.exp(-tsl * r1rho)
+    return PrepolarizedT1rhoExperiment(
+        spin_lock_angular_rad_per_s=omega1,
+        correlation_time_seconds=tau,
+        spin_lock_time_seconds=tsl,
+        r1rho_per_second=r1rho,
+        t1rho_seconds=t1rho,
+        prepared_m0=m0,
+        locked_signal=locked_signal,
+    )
+
+
 def apply_relaxation_to_parameters(
     params: Mapping[str, Any] | Any,
     rates: BPPRelaxationRates,
