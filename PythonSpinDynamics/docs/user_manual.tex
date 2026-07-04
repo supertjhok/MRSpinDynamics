@@ -3927,6 +3927,207 @@ pulse design: they expose refocusing, target-excitation, and inverse-excitation
 objective behavior while the inverse-cancellation workflow remains under
 validation.
 
+\section{GRAPE Optimal Control}
+\label{sec:grape-optimal-control}
+
+The \code{optimal\_control} package generalizes the package's autodiff
+machinery from a single hand-built objective (the ideal-v0crit
+refocusing-phase search above) into a reusable gradient-ascent pulse
+engineering (GRAPE) toolkit: it optimizes the full piecewise-constant RF
+control waveform of an arbitrary pulse against a state-transfer or
+propagator/gate fidelity target, using reverse-mode autodiff through a
+differentiable Hilbert-space propagator chain (\code{jax.lax.scan} over
+segment-wise \code{expm(-i H\_seg dt)}, mirroring the \code{core.\_jax\_kernels}
+convention that keeps compile time independent of segment count).
+
+Control is parameterized as amplitude and phase per segment (not Cartesian
+I/Q), because \textbf{phase-only control is the primary mode this package
+targets}: field-deployable NQR/NMR hardware frequently uses switching power
+amplifiers that cannot vary RF amplitude continuously, so only the phase is
+agile. Peak-B1 is then an exact box constraint on the amplitude channel in
+this parameterization (independently box-bounding Cartesian I/Q components
+would incorrectly permit an effective amplitude above the true hardware
+limit at the box corners), and fixing amplitude to a hardware-realistic
+constant and optimizing only phase requires no constrained-optimization
+machinery beyond the existing bounded L-BFGS-B driver.
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.coupling.systems import coupled_spin_system
+from spin_dynamics.optimal_control import (
+    coupled_spin_control_model,
+    grape_optimize_phase_only,
+    rectangular_seed_phase,
+)
+
+model = coupled_spin_control_model(coupled_spin_system([300.0], [[0.0]]))
+n_segments = 16
+dt = [12.5e-6] * n_segments  # segment duration = hardware control bandwidth
+
+result = grape_optimize_phase_only(
+    model,
+    rectangular_seed_phase(n_segments),
+    fixed_amplitude=5000.0,          # Hz, held constant (phase-only GRAPE)
+    dt=dt,
+    target=[0.0, 1.0],               # invert |up> -> |down>
+    psi0=[1.0, 0.0],
+    hamiltonian_batch=training_offset_hamiltonians,  # robust/ensemble objective
+)
+\end{lstlisting}
+
+\code{hamiltonian\_batch} turns the objective into a robust/ensemble
+optimization: the same controls are propagated (via \code{jax.vmap}) across a
+batch of \code{H\_drift} variants (e.g. a B0-offset or B1-scale-factor grid)
+and the per-case fidelities are reduced (mean by default, or worst-case) to a
+single score -- directly reusing the vmap-batched primitive from the
+acceleration workstream. \code{examples\textbackslash
+grape\_broadband\_pulse\_optimization.py} demonstrates this end to end: a
+phase-only inversion pulse trained on a coarse B0-offset ensemble and
+evaluated on a finer held-out grid, where a plain rectangular pulse's
+worst-case fidelity collapses to zero across a wide offset band while the
+GRAPE-optimized pulse holds above 0.97.
+
+\paragraph{Validation.} The differentiable propagator agrees with two
+independent, pre-existing implementations to machine precision rather than
+merely within tolerance: the plain-NumPy reference (bit-identical to the JAX
+path, as expected for the same arithmetic traced two ways) and the pre-existing
+\code{core.rotations} functions \code{calc\_rot\_axis\_arba4} and
+\code{sim\_spin\_dynamics\_exc} (max absolute deviation \(\sim
+10^{-15}\)--\(10^{-16}\), checked for both a single on-resonance pulse and a
+five-segment off-resonance train). Reverse-mode
+gradients match central finite differences to a relative error of \(\sim
+5\times 10^{-10}\) -- well inside the \(5\times 10^{-3}\) tolerance the
+existing v0crit autodiff port uses, since this engine differentiates through
+an explicit \(\exp(-iHt)\) rather than the more numerically delicate windowed
+v0crit objective. In the broadband-pulse example above (16 segments,
+5000\,Hz nutation, 200\,\textmu s total duration, trained on 7 offsets across
+\(\pm 3500\)\,Hz, evaluated on a held-out 41-point grid), the rectangular
+baseline's worst-case fidelity is \(0.000\) -- it cannot invert the band edges
+at all -- while the GRAPE-optimized pulse holds \(0.974\) worst-case and
+\(0.982\) mean, at the identical peak B1.
+
+\paragraph{Multistart is not optional.} A rectangular (constant-phase) pulse
+seeded against a perfectly offset-symmetric ensemble sits at an exact
+zero-gradient stationary point: mirrored offsets' gradient contributions
+cancel in the ensemble mean, so an optimizer started there reports immediate
+convergence with no improvement. This is a genuine symmetry, not a bug or an
+unlucky initial guess -- for a constant or antisymmetric-phase pulse the
+effective rotation axis is confined to the \(x\)-\(z\) plane with \(n_x\) even
+and \(n_z\) odd in offset, so a purely-\(x\) figure of merit cannot see any
+first-order improvement from a symmetric perturbation. Random-restart
+multistart (\code{run\_grape\_multistart}) reliably escapes it -- in one
+tested case a random start reached 0.901 where the rectangular seed's own
+local search reported 0.780 with zero gradient -- so every solver entry point
+seeds a rectangular baseline alongside genuinely random restarts rather than
+relying on the rectangular pulse alone.
+
+Scope note: this first increment targets a single (or J-coupled) spin-1/2
+system with unitary (relaxation-free) propagation. Gradient-waveform control
+(joint RF+gradient optimization for spatially selective pulses) and
+higher-spin quadrupolar targets are designed as straightforward extensions of
+the same engine -- an ensemble batch member with a position-dependent control
+operator, and the existing \code{nqr} Hamiltonian builders in place of
+\code{coupled\_spin\_control\_model} -- but are not implemented yet.
+
+\subsection{Axis-matched excitation (AMEX) and CPMG SNR per unit time}
+
+\code{su2\_effective\_axis} extracts a refocusing cycle's effective rotation
+axis directly from its GRAPE propagator (validated against
+\code{core.rotations.calc\_rot\_axis\_arba4} to machine precision), and
+\code{bloch\_vector\_to\_ket} converts that axis to the spin state it is the
+fixed point of. In an inhomogeneous field the steady state reached after many
+refocusing cycles is the initial magnetization's projection onto this
+offset-dependent axis, so exciting directly onto it (axis-matched excitation,
+AMEX) reaches the asymptotic echo amplitude from the first cycle -- provably a
+fixed point of the cycle -- while a conventional excitation must settle
+through a transient that need not converge cleanly.
+\code{examples\textbackslash grape\_cpmg\_snr\_per\_time.py} demonstrates
+this together with the time cost of long refocusing pulses: it reuses the
+\code{optimization.spa} figure of merit \code{fom\_time = echo\_spacing /
+SNR\textsuperscript{2}} (echo\_spacing includes the pulse length directly, so
+longer pulses are penalized for producing fewer echoes per unit time), sweeps
+candidate refocusing-pulse durations, and follows the sequential/separate
+methodology (refocusing optimized first assuming an idealized excitation,
+then AMEX excitation designed onto its axis) alongside a joint
+optimization for comparison -- both, and a rectangular pulse at the same peak
+B1, are reported so the trade-off is decided empirically rather than assumed.
+
+\paragraph{Validation: an ideal axis-matched state is an exact fixed point.}
+Simulating the refocusing cycle's unitary applied repeatedly (the echo-train
+primitive, \code{iterate\_unitary}) confirms the theory directly: starting
+from the axis-aligned ket, the ensemble-averaged transverse signal is
+identical at every one of 25 simulated cycles (agreement to \(\sim 10^{-9}\),
+i.e.\ no numerically detectable transient), whereas starting from the
+conventional \(+x\) state produces a genuine, unsettled oscillation that has
+not converged even after 25 cycles for the offset ensembles tested here --
+not a clean exponential decay to a plateau, since different offsets precess
+around their own tilted axes at different rates and beat against each other
+in the ensemble average.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{rrrrrr}
+\toprule
+Segments & \(t_p\) (\textmu s) & SNR (rect+rect) & SNR (GRAPE+AMEX) & SNR (joint) & fom\_time gain \\
+\midrule
+4  & 32  & 0.327  & 0.759 & 0.805 & 5.4\(\times\) \\
+8  & 64  & 0.121  & 0.641 & 0.703 & 27.9\(\times\) \\
+16 & 128 & 0.0001 & 0.762 & 0.567 & \(4.3\times 10^4\) \\
+\bottomrule
+\end{tabular}
+\caption{CPMG SNR-per-unit-time sweep at fixed peak nutation rate 5000\,Hz,
+25 refocusing cycles, \(\pm 3000\)\,Hz training ensemble (7 offsets), 41-point
+held-out evaluation grid, 25\,\textmu s free-precession delay on each side of
+the refocusing pulse. ``fom\_time gain'' is the rectangular-baseline to
+GRAPE+AMEX ratio of \code{fom\_time} (SNR-per-unit-time improvement) at that
+duration; the 16-segment entry is dominated by the rectangular pulse's total
+nutation angle (\(\sim 230^\circ\) at this peak amplitude and duration)
+being badly off a \(180^\circ\) refocusing condition -- GRAPE's phase
+modulation recovers a working pulse from what is, at fixed constant phase, an
+essentially failed one, rather than showing a moderate, generic optimization
+gain.}
+\label{tab:grape-cpmg-snr-time}
+\end{table}
+
+The joint optimization (refocusing and excitation phases optimized together
+against the same asymptotic-signal objective) is not consistently better or
+worse than the sequential/AMEX approach across this sweep (ahead at 4 and 8
+segments, behind at 16) -- read as an honest, instance-specific answer rather
+than a general preference for one methodology, since with a fixed multistart
+budget the larger joint parameter space is not uniformly easier to search.
+
+\paragraph{Comparison with prior work.} Mandal et al.\ (2013, \emph{Axis-matching
+excitation pulses for CPMG-like sequences in inhomogeneous fields}) and Mandal
+et al.\ (2014, \emph{Direct optimization of signal-to-noise ratio of CPMG-like
+sequences in inhomogeneous fields}) are the original sources for both AMEX and
+the SNR-per-unit-time figure of merit; both use GRAPE or \code{fmincon} for
+this same class of refocusing-axis/excitation optimization, and the 2014 paper
+hand-derives (Appendix A) the analytic gradient that this engine obtains
+automatically via reverse-mode autodiff. Their \(\mathrm{SNR}_{\text{time}}
+\propto \mathrm{SNR}_{\text{power}}/t_{E,\min}\) is the same physics as
+\code{fom\_time} (their ``SNR'' is explicitly a power, i.e.\ amplitude squared,
+so \(\mathrm{SNR}_{\text{time}} = 1/\code{fom\_time}\)) -- \code{optimization.spa}'s
+formula traces to this same result. The symmetry that makes a rectangular
+(constant-phase) refocusing pulse a zero-gradient stationary point for a
+symmetric offset ensemble (Section~\ref{sec:grape-optimal-control} above) is their Eq.~(5)--(7)
+(\(n_x\) even, \(n_y\equiv 0\), \(n_z\) odd in offset for constant or
+antisymmetric-phase pulses), which they exploit deliberately to halve their own
+search space rather than treat as an obstacle -- a natural refinement for a
+future increment here. Quantitatively, however, this example's offset range
+(at most \(\sim 0.7\times\) the nutation rate) and duration sweep (up to
+\(1.3\times\) the nominal \(180^\circ\) pulse length) are both far milder than
+either paper's benchmark regime: the 2013 paper uses offsets up to
+\(\sim 10\times\) the nutation rate, the 2014 paper up to \(\sim 50\times\), and
+the 2014 paper's central finding is that SNR per unit time peaks for refocusing
+pulses \(2\)--\(5\times\) the standard \(180^\circ\) duration -- a regime this
+sweep does not reach. That mismatch, not a discrepancy in the physics, is why
+this example's refocusing-only gain is modest (a few percent) where the papers
+report gains of several-fold, and why its AMEX-to-ideal-excitation ratio is not
+close to their reported \(\sim 2\times\): mild inhomogeneity leaves a
+conventional excitation and a simple rectangular refocusing pulse much closer
+to adequate already. Reproducing their specific benchmark numbers directly
+would require re-running this example at their offset range and duration
+sweep, which has not yet been done.
+
 \chapter{Examples}
 
 The example scripts can be run from \code{PythonSpinDynamics}; each script also
@@ -3958,6 +4159,8 @@ python examples\nmr_maser.py
 python examples\heteronuclear_j_editing.py --points 33
 python examples\coupled_isochromat_fields.py --points 21
 python examples\diagnose_optimization_backends.py --backend all --numpts 21 --segments 3
+python examples\refocusing_gradient_optimization.py --segments 10 --starts 8
+python examples\grape_broadband_pulse_optimization.py --segments 16 --starts 24
 \end{lstlisting}
 
 Plotting examples require Matplotlib:
@@ -4007,6 +4210,7 @@ python examples\plot_t1rho_prepolarized_dispersion.py --output results\t1rho_pre
 python examples\plot_earth_field_prepolarized_nmr.py --output results\earth_field_prepolarized_nmr.png
 python examples\plot_optimization_workflows.py --numpts 11 --segments 2 --starts 2 --inverse-starts 4 --output results\optimization_workflows.png
 python examples\plot_optimization_pipeline.py --numpts 11 --refocusing-segments 2 --refocusing-starts 2 --excitation-segments 2 --excitation-starts 2 --inverse-starts 3 --output results\optimization_pipeline.png
+python examples\plot_grape_cpmg_snr_per_time.py --output results\grape_cpmg_snr_per_time.png
 python examples\plot_nqr_powder_nutation.py --output results\nqr_powder_nutation.png
 python examples\plot_nqr_full_powder_nutation.py --output results\nqr_full_powder_nutation.png
 python examples\plot_nqr_auto_model_selection.py --output results\nqr_auto_model_selection.png
@@ -4845,6 +5049,44 @@ from spin_dynamics.optimization import (
 The optimization layer is useful for compact pulse-design studies and
 MATLAB-style result inspection. Broad historical \code{fmincon} parity and
 strong inverse-excitation cancellation parity remain validation targets.
+
+\section{Optimal Control API}
+
+\begin{lstlisting}
+from spin_dynamics.optimal_control import (
+    ControlBounds,
+    ControlHamiltonianModel,
+    GrapeMultiStartResult,
+    GrapeOptimizationResult,
+    amplitude_phase_bounds,
+    average_gate_fidelity,
+    bloch_vector_to_ket,
+    coupled_spin_control_model,
+    export_to_pulse_shape,
+    grape_optimize,
+    grape_optimize_phase_only,
+    make_grape_objective,
+    phase_only_bounds,
+    random_phase_starts,
+    rectangular_seed_phase,
+    robust_ensemble_fidelity,
+    run_grape_multistart,
+    state_transfer_fidelity,
+    su2_effective_axis,
+)
+\end{lstlisting}
+
+\code{coupled\_spin\_control\_model} builds the fixed
+\code{ControlHamiltonianModel} (drift plus transverse RF-drive operators)
+from an existing \code{coupling.systems.CoupledSpinSystem}. Everything beyond
+Hamiltonian construction requires the optional \code{jax} extra -- reverse-mode
+autodiff is the entire point of GRAPE, so no finite-difference fallback is
+provided. \code{grape\_optimize\_phase\_only} is the primary entry point
+(fixed amplitude, phase-only control); \code{grape\_optimize} generalizes to
+joint amplitude+phase control given a peak-B1 bound
+(\code{amplitude\_max\_hz}). \code{run\_grape\_multistart} is not optional in
+practice: GRAPE landscapes are multimodal, so a single-start result is not a
+trustworthy optimum on its own.
 
 \chapter{Known Gaps}
 

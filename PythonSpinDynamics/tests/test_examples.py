@@ -130,6 +130,17 @@ class ExampleSmokeTests(unittest.TestCase):
                 "41",
             ),
             (
+                "examples/grape_broadband_pulse_optimization.py",
+                "--segments",
+                "4",
+                "--starts",
+                "2",
+                "--train-offsets",
+                "3",
+                "--eval-points",
+                "5",
+            ),
+            (
                 "examples/nqr_slse_powder_gradient.py",
                 "--n-theta",
                 "3",
@@ -299,6 +310,7 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_redfield_nano2_slse.py",
             "examples/plot_redfield_water_cpmg.py",
             "examples/plot_bpp_water_t1t2_temperature.py",
+            "examples/plot_grape_cpmg_snr_per_time.py",
         ]
         for script in scripts:
             with self.subTest(script=script):
@@ -577,6 +589,9 @@ class ExampleSmokeTests(unittest.TestCase):
         self.assertIn("--slip-factor", result.stdout)
         self.assertIn("--radius-a", result.stdout)
         self.assertIn("--viscosity-pa-s", result.stdout)
+        result = run_example("examples/plot_grape_cpmg_snr_per_time.py", "--help")
+        self.assertIn("--ref-segments", result.stdout)
+        self.assertIn("--n-cycles", result.stdout)
 
 
 if __name__ == "__main__":

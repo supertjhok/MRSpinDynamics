@@ -781,6 +781,50 @@ No public classes or functions found.
 | function | `eseem_stimulated_echo_phase_cycle(n_phase: int = 4) -> PhaseCycle` | Return the phase cycle selecting the three-pulse ESEEM stimulated echo. |
 | function | `diff_stebp_phase_cycle() -> PhaseCycle` | Return the 16-step Bruker ``diff_stebp`` 13-interval bipolar PGSTE cycle. |
 
+## `spin_dynamics.optimal_control.drivers`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `GrapeMultiStartResult` | Result of repeated random-phase-start GRAPE optimization. |
+| function | `run_grape_multistart(model: Any, n_segments: int, *, num_starts: int = 24, seed: int | None = None, rng: np.random.Generator | None = None, initial_phases: np.ndarray | None = None, phase_bounds: tuple[float, float] = (-np.pi, np.pi), **grape_optimize_kwargs) -> GrapeMultiStartResult` | Run repeated random-phase-start GRAPE optimization and rank by fidelity. |
+
+## `spin_dynamics.optimal_control.hamiltonians`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `ControlHamiltonianModel` | Fixed operator set for a piecewise-constant-control Hamiltonian. |
+| function | `coupled_spin_control_model(system: CoupledSpinSystem, *, control_indices: Iterable[int] | None = None, include_j_coupling: bool = True) -> ControlHamiltonianModel` | Build a GRAPE control model for a scalar-coupled spin-1/2 system. |
+
+## `spin_dynamics.optimal_control.objectives`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `state_transfer_fidelity(psi_final, psi_target)` | ``|<target|final>|^2`` for normalized state vectors. |
+| function | `average_gate_fidelity(u_final, u_target)` | Nielsen average-gate fidelity ``(|Tr(U_target^H U_final)|^2 + d) / (d(d+1))``. |
+| function | `su2_effective_axis(u)` | Extract the effective rotation (axis, angle) of a 2x2 SU(2) unitary. |
+| function | `bloch_vector_to_ket(axis)` | Return the spin-1/2 ket aligned with a Bloch-sphere unit vector. |
+| function | `robust_ensemble_fidelity(fidelity_per_case, *, reduction: Literal['mean', 'worst_case'] = 'mean')` | Reduce a ``(batch,)`` array of per-case fidelities to a scalar score. |
+| function | `make_grape_objective(model, *, n_segments: int, dt, target, psi0 = None, mode: Literal['state_transfer', 'gate'] = 'state_transfer', optimize_amplitude: bool = False, fixed_amplitude: float | np.ndarray | None = None, hamiltonian_batch: Sequence[np.ndarray] | None = None, ensemble_reduction: Literal['mean', 'worst_case'] = 'mean', phase_smoothness_weight: float = 0.0) -> Callable[[np.ndarray], tuple[float, np.ndarray]]` | Build a ``value_and_grad`` callable for a GRAPE fidelity objective. |
+
+## `spin_dynamics.optimal_control.parameterization`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `ControlBounds` | Per-parameter box constraints matching a flattened GRAPE control vector. |
+| function | `phase_only_bounds(n_segments: int, *, phase_bound_rad: float = 4 * np.pi) -> ControlBounds` | Loose symmetric phase bounds. |
+| function | `amplitude_phase_bounds(n_segments: int, *, amplitude_max_hz: float, phase_bound_rad: float = 4 * np.pi) -> ControlBounds` | Box bounds for joint amplitude+phase control. |
+| function | `rectangular_seed_phase(n_segments: int, *, phase_rad: float = 0.0) -> np.ndarray` | Constant-phase baseline waveform. |
+| function | `random_phase_starts(num_starts: int, n_segments: int, *, bounds: tuple[float, float] = (-np.pi, np.pi), seed: int | None = None, rng: np.random.Generator | None = None) -> np.ndarray` | Reproducible random phase starts. |
+| function | `export_to_pulse_shape(*, duration_seconds: np.ndarray | float, amplitude_hz: np.ndarray | float, phase_rad: np.ndarray)` | Export an optimized GRAPE waveform as an ``absolute_phase.PulseShape``. |
+
+## `spin_dynamics.optimal_control.solvers`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `GrapeOptimizationResult` | Result of a GRAPE control-waveform optimization. |
+| function | `grape_optimize(model: ControlHamiltonianModel, initial_phase: np.ndarray, *, dt: float | np.ndarray, target: np.ndarray, psi0: np.ndarray | None = None, mode: Literal['state_transfer', 'gate'] = 'state_transfer', optimize_amplitude: bool = False, fixed_amplitude: float | np.ndarray | None = None, initial_amplitude: np.ndarray | None = None, amplitude_max_hz: float | None = None, phase_bound_rad: float = 4 * np.pi, hamiltonian_batch: Sequence[np.ndarray] | None = None, ensemble_reduction: Literal['mean', 'worst_case'] = 'mean', phase_smoothness_weight: float = 0.0, scipy_method: str = 'L-BFGS-B', scipy_options: dict[str, object] | None = None) -> GrapeOptimizationResult` | Optimize a piecewise-constant RF control waveform against a fidelity target. |
+| function | `grape_optimize_phase_only(model: ControlHamiltonianModel, initial_phase: np.ndarray, *, fixed_amplitude: float | np.ndarray, dt: float | np.ndarray, target: np.ndarray, psi0: np.ndarray | None = None, mode: Literal['state_transfer', 'gate'] = 'state_transfer', phase_bound_rad: float = 4 * np.pi, hamiltonian_batch: Sequence[np.ndarray] | None = None, ensemble_reduction: Literal['mean', 'worst_case'] = 'mean', phase_smoothness_weight: float = 0.0, scipy_method: str = 'L-BFGS-B', scipy_options: dict[str, object] | None = None) -> GrapeOptimizationResult` | Explicit phase-only GRAPE entry point. |
+
 ## `spin_dynamics.optimization.drivers`
 
 | Kind | Name | Summary |
