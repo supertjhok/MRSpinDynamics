@@ -89,6 +89,16 @@ model). Reuses `magnetostatics.circular_loop`.
   `SpatialDomain`, the Neumann-Laplace `phi`-solve, and `J`, `power`. Symmetric
   shapes (sphere/cylinder/slab) validate against analytics; arbitrary masks use
   the `phi`-correction.
+- **Sample loading (reflected impedance).** By reciprocity the eddy loss couples
+  back into the coil as an added series resistance
+  `R_reflected(omega) = omega^2 * integral sigma |A_unit|^2 dV`
+  (`reflected_resistance`; geometry factor `geometric_loss_integral`). It is
+  frequency dependent (`~omega^2` in the first-order regime), degrades the loaded
+  `Q = omega L / R` and raises the Johnson-noise floor by `sqrt(R_total/R_coil)`.
+  `coil_loading` sweeps it across frequency given `coil_inductance` and
+  `R_coil(f)`. Demonstrated on an inside-out NMR well-logging tool (Jasper-Jackson
+  geometry: a loop/solenoid coil in a saturated-brine borehole, 0.5-2 MHz) where
+  the brine loading dominates the coil resistance and collapses Q.
 
 ### `eddy_modes.py`
 
@@ -137,6 +147,9 @@ model). Reuses `magnetostatics.circular_loop`.
       ~1e-3, sphere power ~0.6%, charge-correction screening/tangency).
 - [x] `eddy_modes.py` (L/R eigenmodes -> terms -> GradientDriverResponse) +
       single-ring tau=L/R test (machine precision).
+- [x] Sample loading: `reflected_resistance`/`coil_loading`/`coil_inductance`
+      (reflected impedance ~omega^2 -> loaded Q + noise penalty) + tests
+      (omega^2 scaling, sigma-linearity, Q degradation); NMR well-logging example.
 - [x] `fields.__init__` re-exports; unified field-solver namespace.
 - [x] Examples (`plot_rf_coil_efield.py`, `plot_gradient_eddy_preemphasis.py`)
       + registration; the gradient example feeds the geometry-derived driver into

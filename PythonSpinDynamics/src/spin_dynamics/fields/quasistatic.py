@@ -23,7 +23,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from spin_dynamics.fields.magnetostatics import MU0
+from spin_dynamics.fields.magnetostatics import MU0, circular_loop
 
 Segment = tuple[Sequence[float], Sequence[float]]
 
@@ -255,6 +255,139 @@ def eddy_currents(
     return EddyResult(e_field=e, current_density=j, power=power, e_field_uncorrected=e_ind)
 
 
+def geometric_loss_integral(
+    grid_points: np.ndarray,
+    segments: Sequence[Segment],
+    *,
+    conductivity: float,
+    mask: np.ndarray,
+    spacing: Sequence[float],
+    charge_correction: bool = False,
+) -> float:
+    """``G = integral sigma |A_unit|^2 dV`` (ohm/(rad/s)^2) over the conductor.
+
+    The frequency-independent geometry factor behind the reflected resistance:
+    ``R_reflected(omega) = omega^2 * G`` (see :func:`reflected_resistance`).
+    Computed as ``2 * power`` of :func:`eddy_currents` at unit ``dI/dt`` (so the
+    induced field is exactly ``A_unit``). ``charge_correction`` defaults False:
+    for an axisymmetric coil + coaxial conductor the eddy current is azimuthal and
+    already divergence-free, so no correction is needed.
+    """
+
+    res = eddy_currents(
+        grid_points, segments, 1.0, conductivity=conductivity, mask=mask,
+        spacing=spacing, charge_correction=charge_correction, time_average=True,
+    )
+    return 2.0 * res.power
+
+
+def reflected_resistance(
+    grid_points: np.ndarray,
+    segments: Sequence[Segment],
+    *,
+    conductivity: float,
+    mask: np.ndarray,
+    spacing: Sequence[float],
+    frequency: float,
+    charge_correction: bool = False,
+) -> float:
+    """Reflected series resistance ``R = omega^2 integral sigma |A_unit|^2 dV`` (ohm).
+
+    Eddy-current loss in a conductive sample couples back into the coil (by
+    reciprocity) as an added series resistance: the time-average dissipated power
+    ``1/2 I0^2 R`` equals ``1/2 omega^2 I0^2 integral sigma |A_unit|^2 dV``. This
+    ``R_reflected(omega)`` grows as ``omega^2`` (first-order / Born regime) and is
+    what degrades the loaded Q and raises the Johnson-noise floor. First-order
+    limitations apply (module docstring): no skin-effect shielding, so it
+    over-estimates loss once the skin depth drops below the sample size.
+    """
+
+    omega = 2.0 * np.pi * float(frequency)
+    return omega**2 * geometric_loss_integral(
+        grid_points, segments, conductivity=conductivity, mask=mask,
+        spacing=spacing, charge_correction=charge_correction,
+    )
+
+
+def coil_inductance(
+    radii: Sequence[float],
+    centers: np.ndarray,
+    *,
+    wire_radius: float,
+    axis: str = "z",
+    n_segments: int = 120,
+) -> float:
+    """Series inductance (H) of coaxial circular turns carrying the same current.
+
+    ``L = sum_j L_self(a_j) + sum_{j!=k} M(loop_j, loop_k)`` -- the sum of every
+    entry of the turn inductance matrix (self via
+    :func:`self_inductance_circular`, mutual via :func:`mutual_inductance`).
+    """
+
+    radii = np.asarray(radii, dtype=np.float64)
+    centers = np.asarray(centers, dtype=np.float64)
+    loops = [circular_loop(centers[k], radii[k], axis=axis, n_segments=n_segments)
+             for k in range(radii.size)]
+    total = 0.0
+    for j in range(radii.size):
+        total += self_inductance_circular(radii[j], wire_radius)
+        for k in range(radii.size):
+            if k != j:
+                total += mutual_inductance(loops[j], loops[k])
+    return float(total)
+
+
+@dataclass(frozen=True)
+class CoilLoading:
+    """Frequency-swept sample loading of a coil by a conductive medium."""
+
+    frequency: np.ndarray            # Hz
+    reflected_resistance: np.ndarray  # ohm (~ omega^2)
+    q_unloaded: np.ndarray            # omega L / R_coil
+    q_loaded: np.ndarray              # omega L / (R_coil + R_reflected)
+    noise_penalty: np.ndarray         # sqrt(R_total / R_coil) -- SNR / noise-floor degradation
+
+
+def coil_loading(
+    grid_points: np.ndarray,
+    segments: Sequence[Segment],
+    *,
+    conductivity: float,
+    mask: np.ndarray,
+    spacing: Sequence[float],
+    frequencies: Sequence[float],
+    inductance: float,
+    coil_resistance: float | np.ndarray,
+    charge_correction: bool = False,
+) -> CoilLoading:
+    """Sweep the sample-loading effect of a conductive medium across frequency.
+
+    The geometry factor ``G`` is computed once; ``R_reflected(f) = (2 pi f)^2 G``.
+    Returns the reflected resistance, the unloaded/loaded quality factors
+    ``omega L / R`` and the noise penalty ``sqrt(R_total / R_coil)`` (the factor by
+    which the coil's Johnson-noise floor rises, i.e. the SNR degradation when the
+    sample loading is not negligible). ``coil_resistance`` may be a scalar or a
+    per-frequency array (e.g. a ``sqrt(f)`` skin-effect wire model).
+    """
+
+    freqs = np.atleast_1d(np.asarray(frequencies, dtype=np.float64))
+    g = geometric_loss_integral(
+        grid_points, segments, conductivity=conductivity, mask=mask,
+        spacing=spacing, charge_correction=charge_correction,
+    )
+    omega = 2.0 * np.pi * freqs
+    r_reflected = omega**2 * g
+    r_coil = np.broadcast_to(np.asarray(coil_resistance, dtype=np.float64), freqs.shape)
+    r_total = r_coil + r_reflected
+    return CoilLoading(
+        frequency=freqs,
+        reflected_resistance=r_reflected,
+        q_unloaded=omega * inductance / r_coil,
+        q_loaded=omega * inductance / r_total,
+        noise_penalty=np.sqrt(r_total / r_coil),
+    )
+
+
 __all__ = [
     "vector_potential",
     "induced_efield",
@@ -263,4 +396,9 @@ __all__ = [
     "eddy_power",
     "eddy_currents",
     "EddyResult",
+    "geometric_loss_integral",
+    "reflected_resistance",
+    "coil_inductance",
+    "coil_loading",
+    "CoilLoading",
 ]

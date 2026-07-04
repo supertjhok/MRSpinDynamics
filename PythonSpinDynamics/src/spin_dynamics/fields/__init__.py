@@ -48,11 +48,16 @@ from spin_dynamics.fields.positions import (
     velocity_array,
 )
 from spin_dynamics.fields.quasistatic import (
+    CoilLoading,
     EddyResult,
+    coil_inductance,
+    coil_loading,
     eddy_currents,
     eddy_power,
+    geometric_loss_integral,
     induced_efield,
     mutual_inductance,
+    reflected_resistance,
     self_inductance_circular,
     vector_potential,
 )
@@ -91,6 +96,11 @@ __all__ = [
     "eddy_power",
     "eddy_currents",
     "EddyResult",
+    "geometric_loss_integral",
+    "reflected_resistance",
+    "coil_inductance",
+    "coil_loading",
+    "CoilLoading",
     "EddyModes",
     "EddyModeSpectrum",
 ]

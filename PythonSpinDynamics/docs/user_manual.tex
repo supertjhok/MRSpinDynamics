@@ -2992,11 +2992,23 @@ eddy = EddyModes(radii, centers, wire_radius=2e-3, resistivity=1.7e-8)
 driver = eddy.to_gradient_driver(drive, tau_rl=1e-4)  # -> M5 GradientDriverResponse
 \end{lstlisting}
 
+\textbf{Sample loading (reflected impedance).} By reciprocity the eddy loss
+couples back into the coil as an added series resistance
+\(R_{\text{refl}}(\omega)=\omega^{2}\int\sigma\,|\mathbf{A}_{\text{unit}}|^{2}\,dV\)
+(\code{reflected\_resistance}; frequency-independent geometry factor
+\code{geometric\_loss\_integral}). It grows as \(\omega^{2}\), degrades the loaded
+\(Q=\omega L/R\) and raises the Johnson-noise floor by
+\(\sqrt{R_{\text{total}}/R_{\text{coil}}}\); \code{coil\_loading} sweeps it across
+frequency given \code{coil\_inductance} and \(R_{\text{coil}}(f)\).
+
 The examples \code{plot\_rf\_coil\_efield.py} (solenoid \& planar spiral: B1, |E|,
 and eddy Joule density in a saline cylinder --- note the solenoid's on-axis E
-null) and \code{plot\_gradient\_eddy\_preemphasis.py} (Maxwell pair + shield: eddy
-spectrum, gradient droop, and the geometry-derived pre-emphasis that flattens it)
-demonstrate both. Design note: \code{docs/field\_solvers\_quasistatic.md}.
+null), \code{plot\_gradient\_eddy\_preemphasis.py} (Maxwell pair + shield: eddy
+spectrum, gradient droop, and the geometry-derived pre-emphasis that flattens it),
+and \code{plot\_logging\_coil\_loading.py} (an inside-out NMR well-logging tool ---
+Jasper-Jackson loop coil in a saturated-brine borehole, 0.5--2 MHz --- where the
+brine loading dominates the coil resistance and collapses \(Q\)) demonstrate the
+solvers. Design note: \code{docs/field\_solvers\_quasistatic.md}.
 
 \section{Received-Signal Noise}
 
