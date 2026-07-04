@@ -21,10 +21,13 @@ from spin_dynamics.fields.eddy_modes import EddyModes  # noqa: E402
 from spin_dynamics.fields.magnetostatics import MU0, biot_savart, circular_loop  # noqa: E402
 from spin_dynamics.fields.quasistatic import (  # noqa: E402
     _charge_correction,
+    coil_inductance,
+    coil_loading,
     eddy_currents,
     eddy_power,
     induced_efield,
     mutual_inductance,
+    reflected_resistance,
     self_inductance_circular,
     vector_potential,
 )
@@ -144,6 +147,50 @@ class EddyPowerTests(unittest.TestCase):
         self.assertGreater(res.power, 0.0)
         self.assertEqual(res.e_field.shape, grid.shape)
         self.assertTrue(np.all(res.e_field[~mask] == 0.0))
+
+
+class CoilLoadingTests(unittest.TestCase):
+    def _brine_setup(self):
+        coil = coils.solenoid(radius=0.045, length=0.1, turns=8, axis="z", n_segments=36)
+        nxy, nz = 21, 23
+        axx = np.linspace(-0.12, 0.12, nxy)
+        axz = np.linspace(-0.16, 0.16, nz)
+        dxy = axx[1] - axx[0]
+        dz = axz[1] - axz[0]
+        X, Y, Z = np.meshgrid(axx, axx, axz, indexing="ij")
+        rho = np.sqrt(X**2 + Y**2)
+        brine = (rho >= 0.05) & (rho <= 0.11) & (np.abs(Z) <= 0.14)
+        grid = np.stack([X, Y, Z], axis=-1)
+        return coil, grid, brine, (dxy, dxy, dz)
+
+    def test_reflected_resistance_scales_as_omega_squared(self) -> None:
+        coil, grid, brine, spacing = self._brine_setup()
+        kw = dict(conductivity=10.0, mask=brine, spacing=spacing)
+        r1 = reflected_resistance(grid, coil, frequency=1e6, **kw)
+        r2 = reflected_resistance(grid, coil, frequency=2e6, **kw)
+        self.assertGreater(r1, 0.0)
+        self.assertAlmostEqual(r2 / r1, 4.0, places=3)  # omega^2
+
+    def test_reflected_resistance_linear_in_conductivity(self) -> None:
+        coil, grid, brine, spacing = self._brine_setup()
+        r_lo = reflected_resistance(grid, coil, frequency=1e6, conductivity=5.0, mask=brine, spacing=spacing)
+        r_hi = reflected_resistance(grid, coil, frequency=1e6, conductivity=10.0, mask=brine, spacing=spacing)
+        self.assertAlmostEqual(r_hi / r_lo, 2.0, places=6)
+
+    def test_coil_loading_degrades_q_and_raises_noise(self) -> None:
+        coil, grid, brine, spacing = self._brine_setup()
+        radii = np.full(8, 0.045)
+        centers = np.zeros((8, 3))
+        centers[:, 2] = np.linspace(-0.05, 0.05, 8)
+        inductance = coil_inductance(radii, centers, wire_radius=1e-3)
+        cl = coil_loading(
+            grid, coil, conductivity=10.0, mask=brine, spacing=spacing,
+            frequencies=[0.5e6, 1e6, 2e6], inductance=inductance, coil_resistance=0.5,
+        )
+        self.assertTrue(np.all(cl.q_loaded < cl.q_unloaded))
+        self.assertTrue(np.all(cl.noise_penalty > 1.0))
+        # loading (hence noise penalty) worsens with frequency
+        self.assertTrue(np.all(np.diff(cl.noise_penalty) > 0))
 
 
 class CoilGeometryTests(unittest.TestCase):

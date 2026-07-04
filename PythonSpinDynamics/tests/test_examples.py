@@ -364,6 +364,8 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_grape_pgse_diffusion.py",
             "examples/plot_rf_coil_efield.py",
             "examples/plot_gradient_eddy_preemphasis.py",
+            "examples/plot_logging_coil_loading.py",
+            "examples/plot_logging_cpmg_multinuclear.py",
         ]
         for script in scripts:
             with self.subTest(script=script):

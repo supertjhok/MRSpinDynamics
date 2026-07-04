@@ -441,6 +441,11 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `eddy_power(e_field: np.ndarray, conductivity: np.ndarray | float, cell_volume: float, *, time_average: bool = True) -> float` | Resistive eddy power ``P = k * integral sigma |E|^2 dV`` (W). |
 | class | `EddyResult` | Induced E-field, eddy current and deposited power in a conductive sample. |
 | function | `eddy_currents(grid_points: np.ndarray, segments: Sequence[Segment], dcurrent_dt: float, *, conductivity: float, mask: np.ndarray, spacing: Sequence[float], charge_correction: bool = True, time_average: bool = True) -> EddyResult` | First-order eddy currents and power for a conductive sample on a grid. |
+| function | `geometric_loss_integral(grid_points: np.ndarray, segments: Sequence[Segment], *, conductivity: float, mask: np.ndarray, spacing: Sequence[float], charge_correction: bool = False) -> float` | ``G = integral sigma |A_unit|^2 dV`` (ohm/(rad/s)^2) over the conductor. |
+| function | `reflected_resistance(grid_points: np.ndarray, segments: Sequence[Segment], *, conductivity: float, mask: np.ndarray, spacing: Sequence[float], frequency: float, charge_correction: bool = False) -> float` | Reflected series resistance ``R = omega^2 integral sigma |A_unit|^2 dV`` (ohm). |
+| function | `coil_inductance(radii: Sequence[float], centers: np.ndarray, *, wire_radius: float, axis: str = 'z', n_segments: int = 120) -> float` | Series inductance (H) of coaxial circular turns carrying the same current. |
+| class | `CoilLoading` | Frequency-swept sample loading of a coil by a conductive medium. |
+| function | `coil_loading(grid_points: np.ndarray, segments: Sequence[Segment], *, conductivity: float, mask: np.ndarray, spacing: Sequence[float], frequencies: Sequence[float], inductance: float, coil_resistance: float | np.ndarray, charge_correction: bool = False) -> CoilLoading` | Sweep the sample-loading effect of a conductive medium across frequency. |
 
 ## `spin_dynamics.interference.active`
 
