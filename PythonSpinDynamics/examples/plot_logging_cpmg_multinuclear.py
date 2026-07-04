@@ -123,7 +123,8 @@ def main() -> None:
     parser.add_argument("--magnet-length-cm", type=float, default=30.0)
     parser.add_argument("--magnet-radius-cm", type=float, default=8.0)
     parser.add_argument("--gap-cm", type=float, default=34.0, help="Face-to-face separation (tunes depth).")
-    parser.add_argument("--coil-current-a", type=float, default=300.0)
+    parser.add_argument("--pulse90-us", type=float, default=25.0,
+                        help="1H 90-degree pulse length (hardware spec); the peak current follows.")
     parser.add_argument("--echo-spacing-us", type=float, default=600.0)
     parser.add_argument("--temperature-k", type=float, default=350.0)
     parser.add_argument("--brine-conductivity", type=float, default=10.0)
@@ -159,19 +160,23 @@ def main() -> None:
     f_rf = GAMMA_H * b_sweet / (2.0 * np.pi)
     w_rf = 2.0 * np.pi * f_rf
 
-    # Coil (solenoid) in the gap; B1 and its transverse (to B0) component.
-    coil_radius = min(0.06, radius * 0.75)
-    coil = coils.solenoid(radius=coil_radius, length=min(0.30, gap * 0.85), turns=24, axis="z", n_segments=48)
+    # Coil (solenoid) in the gap, radius near the borehole wall for B1 efficiency
+    # at the (outside-the-borehole) sweet spot; B1 and its transverse component.
+    coil_radius = min(0.09, args.borehole_radius_cm * 1e-2 * 0.82)
+    coil_turns = 30
+    coil = coils.solenoid(radius=coil_radius, length=min(0.30, gap * 0.85), turns=coil_turns, axis="z", n_segments=48)
     b1_vec = biot_savart(pts, coil, 1.0)
     b0_hat = np.where(np.isfinite(b0_mag)[..., None], b0_vec / np.where(b0_mag[..., None] > 0, b0_mag[..., None], 1), 0.0)
     b1_par = np.sum(b1_vec * b0_hat, axis=-1)[..., None] * b0_hat
     b1_perp = np.linalg.norm(b1_vec - b1_par, axis=-1)   # T/A
 
-    # Pulse durations calibrated for 1H at the sweet spot (fixed hardware timing).
-    omega1_h = GAMMA_H * b1_perp * args.coil_current_a
-    w1_cal = float(omega1_h[i_sweet, mid])
-    t90 = (np.pi / 2.0) / w1_cal
-    t180 = np.pi / w1_cal
+    # Fixed 1H pulse lengths (hardware spec); the peak coil current follows from
+    # the B1 efficiency at the sweet spot.
+    t90 = args.pulse90_us * 1e-6
+    t180 = 2.0 * t90
+    w1_cal = (np.pi / 2.0) / t90
+    b1_perp_sweet = float(b1_perp[i_sweet, mid])
+    coil_current = w1_cal / (GAMMA_H * b1_perp_sweet)
     tau_half = max(0.5 * args.echo_spacing_us * 1e-6 - 0.5 * t180, 0.0)
 
     # Echo lookup tables (fixed pulses). 1H spin-1/2, 23Na spin-3/2.
@@ -187,7 +192,7 @@ def main() -> None:
     def nucleus(gamma, spin_i, n_density, table):
         b_res = w_rf / gamma
         offset = gamma * (b0_mag - b_res)
-        omega1 = gamma * b1_perp * args.coil_current_a
+        omega1 = gamma * b1_perp * coil_current
         # Voxel-average the (thin) resonance over the radial offset span.
         d_off = np.abs(np.gradient(np.nan_to_num(offset), dx, axis=0)) * dx
         n_sub = 15
@@ -212,9 +217,9 @@ def main() -> None:
 
     # Coil loading -> Johnson noise.
     r_bh = args.borehole_radius_cm * 1e-2
-    radii = np.full(24, coil_radius)
-    centers = np.zeros((24, 3))
-    centers[:, 2] = np.linspace(-0.15, 0.15, 24)
+    radii = np.full(coil_turns, coil_radius)
+    centers = np.zeros((coil_turns, 3))
+    centers[:, 2] = np.linspace(-0.15, 0.15, coil_turns)
     inductance = coil_inductance(radii, centers, wire_radius=1e-3)
     ng = 23
     axg = np.linspace(-r_bh * 1.1, r_bh * 1.1, ng)
@@ -230,6 +235,8 @@ def main() -> None:
     r_total = float(loading.reflected_resistance[0] + 0.5 * np.sqrt(f_rf / 1e6))
     q_loaded = float(loading.q_loaded[0])
     bandwidth = f_rf / q_loaded
+    rf_power = 0.5 * coil_current**2 * r_total   # peak-pulse power into R_total (W)
+    brine_power_fraction = float(loading.reflected_resistance[0]) / r_total
 
     # Received echo through the tuned probe (coherent sum over offsets).
     n_acq = 201
@@ -249,7 +256,12 @@ def main() -> None:
     print("Jasper-Jackson NMR logging: CPMG sensitive regions, signal, SNR, 23Na")
     print(f"  magnet: 2x SmCo (Br={args.remanence} T, L={args.magnet_length_cm:.0f} cm) gap {args.gap_cm:.0f} cm")
     print(f"  sweet spot: r={r_sweet * 100:.1f} cm, |B0|={b_sweet:.4f} T -> f_RF={f_rf / 1e6:.3f} MHz")
-    print(f"  1H nutation at sweet spot: {w1_cal / 2 / np.pi / 1e3:.1f} kHz (pulses calibrated here)")
+    print(f"  1H pulses: 90 = {t90 * 1e6:.1f} us, 180 = {t180 * 1e6:.1f} us "
+          f"(nutation {w1_cal / 2 / np.pi / 1e3:.1f} kHz at the sweet spot)")
+    print(f"  coil: {coil_turns}-turn solenoid r={coil_radius * 100:.0f} cm, "
+          f"B1 efficiency {b1_perp_sweet * 1e6:.1f} uT/A at the sweet spot")
+    print(f"  peak coil current: {coil_current:.0f} A;  RF power: {rf_power / 1e3:.2f} kW peak-pulse "
+          f"({brine_power_fraction * 100:.0f}% dissipated in the brine)")
     print(f"  23Na shell |B0|={sodium['b_res']:.4f} T (inner); 23Na flip ~{na_flip_med:.0f} deg (proton-calibrated pulse)")
     print(f"  received echo EMF: 1H {proton['total'] * 1e9:.2f} nV, 23Na {sodium['total'] * 1e9:.2f} nV")
     print(f"  23Na fractional contribution: {na_fraction * 100:.1f} %")
@@ -304,6 +316,9 @@ def main() -> None:
                f"1H |B0| = {b_sweet:.4f} T\n"
                f"23Na |B0| = {sodium['b_res']:.4f} T\n"
                f"23Na flip ~ {na_flip_med:.0f} deg\n\n"
+               f"90 / 180 = {t90 * 1e6:.0f} / {t180 * 1e6:.0f} us\n"
+               f"peak current = {coil_current:.0f} A\n"
+               f"RF power = {rf_power / 1e3:.1f} kW\n\n"
                f"1H echo  = {proton['total'] * 1e9:.2f} nV\n"
                f"23Na echo = {sodium['total'] * 1e9:.2f} nV\n"
                f"23Na fraction = {na_fraction * 100:.1f} %\n\n"
