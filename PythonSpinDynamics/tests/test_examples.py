@@ -152,6 +152,32 @@ class ExampleSmokeTests(unittest.TestCase):
                 "2",
             ),
             (
+                "examples/grape_nqr_broadband_pulse.py",
+                "--segments",
+                "6",
+                "--train-points",
+                "3",
+                "--eval-points",
+                "5",
+                "--starts",
+                "2",
+            ),
+            (
+                "examples/grape_nqr_powder_pulse.py",
+                "--segments",
+                "6",
+                "--train-theta",
+                "2",
+                "--train-phi",
+                "3",
+                "--eval-theta",
+                "2",
+                "--eval-phi",
+                "3",
+                "--starts",
+                "2",
+            ),
+            (
                 "examples/nqr_slse_powder_gradient.py",
                 "--n-theta",
                 "3",
@@ -322,6 +348,8 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_redfield_water_cpmg.py",
             "examples/plot_bpp_water_t1t2_temperature.py",
             "examples/plot_grape_cpmg_snr_per_time.py",
+            "examples/plot_grape_nqr_broadband_spectrum.py",
+            "examples/plot_grape_nqr_slse_excitation.py",
         ]
         for script in scripts:
             with self.subTest(script=script):
@@ -603,6 +631,12 @@ class ExampleSmokeTests(unittest.TestCase):
         result = run_example("examples/plot_grape_cpmg_snr_per_time.py", "--help")
         self.assertIn("--ref-segments", result.stdout)
         self.assertIn("--n-cycles", result.stdout)
+        result = run_example("examples/plot_grape_nqr_broadband_spectrum.py", "--help")
+        self.assertIn("--spread-khz", result.stdout)
+        self.assertIn("--t2star-us", result.stdout)
+        result = run_example("examples/plot_grape_nqr_slse_excitation.py", "--help")
+        self.assertIn("--tau-us", result.stdout)
+        self.assertIn("--max-offset-ratio", result.stdout)
 
 
 if __name__ == "__main__":

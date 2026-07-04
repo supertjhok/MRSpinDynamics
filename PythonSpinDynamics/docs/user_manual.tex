@@ -4196,6 +4196,108 @@ to adequate already. Reproducing their specific benchmark numbers directly
 would require re-running this example at their offset range and duration
 sweep, which has not yet been done.
 
+\subsection{NQR / quadrupolar targets}
+\label{sec:grape-nqr}
+
+The GRAPE engine is Hilbert-space-general -- it needs only a
+\code{ControlHamiltonianModel} (\code{h\_drift}, \code{h\_x}, \code{h\_y}) --
+so extending it to quadrupolar (NQR) nuclei is a matter of supplying that model,
+not a new engine. \code{nqr\_site\_control\_model(site)} builds it for a spin
+\(I = 1, 3/2, 5/2, 7/2, 9/2\) site.
+
+\paragraph{Frame.} A piecewise-constant lab/PAS field cannot drive an MHz
+quadrupolar transition (it is a DC field), so the model is built in the
+\emph{rotating frame at the RF carrier}, in the energy eigenbasis --- exactly
+the frame the full NQR density-matrix engine uses
+(Section~\ref{sec:nqr-full}). \code{h\_drift} is the rotating-frame static
+Hamiltonian (\code{static\_hamiltonian\_rotating}: diagonal detunings) and
+\code{h\_x}/\code{h\_y} are the co-rotating RWA drive quadratures extracted from
+\code{pulse\_hamiltonian}, so \code{pulse\_hamiltonian} \(\equiv\)
+\code{h\_drift} \(+\, w_1(\cos\phi\,\code{h\_x} + \sin\phi\,\code{h\_y})\) and a
+pulse optimized on this model round-trips through the real simulator to machine
+precision. The default carrier is the fundamental (strongest) transition; the
+model operates in the eigenbasis, so the fundamental transition's two
+eigenstates are the natural inversion endpoints (\code{nqr\_fundamental\_states}
+returns their indices). The single-carrier RWA is faithful only near the
+fundamental line, so driving a satellite warns (exact satellite pulsing needs
+non-RWA time-domain propagation, not yet implemented).
+
+\paragraph{The eigh-vs-expm gradient.} Quadrupolar spectra are Kramers-degenerate.
+The default segment propagator diagonalizes \(H_{\text{seg}}\) with
+\code{eigh}, whose reverse-mode gradient carries \(1/(\lambda_i-\lambda_j)\)
+terms that become \emph{NaN} for degenerate eigenvalues. NQR models must
+therefore pass \code{propagator="expm"}, which propagates via
+\code{jax.scipy.linalg.expm} -- its gradient is well-defined under exact
+degeneracy (agreeing with the \code{eigh} forward map to \(\sim 10^{-9}\) for
+non-degenerate systems and with finite differences to \(\sim 10^{-3}\)).
+
+\paragraph{Two robustness axes.} Field NQR detection faces two dominant
+broadenings, each a different ensemble over the shared control waveform:
+\begin{itemize}
+  \item \textbf{EFG / detuning inhomogeneity.} A distribution of \(\nu_Q\)
+  (EFG line broadening) detunes spin packets from a fixed carrier; this is a
+  per-case \code{h\_drift} ensemble (\code{hamiltonian\_batch}), identical in
+  structure to the spin-1/2 B0-broadband case. In zero-field NQR the transition
+  frequencies depend only on \(\nu_Q\) and \(\eta\), so this is a frequency
+  spread, \emph{not} a powder of orientations (which vary coupling, next item).
+  \code{examples\textbackslash
+  grape\_nqr\_broadband\_pulse.py} inverts a \(^{63}\)Cu fundamental line across
+  a \(\pm 25\)\,kHz \(\nu_Q\) band where a fixed-carrier rectangular pulse's
+  held-out worst-case inversion collapses to \(\sim 0.01\) while the optimized
+  phase-only pulse holds \(\sim 1.0\). \code{examples\textbackslash
+  plot\_grape\_nqr\_broadband\_spectrum.py} plays the same idea for
+  \emph{excitation}: it optimizes a broadband \(90^\circ\) pulse, then Fourier-
+  transforms the excited coherence over a Gaussian \(\nu_Q\) distribution into a
+  detected spectrum -- the rectangular pulse's sinc-like excitation nulls narrow
+  and distort the line, while the GRAPE pulse recovers the true broadened
+  lineshape.
+  \item \textbf{Powder orientation.} A crystallite's RF-to-EFG coupling depends
+  on the RF direction in its principal-axis system, so \code{h\_x}/\code{h\_y}
+  vary per orientation while \code{h\_drift} is shared --- a per-case
+  \emph{drive-operator} ensemble. Pass \code{control\_operator\_batch}
+  (from \code{nqr\_powder\_control\_batch}); \code{examples\textbackslash
+  grape\_nqr\_powder\_pulse.py} inverts a \(^{35}\)Cl line across a powder
+  (held-out worst-case \(\sim 0.03 \to 0.87\)).
+\end{itemize}
+
+The two axes compose: passing \code{hamiltonian\_batch} and
+\code{control\_operator\_batch} of equal length makes each ensemble member carry
+its own \((\code{h\_drift}, \code{h\_x}, \code{h\_y})\), so a flattened
+\emph{orientation} \(\times\) \(\nu_Q\) product grid optimizes a single pulse
+robust to detuning \emph{and} orientation at once (no extra machinery -- the
+per-case drift and per-case drive paths already coexist).
+
+\paragraph{Offset-robust excitation for a single-crystal SLSE train.}
+\code{examples\textbackslash plot\_grape\_nqr\_slse\_excitation.py} optimizes the
+excitation of a spin-lock spin-echo (SLSE) detection train for a \emph{single
+crystallite} at a known carrier offset. An off-resonance spin loses signal under
+a conventional rectangular \(90\): the refocusing cycle spin-locks only part of
+the magnetization, so the echo train decays/oscillates to a small steady value.
+Numerically optimizing the excitation waveform against the \emph{actual} steady
+echo -- the thermal \code{equilibrium\_density} propagated through the full
+\((2I+1)\) density matrix and read out by \code{detection\_operator} -- recovers
+the on-resonance signal level and a flat, transient-free train. The
+signal-to-noise gain grows with offset: none on resonance (a rectangular pulse
+already covers it), rising to \(\sim 1.3\text{--}1.4\times\) once the offset
+exceeds the pulse bandwidth (\(\gtrsim 2\times\) the nutation rate), where it also
+beats a flip-angle-optimized rectangular excitation.
+
+\textbf{This is a single-crystal (known-offset) result and does not extend to a
+powder.} Over a powder the refocusing-cycle response varies strongly and
+oppositely with orientation (RF coupling and effective axis), one pulse cannot
+serve a spread of offsets at once, and the conventional rectangular SLSE already
+navigates the powder with its powder-optimum (``magic-angle'', \(\sim 119^\circ\)
+for spin-1 with \(\eta\neq 0\)) flip -- against that flip-angle-optimized
+baseline an optimized pulse does not improve the powder echo, a genuine negative
+result reported rather than hidden. The per-orientation refocused-signal ratio is
+\(\min/\max\approx 0.02\) for SLSE versus \(\approx 0.26\) for the small-tip SORC
+steady state, so SORC is far more powder-robust to begin with. The clean GRAPE
+wins for NQR are therefore broadband \emph{excitation} and \emph{inversion}
+(above), not beating well-tuned powder detection trains.
+
+Higher-spin transition-selective pulses (drive one line, leave another) and
+exact lab-frame satellite control are natural follow-ons on the same engine.
+
 \chapter{Examples}
 
 The example scripts can be run from \code{PythonSpinDynamics}; each script also
@@ -5138,6 +5240,9 @@ from spin_dynamics.optimal_control import (
     gradient_bounds,
     gradient_control_operator,
     make_grape_objective,
+    nqr_fundamental_states,
+    nqr_powder_control_batch,
+    nqr_site_control_model,
     phase_only_bounds,
     position_gradient_batch,
     random_phase_starts,
@@ -5162,9 +5267,14 @@ peak-B1 bound (\code{amplitude\_max\_hz}) and, via
 \code{gradient\_operator\_batch}/\code{optimize\_gradient}, to the gradient
 control channel (\code{gradient\_control\_operator},
 \code{position\_gradient\_batch}, \code{constant\_gradient\_seed},
-\code{gradient\_bounds}). \code{run\_grape\_multistart} is not optional in
-practice: GRAPE landscapes are multimodal, so a single-start result is not a
-trustworthy optimum on its own.
+\code{gradient\_bounds}). \code{nqr\_site\_control\_model} builds the model for a
+quadrupolar (NQR) site in the rotating frame (Section~\ref{sec:grape-nqr}), with
+\code{nqr\_fundamental\_states} and \code{nqr\_powder\_control\_batch} for the
+inversion endpoints and the per-orientation drive operators; NQR optimizations
+must pass \code{propagator="expm"} because the Kramers-degenerate spectrum makes
+the default \code{eigh} gradient undefined. \code{run\_grape\_multistart} is not
+optional in practice: GRAPE landscapes are multimodal, so a single-start result
+is not a trustworthy optimum on its own.
 
 \chapter{Known Gaps}
 

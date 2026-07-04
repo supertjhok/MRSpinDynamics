@@ -38,6 +38,7 @@ if JAX_AVAILABLE:
 
     from spin_dynamics.optimal_control._jax_propagation import (  # noqa: E402
         iterate_unitary,
+        propagate_batched_controls,
         propagate_batched_grad,
         propagate_state_scan,
         propagate_state_scan_grad,
@@ -326,6 +327,60 @@ class GradientChannelJaxParityTests(unittest.TestCase):
             ]
         )
         np.testing.assert_allclose(batched, loop, atol=1e-10)
+
+
+@unittest.skipUnless(JAX_AVAILABLE, "jax not installed")
+class BatchedControlsTests(unittest.TestCase):
+    """Per-case RF drive operators (the NQR powder primitive)."""
+
+    def test_batched_controls_matches_per_case_loop(self) -> None:
+        # Distinct drive operators per case, shared RF waveform + drift.
+        rng = np.random.default_rng(21)
+        n_seg = 6
+        amp = rng.uniform(1000.0, 4000.0, size=n_seg)
+        phi = rng.uniform(-np.pi, np.pi, size=n_seg)
+        tp = rng.uniform(1e-5, 5e-5, size=n_seg)
+        model = _single_spin_model(offset_hz=200.0)
+        # Build a handful of rotated (h_x, h_y) pairs to stand in for a batch.
+        angles = [0.0, 0.4, 1.1, 2.0]
+        hx_list, hy_list = [], []
+        for a in angles:
+            hx_list.append(np.cos(a) * model.h_x - np.sin(a) * model.h_y)
+            hy_list.append(np.sin(a) * model.h_x + np.cos(a) * model.h_y)
+        drift_b = jnp.broadcast_to(jnp.asarray(model.h_drift), (len(angles), 2, 2))
+        psi0_b = jnp.broadcast_to(jnp.asarray(_PSI_UP), (len(angles), 2))
+        batched = np.asarray(
+            propagate_batched_controls(
+                drift_b,
+                jnp.stack([jnp.asarray(h) for h in hx_list]),
+                jnp.stack([jnp.asarray(h) for h in hy_list]),
+                jnp.asarray(amp), jnp.asarray(phi), jnp.asarray(tp), psi0_b,
+            )
+        )
+        loop = np.stack(
+            [
+                propagate_state_numpy(model.h_drift, hx_list[k], hy_list[k], amp, phi, tp, _PSI_UP)
+                for k in range(len(angles))
+            ]
+        )
+        np.testing.assert_allclose(batched, loop, atol=1e-10)
+
+    def test_expm_method_matches_eigh_for_nondegenerate(self) -> None:
+        # For a non-degenerate spin-1/2 system the expm and eigh segment
+        # propagators agree (their gradients differ only under degeneracy).
+        rng = np.random.default_rng(22)
+        n_seg = 5
+        amp = rng.uniform(1000.0, 4000.0, size=n_seg)
+        phi = rng.uniform(-np.pi, np.pi, size=n_seg)
+        tp = rng.uniform(1e-5, 5e-5, size=n_seg)
+        model = _single_spin_model(offset_hz=300.0)
+        args = (
+            jnp.asarray(model.h_drift), jnp.asarray(model.h_x), jnp.asarray(model.h_y),
+            jnp.asarray(amp), jnp.asarray(phi), jnp.asarray(tp), jnp.asarray(_PSI_UP),
+        )
+        via_eigh = np.asarray(propagate_state_scan(*args, method="eigh"))
+        via_expm = np.asarray(propagate_state_scan(*args, method="expm"))
+        np.testing.assert_allclose(via_expm, via_eigh, atol=1e-9)
 
 
 if __name__ == "__main__":

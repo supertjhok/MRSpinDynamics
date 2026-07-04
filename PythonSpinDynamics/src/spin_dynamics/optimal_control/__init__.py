@@ -19,6 +19,9 @@ from spin_dynamics.optimal_control.hamiltonians import (
     ControlHamiltonianModel,
     coupled_spin_control_model,
     gradient_control_operator,
+    nqr_fundamental_states,
+    nqr_powder_control_batch,
+    nqr_site_control_model,
     position_gradient_batch,
 )
 from spin_dynamics.optimal_control.objectives import (
@@ -63,6 +66,9 @@ __all__ = [
     "gradient_bounds",
     "gradient_control_operator",
     "make_grape_objective",
+    "nqr_fundamental_states",
+    "nqr_powder_control_batch",
+    "nqr_site_control_model",
     "phase_only_bounds",
     "position_gradient_batch",
     "random_phase_starts",

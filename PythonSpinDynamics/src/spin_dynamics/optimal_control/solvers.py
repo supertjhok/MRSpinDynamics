@@ -93,11 +93,13 @@ def grape_optimize(
     initial_gradient: np.ndarray | None = None,
     gradient_max: float | None = None,
     gradient_operator_batch: Sequence[np.ndarray] | None = None,
+    control_operator_batch: Sequence[tuple[np.ndarray, np.ndarray]] | None = None,
     phase_bound_rad: float = 4 * np.pi,
     hamiltonian_batch: Sequence[np.ndarray] | None = None,
     ensemble_reduction: Literal["mean", "worst_case"] = "mean",
     phase_smoothness_weight: float = 0.0,
     gradient_smoothness_weight: float = 0.0,
+    propagator: Literal["eigh", "expm"] = "eigh",
     scipy_method: str = "L-BFGS-B",
     scipy_options: dict[str, object] | None = None,
 ) -> GrapeOptimizationResult:
@@ -121,6 +123,12 @@ def grape_optimize(
     (shape ``(batch, dim)``), e.g. inverted in-slice and untouched out-of-slice
     for a slice-selective pulse. The control vector is
     ``concat([amplitude?, phase, gradient?])``.
+
+    **Per-case control operators.** Pass ``control_operator_batch`` (per-case
+    ``(h_x, h_y)`` pairs, e.g. from ``hamiltonians.nqr_powder_control_batch``)
+    for ensembles whose RF drive operators vary per member -- NQR powder
+    averaging, where each crystallite's RF-to-EFG coupling differs while the RF
+    waveform is shared. State-transfer mode only.
     """
 
     initial_phase = np.asarray(initial_phase, dtype=np.float64).reshape(-1)
@@ -188,10 +196,12 @@ def grape_optimize(
         optimize_gradient=optimize_gradient,
         fixed_gradient=fixed_gradient,
         gradient_operator_batch=gradient_operator_batch,
+        control_operator_batch=control_operator_batch,
         hamiltonian_batch=hamiltonian_batch,
         ensemble_reduction=ensemble_reduction,
         phase_smoothness_weight=phase_smoothness_weight,
         gradient_smoothness_weight=gradient_smoothness_weight,
+        propagator=propagator,
     )
 
     initial_score, _initial_grad = value_and_grad_fn(x0)
