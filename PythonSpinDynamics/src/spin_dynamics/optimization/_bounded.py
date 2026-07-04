@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
 import numpy as np
 
 
 ScoreFunction = Callable[[np.ndarray], float]
+BoundsSpec = tuple[float, float] | Sequence[tuple[float, float]]
 
 
 @dataclass(frozen=True)
@@ -36,6 +37,48 @@ def validate_bounds(bounds: tuple[float, float]) -> tuple[float, float]:
     if lower >= upper:
         raise ValueError("bounds must be ordered as (lower, upper)")
     return lower, upper
+
+
+def _is_scalar_bound_pair(bounds: BoundsSpec) -> bool:
+    """Return True for a single ``(lower, upper)`` scalar pair.
+
+    False for a sequence of per-parameter ``(lower, upper)`` pairs (each
+    element itself a length-2 sequence rather than a bare number).
+    """
+
+    if len(bounds) != 2:
+        return False
+    return np.isscalar(bounds[0]) and np.isscalar(bounds[1])
+
+
+def _resolve_bounds(
+    bounds: BoundsSpec, size: int
+) -> tuple[np.ndarray, np.ndarray, list[tuple[float, float]]]:
+    """Resolve a scalar-pair or per-parameter bounds spec against ``size``.
+
+    A scalar ``(lower, upper)`` pair is broadcast to every one of the ``size``
+    flattened parameters (the original, sole behavior of this module). A
+    sequence of ``size`` per-parameter ``(lower, upper)`` pairs is passed
+    straight through -- needed by callers with heterogeneous per-parameter
+    bounds (e.g. GRAPE's amplitude vs. phase channels), which a single
+    broadcast pair cannot express. Returns ``(lower_array, upper_array,
+    scipy_bounds_pairs)``.
+    """
+
+    if _is_scalar_bound_pair(bounds):
+        lower, upper = validate_bounds(bounds)  # type: ignore[arg-type]
+        return np.full(size, lower), np.full(size, upper), [(lower, upper)] * size
+
+    pairs = [(float(lo), float(hi)) for lo, hi in bounds]
+    if len(pairs) != size:
+        raise ValueError("per-parameter bounds must have exactly `size` entries")
+    lower_arr = np.array([lo for lo, _ in pairs], dtype=np.float64)
+    upper_arr = np.array([hi for _, hi in pairs], dtype=np.float64)
+    if not np.all(np.isfinite(lower_arr)) or not np.all(np.isfinite(upper_arr)):
+        raise ValueError("bounds must be finite")
+    if np.any(lower_arr >= upper_arr):
+        raise ValueError("each (lower, upper) pair must be ordered as lower < upper")
+    return lower_arr, upper_arr, pairs
 
 
 def pattern_search_maximize(
@@ -181,7 +224,7 @@ def scipy_maximize_with_grad(
     value_and_grad_fn: Callable[[np.ndarray], tuple[float, np.ndarray]],
     initial: np.ndarray,
     *,
-    bounds: tuple[float, float],
+    bounds: BoundsSpec,
     scipy_method: str = "L-BFGS-B",
     options: dict[str, object] | None = None,
 ) -> BoundedOptimizationRun:
@@ -190,6 +233,12 @@ def scipy_maximize_with_grad(
     ``value_and_grad_fn(x)`` returns ``(score, grad)``; the gradient is handed to
     SciPy via ``jac=True`` so each step costs one forward+backward evaluation
     instead of the ``len(x)+1`` forward evaluations finite differencing needs.
+
+    ``bounds`` accepts either a single scalar ``(lower, upper)`` pair
+    (broadcast to every parameter, the original behavior) or a sequence of
+    ``len(initial)`` per-parameter ``(lower, upper)`` pairs -- needed by
+    callers with heterogeneous per-parameter bounds, such as GRAPE's
+    amplitude vs. phase channels.
     """
 
     try:
@@ -200,10 +249,11 @@ def scipy_maximize_with_grad(
             "optional optimization dependencies with `python -m pip install -e .[opt]`."
         ) from exc
 
-    lower, upper = validate_bounds(bounds)
-    x0 = np.clip(np.asarray(initial, dtype=np.float64).reshape(-1), lower, upper)
-    if x0.size == 0:
+    x0_raw = np.asarray(initial, dtype=np.float64).reshape(-1)
+    if x0_raw.size == 0:
         raise ValueError("initial_phases must not be empty")
+    lower_arr, upper_arr, bounds_pairs = _resolve_bounds(bounds, x0_raw.size)
+    x0 = np.clip(x0_raw, lower_arr, upper_arr)
 
     history_scores: list[float] = []
     history_x: list[np.ndarray] = []
@@ -224,7 +274,7 @@ def scipy_maximize_with_grad(
         x0,
         method=scipy_method,
         jac=True,
-        bounds=[(lower, upper)] * x0.size,
+        bounds=bounds_pairs,
         options=options,
     )
     best_x = np.asarray(result.x, dtype=np.float64).reshape(-1)
