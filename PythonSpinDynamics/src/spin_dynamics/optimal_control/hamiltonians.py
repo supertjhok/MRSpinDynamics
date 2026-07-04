@@ -14,7 +14,7 @@ host-side, by wrapping the existing ``coupling.hamiltonians`` builders.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 
 import numpy as np
@@ -145,3 +145,118 @@ def coupled_spin_control_model(
         h_y=h_y,
         h_grad=h_grad,
     )
+
+
+def nqr_site_control_model(
+    site,
+    *,
+    rf_frequency_hz: float | None = None,
+    b1_direction_pas: Sequence[float] = (1.0, 0.0, 0.0),
+    b0_vector_tesla_pas: Sequence[float] | np.ndarray | None = None,
+) -> ControlHamiltonianModel:
+    """Build a GRAPE control model for a quadrupolar (NQR) site.
+
+    Works in the **rotating frame at the RF carrier**, in the energy eigenbasis,
+    exactly matching the NQR density-matrix engine (``nqr.full_dynamics``): a
+    piecewise-constant lab/PAS field cannot drive an MHz quadrupolar transition,
+    so control must live in this frame. ``h_drift`` is the rotating-frame static
+    Hamiltonian (``static_hamiltonian_rotating``, diagonal detunings in the
+    eigenbasis) and ``h_x``/``h_y`` are the co-rotating RWA drive operators,
+    extracted from ``pulse_hamiltonian`` so the amplitude/phase convention is
+    identical to :func:`coupled_spin_control_model` -- namely ``pulse_hamiltonian
+    == h_drift + w1 * (cos(phi) * h_x + sin(phi) * h_y)``. Consequently a pulse
+    optimized on this model round-trips exactly through the real NQR engine.
+
+    ``rf_frequency_hz`` defaults to the fundamental (strongest) transition; a
+    warning is issued (via the engine's guard) if the carrier does not address a
+    single-quantum coherence, since the single-carrier RWA is faithful only near
+    the fundamental line. ``b1_direction_pas`` is the RF field direction in the
+    EFG principal-axis system (the axis that varies across a powder). Pass
+    ``b0_vector_tesla_pas`` to include a weak static Zeeman perturbation.
+    """
+
+    from spin_dynamics.nqr.full_dynamics import (
+        _default_carrier_hz,
+        _warn_if_rwa_carrier_invalid,
+        pulse_hamiltonian,
+        static_hamiltonian_rotating,
+    )
+    from spin_dynamics.nqr.hamiltonians import diagonalize_site
+
+    eigensystem = diagonalize_site(site, b0_vector_tesla_pas)
+    rf = float(rf_frequency_hz) if rf_frequency_hz is not None else _default_carrier_hz(eigensystem)
+    _warn_if_rwa_carrier_invalid(eigensystem, rf)
+
+    h_drift = static_hamiltonian_rotating(eigensystem, rf)
+    # h_x/h_y are the pure drive quadratures: pulse_hamiltonian already includes
+    # h_drift, and is linear in nutation, so subtracting h_drift and evaluating
+    # at phi=0 / phi=pi/2 isolates cos/sin quadratures at unit (1 Hz) nutation.
+    pulse_x = pulse_hamiltonian(
+        eigensystem, nutation_hz=1.0, rf_frequency_hz=rf, phase=0.0,
+        b1_direction_pas=b1_direction_pas,
+    )
+    pulse_y = pulse_hamiltonian(
+        eigensystem, nutation_hz=1.0, rf_frequency_hz=rf, phase=np.pi / 2.0,
+        b1_direction_pas=b1_direction_pas,
+    )
+    h_x = pulse_x - h_drift
+    h_y = pulse_y - h_drift
+    return ControlHamiltonianModel(
+        dimension=eigensystem.site.dimension,
+        h_drift=h_drift,
+        h_x=h_x,
+        h_y=h_y,
+    )
+
+
+def nqr_fundamental_states(
+    site,
+    *,
+    b0_vector_tesla_pas: Sequence[float] | np.ndarray | None = None,
+) -> tuple[int, int]:
+    """Return the ``(lower, upper)`` eigen-indices of the fundamental NQR line.
+
+    In the eigenbasis the model operates in (see :func:`nqr_site_control_model`),
+    eigenstate ``k`` is the standard basis vector ``e_k``, so these indices give
+    the natural GRAPE inversion target ``psi0 = e_lower``, ``target = e_upper``
+    for the strongest (fundamental) transition.
+    """
+
+    from spin_dynamics.nqr.hamiltonians import diagonalize_site
+
+    eigensystem = diagonalize_site(site, b0_vector_tesla_pas)
+    if not eigensystem.transitions:
+        raise ValueError("site has no RF-active transitions")
+    fundamental = max(eigensystem.transitions, key=lambda t: t.strength)
+    return int(fundamental.lower), int(fundamental.upper)
+
+
+def nqr_powder_control_batch(
+    site,
+    orientations,
+    *,
+    rf_frequency_hz: float | None = None,
+    b0_vector_tesla_pas: Sequence[float] | np.ndarray | None = None,
+) -> list[tuple[np.ndarray, np.ndarray]]:
+    """Per-orientation ``(h_x, h_y)`` drive operators for a powder ensemble.
+
+    A crystallite's RF-to-EFG coupling depends on the RF field direction in the
+    PAS, so ``h_x``/``h_y`` vary across a powder while ``h_drift`` (the
+    quadrupolar interaction) is shared. Each ``orientations`` entry is an
+    ``nqr.orientations.OrientationSample`` (its ``b1_direction_pas`` sets the RF
+    direction). Feed the returned list to
+    ``objectives.make_grape_objective(control_operator_batch=...)`` /
+    ``solvers.grape_optimize(control_operator_batch=...)`` for powder-robust
+    optimization.
+    """
+
+    batch: list[tuple[np.ndarray, np.ndarray]] = []
+    for sample in orientations:
+        model = nqr_site_control_model(
+            site,
+            rf_frequency_hz=rf_frequency_hz,
+            b1_direction_pas=sample.b1_direction_pas,
+            b0_vector_tesla_pas=b0_vector_tesla_pas,
+        )
+        batch.append((model.h_x, model.h_y))
+    return batch

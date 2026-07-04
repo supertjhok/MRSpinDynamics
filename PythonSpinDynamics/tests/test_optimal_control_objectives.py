@@ -170,6 +170,155 @@ class Su2EffectiveAxisTests(unittest.TestCase):
 
 
 @unittest.skipUnless(JAX_AVAILABLE, "jax not installed")
+class ControlOperatorBatchTests(unittest.TestCase):
+    """Per-case RF drive operators + the expm propagator (NQR powder / degeneracy)."""
+
+    def _nqr_setup(self, n_seg=6, n_theta=3, n_phi=4):
+        from spin_dynamics.nqr.isotopes import quadrupolar_site
+        from spin_dynamics.nqr.orientations import powder_average_grid
+        from spin_dynamics.optimal_control.hamiltonians import (
+            nqr_fundamental_states,
+            nqr_powder_control_batch,
+            nqr_site_control_model,
+        )
+
+        site = quadrupolar_site("63Cu", nu_q_hz=2.0e6, eta=0.1)
+        model = nqr_site_control_model(site)
+        lower, upper = nqr_fundamental_states(site)
+        d = model.dimension
+        psi0 = np.zeros(d, dtype=np.complex128)
+        psi0[lower] = 1.0
+        target = np.zeros(d, dtype=np.complex128)
+        target[upper] = 1.0
+        batch = nqr_powder_control_batch(site, powder_average_grid(n_theta=n_theta, n_phi=n_phi))
+        dt = np.full(n_seg, 3e-6)
+        return model, psi0, target, batch, dt
+
+    def test_eigh_gradient_is_nan_for_degenerate_nqr(self) -> None:
+        # Documents *why* expm is needed: the eigh propagator's gradient is NaN
+        # for the Kramers-degenerate NQR spectrum.
+        n_seg = 5
+        model, psi0, target, batch, dt = self._nqr_setup(n_seg=n_seg)
+        vg = make_grape_objective(
+            model, n_segments=n_seg, dt=dt, target=target, psi0=psi0,
+            fixed_amplitude=4e4, control_operator_batch=batch, propagator="eigh",
+        )
+        _val, grad = vg(np.linspace(0.0, 1.0, n_seg))
+        self.assertTrue(np.any(np.isnan(grad)))
+
+    def test_expm_gradient_matches_fd_phase_only(self) -> None:
+        n_seg = 6
+        model, psi0, target, batch, dt = self._nqr_setup(n_seg=n_seg)
+        vg = make_grape_objective(
+            model, n_segments=n_seg, dt=dt, target=target, psi0=psi0,
+            fixed_amplitude=4e4, control_operator_batch=batch, propagator="expm",
+        )
+        rng = np.random.default_rng(31)
+        x = rng.uniform(-np.pi, np.pi, n_seg)
+        _val, grad = vg(x)
+        self.assertFalse(np.any(np.isnan(grad)))
+        eps = 1e-4
+        fd = np.zeros_like(x)
+        for i in range(x.size):
+            xp = x.copy()
+            xp[i] += eps
+            xm = x.copy()
+            xm[i] -= eps
+            fd[i] = (vg(xp)[0] - vg(xm)[0]) / (2 * eps)
+        np.testing.assert_allclose(grad, fd, atol=5e-3)
+
+    def test_expm_gradient_matches_fd_amplitude_phase(self) -> None:
+        n_seg = 5
+        model, psi0, target, batch, dt = self._nqr_setup(n_seg=n_seg)
+        vg = make_grape_objective(
+            model, n_segments=n_seg, dt=dt, target=target, psi0=psi0,
+            optimize_amplitude=True, control_operator_batch=batch, propagator="expm",
+        )
+        rng = np.random.default_rng(32)
+        x = np.concatenate([rng.uniform(1e4, 5e4, n_seg), rng.uniform(-np.pi, np.pi, n_seg)])
+        _val, grad = vg(x)
+        self.assertFalse(np.any(np.isnan(grad)))
+        eps = 1e-4
+        fd = np.zeros_like(x)
+        for i in range(x.size):
+            xp = x.copy()
+            xp[i] += eps
+            xm = x.copy()
+            xm[i] -= eps
+            fd[i] = (vg(xp)[0] - vg(xm)[0]) / (2 * eps)
+        np.testing.assert_allclose(grad, fd, atol=5e-3)
+
+    def test_combined_detuning_and_powder_ensemble(self) -> None:
+        # control_operator_batch and hamiltonian_batch of equal length compose:
+        # each member carries its own (h_drift, h_x, h_y) -- the orientation x
+        # detuning product grid. Gradient matches FD and is NaN-free.
+        from spin_dynamics.nqr.hamiltonians import diagonalize_site
+        from spin_dynamics.nqr.full_dynamics import _default_carrier_hz
+        from spin_dynamics.nqr.isotopes import quadrupolar_site
+        from spin_dynamics.nqr.orientations import powder_average_grid
+        from spin_dynamics.optimal_control.hamiltonians import (
+            nqr_fundamental_states,
+            nqr_powder_control_batch,
+            nqr_site_control_model,
+        )
+
+        n_seg = 5
+        nu_q, eta, iso = 2.0e6, 0.1, "63Cu"
+        rf = _default_carrier_hz(diagonalize_site(quadrupolar_site(iso, nu_q_hz=nu_q, eta=eta), None))
+        model = nqr_site_control_model(quadrupolar_site(iso, nu_q_hz=nu_q, eta=eta), rf_frequency_hz=rf)
+        lower, upper = nqr_fundamental_states(quadrupolar_site(iso, nu_q_hz=nu_q, eta=eta))
+        d = model.dimension
+        psi0 = np.zeros(d, dtype=np.complex128)
+        psi0[lower] = 1.0
+        target = np.zeros(d, dtype=np.complex128)
+        target[upper] = 1.0
+        orientations = powder_average_grid(n_theta=2, n_phi=3)
+        ctrl_batch, drift_batch = [], []
+        for nq in nu_q + np.array([-2.0e4, 0.0, 2.0e4]):
+            s = quadrupolar_site(iso, nu_q_hz=nq, eta=eta)
+            ctrl_batch.extend(nqr_powder_control_batch(s, orientations, rf_frequency_hz=rf))
+            drift_batch.extend([nqr_site_control_model(s, rf_frequency_hz=rf).h_drift] * len(orientations))
+        self.assertEqual(len(ctrl_batch), len(drift_batch))
+        vg = make_grape_objective(
+            model, n_segments=n_seg, dt=np.full(n_seg, 3e-6), target=target, psi0=psi0,
+            fixed_amplitude=4e4, control_operator_batch=ctrl_batch,
+            hamiltonian_batch=drift_batch, propagator="expm",
+        )
+        rng = np.random.default_rng(41)
+        x = rng.uniform(-np.pi, np.pi, n_seg)
+        _val, grad = vg(x)
+        self.assertFalse(np.any(np.isnan(grad)))
+        eps = 1e-4
+        fd = np.zeros_like(x)
+        for i in range(x.size):
+            xp = x.copy()
+            xp[i] += eps
+            xm = x.copy()
+            xm[i] -= eps
+            fd[i] = (vg(xp)[0] - vg(xm)[0]) / (2 * eps)
+        np.testing.assert_allclose(grad, fd, atol=5e-3)
+
+    def test_mismatched_batch_lengths_raise(self) -> None:
+        model, psi0, target, batch, dt = self._nqr_setup(n_seg=4, n_theta=2, n_phi=3)
+        with self.assertRaises(ValueError):
+            make_grape_objective(
+                model, n_segments=4, dt=dt, target=target, psi0=psi0, fixed_amplitude=4e4,
+                control_operator_batch=batch,
+                hamiltonian_batch=[model.h_drift, model.h_drift],  # wrong length
+                propagator="expm",
+            )
+
+    def test_control_operator_batch_rejects_gate_mode(self) -> None:
+        n_seg = 4
+        model, psi0, target, batch, dt = self._nqr_setup(n_seg=n_seg)
+        with self.assertRaises(ValueError):
+            make_grape_objective(
+                model, n_segments=n_seg, dt=dt, target=np.eye(model.dimension),
+                mode="gate", fixed_amplitude=4e4, control_operator_batch=batch,
+            )
+
+
+@unittest.skipUnless(JAX_AVAILABLE, "jax not installed")
 class GradientChannelObjectiveTests(unittest.TestCase):
     """The gradient control channel: autodiff, per-case targets, layout."""
 

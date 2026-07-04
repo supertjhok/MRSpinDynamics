@@ -255,6 +255,84 @@ class GradientChannelSolverTests(unittest.TestCase):
 
 
 @unittest.skipUnless(JAX_AVAILABLE, "jax not installed")
+class NqrInversionSolverTests(unittest.TestCase):
+    """End-to-end NQR fundamental-line inversion (expm propagator)."""
+
+    def _nqr_common(self, nu_q_hz=2.0e6, eta=0.1, n_seg=10):
+        from spin_dynamics.nqr.full_dynamics import _default_carrier_hz
+        from spin_dynamics.nqr.hamiltonians import diagonalize_site
+        from spin_dynamics.nqr.isotopes import quadrupolar_site
+        from spin_dynamics.optimal_control.hamiltonians import (
+            nqr_fundamental_states,
+            nqr_site_control_model,
+        )
+
+        site = quadrupolar_site("63Cu", nu_q_hz=nu_q_hz, eta=eta)
+        rf = _default_carrier_hz(diagonalize_site(site, None))
+        model = nqr_site_control_model(site, rf_frequency_hz=rf)
+        lower, upper = nqr_fundamental_states(site)
+        d = model.dimension
+        psi0 = np.zeros(d, dtype=np.complex128)
+        psi0[lower] = 1.0
+        target = np.zeros(d, dtype=np.complex128)
+        target[upper] = 1.0
+        nutation = 30e3
+        dt = np.full(n_seg, (3.0 / (2 * nutation)) / n_seg)
+        return site, rf, model, psi0, target, nutation, dt
+
+    def test_efg_detuning_robust_inversion_beats_rectangular(self) -> None:
+        # A rectangular pulse against a symmetric ensemble sits at the known
+        # exact-symmetry saddle (see broadband example / M1), so escape it with
+        # multistart and compare to the rectangular baseline directly.
+        from spin_dynamics.nqr.isotopes import quadrupolar_site
+        from spin_dynamics.optimal_control.hamiltonians import nqr_site_control_model
+        from spin_dynamics.optimal_control.objectives import make_grape_objective
+
+        n_seg = 10
+        nu_q = 2.0e6
+        site, rf, model, psi0, target, nutation, dt = self._nqr_common(nu_q_hz=nu_q, n_seg=n_seg)
+        spread = 25e3
+        nu_qs = nu_q + np.linspace(-spread, spread, 7)
+        batch = [
+            nqr_site_control_model(
+                quadrupolar_site("63Cu", nu_q_hz=nq, eta=0.1), rf_frequency_hz=rf
+            ).h_drift
+            for nq in nu_qs
+        ]
+        common = dict(
+            dt=dt, target=target, psi0=psi0, fixed_amplitude=nutation,
+            hamiltonian_batch=batch, propagator="expm",
+        )
+        baseline, _ = make_grape_objective(
+            model, n_segments=n_seg, **common
+        )(rectangular_seed_phase(n_seg))
+        result = run_grape_multistart(model, n_seg, num_starts=4, seed=3, **common)
+        self.assertGreater(result.best_fidelity, float(baseline) + 0.2)
+        self.assertGreater(result.best_fidelity, 0.9)
+
+    def test_powder_robust_inversion_beats_rectangular(self) -> None:
+        from spin_dynamics.nqr.orientations import powder_average_grid
+        from spin_dynamics.optimal_control.hamiltonians import nqr_powder_control_batch
+        from spin_dynamics.optimal_control.objectives import make_grape_objective
+
+        n_seg = 10
+        site, rf, model, psi0, target, nutation, dt = self._nqr_common(eta=0.0, n_seg=n_seg)
+        batch = nqr_powder_control_batch(
+            site, powder_average_grid(n_theta=4, n_phi=6), rf_frequency_hz=rf
+        )
+        common = dict(
+            dt=dt, target=target, psi0=psi0, fixed_amplitude=nutation,
+            control_operator_batch=batch, propagator="expm",
+        )
+        baseline, _ = make_grape_objective(
+            model, n_segments=n_seg, **common
+        )(rectangular_seed_phase(n_seg))
+        result = run_grape_multistart(model, n_seg, num_starts=4, seed=5, **common)
+        self.assertGreater(result.best_fidelity, float(baseline) + 0.05)
+        self.assertGreater(result.best_fidelity, 0.95)
+
+
+@unittest.skipUnless(JAX_AVAILABLE, "jax not installed")
 class MultiStartTests(unittest.TestCase):
     def test_multistart_ranks_and_returns_best(self) -> None:
         model = _inversion_model()

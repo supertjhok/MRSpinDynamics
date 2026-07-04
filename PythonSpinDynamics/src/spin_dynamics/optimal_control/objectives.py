@@ -29,6 +29,7 @@ if JAX_AVAILABLE:
 
     from spin_dynamics.optimal_control._jax_propagation import (
         propagate_batched,
+        propagate_batched_controls,
         propagate_batched_grad,
         propagate_state_scan,
         propagate_unitary_batched,
@@ -147,10 +148,12 @@ def make_grape_objective(
     optimize_gradient: bool = False,
     fixed_gradient: float | np.ndarray | None = None,
     gradient_operator_batch: Sequence[np.ndarray] | None = None,
+    control_operator_batch: Sequence[tuple[np.ndarray, np.ndarray]] | None = None,
     hamiltonian_batch: Sequence[np.ndarray] | None = None,
     ensemble_reduction: Literal["mean", "worst_case"] = "mean",
     phase_smoothness_weight: float = 0.0,
     gradient_smoothness_weight: float = 0.0,
+    propagator: Literal["eigh", "expm"] = "eigh",
 ) -> Callable[[np.ndarray], tuple[float, np.ndarray]]:
     """Build a ``value_and_grad`` callable for a GRAPE fidelity objective.
 
@@ -174,6 +177,14 @@ def make_grape_objective(
     be per-case, shape ``(batch, dim)`` for state transfer (e.g. inverted
     in-slice, untouched out-of-slice) as well as the shared ``(dim,)`` form.
 
+    **Per-case control operators (e.g. NQR powder).** Passing
+    ``control_operator_batch`` (a sequence of per-case ``(h_x, h_y)`` drive-
+    operator pairs, e.g. from ``hamiltonians.nqr_powder_control_batch``) makes
+    the RF drive operators vary per ensemble member while the scalar
+    ``amplitude``/``phase`` waveform stays shared -- the powder-averaging case,
+    where each crystallite's RF-to-EFG coupling differs. State-transfer mode
+    only; not combinable with the gradient channel in this increment.
+
     Control-vector layout: ``concat([amplitude?, phase, gradient?])`` (each
     block ``n_segments``); the amplitude block is present only when
     ``optimize_amplitude``, the gradient block only when ``optimize_gradient``.
@@ -193,6 +204,23 @@ def make_grape_objective(
         raise ValueError(
             "optimize_gradient=True requires gradient_operator_batch "
             "(the per-case gradient operators to drive)"
+        )
+
+    controls_active = control_operator_batch is not None
+    if controls_active and gradient_active:
+        raise ValueError(
+            "control_operator_batch and the gradient channel cannot be combined "
+            "in this increment"
+        )
+    if controls_active and mode != "state_transfer":
+        raise ValueError("control_operator_batch is supported only for mode='state_transfer'")
+
+    if propagator not in ("eigh", "expm"):
+        raise ValueError("propagator must be 'eigh' or 'expm'")
+    if propagator == "expm" and (gradient_active or mode != "state_transfer"):
+        raise ValueError(
+            "propagator='expm' (for degenerate NQR spectra) is currently supported "
+            "only for mode='state_transfer' without the gradient channel"
         )
 
     amp_fixed = None
@@ -246,6 +274,32 @@ def make_grape_objective(
         drift_batch = None
         grad_batch_size = None
 
+    hx_batch = None
+    hy_batch = None
+    controls_drift_batch = None
+    controls_batch_size = None
+    if controls_active:
+        hx_batch = jnp.stack(
+            [jnp.asarray(hx, dtype=jnp.complex128) for hx, _hy in control_operator_batch]
+        )
+        hy_batch = jnp.stack(
+            [jnp.asarray(hy, dtype=jnp.complex128) for _hx, hy in control_operator_batch]
+        )
+        controls_batch_size = hx_batch.shape[0]
+        if batch is None:
+            # Shared drift (the usual powder case: H_Q is orientation-independent
+            # in the PAS; only the RF direction, hence h_x/h_y, varies).
+            controls_drift_batch = jnp.broadcast_to(
+                h_drift, (controls_batch_size,) + h_drift.shape
+            )
+        else:
+            if batch.shape[0] != controls_batch_size:
+                raise ValueError(
+                    "hamiltonian_batch and control_operator_batch must have the "
+                    "same length"
+                )
+            controls_drift_batch = batch
+
     # Per-case (vs shared) target: an extra leading batch axis beyond the
     # base operand rank (1 for a state ket, 2 for a gate unitary).
     base_target_rank = 1 if mode == "state_transfer" else 2
@@ -276,9 +330,14 @@ def make_grape_objective(
 
     if mode == "state_transfer":
         psi0_j = jnp.asarray(psi0, dtype=jnp.complex128)
-        ensemble_size = grad_batch_size if gradient_active else (
-            batch.shape[0] if batch is not None else None
-        )
+        if gradient_active:
+            ensemble_size = grad_batch_size
+        elif controls_active:
+            ensemble_size = controls_batch_size
+        elif batch is not None:
+            ensemble_size = batch.shape[0]
+        else:
+            ensemble_size = None
         psi0_batch = (
             jnp.broadcast_to(psi0_j, (ensemble_size,) + psi0_j.shape)
             if ensemble_size is not None
@@ -296,9 +355,18 @@ def make_grape_objective(
                     psi_finals, target_j
                 )
                 fidelity = robust_ensemble_fidelity(fids, reduction=ensemble_reduction)
+            elif controls_active:
+                psi_finals = propagate_batched_controls(
+                    controls_drift_batch, hx_batch, hy_batch,
+                    amplitude, phase, dt_j, psi0_batch, method=propagator,
+                )
+                fids = jax.vmap(state_transfer_fidelity, in_axes=(0, target_in_axis))(
+                    psi_finals, target_j
+                )
+                fidelity = robust_ensemble_fidelity(fids, reduction=ensemble_reduction)
             elif batch is not None:
                 psi_finals = propagate_batched(
-                    batch, h_x, h_y, amplitude, phase, dt_j, psi0_batch
+                    batch, h_x, h_y, amplitude, phase, dt_j, psi0_batch, method=propagator
                 )
                 fids = jax.vmap(state_transfer_fidelity, in_axes=(0, target_in_axis))(
                     psi_finals, target_j
@@ -306,7 +374,7 @@ def make_grape_objective(
                 fidelity = robust_ensemble_fidelity(fids, reduction=ensemble_reduction)
             else:
                 psi_final = propagate_state_scan(
-                    h_drift, h_x, h_y, amplitude, phase, dt_j, psi0_j
+                    h_drift, h_x, h_y, amplitude, phase, dt_j, psi0_j, method=propagator
                 )
                 fidelity = state_transfer_fidelity(psi_final, target_j)
             return fidelity - _regularization(phase, gradient)

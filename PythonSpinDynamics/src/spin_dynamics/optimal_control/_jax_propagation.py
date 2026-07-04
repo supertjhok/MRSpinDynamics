@@ -28,6 +28,7 @@ try:  # pragma: no cover - exercised by environment, not logic
     jax.config.update("jax_enable_x64", True)
     import jax.numpy as jnp
     from jax import lax
+    from jax.scipy.linalg import expm as _jax_expm
 
     JAX_AVAILABLE = True
 except Exception:  # pragma: no cover - import guard
@@ -36,10 +37,21 @@ except Exception:  # pragma: no cover - import guard
 
 if JAX_AVAILABLE:
 
-    def _segment_propagator(h_drift, h_x, h_y, amplitude, phase, dt):
-        """``expm(-i H_seg dt)`` for one piecewise-constant control segment."""
+    def _segment_propagator(h_drift, h_x, h_y, amplitude, phase, dt, method="eigh"):
+        """``exp(-i H_seg dt)`` for one piecewise-constant control segment.
+
+        ``method="eigh"`` (default) diagonalizes the Hermitian ``H_seg`` -- fast
+        and machine-precise for non-degenerate spectra, and the mode M1/M2 use.
+        ``method="expm"`` uses ``jax.scipy.linalg.expm``, whose reverse-mode
+        gradient is well-defined even when eigenvalues are **degenerate**; the
+        Hermitian-eigh gradient carries ``1/(lambda_i - lambda_j)`` terms that
+        blow up (NaN) for degenerate spectra. Quadrupolar/NQR Hamiltonians have
+        exact Kramers degeneracy, so NQR control models must use ``"expm"``.
+        """
 
         h_seg = h_drift + amplitude * (jnp.cos(phase) * h_x + jnp.sin(phase) * h_y)
+        if method == "expm":
+            return _jax_expm(-1j * h_seg * dt)
         values, vectors = jnp.linalg.eigh(h_seg)
         seg_phases = jnp.exp(-1j * values * dt)
         return (vectors * seg_phases[jnp.newaxis, :]) @ vectors.conj().T
@@ -47,20 +59,22 @@ if JAX_AVAILABLE:
     def _broadcast_dt(dt, n_segments):
         return jnp.broadcast_to(jnp.asarray(dt, dtype=jnp.float64), (n_segments,))
 
-    @jax.jit
-    def propagate_state_scan(h_drift, h_x, h_y, amplitude, phase, dt, psi0):
+    @partial(jax.jit, static_argnames=("method",))
+    def propagate_state_scan(h_drift, h_x, h_y, amplitude, phase, dt, psi0, *, method="eigh"):
         """Propagate a state vector through the control sequence.
 
         ``amplitude``/``phase`` have shape ``(n_segments,)``; ``dt`` is a
         scalar (uniform segments) or ``(n_segments,)``. Returns the final
-        state, same shape as ``psi0``.
+        state, same shape as ``psi0``. ``method`` selects the segment
+        propagator (see :func:`_segment_propagator`; ``"expm"`` for degenerate
+        NQR spectra).
         """
 
         dt_arr = _broadcast_dt(dt, amplitude.shape[0])
 
         def body(psi, xs):
             amp_j, phase_j, dt_j = xs
-            u_seg = _segment_propagator(h_drift, h_x, h_y, amp_j, phase_j, dt_j)
+            u_seg = _segment_propagator(h_drift, h_x, h_y, amp_j, phase_j, dt_j, method)
             return u_seg @ psi, None
 
         psi_final, _ = lax.scan(body, psi0, (amplitude, phase, dt_arr))
@@ -100,8 +114,8 @@ if JAX_AVAILABLE:
         _, rest = lax.scan(body, psi0, None, length=n_iterations)
         return jnp.concatenate([psi0[jnp.newaxis, :], rest], axis=0)
 
-    @jax.jit
-    def propagate_batched(h_drift_batch, h_x, h_y, amplitude, phase, dt, psi0_batch):
+    @partial(jax.jit, static_argnames=("method",))
+    def propagate_batched(h_drift_batch, h_x, h_y, amplitude, phase, dt, psi0_batch, *, method="eigh"):
         """vmap ``propagate_state_scan`` over a leading batch axis.
 
         ``h_drift_batch``/``psi0_batch`` carry the batch axis (ensemble
@@ -110,7 +124,9 @@ if JAX_AVAILABLE:
         every ensemble member. This is the robustness/ensemble primitive."""
 
         def one(h_drift_b, psi0_b):
-            return propagate_state_scan(h_drift_b, h_x, h_y, amplitude, phase, dt, psi0_b)
+            return propagate_state_scan(
+                h_drift_b, h_x, h_y, amplitude, phase, dt, psi0_b, method=method
+            )
 
         return jax.vmap(one)(h_drift_batch, psi0_batch)
 
@@ -215,6 +231,30 @@ if JAX_AVAILABLE:
             )
 
         return jax.vmap(one)(h_drift_batch, h_grad_batch)
+
+    @partial(jax.jit, static_argnames=("method",))
+    def propagate_batched_controls(
+        h_drift_batch, h_x_batch, h_y_batch, amplitude, phase, dt, psi0_batch, *, method="eigh"
+    ):
+        """vmap ``propagate_state_scan`` over per-case drift AND drive operators.
+
+        Unlike :func:`propagate_batched` (which shares ``h_x``/``h_y`` across the
+        batch), here ``h_x_batch``/``h_y_batch`` carry the batch axis too: each
+        ensemble member has its own RF drive operators. This is the NQR
+        powder-averaging primitive -- a crystallite's RF-to-EFG coupling depends
+        on the RF direction in the principal-axis system, so ``h_x``/``h_y`` vary
+        per orientation while the (scalar) RF ``amplitude``/``phase`` waveform is
+        the one shared control. ``h_drift_batch`` and ``psi0_batch`` also carry
+        the batch axis (``h_drift`` is typically shared -- broadcast by the
+        caller -- but per-case is supported for combined offset+orientation
+        ensembles)."""
+
+        def one(h_drift_b, h_x_b, h_y_b, psi0_b):
+            return propagate_state_scan(
+                h_drift_b, h_x_b, h_y_b, amplitude, phase, dt, psi0_b, method=method
+            )
+
+        return jax.vmap(one)(h_drift_batch, h_x_batch, h_y_batch, psi0_batch)
 
 
 def propagate_state_numpy(h_drift, h_x, h_y, amplitude, phase, dt, psi0):
