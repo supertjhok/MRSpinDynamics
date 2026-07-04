@@ -2951,6 +2951,53 @@ sensitivity honestly falls off with depth as the gradient weakens; the engine's
 constant-gradient physics is validated against the exact Carr-Purcell law. The
 example \code{plot\_nmr\_mouse\_depth\_profile.py} profiles a layered phantom.
 
+\subsection{Quasistatic E-field and eddy currents}
+\label{sec:fields-quasistatic}
+
+Biot-Savart gives a coil's B-field but not the accompanying E-field --- and it is
+the E-field that drives eddy currents (resistive power loss, B1 perturbation, and
+gradient field decay) in a conductor. \code{spin\_dynamics.fields.quasistatic}
+adds the magnetoquasistatic induced field \(\mathbf{E}=-\partial\mathbf{A}/
+\partial t-\nabla\phi\): the vector potential \code{vector\_potential} is computed
+from the same filament segments (its curl reproduces \code{biot\_savart}), the
+inductive field is \code{induced\_efield}\(=-\mathbf{A}_{\text{unit}}\,dI/dt\), and
+in a finite conductive sample a Neumann charge correction enforces
+\(\mathbf{J}\cdot\hat{\mathbf n}=0\) so \code{eddy\_currents} returns the eddy
+current density and the deposited power. Coil generators live in
+\code{fields.coils} (\code{solenoid}, \code{planar\_spiral}, \code{maxwell\_pair},
+\code{cylindrical\_shield}).
+
+\textbf{First-order (Born) limitation.} This uses the \emph{primary} field only
+and ignores the eddy currents' reaction field, so it is valid for low
+conductivity, thin samples, or skin depth \(\gg\) sample size; there is no
+skin-effect shielding and it over-estimates deposition at high conductivity.
+
+The gradient eddy \emph{dynamics} are a separate, self-consistent calculation.
+\code{fields.eddy\_modes.EddyModes} models a conducting shield as coaxial rings,
+builds their resistance, inductance and drive coupling, and eigen-decomposes the
+\(\mathbf{L}^{-1}\mathbf{R}\) dynamics into the residual-gradient decay
+\(\sum_k\alpha_k e^{-t/\tau_k}\) --- exactly the \code{eddy\_terms} of the M5
+\code{GradientDriverResponse}. So coil + shield geometry now \emph{predicts} the
+pre-emphasis terms that were hand-specified in Sec.~\ref{sec:grape-pgse}:
+\code{EddyModes.to\_gradient\_driver()} returns a driver the GRAPE PGSE optimizer
+consumes directly.
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.fields import coils
+from spin_dynamics.fields.eddy_modes import EddyModes
+
+drive = coils.maxwell_pair(radius=0.04, axis="z")
+radii, centers = coils.cylindrical_shield(radius=0.06, length=0.3, n_rings=16)
+eddy = EddyModes(radii, centers, wire_radius=2e-3, resistivity=1.7e-8)
+driver = eddy.to_gradient_driver(drive, tau_rl=1e-4)  # -> M5 GradientDriverResponse
+\end{lstlisting}
+
+The examples \code{plot\_rf\_coil\_efield.py} (solenoid \& planar spiral: B1, |E|,
+and eddy Joule density in a saline cylinder --- note the solenoid's on-axis E
+null) and \code{plot\_gradient\_eddy\_preemphasis.py} (Maxwell pair + shield: eddy
+spectrum, gradient droop, and the geometry-derived pre-emphasis that flattens it)
+demonstrate both. Design note: \code{docs/field\_solvers\_quasistatic.md}.
+
 \section{Received-Signal Noise}
 
 Noise is opt-in and output-referred. High-level workflows accept a

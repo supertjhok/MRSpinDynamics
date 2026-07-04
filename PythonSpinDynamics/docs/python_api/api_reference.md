@@ -370,11 +370,28 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `exchange_spectrum(system: ExchangeSystem, *, num_points: int = 4096, dwell_seconds: float | None = None, span_hz: float | None = None, line_broadening_hz: float = 0.0) -> tuple[np.ndarray, np.ndarray]` | Return ``(frequencies_hz, spectrum)`` from an exchange-broadened FID. |
 | function | `simulate_relaxation_exchange_2d(system: ExchangeSystem, encode_times: np.ndarray, detect_times: np.ndarray, mixing_time: float, *, include_t1: bool = True) -> RelaxationExchange2DResult` | Simulate an encode-mix-detect (T2-T2) relaxation exchange data set. |
 
+## `spin_dynamics.fields.coils`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `solenoid(*, radius: float, length: float, turns: int, center: Sequence[float] = (0.0, 0.0, 0.0), axis: str = 'z', n_segments: int = 48) -> list[Segment]` | A solenoid modelled as ``turns`` coaxial loops evenly spaced over ``length``. |
+| function | `planar_spiral(*, r_inner: float, r_outer: float, turns: int, center: Sequence[float] = (0.0, 0.0, 0.0), axis: str = 'z', n_points: int = 400) -> list[Segment]` | A planar Archimedean spiral from ``r_inner`` to ``r_outer`` over ``turns``. |
+| function | `maxwell_pair(*, radius: float, separation: float | None = None, center: Sequence[float] = (0.0, 0.0, 0.0), axis: str = 'z', n_segments: int = 72) -> list[Segment]` | A Maxwell pair (anti-Helmholtz): two coaxial loops with opposed currents. |
+| function | `conducting_ring(*, radius: float, center: Sequence[float] = (0.0, 0.0, 0.0), axis: str = 'z', n_segments: int = 144) -> list[Segment]` | A single circular loop -- e.g. a conducting ring for the eddy model. |
+| function | `cylindrical_shield(*, radius: float, length: float, n_rings: int, center: Sequence[float] = (0.0, 0.0, 0.0), axis: str = 'z') -> tuple[np.ndarray, np.ndarray]` | Coaxial-ring model of a thin conducting cylinder (e.g. a cryostat bore). |
+
 ## `spin_dynamics.fields.domain`
 
 | Kind | Name | Summary |
 | --- | --- | --- |
 | class | `SpatialDomain` | A rectilinear voxel grid of one to three spatial axes. |
+
+## `spin_dynamics.fields.eddy_modes`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `EddyModeSpectrum` | Eddy-mode decomposition of a gradient's residual field at the sample. |
+| class | `EddyModes` | Coaxial-ring eddy model of a conducting structure. |
 
 ## `spin_dynamics.fields.interpolate`
 
@@ -412,6 +429,18 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `positions_nd(values: np.ndarray, ndim: int | None = None) -> np.ndarray` | Validate and return an ``(num_particles, d)`` float64 position array. |
 | function | `velocity_array(velocity, positions: np.ndarray, time: float) -> np.ndarray` | Return a per-particle velocity array matching ``positions``. |
 | function | `gradient_offset(positions: np.ndarray, gradient) -> np.ndarray` | Return the Lagrangian gradient-induced offset ``positions @ gradient``. |
+
+## `spin_dynamics.fields.quasistatic`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `vector_potential(points: np.ndarray, segments: Sequence[Segment], current: float = 1.0) -> np.ndarray` | Magnetic vector potential ``A`` (T*m) of straight current segments. |
+| function | `induced_efield(points: np.ndarray, segments: Sequence[Segment], dcurrent_dt: float) -> np.ndarray` | Induced (inductive) E-field ``E = -dA/dt`` (V/m) for current slew ``dI/dt``. |
+| function | `mutual_inductance(loop_a: Sequence[Segment], loop_b: Sequence[Segment]) -> float` | Mutual inductance ``M`` (H) between two filamentary loops. |
+| function | `self_inductance_circular(radius: float, wire_radius: float) -> float` | Self-inductance (H) of a circular loop, ``mu0 a (ln(8a/r_w) - 2)``. |
+| function | `eddy_power(e_field: np.ndarray, conductivity: np.ndarray | float, cell_volume: float, *, time_average: bool = True) -> float` | Resistive eddy power ``P = k * integral sigma |E|^2 dV`` (W). |
+| class | `EddyResult` | Induced E-field, eddy current and deposited power in a conductive sample. |
+| function | `eddy_currents(grid_points: np.ndarray, segments: Sequence[Segment], dcurrent_dt: float, *, conductivity: float, mask: np.ndarray, spacing: Sequence[float], charge_correction: bool = True, time_average: bool = True) -> EddyResult` | First-order eddy currents and power for a conductive sample on a grid. |
 
 ## `spin_dynamics.interference.active`
 
