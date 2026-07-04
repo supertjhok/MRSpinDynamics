@@ -319,6 +319,7 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_bpp_relaxation_temperature.py",
             "examples/plot_wall_relaxation_xe.py",
             "examples/plot_t1rho_prepolarized_dispersion.py",
+            "examples/plot_t1rho_molecular_size_dispersion.py",
             "examples/plot_earth_field_prepolarized_nmr.py",
             "examples/plot_udd_cpmg_filter.py",
             "examples/plot_esr_single_crystal.py",
@@ -509,6 +510,11 @@ class ExampleSmokeTests(unittest.TestCase):
         result = run_example("examples/plot_t1rho_prepolarized_dispersion.py", "--help")
         self.assertIn("--spin-lock-min-khz", result.stdout)
         self.assertIn("--prepolarizing-field-t", result.stdout)
+        result = run_example(
+            "examples/plot_t1rho_molecular_size_dispersion.py", "--help"
+        )
+        self.assertIn("--radii-nm", result.stdout)
+        self.assertIn("--viscosity-mpa-s", result.stdout)
         result = run_example("examples/plot_earth_field_prepolarized_nmr.py", "--help")
         self.assertIn("--earth-field-ut", result.stdout)
         self.assertIn("--prepolarizing-field-mt", result.stdout)

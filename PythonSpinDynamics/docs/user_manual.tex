@@ -566,6 +566,59 @@ prepared = prepolarized_state(
 )
 \end{lstlisting}
 
+\subsection{Prepolarized Spin-Lock (\texorpdfstring{$T_{1\rho}$}{T1rho}) Dispersion}
+
+A spin-lock experiment measures relaxation in the presence of a resonant RF
+field: a \((\pi/2)_{-y}\) pulse tips the prepared magnetization onto the
+spin-lock axis, an on-resonance field of nutation frequency
+\(\omega_1=\gamma B_1\) holds it for a time \(T_{\mathrm{SL}}\), and the surviving
+locked magnetization is read out. The on-resonance dipolar rate is
+\[
+  \frac{1}{T_{1\rho}}
+    = C\left[\tfrac{3}{2}J(2\omega_1)
+      + \tfrac{5}{2}J(\omega_0) + J(2\omega_0)\right],
+\]
+so, unlike \(T_2\), \(T_{1\rho}\) probes the spectral density at the operator-set
+spin-lock frequency \(2\omega_1\) (typically \(0.1\text{--}3\,\mathrm{kHz}\)). As
+\(\omega_1\to 0\) the expression reduces exactly to the transverse rate \(R_2\)
+above, and it disperses downward once \(\omega_1\gtrsim 1/\tau_c\). Because the
+rotational correlation time grows with molecular size through the
+Stokes--Einstein--Debye relation
+\(\tau_c = 4\pi\eta a^3 f/(3 k_B T)\), sweeping the hydrodynamic radius \(a\)
+sweeps the dispersion: fast, small tumblers stay flat while slow, large ones
+show a strong \(T_{1\rho}\) dispersion in the kHz band.
+
+The helper \code{t1rho\_relaxation\_rate} returns \(R_{1\rho}\), and
+\code{simulate\_prepolarized\_t1rho} composes prepolarization, the spin lock, and
+readout into a size\,\(\times\)\,lock grid. The example
+\code{plot\_t1rho\_molecular\_size\_dispersion.py} maps a set of molecule radii to
+their dispersion curves and prepolarized contrast.
+
+\begin{lstlisting}[language=Python]
+import numpy as np
+from spin_dynamics.relaxation import (
+    simulate_prepolarized_t1rho,
+    stokes_einstein_debye_correlation_time,
+)
+
+radii_m = np.array([0.5, 2.0, 6.0, 20.0]) * 1e-9
+tau_c = stokes_einstein_debye_correlation_time(
+    radii_m, viscosity_pa_s=0.1, temperature_kelvin=310.0
+)
+experiment = simulate_prepolarized_t1rho(
+    spin_lock_angular_rad_per_s=2*np.pi*np.geomspace(20.0, 20e3, 160),
+    larmor_angular_rad_per_s=2*np.pi*20e6,
+    correlation_time_seconds=tau_c,
+    spin_lock_time_seconds=0.03,
+    coupling_scale_per_second2=2e6,
+    polarizing_field_tesla=0.3,
+    detection_field_tesla=0.02,
+    prepolarization_time_seconds=3.0,
+    t1_seconds=np.array([8.7, 0.2, 0.008, 5.0]),
+)
+# experiment.r1rho_per_second and experiment.locked_signal are (n_sizes, n_locks)
+\end{lstlisting}
+
 \subsection{Liouville-Space Relaxation Models}
 
 The \code{spin\_dynamics.relaxation} module provides shared Liouville-space

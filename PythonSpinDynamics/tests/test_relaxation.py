@@ -14,6 +14,7 @@ from spin_dynamics.relaxation import (
     BOLTZMANN,
     BPP_T1_MINIMUM_OMEGA_TAU,
     BPPRelaxationModel,
+    PrepolarizedT1rhoExperiment,
     WallCollisionRelaxationModel,
     apply_relaxation_to_parameters,
     arrhenius_correlation_time,
@@ -21,10 +22,12 @@ from spin_dynamics.relaxation import (
     gas_mean_speed_m_per_s,
     liouville_superoperator,
     matrix_exponential,
+    simulate_prepolarized_t1rho,
     single_spin_matrices,
     sphere_surface_to_volume_per_m,
     spectral_density_lorentzian,
     stokes_einstein_debye_correlation_time,
+    t1rho_relaxation_rate,
     tau_c_from_t1_minimum,
     wall_collision_rate_per_second,
 )
@@ -247,6 +250,134 @@ class RelaxationTests(unittest.TestCase):
             rtol=1.0e-9,
             atol=1.0e-12,
         )
+
+    def test_t1rho_weak_lock_limit_equals_transverse_rate(self) -> None:
+        omega0 = 2.0 * np.pi * 20.0e6
+        tau = 8.0e-9
+        scale = 5.0e7
+
+        r1rho_zero = t1rho_relaxation_rate(
+            0.0, omega0, tau, coupling_scale_per_second2=scale
+        )
+        r2 = bpp_relaxation_rates(
+            angular_frequency_rad_per_s=omega0,
+            correlation_time_seconds=tau,
+            coupling_scale_per_second2=scale,
+        ).r2_per_second
+        # On-resonance spin lock at vanishing B1 reduces to transverse relaxation
+        # (Stanford RAD226b Lecture 11, slide "T1rho versus T2").
+        self.assertAlmostEqual(float(r1rho_zero), float(r2))
+
+    def test_t1rho_matches_closed_form_and_probes_two_omega1(self) -> None:
+        omega0 = 2.0 * np.pi * 30.0e6
+        omega1 = 2.0 * np.pi * 500.0
+        tau = 3.0e-4
+        scale = 4.0e4
+
+        rate = t1rho_relaxation_rate(
+            omega1,
+            omega0,
+            tau,
+            coupling_scale_per_second2=scale,
+            coefficients=(1.5, 2.5, 1.0),
+        )
+        j_lock = spectral_density_lorentzian(2.0 * omega1, tau)
+        j_w0 = spectral_density_lorentzian(omega0, tau)
+        j_2w0 = spectral_density_lorentzian(2.0 * omega0, tau)
+        expected = scale * (1.5 * j_lock + 2.5 * j_w0 + j_2w0)
+        self.assertAlmostEqual(float(rate), float(expected))
+
+        # lock_harmonic selects the spectral-density argument of the lock term.
+        rate_1w = t1rho_relaxation_rate(
+            omega1, omega0, tau, coupling_scale_per_second2=scale, lock_harmonic=1.0
+        )
+        expected_1w = scale * (
+            1.5 * spectral_density_lorentzian(omega1, tau) + 2.5 * j_w0 + j_2w0
+        )
+        self.assertAlmostEqual(float(rate_1w), float(expected_1w))
+
+    def test_t1rho_disperses_downward_only_for_slow_tumblers(self) -> None:
+        omega0 = 2.0 * np.pi * 20.0e6
+        scale = 2.0e6
+        lock_hz = np.geomspace(20.0, 20_000.0, 32)
+        omega1 = 2.0 * np.pi * lock_hz
+
+        # Slow tumbler: strong monotone dispersion across the kHz spin-lock band.
+        slow = t1rho_relaxation_rate(
+            omega1, omega0, 3.0e-4, coupling_scale_per_second2=scale
+        )
+        self.assertTrue(np.all(np.diff(slow) <= 1.0e-9))
+        self.assertGreater(slow[0] / slow[-1], 10.0)
+
+        # Fast tumbler: essentially flat, no dispersion in the same band.
+        fast = t1rho_relaxation_rate(
+            omega1, omega0, 1.0e-11, coupling_scale_per_second2=scale
+        )
+        self.assertLess(abs(fast[0] - fast[-1]) / fast[0], 1.0e-3)
+
+    def test_t1rho_low_lock_rate_grows_with_molecule_size(self) -> None:
+        omega0 = 2.0 * np.pi * 20.0e6
+        radii = np.array([0.5e-9, 6.0e-9, 20.0e-9])
+        tau = stokes_einstein_debye_correlation_time(radii, 0.1, 310.0)
+
+        rate = t1rho_relaxation_rate(
+            2.0 * np.pi * 100.0, omega0, tau, coupling_scale_per_second2=2.0e6
+        )
+        # Larger hydrodynamic radius -> longer tau_c -> larger R1rho at weak lock.
+        self.assertTrue(np.all(np.diff(rate) > 0.0))
+
+    def test_simulate_prepolarized_t1rho_builds_size_by_lock_grid(self) -> None:
+        omega0 = 2.0 * np.pi * 20.0e6
+        tau = np.array([1.0e-8, 2.0e-5, 5.0e-4])
+        lock_hz = np.geomspace(20.0, 20_000.0, 12)
+        t1 = np.array([1.0, 0.2, 5.0])
+
+        experiment = simulate_prepolarized_t1rho(
+            spin_lock_angular_rad_per_s=2.0 * np.pi * lock_hz,
+            larmor_angular_rad_per_s=omega0,
+            correlation_time_seconds=tau,
+            spin_lock_time_seconds=0.03,
+            coupling_scale_per_second2=2.0e6,
+            polarizing_field_tesla=0.3,
+            detection_field_tesla=0.02,
+            prepolarization_time_seconds=3.0,
+            t1_seconds=t1,
+        )
+
+        self.assertIsInstance(experiment, PrepolarizedT1rhoExperiment)
+        self.assertEqual(experiment.r1rho_per_second.shape, (3, 12))
+        self.assertEqual(experiment.locked_signal.shape, (3, 12))
+        self.assertEqual(experiment.prepared_m0.shape, (3,))
+
+        # Locked signal is prepared magnetization damped by exp(-TSL * R1rho).
+        expected = experiment.prepared_m0[:, np.newaxis] * np.exp(
+            -experiment.spin_lock_time_seconds * experiment.r1rho_per_second
+        )
+        np.testing.assert_allclose(experiment.locked_signal, expected)
+        np.testing.assert_allclose(
+            experiment.t1rho_seconds, 1.0 / experiment.r1rho_per_second
+        )
+        # A stronger polarizing field lifts the prepared magnetization above the
+        # detection-field thermal value for the fast, short-T1 pool.
+        self.assertGreater(experiment.prepared_m0[0], 1.0)
+        # The slow pool disperses: strong-lock survival exceeds weak-lock survival.
+        fraction = np.exp(
+            -experiment.spin_lock_time_seconds * experiment.r1rho_per_second
+        )
+        self.assertGreater(fraction[2, -1], fraction[2, 0])
+
+    def test_t1rho_rejects_invalid_inputs(self) -> None:
+        omega0 = 2.0 * np.pi * 20.0e6
+        with self.assertRaisesRegex(ValueError, "larmor_angular_rad_per_s"):
+            t1rho_relaxation_rate(100.0, 0.0, 1.0e-6)
+        with self.assertRaisesRegex(ValueError, "spin_lock_angular_rad_per_s"):
+            t1rho_relaxation_rate(-1.0, omega0, 1.0e-6)
+        with self.assertRaisesRegex(ValueError, "coupling_scale_per_second2"):
+            t1rho_relaxation_rate(
+                100.0, omega0, 1.0e-6, coupling_scale_per_second2=-1.0
+            )
+        with self.assertRaisesRegex(ValueError, "lock_harmonic"):
+            t1rho_relaxation_rate(100.0, omega0, 1.0e-6, lock_harmonic=0.0)
 
     def test_invalid_inputs_raise_clear_errors(self) -> None:
         with self.assertRaisesRegex(ValueError, "correlation_time_seconds"):
