@@ -24,10 +24,13 @@ from spin_dynamics.core.rotations import sim_spin_dynamics_exc  # noqa: E402
 from spin_dynamics.optimal_control._jax_propagation import (  # noqa: E402
     JAX_AVAILABLE,
     propagate_state_numpy,
+    propagate_state_numpy_grad,
 )
 from spin_dynamics.optimal_control.hamiltonians import (  # noqa: E402
     ControlHamiltonianModel,
     coupled_spin_control_model,
+    gradient_control_operator,
+    position_gradient_batch,
 )
 
 if JAX_AVAILABLE:
@@ -35,7 +38,9 @@ if JAX_AVAILABLE:
 
     from spin_dynamics.optimal_control._jax_propagation import (  # noqa: E402
         iterate_unitary,
+        propagate_batched_grad,
         propagate_state_scan,
+        propagate_state_scan_grad,
         propagate_unitary_scan,
     )
     from spin_dynamics.optimal_control.objectives import (  # noqa: E402
@@ -223,6 +228,104 @@ class IterateUnitaryTests(unittest.TestCase):
         trajectory = np.asarray(iterate_unitary(u, jnp.asarray(_PSI_UP), 10))
         overlaps = np.abs(np.sum(np.conj(_PSI_UP)[np.newaxis, :] * trajectory, axis=1)) ** 2
         self.assertLess(np.min(overlaps), 1.0 - 1e-6)
+
+
+class GradientChannelNumpyTests(unittest.TestCase):
+    """Physics of the gradient control channel via the NumPy reference."""
+
+    def test_grad_reduces_to_rf_only_when_gradient_is_zero(self) -> None:
+        model = _single_spin_model(offset_hz=200.0)
+        n_seg = 6
+        rng = np.random.default_rng(4)
+        amp = rng.uniform(1000.0, 4000.0, size=n_seg)
+        phi = rng.uniform(-np.pi, np.pi, size=n_seg)
+        tp = rng.uniform(1e-5, 5e-5, size=n_seg)
+        h_grad = gradient_control_operator(coupled_spin_system([200.0], [[0.0]]))
+        rf_only = propagate_state_numpy(
+            model.h_drift, model.h_x, model.h_y, amp, phi, tp, _PSI_UP
+        )
+        with_zero_grad = propagate_state_numpy_grad(
+            model.h_drift, model.h_x, model.h_y, h_grad, amp, phi, np.zeros(n_seg), tp, _PSI_UP
+        )
+        np.testing.assert_allclose(with_zero_grad, rf_only, atol=1e-12)
+
+    def test_pure_gradient_segment_dephases_by_analytic_phase(self) -> None:
+        # RF off, on-resonance drift zero: a spin at position ``r`` under a
+        # gradient waveform accrues relative phase 2*pi * sum(g*dt) * r about z.
+        system = coupled_spin_system([0.0], [[0.0]])
+        model = coupled_spin_control_model(system, include_gradient=True)
+        n_seg = 8
+        rng = np.random.default_rng(5)
+        g = rng.uniform(-2000.0, 2000.0, size=n_seg)
+        tp = rng.uniform(1e-5, 5e-5, size=n_seg)
+        r = 0.73
+        h_grad = r * model.h_grad
+        psi_plus = np.array([1.0, 1.0], dtype=np.complex128) / np.sqrt(2)
+        got = propagate_state_numpy_grad(
+            model.h_drift, model.h_x, model.h_y, h_grad,
+            np.zeros(n_seg), np.zeros(n_seg), g, tp, psi_plus,
+        )
+        theta = 2 * np.pi * np.sum(g * tp) * r
+        expected = np.array(
+            [np.exp(-1j * theta / 2), np.exp(1j * theta / 2)], dtype=np.complex128
+        ) / np.sqrt(2)
+        np.testing.assert_allclose(got, expected, atol=1e-12)
+
+
+@unittest.skipUnless(JAX_AVAILABLE, "jax not installed")
+class GradientChannelJaxParityTests(unittest.TestCase):
+    """The JAX _grad path must match the NumPy _grad reference, batched too."""
+
+    def test_state_grad_scan_matches_numpy(self) -> None:
+        system = coupled_spin_system([300.0], [[0.0]])
+        model = coupled_spin_control_model(system, include_gradient=True)
+        n_seg = 7
+        rng = np.random.default_rng(6)
+        amp = rng.uniform(1000.0, 4000.0, size=n_seg)
+        phi = rng.uniform(-np.pi, np.pi, size=n_seg)
+        g = rng.uniform(-1500.0, 1500.0, size=n_seg)
+        tp = rng.uniform(1e-5, 5e-5, size=n_seg)
+        h_grad = 0.9 * model.h_grad
+        expected = propagate_state_numpy_grad(
+            model.h_drift, model.h_x, model.h_y, h_grad, amp, phi, g, tp, _PSI_UP
+        )
+        got = propagate_state_scan_grad(
+            jnp.asarray(model.h_drift), jnp.asarray(model.h_x), jnp.asarray(model.h_y),
+            jnp.asarray(h_grad), jnp.asarray(amp), jnp.asarray(phi), jnp.asarray(g),
+            jnp.asarray(tp), jnp.asarray(_PSI_UP),
+        )
+        np.testing.assert_allclose(np.asarray(got), expected, atol=1e-10)
+
+    def test_batched_grad_matches_per_case_loop(self) -> None:
+        system = coupled_spin_system([0.0], [[0.0]])
+        model = coupled_spin_control_model(system, include_gradient=True)
+        n_seg = 6
+        rng = np.random.default_rng(7)
+        amp = rng.uniform(1000.0, 4000.0, size=n_seg)
+        phi = rng.uniform(-np.pi, np.pi, size=n_seg)
+        g = rng.uniform(-1500.0, 1500.0, size=n_seg)
+        tp = rng.uniform(1e-5, 5e-5, size=n_seg)
+        positions = np.array([-1.2, -0.4, 0.3, 1.1])
+        hgb = position_gradient_batch(model.h_grad, positions)
+        drift_b = jnp.broadcast_to(jnp.asarray(model.h_drift), (positions.size, 2, 2))
+        psi0_b = jnp.broadcast_to(jnp.asarray(_PSI_UP), (positions.size, 2))
+        batched = np.asarray(
+            propagate_batched_grad(
+                drift_b, jnp.asarray(model.h_x), jnp.asarray(model.h_y),
+                jnp.stack([jnp.asarray(h) for h in hgb]),
+                jnp.asarray(amp), jnp.asarray(phi), jnp.asarray(g),
+                jnp.asarray(tp), psi0_b,
+            )
+        )
+        loop = np.stack(
+            [
+                propagate_state_numpy_grad(
+                    model.h_drift, model.h_x, model.h_y, hgb[k], amp, phi, g, tp, _PSI_UP
+                )
+                for k in range(positions.size)
+            ]
+        )
+        np.testing.assert_allclose(batched, loop, atol=1e-10)
 
 
 if __name__ == "__main__":

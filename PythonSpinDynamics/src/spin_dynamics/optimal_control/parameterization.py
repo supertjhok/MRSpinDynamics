@@ -85,6 +85,79 @@ def amplitude_phase_bounds(
     return ControlBounds(lower=lower, upper=upper)
 
 
+def gradient_bounds(n_segments: int, *, gradient_max: float) -> ControlBounds:
+    """Symmetric bipolar box bounds for a gradient waveform.
+
+    A gradient amplitude is genuinely bipolar (positive and negative lobes
+    dephase and rephase), so the box is ``[-gradient_max, +gradient_max]`` --
+    ``gradient_max`` is the peak gradient the hardware can slew to, in hertz per
+    unit position (the units :func:`hamiltonians.gradient_control_operator`
+    assumes).
+    """
+
+    n_segments = int(n_segments)
+    g_max = float(gradient_max)
+    if g_max <= 0:
+        raise ValueError("gradient_max must be positive")
+    return ControlBounds(
+        lower=np.full(n_segments, -g_max),
+        upper=np.full(n_segments, g_max),
+    )
+
+
+def assemble_control_bounds(
+    n_segments: int,
+    *,
+    optimize_amplitude: bool = False,
+    amplitude_max_hz: float | None = None,
+    optimize_gradient: bool = False,
+    gradient_max: float | None = None,
+    phase_bound_rad: float = 4 * np.pi,
+) -> ControlBounds:
+    """Assemble box bounds for the full ``concat([amplitude?, phase, gradient?])`` layout.
+
+    Concatenates, in order: an amplitude block ``[0, amplitude_max_hz]`` (only
+    when ``optimize_amplitude``), the phase block (always,
+    :func:`phase_only_bounds`), and a gradient block
+    ``[-gradient_max, +gradient_max]`` (only when ``optimize_gradient``). This
+    is the gradient-aware generalization the solver uses; the plain
+    :func:`phase_only_bounds`/:func:`amplitude_phase_bounds` remain for the
+    RF-only layouts.
+    """
+
+    lowers: list[np.ndarray] = []
+    uppers: list[np.ndarray] = []
+    if optimize_amplitude:
+        if amplitude_max_hz is None:
+            raise ValueError("amplitude_max_hz is required when optimize_amplitude=True")
+        amp = amplitude_phase_bounds(
+            n_segments, amplitude_max_hz=amplitude_max_hz, phase_bound_rad=phase_bound_rad
+        )
+        # amplitude_phase_bounds already lays out [amplitude, phase]; reuse it.
+        lowers.append(amp.lower)
+        uppers.append(amp.upper)
+    else:
+        phase = phase_only_bounds(n_segments, phase_bound_rad=phase_bound_rad)
+        lowers.append(phase.lower)
+        uppers.append(phase.upper)
+    if optimize_gradient:
+        if gradient_max is None:
+            raise ValueError("gradient_max is required when optimize_gradient=True")
+        grad = gradient_bounds(n_segments, gradient_max=gradient_max)
+        lowers.append(grad.lower)
+        uppers.append(grad.upper)
+    return ControlBounds(
+        lower=np.concatenate(lowers),
+        upper=np.concatenate(uppers),
+    )
+
+
+def constant_gradient_seed(n_segments: int, *, gradient: float) -> np.ndarray:
+    """Constant gradient waveform, e.g. the fixed-gradient slice-selective baseline."""
+
+    return np.full(int(n_segments), float(gradient), dtype=np.float64)
+
+
 def rectangular_seed_phase(n_segments: int, *, phase_rad: float = 0.0) -> np.ndarray:
     """Constant-phase baseline waveform.
 
