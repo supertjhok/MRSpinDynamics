@@ -4096,6 +4096,117 @@ mismatch that stalls L-BFGS-B. Folding a characteristic offset scale into the
 gradient operator (so the optimized \(g(t)\) is itself \(O(1)\)) restores a
 well-conditioned problem; the example does exactly this.
 
+\subsection{Hardware response: probe and gradient-driver dynamics}
+\label{sec:grape-hardware-response}
+
+The pulses above assume the spins see exactly the commanded waveform. Real
+hardware does not deliver it: a tuned or matched RF probe has finite bandwidth
+(loaded \(Q\)) and a ring-down tail, and a gradient driver has a finite
+\(L/R\) slew plus eddy-current droop. Each is, to excellent approximation, a
+\emph{linear time-invariant} (LTI) filter between the commanded waveform and
+the field the spins see. \code{optimal\_control.control\_response} models these
+as one differentiable stage the objective inserts in the loop, between the
+\emph{command} and the Hamiltonian:
+\[
+  u_\text{delivered}(t) = \big(\mathcal{L}\,u_\text{command}\big)(t),
+  \qquad u = w_1\,e^{i\phi}.
+\]
+Because the whole chain is JAX, autodiff supplies the filter's adjoint for free
+-- no hand-derived circuit gradient. Two consequences make this the physically
+correct thing to optimize: fidelity is scored on the delivered pulse
+(\emph{including} the ring-down/eddy tail, which really does rotate the spins),
+and the box constraints stay on the command, so the optimizer pre-emphasizes
+only up to the real hardware limits rather than demanding voltages the amplifier
+cannot produce.
+
+Transmit is filtered \emph{once}, in time, on the rotating-frame envelope: the
+coil emits one physical \(B_1(t)\) that every isochromat sees, differing only by
+its own detuning (already in the drift), so there is no per-offset transmit
+filtering. Tuned and matched probes have genuinely different dynamics and are
+separate classes: a tuned probe is a single resonance, a one-pole envelope
+lowpass with ring-down time constant \(\tau = 2Q/\omega_0 = Q/(\pi f_0)\)
+(\code{TunedProbeResponse}); a matched probe adds a matching-network pole and is
+a distinct two-pole response (\code{MatchedProbeResponse}); an untuned coil is
+near-flat (\code{UntunedProbeResponse}). RF probes filter the complex envelope by
+an FFT multiply; the gradient driver
+(\code{GradientDriverResponse}) is a causal state-space cascade of one \(L/R\)
+slew pole and a shelf per eddy term, whose delivered step is the classic
+\(G(t)=G_\infty[1-\sum_k \alpha_k e^{-t/\tau_k}]\) with DC gain one (the
+steady-state gradient equals the command). \code{eddy\_terms\_from\_step\_response}
+fits the \((\alpha_k,\tau_k)\) from a measured step. The command is upsampled by
+the response's \code{oversample} factor before filtering, and a ring-down/eddy
+tail (\code{TailSpec}: a multiple of the dominant \(\tau\), or an explicit
+window) is appended.
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.optimal_control import (
+    coupled_spin_control_model, grape_optimize, TunedProbeResponse,
+)
+
+probe = TunedProbeResponse.from_quality_factor(   # ring-down tau = Q/(pi f0)
+    f0_hz=1.0e6, quality_factor=120.0, oversample=4,
+)
+result = grape_optimize(
+    model, initial_phase, dt=dt, target=[0.0, 1.0], psi0=[1.0, 0.0],
+    fixed_amplitude=6000.0,        # command bound stays on the amplifier
+    rf_response=probe,             # fidelity scored on the DELIVERED pulse
+)
+\end{lstlisting}
+
+Both \code{rf\_response} and \code{gradient\_response} are optional and default
+to the ideal (unfiltered) behaviour bit-for-bit; they require a uniform scalar
+\code{dt}. \code{examples\textbackslash grape\_probe\_response\_pulse.py} shows a
+band-limited tuned probe cutting a rectangular inversion pulse's delivered
+fidelity to \(\sim 0.84\), which GRAPE optimizing the command recovers to
+\(1.0\); it also illustrates the gradient-driver step response and the eddy fit.
+Probe-robust pulses follow by making the filter parameters (tuning, \(Q\),
+eddy \(\tau_k\)) the ensemble axis, reusing the robust-ensemble machinery. The
+design note \code{docs/optimal\_control\_hardware\_response.md} records the full
+rationale, including the output-side \code{ReceiverResponse} for objectives
+defined on the detected signal.
+
+\subsection{PGSE diffusion: correct q-vector and detected SNR}
+\label{sec:grape-pgse}
+
+The diffusion capstone (\code{optimal\_control.diffusion}) co-optimizes the RF
+pulses \emph{and} the gradient waveform of a pulsed-gradient spin echo on
+realistic hardware: a tuned RF probe on transmit \emph{and} receive, a gradient
+driver with \(L/R\) slew plus eddy currents, and an inhomogeneous \(B_0\)/\(B_1\)
+field. It exercises the entire stack -- the M2 gradient channel, the M4
+hardware-response layer, and a combined \((\text{position}\times B_0\times B_1)\)
+ensemble -- against two objectives:
+\begin{enumerate}
+  \item \textbf{Correct q-vector}: a functional of the \emph{delivered} gradient.
+  \code{gradient\_moments} returns \(q(t)=\int g(\tau)s(\tau)\,d\tau\) (with the
+  coherence sign \(s=\pm1\) that a \(180^\circ\) pulse flips), its encode-lobe
+  value and its residual at the echo, matching \code{workflows.pgse}'s
+  convention. The encode moment must hit a target \(q^\ast\) and the residual
+  must refocus to zero; eddy droop violates both, so the optimizer
+  pre-emphasizes the commanded gradient (bounded) to correct them.
+  \item \textbf{Maximize detected SNR}: \code{detected\_echo\_signal} acquires the
+  coherently-summed echo over a readout window, \code{detected\_echo\_snr}
+  filters it through the Rx probe and returns the matched-filter amplitude over
+  a fixed noise floor.
+\end{enumerate}
+\code{make\_pgse\_objective} assembles the weighted \code{value\_and\_grad}
+(\(\text{SNR} - \lambda_q(q_\text{enc}-q^\ast)^2 - \lambda_0 q_\text{echo}^2\)),
+propagating with \code{propagator="expm"} by default -- on-resonance spins have
+\(H_\text{seg}=0\) during RF/gradient gaps, whose \code{eigh} gradient is NaN
+(the same degeneracy the NQR models hit).
+\code{examples\textbackslash plot\_grape\_pgse\_diffusion.py} runs it in a
+\emph{grossly} inhomogeneous field (\(B_0\) spread several times the nutation
+rate). Two effects, both large: (i) a hard \(180^\circ\) refocuses only within
+\(\sim\pm\)nutation, so the naive echo collapses across the band, while phase-only
+GRAPE finds a broadband phase-modulated refocusing pulse -- the RP2 /
+symmetric-phase-alternating family -- that recovers the echo across the full
+band for a several-fold detected-SNR gain; and (ii) eddy droop pushes the naive
+encode moment below \(q^\ast\) with imperfect refocusing, which the gradient
+pre-emphasis corrects to \(\sim 0\%\) error. \textbf{Multistart is essential}: a
+rectangular (\(\phi=0\)) seed against a symmetric offset ensemble sits at an
+exact saddle (mirrored offsets' phase gradients cancel), so a single start never
+moves the phase -- random phase restarts escape it. The design note is
+\code{docs/optimal\_control\_pgse\_diffusion.md}.
+
 \subsection{Axis-matched excitation (AMEX) and CPMG SNR per unit time}
 
 \code{su2\_effective\_axis} extracts a refocusing cycle's effective rotation
@@ -5234,6 +5345,7 @@ from spin_dynamics.optimal_control import (
     bloch_vector_to_ket,
     constant_gradient_seed,
     coupled_spin_control_model,
+    eddy_terms_from_step_response,
     export_to_pulse_shape,
     grape_optimize,
     grape_optimize_phase_only,
@@ -5251,6 +5363,18 @@ from spin_dynamics.optimal_control import (
     run_grape_multistart,
     state_transfer_fidelity,
     su2_effective_axis,
+    # hardware response (probe / gradient driver)
+    TunedProbeResponse,
+    MatchedProbeResponse,
+    UntunedProbeResponse,
+    GradientDriverResponse,
+    ReceiverResponse,
+    TailSpec,
+    # PGSE diffusion
+    gradient_moments,
+    detected_echo_signal,
+    detected_echo_snr,
+    make_pgse_objective,
 )
 \end{lstlisting}
 
@@ -5274,7 +5398,18 @@ inversion endpoints and the per-orientation drive operators; NQR optimizations
 must pass \code{propagator="expm"} because the Kramers-degenerate spectrum makes
 the default \code{eigh} gradient undefined. \code{run\_grape\_multistart} is not
 optional in practice: GRAPE landscapes are multimodal, so a single-start result
-is not a trustworthy optimum on its own.
+is not a trustworthy optimum on its own. The hardware-response classes
+(\code{TunedProbeResponse}, \code{MatchedProbeResponse},
+\code{UntunedProbeResponse}, \code{GradientDriverResponse}) fold finite probe
+bandwidth and gradient slew/eddy dynamics into the optimization as LTI actuators
+(Section~\ref{sec:grape-hardware-response}); pass them as \code{rf\_response} /
+\code{gradient\_response} to \code{grape\_optimize}. \code{ReceiverResponse} is
+the output-side filter for detected-signal objectives, and
+\code{eddy\_terms\_from\_step\_response} fits eddy terms from a measured step.
+\code{make\_pgse\_objective} (with \code{gradient\_moments},
+\code{detected\_echo\_signal}, \code{detected\_echo\_snr}) is the PGSE diffusion
+objective co-optimizing RF phase and gradient waveform for correct q-vector and
+detected SNR on a tuned probe with eddy currents (Section~\ref{sec:grape-pgse}).
 
 \chapter{Known Gaps}
 

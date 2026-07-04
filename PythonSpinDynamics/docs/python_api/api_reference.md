@@ -781,6 +781,29 @@ No public classes or functions found.
 | function | `eseem_stimulated_echo_phase_cycle(n_phase: int = 4) -> PhaseCycle` | Return the phase cycle selecting the three-pulse ESEEM stimulated echo. |
 | function | `diff_stebp_phase_cycle() -> PhaseCycle` | Return the 16-step Bruker ``diff_stebp`` 13-interval bipolar PGSTE cycle. |
 
+## `spin_dynamics.optimal_control.control_response`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `TailSpec` | How long to propagate past the commanded window for the ring-down/eddy tail. |
+| class | `EnvelopeResponse` | Base class for an RF probe modelled as an LTI filter on the control envelope. |
+| class | `TunedProbeResponse` | Single-resonance (tuned) probe: a one-pole envelope lowpass with ring-down. |
+| class | `UntunedProbeResponse` | Untuned (low-``Q``, broadband) probe: a near-flat envelope with mild phase. |
+| class | `MatchedProbeResponse` | Impedance-matched probe: a two-pole envelope, distinct from a tuned probe. |
+| class | `GradientDriverResponse` | Gradient driver: an ``L/R`` slew pole in series with eddy-current shelves. |
+| function | `eddy_terms_from_step_response(times: Sequence[float], response: Sequence[float], *, n_terms: int = 1, steady_value: float | None = None) -> tuple[tuple[float, float], ...]` | Fit eddy ``(alpha_k, tau_k)`` terms from a measured/simulated step response. |
+| class | `ReceiverResponse` | Output-side LTI filter for objectives on the *detected* signal. |
+| function | `build_control_delivery(n_segments, dt, *, rf_response = None, gradient_response = None)` | Build the commanded-to-delivered control transform for GRAPE objectives. |
+
+## `spin_dynamics.optimal_control.diffusion`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `gradient_moments(gradient, dt, *, encode_end, coherence_sign = None)` | q-vector moments of a (delivered) piecewise-constant gradient waveform. |
+| function | `detected_echo_signal(coherences, weights, offsets_hz, *, n_acq, dt_acq)` | Acquire the coherently-summed echo over a readout window. |
+| function | `detected_echo_snr(signal, dt_acq, *, rx_response = None, noise = 1.0)` | Matched-filter detected amplitude of an acquired echo over a noise floor. |
+| function | `make_pgse_objective(*, drift_batch: Sequence[np.ndarray], hx_batch: Sequence[np.ndarray], hy_batch: Sequence[np.ndarray], hgrad_batch: Sequence[np.ndarray], psi0: np.ndarray, detection_operator: np.ndarray, weights: np.ndarray, offsets_hz: np.ndarray, dt: float, n_segments: int, amplitude_template: np.ndarray, gradient_mask: np.ndarray, coherence_sign: np.ndarray | None = None, encode_end_segment: int, q_target: float, acquisition_points: int, acquisition_dt: float, noise: float = 1.0, q_weight: float = 1.0, refocus_weight: float = 1.0, rf_response = None, gradient_response = None, rx_response = None, propagator: str = 'expm') -> Callable[[np.ndarray], tuple[float, np.ndarray]]` | Build the weighted PGSE ``value_and_grad`` closure. |
+
 ## `spin_dynamics.optimal_control.drivers`
 
 | Kind | Name | Summary |
@@ -809,7 +832,7 @@ No public classes or functions found.
 | function | `su2_effective_axis(u)` | Extract the effective rotation (axis, angle) of a 2x2 SU(2) unitary. |
 | function | `bloch_vector_to_ket(axis)` | Return the spin-1/2 ket aligned with a Bloch-sphere unit vector. |
 | function | `robust_ensemble_fidelity(fidelity_per_case, *, reduction: Literal['mean', 'worst_case'] = 'mean')` | Reduce a ``(batch,)`` array of per-case fidelities to a scalar score. |
-| function | `make_grape_objective(model, *, n_segments: int, dt, target, psi0 = None, mode: Literal['state_transfer', 'gate'] = 'state_transfer', optimize_amplitude: bool = False, fixed_amplitude: float | np.ndarray | None = None, optimize_gradient: bool = False, fixed_gradient: float | np.ndarray | None = None, gradient_operator_batch: Sequence[np.ndarray] | None = None, control_operator_batch: Sequence[tuple[np.ndarray, np.ndarray]] | None = None, hamiltonian_batch: Sequence[np.ndarray] | None = None, ensemble_reduction: Literal['mean', 'worst_case'] = 'mean', phase_smoothness_weight: float = 0.0, gradient_smoothness_weight: float = 0.0, propagator: Literal['eigh', 'expm'] = 'eigh') -> Callable[[np.ndarray], tuple[float, np.ndarray]]` | Build a ``value_and_grad`` callable for a GRAPE fidelity objective. |
+| function | `make_grape_objective(model, *, n_segments: int, dt, target, psi0 = None, mode: Literal['state_transfer', 'gate'] = 'state_transfer', optimize_amplitude: bool = False, fixed_amplitude: float | np.ndarray | None = None, optimize_gradient: bool = False, fixed_gradient: float | np.ndarray | None = None, gradient_operator_batch: Sequence[np.ndarray] | None = None, control_operator_batch: Sequence[tuple[np.ndarray, np.ndarray]] | None = None, hamiltonian_batch: Sequence[np.ndarray] | None = None, ensemble_reduction: Literal['mean', 'worst_case'] = 'mean', phase_smoothness_weight: float = 0.0, gradient_smoothness_weight: float = 0.0, propagator: Literal['eigh', 'expm'] = 'eigh', rf_response = None, gradient_response = None) -> Callable[[np.ndarray], tuple[float, np.ndarray]]` | Build a ``value_and_grad`` callable for a GRAPE fidelity objective. |
 
 ## `spin_dynamics.optimal_control.parameterization`
 
@@ -830,7 +853,7 @@ No public classes or functions found.
 | Kind | Name | Summary |
 | --- | --- | --- |
 | class | `GrapeOptimizationResult` | Result of a GRAPE control-waveform optimization. |
-| function | `grape_optimize(model: ControlHamiltonianModel, initial_phase: np.ndarray, *, dt: float | np.ndarray, target: np.ndarray, psi0: np.ndarray | None = None, mode: Literal['state_transfer', 'gate'] = 'state_transfer', optimize_amplitude: bool = False, fixed_amplitude: float | np.ndarray | None = None, initial_amplitude: np.ndarray | None = None, amplitude_max_hz: float | None = None, optimize_gradient: bool = False, fixed_gradient: float | np.ndarray | None = None, initial_gradient: np.ndarray | None = None, gradient_max: float | None = None, gradient_operator_batch: Sequence[np.ndarray] | None = None, control_operator_batch: Sequence[tuple[np.ndarray, np.ndarray]] | None = None, phase_bound_rad: float = 4 * np.pi, hamiltonian_batch: Sequence[np.ndarray] | None = None, ensemble_reduction: Literal['mean', 'worst_case'] = 'mean', phase_smoothness_weight: float = 0.0, gradient_smoothness_weight: float = 0.0, propagator: Literal['eigh', 'expm'] = 'eigh', scipy_method: str = 'L-BFGS-B', scipy_options: dict[str, object] | None = None) -> GrapeOptimizationResult` | Optimize a piecewise-constant RF (and optionally gradient) waveform. |
+| function | `grape_optimize(model: ControlHamiltonianModel, initial_phase: np.ndarray, *, dt: float | np.ndarray, target: np.ndarray, psi0: np.ndarray | None = None, mode: Literal['state_transfer', 'gate'] = 'state_transfer', optimize_amplitude: bool = False, fixed_amplitude: float | np.ndarray | None = None, initial_amplitude: np.ndarray | None = None, amplitude_max_hz: float | None = None, optimize_gradient: bool = False, fixed_gradient: float | np.ndarray | None = None, initial_gradient: np.ndarray | None = None, gradient_max: float | None = None, gradient_operator_batch: Sequence[np.ndarray] | None = None, control_operator_batch: Sequence[tuple[np.ndarray, np.ndarray]] | None = None, phase_bound_rad: float = 4 * np.pi, hamiltonian_batch: Sequence[np.ndarray] | None = None, ensemble_reduction: Literal['mean', 'worst_case'] = 'mean', phase_smoothness_weight: float = 0.0, gradient_smoothness_weight: float = 0.0, propagator: Literal['eigh', 'expm'] = 'eigh', rf_response = None, gradient_response = None, scipy_method: str = 'L-BFGS-B', scipy_options: dict[str, object] | None = None) -> GrapeOptimizationResult` | Optimize a piecewise-constant RF (and optionally gradient) waveform. |
 | function | `grape_optimize_phase_only(model: ControlHamiltonianModel, initial_phase: np.ndarray, *, fixed_amplitude: float | np.ndarray, dt: float | np.ndarray, target: np.ndarray, psi0: np.ndarray | None = None, mode: Literal['state_transfer', 'gate'] = 'state_transfer', phase_bound_rad: float = 4 * np.pi, hamiltonian_batch: Sequence[np.ndarray] | None = None, ensemble_reduction: Literal['mean', 'worst_case'] = 'mean', phase_smoothness_weight: float = 0.0, scipy_method: str = 'L-BFGS-B', scipy_options: dict[str, object] | None = None) -> GrapeOptimizationResult` | Explicit phase-only GRAPE entry point. |
 
 ## `spin_dynamics.optimization.drivers`
