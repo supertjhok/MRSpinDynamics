@@ -97,6 +97,13 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `rf_step(duration: float, nutation_hz: float | Sequence[float], *, phase: float = 0.0, b0_offsets_hz: float | Iterable[float] | np.ndarray | None = None, b1_tx_scale: float | Iterable[float] | np.ndarray | None = None, indices: Sequence[int] | None = None) -> CoupledIsochromatStep` | Return an RF or spin-lock step with optional local B0/B1 overrides. |
 | function | `simulate_coupled_isochromat_sequence(ensemble: CoupledIsochromatEnsemble, steps: Sequence[CoupledIsochromatStep], *, initial_axis: str = 'x', detect_axis: str = 'x', j_mode: str = 'isotropic') -> CoupledIsochromatSequenceResult` | Propagate a coupled-spin sequence over an isochromat ensemble. |
 
+## `spin_dynamics.coupling.isotopes`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `nuclear_isotope(isotope: str) -> NuclearIsotope` | Return the registry entry (spin and ``|gamma|/2pi``) for ``isotope``. |
+| function | `larmor_frequency_hz(isotope: str, b0_tesla: float, *, gamma_hz_per_t: float | None = None) -> float` | Return the Larmor frequency ``gamma * B0`` in hertz for ``isotope``. |
+
 ## `spin_dynamics.coupling.j_editing`
 
 | Kind | Name | Summary |
@@ -107,6 +114,28 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `proton_detected_j_modulation(encoding_times: Iterable[float] | np.ndarray, couplings_hz: Iterable[float] | np.ndarray, amplitudes: Iterable[float] | np.ndarray, *, cycles: int = 1, background: float = 0.0) -> np.ndarray` | Return the proton-detected J-editing model. |
 | function | `tango_b_filter(couplings_hz: Iterable[float] | np.ndarray, *, delay_seconds: float | None = None, target_coupling_hz: float | None = None, order: int = 1) -> np.ndarray` | Return the ideal TANGO-B coupled-spin transverse filter amplitude. |
 | function | `fit_known_j_spectrum(encoding_times: Iterable[float] | np.ndarray, signal: Iterable[float] | np.ndarray, couplings_hz: Iterable[float] | np.ndarray, *, cycles: int = 1, powers: Iterable[int] | np.ndarray | None = None, include_background: bool = True) -> JEditingFitResult` | Fit amplitudes for a known set of J-coupling frequencies. |
+
+## `spin_dynamics.coupling.mixed_operators`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `hilbert_dimension(spins: Sequence[float] | Iterable[float]) -> int` | Return the tensor-product Hilbert dimension ``prod(2 I_k + 1)``. |
+| function | `embedded_operator(spins: Sequence[float] | Iterable[float], index: int, axis: str) -> np.ndarray` | Return a single-spin operator embedded in the full mixed Hilbert space. |
+| function | `product_operator(spins: Sequence[float] | Iterable[float], terms: Iterable[tuple[int, str]]) -> np.ndarray` | Return a product operator such as ``I1z I2z`` for mixed spins. |
+| function | `total_operator(spins: Sequence[float] | Iterable[float], axis: str, indices: Iterable[int] | None = None) -> np.ndarray` | Return the sum of selected single-spin operators along one axis. |
+| function | `dot_product_operator(spins: Sequence[float] | Iterable[float], index_a: int, index_b: int) -> np.ndarray` | Return the scalar ``I_a . I_b`` operator for two distinct spins. |
+
+## `spin_dynamics.coupling.multinuclear`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `MultinuclearSite` | One nucleus in a heteronuclear J-coupled system. |
+| class | `MultinuclearSpinSystem` | Heteronuclear scalar-coupled spin system at a fixed field ``b0_tesla``. |
+| function | `multinuclear_system(isotopes: Sequence[str], couplings_hz: Iterable[Iterable[float]], b0_tesla: float, *, labels: Sequence[str] | None = None, spins: Sequence[float] | None = None, gammas_hz_per_t: Sequence[float] | None = None) -> MultinuclearSpinSystem` | Build a validated heteronuclear system from isotope names and couplings. |
+| function | `multinuclear_hamiltonian(system: MultinuclearSpinSystem, *, coupling: str = 'isotropic', include_zeeman: bool = True) -> np.ndarray` | Return the static lab-frame Hamiltonian in radians per second. |
+| function | `multinuclear_rf_hamiltonian(system: MultinuclearSpinSystem, nutation_hz: float, *, phase: float = 0.0, indices: Iterable[int] | None = None) -> np.ndarray` | Return an RF Hamiltonian (rad/s) driving selected spins at one amplitude. |
+| function | `multinuclear_equilibrium_density(system: MultinuclearSpinSystem, *, axis: str = 'z', gamma_weighted: bool = True) -> np.ndarray` | Return the high-temperature equilibrium density deviation. |
+| function | `per_spin_relaxation_superoperator(spins: Sequence[float] | Iterable[float], r1_per_second: float | Sequence[float] | np.ndarray, r2_per_second: float | Sequence[float] | np.ndarray) -> np.ndarray` | Return a per-spin phenomenological ``R1``/``R2`` relaxation superoperator. |
 
 ## `spin_dynamics.coupling.operators`
 
@@ -131,6 +160,14 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `SpinSite` | One spin-1/2 site in a coupled spin system. |
 | class | `CoupledSpinSystem` | Small dense spin-1/2 system with scalar couplings in hertz. |
 | function | `coupled_spin_system(offsets_hz: Iterable[float], couplings_hz: Iterable[Iterable[float]], *, labels: Sequence[str] | None = None, isotopes: Sequence[str] | None = None) -> CoupledSpinSystem` | Build a validated spin-1/2 system from offsets and couplings. |
+
+## `spin_dynamics.coupling.zulf`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `ZulfSpectrum` | Time-domain FID and its J-coupled spectrum. |
+| function | `simulate_zulf_fid(system: MultinuclearSpinSystem, *, r1_per_second: float | Sequence[float] | np.ndarray, r2_per_second: float | Sequence[float] | np.ndarray, dwell_seconds: float, n_points: int, excite_indices: Iterable[int] | None = None, detect_indices: Iterable[int] | None = None, flip_rad: float = np.pi / 2.0, phase_rad: float = 0.0, gamma_weighted: bool = True, coupling: str = 'isotropic') -> tuple[np.ndarray, np.ndarray]` | Return ``(times, fid)`` for a ZULF ``pi/2``-acquire experiment. |
+| function | `simulate_zulf_spectrum(system: MultinuclearSpinSystem, *, r1_per_second: float | Sequence[float] | np.ndarray, r2_per_second: float | Sequence[float] | np.ndarray, dwell_seconds: float, n_points: int, excite_indices: Iterable[int] | None = None, detect_indices: Iterable[int] | None = None, flip_rad: float = np.pi / 2.0, phase_rad: float = 0.0, gamma_weighted: bool = True, apodization_hz: float = 0.0, coupling: str = 'isotropic') -> ZulfSpectrum` | Return the J-coupled spectrum of a ZULF ``pi/2``-acquire experiment. |
 
 ## `spin_dynamics.core.echo`
 

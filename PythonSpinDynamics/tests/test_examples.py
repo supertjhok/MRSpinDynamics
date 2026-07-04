@@ -316,6 +316,7 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_j_editing_field_spread.py",
             "examples/plot_tango_filter.py",
             "examples/plot_slic_two_spin.py",
+            "examples/plot_zulf_quadrupolar_jcoupling.py",
             "examples/plot_bpp_relaxation_temperature.py",
             "examples/plot_wall_relaxation_xe.py",
             "examples/plot_t1rho_prepolarized_dispersion.py",
@@ -500,6 +501,9 @@ class ExampleSmokeTests(unittest.TestCase):
         self.assertIn("--target", result.stdout)
         result = run_example("examples/plot_slic_two_spin.py", "--help")
         self.assertIn("--delta-hz", result.stdout)
+        result = run_example("examples/plot_zulf_quadrupolar_jcoupling.py", "--help")
+        self.assertIn("--j-fn-hz", result.stdout)
+        self.assertIn("--r14n-hz", result.stdout)
         result = run_example("examples/plot_bpp_relaxation_temperature.py", "--help")
         self.assertIn("--tau-ref-ns", result.stdout)
         result = run_example("examples/plot_wall_relaxation_xe.py", "--help")
