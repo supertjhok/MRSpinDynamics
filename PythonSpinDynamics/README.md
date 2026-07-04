@@ -91,6 +91,10 @@ source .venv-wsl/bin/activate
 python scripts/verify_dev_env.py --strict
 ```
 
+On a OneDrive-synced checkout, do not use the default `.venv-wsl` at the
+repository root; it would be synced by OneDrive. Put the environment under
+`$HOME` instead (see the note below).
+
 For NVIDIA GPU JAX benchmarking in WSL:
 
 ```bash
@@ -117,9 +121,16 @@ For a minimal runtime-only editable install:
 python -m pip install -e .
 ```
 
-If OneDrive file locking or WSL `/mnt/c` performance becomes a problem, keep
-the source tree here and pass an external virtual-environment path to the same
-setup scripts. See `docs/development_environment.md` for the full workflow.
+Keep the source tree here and pass an external virtual-environment path to the
+same setup scripts to avoid OneDrive sync and slow `/mnt/c` access. On WSL, put
+the environment under `$HOME` on the native Linux filesystem:
+
+```bash
+VENV="$HOME/.venvs/python-spin-dynamics" bash scripts/setup_dev_env_wsl.sh
+source "$HOME/.venvs/python-spin-dynamics/bin/activate"
+```
+
+See `docs/development_environment.md` for the full workflow.
 
 ## Quick Start
 
