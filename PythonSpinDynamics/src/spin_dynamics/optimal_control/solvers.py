@@ -100,6 +100,8 @@ def grape_optimize(
     phase_smoothness_weight: float = 0.0,
     gradient_smoothness_weight: float = 0.0,
     propagator: Literal["eigh", "expm"] = "eigh",
+    rf_response=None,
+    gradient_response=None,
     scipy_method: str = "L-BFGS-B",
     scipy_options: dict[str, object] | None = None,
 ) -> GrapeOptimizationResult:
@@ -129,6 +131,16 @@ def grape_optimize(
     for ensembles whose RF drive operators vary per member -- NQR powder
     averaging, where each crystallite's RF-to-EFG coupling differs while the RF
     waveform is shared. State-transfer mode only.
+
+    **Hardware response.** Pass ``rf_response`` (a probe
+    :class:`~optimal_control.control_response.EnvelopeResponse`) and/or
+    ``gradient_response`` (a
+    :class:`~optimal_control.control_response.GradientDriverResponse`) to fold
+    finite probe bandwidth / gradient slew + eddy currents into the optimization
+    as an LTI actuator between the commanded control and the spins. The optimized
+    waveform is the *command* (bounded by the hardware limits); the delivered,
+    filtered waveform is what the fidelity is scored on. Requires a uniform
+    scalar ``dt``.
     """
 
     initial_phase = np.asarray(initial_phase, dtype=np.float64).reshape(-1)
@@ -202,6 +214,8 @@ def grape_optimize(
         phase_smoothness_weight=phase_smoothness_weight,
         gradient_smoothness_weight=gradient_smoothness_weight,
         propagator=propagator,
+        rf_response=rf_response,
+        gradient_response=gradient_response,
     )
 
     initial_score, _initial_grad = value_and_grad_fn(x0)

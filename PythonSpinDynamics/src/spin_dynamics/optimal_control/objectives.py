@@ -22,6 +22,7 @@ from typing import Literal
 import numpy as np
 
 from spin_dynamics.optimal_control._jax_propagation import JAX_AVAILABLE
+from spin_dynamics.optimal_control.control_response import build_control_delivery
 
 if JAX_AVAILABLE:
     import jax
@@ -154,6 +155,8 @@ def make_grape_objective(
     phase_smoothness_weight: float = 0.0,
     gradient_smoothness_weight: float = 0.0,
     propagator: Literal["eigh", "expm"] = "eigh",
+    rf_response=None,
+    gradient_response=None,
 ) -> Callable[[np.ndarray], tuple[float, np.ndarray]]:
     """Build a ``value_and_grad`` callable for a GRAPE fidelity objective.
 
@@ -188,6 +191,18 @@ def make_grape_objective(
     Control-vector layout: ``concat([amplitude?, phase, gradient?])`` (each
     block ``n_segments``); the amplitude block is present only when
     ``optimize_amplitude``, the gradient block only when ``optimize_gradient``.
+
+    **Hardware response (probe / gradient driver).** ``rf_response`` (an
+    :class:`optimal_control.control_response.EnvelopeResponse`, e.g. a tuned or
+    matched probe) and ``gradient_response`` (a
+    :class:`~optimal_control.control_response.GradientDriverResponse`) insert an
+    LTI actuator between the *commanded* control and the Hamiltonian: the command
+    is upsampled by the response's ``oversample`` factor, filtered (RF: FFT
+    multiply on the complex envelope; gradient: causal state-space cascade), and
+    a ring-down/eddy tail is appended so its rotation of the spins is scored. Box
+    constraints stay on the command, so the optimizer pre-emphasizes only up to
+    real hardware limits. Both are optional and default to the ideal (unfiltered)
+    behaviour bit-for-bit. Filters require a uniform (scalar) ``dt``.
     """
 
     _require_jax()
@@ -242,11 +257,25 @@ def make_grape_objective(
             jnp.asarray(fixed_gradient, dtype=jnp.float64), (n_segments,)
         )
 
+    if gradient_response is not None and not gradient_active:
+        raise ValueError(
+            "gradient_response requires an active gradient channel "
+            "(pass gradient_operator_batch)"
+        )
+
     h_drift = jnp.asarray(model.h_drift, dtype=jnp.complex128)
     h_x = jnp.asarray(model.h_x, dtype=jnp.complex128)
     h_y = jnp.asarray(model.h_y, dtype=jnp.complex128)
-    dt_j = jnp.asarray(dt, dtype=jnp.float64)
     target_j = jnp.asarray(target, dtype=jnp.complex128)
+
+    # Hardware-response actuator layer (probe / gradient driver). When active,
+    # controls are upsampled, filtered and tail-extended onto a fine grid before
+    # propagation; the propagators are agnostic to segment count, so only the
+    # per-segment arrays and dt fed to them change. The transform is shared with
+    # the PGSE objective via control_response.build_control_delivery.
+    _deliver, _n_fine, _dt_fine = build_control_delivery(
+        n_segments, dt, rf_response=rf_response, gradient_response=gradient_response
+    )
 
     batch = None
     if hamiltonian_batch is not None:
@@ -345,11 +374,12 @@ def make_grape_objective(
         )
 
         def score(x):
-            amplitude, phase, gradient = _split(x)
+            amplitude_c, phase_c, gradient_c = _split(x)
+            amplitude, phase, gradient, dt_eff = _deliver(amplitude_c, phase_c, gradient_c)
             if gradient_active:
                 psi_finals = propagate_batched_grad(
                     drift_batch, h_x, h_y, hgrad_batch,
-                    amplitude, phase, gradient, dt_j, psi0_batch,
+                    amplitude, phase, gradient, dt_eff, psi0_batch,
                 )
                 fids = jax.vmap(state_transfer_fidelity, in_axes=(0, target_in_axis))(
                     psi_finals, target_j
@@ -358,7 +388,7 @@ def make_grape_objective(
             elif controls_active:
                 psi_finals = propagate_batched_controls(
                     controls_drift_batch, hx_batch, hy_batch,
-                    amplitude, phase, dt_j, psi0_batch, method=propagator,
+                    amplitude, phase, dt_eff, psi0_batch, method=propagator,
                 )
                 fids = jax.vmap(state_transfer_fidelity, in_axes=(0, target_in_axis))(
                     psi_finals, target_j
@@ -366,7 +396,7 @@ def make_grape_objective(
                 fidelity = robust_ensemble_fidelity(fids, reduction=ensemble_reduction)
             elif batch is not None:
                 psi_finals = propagate_batched(
-                    batch, h_x, h_y, amplitude, phase, dt_j, psi0_batch, method=propagator
+                    batch, h_x, h_y, amplitude, phase, dt_eff, psi0_batch, method=propagator
                 )
                 fids = jax.vmap(state_transfer_fidelity, in_axes=(0, target_in_axis))(
                     psi_finals, target_j
@@ -374,33 +404,34 @@ def make_grape_objective(
                 fidelity = robust_ensemble_fidelity(fids, reduction=ensemble_reduction)
             else:
                 psi_final = propagate_state_scan(
-                    h_drift, h_x, h_y, amplitude, phase, dt_j, psi0_j, method=propagator
+                    h_drift, h_x, h_y, amplitude, phase, dt_eff, psi0_j, method=propagator
                 )
                 fidelity = state_transfer_fidelity(psi_final, target_j)
-            return fidelity - _regularization(phase, gradient)
+            return fidelity - _regularization(phase_c, gradient_c)
 
     else:  # mode == "gate"
 
         def score(x):
-            amplitude, phase, gradient = _split(x)
+            amplitude_c, phase_c, gradient_c = _split(x)
+            amplitude, phase, gradient, dt_eff = _deliver(amplitude_c, phase_c, gradient_c)
             if gradient_active:
                 u_finals = propagate_unitary_batched_grad(
-                    drift_batch, h_x, h_y, hgrad_batch, amplitude, phase, gradient, dt_j
+                    drift_batch, h_x, h_y, hgrad_batch, amplitude, phase, gradient, dt_eff
                 )
                 fids = jax.vmap(average_gate_fidelity, in_axes=(0, target_in_axis))(
                     u_finals, target_j
                 )
                 fidelity = robust_ensemble_fidelity(fids, reduction=ensemble_reduction)
             elif batch is not None:
-                u_finals = propagate_unitary_batched(batch, h_x, h_y, amplitude, phase, dt_j)
+                u_finals = propagate_unitary_batched(batch, h_x, h_y, amplitude, phase, dt_eff)
                 fids = jax.vmap(average_gate_fidelity, in_axes=(0, target_in_axis))(
                     u_finals, target_j
                 )
                 fidelity = robust_ensemble_fidelity(fids, reduction=ensemble_reduction)
             else:
-                u_final = propagate_unitary_scan(h_drift, h_x, h_y, amplitude, phase, dt_j)
+                u_final = propagate_unitary_scan(h_drift, h_x, h_y, amplitude, phase, dt_eff)
                 fidelity = average_gate_fidelity(u_final, target_j)
-            return fidelity - _regularization(phase, gradient)
+            return fidelity - _regularization(phase_c, gradient_c)
 
     _vg = jax.jit(jax.value_and_grad(score))
 

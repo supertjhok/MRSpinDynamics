@@ -139,7 +139,7 @@ if JAX_AVAILABLE:
 
         return jax.vmap(one)(h_drift_batch)
 
-    def _segment_propagator_grad(h_drift, h_x, h_y, h_grad, amplitude, phase, grad, dt):
+    def _segment_propagator_grad(h_drift, h_x, h_y, h_grad, amplitude, phase, grad, dt, method="eigh"):
         """``expm(-i H_seg dt)`` for a segment with an added gradient-control term.
 
         Extends :func:`_segment_propagator` with a gradient channel:
@@ -148,34 +148,40 @@ if JAX_AVAILABLE:
         the shared per-segment gradient amplitude (hertz per unit position), so
         ``grad * h_grad`` is the local off-resonance ``grad * position`` in the
         same rad/s units the drift uses -- the exact ``positions @ gradient``
-        coupling the motion/imaging engine applies.
-        """
+        coupling the motion/imaging engine applies. ``method="expm"`` uses the
+        degeneracy-safe matrix exponential (needed when a segment's ``H_seg`` is
+        degenerate -- e.g. an on-resonance spin during an RF/gradient gap has
+        ``H_seg == 0``, whose ``eigh`` gradient is NaN)."""
 
         h_seg = (
             h_drift
             + amplitude * (jnp.cos(phase) * h_x + jnp.sin(phase) * h_y)
             + grad * h_grad
         )
+        if method == "expm":
+            return _jax_expm(-1j * h_seg * dt)
         values, vectors = jnp.linalg.eigh(h_seg)
         seg_phases = jnp.exp(-1j * values * dt)
         return (vectors * seg_phases[jnp.newaxis, :]) @ vectors.conj().T
 
-    @jax.jit
+    @partial(jax.jit, static_argnames=("method",))
     def propagate_state_scan_grad(
-        h_drift, h_x, h_y, h_grad, amplitude, phase, gradient, dt, psi0
+        h_drift, h_x, h_y, h_grad, amplitude, phase, gradient, dt, psi0, *, method="eigh"
     ):
         """Propagate a state through an RF+gradient control sequence.
 
         Like :func:`propagate_state_scan` with an extra ``gradient`` control
         channel, shape ``(n_segments,)``, coupling through the (already
-        position-scaled) ``h_grad`` operator. Returns the final state."""
+        position-scaled) ``h_grad`` operator. Returns the final state.
+        ``method="expm"`` selects the degeneracy-safe segment propagator (see
+        :func:`_segment_propagator_grad`)."""
 
         dt_arr = _broadcast_dt(dt, amplitude.shape[0])
 
         def body(psi, xs):
             amp_j, phase_j, grad_j, dt_j = xs
             u_seg = _segment_propagator_grad(
-                h_drift, h_x, h_y, h_grad, amp_j, phase_j, grad_j, dt_j
+                h_drift, h_x, h_y, h_grad, amp_j, phase_j, grad_j, dt_j, method
             )
             return u_seg @ psi, None
 
@@ -231,6 +237,32 @@ if JAX_AVAILABLE:
             )
 
         return jax.vmap(one)(h_drift_batch, h_grad_batch)
+
+    @partial(jax.jit, static_argnames=("method",))
+    def propagate_batched_grad_controls(
+        h_drift_batch, h_x_batch, h_y_batch, h_grad_batch,
+        amplitude, phase, gradient, dt, psi0_batch, *, method="eigh",
+    ):
+        """vmap ``propagate_state_scan_grad`` over per-case drift, drive AND gradient operators.
+
+        The combined-ensemble primitive for PGSE-style optimal control over an
+        inhomogeneous ``(B0, B1, position)`` grid: unlike
+        :func:`propagate_batched_grad` (shared ``h_x``/``h_y``), every operator
+        carries the batch axis -- ``h_drift_batch`` (B0 offset), ``h_x_batch``/
+        ``h_y_batch`` (per-case RF drive, e.g. a B1 scale ``beta_k*(h_x,h_y)``)
+        and ``h_grad_batch`` (position-scaled gradient operator ``r_k*h_grad``).
+        The RF ``amplitude``/``phase`` and the ``gradient`` waveform are the
+        shared controls. Returns the per-case final states, ``(batch, dim)``."""
+
+        def one(h_drift_b, h_x_b, h_y_b, h_grad_b, psi0_b):
+            return propagate_state_scan_grad(
+                h_drift_b, h_x_b, h_y_b, h_grad_b,
+                amplitude, phase, gradient, dt, psi0_b, method=method,
+            )
+
+        return jax.vmap(one)(
+            h_drift_batch, h_x_batch, h_y_batch, h_grad_batch, psi0_batch
+        )
 
     @partial(jax.jit, static_argnames=("method",))
     def propagate_batched_controls(
@@ -314,3 +346,23 @@ def propagate_state_numpy_grad(
         u_seg = (vectors * seg_phases[np.newaxis, :]) @ vectors.conj().T
         psi = u_seg @ psi
     return psi
+
+
+def propagate_batched_grad_controls_numpy(
+    h_drift_batch, h_x_batch, h_y_batch, h_grad_batch,
+    amplitude, phase, gradient, dt, psi0_batch,
+):
+    """Plain-NumPy reference for :func:`propagate_batched_grad_controls`.
+
+    Loops the single-case NumPy gradient propagator over the batch axis; the
+    ground truth for the combined (B0 x B1 x position) parity tests and usable
+    without the ``jax`` extra.
+    """
+
+    return np.stack([
+        propagate_state_numpy_grad(
+            h_drift_batch[k], h_x_batch[k], h_y_batch[k], h_grad_batch[k],
+            amplitude, phase, gradient, dt, psi0_batch[k],
+        )
+        for k in range(len(psi0_batch))
+    ])

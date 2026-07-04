@@ -178,6 +178,17 @@ class ExampleSmokeTests(unittest.TestCase):
                 "2",
             ),
             (
+                "examples/grape_probe_response_pulse.py",
+                "--segments",
+                "8",
+                "--starts",
+                "2",
+                "--maxiter",
+                "40",
+                "--oversample",
+                "2",
+            ),
+            (
                 "examples/nqr_slse_powder_gradient.py",
                 "--n-theta",
                 "3",
@@ -350,6 +361,7 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_grape_cpmg_snr_per_time.py",
             "examples/plot_grape_nqr_broadband_spectrum.py",
             "examples/plot_grape_nqr_slse_excitation.py",
+            "examples/plot_grape_pgse_diffusion.py",
         ]
         for script in scripts:
             with self.subTest(script=script):

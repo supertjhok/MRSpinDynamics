@@ -76,6 +76,8 @@ MODULES = [
     "nqr.workflows",
     "parameters.constructors",
     "phase_cycling",
+    "optimal_control.control_response",
+    "optimal_control.diffusion",
     "optimal_control.drivers",
     "optimal_control.hamiltonians",
     "optimal_control.objectives",
