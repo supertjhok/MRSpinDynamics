@@ -13,8 +13,14 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from spin_dynamics.coupling.systems import coupled_spin_system  # noqa: E402
 from spin_dynamics.optimal_control._jax_propagation import JAX_AVAILABLE  # noqa: E402
-from spin_dynamics.optimal_control.hamiltonians import coupled_spin_control_model  # noqa: E402
-from spin_dynamics.optimal_control.parameterization import rectangular_seed_phase  # noqa: E402
+from spin_dynamics.optimal_control.hamiltonians import (  # noqa: E402
+    coupled_spin_control_model,
+    position_gradient_batch,
+)
+from spin_dynamics.optimal_control.parameterization import (  # noqa: E402
+    constant_gradient_seed,
+    rectangular_seed_phase,
+)
 
 if JAX_AVAILABLE:
     from spin_dynamics.optimal_control.drivers import run_grape_multistart  # noqa: E402
@@ -170,6 +176,82 @@ class GrapeOptimizeTests(unittest.TestCase):
         )
         self.assertGreater(result.best_fidelity, float(baseline_mean_fidelity))
         self.assertGreater(result.best_fidelity, 0.9)
+
+
+@unittest.skipUnless(JAX_AVAILABLE, "jax not installed")
+class GradientChannelSolverTests(unittest.TestCase):
+    def _slice_setup(self, n_seg=8, npos=9):
+        system = coupled_spin_system([0.0], [[0.0]])
+        model = coupled_spin_control_model(system, include_gradient=True)
+        positions = np.linspace(-2.0, 2.0, npos)
+        hgb = position_gradient_batch(model.h_grad, positions)
+        dt = np.full(n_seg, 1.2e-5)
+        # excite (invert) inside the slice, leave alone outside.
+        targets = np.stack([_PSI_DOWN if abs(p) < 0.6 else _PSI_UP for p in positions])
+        return model, positions, hgb, dt, targets
+
+    def test_joint_rf_gradient_improves_selectivity(self) -> None:
+        n_seg = 8
+        model, _pos, hgb, dt, targets = self._slice_setup(n_seg=n_seg)
+        rng = np.random.default_rng(21)
+        result = grape_optimize(
+            model, rng.uniform(-np.pi, np.pi, size=n_seg),
+            dt=dt, target=targets, psi0=_PSI_UP,
+            optimize_amplitude=True,
+            initial_amplitude=np.full(n_seg, 2000.0),
+            amplitude_max_hz=8000.0,
+            optimize_gradient=True,
+            initial_gradient=constant_gradient_seed(n_seg, gradient=1000.0),
+            gradient_max=6000.0,
+            gradient_operator_batch=hgb,
+        )
+        self.assertTrue(result.improved)
+        self.assertGreater(result.best_fidelity, result.initial_fidelity)
+        self.assertTrue(result.optimize_gradient)
+
+    def test_control_vector_layout_accessors(self) -> None:
+        n_seg = 6
+        model, _pos, hgb, dt, targets = self._slice_setup(n_seg=n_seg, npos=5)
+        result = grape_optimize(
+            model, np.zeros(n_seg),
+            dt=dt, target=targets, psi0=_PSI_UP,
+            optimize_amplitude=True,
+            initial_amplitude=np.full(n_seg, 2000.0),
+            amplitude_max_hz=8000.0,
+            optimize_gradient=True,
+            initial_gradient=constant_gradient_seed(n_seg, gradient=1000.0),
+            gradient_max=6000.0,
+            gradient_operator_batch=hgb,
+            scipy_options={"maxiter": 3},
+        )
+        # Layout is concat([amplitude, phase, gradient]).
+        self.assertEqual(result.best_controls.size, 3 * n_seg)
+        np.testing.assert_allclose(result.best_amplitude, result.best_controls[:n_seg])
+        np.testing.assert_allclose(result.best_phase, result.best_controls[n_seg : 2 * n_seg])
+        np.testing.assert_allclose(result.best_gradient, result.best_controls[2 * n_seg :])
+        # Gradient stays inside its bipolar box.
+        self.assertTrue(np.all(np.abs(result.best_gradient) <= 6000.0 + 1e-6))
+
+    def test_best_gradient_is_none_without_gradient_channel(self) -> None:
+        model = _inversion_model()
+        n_seg = 6
+        result = grape_optimize_phase_only(
+            model, rectangular_seed_phase(n_seg), fixed_amplitude=3000.0,
+            dt=np.full(n_seg, 2e-5), target=_PSI_DOWN, psi0=_PSI_UP,
+        )
+        self.assertIsNone(result.best_gradient)
+        self.assertFalse(result.optimize_gradient)
+
+    def test_optimize_gradient_requires_operator_batch(self) -> None:
+        model = _inversion_model()
+        n_seg = 4
+        with self.assertRaises(ValueError):
+            grape_optimize(
+                model, np.zeros(n_seg), dt=np.full(n_seg, 1e-5),
+                target=_PSI_DOWN, psi0=_PSI_UP, fixed_amplitude=3000.0,
+                optimize_gradient=True,
+                initial_gradient=np.zeros(n_seg), gradient_max=5000.0,
+            )
 
 
 @unittest.skipUnless(JAX_AVAILABLE, "jax not installed")

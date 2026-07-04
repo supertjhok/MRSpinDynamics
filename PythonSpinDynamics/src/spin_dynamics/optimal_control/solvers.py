@@ -17,7 +17,7 @@ from spin_dynamics.optimal_control.hamiltonians import ControlHamiltonianModel
 from spin_dynamics.optimal_control.objectives import make_grape_objective
 from spin_dynamics.optimal_control.parameterization import (
     ControlBounds,
-    amplitude_phase_bounds,
+    assemble_control_bounds,
     phase_only_bounds,
 )
 from spin_dynamics.optimization._bounded import scipy_maximize_with_grad
@@ -43,12 +43,7 @@ class GrapeOptimizationResult:
     optimizer_method: str
     optimizer_success: bool
     optimizer_message: str
-
-    @property
-    def best_phase(self) -> np.ndarray:
-        """The phase channel of ``best_controls`` (its last ``n_segments`` entries)."""
-
-        return self.best_controls[-self.n_segments :]
+    optimize_gradient: bool = False
 
     @property
     def best_amplitude(self) -> np.ndarray | None:
@@ -57,6 +52,28 @@ class GrapeOptimizationResult:
         if not self.optimize_amplitude:
             return None
         return self.best_controls[: self.n_segments]
+
+    @property
+    def best_phase(self) -> np.ndarray:
+        """The phase channel of ``best_controls``.
+
+        Layout is ``concat([amplitude?, phase, gradient?])``, so the phase block
+        starts after the amplitude block (present only when
+        ``optimize_amplitude``) -- not simply the tail, which would be the
+        gradient block when one is optimized.
+        """
+
+        offset = self.n_segments if self.optimize_amplitude else 0
+        return self.best_controls[offset : offset + self.n_segments]
+
+    @property
+    def best_gradient(self) -> np.ndarray | None:
+        """The gradient channel of ``best_controls``, or ``None`` if it was fixed."""
+
+        if not self.optimize_gradient:
+            return None
+        offset = (self.n_segments if self.optimize_amplitude else 0) + self.n_segments
+        return self.best_controls[offset : offset + self.n_segments]
 
 
 def grape_optimize(
@@ -71,14 +88,20 @@ def grape_optimize(
     fixed_amplitude: float | np.ndarray | None = None,
     initial_amplitude: np.ndarray | None = None,
     amplitude_max_hz: float | None = None,
+    optimize_gradient: bool = False,
+    fixed_gradient: float | np.ndarray | None = None,
+    initial_gradient: np.ndarray | None = None,
+    gradient_max: float | None = None,
+    gradient_operator_batch: Sequence[np.ndarray] | None = None,
     phase_bound_rad: float = 4 * np.pi,
     hamiltonian_batch: Sequence[np.ndarray] | None = None,
     ensemble_reduction: Literal["mean", "worst_case"] = "mean",
     phase_smoothness_weight: float = 0.0,
+    gradient_smoothness_weight: float = 0.0,
     scipy_method: str = "L-BFGS-B",
     scipy_options: dict[str, object] | None = None,
 ) -> GrapeOptimizationResult:
-    """Optimize a piecewise-constant RF control waveform against a fidelity target.
+    """Optimize a piecewise-constant RF (and optionally gradient) waveform.
 
     Phase-only by default (``fixed_amplitude`` required: a hertz nutation rate
     held constant -- the primary mode for switching-power-amplifier hardware
@@ -88,6 +111,16 @@ def grape_optimize(
     ``hamiltonian_batch`` turns this into a robust/ensemble optimization (e.g.
     a B0-offset and B1-scale-factor grid of ``H_drift`` variants sharing the
     same controls), reduced via ``ensemble_reduction``.
+
+    **Gradient control channel.** Pass ``gradient_operator_batch`` (per-case,
+    position-scaled gradient operators, e.g. from
+    ``hamiltonians.position_gradient_batch``) to activate the gradient channel.
+    ``optimize_gradient=True`` optimizes the shared gradient waveform ``g(t)``
+    (needs ``initial_gradient`` and ``gradient_max``); otherwise it is held at
+    ``fixed_gradient``. With a gradient channel, ``target`` may be per-case
+    (shape ``(batch, dim)``), e.g. inverted in-slice and untouched out-of-slice
+    for a slice-selective pulse. The control vector is
+    ``concat([amplitude?, phase, gradient?])``.
     """
 
     initial_phase = np.asarray(initial_phase, dtype=np.float64).reshape(-1)
@@ -95,6 +128,13 @@ def grape_optimize(
     if n_segments == 0:
         raise ValueError("initial_phase must not be empty")
 
+    if optimize_gradient and gradient_operator_batch is None:
+        raise ValueError(
+            "optimize_gradient=True requires gradient_operator_batch "
+            "(the per-case gradient operators to drive)"
+        )
+
+    blocks: list[np.ndarray] = []
     if optimize_amplitude:
         if amplitude_max_hz is None:
             raise ValueError(
@@ -106,18 +146,35 @@ def grape_optimize(
         initial_amplitude = np.asarray(initial_amplitude, dtype=np.float64).reshape(-1)
         if initial_amplitude.size != n_segments:
             raise ValueError("initial_amplitude must match initial_phase in length")
-        bounds = amplitude_phase_bounds(
-            n_segments, amplitude_max_hz=amplitude_max_hz, phase_bound_rad=phase_bound_rad
+        blocks.append(initial_amplitude)
+    elif fixed_amplitude is None:
+        raise ValueError(
+            "fixed_amplitude is required when optimize_amplitude=False "
+            "(phase-only control needs a fixed nutation rate)"
         )
-        x0 = np.concatenate([initial_amplitude, initial_phase])
+    blocks.append(initial_phase)
+    if optimize_gradient:
+        if gradient_max is None:
+            raise ValueError("gradient_max is required when optimize_gradient=True")
+        if initial_gradient is None:
+            raise ValueError("initial_gradient is required when optimize_gradient=True")
+        initial_gradient = np.asarray(initial_gradient, dtype=np.float64).reshape(-1)
+        if initial_gradient.size != n_segments:
+            raise ValueError("initial_gradient must match initial_phase in length")
+        blocks.append(initial_gradient)
+
+    if optimize_gradient or optimize_amplitude:
+        bounds = assemble_control_bounds(
+            n_segments,
+            optimize_amplitude=optimize_amplitude,
+            amplitude_max_hz=amplitude_max_hz,
+            optimize_gradient=optimize_gradient,
+            gradient_max=gradient_max,
+            phase_bound_rad=phase_bound_rad,
+        )
     else:
-        if fixed_amplitude is None:
-            raise ValueError(
-                "fixed_amplitude is required when optimize_amplitude=False "
-                "(phase-only control needs a fixed nutation rate)"
-            )
         bounds = phase_only_bounds(n_segments, phase_bound_rad=phase_bound_rad)
-        x0 = initial_phase
+    x0 = blocks[0] if len(blocks) == 1 else np.concatenate(blocks)
 
     value_and_grad_fn = make_grape_objective(
         model,
@@ -128,9 +185,13 @@ def grape_optimize(
         mode=mode,
         optimize_amplitude=optimize_amplitude,
         fixed_amplitude=fixed_amplitude,
+        optimize_gradient=optimize_gradient,
+        fixed_gradient=fixed_gradient,
+        gradient_operator_batch=gradient_operator_batch,
         hamiltonian_batch=hamiltonian_batch,
         ensemble_reduction=ensemble_reduction,
         phase_smoothness_weight=phase_smoothness_weight,
+        gradient_smoothness_weight=gradient_smoothness_weight,
     )
 
     initial_score, _initial_grad = value_and_grad_fn(x0)
@@ -151,6 +212,7 @@ def grape_optimize(
         n_segments=n_segments,
         dt=dt_arr,
         optimize_amplitude=optimize_amplitude,
+        optimize_gradient=optimize_gradient,
         bounds=bounds,
         initial_controls=x0.copy(),
         best_controls=run.best_x,

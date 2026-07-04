@@ -141,6 +141,17 @@ class ExampleSmokeTests(unittest.TestCase):
                 "5",
             ),
             (
+                "examples/grape_slice_selective_pulse.py",
+                "--segments",
+                "8",
+                "--train-positions",
+                "7",
+                "--eval-points",
+                "15",
+                "--starts",
+                "2",
+            ),
+            (
                 "examples/nqr_slse_powder_gradient.py",
                 "--n-theta",
                 "3",

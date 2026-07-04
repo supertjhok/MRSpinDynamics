@@ -29,8 +29,10 @@ if JAX_AVAILABLE:
 
     from spin_dynamics.optimal_control._jax_propagation import (
         propagate_batched,
+        propagate_batched_grad,
         propagate_state_scan,
         propagate_unitary_batched,
+        propagate_unitary_batched_grad,
         propagate_unitary_scan,
     )
 
@@ -142,21 +144,39 @@ def make_grape_objective(
     mode: Literal["state_transfer", "gate"] = "state_transfer",
     optimize_amplitude: bool = False,
     fixed_amplitude: float | np.ndarray | None = None,
+    optimize_gradient: bool = False,
+    fixed_gradient: float | np.ndarray | None = None,
+    gradient_operator_batch: Sequence[np.ndarray] | None = None,
     hamiltonian_batch: Sequence[np.ndarray] | None = None,
     ensemble_reduction: Literal["mean", "worst_case"] = "mean",
     phase_smoothness_weight: float = 0.0,
+    gradient_smoothness_weight: float = 0.0,
 ) -> Callable[[np.ndarray], tuple[float, np.ndarray]]:
     """Build a ``value_and_grad`` callable for a GRAPE fidelity objective.
 
     Returns ``vg(x: np.ndarray) -> (fidelity, grad)`` using reverse-mode
     autodiff through :mod:`optimal_control._jax_propagation`. Phase-only by
     default (``x`` is the phase vector, amplitude fixed at ``fixed_amplitude``);
-    pass ``optimize_amplitude=True`` for joint amplitude+phase control (``x``
-    is then ``concat([amplitude, phase])``). ``hamiltonian_batch``, when
-    given, turns this into a robust/ensemble objective: each entry is an
-    ``H_drift`` variant (e.g. a different B0 offset or B1-scaled ``h_x``/
-    ``h_y`` pairing folded into a per-case drift), propagated with the SAME
-    shared controls, then reduced via ``ensemble_reduction``.
+    pass ``optimize_amplitude=True`` for joint amplitude+phase control.
+    ``hamiltonian_batch``, when given, turns this into a robust/ensemble
+    objective: each entry is an ``H_drift`` variant (e.g. a different B0 offset
+    or B1-scaled ``h_x``/``h_y`` pairing folded into a per-case drift),
+    propagated with the SAME shared controls, then reduced via
+    ``ensemble_reduction``.
+
+    **Gradient control channel.** Passing ``gradient_operator_batch`` (a
+    sequence of per-case, already position-scaled ``h_grad`` operators, e.g.
+    from ``hamiltonians.position_gradient_batch``) activates a gradient control
+    channel: every case is driven by ONE shared gradient waveform ``g(t)``
+    whose position-dependent effect distinguishes the cases. Set
+    ``optimize_gradient=True`` to optimize ``g(t)`` (appended to the control
+    vector) or pass ``fixed_gradient`` to hold it constant. ``target`` may then
+    be per-case, shape ``(batch, dim)`` for state transfer (e.g. inverted
+    in-slice, untouched out-of-slice) as well as the shared ``(dim,)`` form.
+
+    Control-vector layout: ``concat([amplitude?, phase, gradient?])`` (each
+    block ``n_segments``); the amplitude block is present only when
+    ``optimize_amplitude``, the gradient block only when ``optimize_gradient``.
     """
 
     _require_jax()
@@ -168,12 +188,30 @@ def make_grape_objective(
     if n_segments <= 0:
         raise ValueError("n_segments must be positive")
 
+    gradient_active = gradient_operator_batch is not None
+    if optimize_gradient and not gradient_active:
+        raise ValueError(
+            "optimize_gradient=True requires gradient_operator_batch "
+            "(the per-case gradient operators to drive)"
+        )
+
     amp_fixed = None
     if not optimize_amplitude:
         if fixed_amplitude is None:
             raise ValueError("fixed_amplitude is required when optimize_amplitude=False")
         amp_fixed = jnp.broadcast_to(
             jnp.asarray(fixed_amplitude, dtype=jnp.float64), (n_segments,)
+        )
+
+    grad_fixed = None
+    if gradient_active and not optimize_gradient:
+        if fixed_gradient is None:
+            raise ValueError(
+                "fixed_gradient is required when a gradient channel is active "
+                "but optimize_gradient=False"
+            )
+        grad_fixed = jnp.broadcast_to(
+            jnp.asarray(fixed_gradient, dtype=jnp.float64), (n_segments,)
         )
 
     h_drift = jnp.asarray(model.h_drift, dtype=jnp.complex128)
@@ -186,27 +224,83 @@ def make_grape_objective(
     if hamiltonian_batch is not None:
         batch = jnp.stack([jnp.asarray(h, dtype=jnp.complex128) for h in hamiltonian_batch])
 
+    hgrad_batch = None
+    if gradient_active:
+        hgrad_batch = jnp.stack(
+            [jnp.asarray(h, dtype=jnp.complex128) for h in gradient_operator_batch]
+        )
+        grad_batch_size = hgrad_batch.shape[0]
+        if batch is None:
+            # No per-case drift supplied: every position shares the model drift.
+            drift_batch = jnp.broadcast_to(
+                h_drift, (grad_batch_size,) + h_drift.shape
+            )
+        else:
+            if batch.shape[0] != grad_batch_size:
+                raise ValueError(
+                    "hamiltonian_batch and gradient_operator_batch must have "
+                    "the same length"
+                )
+            drift_batch = batch
+    else:
+        drift_batch = None
+        grad_batch_size = None
+
+    # Per-case (vs shared) target: an extra leading batch axis beyond the
+    # base operand rank (1 for a state ket, 2 for a gate unitary).
+    base_target_rank = 1 if mode == "state_transfer" else 2
+    per_case_target = target_j.ndim > base_target_rank
+    target_in_axis = 0 if per_case_target else None
+
     def _split(x):
         x = jnp.asarray(x, dtype=jnp.float64)
+        offset = 0
         if optimize_amplitude:
-            return x[:n_segments], x[n_segments:]
-        return amp_fixed, x
+            amplitude = x[offset : offset + n_segments]
+            offset += n_segments
+        else:
+            amplitude = amp_fixed
+        phase = x[offset : offset + n_segments]
+        offset += n_segments
+        if optimize_gradient:
+            gradient = x[offset : offset + n_segments]
+        else:
+            gradient = grad_fixed
+        return amplitude, phase, gradient
+
+    def _regularization(phase, gradient):
+        penalty = phase_smoothness_weight * jnp.sum(jnp.diff(phase) ** 2)
+        if gradient_active and gradient_smoothness_weight != 0.0:
+            penalty = penalty + gradient_smoothness_weight * jnp.sum(jnp.diff(gradient) ** 2)
+        return penalty
 
     if mode == "state_transfer":
         psi0_j = jnp.asarray(psi0, dtype=jnp.complex128)
+        ensemble_size = grad_batch_size if gradient_active else (
+            batch.shape[0] if batch is not None else None
+        )
         psi0_batch = (
-            jnp.broadcast_to(psi0_j, (batch.shape[0],) + psi0_j.shape)
-            if batch is not None
+            jnp.broadcast_to(psi0_j, (ensemble_size,) + psi0_j.shape)
+            if ensemble_size is not None
             else None
         )
 
         def score(x):
-            amplitude, phase = _split(x)
-            if batch is not None:
+            amplitude, phase, gradient = _split(x)
+            if gradient_active:
+                psi_finals = propagate_batched_grad(
+                    drift_batch, h_x, h_y, hgrad_batch,
+                    amplitude, phase, gradient, dt_j, psi0_batch,
+                )
+                fids = jax.vmap(state_transfer_fidelity, in_axes=(0, target_in_axis))(
+                    psi_finals, target_j
+                )
+                fidelity = robust_ensemble_fidelity(fids, reduction=ensemble_reduction)
+            elif batch is not None:
                 psi_finals = propagate_batched(
                     batch, h_x, h_y, amplitude, phase, dt_j, psi0_batch
                 )
-                fids = jax.vmap(state_transfer_fidelity, in_axes=(0, None))(
+                fids = jax.vmap(state_transfer_fidelity, in_axes=(0, target_in_axis))(
                     psi_finals, target_j
                 )
                 fidelity = robust_ensemble_fidelity(fids, reduction=ensemble_reduction)
@@ -215,22 +309,30 @@ def make_grape_objective(
                     h_drift, h_x, h_y, amplitude, phase, dt_j, psi0_j
                 )
                 fidelity = state_transfer_fidelity(psi_final, target_j)
-            penalty = phase_smoothness_weight * jnp.sum(jnp.diff(phase) ** 2)
-            return fidelity - penalty
+            return fidelity - _regularization(phase, gradient)
 
     else:  # mode == "gate"
 
         def score(x):
-            amplitude, phase = _split(x)
-            if batch is not None:
+            amplitude, phase, gradient = _split(x)
+            if gradient_active:
+                u_finals = propagate_unitary_batched_grad(
+                    drift_batch, h_x, h_y, hgrad_batch, amplitude, phase, gradient, dt_j
+                )
+                fids = jax.vmap(average_gate_fidelity, in_axes=(0, target_in_axis))(
+                    u_finals, target_j
+                )
+                fidelity = robust_ensemble_fidelity(fids, reduction=ensemble_reduction)
+            elif batch is not None:
                 u_finals = propagate_unitary_batched(batch, h_x, h_y, amplitude, phase, dt_j)
-                fids = jax.vmap(average_gate_fidelity, in_axes=(0, None))(u_finals, target_j)
+                fids = jax.vmap(average_gate_fidelity, in_axes=(0, target_in_axis))(
+                    u_finals, target_j
+                )
                 fidelity = robust_ensemble_fidelity(fids, reduction=ensemble_reduction)
             else:
                 u_final = propagate_unitary_scan(h_drift, h_x, h_y, amplitude, phase, dt_j)
                 fidelity = average_gate_fidelity(u_final, target_j)
-            penalty = phase_smoothness_weight * jnp.sum(jnp.diff(phase) ** 2)
-            return fidelity - penalty
+            return fidelity - _regularization(phase, gradient)
 
     _vg = jax.jit(jax.value_and_grad(score))
 

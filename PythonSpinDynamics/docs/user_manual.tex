@@ -4020,13 +4020,81 @@ local search reported 0.780 with zero gradient -- so every solver entry point
 seeds a rectangular baseline alongside genuinely random restarts rather than
 relying on the rectangular pulse alone.
 
-Scope note: this first increment targets a single (or J-coupled) spin-1/2
-system with unitary (relaxation-free) propagation. Gradient-waveform control
-(joint RF+gradient optimization for spatially selective pulses) and
-higher-spin quadrupolar targets are designed as straightforward extensions of
-the same engine -- an ensemble batch member with a position-dependent control
-operator, and the existing \code{nqr} Hamiltonian builders in place of
-\code{coupled\_spin\_control\_model} -- but are not implemented yet.
+Scope note: this engine targets a single (or J-coupled) spin-1/2 system with
+unitary (relaxation-free) propagation. Gradient-waveform control (joint
+RF+gradient optimization for spatially selective pulses) is now implemented and
+documented in the next subsection; higher-spin quadrupolar targets are designed
+as a straightforward extension -- the existing \code{nqr} Hamiltonian builders
+in place of \code{coupled\_spin\_control\_model}, same propagation chain -- but
+are not implemented yet.
+
+\subsection{Gradient control channel and slice-selective pulses}
+\label{sec:grape-gradient-channel}
+
+A magnetic-field gradient couples to a spin as a \emph{position-dependent}
+offset: the local off-resonance of a spin at position \(r\) is \(g(t)\,r\), an
+\(I_z\) term whose weight is the applied gradient times the position (the
+\code{positions @ gradient} rule the motion/imaging engine's
+\code{workflows.slice\_selective} uses). GRAPE promotes the gradient waveform \(g(t)\)
+to a genuine optimized control channel alongside RF amplitude and phase:
+\[
+  H(t) = H_\text{drift} + w_1(t)\big(\cos\phi(t)\,H_x + \sin\phi(t)\,H_y\big)
+         + g(t)\,H_\text{grad},
+\]
+where \(H_\text{grad}=2\pi I_z\) (\code{gradient\_control\_operator}). The
+defining feature that distinguishes the gradient from the RF channel is that a
+\emph{single} shared waveform \(g(t)\) acts through a \emph{position-scaled}
+operator per ensemble member: for a position ensemble
+\(\{r_k\}\), member \(k\) is driven by \(g(t)\,r_k\,H_\text{grad}\)
+(\code{position\_gradient\_batch} builds the \(r_k\,H_\text{grad}\) operators).
+This is a vmap-axis extension of the robust-ensemble primitive, not a new
+engine.
+
+Because different positions want different outcomes -- inverted inside a slice,
+untouched outside -- the objective accepts \emph{per-case} targets: pass
+\code{target} as a \((\text{batch},\text{dim})\) array (one target ket per
+ensemble member) instead of the shared \((\text{dim},)\) form. Activate the
+channel by passing \code{gradient\_operator\_batch}; set
+\code{optimize\_gradient=True} (with \code{initial\_gradient} and
+\code{gradient\_max}) to optimize \(g(t)\), or hold it at \code{fixed\_gradient}.
+The control vector is \code{concat([amplitude?, phase, gradient?])}.
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.optimal_control import (
+    coupled_spin_control_model, gradient_control_operator,
+    position_gradient_batch, constant_gradient_seed, grape_optimize,
+)
+
+system = coupled_spin_system([0.0], [[0.0]])
+model = coupled_spin_control_model(system, include_gradient=True)
+h_grad = gradient_control_operator(system)          # base 2*pi*Iz
+
+positions = np.linspace(-1.0, 1.0, 15)
+h_grad_batch = position_gradient_batch(h_grad, positions)  # r_k * h_grad
+targets = np.stack([[0.0, 1.0] if abs(p) <= 0.3         # invert in-slice
+                    else [1.0, 0.0] for p in positions]) # preserve out-slice
+
+result = grape_optimize(
+    model, initial_phase, dt=dt, target=targets, psi0=[1.0, 0.0],
+    fixed_amplitude=2000.0,                     # phase-only RF
+    optimize_gradient=True,
+    initial_gradient=constant_gradient_seed(len(dt), gradient=1.0),
+    gradient_max=5.0, gradient_operator_batch=h_grad_batch,
+)
+opt_gradient = result.best_gradient             # the optimized g(t)
+\end{lstlisting}
+
+\code{examples\textbackslash grape\_slice\_selective\_pulse.py} demonstrates
+this end to end: co-optimizing the RF phase and the gradient waveform for a
+slice-selective inversion, evaluated on a held-out position grid, sharpens the
+in-slice inversion from \(\sim 0.73\) to \(\sim 0.90\) over a fixed-gradient
+rectangular baseline while holding out-of-slice preservation at \(\sim 0.92\),
+lifting the mean per-position fidelity from \(0.62\) to \(0.92\). A conditioning
+note applies whenever RF and gradient channels are optimized jointly: a raw
+gradient in hertz-per-position is \(O(10^3)\) while phases are \(O(1)\), a scale
+mismatch that stalls L-BFGS-B. Folding a characteristic offset scale into the
+gradient operator (so the optimized \(g(t)\) is itself \(O(1)\)) restores a
+well-conditioned problem; the example does exactly this.
 
 \subsection{Axis-matched excitation (AMEX) and CPMG SNR per unit time}
 
@@ -5059,14 +5127,19 @@ from spin_dynamics.optimal_control import (
     GrapeMultiStartResult,
     GrapeOptimizationResult,
     amplitude_phase_bounds,
+    assemble_control_bounds,
     average_gate_fidelity,
     bloch_vector_to_ket,
+    constant_gradient_seed,
     coupled_spin_control_model,
     export_to_pulse_shape,
     grape_optimize,
     grape_optimize_phase_only,
+    gradient_bounds,
+    gradient_control_operator,
     make_grape_objective,
     phase_only_bounds,
+    position_gradient_batch,
     random_phase_starts,
     rectangular_seed_phase,
     robust_ensemble_fidelity,
@@ -5078,13 +5151,18 @@ from spin_dynamics.optimal_control import (
 
 \code{coupled\_spin\_control\_model} builds the fixed
 \code{ControlHamiltonianModel} (drift plus transverse RF-drive operators)
-from an existing \code{coupling.systems.CoupledSpinSystem}. Everything beyond
-Hamiltonian construction requires the optional \code{jax} extra -- reverse-mode
-autodiff is the entire point of GRAPE, so no finite-difference fallback is
-provided. \code{grape\_optimize\_phase\_only} is the primary entry point
-(fixed amplitude, phase-only control); \code{grape\_optimize} generalizes to
-joint amplitude+phase control given a peak-B1 bound
-(\code{amplitude\_max\_hz}). \code{run\_grape\_multistart} is not optional in
+from an existing \code{coupling.systems.CoupledSpinSystem}; pass
+\code{include\_gradient=True} to also populate the gradient control operator.
+Everything beyond Hamiltonian construction requires the optional \code{jax}
+extra -- reverse-mode autodiff is the entire point of GRAPE, so no
+finite-difference fallback is provided. \code{grape\_optimize\_phase\_only} is
+the primary entry point (fixed amplitude, phase-only control);
+\code{grape\_optimize} generalizes to joint amplitude+phase control given a
+peak-B1 bound (\code{amplitude\_max\_hz}) and, via
+\code{gradient\_operator\_batch}/\code{optimize\_gradient}, to the gradient
+control channel (\code{gradient\_control\_operator},
+\code{position\_gradient\_batch}, \code{constant\_gradient\_seed},
+\code{gradient\_bounds}). \code{run\_grape\_multistart} is not optional in
 practice: GRAPE landscapes are multimodal, so a single-start result is not a
 trustworthy optimum on its own.
 
