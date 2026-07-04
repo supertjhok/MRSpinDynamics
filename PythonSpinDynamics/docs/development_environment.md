@@ -48,6 +48,13 @@ source .venv-wsl/bin/activate
 python scripts/verify_dev_env.py --strict
 ```
 
+If the repository lives on a OneDrive-synced path (for example
+`C:\Users\<you>\OneDrive\...`), do not use the default `.venv-wsl` at the
+repository root: it is placed under OneDrive and will be synced, which is slow
+and can corrupt the environment. Use the `$HOME` virtual-environment layout in
+[Environment on the Linux filesystem](#environment-on-the-linux-filesystem)
+instead.
+
 For NVIDIA GPU acceleration through JAX, use the CUDA-enabled JAX wheels from
 inside WSL. CUDA 13 is the default recommendation for current NVIDIA drivers:
 
@@ -68,13 +75,23 @@ preallocation for smoke tests:
 XLA_PYTHON_CLIENT_PREALLOCATE=false python scripts/verify_dev_env.py --strict --require-jax-gpu
 ```
 
-For a faster Linux-filesystem environment, keep the source tree on `/mnt/c` but
-put the virtual environment under `$HOME`:
+### Environment on the Linux filesystem
+
+Keep the source tree on `/mnt/c` but put the virtual environment under `$HOME`,
+on the native Linux filesystem. This is the recommended WSL layout, and it is
+required when the repository is on a OneDrive-synced path:
 
 ```bash
 VENV="$HOME/.venvs/python-spin-dynamics" bash scripts/setup_dev_env_wsl.sh
 source "$HOME/.venvs/python-spin-dynamics/bin/activate"
 ```
+
+The `VENV` variable accepts any absolute path; the setup script uses it as-is
+and only falls back to `.venv-wsl` at the repository root when it is unset.
+Placing the environment under `$HOME` keeps it off the OneDrive tree, so it is
+never synced, and on `ext4` rather than `/mnt/c`, so installs and imports are
+much faster. The editable install still points back at the source under
+`/mnt/c`, so edits take effect immediately.
 
 ## Installed Extras
 
