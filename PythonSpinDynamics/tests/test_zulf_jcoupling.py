@@ -21,11 +21,15 @@ from spin_dynamics.coupling.mixed_operators import (
 )
 from spin_dynamics.coupling.multinuclear import (
     multinuclear_hamiltonian,
+    multinuclear_quadrupolar_rates,
     multinuclear_system,
     per_spin_relaxation_superoperator,
 )
 from spin_dynamics.coupling.zulf import simulate_zulf_fid, simulate_zulf_spectrum
-from spin_dynamics.relaxation import matrix_exponential
+from spin_dynamics.relaxation import (
+    matrix_exponential,
+    quadrupolar_relaxation_rates,
+)
 
 
 def _resolved_lines(frequencies, spectrum, lo, hi, rel_threshold=0.25):
@@ -158,6 +162,84 @@ class PerSpinRelaxationTests(unittest.TestCase):
     def test_rate_bound_is_enforced(self) -> None:
         with self.assertRaisesRegex(ValueError, "at least r1_per_second / 2"):
             per_spin_relaxation_superoperator([0.5], 10.0, 1.0)
+
+
+class QuadrupolarRateTests(unittest.TestCase):
+    def test_deuterium_in_water_matches_literature(self) -> None:
+        # 2H (spin-1) in water: C_Q ~ 220 kHz, tau_c ~ 2.5 ps -> R1 ~ 1.8 1/s.
+        rates = quadrupolar_relaxation_rates(
+            220e3, 1.0, 2.5e-12, asymmetry=0.1,
+            larmor_angular_rad_per_s=2.0 * np.pi * 61e6,
+        )
+        self.assertAlmostEqual(float(rates.r1_per_second), 1.8, delta=0.3)
+        self.assertGreater(float(rates.t1_seconds), 0.3)
+        self.assertLess(float(rates.t1_seconds), 0.8)
+
+    def test_extreme_narrowing_limit_and_closed_form(self) -> None:
+        cq, spin, tau = 4.0e6, 1.0, 1.0e-12
+        rates = quadrupolar_relaxation_rates(
+            cq, spin, tau, asymmetry=0.3,
+            larmor_angular_rad_per_s=2.0 * np.pi * 154.0,
+        )
+        # Earth's field is deep in extreme narrowing: R1 == R2.
+        np.testing.assert_allclose(
+            rates.r1_per_second, rates.r2_per_second, rtol=1e-6
+        )
+        spin_factor = (2 * spin + 3) / (spin**2 * (2 * spin - 1))
+        expected = (
+            (3.0 * np.pi**2 / 10.0)
+            * spin_factor
+            * (1.0 + 0.3**2 / 3.0)
+            * cq**2
+            * tau
+        )
+        self.assertAlmostEqual(float(rates.r1_per_second), expected, delta=1e-6 * expected)
+
+    def test_rate_scales_with_coupling_squared_and_tau(self) -> None:
+        base = quadrupolar_relaxation_rates(2.0e6, 1.0, 1.0e-12)
+        double_cq = quadrupolar_relaxation_rates(4.0e6, 1.0, 1.0e-12)
+        double_tau = quadrupolar_relaxation_rates(2.0e6, 1.0, 2.0e-12)
+        self.assertAlmostEqual(
+            float(double_cq.r1_per_second) / float(base.r1_per_second), 4.0, places=5
+        )
+        self.assertAlmostEqual(
+            float(double_tau.r1_per_second) / float(base.r1_per_second), 2.0, places=5
+        )
+
+    def test_spin_half_and_invalid_inputs_raise(self) -> None:
+        with self.assertRaisesRegex(ValueError, "spin >= 1"):
+            quadrupolar_relaxation_rates(1.0e6, 0.5, 1.0e-12)
+        with self.assertRaisesRegex(ValueError, "asymmetry"):
+            quadrupolar_relaxation_rates(1.0e6, 1.0, 1.0e-12, asymmetry=1.5)
+        with self.assertRaisesRegex(ValueError, "correlation_time_seconds"):
+            quadrupolar_relaxation_rates(1.0e6, 1.0, 0.0)
+
+    def test_multinuclear_helper_assigns_derived_and_baseline_rates(self) -> None:
+        system = multinuclear_system(["1H", "19F", "14N"], np.zeros((3, 3)), 50e-6)
+        r1, r2 = multinuclear_quadrupolar_rates(
+            system,
+            correlation_time_seconds=3.0e-12,
+            quadrupole_coupling_hz=4.0e6,
+            asymmetry=0.4,
+            spin_half_rate_hz=0.3,
+        )
+        # Spin-1/2 sites get the baseline; the 14N site gets the derived rate.
+        self.assertEqual(r1[0], 0.3)
+        self.assertEqual(r1[1], 0.3)
+        expected = quadrupolar_relaxation_rates(
+            4.0e6, 1.0, 3.0e-12, asymmetry=0.4,
+            larmor_angular_rad_per_s=2.0 * np.pi * float(system.larmor_hz[2]),
+        )
+        self.assertAlmostEqual(float(r1[2]), float(expected.r1_per_second))
+        self.assertGreater(r1[2], 100.0)
+        # Dict form keyed by isotope works too.
+        r1_dict, _ = multinuclear_quadrupolar_rates(
+            system,
+            correlation_time_seconds=3.0e-12,
+            quadrupole_coupling_hz={"14N": 4.0e6},
+            asymmetry={"14N": 0.4},
+        )
+        self.assertAlmostEqual(float(r1_dict[2]), float(expected.r1_per_second))
 
 
 class ZulfSpectrumTests(unittest.TestCase):

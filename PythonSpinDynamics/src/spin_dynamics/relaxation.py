@@ -1021,6 +1021,89 @@ def simulate_prepolarized_t1rho(
     )
 
 
+@dataclass(frozen=True)
+class QuadrupolarRelaxationRates:
+    """Quadrupolar ``R1``/``R2`` rates (and ``T1``/``T2``) for one nucleus."""
+
+    correlation_time_seconds: np.ndarray
+    r1_per_second: np.ndarray
+    r2_per_second: np.ndarray
+    t1_seconds: np.ndarray
+    t2_seconds: np.ndarray
+
+
+def quadrupolar_relaxation_rates(
+    quadrupole_coupling_hz: float | Iterable[float] | np.ndarray,
+    spin: float,
+    correlation_time_seconds: float | Iterable[float] | np.ndarray,
+    *,
+    asymmetry: float = 0.0,
+    larmor_angular_rad_per_s: float = 0.0,
+) -> QuadrupolarRelaxationRates:
+    """Return quadrupolar ``R1``/``R2`` from the coupling constant and ``tau_c``.
+
+    For a nucleus of spin ``I > 1/2`` whose electric-field-gradient fluctuations
+    relax it (the dominant mechanism for ``14N``, ``2H``, ...), the rates follow
+    the single-correlation-time model (Abragam, *Principles of Nuclear
+    Magnetism*, Ch. VIII; Kowalewski & Maler, *Nuclear Spin Relaxation in
+    Liquids*, Ch. 4)::
+
+        R1 = (3/200) A (1 + eta^2/3) chi^2 [ j(w0) + 4 j(2 w0) ]
+        R2 = (3/400) A (1 + eta^2/3) chi^2 [ 3 j(0) + 5 j(w0) + 2 j(2 w0) ]
+
+    with ``A = (2I + 3) / (I^2 (2I - 1))`` the quadrupolar spin factor, ``eta``
+    the EFG asymmetry, ``chi = 2 pi C_Q`` the coupling in angular units
+    (``C_Q = e^2 q Q / h`` in Hz, the convention of
+    :mod:`spin_dynamics.nqr.isotopes`), and the reduced spectral density
+    ``j(w) = tau_c / (1 + (w tau_c)^2)``. In the extreme-narrowing limit
+    (``w0 tau_c << 1``, the relevant regime at Earth's field) both reduce to the
+    familiar
+
+        R1 = R2 = (3 pi^2 / 10) A (1 + eta^2/3) C_Q^2 tau_c.
+
+    This reproduces, e.g., ``R1(2H)`` in water (``C_Q ~ 220 kHz``,
+    ``tau_c ~ 2.5 ps`` -> ~1.8 1/s) and gives ``R(14N) ~ 10^3 1/s`` for
+    ``C_Q ~ 4 MHz`` and ``tau_c`` of a few ps, matching Earth's-field
+    J-coupled-spectrum fits (Altenhof et al., J. Magn. Reson. 355 (2023) 107540).
+    """
+
+    spin_value = _validate_spin(spin)
+    if spin_value < 1.0:
+        raise ValueError("quadrupolar relaxation requires spin >= 1")
+    coupling = np.asarray(quadrupole_coupling_hz, dtype=np.float64)
+    tau = np.asarray(correlation_time_seconds, dtype=np.float64)
+    _require_finite_array(coupling, "quadrupole_coupling_hz")
+    _require_finite_array(tau, "correlation_time_seconds")
+    if np.any(tau <= 0.0):
+        raise ValueError("correlation_time_seconds must be positive")
+    eta = float(asymmetry)
+    if not np.isfinite(eta) or eta < 0.0 or eta > 1.0:
+        raise ValueError("asymmetry must lie in [0, 1]")
+    omega0 = float(larmor_angular_rad_per_s)
+    if not np.isfinite(omega0) or omega0 < 0.0:
+        raise ValueError("larmor_angular_rad_per_s must be non-negative")
+
+    spin_factor = (2.0 * spin_value + 3.0) / (
+        spin_value**2 * (2.0 * spin_value - 1.0)
+    )
+    chi = TAU * coupling
+    base = spin_factor * (1.0 + eta**2 / 3.0) * chi**2
+    # Reduced spectral density j(w) = tau/(1 + (w tau)^2) = J_module(w) / 2.
+    j0 = 0.5 * spectral_density_lorentzian(0.0, tau)
+    jw = 0.5 * spectral_density_lorentzian(omega0, tau)
+    j2w = 0.5 * spectral_density_lorentzian(2.0 * omega0, tau)
+    r1 = (3.0 / 200.0) * base * (jw + 4.0 * j2w)
+    r2 = (3.0 / 400.0) * base * (3.0 * j0 + 5.0 * jw + 2.0 * j2w)
+    tau_out, r1, r2 = np.broadcast_arrays(tau, r1, r2)
+    return QuadrupolarRelaxationRates(
+        correlation_time_seconds=np.array(tau_out, dtype=np.float64),
+        r1_per_second=np.array(r1, dtype=np.float64),
+        r2_per_second=np.array(r2, dtype=np.float64),
+        t1_seconds=_rate_to_time(np.asarray(r1, dtype=np.float64)),
+        t2_seconds=_rate_to_time(np.asarray(r2, dtype=np.float64)),
+    )
+
+
 def apply_relaxation_to_parameters(
     params: Mapping[str, Any] | Any,
     rates: BPPRelaxationRates,

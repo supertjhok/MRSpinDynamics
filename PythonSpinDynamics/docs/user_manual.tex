@@ -766,15 +766,19 @@ closed-form J-editing response curves.
 
 \scopebox{Accent}{
 \textbf{Use this layer for:} heteronuclear low-field J-editing curves,
-known-J spectrum fitting, ideal TANGO-B filter selectivity, and exploratory
-two-spin or few-spin scalar-coupled Hamiltonian simulations.
+known-J spectrum fitting, ideal TANGO-B filter selectivity, exploratory
+two-spin or few-spin scalar-coupled Hamiltonian simulations, and multinuclear
+zero/ultra-low-field J-coupled spectra with mixed spin quantum numbers,
+quadrupolar nuclei, and per-spin relaxation
+(Section~\ref{sec:zulf-multinuclear}).
 }
 
 \scopebox{AccentTwo}{
-\textbf{Current limits:} spin-1/2 only; dense matrices only; no relaxation
-superoperators; no chemical exchange; no quadrupolar nuclei; no large sparse
-coupled-spin networks; no full pulse-sequence compiler for arbitrary
-multi-quantum pathways.
+\textbf{Current limits:} dense matrices only (few-spin Hilbert spaces); no
+chemical exchange in this layer; no large sparse coupled-spin networks; no full
+pulse-sequence compiler for arbitrary multi-quantum pathways. The multinuclear
+extension models quadrupolar relaxation with a phenomenological per-spin
+``extended T1/T2'' superoperator rather than a full quadrupolar Redfield tensor.
 }
 
 \section{J-Coupled Spin Cartoon}
@@ -976,6 +980,71 @@ response = tango_b_filter(
 
 This model is idealized: it reports the scalar-coupling selectivity envelope,
 not RF imperfections, relaxation, diffusion, or probe filtering.
+
+\section{Zero/Ultra-Low-Field Multinuclear J-Coupled Spectra}
+\label{sec:zulf-multinuclear}
+
+At Earth's field (\(\sim 50\,\mu\)T) chemical shifts scale away and the spectrum
+is a \emph{J-coupled spectrum} (JCS): every nucleus sits within a few kHz, so the
+frequency separations \(|\nu_i-\nu_j|\) can be comparable to the couplings and
+spins are often \emph{strongly} coupled. The multinuclear layer therefore works
+in the lab frame with absolute Larmor frequencies \(\nu_i=\gamma_i B_0\) and the
+full isotropic coupling \(2\pi J_{ij}\,\mathbf{I}_i\!\cdot\!\mathbf{I}_j\), over a
+tensor-product Hilbert space that mixes spin quantum numbers (e.g. spin-1/2
+\(^{1}\)H/\(^{19}\)F with spin-1 \(^{14}\)N).
+
+A quadrupolar nucleus such as \(^{14}\)N relaxes quickly, and its rate
+\(R(^{14}\mathrm{N})=R_1=R_2\) broadens the splittings of any spin J-coupled to
+it: as \(R\) grows the multiplet moves through resolved
+\(\rightarrow\) coalesced \(\rightarrow\) self-decoupled singlet (Altenhof et
+al., \emph{J. Magn. Reson.} 355 (2023) 107540). The rate is set by molecular
+tumbling through the single-correlation-time quadrupolar model, which in the
+extreme-narrowing limit relevant at Earth's field is
+\[
+  R_1 = R_2 = \frac{3\pi^2}{10}\,
+    \frac{2I+3}{I^2(2I-1)}\,
+    \Bigl(1+\tfrac{\eta^2}{3}\Bigr)\,C_Q^2\,\tau_c ,
+\]
+with \(C_Q=e^2qQ/h\) the quadrupole coupling constant. Relaxation is applied with
+a per-spin phenomenological superoperator that is exact for spin-1/2 (ladder
+channels \(\sqrt{R_1/2}\,I^{\pm}\) and dephasing \(\sqrt{2R_2-R_1}\,I_z\)).
+
+\begin{lstlisting}[language=Python]
+import numpy as np
+from spin_dynamics.coupling import (
+    multinuclear_system,
+    multinuclear_quadrupolar_rates,
+    simulate_zulf_spectrum,
+)
+
+# 1H-19F-14N with a strong 2J(F,N); 14N is the last (quadrupolar) site.
+couplings = np.zeros((3, 3))
+couplings[0, 1] = couplings[1, 0] = 8.0    # J(H,F)
+couplings[1, 2] = couplings[2, 1] = 37.0   # J(F,N)
+system = multinuclear_system(["1H", "19F", "14N"], couplings, b0_tesla=50e-6)
+
+# Derive R(14N) from the quadrupole coupling and a rotational correlation time.
+r1, r2 = multinuclear_quadrupolar_rates(
+    system,
+    correlation_time_seconds=3e-12,
+    quadrupole_coupling_hz=4.0e6,
+    asymmetry=0.4,
+    spin_half_rate_hz=0.3,
+)
+spectrum = simulate_zulf_spectrum(
+    system, r1_per_second=r1, r2_per_second=r2,
+    dwell_seconds=2e-4, n_points=32768,
+    detect_indices=system.indices_for_isotope("19F"),
+    apodization_hz=0.8,
+)
+# spectrum.frequencies_hz / spectrum.spectrum are the 19F J-coupled spectrum.
+\end{lstlisting}
+
+The examples \code{plot\_zulf\_quadrupolar\_jcoupling.py} (sweeping
+\(R(^{14}\mathrm{N})\) directly, with heteronuclear and homonuclear panels) and
+\code{plot\_zulf\_quadrupolar\_relaxation.py} (deriving \(R(^{14}\mathrm{N})\)
+from \(C_Q\) and \(\tau_c\)) reproduce the coalescence and self-decoupling
+behaviour.
 
 \section{SLIC Response}
 

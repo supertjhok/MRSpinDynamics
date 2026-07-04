@@ -31,6 +31,7 @@ from spin_dynamics.coupling.mixed_operators import (
     hilbert_dimension,
     product_operator,
 )
+from spin_dynamics.relaxation import quadrupolar_relaxation_rates
 
 TAU = 2.0 * np.pi
 
@@ -271,6 +272,52 @@ def multinuclear_equilibrium_density(
             spins, idx, axis
         )
     return density
+
+
+def multinuclear_quadrupolar_rates(
+    system: MultinuclearSpinSystem,
+    *,
+    correlation_time_seconds: float,
+    quadrupole_coupling_hz: float | dict[str, float],
+    asymmetry: float | dict[str, float] = 0.0,
+    spin_half_rate_hz: float = 0.0,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Return per-site ``(r1, r2)`` arrays for a shared rotational ``tau_c``.
+
+    Quadrupolar sites (spin > 1/2) get physically derived rates from
+    :func:`spin_dynamics.relaxation.quadrupolar_relaxation_rates`, evaluated at
+    each site's own Larmor frequency; spin-1/2 sites get the small
+    ``spin_half_rate_hz`` (their slow relaxation is not the mechanism of
+    interest). ``quadrupole_coupling_hz`` and ``asymmetry`` may be scalars
+    (applied to every quadrupolar site) or dicts keyed by isotope. The returned
+    arrays plug straight into :func:`spin_dynamics.coupling.zulf.simulate_zulf_spectrum`.
+    """
+
+    tau = float(correlation_time_seconds)
+
+    def _lookup(value: float | dict[str, float], isotope: str, name: str) -> float:
+        if isinstance(value, dict):
+            if isotope not in value:
+                raise KeyError(f"{name} has no entry for isotope {isotope!r}")
+            return float(value[isotope])
+        return float(value)
+
+    r1 = np.empty(system.nspin, dtype=np.float64)
+    r2 = np.empty(system.nspin, dtype=np.float64)
+    for idx, site in enumerate(system.sites):
+        if site.spin > 0.5:
+            rates = quadrupolar_relaxation_rates(
+                _lookup(quadrupole_coupling_hz, site.isotope, "quadrupole_coupling_hz"),
+                site.spin,
+                tau,
+                asymmetry=_lookup(asymmetry, site.isotope, "asymmetry"),
+                larmor_angular_rad_per_s=2.0 * np.pi * float(system.larmor_hz[idx]),
+            )
+            r1[idx] = float(rates.r1_per_second)
+            r2[idx] = float(rates.r2_per_second)
+        else:
+            r1[idx] = r2[idx] = float(spin_half_rate_hz)
+    return r1, r2
 
 
 def _lindblad_superoperator(jump: np.ndarray) -> np.ndarray:
