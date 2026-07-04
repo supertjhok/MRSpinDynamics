@@ -3006,9 +3006,17 @@ and eddy Joule density in a saline cylinder --- note the solenoid's on-axis E
 null), \code{plot\_gradient\_eddy\_preemphasis.py} (Maxwell pair + shield: eddy
 spectrum, gradient droop, and the geometry-derived pre-emphasis that flattens it),
 and \code{plot\_logging\_coil\_loading.py} (an inside-out NMR well-logging tool ---
-Jasper-Jackson loop coil in a saturated-brine borehole, 0.5--2 MHz --- where the
-brine loading dominates the coil resistance and collapses \(Q\)) demonstrate the
-solvers. Design note: \code{docs/field\_solvers\_quasistatic.md}.
+a solenoid coil in a saturated-brine borehole, 0.5--2 MHz --- where the brine
+loading dominates the coil resistance and collapses \(Q\)) demonstrate the
+solvers. \code{plot\_logging\_cpmg\_multinuclear.py} extends the logging tool to a
+full Jasper-Jackson magnet (two opposing SmCo cylinders whose low-gradient
+sweet spot sets the sensitive shell), runs the asymptotic CPMG echo on the
+estimated \((B_0, B_1)\) maps to visualize the \(^1\)H sensitive region, plots the
+tuned-probe echo and estimates the per-echo SNR against the loading noise, and
+adds \(^{23}\)Na (spin-\(3/2\), treated with the \((2I+1)\) machinery; resonant at
+the same frequency where \(B_0\) is \(\sim\)3.8\(\times\) higher, with non-optimal
+flip angles from the proton-calibrated pulses) to estimate its fractional signal
+contribution. Design note: \code{docs/field\_solvers\_quasistatic.md}.
 
 \section{Received-Signal Noise}
 
