@@ -10,7 +10,8 @@ The package started as a Python port of the MATLAB NMR code in
 reference for the validated nuclear magnetic resonance (NMR) workflows. The
 Python package now also includes newer nuclear quadrupole resonance (NQR),
 electron spin resonance/electron paramagnetic resonance (ESR/EPR), exchange,
-diffusion, imaging, and analysis tools.
+diffusion, imaging, analysis, optimal-control pulse design, radio-frequency
+interference modeling, and zero/ultra-low-field J-coupled spectroscopy tools.
 
 This workspace contains the installable Python package, examples, tests,
 MATLAB/Octave validation fixtures, and user documentation.
@@ -28,13 +29,21 @@ Use PythonSpinDynamics when you want to:
 - simulate magnetic-resonance imaging examples, including spin-warp, RARE,
   slice-selective, and single-sided-field workflows;
 - run inverse-Laplace analyses for T1, T2, T1-T2, D-T2, and exchange maps;
-- explore small scalar-coupled spin-1/2 systems, including J-editing and
-  simple SLIC/TANGO-style filters;
+- explore scalar-coupled spin systems, from spin-1/2 J-editing and
+  SLIC/TANGO-style filters to multinuclear mixed-spin (e.g. 1H/19F/14N)
+  zero/ultra-low-field and Earth's-field J-coupled spectra, including
+  quadrupolar (e.g. 14N) relaxation broadening and self-decoupling;
+- study rotating-frame (T1-rho) spin-lock relaxation dispersion and
+  prepolarized low-field workflows;
 - model pulsed NQR responses for quadrupolar nuclei, including powder
   averaging, weak static-field splitting, SLSE echo trains, and
   population-transfer examples;
 - model single-electron ESR/EPR spectra, anisotropic g tensors, hyperfine
-  doublets, and pulsed FID/Hahn-echo responses.
+  doublets, and pulsed FID/Hahn-echo responses;
+- design radio-frequency and gradient pulses with gradient-ascent optimal
+  control (GRAPE), including robust/ensemble and NQR/quadrupolar targets;
+- model radio-frequency interference (RFI) pickup and cancellation for
+  low-field NQR detection.
 
 The package is not intended to be a general-purpose arbitrary quantum
 pulse-sequence simulator. The original MATLAB-compatible NMR workflows mostly
@@ -49,14 +58,28 @@ extensions.
   diffusion workflows, imaging workflows, time-varying-field examples, WURST
   pulses, radiation damping, motion, and prepolarization.
 - `spin_dynamics.core`, `fields`, `probes`, `sequences`, and `parameters`
-  provide lower-level numerical pieces used by the workflows.
+  provide lower-level numerical pieces used by the workflows. `fields` also
+  includes magnetostatic, quasistatic eddy-current, and induced-electric-field
+  solvers for coils and gradient drivers.
 - `spin_dynamics.analysis` contains inverse-Laplace and regularization helpers
   for relaxation, diffusion, and exchange-map analysis.
+- `spin_dynamics.relaxation` contains microscopic relaxation models: BPP scalar
+  rates, dipolar and quadrupolar rate/Redfield models, and wall-collision
+  relaxation.
 - `spin_dynamics.coupling` contains explicit small-system scalar-coupling
-  models for spin-1/2 nuclei.
+  models: spin-1/2 J-editing, SLIC, and TANGO filters, plus multinuclear
+  mixed-spin (spin-1/2 with quadrupolar, e.g. 1H/19F/14N) zero/ultra-low-field
+  J-coupled spectra with a per-spin relaxation superoperator.
+- `spin_dynamics.optimal_control` contains gradient-ascent (GRAPE)
+  optimal-control pulse design for RF amplitude/phase and gradient waveforms,
+  with state-transfer, propagator-fidelity, and robust/ensemble objectives.
+- `spin_dynamics.interference` contains radio-frequency-interference source,
+  pickup, and cancellation models (adaptive, frequency-domain, robust, and
+  reference-free tracker cancellers) for low-field detection.
 - `spin_dynamics.nqr` contains quadrupolar NQR models. Embedded two-level
-  selective-pulse workflows are spin-1; full spin-3/2 chlorine-style FID, echo,
-  and SLSE helpers use a `(2I+1)`-level density-matrix model.
+  selective-pulse workflows are spin-1; full spin-3/2 and higher-spin
+  (5/2, 7/2, 9/2) FID, echo, and SLSE helpers use a `(2I+1)`-level
+  density-matrix model.
 - `spin_dynamics.esr` contains single-electron ESR/EPR spectrum and pulse
   response helpers.
 - `spin_dynamics.exchange` and `spin_dynamics.susceptibility` add
@@ -189,6 +212,36 @@ spectrum = simulate_field_sweep(
 print(spectrum.fields_tesla.shape)
 ```
 
+Run an Earth's-field multinuclear J-coupled spectrum with 14N quadrupolar
+relaxation derived from the quadrupole coupling and rotational correlation time:
+
+```python
+import numpy as np
+from spin_dynamics.coupling import (
+    multinuclear_system,
+    multinuclear_quadrupolar_rates,
+    simulate_zulf_spectrum,
+)
+
+couplings = np.zeros((3, 3))
+couplings[0, 1] = couplings[1, 0] = 8.0    # J(1H, 19F)
+couplings[1, 2] = couplings[2, 1] = 37.0   # J(19F, 14N)
+system = multinuclear_system(["1H", "19F", "14N"], couplings, b0_tesla=50e-6)
+
+r1, r2 = multinuclear_quadrupolar_rates(
+    system,
+    correlation_time_seconds=3e-12,
+    quadrupole_coupling_hz=4.0e6,
+    asymmetry=0.4,
+)
+spectrum = simulate_zulf_spectrum(
+    system, r1_per_second=r1, r2_per_second=r2,
+    dwell_seconds=2e-4, n_points=32768,
+    detect_indices=system.indices_for_isotope("19F"),
+)
+print(spectrum.frequencies_hz.shape, spectrum.spectrum.shape)
+```
+
 ## Examples
 
 Examples live in `examples/` and can be run from this directory. A few useful
@@ -206,6 +259,9 @@ python examples\plot_nqr_powder_nutation.py --output results\nqr_powder_nutation
 python examples\plot_nqr_population_transfer.py --output results\nqr_population_transfer.png
 python examples\plot_esr_powder_spectrum.py --output results\esr_powder_spectrum.png
 python examples\plot_esr_pulsed_echo.py --output results\esr_pulsed_echo.png
+python examples\plot_zulf_quadrupolar_jcoupling.py --output results\zulf_jcoupling.png
+python examples\plot_zulf_quadrupolar_relaxation.py --output results\zulf_quadrupolar_relaxation.png
+python examples\plot_t1rho_prepolarized_dispersion.py --output results\t1rho_dispersion.png
 ```
 
 The full example catalog is documented in `docs/python_api/examples.md`.
