@@ -644,6 +644,10 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `static_hamiltonian_rotating(eigensystem: NQREigensystem, rf_frequency_hz: float) -> np.ndarray` | Return the rotating-frame static Hamiltonian (rad/s) in the eigenbasis. |
 | function | `pulse_hamiltonian(eigensystem: NQREigensystem, *, nutation_hz: float, rf_frequency_hz: float, phase: float = 0.0, b1_direction_pas = (1.0, 0.0, 0.0)) -> np.ndarray` | Return the rotating-frame RWA pulse Hamiltonian (rad/s) in the eigenbasis. |
 | function | `detection_operator(eigensystem: NQREigensystem, rf_frequency_hz: float, rx_direction_pas = (1.0, 0.0, 0.0)) -> np.ndarray` | Return the baseband receive observable ``M`` with ``s = Tr(rho M)``. |
+| class | `CoilDrive` | One linearly-polarized RF coil in a multi-axis excitation set. |
+| function | `multi_axis_pulse_hamiltonian(eigensystem: NQREigensystem, coils: Sequence[CoilDrive], *, rf_frequency_hz: float) -> np.ndarray` | Return the rotating-frame RWA Hamiltonian for several RF coils at once. |
+| function | `circular_pulse_hamiltonian(eigensystem: NQREigensystem, *, nutation_hz: float, rf_frequency_hz: float, axis1_pas = (1.0, 0.0, 0.0), axis2_pas = (0.0, 1.0, 0.0), helicity: int = 1, phase: float = 0.0) -> np.ndarray` | Return the pulse Hamiltonian for a circularly-polarized (quadrature) drive. |
+| function | `quadrature_detection_operator(eigensystem: NQREigensystem, rf_frequency_hz: float, axis1_pas = (1.0, 0.0, 0.0), axis2_pas = (0.0, 1.0, 0.0), helicity: int = 1) -> np.ndarray` | Return the matched quadrature (circular) receive observable ``M``. |
 | class | `FullNQRFIDResult` | Complex baseband FID from the full density-matrix model. |
 | class | `FullNQREchoResult` | Complex baseband echo from a full density-matrix two-pulse sequence. |
 | function | `simulate_full_fid(site: QuadrupolarSite, *, nutation_hz: float, pulse_duration_seconds: float, times_seconds: np.ndarray, rf_frequency_hz: float | None = None, phase: float = 0.0, b1_direction_pas = (1.0, 0.0, 0.0), rx_direction_pas = None, b0_vector_tesla_pas = None, relaxation: NQRRelaxationLike | None = None, initial_density: np.ndarray | None = None) -> FullNQRFIDResult` | Simulate a single-pulse full density-matrix NQR FID. |
@@ -721,7 +725,9 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `OrientationSample` | One local EFG orientation relative to lab RF and static fields. |
 | function | `single_crystal_orientation(alpha: float, beta: float, *, b0_alpha: float | None = None, b0_beta: float | None = None) -> tuple[OrientationSample, ...]` | Return a one-sample orientation ensemble. |
 | function | `powder_average_grid(n_theta: int = 16, n_phi: int = 32) -> tuple[OrientationSample, ...]` | Return a normalized spherical powder-average grid. |
+| class | `OrientationFrame` | A full crystallite orientation as an orthonormal lab-to-PAS frame. |
 | function | `b0_b1_powder_average_grid(n_theta: int = 12, n_phi: int = 24, n_chi: int = 8, *, b1_b0_angle: float = np.pi / 2.0) -> tuple[OrientationSample, ...]` | Return a powder grid with correlated lab B0 and RF B1 directions. |
+| function | `powder_frame_grid(n_theta: int = 12, n_phi: int = 24, n_chi: int = 8) -> tuple[OrientationFrame, ...]` | Return a normalized SO(3) powder grid of full lab-to-PAS frames. |
 | function | `b0_powder_average_grid(n_theta: int = 16, n_phi: int = 32, *, b1_direction_pas: np.ndarray | list[float] | tuple[float, float, float] = (1.0, 0.0, 0.0)) -> tuple[OrientationSample, ...]` | Return a powder grid over static-field directions in the PAS. |
 | function | `normalize_orientations(orientations: tuple[OrientationSample, ...] | list[OrientationSample]) -> tuple[OrientationSample, ...]` | Return orientation samples with weights normalized to unity. |
 

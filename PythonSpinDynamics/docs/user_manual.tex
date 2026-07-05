@@ -2033,6 +2033,42 @@ sweep = simulate_slse_offset_sweep(
 )
 \end{lstlisting}
 
+\subsection{Circular and Multi-Axis Excitation}
+
+The examples above excite the powder with a single linearly-polarized coil. The
+full density-matrix engine keeps a general RF direction and phase per coil and is
+linear in the field, so several coils superpose as co-rotating RWA couplings. The
+helper \code{multi\_axis\_pulse\_hamiltonian} sums a list of \code{CoilDrive}
+components (each a bare nutation, phase, and PAS direction); with one component it
+reproduces \code{pulse\_hamiltonian} exactly. \emph{Circular} polarization is the
+special case of two orthogonal coils driven \(\pi/2\) out of phase
+(\code{circular\_pulse\_hamiltonian}), producing a rotating RF field, with a
+matched quadrature receiver \code{quadrature\_detection\_operator}.
+
+Because a multi-coil drive couples to two or three orthogonal lab axes at once,
+its powder response depends on the \emph{full} crystallite orientation, not just
+one coil axis. \code{powder\_frame\_grid} provides the required SO(3) grid of
+orthonormal lab-to-PAS frames (Gauss--Legendre \(\cos\beta\) \(\times\) uniform
+\(\alpha\) \(\times\) uniform in-plane \(\chi\)).
+
+\begin{lstlisting}[language=bash]
+python examples/plot_nqr_circular_polarization_nutation.py --output circular.png
+\end{lstlisting}
+
+In zero-field NQR the transition has no intrinsic precession handedness, so a
+linear coil couples equally to both rotation senses whereas a circular coil
+couples to one. Across a powder this raises the \emph{refocused} (SLSE) signal:
+neither circular excitation alone (single-coil detection) nor quadrature
+detection alone helps, but together, at matched per-coil \(B_1\), they lift the
+powder echo train by \(\sim\!1.6\times\) (each scheme calibrated to its own
+optimal flip, so the trivial \(\sim\!2\times\) field efficiency of a rotating
+field is normalized out). Detecting with the \emph{wrong} rotation sense nulls
+the powder signal --- a direct check that the handedness is physical. Circular
+uses two coils, drawing \(\sim\!2\times\) peak RF power and adding a
+\(\sqrt{2}\) two-channel receiver-noise penalty, so the \(\sim\!1.6\times\)
+signal gain corresponds to a \(\sim\!1.1\times\) net SNR gain --- the slight
+increase reported in the powder NQR literature.
+
 \section{SORC Detection}
 
 The strong off-resonance comb (SORC) sequence is represented as

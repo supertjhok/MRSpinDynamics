@@ -97,6 +97,49 @@ def powder_average_grid(n_theta: int = 16, n_phi: int = 32) -> tuple[Orientation
     return tuple(samples)
 
 
+@dataclass(frozen=True)
+class OrientationFrame:
+    """A full crystallite orientation as an orthonormal lab-to-PAS frame.
+
+    ``axes`` is a ``(3, 3)`` orthonormal matrix whose columns are the lab
+    x/y/z coil axes imaged into the EFG principal-axis system. A single linear
+    coil only needs one direction (:class:`OrientationSample`), but multi-coil
+    excitation (circular / bi- / tri-axial) couples to two or three orthogonal
+    lab axes at once, so the powder average must run over the full SO(3)
+    orientation -- hence a frame rather than a single vector.
+    """
+
+    axes: np.ndarray
+    weight: float = 1.0
+
+    def __post_init__(self) -> None:
+        axes = np.asarray(self.axes, dtype=np.float64).reshape(3, 3)
+        if not np.all(np.isfinite(axes)):
+            raise ValueError("frame axes must be finite")
+        if not np.allclose(axes.T @ axes, np.eye(3), atol=1e-9):
+            raise ValueError("frame axes must be orthonormal")
+        weight = float(self.weight)
+        if not np.isfinite(weight) or weight < 0:
+            raise ValueError("weight must be non-negative and finite")
+        object.__setattr__(self, "axes", axes)
+        object.__setattr__(self, "weight", weight)
+
+    @property
+    def x(self) -> np.ndarray:
+        """Lab x coil axis in the PAS (first column)."""
+        return self.axes[:, 0]
+
+    @property
+    def y(self) -> np.ndarray:
+        """Lab y coil axis in the PAS (second column)."""
+        return self.axes[:, 1]
+
+    @property
+    def z(self) -> np.ndarray:
+        """Lab z coil axis in the PAS (third column)."""
+        return self.axes[:, 2]
+
+
 def _perpendicular_basis(direction: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     reference = (
         np.array([0.0, 0.0, 1.0])
@@ -150,6 +193,49 @@ def b0_b1_powder_average_grid(
                     )
                 )
     return tuple(samples)
+
+
+def powder_frame_grid(
+    n_theta: int = 12, n_phi: int = 24, n_chi: int = 8
+) -> tuple[OrientationFrame, ...]:
+    """Return a normalized SO(3) powder grid of full lab-to-PAS frames.
+
+    Multi-coil excitation (circular / bi- / tri-axial) couples to two or three
+    orthogonal lab axes, so the powder average runs over the full crystallite
+    orientation rather than a single axis. Each frame is built from a primary
+    axis on a Gauss-Legendre ``cos(beta)`` x uniform ``alpha`` sphere (the same
+    quadrature as :func:`powder_average_grid`) and a uniform in-plane rotation
+    ``chi`` of the perpendicular pair (as in :func:`b0_b1_powder_average_grid`),
+    giving the third Euler angle. Frame columns are the lab x/y/z axes in the
+    PAS; weights sum to unity.
+    """
+
+    n_theta = int(n_theta)
+    n_phi = int(n_phi)
+    n_chi = int(n_chi)
+    if n_theta <= 0 or n_phi <= 0 or n_chi <= 0:
+        raise ValueError("n_theta, n_phi, and n_chi must be positive")
+
+    mu_values, mu_weights = np.polynomial.legendre.leggauss(n_theta)
+    frames: list[OrientationFrame] = []
+    for mu, mu_weight in zip(mu_values, mu_weights):
+        beta = float(np.arccos(mu))
+        for phi_idx in range(n_phi):
+            alpha = 2.0 * np.pi * phi_idx / n_phi
+            z_axis = spherical_direction(alpha, beta)
+            e1, e2 = _perpendicular_basis(z_axis)
+            for chi_idx in range(n_chi):
+                chi = 2.0 * np.pi * chi_idx / n_chi
+                x_axis = np.cos(chi) * e1 + np.sin(chi) * e2
+                y_axis = -np.sin(chi) * e1 + np.cos(chi) * e2
+                axes = np.column_stack([x_axis, y_axis, z_axis])
+                frames.append(
+                    OrientationFrame(
+                        axes=axes,
+                        weight=float(mu_weight) / (2.0 * n_phi * n_chi),
+                    )
+                )
+    return tuple(frames)
 
 
 def b0_powder_average_grid(
