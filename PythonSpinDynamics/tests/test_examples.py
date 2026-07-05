@@ -303,6 +303,7 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_multislice_halbach_imaging.py",
             "examples/plot_halbach_dipole_field.py",
             "examples/plot_shim_a_ring_magnet.py",
+            "examples/plot_logging_ferrite_b1_focusing.py",
             "examples/plot_nmr_mouse_fields.py",
             "examples/plot_nmr_mouse_depth_profile.py",
             "examples/plot_wurst_flow.py",
@@ -474,6 +475,9 @@ class ExampleSmokeTests(unittest.TestCase):
         result = run_example("examples/plot_shim_a_ring_magnet.py", "--help")
         self.assertIn("--iron-outer-mm", result.stdout)
         self.assertIn("--remanence-t", result.stdout)
+        result = run_example("examples/plot_logging_ferrite_b1_focusing.py", "--help")
+        self.assertIn("--ferrite-mu-r", result.stdout)
+        self.assertIn("--core-radius-cm", result.stdout)
         result = run_example("examples/plot_nmr_mouse_fields.py", "--help")
         self.assertIn("--remanence", result.stdout)
         self.assertIn("--coil-radius", result.stdout)

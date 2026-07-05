@@ -3171,8 +3171,13 @@ and inner \(\sin\theta\) surface-current sheets cancel); the high-permeability
 iron ring provides a low-reluctance return path that breaks the cancellation and
 establishes the transverse bore field, and its \emph{saturation} sets the
 achievable field --- a nonlinear effect analytic superposition cannot capture.
-The material model and nonlinear scheme are adapted from the author's
-Motor\_Design finite-element solver.
+The example \code{plot\_logging\_ferrite\_b1\_focusing.py} uses the axisymmetric
+solver for the complementary RF case:\ a high-permeability ferrite core placed
+behind an inside-out Jasper-Jackson logging coil raises the \(B_1\) efficiency at
+the formation sweet spot, cutting the RF power for a fixed \(B_1\) by
+\((\eta_{\text{air}}/\eta_{\text{ferrite}})^2\) and raising the reciprocity SNR by
+\(\eta_{\text{ferrite}}/\eta_{\text{air}}\). The material model and nonlinear
+scheme are adapted from the author's Motor\_Design finite-element solver.
 
 \section{Received-Signal Noise}
 
