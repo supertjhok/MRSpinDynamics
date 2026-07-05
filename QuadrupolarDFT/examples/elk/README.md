@@ -82,7 +82,9 @@ against the *reference* BLAS/LAPACK (`/usr/lib/.../blas/libblas.so.3`), whose
 `rgkmax 9` convergence run crawl (~3.5 min/SCF loop) and time out. Because
 `elk-lapw` links the `update-alternatives`-managed `libblas.so.3` /
 `liblapack.so.3`, switching the alternative to **OpenBLAS** speeds it up
-**without rebuilding Elk** (typically 5-20x on this eigensolve, and threaded):
+**without rebuilding Elk** (here it gave ~2x — Elk's OpenMP already parallelised
+the k-point loop, so only the per-k eigensolve sped up; the gain is larger when a
+single big eigensolve dominates):
 
 ```bash
 sudo apt install -y libopenblas-dev
@@ -104,8 +106,9 @@ ELK_NP=18 bash examples/elk/run_elk_efg_wsl.sh examples/elk/nano2_efg.elk.in --s
 
 **Recommended combination** on this 20-core machine: OpenBLAS as the BLAS/LAPACK
 alternative, then pure MPI over k-points (`ELK_NP = min(20, nkpt)`, one thread per
-rank). This turns the stiff `rgkmax 9` case from a >90-min timeout into a few
-minutes. Pure OpenMP (serial launch, `ELK_NP` unset) uses all cores as threads
+rank). This let the dense 6×4×4 run (48 k) finish in reasonable time; note it does
+*not* rescue `rgkmax 9`, which diverges (ill-conditioned basis) regardless of
+speed. Pure OpenMP (serial launch, `ELK_NP` unset) uses all cores as threads
 but leaves the eigensolve on whatever BLAS is selected -- so the OpenBLAS switch
 matters in that mode too.
 
@@ -134,24 +137,25 @@ timeout, `1` other Elk error.
 
 ## Convergence of the Elk eta (¹⁴N, ICSD geometry)
 
-`rgkmax` sweep at fixed k-mesh (4×3×3, 18 irreducible k-points):
+`rgkmax` sweep (k-mesh 4×3×3 = 18 irreducible k), plus a dense-k check:
 
-| rgkmax | eta | C_Q (MHz) | notes |
-|---|---|---|---|
-| 7 | 0.336 | +5.92 | |
-| 8 | 0.333 | +5.94 | converged; the setting in `nano2_efg.elk.in` |
-| 9 | — | — | SCF **diverged** (ill-conditioned basis vs the auto-shrunk ~1.16 Bohr muffin-tins); auto-killed by the watchdog |
+| rgkmax | k-mesh | eta | C_Q (MHz) | notes |
+|---|---|---|---|---|
+| 7 | 4×3×3 | 0.336 | +5.92 | |
+| 8 | 4×3×3 | 0.333 | +5.94 | converged; the setting in `nano2_efg.elk.in` |
+| 8 | 6×4×4 | 0.333 | +5.94 | dense-k (48 k) — confirms k-convergence (Δeta = 0.0001) |
+| 9 | 4×3×3 | — | — | SCF **diverged** (ill-conditioned basis vs the auto-shrunk ~1.16 Bohr muffin-tins); auto-killed by the watchdog |
 
-eta changes by only ~1% between rgkmax 7 and 8, so the converged all-electron
-value is **eta ≈ 0.333** — versus ABINIT PAW 0.112 and experiment 0.38.
+eta is converged to ~1% in `rgkmax` (7→8) and to 0.0001 in the k-mesh (18→48 k),
+so the all-electron value is **eta ≈ 0.333** — versus ABINIT PAW 0.112 and
+experiment 0.38.
 
-A denser k-mesh (6×4×4, 48 k-points) was also tried but is not tabulated: on the
-denser mesh the SCF enters a mild mixing limit-cycle that oscillates just above
-the default energy tolerance (the density and EFG are already converged to ~1e-4,
-but Elk will not declare convergence). For an insulator EFG the 18-k mesh is
-already k-converged, so this point is confirmatory only. Practical note: to loosen
-SCF convergence you must relax **both** `epspot` (potential RMS) *and* `epsengy`
-(total energy) — loosening only one leaves the other as a silent bottleneck.
+Convergence note: on the 6×4×4 mesh the SCF enters a mild mixing limit-cycle just
+above the default 1e-6 tolerance, so both `epspot` (potential RMS) and `epsengy`
+(total energy) were loosened together to 2e-4 (the EFG/eta is fully converged well
+before that — the dense-k eta matches the 1e-6-converged coarse-mesh value to
+0.0001). Loosen **both**: relaxing only one leaves the other as a silent
+bottleneck.
 
 ## Files
 
