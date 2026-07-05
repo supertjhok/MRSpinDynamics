@@ -335,6 +335,7 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_esr_eseem_hyscore.py",
             "examples/plot_esr_quadrupolar_eseem.py",
             "examples/plot_esr_inhomogeneous_echo.py",
+            "examples/plot_brill2002_field_reversal_echoes.py",
             "examples/plot_nqr_powder_nutation.py",
             "examples/plot_nqr_full_powder_nutation.py",
             "examples/plot_nqr_circular_polarization_nutation.py",

@@ -65,6 +65,8 @@ MODULES = [
     "interference.trackers",
     "motion",
     "noise",
+    "nonresonant.field_reversal",
+    "nonresonant.sequences",
     "nqr.full_dynamics",
     "nqr.hamiltonians",
     "nqr.inhomogeneity",

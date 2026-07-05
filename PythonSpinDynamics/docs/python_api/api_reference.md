@@ -635,6 +635,30 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `matched_probe_output_noise_density(sp: Mapping[str, Any] | Any, pp: Mapping[str, Any] | Any, *, tf1: np.ndarray | None = None) -> tuple[np.ndarray, np.ndarray]` | Return matched-probe output-referred noise density and frequencies. |
 | function | `frequency_bin_width(frequencies: np.ndarray) -> float` | Estimate a representative frequency-bin width. |
 
+## `spin_dynamics.nonresonant.field_reversal`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `NonresonantFieldModel` | Two orthogonal switching coils plus a non-reversible background field. |
+| class | `IsochromatEnsemble` | Per-isochromat coil directions, field scales, and weights. |
+| function | `sample_isochromats(model: NonresonantFieldModel, n: int, *, b_inhomogeneity: float = 0.25, a_inhomogeneity: float = 0.0, direction_tilt_deg: float = 15.0, seed: int = 0) -> IsochromatEnsemble` | Sample an isochromat ensemble with coil field and direction inhomogeneity. |
+| function | `rodrigues_rotate(vectors: np.ndarray, axis_unit: np.ndarray, angle) -> np.ndarray` | Rotate ``(N, 3)`` vectors about per-row unit axes by ``angle`` (Rodrigues). |
+| class | `FieldSegment` | One piecewise-constant stretch of a nonresonant sequence. |
+| function | `sequence_waveform(unit, *, repeats: int = 1)` | Return ``(times, i_a, i_b)`` step arrays of the coil currents over the sequence. |
+| function | `evolve_segment(magnetization: np.ndarray, ensemble: IsochromatEnsemble, segment: FieldSegment) -> np.ndarray` | Evolve the ``(N, 3)`` magnetization through one :class:`FieldSegment`. |
+| class | `FieldReversalResult` | Echo train from a nonresonant field-reversal sequence. |
+| function | `simulate_field_reversal_echoes(model: NonresonantFieldModel, ensemble: IsochromatEnsemble, unit: Sequence[FieldSegment] | Sequence[Sequence[FieldSegment]], *, num_echoes: int, echo_spacing_seconds: float | None = None, t2_seconds: float = np.inf, initial_direction = None, return_magnetization: bool = False) -> FieldReversalResult` | Simulate a repeated nonresonant refocusing unit and read the echo train. |
+
+## `spin_dynamics.nonresonant.sequences`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `basic_reversal_sequence(model: NonresonantFieldModel, *, echo_spacing_seconds: float, tau_rev_seconds: float = 0.0, reversal_steps: int = 16) -> list[FieldSegment]` | The basic nonresonant sequence (Brill 2002 Fig. 1B): periodic ``B_B`` reversal. |
+| function | `csar_sequence(model: NonresonantFieldModel, *, echo_spacing_seconds: float, tau_rev_seconds: float = 0.0, free_fraction: float = 0.1, reversal_steps: int = 16, adiabatic_steps: int = 160, sense: int = 1) -> list[FieldSegment]` | A 90-degree CSAR refocusing unit (Brill 2002 Fig. 1D / Fig. 3A). |
+| function | `csar_double_reversal_sequence(model: NonresonantFieldModel, *, echo_spacing_seconds: float, tau_rev_seconds: float = 0.0, free_fraction: float = 0.1, reversal_steps: int = 16, adiabatic_steps: int = 80) -> list[FieldSegment]` | A 2-pi CSAR refocusing unit (Brill 2002 Fig. 3B): two reversals per echo period. |
+| function | `csar_supercycle_sequence(model: NonresonantFieldModel, *, echo_spacing_seconds: float, tau_rev_seconds: float = 0.0, senses: tuple[int, ...] = (1, 1, -1, -1), **kwargs) -> list[list[FieldSegment]]` | The Fig. 3C supercycle: 90-degree CSAR units with alternating rotation senses. |
+| function | `effective_rotation(ensemble: IsochromatEnsemble, unit, isochromat_index: int = 0) -> tuple[np.ndarray, float]` | Return the ``(axis, angle)`` of one isochromat's echo-to-echo net rotation. |
+
 ## `spin_dynamics.nqr.full_dynamics`
 
 | Kind | Name | Summary |

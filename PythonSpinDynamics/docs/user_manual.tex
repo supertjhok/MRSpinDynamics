@@ -3802,6 +3802,66 @@ ideal = run_ideal_wurst_inversion(numpts=101)
 matched = run_matched_wurst_cpmg(num_echoes=2, numpts=51, num_steps=64)
 \end{lstlisting}
 
+\section{Nonresonant Field-Reversal Echoes}
+\label{sec:nonresonant}
+
+The \code{spin\_dynamics.nonresonant} package models \emph{nonresonant} NMR, in which
+nuclear magnetization is manipulated without RF --- by suddenly switching and
+adiabatically rotating applied magnetic fields (Brill \emph{et al.}, \emph{Science}
+\textbf{297}, 369, 2002). Because the manipulation is a field reversal rather than a
+resonant pulse, it excites spins with an efficiency independent of the Larmor
+frequency (useful for ex-situ sensors in grossly inhomogeneous fields), but a
+non-reversible background field --- typically Earth's field --- survives the
+reversals and dephases the echoes within a few milliseconds. A non-interacting
+spin-1/2 is a classical Bloch 3-vector, so the engine propagates an ensemble of
+isochromats by exact rotations about the instantaneous local field.
+
+The efficiency trick is that a constant-field segment (a ``hold'', including free
+precession) is a \emph{single} exact rotation by \(\gamma |B| \tau\) about the field
+direction, with no Larmor-timescale time stepping; only the adiabatic rotations and
+finite-duration reversals are sub-stepped, and only finely enough to resolve the
+(slow) field trajectory.
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.nonresonant import (
+    NonresonantFieldModel, sample_isochromats,
+    csar_sequence, simulate_field_reversal_echoes,
+)
+
+model = NonresonantFieldModel(
+    coil_a_tesla=2.14e-3, coil_b_tesla=2.14e-3, background_tesla=50e-6)
+ens = sample_isochromats(model, 500, b_inhomogeneity=0.25, direction_tilt_deg=18.0)
+unit = csar_sequence(model, echo_spacing_seconds=2.5e-3, tau_rev_seconds=8e-6)
+result = simulate_field_reversal_echoes(model, ens, unit, num_echoes=256,
+                                        t2_seconds=510e-3)
+\end{lstlisting}
+
+The Combined Sudden switching And adiabatic Rotation (CSAR) sequences suppress the
+background-field dephasing. \code{csar\_sequence} is the 90-degree unit whose
+echo-to-echo propagator is a \(\pi\) rotation, refocusing every \emph{second} echo
+(the odd echoes stay near zero and the even echoes carry a \(\sim\!50\%\) component
+that decays with \(T_2\) plus a \(\sim\!50\%\) component with a Bessel-like odd-even
+modulation set by the finite reversal time). \code{csar\_double\_reversal\_sequence}
+gives a \(2\pi\) rotation that refocuses \emph{both} parities (with an enhanced
+decay), and \code{csar\_supercycle\_sequence} alternates the adiabatic-rotation sense
+over a four-unit supercycle to suppress the imperfection decay down to the intrinsic
+\(T_2\) limit. \code{effective\_rotation} extracts the net-rotation axis and angle
+(the paper's analysis tool), and \code{sequence\_waveform} returns the coil-current
+drive waveform for plotting.
+
+\begin{lstlisting}[language=bash]
+python examples/plot_brill2002_field_reversal_echoes.py --output brill2002.png
+\end{lstlisting}
+
+The example reproduces the paper's key results: the basic reversal sequence decaying
+within tens of milliseconds from Earth's field, the CSAR train sustaining hundreds of
+echoes out to \(T_2 = 510\)\,ms with the odd-even modulation, an accurate fitted
+\(T_2\), and the sequence comparison in which the supercycle reaches the
+\(T_2\)-limited decay. (The 90-degree waveform follows the paper's Fig. 1D directly;
+the \(2\pi\) and supercycle sequences here are built from the same primitives and
+reproduce the same effects, but their exact coil waveforms differ from the paper's
+specific Fig. 3B/3C implementations.)
+
 \section{Phase Cycling}
 
 The Python API represents phase cycling with
