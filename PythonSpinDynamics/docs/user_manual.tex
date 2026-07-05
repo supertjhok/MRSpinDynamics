@@ -3174,14 +3174,27 @@ achievable field --- a nonlinear effect analytic superposition cannot capture.
 The example \code{plot\_logging\_ferrite\_b1\_focusing.py} uses the axisymmetric
 solver for the complementary RF case, coupled to the same asymptotic-CPMG echo
 model as \code{plot\_logging\_cpmg\_multinuclear.py}. It optimizes an inside-out
-Jasper-Jackson logging coil across three levers:\ a high-permeability ferrite
-core behind the coil (geometry swept; demagnetizing-factor limited), the coil
-turn spacing (concentrating turns toward the sweet-spot midplane is a strong
-lever that the CPMG echo tolerates despite the \(B_1\) inhomogeneity it creates),
-and the RF losses. Crucially, both levers boost the coil's coupling to the lossy
-borehole brine as well as to the sample, so the reflected resistance --- computed
-from the solved vector potential --- rises with the field and offsets much of the
-naive efficiency gain; the ferrite's own loss-tangent RF loss is included and is
+Jasper-Jackson logging coil over two design levers, each swept and traded off
+against the RF losses:
+
+\begin{itemize}
+  \item \textbf{Ferrite core geometry} --- the height and thickness of the
+  high-permeability core behind the coil. The efficiency gain is
+  demagnetizing-factor limited (set by the core's aspect ratio, not its
+  permeability), so a short, fat core near the coil beats a coil-length core
+  because it concentrates flux at the sweet-spot midplane.
+  \item \textbf{Coil turn spacing} --- the axial turn-density profile.
+  Concentrating turns toward the sweet-spot midplane is a strong efficiency
+  lever that the CPMG echo train tolerates despite the \(B_1\) inhomogeneity it
+  creates, so the region-integrated echo signal keeps rising and the optimum is
+  set by practical limits (turn size, voltage), not an interior maximum.
+\end{itemize}
+
+The RF losses are the cost these levers are traded against, not a knob:\ both
+levers also boost the coil's coupling to the lossy borehole brine, so the
+reflected resistance --- computed from the solved vector potential over the
+borehole annulus --- rises with the field and offsets much of the naive
+efficiency gain; the ferrite's own loss-tangent RF loss is included and is
 negligible next to the brine. The reported figure of merit is therefore the
 \emph{net} per-echo SNR and the RF power for a fixed sweet-spot \(B_1\), not the
 naive reciprocity ratio. The material model and nonlinear scheme are adapted from

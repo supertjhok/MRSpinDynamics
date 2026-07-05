@@ -241,19 +241,22 @@ def main() -> None:
     axes[0, 0].legend(fontsize=7, loc="upper right")
     fig.colorbar(im, ax=axes[0, 0])
 
-    # (0,1) turn-concentration sweep: SNR (monotone) vs homogeneity (degrades).
+    # (0,1) turn-concentration sweep. Plot against a concentration factor that
+    # increases to the right (coil length / turn-density width), so "more
+    # concentrated -> higher SNR" reads left-to-right unambiguously.
     ax = axes[0, 1]
     axh = ax.twinx()
+    conc_factor = args.coil_length_cm / data["concs_cm"]
     snr_rel = data["turn_snr"] / base["snr"]
-    ax.plot(data["concs_cm"], snr_rel, "o-", color="tab:blue", label="net SNR")
-    axh.plot(data["concs_cm"], 100 * data["turn_homog"], "s--", color="tab:red",
-             label="B1 spread over shell")
-    ax.axvline(args.turn_concentration_cm, color="gray", ls=":", lw=1)
-    ax.set_xlabel("Turn concentration sigma (cm)  <- more concentrated")
+    ln1 = ax.plot(conc_factor, snr_rel, "o-", color="tab:blue", label="net SNR")
+    ln2 = axh.plot(conc_factor, 100 * data["turn_homog"], "s--", color="tab:red",
+                   label="B1 spread over shell")
+    ax.axvline(args.coil_length_cm / args.turn_concentration_cm, color="gray", ls=":", lw=1)
+    ax.set_xlabel("Turn concentration  (coil length / density width) -->")
     ax.set_ylabel("net SNR (x baseline)", color="tab:blue")
     axh.set_ylabel("B1 spread over shell (%)", color="tab:red")
-    ax.set_title("Turn spacing: SNR rises, CPMG tolerates B1 spread")
-    ax.invert_xaxis()
+    ax.set_title("More concentrated turns -> higher net SNR (CPMG-tolerated)")
+    ax.legend(ln1 + ln2, [line.get_label() for line in ln1 + ln2], fontsize=8, loc="upper left")
     ax.grid(True, alpha=0.2)
 
     # (1,0) ferrite core-radius sweep.
