@@ -21,6 +21,53 @@ bash examples/abinit/nano2_relaxation_study.sh --dry-run   # validate inputs
 bash examples/abinit/nano2_relaxation_study.sh             # full study
 ```
 
+## EFG convergence study (eta vs cutoffs / k-mesh)
+
+`efg_convergence.py` isolates how much of a low predicted asymmetry parameter
+`eta` is merely under-convergence. `eta = (V_xx - V_yy)/V_zz` is a difference of
+the two smaller EFG eigenvalues, so it converges with `pawecutdg` and `ngkpt`
+much more slowly than `C_Q`. The driver sweeps `ecut`, `pawecutdg` and `ngkpt`
+one knob at a time around the baseline in a base static EFG input, then tabulates
+**eta** (and `C_Q`) per knob with successive deltas and a converged flag. This is
+Tier 1, item 1 of [`../../docs/eta_accuracy_improvement.md`](../../docs/eta_accuracy_improvement.md).
+
+From the `QuadrupolarDFT` root:
+
+```bash
+PYTHONPATH=src python3 examples/abinit/efg_convergence.py generate \
+  --base examples/abinit/nano2_efg.abi --target 2 \
+  --ecut 25,30,35 --pawecutdg 50,60,80,100 --ngkpt 4,6,8 \
+  --out runs/nano2_conv
+
+bash examples/abinit/run_convergence_efg_wsl.sh runs/nano2_conv
+
+PYTHONPATH=src python3 examples/abinit/efg_convergence.py collect \
+  --workdir runs/nano2_conv --quadmom 0.02044 \
+  --out runs/nano2_conv/convergence.md --csv runs/nano2_conv/convergence.csv
+```
+
+`--target` is the 0-based atom index (ABINIT atom indices are 1-based; the first
+nitrogen in the starter NaNO2 cell is index 2). The baseline is read from the base
+input, so each knob's ladder is anchored at the current settings and only
+off-baseline values are staged as extra runs. `run_convergence_efg_wsl.sh`
+re-probes the MPI launch command per input because the IBZ k-point count changes
+with `ngkpt`; pass `--dry-run` to have ABINIT validate the staged inputs without
+running the SCF. If eta keeps climbing as `pawecutdg`/`ngkpt` grow, take the
+converged-tail value as the honest static prediction before invoking Tier 2+
+physics; if eta is already flat at the baseline, the gap is physical.
+
+**Local scratch (important on OneDrive-synced checkouts).** The repo commonly
+lives under a OneDrive-synced `/mnt/c` (DrvFs) path, where ABINIT scratch and
+`.abo` I/O is very slow and OneDrive file locks can stall a run so that no `.abo`
+ever appears. `run_convergence_efg_wsl.sh` therefore runs each job in a
+WSL-native scratch directory (a `mktemp` dir under `${TMPDIR:-/tmp}` by default)
+and copies only `<name>.abo` (plus `<name>.stdout`/`.stderr` under
+`<workdir>/<name>.run/`) back into the workdir, where `collect` looks. Override
+the scratch root with `ABINIT_SCRATCH_DIR=$HOME/qdft_scratch` (must be
+WSL-native, not `/mnt/c`); set `ABINIT_KEEP_SCRATCH=0` to auto-clean an
+auto-created scratch after a successful run. Because these are small cells, a
+first pass with `ABINIT_NP=1` (serial) sidesteps the MPI auto-`np` path.
+
 ## `nano2_efg.abi`
 
 `nano2_efg.abi` is a starter ABINIT PAW calculation for ferroelectric sodium
