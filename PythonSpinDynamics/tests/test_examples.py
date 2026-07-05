@@ -337,6 +337,7 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_esr_inhomogeneous_echo.py",
             "examples/plot_nqr_powder_nutation.py",
             "examples/plot_nqr_full_powder_nutation.py",
+            "examples/plot_nqr_circular_polarization_nutation.py",
             "examples/plot_nqr_spin32_slse.py",
             "examples/plot_nqr_higher_spin_transitions.py",
             "examples/plot_nqr_higher_spin_slse.py",

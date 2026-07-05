@@ -30,7 +30,8 @@ Conventions and scope:
 from __future__ import annotations
 
 import warnings
-from dataclasses import dataclass
+from collections.abc import Sequence
+from dataclasses import dataclass, field
 
 import numpy as np
 
@@ -171,6 +172,110 @@ def detection_operator(
     # s = sum_{a,b} rho[a,b] * rx[b,a]; encode rx[b,a] at detector[b,a].
     detector.T[raising] = rx_operator.T[raising]
     return detector
+
+
+@dataclass(frozen=True)
+class CoilDrive:
+    """One linearly-polarized RF coil in a multi-axis excitation set.
+
+    ``nutation_hz`` is the bare field nutation ``gamma * B1 / (2 pi)`` of this
+    coil (the same convention as :func:`pulse_hamiltonian`), ``phase`` its RF
+    phase in radians, and ``direction_pas`` its field direction in the EFG
+    principal-axis system. A set of coils drives the sample through the
+    superposed co-rotating coupling built by :func:`multi_axis_pulse_hamiltonian`;
+    a single coil reproduces :func:`pulse_hamiltonian` exactly.
+    """
+
+    nutation_hz: float
+    phase: float = 0.0
+    direction_pas: tuple[float, float, float] = field(default=(1.0, 0.0, 0.0))
+
+
+def multi_axis_pulse_hamiltonian(
+    eigensystem: NQREigensystem,
+    coils: Sequence[CoilDrive],
+    *,
+    rf_frequency_hz: float,
+) -> np.ndarray:
+    """Return the rotating-frame RWA Hamiltonian for several RF coils at once.
+
+    The RWA pulse coupling is linear in the field, so multiple coils simply
+    superpose: ``H = H_static + sum_c (pulse_hamiltonian(coil_c) - H_static)``.
+    Each :class:`CoilDrive` carries its own bare nutation, phase, and PAS
+    direction, so this models simultaneous multi-axis (e.g. bi-/tri-axial)
+    excitation -- including circular polarization as two orthogonal coils driven
+    in quadrature (see :func:`circular_pulse_hamiltonian`). With a single coil it
+    is identical to :func:`pulse_hamiltonian`.
+    """
+
+    static = static_hamiltonian_rotating(eigensystem, rf_frequency_hz)
+    hamiltonian = static.copy()
+    for coil in coils:
+        hamiltonian = hamiltonian + (
+            pulse_hamiltonian(
+                eigensystem,
+                nutation_hz=coil.nutation_hz,
+                rf_frequency_hz=rf_frequency_hz,
+                phase=coil.phase,
+                b1_direction_pas=coil.direction_pas,
+            )
+            - static
+        )
+    return hamiltonian
+
+
+def circular_pulse_hamiltonian(
+    eigensystem: NQREigensystem,
+    *,
+    nutation_hz: float,
+    rf_frequency_hz: float,
+    axis1_pas=(1.0, 0.0, 0.0),
+    axis2_pas=(0.0, 1.0, 0.0),
+    helicity: int = 1,
+    phase: float = 0.0,
+) -> np.ndarray:
+    """Return the pulse Hamiltonian for a circularly-polarized (quadrature) drive.
+
+    Two orthogonal coils along ``axis1_pas`` and ``axis2_pas`` are driven pi/2
+    out of phase, producing a rotating RF field. ``helicity = +1`` puts the
+    second coil pi/2 *ahead*; ``helicity = -1`` reverses the rotation sense. In
+    zero-field NQR the two helicities couple differently to a given crystallite,
+    so the powder-averaged signal (and its matched quadrature detection, see
+    :func:`quadrature_detection_operator`) depends on the sign. ``axis1_pas`` and
+    ``axis2_pas`` should be orthonormal (two lab coil axes imaged into the PAS).
+    """
+
+    coils = (
+        CoilDrive(nutation_hz=nutation_hz, phase=phase, direction_pas=tuple(axis1_pas)),
+        CoilDrive(
+            nutation_hz=nutation_hz,
+            phase=phase + helicity * np.pi / 2.0,
+            direction_pas=tuple(axis2_pas),
+        ),
+    )
+    return multi_axis_pulse_hamiltonian(eigensystem, coils, rf_frequency_hz=rf_frequency_hz)
+
+
+def quadrature_detection_operator(
+    eigensystem: NQREigensystem,
+    rf_frequency_hz: float,
+    axis1_pas=(1.0, 0.0, 0.0),
+    axis2_pas=(0.0, 1.0, 0.0),
+    helicity: int = 1,
+) -> np.ndarray:
+    """Return the matched quadrature (circular) receive observable ``M``.
+
+    Two orthogonal pickup coils combine as ``M = M(axis1) + 1j * helicity *
+    M(axis2)``, i.e. the receiver co-rotates with a ``helicity``-polarized
+    circular excitation. Detecting a circularly-excited coherence with the
+    *matched* sense collects the component a single coil misses (the powder
+    refocused-signal gain); the *opposite* sense (``-helicity``) nulls it. Use
+    the same ``helicity`` here as in :func:`circular_pulse_hamiltonian`.
+    """
+
+    m1 = detection_operator(eigensystem, rf_frequency_hz, axis1_pas)
+    m2 = detection_operator(eigensystem, rf_frequency_hz, axis2_pas)
+    return m1 + 1j * helicity * m2
 
 
 def _propagate(
