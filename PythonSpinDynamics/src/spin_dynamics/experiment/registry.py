@@ -31,6 +31,11 @@ class WorkflowEntry:
     ``None`` for workflows without a finite acquisition time (e.g. asymptotic
     CPMG), which the rephasing rule then skips.
     """
+    cost: "Callable[[Experiment], Any] | None" = None
+    """Abstract cost builder returning an ``estimate.CostModel``.
+
+    ``None`` disables the runtime/memory estimate for this workflow.
+    """
 
 
 _REGISTRY: dict[tuple[type, str], WorkflowEntry] = {}

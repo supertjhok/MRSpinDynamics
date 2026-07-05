@@ -113,10 +113,10 @@ class Experiment:
     hardware: Hardware = field(default_factory=Hardware)
     acquisition: Acquisition = field(default_factory=Acquisition)
 
-    def plan(self) -> "Any":
+    def plan(self, *, estimate: bool = True) -> "Any":
         from spin_dynamics.experiment.plan import plan_experiment
 
-        return plan_experiment(self)
+        return plan_experiment(self, estimate=estimate)
 
     def run(self, **execution: Any) -> "Any":
         from spin_dynamics.experiment.runner import run_experiment

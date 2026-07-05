@@ -54,7 +54,9 @@ def run_experiment(experiment: Experiment, **execution: Any) -> RunRecord:
     warnings are emitted via :mod:`warnings` and recorded in the plan.
     """
 
-    plan = plan_experiment(experiment)
+    # Skip the runtime estimate here: run() measures the actual elapsed time,
+    # and estimating would trigger the calibration dry run on first use.
+    plan = plan_experiment(experiment, estimate=False)
     if not plan.ok:
         raise ExperimentPlanError(
             "experiment plan has errors:\n" + plan.report()

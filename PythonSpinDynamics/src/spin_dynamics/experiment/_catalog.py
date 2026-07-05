@@ -10,6 +10,9 @@ from __future__ import annotations
 
 from typing import Any
 
+import numpy as np
+
+from spin_dynamics.experiment.estimate import CostModel
 from spin_dynamics.experiment.io import register_result_type
 from spin_dynamics.experiment.registry import WorkflowEntry, register_workflow
 from spin_dynamics.experiment.serialization import register_serializable
@@ -183,6 +186,50 @@ def _make_ir_max_time(probe: str):
     return _max_time
 
 
+def _nacq(pp0: Any) -> int:
+    return int(round(float(np.ravel(pp0.tacq)[0]) / float(pp0.tdw))) + 1
+
+
+_PROBE_COST_NOTE = (
+    "probe-circuit setup time is not modeled and can dominate small grids",
+)
+_PHASE_BRANCHES = 2  # default two-step CPMG/PAP excitation cycle
+
+
+def _make_train_cost(probe: str):
+    getter = _PP_GETTERS[probe]
+    notes = () if probe == "ideal" else _PROBE_COST_NOTE
+
+    def _cost(experiment: Experiment) -> CostModel:
+        numpts = experiment.acquisition.numpts
+        num_echoes = experiment.sequence.num_echoes
+        segments = 2 + 3 * num_echoes
+        units = float(_PHASE_BRANCHES * numpts * segments)
+        nacq = _nacq(getter(numpts))
+        # complex128 isochromat phase matrix + spectra/echoes + kernel state
+        memory = 16 * numpts * (nacq + num_echoes + 40)
+        return CostModel(work_units=units, memory_bytes=memory, notes=notes)
+
+    return _cost
+
+
+def _make_ir_cost(probe: str):
+    getter = _PP_GETTERS[probe]
+    notes = () if probe == "ideal" else _PROBE_COST_NOTE
+
+    def _cost(experiment: Experiment) -> CostModel:
+        numpts = experiment.acquisition.numpts
+        sequence = experiment.sequence
+        num_taus = default_ir_tauvect(sequence.tauvect).size
+        segments = 4 + 3 * sequence.num_echoes
+        units = float(_PHASE_BRANCHES * num_taus * numpts * segments)
+        nacq = _nacq(getter(numpts))
+        memory = 16 * numpts * (nacq + num_taus * sequence.num_echoes + 40)
+        return CostModel(work_units=units, memory_bytes=memory, notes=notes)
+
+    return _cost
+
+
 _CPMG_HONORS = _ACQ_GRID | {"acquisition.noise"}
 _TRAIN_HONORS = (
     _CPMG_HONORS | _ACQ_REPHASE | _SAMPLE_RELAX | {"hardware.absolute_phase"}
@@ -230,6 +277,7 @@ for _probe, (_func, _extra, _rad) in _TRAIN_FUNCS.items():
             honors=_TRAIN_HONORS | _extra,
             execution_kwargs=frozenset({"num_workers"}),
             max_time=_make_train_max_time(_probe),
+            cost=_make_train_cost(_probe),
         )
     )
 
@@ -250,5 +298,6 @@ for _probe, _func in _IR_FUNCS.items():
             honors=_IR_HONORS,
             execution_kwargs=frozenset({"num_workers", "tau_workers"}),
             max_time=_make_ir_max_time(_probe),
+            cost=_make_ir_cost(_probe),
         )
     )

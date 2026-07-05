@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from spin_dynamics.experiment.estimate import RuntimeEstimate, estimate_runtime
 from spin_dynamics.experiment.registry import WorkflowEntry, probes_for, resolve
 from spin_dynamics.experiment.rules import RuleFinding, run_rules
 from spin_dynamics.experiment.specs import (
@@ -34,6 +35,7 @@ class ExperimentPlan:
     errors: tuple[str, ...]
     warnings: tuple[str, ...]
     findings: tuple[RuleFinding, ...] = ()
+    estimate: RuntimeEstimate | None = None
 
     @property
     def ok(self) -> bool:
@@ -42,6 +44,9 @@ class ExperimentPlan:
     def report(self) -> str:
         lines = [f"sequence: {self.sequence}", f"probe: {self.probe}"]
         lines.append(f"workflow: {self.workflow or '(unresolved)'}")
+        if self.estimate is not None:
+            lines.append(f"estimate: {self.estimate.summary()}")
+            lines.extend(f"  note: {note}" for note in self.estimate.notes)
         if self.errors:
             lines.append("errors:")
             lines.extend(f"  - {msg}" for msg in self.errors)
@@ -81,7 +86,14 @@ def _spec_sanity_errors(experiment: Experiment) -> list[str]:
     return errors
 
 
-def plan_experiment(experiment: Experiment) -> ExperimentPlan:
+def plan_experiment(experiment: Experiment, *, estimate: bool = True) -> ExperimentPlan:
+    """Resolve, validate, and (optionally) cost a declarative experiment.
+
+    ``estimate=False`` skips the runtime/memory prediction; the first estimate
+    per process triggers a sub-second calibration dry run (see
+    :mod:`spin_dynamics.experiment.estimate`).
+    """
+
     errors: list[str] = []
     warnings: list[str] = []
 
@@ -128,6 +140,10 @@ def plan_experiment(experiment: Experiment) -> ExperimentPlan:
                 elif finding.severity == "warn":
                     warnings.append(f"[{finding.rule}] {finding.message}")
 
+    runtime_estimate = None
+    if estimate and entry is not None and entry.cost is not None and not errors:
+        runtime_estimate = estimate_runtime(entry.cost(experiment))
+
     return ExperimentPlan(
         experiment=experiment,
         workflow=entry.name if entry is not None else None,
@@ -136,4 +152,5 @@ def plan_experiment(experiment: Experiment) -> ExperimentPlan:
         errors=tuple(errors),
         warnings=tuple(warnings),
         findings=findings,
+        estimate=runtime_estimate,
     )

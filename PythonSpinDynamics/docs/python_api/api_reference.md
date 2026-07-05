@@ -452,6 +452,18 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `exchange_spectrum(system: ExchangeSystem, *, num_points: int = 4096, dwell_seconds: float | None = None, span_hz: float | None = None, line_broadening_hz: float = 0.0) -> tuple[np.ndarray, np.ndarray]` | Return ``(frequencies_hz, spectrum)`` from an exchange-broadened FID. |
 | function | `simulate_relaxation_exchange_2d(system: ExchangeSystem, encode_times: np.ndarray, detect_times: np.ndarray, mixing_time: float, *, include_t1: bool = True) -> RelaxationExchange2DResult` | Simulate an encode-mix-detect (T2-T2) relaxation exchange data set. |
 
+## `spin_dynamics.experiment.estimate`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `CostModel` | Abstract cost of one planned workflow execution. |
+| class | `RuntimeEstimate` | Advisory runtime/memory prediction for a planned experiment. |
+| function | `calibrate(force: bool = False) -> _Calibration` | Measure (or return the cached) affine cost constants for this host. |
+| function | `set_calibration(overhead_seconds: float, seconds_per_unit: float, backend: str = 'manual') -> None` | Pin the cost constants (useful for tests and known hosts). |
+| function | `estimate_runtime(cost: CostModel) -> RuntimeEstimate` | Convert an abstract cost model to a host-calibrated estimate. |
+| function | `format_seconds(seconds: float) -> str` |  |
+| function | `format_bytes(num_bytes: int) -> str` |  |
+
 ## `spin_dynamics.experiment.io`
 
 | Kind | Name | Summary |
@@ -466,7 +478,7 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | Kind | Name | Summary |
 | --- | --- | --- |
 | class | `ExperimentPlan` | Resolved execution plan for an :class:`Experiment`. |
-| function | `plan_experiment(experiment: Experiment) -> ExperimentPlan` |  |
+| function | `plan_experiment(experiment: Experiment, *, estimate: bool = True) -> ExperimentPlan` | Resolve, validate, and (optionally) cost a declarative experiment. |
 
 ## `spin_dynamics.experiment.registry`
 

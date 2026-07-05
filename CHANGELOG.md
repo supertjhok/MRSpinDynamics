@@ -28,6 +28,14 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
   `errors`/`warnings`. The per-workflow `max_time` timing formulas were
   extracted into shared helpers so the plan-time verdict matches the
   workflow's own run-time check exactly.
+- Experiment facade PR-3: `plan()` now reports an advisory runtime and memory
+  estimate (`experiment/estimate.py`, `ExperimentPlan.estimate`). Cost is
+  modeled as `seconds = a + b * work_units` with work units counted per
+  workflow (isochromats x pulse segments x phase-cycle branches x inversion
+  delays); the constants are calibrated once per process from two sub-second
+  ideal-train dry runs on the actual host and kernel backend, so estimates
+  track the machine rather than a reference host. `plan(estimate=False)` and
+  `set_calibration(...)` opt out or pin the constants.
 
 ## [0.1.0] - 2026-06-28
 

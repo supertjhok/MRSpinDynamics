@@ -349,6 +349,117 @@ def test_noise_spec_rule_rejects_time_nonwhite() -> None:
     assert any("time-domain noise" in e for e in plan.errors)
 
 
+@pytest.fixture
+def pinned_calibration(monkeypatch):
+    """Pin the runtime-estimate constants so tests are timing-independent."""
+
+    from spin_dynamics.experiment import estimate as estimate_module
+
+    monkeypatch.setattr(
+        estimate_module,
+        "_CALIBRATION",
+        estimate_module._Calibration(
+            overhead_seconds=0.0,
+            seconds_per_unit=1e-6,
+            backend="pinned",
+            manual=True,
+        ),
+    )
+
+
+@pytest.mark.smoke
+def test_estimate_present_only_for_finite_workflows(pinned_calibration) -> None:
+    train_plan = Experiment(sequence=CPMGTrain(num_echoes=4)).plan()
+    assert train_plan.estimate is not None
+    assert train_plan.estimate.backend == "pinned"
+    assert train_plan.estimate.memory_bytes > 0
+    assert "estimate:" in train_plan.report()
+
+    ir_plan = Experiment(sequence=CPMGIRTrain(num_echoes=4)).plan()
+    assert ir_plan.estimate is not None
+
+    assert Experiment(sequence=CPMG()).plan().estimate is None
+    assert Experiment(sequence=CPMGTrain()).plan(estimate=False).estimate is None
+
+
+@pytest.mark.smoke
+def test_estimate_scales_with_work(pinned_calibration) -> None:
+    def seconds(num_echoes: int, numpts: int = 101) -> float:
+        plan = Experiment(
+            sequence=CPMGTrain(num_echoes=num_echoes),
+            acquisition=Acquisition(numpts=numpts, rephase_action="ignore"),
+        ).plan()
+        return plan.estimate.seconds
+
+    # units = 2 * numpts * (2 + 3 * num_echoes) with zero pinned overhead
+    assert seconds(16) / seconds(8) == pytest.approx((2 + 3 * 16) / (2 + 3 * 8))
+    assert seconds(8, numpts=202) / seconds(8, numpts=101) == pytest.approx(2.0)
+
+    def ir_seconds(num_taus: int) -> float:
+        plan = Experiment(
+            sequence=CPMGIRTrain(num_echoes=4, tauvect=tuple([1e-3] * num_taus)),
+            acquisition=Acquisition(rephase_action="ignore"),
+        ).plan()
+        return plan.estimate.seconds
+
+    assert ir_seconds(6) / ir_seconds(3) == pytest.approx(2.0)
+
+
+@pytest.mark.smoke
+def test_estimate_memory_scales_with_numpts(pinned_calibration) -> None:
+    def memory(numpts: int) -> int:
+        plan = Experiment(
+            sequence=CPMGTrain(num_echoes=4),
+            acquisition=Acquisition(numpts=numpts, rephase_action="ignore"),
+        ).plan()
+        return plan.estimate.memory_bytes
+
+    assert memory(2002) == pytest.approx(2 * memory(1001), rel=1e-6)
+
+
+@pytest.mark.smoke
+def test_probe_estimate_carries_overhead_note(pinned_calibration) -> None:
+    plan = Experiment(
+        sequence=CPMGTrain(num_echoes=4), hardware=Hardware(probe="tuned")
+    ).plan()
+    assert any("probe-circuit" in note for note in plan.estimate.notes)
+
+
+@pytest.mark.smoke
+def test_run_skips_estimate(pinned_calibration) -> None:
+    record = Experiment(
+        sequence=CPMGTrain(num_echoes=2), sample=_TRAIN_SAMPLE, acquisition=_ACQ
+    ).run()
+    assert record.plan.estimate is None
+
+
+def test_estimate_accuracy_against_real_run() -> None:
+    """Advisory accuracy: the estimate must be the right order of magnitude.
+
+    Uses a real calibration and compares against a warm (second) run to avoid
+    cold-start outliers; the window is deliberately wide because CI hosts are
+    noisy.
+    """
+
+    import time
+
+    from spin_dynamics.experiment import calibrate
+
+    calibrate(force=True)
+    experiment = Experiment(
+        sequence=CPMGTrain(num_echoes=8),
+        sample=Sample(t1_seconds=0.05, t2_seconds=0.04),
+        acquisition=Acquisition(numpts=2001, rephase_action="ignore"),
+    )
+    predicted = experiment.plan().estimate.seconds
+    experiment.run()  # warm caches
+    start = time.perf_counter()
+    experiment.run()
+    actual = time.perf_counter() - start
+    assert predicted > 0
+    assert 1 / 20 < actual / predicted < 20
+
+
 @pytest.mark.smoke
 def test_registry_entries_point_at_public_workflows() -> None:
     entries = available_workflows()

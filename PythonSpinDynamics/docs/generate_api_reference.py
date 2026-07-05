@@ -52,6 +52,7 @@ MODULES = [
     "esr.spectra",
     "esr.systems",
     "exchange",
+    "experiment.estimate",
     "experiment.io",
     "experiment.plan",
     "experiment.registry",
