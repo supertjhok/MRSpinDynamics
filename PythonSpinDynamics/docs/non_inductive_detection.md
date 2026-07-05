@@ -206,8 +206,16 @@ ULF-MRI** numbers.
   SNR. Reproduces Clarke's ~1000× uniform-ambient rejection (magnetometer loses
   1000×, balanced gradiometer unaffected). `snr_from_field_noise_psd` factored
   out of the core; `tests/test_detection_spatial.py`.
-- **PR-4 — detector-aware GRAPE objectives.** Optimize pulses / prepolarization
-  for a flux readout instead of a tuned coil, over the existing ensemble path.
+- [x] **PR-4 — detector-aware GRAPE objectives.** `optimal_control/detection_objective.py`:
+  `make_detected_snr_objective` scores the acquired echo with the field-referred
+  matched filter `√∫|S(f)|²/N²(f) df`, weighting by the detector's precomputed
+  `N²(f)` (`detector_noise_grid`, baseband-recentred); `detected_field_snr_jax`
+  reduces to `detected_echo_snr` for a flat floor (Parseval). `per_rf_power` mode
+  (SNR per unit RF amplitude) is what makes the readout shape the pulse — raw SNR
+  always rewards more excitation. Example `plot_grape_detector_aware_pulse.py`
+  (SQUID vs SERF-OPM, cross-evaluation shows each pulse best under its own
+  detector); `tests/test_optimal_control_detection.py`. Note: prepolarization/B0
+  as *control variables* remains future work (they are ensemble params today).
 
 ## Correctness invariants and tests
 

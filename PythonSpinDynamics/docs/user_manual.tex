@@ -4494,6 +4494,34 @@ exact saddle (mirrored offsets' phase gradients cancel), so a single start never
 moves the phase -- random phase restarts escape it. The design note is
 \code{docs/optimal\_control\_pgse\_diffusion.md}.
 
+\subsection{Detector-aware objectives: optimizing for a flux readout}
+\label{sec:grape-detector-aware}
+
+The PGSE objective scores the detected echo through a tuned-probe
+\code{ReceiverResponse} over a scalar noise floor -- the inductive-coil picture.
+A SQUID or OPM (Section~\ref{sec:non-inductive-detection}) is a field sensor with
+a frequency-dependent field-noise floor \(N^2(f)\) (flat for a SQUID, a Lorentzian
+band-pass for an RF-OPM) and no \(\mathrm{d}\Phi/\mathrm{d}t\) weighting.
+\code{optimal\_control.detection\_objective} scores the same acquired echo with
+the field-referred matched filter
+\[
+  \mathrm{SNR} = \sqrt{\int \frac{\lvert S(f)\rvert^2}{N^2(f)}\,\mathrm{d}f},
+\]
+so the optimizer shapes the pulse to place signal where the \emph{detector} is
+quiet. Because \(N^2(f)\) is fixed over the acquisition frequency grid (it does
+not depend on the controls), it is precomputed once with NumPy
+(\code{detector\_noise\_grid}, which also re-centres a band-pass detector's
+response to baseband) and passed as a static weight into the differentiable
+objective; a flat \(N^2=\sigma^2\) reproduces \code{detected\_echo\_snr} with
+\code{noise}\({}=\sigma\) (Parseval), so it is a strict generalization.
+\code{make\_detected\_snr\_objective} builds the ``value\_and\_grad'' over a
+\((B_0,B_1)\) ensemble; with \code{per\_rf\_power} the score is SNR per unit RF
+amplitude, the efficiency figure of merit that makes the readout actually shape
+the pulse (raw SNR always rewards more excitation, since out-of-band signal never
+hurts). The example \code{examples/plot\_grape\_detector\_aware\_pulse.py}
+optimizes an excitation for a broadband SQUID versus a narrow SERF OPM and shows,
+by cross-evaluation, that each pulse is best under its own detector.
+
 \subsection{Axis-matched excitation (AMEX) and CPMG SNR per unit time}
 
 \code{su2\_effective\_axis} extracts a refocusing cycle's effective rotation

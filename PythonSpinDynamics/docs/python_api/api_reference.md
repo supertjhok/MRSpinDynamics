@@ -911,6 +911,14 @@ No public classes or functions found.
 | class | `ReceiverResponse` | Output-side LTI filter for objectives on the *detected* signal. |
 | function | `build_control_delivery(n_segments, dt, *, rf_response = None, gradient_response = None)` | Build the commanded-to-delivered control transform for GRAPE objectives. |
 
+## `spin_dynamics.optimal_control.detection_objective`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `detector_noise_grid(detector, n_acq, dt_acq, *, center_hz = None) -> np.ndarray` | Field-noise PSD ``N^2(f)`` of a detector on the acquisition FFT grid. |
+| function | `detected_field_snr_jax(signal, dt_acq, noise_psd_grid, *, xp = None)` | Field-referred matched-filter SNR of a baseband echo against ``N^2(f)``. |
+| function | `make_detected_snr_objective(*, drift_batch: Sequence[np.ndarray], hx_batch: Sequence[np.ndarray], hy_batch: Sequence[np.ndarray], psi0: np.ndarray, detection_operator: np.ndarray, weights: np.ndarray, offsets_hz: np.ndarray, dt: float, n_segments: int, amplitude_template: np.ndarray, acquisition_points: int, acquisition_dt: float, detector = None, noise_psd_grid: np.ndarray | None = None, noise_center_hz: float | None = None, optimize_amplitude: bool = False, per_rf_power: bool = False, rf_response = None, propagator: str = 'expm') -> Callable[[np.ndarray], tuple[float, np.ndarray]]` | Build a ``value_and_grad`` maximizing detector-referred detected SNR. |
+
 ## `spin_dynamics.optimal_control.diffusion`
 
 | Kind | Name | Summary |

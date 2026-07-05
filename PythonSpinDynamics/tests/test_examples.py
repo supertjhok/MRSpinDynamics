@@ -365,6 +365,7 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_grape_nqr_broadband_spectrum.py",
             "examples/plot_grape_nqr_slse_excitation.py",
             "examples/plot_grape_pgse_diffusion.py",
+            "examples/plot_grape_detector_aware_pulse.py",
             "examples/plot_squid_ulf_crossover.py",
             "examples/plot_opm_nqr_detection.py",
             "examples/plot_gradiometer_sensitivity.py",
