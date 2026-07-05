@@ -1,0 +1,25 @@
+# Example experiment config for the facade CLI.
+#
+#   python -m spin_dynamics.experiment plan examples/experiment_config_cpmg.toml
+#   python -m spin_dynamics.experiment run  examples/experiment_config_cpmg.toml -o run.npz
+#   python -m spin_dynamics.experiment show run.npz
+#
+# The top-level document is an Experiment. Each section's spec class is named
+# by its `type`; the sample/hardware/acquisition sections imply their class and
+# may omit `type`. Omitted fields fall back to the workflow's own defaults.
+
+[sequence]
+type = "CPMGTrain"
+num_echoes = 8
+
+[sample]
+t1_seconds = 2.0
+t2_seconds = 2.0
+
+[hardware]
+probe = "tuned"
+q_value = 40.0
+
+[acquisition]
+numpts = 501
+maxoffs = 10.0

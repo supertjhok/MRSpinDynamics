@@ -284,10 +284,13 @@ new analysis workflows.
 Read the manual in layers. Chapters 1--4 define the model boundaries and shared
 conventions. Chapters~\ref{chap:jcoupling}, \ref{chap:esr}, and
 \ref{chap:nqr} introduce the explicitly quantum extensions. Chapter
-\ref{chap:workflows} then returns to experiment-level workflows: CPMG, FID,
-imaging, diffusion, motion, field sources, phase cycling, exchange, analysis,
-and optimization. The final chapters collect runnable examples, validation
-status, API tables, and known gaps.
+\ref{chap:experiment} presents the unified experiment facade -- the recommended
+declarative entry point that ties the sample, hardware, sequence, and
+acquisition together, plans a run, and saves it. Chapter
+\ref{chap:workflows} then documents the underlying experiment-level workflows
+the facade delegates to: CPMG, FID, imaging, diffusion, motion, field sources,
+phase cycling, exchange, analysis, and optimization. The final chapters collect
+runnable examples, validation status, API tables, and known gaps.
 
 The supported surface includes ideal, tuned, untuned, and matched-probe CPMG
 workflows; finite echo trains; FID; phase-encoded and frequency-encoded
@@ -2674,6 +2677,96 @@ The diagnostic plotting example constructs a compact \(3\times3\) map over the
 spin-1 \code{x}, \code{y}, and \code{z} transitions. Off-diagonal features
 indicate that perturbation and detection frequencies are connected through the
 same quadrupolar site.
+
+\chapter{Unified Experiment Workflow}
+\label{chap:experiment}
+
+The \code{spin\_dynamics.experiment} package is the recommended entry point for
+new code. It is a thin, declarative layer over the validated \code{run\_*} and
+\code{simulate\_*} workflows: you describe an experiment with frozen-dataclass
+specs, front-load validation with \code{plan()}, execute with \code{run()}, and
+save the result with provenance. The facade never re-implements any dynamics --
+a default \code{Experiment} reproduces the direct workflow call bit for bit --
+so it costs nothing in fidelity and adds compatibility checking, runtime
+estimation, automatic hardware wiring, and serialization on top. If you already
+know which \code{run\_*} function you want, calling it directly (Chapter
+\ref{chap:workflows}) remains fully supported; reach for the facade when you
+want that surrounding scaffolding or a single interface across the NMR, imaging,
+NQR, and ESR engines.
+
+\section{The Eight-Step Workflow}
+
+The facade organizes an experiment into the same stages every example follows:
+(1)~define the sample; (2)~define transmitters/receivers; (3)~define the
+sequence; (4)~define the acquisition; (5)~\code{plan()} -- resolve the workflow,
+check compatibility, estimate cost; (6)~solve fields (done automatically inside
+\code{plan()}/\code{run()} when coils are given); (7)~\code{run()}; and
+(8)~view, analyze, and save.
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.experiment import (
+    Experiment, CPMGTrain, Sample, Hardware, Acquisition,
+)
+
+study = Experiment(
+    sequence=CPMGTrain(num_echoes=8),
+    sample=Sample(t1_seconds=2.0, t2_seconds=2.0),
+    hardware=Hardware(probe="tuned"),
+    acquisition=Acquisition(numpts=501, maxoffs=10.0),
+)
+
+plan = study.plan()
+print(plan.report())
+record = study.run()
+record.save("run1.npz")
+\end{lstlisting}
+
+\section{Planning Before Running}
+
+\code{plan()} is the front-loaded validation stage. It resolves which workflow
+will run and returns an \code{ExperimentPlan} whose \code{errors} and
+\code{warnings} are also available structurally as \code{plan.findings}.
+\code{run()} refuses to execute a plan with errors; warnings are surfaced but do
+not block. The current rules cover isochromat-grid rephasing (with the
+recommended \code{numpts}, respecting \code{Acquisition.rephase\_action}), noise
+spec validity, coil-field wiring, and reduced-vs-full NQR model selection.
+Setting a spec field the resolved workflow does not consume produces an
+``ignored'' warning, so mismatched specs never fail silently.
+
+\section{Automatic Hardware Wiring}
+
+For imaging sequences, describe the transmit coil as geometry in SI meters and
+the facade solves its Biot--Savart \(B_1\) on the phantom grid at plan time,
+projects it transverse to \(B_0\), normalizes it to a sample-weighted mean of
+one, and passes it to the workflow in place of the synthetic default. The solve
+is cached by a geometry hash and reused by \code{run()}; \code{plan()} reports
+the transverse fraction of the coil's \(B_1\) over the sample and warns when
+most of it is parallel to \(B_0\).
+
+\section{NQR and ESR}
+
+The same interface drives the NQR and ESR engines. For NQR, \code{plan()} picks
+the reduced two-level or full density-matrix engine via \code{select\_nqr\_model}
+and reports why; \code{NQRSLSE.nutation\_hz} uses the reduced engine's effective
+two-level Rabi convention and the adapter converts to the bare
+\(\gamma B_1 / 2\pi\) the full engine needs. For pulsed ESR, set
+\code{Sample.esr\_system} and a \code{Hardware.b0 = UniformB0(field\_tesla=...)}
+so the electron Larmor frequency is fixed, then use an \code{ESRFID} or
+\code{ESRHahnEcho} sequence.
+
+\section{Saving and Reloading}
+
+\code{record.save(path)} writes an NPZ archive holding every array field of the
+native result plus a JSON document with the full experiment spec, provenance,
+and scalar result fields. \code{load\_run(path)} returns a \code{LoadedRun}
+exposing the raw arrays, the reconstructed native result, and -- via
+\code{loaded.experiment} -- the original spec, so a saved run can be re-run or
+tweaked. Specs are JSON-serializable directly
+(\code{Experiment.to\_json()} / \code{Experiment.from\_json(...)}), which is the
+basis for config-file-driven runs. Runnable versions of every stage above live
+in \code{examples/experiment\_facade\_quickstart.py},
+\code{examples/experiment\_imaging\_with\_coil.py}, and
+\code{examples/experiment\_nqr\_auto\_model.py}.
 
 \chapter{Workflow Guides}
 \label{chap:workflows}

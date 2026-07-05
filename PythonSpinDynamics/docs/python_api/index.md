@@ -11,6 +11,7 @@ variants, packaging, and performance.
 - [Installation](installation.md)
 - [Development Environment](../development_environment.md)
 - [Concepts and Units](concepts.md)
+- [Unified Experiment Workflow](experiment_workflow.md) — recommended entry point
 - [Examples](examples.md)
 - [Parameters](parameters.md)
 - [Core Numerical Functions](core.md)
@@ -32,6 +33,13 @@ variants, packaging, and performance.
 
 The validated Python API currently covers:
 
+- a unified declarative experiment facade (`spin_dynamics.experiment`) over the
+  CPMG family, phase-encoded imaging, pulsed NQR (SLSE/SORC), and pulsed ESR
+  (FID/Hahn echo): declarative specs, a `plan()` stage with compatibility rules
+  and runtime/memory estimation, automatic coil-geometry-to-B1 field wiring for
+  imaging, reduced-vs-full NQR engine dispatch, and NPZ save/load with JSON
+  provenance and spec round-trip (see
+  [Unified Experiment Workflow](experiment_workflow.md));
 - ideal CPMG asymptotic magnetization and echo construction;
 - public ideal, tuned, untuned, and matched CPMG runners returning a common
   `CPMGResult`;

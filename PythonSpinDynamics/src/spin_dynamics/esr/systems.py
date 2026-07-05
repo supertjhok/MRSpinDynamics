@@ -35,7 +35,7 @@ def as_g_tensor(
     return out
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class ESRSpinSystem:
     """Single-electron ESR spin system with an isotropic or anisotropic ``g`` tensor."""
 
@@ -50,6 +50,18 @@ class ESRSpinSystem:
         object.__setattr__(self, "spin", spin)
         object.__setattr__(self, "g_tensor", as_g_tensor(self.g_tensor))
         object.__setattr__(self, "label", str(self.label))
+
+    def __eq__(self, other: object) -> bool:
+        # The generated dataclass __eq__ compares the (always 3x3) g tensor
+        # elementwise inside a tuple and raises on the ambiguous result, so
+        # equality needs the array-aware form.
+        if not isinstance(other, ESRSpinSystem):
+            return NotImplemented
+        return (
+            self.spin == other.spin
+            and self.label == other.label
+            and bool(np.array_equal(self.g_tensor, other.g_tensor))
+        )
 
     @property
     def dimension(self) -> int:

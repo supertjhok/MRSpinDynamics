@@ -7,6 +7,88 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
 
 ## [Unreleased]
 
+### PythonSpinDynamics
+
+- New `spin_dynamics.experiment` facade (unified workflow PR-1): declarative
+  frozen-dataclass experiment specs (`Experiment`, `Sample`, `Hardware`,
+  `Acquisition`, `CPMG`/`CPMGTrain`/`CPMGIRTrain`), a workflow registry
+  covering the CPMG family (ideal/tuned/untuned/matched × asymptotic, finite
+  train, inversion-recovery train), a `plan()` stage that resolves the
+  workflow and warns about spec fields it would ignore, `run()` delegation
+  that reproduces the direct `run_*` calls bit for bit, and NPZ save/load
+  with JSON provenance and spec round-trip. Design and milestones in
+  `PythonSpinDynamics/docs/unified_workflow_plan.md`.
+- Experiment facade PR-2: `plan()` now runs a declarative compatibility rule
+  engine (`experiment/rules.py`). A front-loaded rephasing pre-check reports,
+  before `run()` executes, whether the isochromat grid is fine enough for the
+  sequence (with the recommended `numpts`), respecting
+  `acquisition.rephase_action` (`ignore`/`warn`/`raise`); a noise-spec rule
+  rejects malformed or unsupported noise at plan time. Findings are exposed
+  structurally on the plan (`ExperimentPlan.findings`) and merged into
+  `errors`/`warnings`. The per-workflow `max_time` timing formulas were
+  extracted into shared helpers so the plan-time verdict matches the
+  workflow's own run-time check exactly.
+- Experiment facade PR-3: `plan()` now reports an advisory runtime and memory
+  estimate (`experiment/estimate.py`, `ExperimentPlan.estimate`). Cost is
+  modeled as `seconds = a + b * work_units` with work units counted per
+  workflow (isochromats x pulse segments x phase-cycle branches x inversion
+  delays); the constants are calibrated once per process from two sub-second
+  ideal-train dry runs on the actual host and kernel backend, so estimates
+  track the machine rather than a reference host. `plan(estimate=False)` and
+  `set_calibration(...)` opt out or pin the constants.
+- Experiment facade PR-4: automatic hardware wiring for imaging. New geometry
+  specs (`SolenoidCoil`, `PlanarSpiralCoil`, `TxCoil`, `RxCoil`, `UniformB0`,
+  `ImagingPlane` — all in SI meters), a `Phantom` sample spec, and a
+  `CPMGImaging` sequence spec wired to the ideal/tuned/matched CPMG imaging
+  workflows. Coil B1 is solved by Biot-Savart on the phantom grid at plan
+  time (cached by a geometry hash), projected transverse to B0, and
+  normalized to a rho-weighted mean of one (transmit calibration at the
+  sample) — replacing the workflows' synthetic default B1. `plan()` reports a
+  transmit-efficiency diagnostic and warns when most of a coil's B1 is
+  parallel to B0 (an inefficiency the normalized maps would otherwise hide).
+- Experiment facade PR-5: NQR under the facade. `Sample.site` takes a
+  `QuadrupolarSite`; new `NQRSLSE`/`NQRSORC` sequence specs use the reduced
+  engine's effective-Rabi nutation convention, with the adapter owning the
+  conversion to the bare `gamma*B1/(2*pi)` the full engine expects
+  (`bare = effective / (2 * transition.strength)`). `NQRSLSE(model="auto")`
+  dispatches to `simulate_slse` (reduced) or `simulate_full_slse` (full
+  density matrix) via `select_nqr_model` at plan time; `plan()` reports the
+  recommendation with its reasons, warns on forced overrides and on SORC
+  sites that would need the (nonexistent) full SORC engine, and errors when
+  the reduced engine's spin-1 constraint is violated. `transition="auto"`
+  addresses the line most strongly coupled to the drive polarization (not
+  the largest bare strength, which can be RF-dark).
+- Experiment facade PR-5a: pulsed ESR under the facade. `Sample.esr_system`
+  takes an `ESRSpinSystem`; new `ESRFID`/`ESRHahnEcho` sequence specs wrap
+  `esr.simulate_fid`/`simulate_hahn_echo`. The static field comes from
+  `Hardware.b0` — `UniformB0` gained an optional `field_tesla` so it can fix
+  the electron Larmor frequency (ESR needs the absolute field, unlike the
+  rotating-frame NMR/NQR workflows); `plan()` errors when it is missing.
+  Hahn-echo defaults follow the 90-180 convention (refocus duration twice
+  the excitation, acquisition window `2*tau`). Also fixes
+  `ESRSpinSystem.__eq__`, which previously raised on the ambiguous
+  elementwise comparison of the (always 3x3) g tensor. DEER/ESEEM/HYSCORE/
+  ENDOR remain direct-call modules (analysis-style parameter surfaces).
+- Experiment facade PR-6 (documentation): a workflow-first getting-started
+  guide (`docs/python_api/experiment_workflow.md`) and a matching
+  "Unified Experiment Workflow" chapter in the user manual, both presenting
+  the eight-step sample→hardware→sequence→acquisition→plan→run→analyze→save
+  narrative; the docs index now lists the facade as the recommended entry
+  point and the examples index leads with it. Three runnable flagship
+  examples on the facade: `experiment_facade_quickstart.py` (plan/run/save),
+  `experiment_imaging_with_coil.py` (automatic coil-B1 solving), and
+  `experiment_nqr_auto_model.py` (reduced-vs-full engine selection), all
+  covered by the example smoke tests.
+- Experiment facade PR-7: a config-driven CLI. `python -m spin_dynamics.experiment`
+  offers `plan` / `run` / `show` / `convert` subcommands over a human-friendly
+  TOML or JSON config where each spec is a `type`-tagged table (distinct from
+  the machine result encoding). `plan` exits non-zero on plan errors and `run`
+  refuses to execute them. New `experiment.config` module
+  (`experiment_to_config` / `experiment_from_config`, `save_config` /
+  `load_config`, with a dependency-free TOML writer and `tomllib` reader) and
+  a shipped `examples/experiment_config_cpmg.toml`. Configs round-trip every
+  engine family including 2-D phantoms and nested coil geometry.
+
 ## [0.1.0] - 2026-06-28
 
 First tagged release of the workspace. This consolidates the work tracked in

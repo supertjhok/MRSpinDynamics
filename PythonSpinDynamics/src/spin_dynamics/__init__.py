@@ -8,6 +8,7 @@ __all__ = [
     "detection",
     "esr",
     "exchange",
+    "experiment",
     "interference",
     "motion",
     "noise",
