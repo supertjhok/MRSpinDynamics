@@ -418,6 +418,68 @@ The driver \code{nano2\_relaxation\_study.sh} uses \code{auto} by default; pass
 Parallelization changes only how ABINIT is launched, not the inputs, so it leaves
 all computed quantities (and any relaxed-vs-unrelaxed comparison) unchanged.
 
+\section{Convergence of $\eta$ and the asymmetry gap}
+\label{sec:convergence}
+
+The coupling $\Cq \propto \Vzz$ tracks the largest EFG eigenvalue and converges
+quickly, but the asymmetry $\eta = (V_{xx}-V_{yy})/\Vzz$ is a normalized
+\emph{difference} of the two smaller eigenvalues. It therefore converges much more
+slowly with the PAW double-grid cutoff \code{pawecutdg} and the $k$-mesh
+\code{ngkpt}, and a calculation can reproduce $\Cq$ while still reporting a
+too-axial (low) $\eta$ simply because the transverse tensor components are not yet
+converged. \code{examples/abinit/efg\_convergence.py} isolates that effect: it
+sweeps \code{ecut}, \code{pawecutdg}, and \code{ngkpt} one knob at a time around
+the baseline read from a base input, then tabulates $\eta$ (and $\Cq$) per knob
+with successive deltas and a converged flag.
+
+\begin{lstlisting}
+PYTHONPATH=src python3 examples/abinit/efg_convergence.py generate \
+    --base examples/abinit/nano2_efg.abi --target 2 \
+    --ecut 25,30,35 --pawecutdg 50,60,80,100 --ngkpt 4,6,8 \
+    --out runs/nano2_conv
+bash examples/abinit/run_convergence_efg_wsl.sh runs/nano2_conv
+PYTHONPATH=src python3 examples/abinit/efg_convergence.py collect \
+    --workdir runs/nano2_conv --out runs/nano2_conv/convergence.md \
+    --csv runs/nano2_conv/convergence.csv
+\end{lstlisting}
+
+Each knob's ladder shares one baseline job (only off-baseline values are staged as
+extra runs), so the baseline is computed once and anchored across all three
+sweeps. \code{run\_convergence\_efg\_wsl.sh} runs each job in a WSL-native scratch
+directory (a \code{mktemp} dir under \code{\$TMPDIR}, overridable with
+\code{ABINIT\_SCRATCH\_DIR}) and copies only \code{<name>.abo} back into the
+workdir. This matters on OneDrive-synced \code{/mnt/c} checkouts, where ABINIT
+scratch and \code{.abo} I/O is slow and OneDrive file locks can stall a run so
+that no \code{.abo} ever appears.
+
+\paragraph{NaNO$_2$ result.} For the $^{14}$N site the sweep is decisive: $\eta$
+is flat to $\sim 10^{-4}$ across \code{pawecutdg} ($50\!\to\!100$~Ha) and
+\code{ngkpt} ($4^3\!\to\!8^3$, $n_{\mathrm{kpt}}$ up to $260$), while \code{ecut}
+moves it only slightly and \emph{away} from experiment (knee near $30$~Ha).
+Convergence --- and, because the inputs run with \code{nsym 1}, symmetry pinning
+--- is therefore ruled out as the cause of the low $\eta$. The geometry is the
+dominant lever instead:
+
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+geometry & $\eta$ & $\Cq$ (MHz) \\
+\midrule
+hand-built starter & 0.043 & $-5.17$ \\
+ICSD 82857 (experimental) & 0.112 & $-5.03$ \\
+experiment (77--300~K NQR) & $\sim 0.38$ & $\pm 5.49$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The experimental cell raises $\eta$ by $\sim 2.6\times$ over the starter geometry
+but still under-predicts the measured value, and the residual is physical rather
+than numerical. Because the measurement is a finite-temperature average over an
+order--disorder ferroelectric, thermal libration (the harmonic workflow above,
+and beyond it snapshot averaging) is the leading candidate for the remainder. The
+ranked plan for closing the $\eta$ gap --- convergence, geometry and dispersion,
+functional, and dynamics --- is in \code{docs/eta\_accuracy\_improvement.md}.
+
 % =====================================================================
 \chapter{Finite-Strain EFG Drive Couplings}
 \label{ch:strain}
