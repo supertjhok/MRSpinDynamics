@@ -1,10 +1,11 @@
 # QuadrupolarDFT
 
 QuadrupolarDFT is the ab initio electric-field-gradient workspace within
-MRSpinDynamics. It starts with an ABINIT-centered static EFG workflow and keeps
-the analysis layer backend-neutral so Quantum ESPRESSO/GIPAW, Elk, CP2K, or
-snapshot-averaging pipelines can be added later without changing tensor
-conventions downstream.
+MRSpinDynamics. Its primary workflow is an ABINIT PAW static-EFG pipeline, with an
+all-electron full-potential LAPW cross-check (Elk) now implemented alongside it
+(`examples/elk/`); the analysis layer stays backend-neutral, so Quantum
+ESPRESSO/GIPAW, CP2K, or snapshot-averaging pipelines can be added without
+changing tensor conventions downstream.
 
 The first practical target is:
 
@@ -27,7 +28,11 @@ components, not only the total energy.
 The full user manual — physical scope and conventions, the finite-temperature
 theory, the three-stage DFPT workflow, the NaNO2 worked example, and the API
 reference — is in [`docs/user_manual.pdf`](docs/user_manual.pdf), with the LaTeX
-source tracked beside it. This README is a quick entry point.
+source tracked beside it. Readers new to electronic-structure theory can start
+with the companion
+[`docs/DFT_for_Spin_Dynamics_Beginners_Guide.pdf`](docs/DFT_for_Spin_Dynamics_Beginners_Guide.pdf)
+(the SCF loop, k-points, basis sets, PAW versus all-electron treatments, and
+phonons — from a spin-dynamics standpoint). This README is a quick entry point.
 
 ## Installation
 
@@ -190,6 +195,30 @@ and rough magnitude of the measured `dnu/dT` (the residual gap is NaNO2's
 ferroelectric-transition softening, which a single harmonic mode cannot capture
 -- the case for escalating to AIMD/PIMD averaging).
 
+## EFG accuracy: convergence and an all-electron cross-check
+
+The asymmetry parameter `eta = (V_xx - V_yy)/V_zz` is a normalized *difference* of
+the two smaller EFG eigenvalues, so it is far more delicate than `C_Q` and a sharp
+test of the near-nucleus wavefunction. Two tools probe it:
+
+- **Convergence** — `examples/abinit/efg_convergence.py` sweeps `ecut`,
+  `pawecutdg`, and `ngkpt` one knob at a time and tabulates `eta`/`C_Q` per knob,
+  separating numerical under-convergence from physical causes.
+- **All-electron cross-check** — `examples/elk/` runs the same EFG in the
+  all-electron full-potential LAPW code Elk (the reference method for EFGs), with
+  an `EFG.OUT` parser and an MPI-parallel runner (convergence watchdog + live
+  monitor), so a disagreement can be pinned on the pseudopotential rather than the
+  functional.
+
+For NaNO2 `14N` this resolved a long-standing puzzle. ABINIT PAW under-predicts
+`eta` (0.112 vs the measured 0.38), but all-electron PBE at the *same* geometry
+gives `eta ≈ 0.333` — so the shortfall is a **PAW/pseudopotential artifact** (the
+Pseudodojo PBE nitrogen dataset under-represents the near-nucleus transverse EFG),
+not a functional or dynamics deficiency. The ABINIT-side fix is a harder /
+EFG-tuned nitrogen PAW dataset; a meta-GGA or hybrid functional is not needed. See
+[`examples/elk/README.md`](examples/elk/README.md), the user manual (§5.7), and the
+ranked plan in [`docs/eta_accuracy_improvement.md`](docs/eta_accuracy_improvement.md).
+
 ## Technical Note
 
 For the derivation and practical DFT context behind this workspace, see the
@@ -236,7 +265,9 @@ source is tracked at
 ## Near-Term Milestones
 
 - Add CIF-to-ABINIT structure generation.
-- Add convergence-study manifests for cutoff, PAW fine grid, and k-point mesh.
+- Convergence-study tooling for cutoff, PAW fine grid, and k-point mesh is done
+  (`examples/abinit/efg_convergence.py`), and an all-electron Elk cross-check
+  backend (`examples/elk/`) traced the NaNO2 `eta` shortfall to the PAW dataset.
 - Add backend-neutral result files with structure, pseudopotential, functional,
   and convergence provenance.
 - Finite-temperature tensor averaging is done end to end and validated on real
