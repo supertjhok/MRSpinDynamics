@@ -42,6 +42,19 @@ from spin_dynamics.fields.magnetostatics import (
     sample_magnet_field,
 )
 from spin_dynamics.fields.maps import SpatialFieldMaps
+from spin_dynamics.fields.nonlinear_magnetostatics import (
+    AxisymmetricMagnetostatics,
+    AxisymmetricSolution,
+    BrauerBH,
+    MagneticMaterial,
+    PlanarMagnetostatics,
+    PlanarSolution,
+    air,
+    linear_material,
+    ndfeb,
+    rf_ferrite,
+    soft_iron,
+)
 from spin_dynamics.fields.positions import (
     gradient_offset,
     positions_nd,
@@ -103,4 +116,16 @@ __all__ = [
     "CoilLoading",
     "EddyModes",
     "EddyModeSpectrum",
+    # nonlinear magnetostatics (ferrite / saturable iron / permanent magnets)
+    "BrauerBH",
+    "MagneticMaterial",
+    "air",
+    "linear_material",
+    "rf_ferrite",
+    "soft_iron",
+    "ndfeb",
+    "PlanarMagnetostatics",
+    "PlanarSolution",
+    "AxisymmetricMagnetostatics",
+    "AxisymmetricSolution",
 ]

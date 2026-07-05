@@ -2033,6 +2033,42 @@ sweep = simulate_slse_offset_sweep(
 )
 \end{lstlisting}
 
+\subsection{Circular and Multi-Axis Excitation}
+
+The examples above excite the powder with a single linearly-polarized coil. The
+full density-matrix engine keeps a general RF direction and phase per coil and is
+linear in the field, so several coils superpose as co-rotating RWA couplings. The
+helper \code{multi\_axis\_pulse\_hamiltonian} sums a list of \code{CoilDrive}
+components (each a bare nutation, phase, and PAS direction); with one component it
+reproduces \code{pulse\_hamiltonian} exactly. \emph{Circular} polarization is the
+special case of two orthogonal coils driven \(\pi/2\) out of phase
+(\code{circular\_pulse\_hamiltonian}), producing a rotating RF field, with a
+matched quadrature receiver \code{quadrature\_detection\_operator}.
+
+Because a multi-coil drive couples to two or three orthogonal lab axes at once,
+its powder response depends on the \emph{full} crystallite orientation, not just
+one coil axis. \code{powder\_frame\_grid} provides the required SO(3) grid of
+orthonormal lab-to-PAS frames (Gauss--Legendre \(\cos\beta\) \(\times\) uniform
+\(\alpha\) \(\times\) uniform in-plane \(\chi\)).
+
+\begin{lstlisting}[language=bash]
+python examples/plot_nqr_circular_polarization_nutation.py --output circular.png
+\end{lstlisting}
+
+In zero-field NQR the transition has no intrinsic precession handedness, so a
+linear coil couples equally to both rotation senses whereas a circular coil
+couples to one. Across a powder this raises the \emph{refocused} (SLSE) signal:
+neither circular excitation alone (single-coil detection) nor quadrature
+detection alone helps, but together, at matched per-coil \(B_1\), they lift the
+powder echo train by \(\sim\!1.6\times\) (each scheme calibrated to its own
+optimal flip, so the trivial \(\sim\!2\times\) field efficiency of a rotating
+field is normalized out). Detecting with the \emph{wrong} rotation sense nulls
+the powder signal --- a direct check that the handedness is physical. Circular
+uses two coils, drawing \(\sim\!2\times\) peak RF power and adding a
+\(\sqrt{2}\) two-channel receiver-noise penalty, so the \(\sim\!1.6\times\)
+signal gain corresponds to a \(\sim\!1.1\times\) net SNR gain --- the slight
+increase reported in the powder NQR literature.
+
 \section{SORC Detection}
 
 The strong off-resonance comb (SORC) sequence is represented as
@@ -3140,6 +3176,66 @@ the same frequency where \(B_0\) is \(\sim\)3.8\(\times\) higher, with non-optim
 flip angles from the proton-calibrated pulses) to estimate its fractional signal
 contribution. Design note: \code{docs/field\_solvers\_quasistatic.md}.
 
+\subsection{Nonlinear magnetostatics: ferrites and saturable iron}
+\label{sec:fields-nonlinear-magnetostatics}
+
+The analytic solvers above superpose permanent-magnet dipoles and Biot-Savart
+filaments in \emph{free space}; they cannot represent flux-shaping magnetic
+materials. \code{spin\_dynamics.fields.nonlinear\_magnetostatics} adds a
+structured-grid nonlinear magnetostatic solver for exactly that: a
+high-permeability RF ferrite that focuses a \(B_1\) field, or saturable iron that
+shapes and returns a \(B_0\) field. Each nonlinear step's sparse linear system is
+solved by a SciPy LU factorization (FEMM-style; a NumPy matrix-free conjugate
+gradient is the fallback when SciPy is absent), with a material's saturation
+described by a smooth Brauer reluctivity
+\(\nu(B^2)=b_1+b_2\,e^{b_3 B^2}\) clamped to a physical \(\mu_r\ge 1\), and the
+nonlinear branch tracked by Anderson-accelerated Picard with residual-stall
+detection. No meshing dependency (structured grid).
+Two coordinate systems share the material model and solver:
+\code{PlanarMagnetostatics} solves the out-of-plane \(A_z\) for
+translationally-invariant \((x,y)\) problems, and
+\code{AxisymmetricMagnetostatics} solves the azimuthal \(A_\phi\) for
+rotationally-symmetric \((r,z)\) problems (solenoid / loop coils with cores). The
+planar solver is validated against the uniformly-magnetized-cylinder interior
+field \(B_r/2\) and the axisymmetric solver against the analytic solenoid
+on-axis field.
+
+The example \code{plot\_shim\_a\_ring\_magnet.py} builds a ``shim-a-ring'':\ a
+diametrically-magnetized NdFeB ring inside a concentric soft-iron ring. A
+uniformly magnetized \emph{tube} produces essentially zero bore field (the outer
+and inner \(\sin\theta\) surface-current sheets cancel); the high-permeability
+iron ring provides a low-reluctance return path that breaks the cancellation and
+establishes the transverse bore field, and its \emph{saturation} sets the
+achievable field --- a nonlinear effect analytic superposition cannot capture.
+The example \code{plot\_logging\_ferrite\_b1\_focusing.py} uses the axisymmetric
+solver for the complementary RF case, coupled to the same asymptotic-CPMG echo
+model as \code{plot\_logging\_cpmg\_multinuclear.py}. It optimizes an inside-out
+Jasper-Jackson logging coil over two design levers, each swept and traded off
+against the RF losses:
+
+\begin{itemize}
+  \item \textbf{Ferrite core geometry} --- the height and thickness of the
+  high-permeability core behind the coil. The efficiency gain is
+  demagnetizing-factor limited (set by the core's aspect ratio, not its
+  permeability), so a short, fat core near the coil beats a coil-length core
+  because it concentrates flux at the sweet-spot midplane.
+  \item \textbf{Coil turn spacing} --- the axial turn-density profile.
+  Concentrating turns toward the sweet-spot midplane is a strong efficiency
+  lever that the CPMG echo train tolerates despite the \(B_1\) inhomogeneity it
+  creates, so the region-integrated echo signal keeps rising and the optimum is
+  set by practical limits (turn size, voltage), not an interior maximum.
+\end{itemize}
+
+The RF losses are the cost these levers are traded against, not a knob:\ both
+levers also boost the coil's coupling to the lossy borehole brine, so the
+reflected resistance --- computed from the solved vector potential over the
+borehole annulus --- rises with the field and offsets much of the naive
+efficiency gain; the ferrite's own loss-tangent RF loss is included and is
+negligible next to the brine. The reported figure of merit is therefore the
+\emph{net} per-echo SNR and the RF power for a fixed sweet-spot \(B_1\), not the
+naive reciprocity ratio. The material model and nonlinear scheme are adapted from
+the author's Motor\_Design finite-element solver.
+
 \section{Received-Signal Noise}
 
 Noise is opt-in and output-referred. High-level workflows accept a
@@ -3803,6 +3899,66 @@ from spin_dynamics.workflows import (
 ideal = run_ideal_wurst_inversion(numpts=101)
 matched = run_matched_wurst_cpmg(num_echoes=2, numpts=51, num_steps=64)
 \end{lstlisting}
+
+\section{Nonresonant Field-Reversal Echoes}
+\label{sec:nonresonant}
+
+The \code{spin\_dynamics.nonresonant} package models \emph{nonresonant} NMR, in which
+nuclear magnetization is manipulated without RF --- by suddenly switching and
+adiabatically rotating applied magnetic fields (Brill \emph{et al.}, \emph{Science}
+\textbf{297}, 369, 2002). Because the manipulation is a field reversal rather than a
+resonant pulse, it excites spins with an efficiency independent of the Larmor
+frequency (useful for ex-situ sensors in grossly inhomogeneous fields), but a
+non-reversible background field --- typically Earth's field --- survives the
+reversals and dephases the echoes within a few milliseconds. A non-interacting
+spin-1/2 is a classical Bloch 3-vector, so the engine propagates an ensemble of
+isochromats by exact rotations about the instantaneous local field.
+
+The efficiency trick is that a constant-field segment (a ``hold'', including free
+precession) is a \emph{single} exact rotation by \(\gamma |B| \tau\) about the field
+direction, with no Larmor-timescale time stepping; only the adiabatic rotations and
+finite-duration reversals are sub-stepped, and only finely enough to resolve the
+(slow) field trajectory.
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.nonresonant import (
+    NonresonantFieldModel, sample_isochromats,
+    csar_sequence, simulate_field_reversal_echoes,
+)
+
+model = NonresonantFieldModel(
+    coil_a_tesla=2.14e-3, coil_b_tesla=2.14e-3, background_tesla=50e-6)
+ens = sample_isochromats(model, 500, b_inhomogeneity=0.25, direction_tilt_deg=18.0)
+unit = csar_sequence(model, echo_spacing_seconds=2.5e-3, tau_rev_seconds=8e-6)
+result = simulate_field_reversal_echoes(model, ens, unit, num_echoes=256,
+                                        t2_seconds=510e-3)
+\end{lstlisting}
+
+The Combined Sudden switching And adiabatic Rotation (CSAR) sequences suppress the
+background-field dephasing. \code{csar\_sequence} is the 90-degree unit whose
+echo-to-echo propagator is a \(\pi\) rotation, refocusing every \emph{second} echo
+(the odd echoes stay near zero and the even echoes carry a \(\sim\!50\%\) component
+that decays with \(T_2\) plus a \(\sim\!50\%\) component with a Bessel-like odd-even
+modulation set by the finite reversal time). \code{csar\_double\_reversal\_sequence}
+gives a \(2\pi\) rotation that refocuses \emph{both} parities (with an enhanced
+decay), and \code{csar\_supercycle\_sequence} alternates the adiabatic-rotation sense
+over a four-unit supercycle to suppress the imperfection decay down to the intrinsic
+\(T_2\) limit. \code{effective\_rotation} extracts the net-rotation axis and angle
+(the paper's analysis tool), and \code{sequence\_waveform} returns the coil-current
+drive waveform for plotting.
+
+\begin{lstlisting}[language=bash]
+python examples/plot_brill2002_field_reversal_echoes.py --output brill2002.png
+\end{lstlisting}
+
+The example reproduces the paper's key results: the basic reversal sequence decaying
+within tens of milliseconds from Earth's field, the CSAR train sustaining hundreds of
+echoes out to \(T_2 = 510\)\,ms with the odd-even modulation, an accurate fitted
+\(T_2\), and the sequence comparison in which the supercycle reaches the
+\(T_2\)-limited decay. (The 90-degree waveform follows the paper's Fig. 1D directly;
+the \(2\pi\) and supercycle sequences here are built from the same primitives and
+reproduce the same effects, but their exact coil waveforms differ from the paper's
+specific Fig. 3B/3C implementations.)
 
 \section{Phase Cycling}
 

@@ -36,11 +36,15 @@ from spin_dynamics.nqr.interference import (
     sorc_mask_from_metadata,
 )
 from spin_dynamics.nqr.full_dynamics import (
+    CoilDrive,
     FullNQREchoResult,
     FullNQRFIDResult,
     FullNQRSLSEResult,
+    circular_pulse_hamiltonian,
     detection_operator,
+    multi_axis_pulse_hamiltonian,
     pulse_hamiltonian,
+    quadrature_detection_operator,
     rf_operator_eigenbasis,
     rotating_indices,
     simulate_full_echo,
@@ -72,11 +76,13 @@ from spin_dynamics.nqr.operators import (
     spin_matrices,
 )
 from spin_dynamics.nqr.orientations import (
+    OrientationFrame,
     OrientationSample,
     b0_b1_powder_average_grid,
     b0_powder_average_grid,
     normalize_orientations,
     powder_average_grid,
+    powder_frame_grid,
     single_crystal_orientation,
     spherical_direction,
 )
@@ -167,6 +173,7 @@ from spin_dynamics.nqr.zeeman import (
 )
 
 __all__ = [
+    "CoilDrive",
     "EFGDistribution",
     "EFGIsochromat",
     "EFGRephasingAnalysis",
@@ -179,6 +186,7 @@ __all__ = [
     "NQRTransition",
     "NQRRelaxationModel",
     "NuclearIsotope",
+    "OrientationFrame",
     "QUADRUPOLAR_ISOTOPES",
     "cq_hz_from_nu_q",
     "nu_q_from_cq_hz",
@@ -225,9 +233,12 @@ __all__ = [
     "b0_b1_powder_average_grid",
     "b0_powder_average_grid",
     "check_efg_rephasing",
+    "circular_pulse_hamiltonian",
     "cycle_superoperator",
     "deconvolve_acquisition_window",
     "detection_operator",
+    "multi_axis_pulse_hamiltonian",
+    "quadrature_detection_operator",
     "diagonalize_site",
     "diagonalize_sites_over_b0",
     "batched_nqr_hamiltonians",
@@ -262,6 +273,7 @@ __all__ = [
     "nqr_hamiltonian",
     "nuclear_absorbed_power",
     "powder_average_grid",
+    "powder_frame_grid",
     "propagate_density_liouville",
     "quadrupole_frequency_scale_hz",
     "quadrupole_hamiltonian",

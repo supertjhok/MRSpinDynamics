@@ -302,6 +302,8 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_sensitive_slice.py",
             "examples/plot_multislice_halbach_imaging.py",
             "examples/plot_halbach_dipole_field.py",
+            "examples/plot_shim_a_ring_magnet.py",
+            "examples/plot_logging_ferrite_b1_focusing.py",
             "examples/plot_nmr_mouse_fields.py",
             "examples/plot_nmr_mouse_depth_profile.py",
             "examples/plot_wurst_flow.py",
@@ -333,8 +335,10 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_esr_eseem_hyscore.py",
             "examples/plot_esr_quadrupolar_eseem.py",
             "examples/plot_esr_inhomogeneous_echo.py",
+            "examples/plot_brill2002_field_reversal_echoes.py",
             "examples/plot_nqr_powder_nutation.py",
             "examples/plot_nqr_full_powder_nutation.py",
+            "examples/plot_nqr_circular_polarization_nutation.py",
             "examples/plot_nqr_spin32_slse.py",
             "examples/plot_nqr_higher_spin_transitions.py",
             "examples/plot_nqr_higher_spin_slse.py",
@@ -474,6 +478,12 @@ class ExampleSmokeTests(unittest.TestCase):
         result = run_example("examples/plot_halbach_dipole_field.py", "--help")
         self.assertIn("--rod-shape", result.stdout)
         self.assertIn("--n-length", result.stdout)
+        result = run_example("examples/plot_shim_a_ring_magnet.py", "--help")
+        self.assertIn("--iron-outer-mm", result.stdout)
+        self.assertIn("--remanence-t", result.stdout)
+        result = run_example("examples/plot_logging_ferrite_b1_focusing.py", "--help")
+        self.assertIn("--ferrite-mu-r", result.stdout)
+        self.assertIn("--core-radius-cm", result.stdout)
         result = run_example("examples/plot_nmr_mouse_fields.py", "--help")
         self.assertIn("--remanence", result.stdout)
         self.assertIn("--coil-radius", result.stdout)

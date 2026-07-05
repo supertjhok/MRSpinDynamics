@@ -11,6 +11,7 @@ __all__ = [
     "interference",
     "motion",
     "noise",
+    "nonresonant",
     "nqr",
     "parameters",
     "phase_cycling",

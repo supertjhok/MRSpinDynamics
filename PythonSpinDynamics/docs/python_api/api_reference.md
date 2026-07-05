@@ -504,6 +504,22 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | --- | --- | --- |
 | class | `SpatialFieldMaps` | Spatial sample and field maps shared by imaging and diffusion workflows. |
 
+## `spin_dynamics.fields.nonlinear_magnetostatics`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `BrauerBH` | Smooth Brauer soft-magnetic reluctivity ``nu(B^2) = bk1 + bk2 exp(bk3 B^2)``. |
+| class | `MagneticMaterial` | A magnetic material region: linear or saturable, optionally a magnet. |
+| function | `air() -> MagneticMaterial` | Return free space (``mu_r = 1``). |
+| function | `linear_material(mu_r: float, *, name: str = 'linear') -> MagneticMaterial` | Return a linear material of relative permeability ``mu_r``. |
+| function | `rf_ferrite(mu_r: float = 1000.0, *, bh: BrauerBH | None = None) -> MagneticMaterial` | Return a high-permeability RF ferrite (linear by default, below saturation). |
+| function | `soft_iron(curve: str = 'soft_iron') -> MagneticMaterial` | Return a saturable soft-iron material from a named Brauer curve. |
+| function | `ndfeb(remanence_t: float = 1.3, *, mu_rec: float = 1.05) -> MagneticMaterial` | Return an NdFeB permanent magnet (recoil permeability ``mu_rec``). |
+| class | `PlanarSolution` | Result of a planar magnetostatic solve. |
+| class | `PlanarMagnetostatics` | 2D translationally-invariant nonlinear magnetostatics via ``A_z``. |
+| class | `AxisymmetricSolution` | Result of an axisymmetric magnetostatic solve. |
+| class | `AxisymmetricMagnetostatics` | Rotationally-symmetric nonlinear magnetostatics via ``A_phi``. |
+
 ## `spin_dynamics.fields.positions`
 
 | Kind | Name | Summary |
@@ -663,6 +679,30 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `matched_probe_output_noise_density(sp: Mapping[str, Any] | Any, pp: Mapping[str, Any] | Any, *, tf1: np.ndarray | None = None) -> tuple[np.ndarray, np.ndarray]` | Return matched-probe output-referred noise density and frequencies. |
 | function | `frequency_bin_width(frequencies: np.ndarray) -> float` | Estimate a representative frequency-bin width. |
 
+## `spin_dynamics.nonresonant.field_reversal`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `NonresonantFieldModel` | Two orthogonal switching coils plus a non-reversible background field. |
+| class | `IsochromatEnsemble` | Per-isochromat coil directions, field scales, and weights. |
+| function | `sample_isochromats(model: NonresonantFieldModel, n: int, *, b_inhomogeneity: float = 0.25, a_inhomogeneity: float = 0.0, direction_tilt_deg: float = 15.0, seed: int = 0) -> IsochromatEnsemble` | Sample an isochromat ensemble with coil field and direction inhomogeneity. |
+| function | `rodrigues_rotate(vectors: np.ndarray, axis_unit: np.ndarray, angle) -> np.ndarray` | Rotate ``(N, 3)`` vectors about per-row unit axes by ``angle`` (Rodrigues). |
+| class | `FieldSegment` | One piecewise-constant stretch of a nonresonant sequence. |
+| function | `sequence_waveform(unit, *, repeats: int = 1)` | Return ``(times, i_a, i_b)`` step arrays of the coil currents over the sequence. |
+| function | `evolve_segment(magnetization: np.ndarray, ensemble: IsochromatEnsemble, segment: FieldSegment) -> np.ndarray` | Evolve the ``(N, 3)`` magnetization through one :class:`FieldSegment`. |
+| class | `FieldReversalResult` | Echo train from a nonresonant field-reversal sequence. |
+| function | `simulate_field_reversal_echoes(model: NonresonantFieldModel, ensemble: IsochromatEnsemble, unit: Sequence[FieldSegment] | Sequence[Sequence[FieldSegment]], *, num_echoes: int, echo_spacing_seconds: float | None = None, t2_seconds: float = np.inf, initial_direction = None, return_magnetization: bool = False) -> FieldReversalResult` | Simulate a repeated nonresonant refocusing unit and read the echo train. |
+
+## `spin_dynamics.nonresonant.sequences`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `basic_reversal_sequence(model: NonresonantFieldModel, *, echo_spacing_seconds: float, tau_rev_seconds: float = 0.0, reversal_steps: int = 16) -> list[FieldSegment]` | The basic nonresonant sequence (Brill 2002 Fig. 1B): periodic ``B_B`` reversal. |
+| function | `csar_sequence(model: NonresonantFieldModel, *, echo_spacing_seconds: float, tau_rev_seconds: float = 0.0, free_fraction: float = 0.1, reversal_steps: int = 16, adiabatic_steps: int = 160, sense: int = 1) -> list[FieldSegment]` | A 90-degree CSAR refocusing unit (Brill 2002 Fig. 1D / Fig. 3A). |
+| function | `csar_double_reversal_sequence(model: NonresonantFieldModel, *, echo_spacing_seconds: float, tau_rev_seconds: float = 0.0, free_fraction: float = 0.1, reversal_steps: int = 16, adiabatic_steps: int = 80) -> list[FieldSegment]` | A 2-pi CSAR refocusing unit (Brill 2002 Fig. 3B): two reversals per echo period. |
+| function | `csar_supercycle_sequence(model: NonresonantFieldModel, *, echo_spacing_seconds: float, tau_rev_seconds: float = 0.0, senses: tuple[int, ...] = (1, 1, -1, -1), **kwargs) -> list[list[FieldSegment]]` | The Fig. 3C supercycle: 90-degree CSAR units with alternating rotation senses. |
+| function | `effective_rotation(ensemble: IsochromatEnsemble, unit, isochromat_index: int = 0) -> tuple[np.ndarray, float]` | Return the ``(axis, angle)`` of one isochromat's echo-to-echo net rotation. |
+
 ## `spin_dynamics.nqr.full_dynamics`
 
 | Kind | Name | Summary |
@@ -672,6 +712,10 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `static_hamiltonian_rotating(eigensystem: NQREigensystem, rf_frequency_hz: float) -> np.ndarray` | Return the rotating-frame static Hamiltonian (rad/s) in the eigenbasis. |
 | function | `pulse_hamiltonian(eigensystem: NQREigensystem, *, nutation_hz: float, rf_frequency_hz: float, phase: float = 0.0, b1_direction_pas = (1.0, 0.0, 0.0)) -> np.ndarray` | Return the rotating-frame RWA pulse Hamiltonian (rad/s) in the eigenbasis. |
 | function | `detection_operator(eigensystem: NQREigensystem, rf_frequency_hz: float, rx_direction_pas = (1.0, 0.0, 0.0)) -> np.ndarray` | Return the baseband receive observable ``M`` with ``s = Tr(rho M)``. |
+| class | `CoilDrive` | One linearly-polarized RF coil in a multi-axis excitation set. |
+| function | `multi_axis_pulse_hamiltonian(eigensystem: NQREigensystem, coils: Sequence[CoilDrive], *, rf_frequency_hz: float) -> np.ndarray` | Return the rotating-frame RWA Hamiltonian for several RF coils at once. |
+| function | `circular_pulse_hamiltonian(eigensystem: NQREigensystem, *, nutation_hz: float, rf_frequency_hz: float, axis1_pas = (1.0, 0.0, 0.0), axis2_pas = (0.0, 1.0, 0.0), helicity: int = 1, phase: float = 0.0) -> np.ndarray` | Return the pulse Hamiltonian for a circularly-polarized (quadrature) drive. |
+| function | `quadrature_detection_operator(eigensystem: NQREigensystem, rf_frequency_hz: float, axis1_pas = (1.0, 0.0, 0.0), axis2_pas = (0.0, 1.0, 0.0), helicity: int = 1) -> np.ndarray` | Return the matched quadrature (circular) receive observable ``M``. |
 | class | `FullNQRFIDResult` | Complex baseband FID from the full density-matrix model. |
 | class | `FullNQREchoResult` | Complex baseband echo from a full density-matrix two-pulse sequence. |
 | function | `simulate_full_fid(site: QuadrupolarSite, *, nutation_hz: float, pulse_duration_seconds: float, times_seconds: np.ndarray, rf_frequency_hz: float | None = None, phase: float = 0.0, b1_direction_pas = (1.0, 0.0, 0.0), rx_direction_pas = None, b0_vector_tesla_pas = None, relaxation: NQRRelaxationLike | None = None, initial_density: np.ndarray | None = None) -> FullNQRFIDResult` | Simulate a single-pulse full density-matrix NQR FID. |
@@ -749,7 +793,9 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `OrientationSample` | One local EFG orientation relative to lab RF and static fields. |
 | function | `single_crystal_orientation(alpha: float, beta: float, *, b0_alpha: float | None = None, b0_beta: float | None = None) -> tuple[OrientationSample, ...]` | Return a one-sample orientation ensemble. |
 | function | `powder_average_grid(n_theta: int = 16, n_phi: int = 32) -> tuple[OrientationSample, ...]` | Return a normalized spherical powder-average grid. |
+| class | `OrientationFrame` | A full crystallite orientation as an orthonormal lab-to-PAS frame. |
 | function | `b0_b1_powder_average_grid(n_theta: int = 12, n_phi: int = 24, n_chi: int = 8, *, b1_b0_angle: float = np.pi / 2.0) -> tuple[OrientationSample, ...]` | Return a powder grid with correlated lab B0 and RF B1 directions. |
+| function | `powder_frame_grid(n_theta: int = 12, n_phi: int = 24, n_chi: int = 8) -> tuple[OrientationFrame, ...]` | Return a normalized SO(3) powder grid of full lab-to-PAS frames. |
 | function | `b0_powder_average_grid(n_theta: int = 16, n_phi: int = 32, *, b1_direction_pas: np.ndarray | list[float] | tuple[float, float, float] = (1.0, 0.0, 0.0)) -> tuple[OrientationSample, ...]` | Return a powder grid over static-field directions in the PAS. |
 | function | `normalize_orientations(orientations: tuple[OrientationSample, ...] | list[OrientationSample]) -> tuple[OrientationSample, ...]` | Return orientation samples with weights normalized to unity. |
 
