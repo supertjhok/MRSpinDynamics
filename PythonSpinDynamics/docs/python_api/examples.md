@@ -4,6 +4,34 @@ Examples live in `examples/`. They can be run from `PythonSpinDynamics` or from
 inside `PythonSpinDynamics/examples`; each script adds the local `src` directory
 to `sys.path` when the package has not been installed yet.
 
+The rest of this page is a runnable index grouped loosely by the workflow stage
+it exercises — from the recommended facade on-ramp, through the individual
+building blocks (CPMG, FID, probes), to specialized field, motion, imaging,
+NQR/ESR, and optimization tools.
+
+## Unified Experiment Workflow (start here)
+
+These use the declarative `spin_dynamics.experiment` facade — the recommended
+entry point (see [Unified Experiment Workflow](experiment_workflow.md)). Each
+prints its `plan()` report before running.
+
+```powershell
+python examples\experiment_facade_quickstart.py --numpts 501 --num-echoes 8 --probe tuned
+```
+
+Automatic transmit-coil B1 solving for imaging (try `--coil-axis z` to see the
+low-transverse-efficiency warning):
+
+```powershell
+python examples\experiment_imaging_with_coil.py --grid 8 --ny 5 --coil-axis x
+```
+
+Reduced-vs-full NQR engine selection from the physics:
+
+```powershell
+python examples\experiment_nqr_auto_model.py --num-echoes 4
+```
+
 ## Ideal CPMG
 
 ```powershell

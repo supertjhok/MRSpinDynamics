@@ -69,6 +69,16 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
   `ESRSpinSystem.__eq__`, which previously raised on the ambiguous
   elementwise comparison of the (always 3x3) g tensor. DEER/ESEEM/HYSCORE/
   ENDOR remain direct-call modules (analysis-style parameter surfaces).
+- Experiment facade PR-6 (documentation): a workflow-first getting-started
+  guide (`docs/python_api/experiment_workflow.md`) and a matching
+  "Unified Experiment Workflow" chapter in the user manual, both presenting
+  the eight-step sample→hardware→sequence→acquisition→plan→run→analyze→save
+  narrative; the docs index now lists the facade as the recommended entry
+  point and the examples index leads with it. Three runnable flagship
+  examples on the facade: `experiment_facade_quickstart.py` (plan/run/save),
+  `experiment_imaging_with_coil.py` (automatic coil-B1 solving), and
+  `experiment_nqr_auto_model.py` (reduced-vs-full engine selection), all
+  covered by the example smoke tests.
 
 ## [0.1.0] - 2026-06-28
 
