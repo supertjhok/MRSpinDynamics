@@ -7,6 +7,13 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
 
 ## [Unreleased]
 
+### Documentation
+
+- Documented the `spin_dynamics.experiment` facade and its config-driven CLI in
+  the workspace README, the PythonSpinDynamics README (facade-first Quick Start
+  plus a CLI walkthrough), and the user manual (a "Config-Driven Runs (CLI)"
+  section in the Unified Experiment Workflow chapter).
+
 ### PythonSpinDynamics
 
 - New `spin_dynamics.experiment` facade (unified workflow PR-1): declarative

@@ -2762,11 +2762,60 @@ and scalar result fields. \code{load\_run(path)} returns a \code{LoadedRun}
 exposing the raw arrays, the reconstructed native result, and -- via
 \code{loaded.experiment} -- the original spec, so a saved run can be re-run or
 tweaked. Specs are JSON-serializable directly
-(\code{Experiment.to\_json()} / \code{Experiment.from\_json(...)}), which is the
-basis for config-file-driven runs. Runnable versions of every stage above live
-in \code{examples/experiment\_facade\_quickstart.py},
+(\code{Experiment.to\_json()} / \code{Experiment.from\_json(...)}). Runnable
+versions of every stage above live in
+\code{examples/experiment\_facade\_quickstart.py},
 \code{examples/experiment\_imaging\_with\_coil.py}, and
 \code{examples/experiment\_nqr\_auto\_model.py}.
+
+\section{Config-Driven Runs (CLI)}
+
+For runs you would rather describe in a file than in Python, the facade reads a
+human-friendly TOML or JSON config in which each spec is a table tagged by its
+\code{type}. The \code{sample}, \code{hardware}, and \code{acquisition} sections
+may omit \code{type} (their class is implied) and may be dropped entirely to
+accept the defaults, so a minimal config is just the \code{[sequence]} table.
+
+\begin{lstlisting}[language={}]
+[sequence]
+type = "CPMGTrain"
+num_echoes = 8
+
+[sample]
+t1_seconds = 2.0
+t2_seconds = 2.0
+
+[hardware]
+probe = "tuned"
+
+[acquisition]
+numpts = 501
+maxoffs = 10.0
+\end{lstlisting}
+
+A command-line runner drives the same plan/run/save flow via
+\code{python -m spin\_dynamics.experiment}:
+
+\begin{longtable}{p{0.26\linewidth}p{0.66\linewidth}}
+\toprule
+Command & Effect \\
+\midrule
+\code{plan CONFIG} & Resolve and validate the config; print the plan. Exits
+non-zero if the plan has errors. \\
+\code{run CONFIG [-o NPZ]} & Plan, then run (refusing an erroring plan), and
+optionally save the result archive. \\
+\code{show RUN.npz} & Print a saved run's spec and provenance. \\
+\code{convert CONFIG OUT} & Rewrite a config between \code{.toml} and
+\code{.json}. \\
+\bottomrule
+\end{longtable}
+
+In Python, \code{save\_config} / \code{load\_config} and
+\code{experiment\_to\_config} / \code{experiment\_from\_config} expose the same
+round-trip. This friendly form covers spec fields with scalar or array values,
+including imaging phantoms and coil geometry; a fully general result archive
+still uses the NPZ/JSON form of the previous section. A ready-to-run config
+ships at \code{examples/experiment\_config\_cpmg.toml}.
 
 \chapter{Workflow Guides}
 \label{chap:workflows}
