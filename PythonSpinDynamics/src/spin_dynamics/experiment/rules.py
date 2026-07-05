@@ -143,7 +143,65 @@ def noise_spec_rule(experiment: Experiment, entry: WorkflowEntry) -> list[RuleFi
     return []
 
 
-DEFAULT_RULES: tuple[Rule, ...] = (rephasing_rule, noise_spec_rule)
+def hardware_wiring_rule(
+    experiment: Experiment, entry: WorkflowEntry
+) -> list[RuleFinding]:
+    """Solve requested coil fields at plan time and surface wiring problems.
+
+    The solve is cached, so ``run()`` reuses the plan-time result; a spec that
+    cannot be wired (bad geometry types, a coil axis parallel to B0 leaving no
+    transverse B1) becomes a plan error instead of a mid-run exception.
+    """
+
+    from spin_dynamics.experiment import wiring
+    from spin_dynamics.experiment.specs import CPMGImaging
+
+    if not isinstance(experiment.sequence, CPMGImaging):
+        # Unused coil specs on other sequences are reported by the generic
+        # ignored-field warnings via each entry's `honors` set.
+        return []
+    if not wiring.uses_hardware_fields(experiment.hardware):
+        return []
+    try:
+        wiring.solve_for_experiment(experiment)
+        diagnostics = wiring.solve_diagnostics(
+            experiment.sample.phantom, experiment.hardware
+        )
+    except ValueError as exc:
+        return [
+            RuleFinding(rule="hardware_wiring", severity="error", message=str(exc))
+        ]
+
+    findings = [
+        RuleFinding(
+            rule="hardware_wiring",
+            severity="ok",
+            message="coil fields solved onto the phantom grid (cached)",
+            details=dict(diagnostics),
+        )
+    ]
+    for key, which in (
+        ("tx_transverse_fraction", "transmit"),
+        ("rx_transverse_fraction", "receive"),
+    ):
+        fraction = diagnostics.get(key)
+        if fraction is not None and fraction < 0.5:
+            findings.append(
+                RuleFinding(
+                    rule="hardware_wiring",
+                    severity="warn",
+                    message=(
+                        f"only {fraction:.0%} of the {which} coil's B1 over the "
+                        "sample is transverse to B0; the normalized maps hide "
+                        "this inefficiency (check coil orientation)"
+                    ),
+                    details={key: fraction},
+                )
+            )
+    return findings
+
+
+DEFAULT_RULES: tuple[Rule, ...] = (rephasing_rule, noise_spec_rule, hardware_wiring_rule)
 
 
 def run_rules(

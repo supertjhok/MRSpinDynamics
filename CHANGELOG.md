@@ -36,6 +36,16 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
   ideal-train dry runs on the actual host and kernel backend, so estimates
   track the machine rather than a reference host. `plan(estimate=False)` and
   `set_calibration(...)` opt out or pin the constants.
+- Experiment facade PR-4: automatic hardware wiring for imaging. New geometry
+  specs (`SolenoidCoil`, `PlanarSpiralCoil`, `TxCoil`, `RxCoil`, `UniformB0`,
+  `ImagingPlane` — all in SI meters), a `Phantom` sample spec, and a
+  `CPMGImaging` sequence spec wired to the ideal/tuned/matched CPMG imaging
+  workflows. Coil B1 is solved by Biot-Savart on the phantom grid at plan
+  time (cached by a geometry hash), projected transverse to B0, and
+  normalized to a rho-weighted mean of one (transmit calibration at the
+  sample) — replacing the workflows' synthetic default B1. `plan()` reports a
+  transmit-efficiency diagnostic and warns when most of a coil's B1 is
+  parallel to B0 (an inefficiency the normalized maps would otherwise hide).
 
 ## [0.1.0] - 2026-06-28
 

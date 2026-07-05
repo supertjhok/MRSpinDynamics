@@ -17,6 +17,7 @@ from spin_dynamics.experiment.rules import RuleFinding, run_rules
 from spin_dynamics.experiment.specs import (
     PROBE_NAMES,
     SEQUENCE_TYPES,
+    CPMGImaging,
     CPMGIRTrain,
     CPMGTrain,
     Experiment,
@@ -76,13 +77,34 @@ def _spec_sanity_errors(experiment: Experiment) -> list[str]:
     if hardware.q_value is not None and hardware.q_value <= 0:
         errors.append("hardware.q_value must be positive when set")
     sequence = experiment.sequence
-    if isinstance(sequence, (CPMGTrain, CPMGIRTrain)) and sequence.num_echoes <= 0:
+    if (
+        isinstance(sequence, (CPMGTrain, CPMGIRTrain, CPMGImaging))
+        and sequence.num_echoes <= 0
+    ):
         errors.append("sequence.num_echoes must be positive")
     if isinstance(sequence, CPMGIRTrain):
         if sequence.echo_spacing_seconds <= 0:
             errors.append("sequence.echo_spacing_seconds must be positive")
         if sequence.tauvect is not None and any(tau < 0 for tau in sequence.tauvect):
             errors.append("sequence.tauvect entries must be non-negative")
+    if isinstance(sequence, CPMGImaging):
+        if sample.phantom is None:
+            errors.append("sequence CPMGImaging requires sample.phantom")
+        if sequence.ny <= 0:
+            errors.append("sequence.ny must be positive")
+        if sequence.maxoffs <= 0:
+            errors.append("sequence.maxoffs must be positive")
+        if any(v <= 0 for v in sequence.fov):
+            errors.append("sequence.fov values must be positive")
+        if sample.phantom is not None:
+            if sample.phantom.t1_map is not None and sample.t1_seconds is not None:
+                errors.append(
+                    "provide either sample.t1_seconds or phantom.t1_map, not both"
+                )
+            if sample.phantom.t2_map is not None and sample.t2_seconds is not None:
+                errors.append(
+                    "provide either sample.t2_seconds or phantom.t2_map, not both"
+                )
     return errors
 
 

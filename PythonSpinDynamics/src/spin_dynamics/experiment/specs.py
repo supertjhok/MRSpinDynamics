@@ -27,18 +27,71 @@ from spin_dynamics.experiment.serialization import decode, encode, register_seri
 PROBE_NAMES = ("ideal", "tuned", "untuned", "matched")
 
 
+def _as_optional_map(value: Any, name: str) -> np.ndarray | None:
+    if value is None:
+        return None
+    arr = np.asarray(value, dtype=np.float64)
+    if arr.ndim != 2:
+        raise ValueError(f"{name} must be a 2-D array")
+    return arr
+
+
+@register_serializable
+@dataclass(frozen=True, eq=False)
+class Phantom:
+    """Spatial sample description for imaging: density plus optional maps.
+
+    ``rho`` is the 2-D proton-density map; ``t1_map``/``t2_map`` override the
+    scalar ``Sample`` relaxation times per voxel when given.
+    """
+
+    rho: np.ndarray
+    t1_map: np.ndarray | None = None
+    t2_map: np.ndarray | None = None
+
+    def __post_init__(self) -> None:
+        rho = _as_optional_map(self.rho, "rho")
+        if rho is None:
+            raise ValueError("rho is required")
+        object.__setattr__(self, "rho", rho)
+        for name in ("t1_map", "t2_map"):
+            arr = _as_optional_map(getattr(self, name), name)
+            if arr is not None and arr.shape != rho.shape:
+                raise ValueError(f"{name} must have the same shape as rho")
+            object.__setattr__(self, name, arr)
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Phantom):
+            return NotImplemented
+
+        def same(a: np.ndarray | None, b: np.ndarray | None) -> bool:
+            if a is None or b is None:
+                return a is None and b is None
+            return bool(np.array_equal(a, b))
+
+        return (
+            same(self.rho, other.rho)
+            and same(self.t1_map, other.t1_map)
+            and same(self.t2_map, other.t2_map)
+        )
+
+
 @register_serializable
 @dataclass(frozen=True)
 class Sample:
-    """Homogeneous sample description.
+    """Sample description.
 
     ``t1_seconds``/``t2_seconds`` left as ``None`` defer to the wrapped
-    workflow's defaults. Asymptotic (steady-state) workflows do not consume
-    relaxation times at all; ``plan()`` warns when they would be ignored.
+    workflow's defaults; asymptotic (steady-state) workflows do not consume
+    relaxation times at all, and ``plan()`` warns when they would be ignored.
+    Imaging sequences additionally require a :class:`Phantom`; scalar
+    relaxation times then broadcast to uniform maps unless the phantom
+    carries its own.
     """
 
     t1_seconds: float | None = None
     t2_seconds: float | None = None
+    phantom: Phantom | None = None
     label: str = ""
 
 
@@ -47,8 +100,12 @@ class Sample:
 class Hardware:
     """Transmit/receive hardware description.
 
-    PR-1 scope: probe selection plus probe-circuit perturbations. Geometry,
-    field solvers, and non-inductive detectors join in later milestones.
+    ``probe`` plus the circuit perturbations apply to all workflows. The
+    geometry fields (``b0``, ``tx_coil``, ``rx_coil``, ``plane`` — see
+    :mod:`spin_dynamics.experiment.hardware`) drive an automatic Biot-Savart
+    field solve for imaging sequences: the transverse-B1 maps are computed on
+    the phantom grid and passed to the workflow, replacing its synthetic
+    default. Non-inductive detectors join in a later milestone.
     """
 
     probe: str = "ideal"
@@ -56,6 +113,10 @@ class Hardware:
     mistuning_offset: float | None = None
     radiation_damping: Mapping[str, Any] | Any | None = None
     absolute_phase: Mapping[str, Any] | Any | None = None
+    b0: Any | None = None
+    tx_coil: Any | None = None
+    rx_coil: Any | None = None
+    plane: Any | None = None
 
 
 @register_serializable
@@ -100,7 +161,32 @@ class CPMGIRTrain:
             object.__setattr__(self, "tauvect", tuple(float(v) for v in values))
 
 
-SEQUENCE_TYPES: tuple[type, ...] = (CPMG, CPMGTrain, CPMGIRTrain)
+@register_serializable
+@dataclass(frozen=True)
+class CPMGImaging:
+    """Phase-encoded CPMG imaging (2-D spin-warp on a phantom).
+
+    ``fov``, ``ny``, and ``maxoffs`` are the imaging workflow's own
+    acquisition-geometry parameters (units per the workflow); the physical
+    placement of the phantom for coil-field solving is set separately via
+    ``Hardware.plane`` in meters.
+    """
+
+    num_echoes: int = 2
+    echo_spacing_seconds: float = 0.2e-3
+    gradient_duration_seconds: float = 0.5e-3
+    fov: tuple[float, float] = (20.0, 20.0)
+    ny: int = 9
+    maxoffs: float = 5.0
+
+    def __post_init__(self) -> None:
+        fov = tuple(float(v) for v in self.fov)
+        if len(fov) != 2:
+            raise ValueError("fov must contain two values")
+        object.__setattr__(self, "fov", fov)
+
+
+SEQUENCE_TYPES: tuple[type, ...] = (CPMG, CPMGTrain, CPMGIRTrain, CPMGImaging)
 
 
 @register_serializable

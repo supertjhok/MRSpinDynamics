@@ -1,0 +1,231 @@
+"""Automatic geometry -> field-map wiring for imaging experiments.
+
+This closes the manual glue gap between the ``fields`` solvers and the
+imaging workflows: given ``Hardware`` coil/B0/plane specs and a ``Sample``
+phantom, :func:`solve_imaging_field_maps` evaluates the Biot-Savart B1 of
+each coil on the phantom grid, projects it perpendicular to the local B0
+direction, normalizes it to a rho-weighted mean of one (transmit calibration
+at the sample), and assembles the ``ImagingFieldMaps`` container the
+workflows consume.
+
+Solves are cached per process keyed on a hash of the phantom arrays and the
+geometry specs, so ``plan()`` and ``run()`` (and repeated runs) share one
+solve.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+
+import numpy as np
+
+from spin_dynamics.experiment.hardware import ImagingPlane, RxCoil, TxCoil, UniformB0
+from spin_dynamics.experiment.serialization import encode
+from spin_dynamics.experiment.specs import Experiment, Hardware, Phantom
+from spin_dynamics.fields.magnetostatics import biot_savart
+from spin_dynamics.motion import transverse_b1_magnitude
+from spin_dynamics.workflows.imaging import make_imaging_field_maps
+from spin_dynamics.workflows.imaging_types import ImagingFieldMaps
+
+_PLANE_AXES = {"xz": (0, 2), "xy": (0, 1), "yz": (1, 2)}
+
+_SOLVE_CACHE: dict[str, "_SolvedFields"] = {}
+
+
+class _SolvedFields:
+    """Cached solve: the B1 maps plus per-coil transmit-efficiency diagnostics."""
+
+    __slots__ = ("b1_tx_map", "b1_rx_map", "diagnostics")
+
+    def __init__(
+        self,
+        b1_tx_map: np.ndarray | None,
+        b1_rx_map: np.ndarray | None,
+        diagnostics: dict[str, float],
+    ) -> None:
+        self.b1_tx_map = b1_tx_map
+        self.b1_rx_map = b1_rx_map
+        self.diagnostics = diagnostics
+
+
+def uses_hardware_fields(hardware: Hardware) -> bool:
+    """True when the hardware spec requests a coil-field solve."""
+
+    return hardware.tx_coil is not None or hardware.rx_coil is not None
+
+
+def _validate_hardware(hardware: Hardware) -> None:
+    if hardware.b0 is not None and not isinstance(hardware.b0, UniformB0):
+        raise ValueError("hardware.b0 must be a UniformB0 spec")
+    if hardware.tx_coil is not None and not isinstance(hardware.tx_coil, TxCoil):
+        raise ValueError("hardware.tx_coil must be a TxCoil spec")
+    if hardware.rx_coil is not None and not isinstance(hardware.rx_coil, RxCoil):
+        raise ValueError("hardware.rx_coil must be an RxCoil spec")
+    if hardware.plane is not None and not isinstance(hardware.plane, ImagingPlane):
+        raise ValueError("hardware.plane must be an ImagingPlane spec")
+
+
+def grid_positions_m(shape: tuple[int, int], plane: ImagingPlane) -> np.ndarray:
+    """Physical voxel positions (meters) of a phantom grid on the plane."""
+
+    n0, n1 = shape
+    ax0, ax1 = _PLANE_AXES[plane.plane]
+    c0 = np.linspace(-plane.extent_m[0] / 2, plane.extent_m[0] / 2, n0)
+    c1 = np.linspace(-plane.extent_m[1] / 2, plane.extent_m[1] / 2, n1)
+    points = np.tile(np.asarray(plane.center_m, dtype=np.float64), (n0, n1, 1))
+    points[..., ax0] += c0[:, np.newaxis]
+    points[..., ax1] += c1[np.newaxis, :]
+    return points
+
+
+def _normalized_transverse_b1(
+    coil_segments: list,
+    current: float,
+    points: np.ndarray,
+    b0_direction: np.ndarray,
+    rho: np.ndarray,
+    which: str,
+) -> tuple[np.ndarray, float]:
+    """Solve, project, and normalize one coil's B1; also report efficiency.
+
+    Returns the rho-weighted-mean-normalized transverse map plus the
+    transverse fraction (mean transverse / mean total field magnitude over
+    the sample) — the transmit-efficiency diagnostic surfaced by ``plan()``.
+    """
+
+    b1_vec = biot_savart(points.reshape(-1, 3), coil_segments, current)
+    b1_vec = b1_vec.reshape(points.shape)
+    b0_vec = np.broadcast_to(b0_direction, points.shape)
+    b1_perp = transverse_b1_magnitude(b0_vec, b1_vec)
+    b1_total = np.linalg.norm(b1_vec, axis=-1)
+
+    weights = np.abs(rho)
+    total = float(np.sum(weights))
+    if total <= 0:
+        raise ValueError("phantom rho must not be identically zero")
+    reference = float(np.sum(b1_perp * weights)) / total
+    mean_total = float(np.sum(b1_total * weights)) / total
+    peak = float(np.max(b1_perp))
+    if reference <= 0 or (peak > 0 and reference / peak < 1e-6):
+        raise ValueError(
+            f"the {which} coil produces no transverse B1 over the sample "
+            "(is the coil axis parallel to B0?)"
+        )
+    fraction = reference / mean_total if mean_total > 0 else 0.0
+    return b1_perp / reference, fraction
+
+
+def _cache_key(phantom: Phantom, hardware: Hardware) -> str:
+    digest = hashlib.sha256()
+    for arr in (phantom.rho, phantom.t1_map, phantom.t2_map):
+        if arr is None:
+            digest.update(b"none")
+        else:
+            digest.update(str(arr.shape).encode())
+            digest.update(np.ascontiguousarray(arr).tobytes())
+    geometry = {
+        "b0": encode(hardware.b0),
+        "tx_coil": encode(hardware.tx_coil),
+        "rx_coil": encode(hardware.rx_coil),
+        "plane": encode(hardware.plane),
+    }
+    digest.update(json.dumps(geometry, sort_keys=True).encode())
+    return digest.hexdigest()
+
+
+def solve_imaging_field_maps(
+    phantom: Phantom,
+    hardware: Hardware,
+    *,
+    t1_seconds: float | None = None,
+    t2_seconds: float | None = None,
+) -> ImagingFieldMaps:
+    """Assemble (and cache) the imaging field maps for a phantom + hardware.
+
+    Without coils this reduces to the workflow's own defaults (synthetic B1);
+    with coils the solved, projected, normalized maps replace them.
+    """
+
+    _validate_hardware(hardware)
+
+    def t_map(map_arr: np.ndarray | None, scalar: float | None) -> np.ndarray | None:
+        if map_arr is not None:
+            return map_arr
+        if scalar is not None:
+            return scalar * np.ones_like(phantom.rho)
+        return None
+
+    t1_map = t_map(phantom.t1_map, t1_seconds)
+    t2_map = t_map(phantom.t2_map, t2_seconds)
+
+    if not uses_hardware_fields(hardware):
+        return make_imaging_field_maps(phantom.rho, t1_map=t1_map, t2_map=t2_map)
+
+    solved = _solve_coil_fields(phantom, hardware)
+    return make_imaging_field_maps(
+        phantom.rho,
+        t1_map=t1_map,
+        t2_map=t2_map,
+        b1_tx_map=solved.b1_tx_map,
+        b1_rx_map=solved.b1_rx_map,
+    )
+
+
+def _solve_coil_fields(phantom: Phantom, hardware: Hardware) -> _SolvedFields:
+    key = _cache_key(phantom, hardware)
+    cached = _SOLVE_CACHE.get(key)
+    if cached is not None:
+        return cached
+
+    plane = hardware.plane if hardware.plane is not None else ImagingPlane()
+    b0_spec = hardware.b0 if hardware.b0 is not None else UniformB0()
+    direction = np.asarray(b0_spec.direction, dtype=np.float64)
+    direction = direction / np.linalg.norm(direction)
+    points = grid_positions_m(phantom.rho.shape, plane)
+
+    diagnostics: dict[str, float] = {}
+    b1_tx = b1_rx = None
+    tx = hardware.tx_coil
+    if tx is not None:
+        b1_tx, fraction = _normalized_transverse_b1(
+            tx.geometry.segments(),
+            tx.current_amps,
+            points,
+            direction,
+            phantom.rho,
+            "transmit",
+        )
+        diagnostics["tx_transverse_fraction"] = fraction
+    rx = hardware.rx_coil
+    if rx is not None:
+        b1_rx, fraction = _normalized_transverse_b1(
+            rx.geometry.segments(), 1.0, points, direction, phantom.rho, "receive"
+        )
+        diagnostics["rx_transverse_fraction"] = fraction
+
+    solved = _SolvedFields(b1_tx, b1_rx, diagnostics)
+    _SOLVE_CACHE[key] = solved
+    return solved
+
+
+def solve_diagnostics(phantom: Phantom, hardware: Hardware) -> dict[str, float]:
+    """Return the per-coil transmit-efficiency diagnostics (cached solve)."""
+
+    _validate_hardware(hardware)
+    if not uses_hardware_fields(hardware):
+        return {}
+    return dict(_solve_coil_fields(phantom, hardware).diagnostics)
+
+
+def solve_for_experiment(experiment: Experiment) -> ImagingFieldMaps:
+    """Solve field maps for an experiment's sample + hardware specs."""
+
+    if experiment.sample.phantom is None:
+        raise ValueError("imaging sequences require sample.phantom")
+    return solve_imaging_field_maps(
+        experiment.sample.phantom,
+        experiment.hardware,
+        t1_seconds=experiment.sample.t1_seconds,
+        t2_seconds=experiment.sample.t2_seconds,
+    )

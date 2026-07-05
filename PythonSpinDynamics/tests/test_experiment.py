@@ -16,13 +16,18 @@ from spin_dynamics import workflows
 from spin_dynamics.experiment import (
     CPMG,
     Acquisition,
+    CPMGImaging,
     CPMGIRTrain,
     CPMGTrain,
     Experiment,
     ExperimentPlanError,
     Hardware,
+    ImagingPlane,
+    Phantom,
     Sample,
     SerializationError,
+    SolenoidCoil,
+    TxCoil,
     available_workflows,
     load_run,
 )
@@ -460,10 +465,169 @@ def test_estimate_accuracy_against_real_run() -> None:
     assert 1 / 20 < actual / predicted < 20
 
 
+def _disc_phantom(n: int = 8) -> Phantom:
+    x = np.linspace(-1.0, 1.0, n)
+    rho = ((x[:, None] ** 2 + x[None, :] ** 2) < 0.8).astype(np.float64)
+    return Phantom(rho=rho)
+
+
+_XCOIL = TxCoil(
+    geometry=SolenoidCoil(radius_m=0.015, length_m=0.03, turns=10, axis="x")
+)
+_ZCOIL = TxCoil(
+    geometry=SolenoidCoil(radius_m=0.015, length_m=0.03, turns=10, axis="z")
+)
+
+
+@pytest.mark.parametrize("probe", ("ideal", "tuned", "matched"))
+def test_imaging_parity(probe: str) -> None:
+    phantom = _disc_phantom()
+    experiment = Experiment(
+        sequence=CPMGImaging(ny=5),
+        sample=Sample(phantom=phantom, t1_seconds=5e-3, t2_seconds=5e-3),
+        hardware=Hardware(probe=probe),
+    )
+    direct_func = getattr(workflows, f"run_{probe}_cpmg_imaging")
+    direct = direct_func(
+        phantom.rho,
+        t1_map=5e-3 * np.ones_like(phantom.rho),
+        t2_map=5e-3 * np.ones_like(phantom.rho),
+        ny=5,
+    )
+    _assert_results_equal(experiment.run().result, direct)
+
+
+@pytest.mark.smoke
+def test_imaging_requires_phantom() -> None:
+    plan = Experiment(sequence=CPMGImaging()).plan()
+    assert not plan.ok
+    assert any("sample.phantom" in e for e in plan.errors)
+
+
+@pytest.mark.smoke
+def test_imaging_relaxation_ambiguity_is_error() -> None:
+    phantom = Phantom(
+        rho=np.ones((4, 4)), t1_map=1e-3 * np.ones((4, 4))
+    )
+    plan = Experiment(
+        sequence=CPMGImaging(), sample=Sample(phantom=phantom, t1_seconds=2e-3)
+    ).plan()
+    assert not plan.ok
+    assert any("t1_map" in e for e in plan.errors)
+
+
+@pytest.mark.smoke
+def test_tx_coil_replaces_synthetic_b1() -> None:
+    phantom = _disc_phantom()
+    base = Experiment(
+        sequence=CPMGImaging(ny=5),
+        sample=Sample(phantom=phantom, t1_seconds=5e-3, t2_seconds=5e-3),
+    )
+    wired = Experiment(
+        sequence=CPMGImaging(ny=5),
+        sample=Sample(phantom=phantom, t1_seconds=5e-3, t2_seconds=5e-3),
+        hardware=Hardware(tx_coil=_XCOIL, plane=ImagingPlane()),
+    )
+    plan = wired.plan()
+    assert plan.ok
+    wiring_findings = [f for f in plan.findings if f.rule == "hardware_wiring"]
+    assert wiring_findings and wiring_findings[0].severity == "ok"
+    assert wiring_findings[0].details["tx_transverse_fraction"] > 0.9
+
+    base_result = base.run().result
+    wired_result = wired.run().result
+    assert not np.allclose(wired_result.b1_tx_map, base_result.b1_tx_map)
+    # rho-weighted mean normalization: nominal flip calibrated at the sample
+    weights = np.abs(phantom.rho)
+    mean_b1 = float(
+        np.sum(wired_result.b1_tx_map * weights) / np.sum(weights)
+    )
+    assert mean_b1 == pytest.approx(1.0)
+    # rx defaults to tx when no rx coil is given
+    assert np.array_equal(wired_result.b1_rx_map, wired_result.b1_tx_map)
+
+
+@pytest.mark.smoke
+def test_axial_coil_warns_low_transverse_fraction() -> None:
+    plan = Experiment(
+        sequence=CPMGImaging(ny=5),
+        sample=Sample(phantom=_disc_phantom()),
+        hardware=Hardware(tx_coil=_ZCOIL, plane=ImagingPlane()),
+    ).plan()
+    assert plan.ok  # warns, does not block
+    assert any("transverse to B0" in w for w in plan.warnings)
+
+
+@pytest.mark.smoke
+def test_field_solve_is_cached(monkeypatch) -> None:
+    from spin_dynamics.experiment import wiring
+
+    calls = {"n": 0}
+    real = wiring.biot_savart
+
+    def counting(*args, **kwargs):
+        calls["n"] += 1
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(wiring, "biot_savart", counting)
+    monkeypatch.setattr(wiring, "_SOLVE_CACHE", {})
+
+    experiment = Experiment(
+        sequence=CPMGImaging(ny=5),
+        sample=Sample(phantom=_disc_phantom(), t1_seconds=5e-3, t2_seconds=5e-3),
+        hardware=Hardware(tx_coil=_XCOIL, plane=ImagingPlane()),
+    )
+    experiment.plan()  # solves + caches
+    first = calls["n"]
+    assert first == 1
+    experiment.plan()
+    experiment.run()
+    assert calls["n"] == first  # all subsequent uses hit the cache
+
+
+@pytest.mark.smoke
+def test_imaging_experiment_json_round_trip() -> None:
+    experiment = Experiment(
+        sequence=CPMGImaging(num_echoes=3, ny=7),
+        sample=Sample(phantom=_disc_phantom(6), t1_seconds=4e-3, t2_seconds=3e-3),
+        hardware=Hardware(tx_coil=_XCOIL, plane=ImagingPlane(extent_m=(0.03, 0.02))),
+    )
+    assert Experiment.from_json(experiment.to_json()) == experiment
+
+
+@pytest.mark.smoke
+def test_imaging_save_load_round_trip(tmp_path) -> None:
+    experiment = Experiment(
+        sequence=CPMGImaging(ny=5),
+        sample=Sample(phantom=_disc_phantom(), t1_seconds=5e-3, t2_seconds=5e-3),
+        hardware=Hardware(tx_coil=_XCOIL, plane=ImagingPlane()),
+    )
+    record = experiment.run()
+    path = tmp_path / "imaging.npz"
+    record.save(str(path))
+    loaded = load_run(str(path))
+    assert loaded.experiment == experiment
+    _assert_results_equal(loaded.result, record.result)
+    rerun = loaded.experiment.run()
+    assert np.array_equal(rerun.result.kspace, record.result.kspace)
+
+
+@pytest.mark.smoke
+def test_imaging_execution_kwargs() -> None:
+    experiment = Experiment(
+        sequence=CPMGImaging(ny=5),
+        sample=Sample(phantom=_disc_phantom(), t1_seconds=5e-3, t2_seconds=5e-3),
+    )
+    record = experiment.run(num_workers=1, phase_workers=1)
+    assert record.provenance["execution"] == {"num_workers": 1, "phase_workers": 1}
+    with pytest.raises(TypeError, match="tau_workers"):
+        experiment.run(tau_workers=2)
+
+
 @pytest.mark.smoke
 def test_registry_entries_point_at_public_workflows() -> None:
     entries = available_workflows()
-    assert len(entries) == 12
+    assert len(entries) == 15
     public = set(workflows.STABLE_WORKFLOW_API) | set(workflows.EXTENDED_WORKFLOW_API)
     for entry in entries:
         assert entry.name in public, entry.name

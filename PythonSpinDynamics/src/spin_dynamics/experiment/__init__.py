@@ -21,6 +21,14 @@ from spin_dynamics.experiment.estimate import (
     calibrate,
     set_calibration,
 )
+from spin_dynamics.experiment.hardware import (
+    ImagingPlane,
+    PlanarSpiralCoil,
+    RxCoil,
+    SolenoidCoil,
+    TxCoil,
+    UniformB0,
+)
 from spin_dynamics.experiment.io import LoadedRun, load_run, register_result_type
 from spin_dynamics.experiment.plan import ExperimentPlan, plan_experiment
 from spin_dynamics.experiment.registry import (
@@ -45,12 +53,15 @@ from spin_dynamics.experiment.serialization import (
 from spin_dynamics.experiment.specs import (
     CPMG,
     Acquisition,
+    CPMGImaging,
     CPMGIRTrain,
     CPMGTrain,
     Experiment,
     Hardware,
+    Phantom,
     Sample,
 )
+from spin_dynamics.experiment.wiring import solve_imaging_field_maps
 
 from spin_dynamics.experiment import _catalog  # noqa: F401  (registers workflows)
 
@@ -58,6 +69,7 @@ __all__ = [
     "Acquisition",
     "CPMG",
     "CPMGIRTrain",
+    "CPMGImaging",
     "CPMGTrain",
     "CostModel",
     "DEFAULT_RULES",
@@ -65,12 +77,19 @@ __all__ = [
     "ExperimentPlan",
     "ExperimentPlanError",
     "Hardware",
+    "ImagingPlane",
     "LoadedRun",
+    "Phantom",
+    "PlanarSpiralCoil",
     "RuleFinding",
     "RunRecord",
     "RuntimeEstimate",
+    "RxCoil",
     "Sample",
     "SerializationError",
+    "SolenoidCoil",
+    "TxCoil",
+    "UniformB0",
     "WorkflowEntry",
     "available_workflows",
     "calibrate",
@@ -82,4 +101,5 @@ __all__ = [
     "register_workflow",
     "run_experiment",
     "run_rules",
+    "solve_imaging_field_maps",
 ]

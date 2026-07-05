@@ -16,7 +16,14 @@ from spin_dynamics.experiment.estimate import CostModel
 from spin_dynamics.experiment.io import register_result_type
 from spin_dynamics.experiment.registry import WorkflowEntry, register_workflow
 from spin_dynamics.experiment.serialization import register_serializable
-from spin_dynamics.experiment.specs import CPMG, CPMGIRTrain, CPMGTrain, Experiment
+from spin_dynamics.experiment.specs import (
+    CPMG,
+    CPMGImaging,
+    CPMGIRTrain,
+    CPMGTrain,
+    Experiment,
+)
+from spin_dynamics.experiment.wiring import solve_for_experiment
 from spin_dynamics.noise import NoiseMetadata, NoiseSpec
 from spin_dynamics.parameters import (
     set_params_ideal,
@@ -27,12 +34,15 @@ from spin_dynamics.parameters import (
 from spin_dynamics.phase_cycling import PhaseCycle, PhaseStep
 from spin_dynamics.workflows import (
     run_ideal_cpmg,
+    run_ideal_cpmg_imaging,
     run_ideal_cpmg_ir_train,
     run_ideal_cpmg_train,
     run_matched_cpmg,
+    run_matched_cpmg_imaging,
     run_matched_cpmg_ir_train,
     run_matched_cpmg_train,
     run_tuned_cpmg,
+    run_tuned_cpmg_imaging,
     run_tuned_cpmg_ir_train,
     run_tuned_cpmg_train,
     run_untuned_cpmg,
@@ -51,11 +61,17 @@ from spin_dynamics.workflows.cpmg_ir import (
     cpmg_ir_train_max_time,
     default_ir_tauvect,
 )
+from spin_dynamics.workflows.imaging_types import (
+    IdealCPMGImagingResult,
+    ProbeCPMGImagingResult,
+)
 
 register_result_type(CPMGResult)
 register_result_type(CPMGTrainResult)
 register_result_type(CPMGIRTrainResult)
 register_result_type(MatchedCPMGIRTrainResult)
+register_result_type(IdealCPMGImagingResult)
+register_result_type(ProbeCPMGImagingResult)
 
 register_serializable(NoiseSpec)
 register_serializable(NoiseMetadata)
@@ -278,6 +294,55 @@ for _probe, (_func, _extra, _rad) in _TRAIN_FUNCS.items():
             execution_kwargs=frozenset({"num_workers"}),
             max_time=_make_train_max_time(_probe),
             cost=_make_train_cost(_probe),
+        )
+    )
+
+def _imaging_kwargs(experiment: Experiment) -> dict[str, Any]:
+    sequence = experiment.sequence
+    kwargs: dict[str, Any] = {
+        # The container carries rho/t1/t2 plus any solved coil maps; the
+        # workflows accept it in place of the raw rho array.
+        "rho": solve_for_experiment(experiment),
+        "num_echoes": sequence.num_echoes,
+        "echo_spacing_seconds": sequence.echo_spacing_seconds,
+        "gradient_duration_seconds": sequence.gradient_duration_seconds,
+        "fov": sequence.fov,
+        "ny": sequence.ny,
+        "maxoffs": sequence.maxoffs,
+    }
+    if experiment.acquisition.noise is not None:
+        kwargs["noise"] = experiment.acquisition.noise
+    return kwargs
+
+
+_IMAGING_HONORS = frozenset(
+    {
+        "sample.phantom",
+        "sample.t1_seconds",
+        "sample.t2_seconds",
+        "hardware.b0",
+        "hardware.tx_coil",
+        "hardware.rx_coil",
+        "hardware.plane",
+        "acquisition.noise",
+    }
+)
+
+_IMAGING_FUNCS = {
+    "ideal": run_ideal_cpmg_imaging,
+    "tuned": run_tuned_cpmg_imaging,
+    "matched": run_matched_cpmg_imaging,
+}
+for _probe, _func in _IMAGING_FUNCS.items():
+    register_workflow(
+        WorkflowEntry(
+            name=_func.__name__,
+            sequence_type=CPMGImaging,
+            probe=_probe,
+            func=_func,
+            build_kwargs=_imaging_kwargs,
+            honors=_IMAGING_HONORS,
+            execution_kwargs=frozenset({"num_workers", "phase_workers"}),
         )
     )
 
