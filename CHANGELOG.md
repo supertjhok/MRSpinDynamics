@@ -7,6 +7,18 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
 
 ## [Unreleased]
 
+### PythonSpinDynamics
+
+- New `spin_dynamics.experiment` facade (unified workflow PR-1): declarative
+  frozen-dataclass experiment specs (`Experiment`, `Sample`, `Hardware`,
+  `Acquisition`, `CPMG`/`CPMGTrain`/`CPMGIRTrain`), a workflow registry
+  covering the CPMG family (ideal/tuned/untuned/matched × asymptotic, finite
+  train, inversion-recovery train), a `plan()` stage that resolves the
+  workflow and warns about spec fields it would ignore, `run()` delegation
+  that reproduces the direct `run_*` calls bit for bit, and NPZ save/load
+  with JSON provenance and spec round-trip. Design and milestones in
+  `PythonSpinDynamics/docs/unified_workflow_plan.md`.
+
 ## [0.1.0] - 2026-06-28
 
 First tagged release of the workspace. This consolidates the work tracked in

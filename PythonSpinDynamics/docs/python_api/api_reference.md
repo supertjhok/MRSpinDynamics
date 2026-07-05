@@ -452,6 +452,63 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `exchange_spectrum(system: ExchangeSystem, *, num_points: int = 4096, dwell_seconds: float | None = None, span_hz: float | None = None, line_broadening_hz: float = 0.0) -> tuple[np.ndarray, np.ndarray]` | Return ``(frequencies_hz, spectrum)`` from an exchange-broadened FID. |
 | function | `simulate_relaxation_exchange_2d(system: ExchangeSystem, encode_times: np.ndarray, detect_times: np.ndarray, mixing_time: float, *, include_t1: bool = True) -> RelaxationExchange2DResult` | Simulate an encode-mix-detect (T2-T2) relaxation exchange data set. |
 
+## `spin_dynamics.experiment.io`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `register_result_type(cls: type) -> type` | Register a workflow result dataclass for load-time reconstruction. |
+| function | `save_run(record: RunRecord, path: str) -> None` |  |
+| class | `LoadedRun` | A run loaded from disk: spec, raw arrays, and best-effort result. |
+| function | `load_run(path: str) -> LoadedRun` |  |
+
+## `spin_dynamics.experiment.plan`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `ExperimentPlan` | Resolved execution plan for an :class:`Experiment`. |
+| function | `plan_experiment(experiment: Experiment) -> ExperimentPlan` |  |
+
+## `spin_dynamics.experiment.registry`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `WorkflowEntry` | One registered workflow behind the facade. |
+| function | `register_workflow(entry: WorkflowEntry) -> WorkflowEntry` |  |
+| function | `resolve(sequence_type: type, probe: str) -> WorkflowEntry | None` |  |
+| function | `available_workflows() -> tuple[WorkflowEntry, ...]` |  |
+| function | `probes_for(sequence_type: type) -> tuple[str, ...]` |  |
+
+## `spin_dynamics.experiment.runner`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `ExperimentPlanError` | Raised when ``run()`` is called on an experiment whose plan has errors. |
+| class | `RunRecord` | A completed experiment run: spec, native result, and provenance. |
+| function | `run_experiment(experiment: Experiment, **execution) -> RunRecord` | Plan and execute an experiment, delegating to the registered workflow. |
+
+## `spin_dynamics.experiment.serialization`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `SerializationError` | Raised when a value cannot be encoded to or decoded from JSON form. |
+| function | `register_serializable(cls: type) -> type` | Register a dataclass so tagged dicts can be decoded back into it. |
+| function | `registered_types() -> Mapping[str, type]` |  |
+| function | `encode(value: Any, *, path: str = '$') -> Any` | Encode a value into JSON-representable form. |
+| function | `decode(value: Any) -> Any` | Decode a value produced by :func:`encode`. |
+
+## `spin_dynamics.experiment.specs`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `Sample` | Homogeneous sample description. |
+| class | `Hardware` | Transmit/receive hardware description. |
+| class | `Acquisition` | Offset grid, receiver noise, and rephasing-guard configuration. |
+| class | `CPMG` | Asymptotic (infinite-train) CPMG echo, no relaxation. |
+| class | `CPMGTrain` | Finite CPMG echo train with relaxation. |
+| class | `CPMGIRTrain` | Finite CPMG echo train preceded by an inversion-recovery delay sweep. |
+| class | `Experiment` | A complete declarative experiment description. |
+| function | `non_default_fields(experiment: Experiment) -> dict[str, Any]` | Return dotted spec-field names whose values differ from the defaults. |
+
 ## `spin_dynamics.fields.coils`
 
 | Kind | Name | Summary |
