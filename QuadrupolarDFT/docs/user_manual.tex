@@ -99,6 +99,11 @@ QuadrupolarDFT addresses one link in the magnetic-resonance modelling chain: it
 turns an \emph{ab initio} electronic-structure result into the parameters that
 control a nuclear quadrupole resonance (NQR) experiment.
 
+Readers new to electronic-structure theory may want to start with the companion
+\code{docs/DFT\_for\_Spin\_Dynamics\_Beginners\_Guide.pdf}, which builds up the
+background this manual assumes --- the SCF loop, $k$-points and basis sets, PAW
+versus all-electron treatments, and phonons --- from a spin-dynamics standpoint.
+
 A nucleus with spin $I \geq 1$ carries an electric quadrupole moment $Q$ that
 couples to the electric-field-gradient (EFG) tensor $V_{ij} = \partial^2
 V/\partial x_i \partial x_j$ produced by the surrounding charge distribution. The
@@ -473,12 +478,41 @@ experiment (77--300~K NQR) & $\sim 0.38$ & $\pm 5.49$ \\
 \end{center}
 
 The experimental cell raises $\eta$ by $\sim 2.6\times$ over the starter geometry
-but still under-predicts the measured value, and the residual is physical rather
-than numerical. Because the measurement is a finite-temperature average over an
-order--disorder ferroelectric, thermal libration (the harmonic workflow above,
-and beyond it snapshot averaging) is the leading candidate for the remainder. The
-ranked plan for closing the $\eta$ gap --- convergence, geometry and dispersion,
-functional, and dynamics --- is in \code{docs/eta\_accuracy\_improvement.md}.
+but still under-predicts the measured value. The cause of that residual was
+pinned down with an all-electron cross-check.
+
+\paragraph{All-electron cross-check (Elk): the gap is a PAW artifact.} The
+transverse EFG components that set $\eta$ are a near-nucleus quantity, so they are
+sensitive to how the pseudopotential reconstructs the core region. Repeating the
+calculation with the \emph{same} PBE functional and the \emph{same} ICSD geometry
+in the all-electron full-potential LAPW code Elk --- the reference method for EFGs
+--- gives a very different $\eta$:
+
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+method (PBE, ICSD geometry) & $\eta$ & $|\Cq|$ (MHz) \\
+\midrule
+experiment (77--300~K NQR) & $\sim 0.38$ & 5.49 \\
+ABINIT --- PAW (Pseudodojo) & 0.112 & 5.03 \\
+Elk --- all-electron LAPW & $\approx 0.333$ & 5.9 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+All-electron PBE recovers $\eta \approx 0.333$ (converged over \code{rgkmax}
+$7\!\to\!8$ and the $k$-mesh, $18\!\to\!48$ points), next to the measured $0.38$,
+whereas the PAW value sits $\sim 3\times$ lower. Same functional, same geometry:
+the long-standing $\eta$ under-prediction is a \textbf{PAW/pseudopotential
+artifact} --- the Pseudodojo PBE nitrogen dataset under-represents the
+near-nucleus transverse EFG --- \emph{not} a functional or dynamics deficiency.
+(Harmonic vibrational averaging, the finite-temperature workflow above, in fact
+\emph{lowers} $\eta$, so dynamics does not close the gap upward.) The ABINIT-side
+fix is a harder / EFG-tuned nitrogen PAW dataset; a meta-GGA or hybrid functional
+is not needed. The Elk cross-check workflow --- input, an \code{EFG.OUT} parser,
+and an MPI-parallel runner with a convergence watchdog --- is in
+\code{examples/elk/} (see its \code{README.md}); the original ranked plan is in
+\code{docs/eta\_accuracy\_improvement.md}.
 
 % =====================================================================
 \chapter{Finite-Strain EFG Drive Couplings}
