@@ -478,6 +478,15 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `available_workflows() -> tuple[WorkflowEntry, ...]` |  |
 | function | `probes_for(sequence_type: type) -> tuple[str, ...]` |  |
 
+## `spin_dynamics.experiment.rules`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `RuleFinding` | One outcome from a single rule. |
+| function | `rephasing_rule(experiment: Experiment, entry: WorkflowEntry) -> list[RuleFinding]` | Front-load the isochromat-grid rephasing check. |
+| function | `noise_spec_rule(experiment: Experiment, entry: WorkflowEntry) -> list[RuleFinding]` | Validate the acquisition noise spec at plan time. |
+| function | `run_rules(experiment: Experiment, entry: WorkflowEntry, rules: Iterable[Rule] = DEFAULT_RULES) -> list[RuleFinding]` |  |
+
 ## `spin_dynamics.experiment.runner`
 
 | Kind | Name | Summary |
@@ -1342,6 +1351,8 @@ No public classes or functions found.
 | class | `CPMGResult` | Common result object for ideal and probe-aware CPMG workflows. |
 | class | `CPMGTrainResult` | Finite ideal CPMG acquisition result. |
 | function | `calc_masy_ideal(sp: Mapping[str, Any] | Any, pp: Mapping[str, Any] | Any) -> np.ndarray` | Calculate ideal CPMG asymptotic magnetization. |
+| function | `ideal_cpmg_train_max_time(pp0: Any, num_echoes: int) -> float` | Normalized total evolution time for the ideal finite CPMG train. |
+| function | `probe_cpmg_train_max_time(pp0: Any, num_echoes: int) -> float` | Normalized total evolution time for the probe-aware finite CPMG trains. |
 | function | `run_ideal_cpmg_train(numpts: int = 101, maxoffs: float = 10.0, num_echoes: int = 8, t1_seconds: float = 2.0, t2_seconds: float = 2.0, *, num_workers: int | None = 1, auto_refine_grid: bool = False, rephase_safety_factor: float = 1.25, rephase_action: str = 'warn', noise: NoiseSpec | Mapping[str, Any] | float | int | None = None, absolute_phase: AbsolutePhaseSpec | Mapping[str, Any] | None = None) -> CPMGTrainResult` | Run a finite ideal CPMG echo train with relaxation. |
 | function | `run_tuned_cpmg_train(numpts: int = 101, maxoffs: float = 10.0, num_echoes: int = 8, t1_seconds: float = 2.0, t2_seconds: float = 2.0, *, q_value: float | None = None, mistuning_offset: float | None = None, num_workers: int | None = 1, auto_refine_grid: bool = False, rephase_safety_factor: float = 1.25, rephase_action: str = 'warn', noise: NoiseSpec | Mapping[str, Any] | float | int | None = None, radiation_damping: RadiationDampingSpec | Mapping[str, Any] | None = None, absolute_phase: AbsolutePhaseSpec | Mapping[str, Any] | None = None) -> CPMGTrainResult` | Run a finite tuned-probe CPMG echo train with relaxation. |
 | function | `run_untuned_cpmg_train(numpts: int = 101, maxoffs: float = 10.0, num_echoes: int = 8, t1_seconds: float = 2.0, t2_seconds: float = 2.0, *, q_value: float | None = None, mistuning_offset: float | None = None, num_workers: int | None = 1, auto_refine_grid: bool = False, rephase_safety_factor: float = 1.25, rephase_action: str = 'warn', noise: NoiseSpec | Mapping[str, Any] | float | int | None = None, absolute_phase: AbsolutePhaseSpec | Mapping[str, Any] | None = None) -> CPMGTrainResult` | Run a finite untuned-probe CPMG echo train with relaxation. |
@@ -1357,6 +1368,8 @@ No public classes or functions found.
 | --- | --- | --- |
 | class | `CPMGIRTrainResult` | Finite CPMG-IR echo train over inversion delays. |
 | class | `MatchedCPMGIRTrainResult` | Finite matched-probe CPMG-IR echo train over inversion delays. |
+| function | `default_ir_tauvect(tauvect: Iterable[float] | np.ndarray | None = None) -> np.ndarray` | Resolve an optional inversion-delay list to the workflow's tau vector. |
+| function | `cpmg_ir_train_max_time(pp0: Any, num_echoes: int, echo_spacing_seconds: float, tau: np.ndarray) -> float` | Normalized total evolution time for a finite CPMG-IR echo train. |
 | function | `run_ideal_cpmg_ir_train(num_echoes: int = 10, echo_spacing_seconds: float = 0.0005, tauvect: Iterable[float] | np.ndarray | None = None, t1_seconds: float = 0.005, t2_seconds: float = 0.005, *, numpts: int = 101, maxoffs: float = 10.0, num_workers: int | None = 1, tau_workers: int | None = 1, auto_refine_grid: bool = False, rephase_safety_factor: float = 1.25, rephase_action: str = 'warn') -> CPMGIRTrainResult` | Run a compact ideal-probe CPMG-IR finite echo train. |
 | function | `run_tuned_cpmg_ir_train(num_echoes: int = 10, echo_spacing_seconds: float = 0.0005, tauvect: Iterable[float] | np.ndarray | None = None, t1_seconds: float = 0.005, t2_seconds: float = 0.005, *, numpts: int = 101, maxoffs: float = 10.0, num_workers: int | None = 1, tau_workers: int | None = 1, auto_refine_grid: bool = False, rephase_safety_factor: float = 1.25, rephase_action: str = 'warn') -> CPMGIRTrainResult` | Run a compact tuned-probe CPMG-IR finite echo train. |
 | function | `run_untuned_cpmg_ir_train(num_echoes: int = 10, echo_spacing_seconds: float = 0.0005, tauvect: Iterable[float] | np.ndarray | None = None, t1_seconds: float = 0.005, t2_seconds: float = 0.005, *, numpts: int = 101, maxoffs: float = 10.0, num_workers: int | None = 1, tau_workers: int | None = 1, auto_refine_grid: bool = False, rephase_safety_factor: float = 1.25, rephase_action: str = 'warn') -> CPMGIRTrainResult` | Run a compact untuned-probe CPMG-IR finite echo train. |

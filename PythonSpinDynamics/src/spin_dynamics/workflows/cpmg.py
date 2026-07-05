@@ -364,6 +364,36 @@ def _maybe_refine_numpts(
     return max(int(numpts), recommended)
 
 
+def ideal_cpmg_train_max_time(pp0: Any, num_echoes: int) -> float:
+    """Normalized total evolution time for the ideal finite CPMG train.
+
+    Shared by ``run_ideal_cpmg_train`` and the experiment-facade planner so the
+    rephasing pre-check uses exactly the workflow's own timing formula.
+    """
+
+    w1n = (np.pi / 2) / pp0.T_90
+    return float(
+        np.pi / 2
+        + w1n * pp0.tcorr
+        + int(num_echoes) * np.sum(w1n * np.asarray(pp0.tref, dtype=np.float64))
+    )
+
+
+def probe_cpmg_train_max_time(pp0: Any, num_echoes: int) -> float:
+    """Normalized total evolution time for the probe-aware finite CPMG trains.
+
+    Shared by the tuned/untuned/matched ``run_*_cpmg_train`` workflows and the
+    experiment-facade planner.
+    """
+
+    tfp = (np.pi / 2) * (pp0.preDelay + pp0.postDelay) / (2 * pp0.T_90)
+    return float(
+        np.pi / 2
+        + (np.pi / 2) * pp0.tcorr / pp0.T_90
+        + int(num_echoes) * (tfp + np.pi + tfp)
+    )
+
+
 def _echo_phase_matrix(
     del_w: np.ndarray,
     tacq: float,
@@ -656,11 +686,7 @@ def run_ideal_cpmg_train(
 
     sp0, pp0 = set_params_ideal(numpts=numpts)
     w1n = (np.pi / 2) / pp0.T_90
-    max_time = float(
-        np.pi / 2
-        + w1n * pp0.tcorr
-        + int(num_echoes) * np.sum(w1n * np.asarray(pp0.tref, dtype=np.float64))
-    )
+    max_time = ideal_cpmg_train_max_time(pp0, num_echoes)
     numpts = _maybe_refine_numpts(
         numpts,
         maxoffs,
@@ -966,11 +992,7 @@ def run_tuned_cpmg_train(
         C=1 / ((2 * np.pi * sp0.f0) ** 2 * sp0.L),
     )
     tfp = (np.pi / 2) * (pp0.preDelay + pp0.postDelay) / (2 * pp0.T_90)
-    max_time = float(
-        np.pi / 2
-        + (np.pi / 2) * pp0.tcorr / pp0.T_90
-        + int(num_echoes) * (tfp + np.pi + tfp)
-    )
+    max_time = probe_cpmg_train_max_time(pp0, num_echoes)
     numpts = _maybe_refine_numpts(
         numpts,
         maxoffs,
@@ -1198,11 +1220,7 @@ def run_untuned_cpmg_train(
         C=1 / ((2 * np.pi * 10 * sp0.f0) ** 2 * sp0.L),
     )
     tfp = (np.pi / 2) * (pp0.preDelay + pp0.postDelay) / (2 * pp0.T_90)
-    max_time = float(
-        np.pi / 2
-        + (np.pi / 2) * pp0.tcorr / pp0.T_90
-        + int(num_echoes) * (tfp + np.pi + tfp)
-    )
+    max_time = probe_cpmg_train_max_time(pp0, num_echoes)
     numpts = _maybe_refine_numpts(
         numpts,
         maxoffs,
@@ -1419,11 +1437,7 @@ def run_matched_cpmg_train(
         sp0 = replace(sp0, f0=f0)
     sp0 = replace(sp0, R=2 * np.pi * sp0.f0 * sp0.L / sp0.Q)
     tfp = (np.pi / 2) * (pp0.preDelay + pp0.postDelay) / (2 * pp0.T_90)
-    max_time = float(
-        np.pi / 2
-        + (np.pi / 2) * pp0.tcorr / pp0.T_90
-        + int(num_echoes) * (tfp + np.pi + tfp)
-    )
+    max_time = probe_cpmg_train_max_time(pp0, num_echoes)
     numpts = _maybe_refine_numpts(
         numpts,
         maxoffs,

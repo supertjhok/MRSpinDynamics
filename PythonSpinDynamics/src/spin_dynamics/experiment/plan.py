@@ -12,6 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from spin_dynamics.experiment.registry import WorkflowEntry, probes_for, resolve
+from spin_dynamics.experiment.rules import RuleFinding, run_rules
 from spin_dynamics.experiment.specs import (
     PROBE_NAMES,
     SEQUENCE_TYPES,
@@ -32,6 +33,7 @@ class ExperimentPlan:
     sequence: str
     errors: tuple[str, ...]
     warnings: tuple[str, ...]
+    findings: tuple[RuleFinding, ...] = ()
 
     @property
     def ok(self) -> bool:
@@ -105,6 +107,7 @@ def plan_experiment(experiment: Experiment) -> ExperimentPlan:
 
     errors.extend(_spec_sanity_errors(experiment))
 
+    findings: tuple[RuleFinding, ...] = ()
     if entry is not None:
         for dotted in sorted(non_default_fields(experiment)):
             if dotted == "hardware.probe" or dotted in entry.honors:
@@ -115,6 +118,16 @@ def plan_experiment(experiment: Experiment) -> ExperimentPlan:
                 f"{dotted} is not honored by {entry.name} and will be ignored"
             )
 
+        # Rules assume a resolved workflow and sane spec shape; skip them when
+        # basic validation already failed so estimators never see bad inputs.
+        if not errors:
+            findings = tuple(run_rules(experiment, entry))
+            for finding in findings:
+                if finding.severity == "error":
+                    errors.append(f"[{finding.rule}] {finding.message}")
+                elif finding.severity == "warn":
+                    warnings.append(f"[{finding.rule}] {finding.message}")
+
     return ExperimentPlan(
         experiment=experiment,
         workflow=entry.name if entry is not None else None,
@@ -122,4 +135,5 @@ def plan_experiment(experiment: Experiment) -> ExperimentPlan:
         sequence=sequence_name,
         errors=tuple(errors),
         warnings=tuple(warnings),
+        findings=findings,
     )

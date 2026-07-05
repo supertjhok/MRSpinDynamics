@@ -55,6 +55,7 @@ MODULES = [
     "experiment.io",
     "experiment.plan",
     "experiment.registry",
+    "experiment.rules",
     "experiment.runner",
     "experiment.serialization",
     "experiment.specs",

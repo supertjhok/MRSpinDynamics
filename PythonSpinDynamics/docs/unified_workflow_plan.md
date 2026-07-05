@@ -218,8 +218,8 @@ set. A hand-built Qt/desktop GUI is not warranted.
 
 | PR | Content | Notes |
 |---|---|---|
-| 1 | `experiment/` package: spec dataclasses, registry, `run()` delegation for the CPMG family (ideal/tuned/untuned/matched, train + IR); `Result.save/load` with JSON provenance | proves the shape end-to-end |
-| 2 | `plan()`: rule engine; port existing guards (rephasing, probe×option matrix, detector-honored checks) into declarative rules; `plan.report()` | front-loads today's scattered warnings |
+| 1 ✅ | `experiment/` package: spec dataclasses, registry, `run()` delegation for the CPMG family (ideal/tuned/untuned/matched, train + IR); `Result.save/load` with JSON provenance | proves the shape end-to-end |
+| 2 ✅ | `plan()`: rule engine (`rules.py`) with a front-loaded rephasing pre-check + noise-spec validation, structured `ExperimentPlan.findings`, `plan.report()`. Probe×option compatibility is already covered by PR-1's `honors` "ignored-field" warnings; detector-honored checks defer to PR-4 when detectors enter the facade. `max_time` formulas extracted into shared workflow helpers so plan- and run-time verdicts agree | front-loads today's scattered warnings |
 | 3 | Runtime/memory estimator: per-kernel cost models calibrated from `benchmarks/` goldens; report per backend (numpy/numba/jax) | advisory, ±2× accuracy is fine |
 | 4 | Hardware wiring: `B0From*/TxCoil/RxChain` specs → automatic field solve → `SpatialFieldMaps`; transverse-B1 projection done for the user; geometry-hash caching | closes the biggest manual-glue gap (§2.3) |
 | 5 | NQR/ESR adapters: `Sample(sites=[QuadrupolarSite])` + `SLSE/SORC` sequence specs; engine dispatch via `select_nqr_model` inside `plan()` | reuses the existing selector verbatim |

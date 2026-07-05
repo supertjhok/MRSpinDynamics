@@ -22,6 +22,11 @@ from spin_dynamics.experiment.registry import (
     available_workflows,
     register_workflow,
 )
+from spin_dynamics.experiment.rules import (
+    DEFAULT_RULES,
+    RuleFinding,
+    run_rules,
+)
 from spin_dynamics.experiment.runner import (
     ExperimentPlanError,
     RunRecord,
@@ -48,11 +53,13 @@ __all__ = [
     "CPMG",
     "CPMGIRTrain",
     "CPMGTrain",
+    "DEFAULT_RULES",
     "Experiment",
     "ExperimentPlan",
     "ExperimentPlanError",
     "Hardware",
     "LoadedRun",
+    "RuleFinding",
     "RunRecord",
     "Sample",
     "SerializationError",
@@ -64,4 +71,5 @@ __all__ = [
     "register_serializable",
     "register_workflow",
     "run_experiment",
+    "run_rules",
 ]

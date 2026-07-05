@@ -243,6 +243,113 @@ def test_save_load_round_trip(tmp_path) -> None:
 
 
 @pytest.mark.smoke
+def test_rephasing_rule_warns_on_coarse_grid() -> None:
+    plan = Experiment(
+        sequence=CPMGTrain(num_echoes=40),
+        acquisition=Acquisition(numpts=11, maxoffs=10.0),
+    ).plan()
+    assert plan.ok  # warn, not error
+    rephasing = [f for f in plan.findings if f.rule == "rephasing"]
+    assert len(rephasing) == 1
+    assert rephasing[0].severity == "warn"
+    assert rephasing[0].details["recommended_numpts"] > 11
+    assert any("rephas" in w for w in plan.warnings)
+
+
+@pytest.mark.smoke
+def test_rephasing_rule_clean_on_fine_grid() -> None:
+    plan = Experiment(
+        sequence=CPMGTrain(num_echoes=2),
+        acquisition=Acquisition(numpts=201, maxoffs=5.0),
+    ).plan()
+    assert plan.ok
+    assert not [f for f in plan.findings if f.rule == "rephasing"]
+
+
+@pytest.mark.smoke
+def test_rephasing_action_raise_blocks_run() -> None:
+    experiment = Experiment(
+        sequence=CPMGTrain(num_echoes=40),
+        acquisition=Acquisition(numpts=11, maxoffs=10.0, rephase_action="raise"),
+    )
+    plan = experiment.plan()
+    assert not plan.ok
+    assert any("rephas" in e for e in plan.errors)
+    with pytest.raises(ExperimentPlanError):
+        experiment.run()
+
+
+@pytest.mark.smoke
+def test_rephasing_action_ignore_skips_rule() -> None:
+    plan = Experiment(
+        sequence=CPMGTrain(num_echoes=40),
+        acquisition=Acquisition(numpts=11, maxoffs=10.0, rephase_action="ignore"),
+    ).plan()
+    assert not [f for f in plan.findings if f.rule == "rephasing"]
+
+
+@pytest.mark.smoke
+def test_rephasing_auto_refine_is_informational() -> None:
+    plan = Experiment(
+        sequence=CPMGTrain(num_echoes=40),
+        acquisition=Acquisition(numpts=11, maxoffs=10.0, auto_refine_grid=True),
+    ).plan()
+    assert plan.ok
+    rephasing = [f for f in plan.findings if f.rule == "rephasing"]
+    assert len(rephasing) == 1
+    assert rephasing[0].severity == "ok"
+
+
+@pytest.mark.smoke
+def test_asymptotic_cpmg_has_no_rephasing_rule() -> None:
+    plan = Experiment(sequence=CPMG(), acquisition=Acquisition(numpts=11)).plan()
+    assert not [f for f in plan.findings if f.rule == "rephasing"]
+
+
+@pytest.mark.parametrize(
+    ("numpts", "num_echoes", "expect_workflow_warns"),
+    [(11, 40, True), (201, 2, False)],
+)
+def test_plan_rephasing_matches_workflow(
+    numpts: int, num_echoes: int, expect_workflow_warns: bool
+) -> None:
+    """The plan-time verdict must match the workflow's own run-time check."""
+
+    experiment = Experiment(
+        sequence=CPMGTrain(num_echoes=num_echoes),
+        sample=Sample(t1_seconds=0.05, t2_seconds=0.04),
+        acquisition=Acquisition(numpts=numpts, maxoffs=10.0),
+    )
+    plan_warns = bool([f for f in experiment.plan().findings if f.rule == "rephasing"])
+    assert plan_warns == expect_workflow_warns
+
+    import warnings as _w
+
+    with _w.catch_warnings(record=True) as caught:
+        _w.simplefilter("always")
+        workflows.run_ideal_cpmg_train(
+            numpts=numpts,
+            maxoffs=10.0,
+            num_echoes=num_echoes,
+            t1_seconds=0.05,
+            t2_seconds=0.04,
+        )
+    workflow_warns = any("rephase" in str(w.message).lower() for w in caught)
+    assert workflow_warns == expect_workflow_warns
+    assert plan_warns == workflow_warns
+
+
+@pytest.mark.smoke
+def test_noise_spec_rule_rejects_time_nonwhite() -> None:
+    plan = Experiment(
+        sequence=CPMG(),
+        acquisition=Acquisition(noise=NoiseSpec(domain="time", model="probe", sigma=0.1)),
+    ).plan()
+    assert not plan.ok
+    assert any("time-domain noise" in e for e in plan.errors)
+
+
+@pytest.mark.smoke
 def test_registry_entries_point_at_public_workflows() -> None:
     entries = available_workflows()
     assert len(entries) == 12

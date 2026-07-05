@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, replace
+from typing import Any
 
 import numpy as np
 
@@ -65,6 +66,19 @@ def _as_tauvect(tauvect: Iterable[float] | np.ndarray | None) -> np.ndarray:
     return tau
 
 
+def default_ir_tauvect(
+    tauvect: Iterable[float] | np.ndarray | None = None,
+) -> np.ndarray:
+    """Resolve an optional inversion-delay list to the workflow's tau vector.
+
+    Public wrapper over the internal normalizer so the experiment-facade
+    planner reconstructs the same delays (including the ``None`` default) the
+    CPMG-IR workflows use.
+    """
+
+    return _as_tauvect(tauvect)
+
+
 def _validate_ir_inputs(
     num_echoes: int,
     echo_spacing_seconds: float,
@@ -86,6 +100,26 @@ def _stack_ir_rows(
         np.stack([row[0] for row in rows], axis=0),
         np.stack([row[1] for row in rows], axis=0),
         np.stack([row[2] for row in rows], axis=0),
+    )
+
+
+def cpmg_ir_train_max_time(
+    pp0: Any,
+    num_echoes: int,
+    echo_spacing_seconds: float,
+    tau: np.ndarray,
+) -> float:
+    """Normalized total evolution time for a finite CPMG-IR echo train.
+
+    Shared by the ideal/tuned/untuned/matched CPMG-IR workflows and the
+    experiment-facade planner so the rephasing pre-check matches the workflow.
+    """
+
+    t_90 = pp0.T_90
+    tfp = (np.pi / 2) * (echo_spacing_seconds - pp0.T_180) / (2 * t_90)
+    tau_norm_max = (np.pi / 2) * float(np.max(tau)) / t_90
+    return float(
+        np.pi + tau_norm_max + np.pi / 2 + int(num_echoes) * (tfp + np.pi + tfp)
     )
 
 
@@ -115,8 +149,7 @@ def run_ideal_cpmg_ir_train(
     t_90 = pp0.T_90
     w1n = (np.pi / 2) / t_90
     tfp = (np.pi / 2) * (echo_spacing_seconds - pp0.T_180) / (2 * t_90)
-    tau_norm_max = (np.pi / 2) * float(np.max(tau)) / t_90
-    max_time = float(np.pi + tau_norm_max + np.pi / 2 + int(num_echoes) * (tfp + np.pi + tfp))
+    max_time = cpmg_ir_train_max_time(pp0, num_echoes, echo_spacing_seconds, tau)
     numpts = _maybe_refine_numpts(
         numpts,
         maxoffs,
@@ -257,8 +290,7 @@ def _run_probe_cpmg_ir_train(
 
     t_90 = pp0.T_90
     tfp = (np.pi / 2) * (echo_spacing_seconds - pp0.T_180) / (2 * t_90)
-    tau_norm_max = (np.pi / 2) * float(np.max(tau)) / t_90
-    max_time = float(np.pi + tau_norm_max + np.pi / 2 + int(num_echoes) * (tfp + np.pi + tfp))
+    max_time = cpmg_ir_train_max_time(pp0, num_echoes, echo_spacing_seconds, tau)
     numpts = _maybe_refine_numpts(
         numpts,
         maxoffs,
@@ -473,8 +505,7 @@ def run_matched_cpmg_ir_train(
 
     t_90 = pp0.T_90
     tfp = (np.pi / 2) * (echo_spacing_seconds - pp0.T_180) / (2 * t_90)
-    tau_norm_max = (np.pi / 2) * float(np.max(tau)) / t_90
-    max_time = float(np.pi + tau_norm_max + np.pi / 2 + int(num_echoes) * (tfp + np.pi + tfp))
+    max_time = cpmg_ir_train_max_time(pp0, num_echoes, echo_spacing_seconds, tau)
     numpts = _maybe_refine_numpts(
         numpts,
         maxoffs,

@@ -25,6 +25,12 @@ class WorkflowEntry:
     build_kwargs: Callable[[Experiment], dict[str, Any]]
     honors: frozenset[str]
     execution_kwargs: frozenset[str] = field(default_factory=frozenset)
+    max_time: Callable[[Experiment], float] | None = None
+    """Normalized total evolution time estimator, for the rephasing pre-check.
+
+    ``None`` for workflows without a finite acquisition time (e.g. asymptotic
+    CPMG), which the rephasing rule then skips.
+    """
 
 
 _REGISTRY: dict[tuple[type, str], WorkflowEntry] = {}

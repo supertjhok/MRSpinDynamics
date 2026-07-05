@@ -18,6 +18,16 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
   that reproduces the direct `run_*` calls bit for bit, and NPZ save/load
   with JSON provenance and spec round-trip. Design and milestones in
   `PythonSpinDynamics/docs/unified_workflow_plan.md`.
+- Experiment facade PR-2: `plan()` now runs a declarative compatibility rule
+  engine (`experiment/rules.py`). A front-loaded rephasing pre-check reports,
+  before `run()` executes, whether the isochromat grid is fine enough for the
+  sequence (with the recommended `numpts`), respecting
+  `acquisition.rephase_action` (`ignore`/`warn`/`raise`); a noise-spec rule
+  rejects malformed or unsupported noise at plan time. Findings are exposed
+  structurally on the plan (`ExperimentPlan.findings`) and merged into
+  `errors`/`warnings`. The per-workflow `max_time` timing formulas were
+  extracted into shared helpers so the plan-time verdict matches the
+  workflow's own run-time check exactly.
 
 ## [0.1.0] - 2026-06-28
 

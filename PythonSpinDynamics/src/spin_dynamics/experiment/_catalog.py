@@ -15,6 +15,12 @@ from spin_dynamics.experiment.registry import WorkflowEntry, register_workflow
 from spin_dynamics.experiment.serialization import register_serializable
 from spin_dynamics.experiment.specs import CPMG, CPMGIRTrain, CPMGTrain, Experiment
 from spin_dynamics.noise import NoiseMetadata, NoiseSpec
+from spin_dynamics.parameters import (
+    set_params_ideal,
+    set_params_matched_orig,
+    set_params_tuned_orig,
+    set_params_untuned_orig,
+)
 from spin_dynamics.phase_cycling import PhaseCycle, PhaseStep
 from spin_dynamics.workflows import (
     run_ideal_cpmg,
@@ -30,8 +36,18 @@ from spin_dynamics.workflows import (
     run_untuned_cpmg_ir_train,
     run_untuned_cpmg_train,
 )
-from spin_dynamics.workflows.cpmg import CPMGResult, CPMGTrainResult
-from spin_dynamics.workflows.cpmg_ir import CPMGIRTrainResult, MatchedCPMGIRTrainResult
+from spin_dynamics.workflows.cpmg import (
+    CPMGResult,
+    CPMGTrainResult,
+    ideal_cpmg_train_max_time,
+    probe_cpmg_train_max_time,
+)
+from spin_dynamics.workflows.cpmg_ir import (
+    CPMGIRTrainResult,
+    MatchedCPMGIRTrainResult,
+    cpmg_ir_train_max_time,
+    default_ir_tauvect,
+)
 
 register_result_type(CPMGResult)
 register_result_type(CPMGTrainResult)
@@ -118,6 +134,55 @@ def _ir_train_kwargs(experiment: Experiment) -> dict[str, Any]:
     return kwargs
 
 
+def _ideal_pp(numpts: int) -> Any:
+    return set_params_ideal(numpts=numpts)[1]
+
+
+def _tuned_pp(numpts: int) -> Any:
+    return set_params_tuned_orig(numpts=numpts)[2]
+
+
+def _untuned_pp(numpts: int) -> Any:
+    return set_params_untuned_orig(numpts=numpts)[2]
+
+
+def _matched_pp(numpts: int) -> Any:
+    return set_params_matched_orig(numpts=numpts)[1]
+
+
+_PP_GETTERS = {
+    "ideal": _ideal_pp,
+    "tuned": _tuned_pp,
+    "untuned": _untuned_pp,
+    "matched": _matched_pp,
+}
+
+
+def _make_train_max_time(probe: str):
+    getter = _PP_GETTERS[probe]
+    formula = ideal_cpmg_train_max_time if probe == "ideal" else probe_cpmg_train_max_time
+
+    def _max_time(experiment: Experiment) -> float:
+        pp0 = getter(experiment.acquisition.numpts)
+        return formula(pp0, experiment.sequence.num_echoes)
+
+    return _max_time
+
+
+def _make_ir_max_time(probe: str):
+    getter = _PP_GETTERS[probe]
+
+    def _max_time(experiment: Experiment) -> float:
+        sequence = experiment.sequence
+        pp0 = getter(experiment.acquisition.numpts)
+        tau = default_ir_tauvect(sequence.tauvect)
+        return cpmg_ir_train_max_time(
+            pp0, sequence.num_echoes, sequence.echo_spacing_seconds, tau
+        )
+
+    return _max_time
+
+
 _CPMG_HONORS = _ACQ_GRID | {"acquisition.noise"}
 _TRAIN_HONORS = (
     _CPMG_HONORS | _ACQ_REPHASE | _SAMPLE_RELAX | {"hardware.absolute_phase"}
@@ -164,6 +229,7 @@ for _probe, (_func, _extra, _rad) in _TRAIN_FUNCS.items():
             build_kwargs=_builder,
             honors=_TRAIN_HONORS | _extra,
             execution_kwargs=frozenset({"num_workers"}),
+            max_time=_make_train_max_time(_probe),
         )
     )
 
@@ -183,5 +249,6 @@ for _probe, _func in _IR_FUNCS.items():
             build_kwargs=_ir_train_kwargs,
             honors=_IR_HONORS,
             execution_kwargs=frozenset({"num_workers", "tau_workers"}),
+            max_time=_make_ir_max_time(_probe),
         )
     )
