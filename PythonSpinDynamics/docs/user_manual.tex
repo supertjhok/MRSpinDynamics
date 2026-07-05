@@ -3172,12 +3172,20 @@ iron ring provides a low-reluctance return path that breaks the cancellation and
 establishes the transverse bore field, and its \emph{saturation} sets the
 achievable field --- a nonlinear effect analytic superposition cannot capture.
 The example \code{plot\_logging\_ferrite\_b1\_focusing.py} uses the axisymmetric
-solver for the complementary RF case:\ a high-permeability ferrite core placed
-behind an inside-out Jasper-Jackson logging coil raises the \(B_1\) efficiency at
-the formation sweet spot, cutting the RF power for a fixed \(B_1\) by
-\((\eta_{\text{air}}/\eta_{\text{ferrite}})^2\) and raising the reciprocity SNR by
-\(\eta_{\text{ferrite}}/\eta_{\text{air}}\). The material model and nonlinear
-scheme are adapted from the author's Motor\_Design finite-element solver.
+solver for the complementary RF case, coupled to the same asymptotic-CPMG echo
+model as \code{plot\_logging\_cpmg\_multinuclear.py}. It optimizes an inside-out
+Jasper-Jackson logging coil across three levers:\ a high-permeability ferrite
+core behind the coil (geometry swept; demagnetizing-factor limited), the coil
+turn spacing (concentrating turns toward the sweet-spot midplane is a strong
+lever that the CPMG echo tolerates despite the \(B_1\) inhomogeneity it creates),
+and the RF losses. Crucially, both levers boost the coil's coupling to the lossy
+borehole brine as well as to the sample, so the reflected resistance --- computed
+from the solved vector potential --- rises with the field and offsets much of the
+naive efficiency gain; the ferrite's own loss-tangent RF loss is included and is
+negligible next to the brine. The reported figure of merit is therefore the
+\emph{net} per-echo SNR and the RF power for a fixed sweet-spot \(B_1\), not the
+naive reciprocity ratio. The material model and nonlinear scheme are adapted from
+the author's Motor\_Design finite-element solver.
 
 \section{Received-Signal Noise}
 
