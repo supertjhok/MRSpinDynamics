@@ -16,14 +16,21 @@ from spin_dynamics.experiment.estimate import CostModel
 from spin_dynamics.experiment.io import register_result_type
 from spin_dynamics.experiment.registry import WorkflowEntry, register_workflow
 from spin_dynamics.experiment.serialization import register_serializable
+from spin_dynamics.experiment import nqr_adapter
 from spin_dynamics.experiment.specs import (
     CPMG,
     CPMGImaging,
     CPMGIRTrain,
     CPMGTrain,
     Experiment,
+    NQRSLSE,
+    NQRSORC,
 )
 from spin_dynamics.experiment.wiring import solve_for_experiment
+from spin_dynamics.nqr import QuadrupolarSite
+from spin_dynamics.nqr.full_dynamics import FullNQRSLSEResult
+from spin_dynamics.nqr.simulation import SLSEResult, SORCResult
+from spin_dynamics.nqr.systems import NQREigensystem, NQRTransition
 from spin_dynamics.noise import NoiseMetadata, NoiseSpec
 from spin_dynamics.parameters import (
     set_params_ideal,
@@ -72,11 +79,17 @@ register_result_type(CPMGIRTrainResult)
 register_result_type(MatchedCPMGIRTrainResult)
 register_result_type(IdealCPMGImagingResult)
 register_result_type(ProbeCPMGImagingResult)
+register_result_type(SLSEResult)
+register_result_type(SORCResult)
+register_result_type(FullNQRSLSEResult)
 
 register_serializable(NoiseSpec)
 register_serializable(NoiseMetadata)
 register_serializable(PhaseStep)
 register_serializable(PhaseCycle)
+register_serializable(QuadrupolarSite)
+register_serializable(NQRTransition)
+register_serializable(NQREigensystem)
 
 _ACQ_GRID = frozenset({"acquisition.numpts", "acquisition.maxoffs"})
 _ACQ_REPHASE = frozenset(
@@ -345,6 +358,32 @@ for _probe, _func in _IMAGING_FUNCS.items():
             execution_kwargs=frozenset({"num_workers", "phase_workers"}),
         )
     )
+
+# NQR entries: no probe circuit is modeled, so they register under the
+# default "ideal" probe only. SLSE dispatches reduced-vs-full per spec/site
+# via the adapter; SORC has a reduced implementation only.
+_NQR_HONORS = frozenset({"sample.site"})
+register_workflow(
+    WorkflowEntry(
+        name="simulate_slse",
+        sequence_type=NQRSLSE,
+        probe="ideal",
+        func=nqr_adapter.simulate_slse,
+        build_kwargs=nqr_adapter.slse_kwargs,
+        honors=_NQR_HONORS,
+        resolve_func=nqr_adapter.resolve_slse_func,
+    )
+)
+register_workflow(
+    WorkflowEntry(
+        name="simulate_sorc",
+        sequence_type=NQRSORC,
+        probe="ideal",
+        func=nqr_adapter.simulate_sorc,
+        build_kwargs=nqr_adapter.sorc_kwargs,
+        honors=_NQR_HONORS,
+    )
+)
 
 _IR_FUNCS = {
     "ideal": run_ideal_cpmg_ir_train,

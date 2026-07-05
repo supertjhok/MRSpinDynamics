@@ -58,6 +58,8 @@ from spin_dynamics.experiment.specs import (
     CPMGTrain,
     Experiment,
     Hardware,
+    NQRSLSE,
+    NQRSORC,
     Phantom,
     Sample,
 )
@@ -79,6 +81,8 @@ __all__ = [
     "Hardware",
     "ImagingPlane",
     "LoadedRun",
+    "NQRSLSE",
+    "NQRSORC",
     "Phantom",
     "PlanarSpiralCoil",
     "RuleFinding",

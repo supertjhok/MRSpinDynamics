@@ -55,6 +55,7 @@ MODULES = [
     "experiment.estimate",
     "experiment.hardware",
     "experiment.io",
+    "experiment.nqr_adapter",
     "experiment.plan",
     "experiment.registry",
     "experiment.rules",

@@ -624,11 +624,196 @@ def test_imaging_execution_kwargs() -> None:
         experiment.run(tau_workers=2)
 
 
+from spin_dynamics.experiment import NQRSLSE, NQRSORC  # noqa: E402
+from spin_dynamics.nqr import (  # noqa: E402
+    QuadrupolarSite,
+    SelectivePulse,
+    SLSESequence,
+    SORCSequence,
+    diagonalize_site,
+    simulate_full_slse,
+    simulate_slse,
+    simulate_sorc,
+)
+
+_SPIN1 = QuadrupolarSite(spin=1, quadrupole_frequency_hz=900e3, eta=0.3)
+_SPIN32 = QuadrupolarSite(spin=1.5, isotope="35Cl", quadrupole_frequency_hz=30e6, eta=0.1)
+# Soft selective 90-degree pulse: nutation * duration = 0.25
+_SOFT_SLSE = NQRSLSE(
+    pulse_duration_seconds=100e-6,
+    nutation_hz=2.5e3,
+    echo_spacing_seconds=1e-3,
+    num_echoes=4,
+    orientations="single",
+)
+
+
+@pytest.mark.smoke
+def test_nqr_auto_dispatch() -> None:
+    plan1 = Experiment(sequence=_SOFT_SLSE, sample=Sample(site=_SPIN1)).plan()
+    assert plan1.ok
+    assert plan1.workflow == "simulate_slse"
+
+    hard = NQRSLSE(
+        pulse_duration_seconds=10e-6,
+        nutation_hz=25e3,
+        echo_spacing_seconds=0.5e-3,
+        num_echoes=3,
+        orientations="single",
+    )
+    plan2 = Experiment(sequence=hard, sample=Sample(site=_SPIN32)).plan()
+    assert plan2.ok
+    assert plan2.workflow == "simulate_full_slse"
+    selection = [f for f in plan2.findings if f.rule == "nqr_model"][0]
+    assert selection.details["recommended_model"] == "full"
+
+
+def test_nqr_slse_reduced_parity() -> None:
+    record = Experiment(sequence=_SOFT_SLSE, sample=Sample(site=_SPIN1)).run()
+    assert record.provenance["workflow"] == "simulate_slse"
+    direct = simulate_slse(
+        _SPIN1,
+        SLSESequence(
+            detection=SelectivePulse(
+                transition_label="x",
+                duration_seconds=100e-6,
+                nutation_hz=2.5e3,
+            ),
+            echo_spacing_seconds=1e-3,
+            num_echoes=4,
+        ),
+        orientations="single",
+    )
+    assert np.array_equal(record.result.echo_amplitudes, direct.echo_amplitudes)
+    assert record.result.transition.label == "x"
+
+
+def test_nqr_slse_full_parity_with_bare_nutation() -> None:
+    """The facade must convert effective -> bare nutation for the full engine."""
+
+    spec = NQRSLSE(
+        pulse_duration_seconds=10e-6,
+        nutation_hz=25e3,
+        echo_spacing_seconds=0.5e-3,
+        num_echoes=3,
+        transition="x",
+        orientations="single",
+    )
+    record = Experiment(sequence=spec, sample=Sample(site=_SPIN32)).run()
+    assert record.provenance["workflow"] == "simulate_full_slse"
+
+    transition = diagonalize_site(_SPIN32).transition("x")
+    bare = 25e3 / (2.0 * transition.strength)
+    direct = simulate_full_slse(
+        _SPIN32,
+        nutation_hz=bare,
+        excitation_duration_seconds=10e-6,
+        refocus_duration_seconds=10e-6,
+        echo_spacing_seconds=0.5e-3,
+        num_echoes=3,
+        rf_frequency_hz=transition.frequency_hz,
+        excitation_phase=0.0,
+        refocus_phase=np.pi / 2.0,
+        orientations="single",
+    )
+    assert np.array_equal(record.result.echo_amplitudes, direct.echo_amplitudes)
+
+
+def test_nqr_sorc_parity() -> None:
+    spec = NQRSORC(
+        pulse_duration_seconds=100e-6,
+        nutation_hz=2.5e3,
+        half_spacing_seconds=0.5e-3,
+        num_pulses=6,
+        orientations="single",
+    )
+    record = Experiment(sequence=spec, sample=Sample(site=_SPIN1)).run()
+    direct = simulate_sorc(
+        _SPIN1,
+        SORCSequence(
+            detection=SelectivePulse(
+                transition_label="x",
+                duration_seconds=100e-6,
+                nutation_hz=2.5e3,
+            ),
+            half_spacing_seconds=0.5e-3,
+            num_pulses=6,
+        ),
+        orientations="single",
+    )
+    assert np.array_equal(record.result.signal_amplitudes, direct.signal_amplitudes)
+
+
+@pytest.mark.smoke
+def test_nqr_bare_nutation_conversion() -> None:
+    from spin_dynamics.experiment import nqr_adapter
+
+    for site, label in ((_SPIN1, "x"), (_SPIN32, "x")):
+        strength = diagonalize_site(site).transition(label).strength
+        assert nqr_adapter.bare_nutation_hz(site, label, 10e3) == pytest.approx(
+            10e3 / (2.0 * strength)
+        )
+
+
+@pytest.mark.smoke
+def test_nqr_forced_model_override_warns() -> None:
+    forced = Experiment(
+        sequence=dataclasses.replace(_SOFT_SLSE, model="full"),
+        sample=Sample(site=_SPIN1),
+    )
+    plan = forced.plan()
+    assert plan.ok
+    assert plan.workflow == "simulate_full_slse"
+    assert any("overrides" in w for w in plan.warnings)
+
+
+@pytest.mark.smoke
+def test_nqr_forced_reduced_on_higher_spin_errors() -> None:
+    plan = Experiment(
+        sequence=dataclasses.replace(_SOFT_SLSE, model="reduced"),
+        sample=Sample(site=_SPIN32),
+    ).plan()
+    assert not plan.ok
+    assert any("spin-1 only" in e for e in plan.errors)
+
+
+@pytest.mark.smoke
+def test_nqr_requires_site() -> None:
+    plan = Experiment(sequence=_SOFT_SLSE).plan()
+    assert not plan.ok
+    assert any("sample.site" in e for e in plan.errors)
+
+
+@pytest.mark.smoke
+def test_nqr_json_and_save_round_trip(tmp_path) -> None:
+    experiment = Experiment(sequence=_SOFT_SLSE, sample=Sample(site=_SPIN1))
+    assert Experiment.from_json(experiment.to_json()) == experiment
+
+    record = experiment.run()
+    path = tmp_path / "nqr.npz"
+    record.save(str(path))
+    loaded = load_run(str(path))
+    assert loaded.experiment == experiment
+    assert loaded.unsaved_result_fields == ()
+    assert np.array_equal(
+        loaded.result.echo_amplitudes, record.result.echo_amplitudes
+    )
+    rerun = loaded.experiment.run()
+    assert np.array_equal(
+        rerun.result.echo_amplitudes, record.result.echo_amplitudes
+    )
+
+
 @pytest.mark.smoke
 def test_registry_entries_point_at_public_workflows() -> None:
+    import spin_dynamics.nqr as nqr
+
     entries = available_workflows()
-    assert len(entries) == 15
+    assert len(entries) == 17
     public = set(workflows.STABLE_WORKFLOW_API) | set(workflows.EXTENDED_WORKFLOW_API)
     for entry in entries:
-        assert entry.name in public, entry.name
-        assert getattr(workflows, entry.name) is entry.func
+        if getattr(nqr, entry.name, None) is not None:
+            assert getattr(nqr, entry.name) is entry.func, entry.name
+        else:
+            assert entry.name in public, entry.name
+            assert getattr(workflows, entry.name) is entry.func

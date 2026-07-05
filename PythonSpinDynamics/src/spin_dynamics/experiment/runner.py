@@ -75,15 +75,16 @@ def run_experiment(experiment: Experiment, **execution: Any) -> RunRecord:
             f"{sorted(unknown)}; allowed: {allowed}"
         )
 
+    func = entry.resolved_func(experiment)
     kwargs = entry.build_kwargs(experiment)
     kwargs.update(execution)
 
     start = time.perf_counter()
-    result = entry.func(**kwargs)
+    result = func(**kwargs)
     elapsed = time.perf_counter() - start
 
     provenance = {
-        "workflow": entry.name,
+        "workflow": func.__name__,
         "package_version": _package_version(),
         "numpy_version": np.__version__,
         "python_version": sys.version.split()[0],

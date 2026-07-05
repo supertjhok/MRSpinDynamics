@@ -36,6 +36,17 @@ class WorkflowEntry:
 
     ``None`` disables the runtime/memory estimate for this workflow.
     """
+    resolve_func: "Callable[[Experiment], Callable[..., Any]] | None" = None
+    """Spec-dependent engine dispatch (e.g. reduced vs full NQR model).
+
+    When set, ``plan()``/``run()`` call it to pick the actual workflow
+    function; ``func`` remains the nominal default for registry listings.
+    """
+
+    def resolved_func(self, experiment: Experiment) -> Callable[..., Any]:
+        if self.resolve_func is not None:
+            return self.resolve_func(experiment)
+        return self.func
 
 
 _REGISTRY: dict[tuple[type, str], WorkflowEntry] = {}

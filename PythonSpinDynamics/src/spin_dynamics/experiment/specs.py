@@ -92,6 +92,8 @@ class Sample:
     t1_seconds: float | None = None
     t2_seconds: float | None = None
     phantom: Phantom | None = None
+    site: Any | None = None
+    """Quadrupolar site (``spin_dynamics.nqr.QuadrupolarSite``) for NQR sequences."""
     label: str = ""
 
 
@@ -186,7 +188,89 @@ class CPMGImaging:
         object.__setattr__(self, "fov", fov)
 
 
-SEQUENCE_TYPES: tuple[type, ...] = (CPMG, CPMGTrain, CPMGIRTrain, CPMGImaging)
+def _validate_nqr_common(spec: Any) -> None:
+    if spec.pulse_duration_seconds <= 0:
+        raise ValueError("pulse_duration_seconds must be positive")
+    if spec.nutation_hz <= 0:
+        raise ValueError("nutation_hz must be positive")
+    if spec.orientations not in ("powder", "single"):
+        raise ValueError("orientations must be 'powder' or 'single'")
+    if spec.t2e_seconds is not None and spec.t2e_seconds <= 0:
+        raise ValueError("t2e_seconds must be positive when set")
+
+
+@register_serializable
+@dataclass(frozen=True)
+class NQRSLSE:
+    """Spin-lock spin-echo NQR detection train.
+
+    ``nutation_hz`` uses the reduced engine's convention: the *effective*
+    two-level Rabi rate of the addressed transition at full RF coupling, so
+    the on-resonance flip angle is ``2*pi*nutation_hz*pulse_duration_seconds``
+    (90 degrees at ``nutation_hz * duration = 0.25``). The conversion to the
+    bare ``gamma*B1/(2*pi)`` the full-model engine expects happens in the
+    adapter. ``model="auto"`` picks the reduced two-level or full
+    density-matrix engine via ``select_nqr_model``; ``transition="auto"``
+    addresses the strongest line.
+    """
+
+    pulse_duration_seconds: float
+    nutation_hz: float
+    echo_spacing_seconds: float
+    num_echoes: int
+    transition: str = "auto"
+    model: str = "auto"
+    phase: float = 0.0
+    rf_frequency_hz: float | None = None
+    orientations: str = "powder"
+    b0_tesla: float = 0.0
+    t2e_seconds: float | None = None
+
+    def __post_init__(self) -> None:
+        _validate_nqr_common(self)
+        if self.model not in ("auto", "reduced", "full"):
+            raise ValueError("model must be 'auto', 'reduced', or 'full'")
+        if self.num_echoes <= 0:
+            raise ValueError("num_echoes must be positive")
+        if self.echo_spacing_seconds < 0:
+            raise ValueError("echo_spacing_seconds must be non-negative")
+
+
+@register_serializable
+@dataclass(frozen=True)
+class NQRSORC:
+    """Strong off-resonance comb NQR train (reduced spin-1 engine only).
+
+    Same ``nutation_hz`` convention as :class:`NQRSLSE`.
+    """
+
+    pulse_duration_seconds: float
+    nutation_hz: float
+    half_spacing_seconds: float
+    num_pulses: int
+    transition: str = "auto"
+    phase: float = 0.0
+    rf_frequency_hz: float | None = None
+    orientations: str = "powder"
+    b0_tesla: float = 0.0
+    t2e_seconds: float | None = None
+
+    def __post_init__(self) -> None:
+        _validate_nqr_common(self)
+        if self.num_pulses <= 0:
+            raise ValueError("num_pulses must be positive")
+        if self.half_spacing_seconds < 0:
+            raise ValueError("half_spacing_seconds must be non-negative")
+
+
+SEQUENCE_TYPES: tuple[type, ...] = (
+    CPMG,
+    CPMGTrain,
+    CPMGIRTrain,
+    CPMGImaging,
+    NQRSLSE,
+    NQRSORC,
+)
 
 
 @register_serializable

@@ -21,6 +21,8 @@ from spin_dynamics.experiment.specs import (
     CPMGIRTrain,
     CPMGTrain,
     Experiment,
+    NQRSLSE,
+    NQRSORC,
     non_default_fields,
 )
 
@@ -87,6 +89,11 @@ def _spec_sanity_errors(experiment: Experiment) -> list[str]:
             errors.append("sequence.echo_spacing_seconds must be positive")
         if sequence.tauvect is not None and any(tau < 0 for tau in sequence.tauvect):
             errors.append("sequence.tauvect entries must be non-negative")
+    if isinstance(sequence, (NQRSLSE, NQRSORC)) and sample.site is None:
+        errors.append(
+            f"sequence {type(sequence).__name__} requires sample.site "
+            "(a spin_dynamics.nqr.QuadrupolarSite)"
+        )
     if isinstance(sequence, CPMGImaging):
         if sample.phantom is None:
             errors.append("sequence CPMGImaging requires sample.phantom")
@@ -166,9 +173,16 @@ def plan_experiment(experiment: Experiment, *, estimate: bool = True) -> Experim
     if estimate and entry is not None and entry.cost is not None and not errors:
         runtime_estimate = estimate_runtime(entry.cost(experiment))
 
+    workflow_name = entry.name if entry is not None else None
+    if entry is not None and entry.resolve_func is not None and not errors:
+        try:
+            workflow_name = entry.resolve_func(experiment).__name__
+        except ValueError:
+            pass  # the matching rule already reports the problem
+
     return ExperimentPlan(
         experiment=experiment,
-        workflow=entry.name if entry is not None else None,
+        workflow=workflow_name,
         probe=probe,
         sequence=sequence_name,
         errors=tuple(errors),

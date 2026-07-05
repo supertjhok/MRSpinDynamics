@@ -201,7 +201,96 @@ def hardware_wiring_rule(
     return findings
 
 
-DEFAULT_RULES: tuple[Rule, ...] = (rephasing_rule, noise_spec_rule, hardware_wiring_rule)
+def nqr_model_rule(experiment: Experiment, entry: WorkflowEntry) -> list[RuleFinding]:
+    """Run ``select_nqr_model`` at plan time and check the engine dispatch.
+
+    Reports the recommended model with its reasons; warns when the user
+    forces a model against the recommendation (or uses SORC, which has no
+    full-model implementation, on a site that needs one); errors when the
+    dispatch would hit an engine constraint (reduced selective-pulse
+    workflows support spin-1 only).
+    """
+
+    from spin_dynamics.experiment import nqr_adapter
+    from spin_dynamics.experiment.specs import NQRSLSE, NQRSORC
+
+    sequence = experiment.sequence
+    if not isinstance(sequence, (NQRSLSE, NQRSORC)):
+        return []
+    try:
+        selection = nqr_adapter.model_selection(experiment)
+    except ValueError as exc:
+        return [RuleFinding(rule="nqr_model", severity="error", message=str(exc))]
+
+    findings = [
+        RuleFinding(
+            rule="nqr_model",
+            severity="ok",
+            message=(
+                f"model selection recommends the {selection.recommended_model} "
+                f"engine for transition {selection.target_label!r} "
+                f"(isolation ratio {selection.isolation_ratio:.2g})"
+            ),
+            details={
+                "recommended_model": selection.recommended_model,
+                "target_label": selection.target_label,
+                "isolation_ratio": selection.isolation_ratio,
+                "reasons": list(selection.reasons),
+            },
+        )
+    ]
+
+    site = experiment.sample.site
+    if isinstance(sequence, NQRSORC):
+        resolved = "reduced"  # SORC has no full-model implementation
+        if selection.recommended_model == "full":
+            findings.append(
+                RuleFinding(
+                    rule="nqr_model",
+                    severity="warn",
+                    message=(
+                        "model selection recommends the full engine but SORC "
+                        "only has a reduced implementation: "
+                        + "; ".join(selection.reasons)
+                    ),
+                )
+            )
+    else:
+        resolved = nqr_adapter.resolved_slse_model(experiment)
+        if sequence.model != "auto" and sequence.model != selection.recommended_model:
+            findings.append(
+                RuleFinding(
+                    rule="nqr_model",
+                    severity="warn",
+                    message=(
+                        f"model={sequence.model!r} overrides the "
+                        f"{selection.recommended_model!r} recommendation: "
+                        + "; ".join(selection.reasons)
+                    ),
+                )
+            )
+
+    if resolved == "reduced" and site is not None and float(site.spin) != 1.0:
+        findings.append(
+            RuleFinding(
+                rule="nqr_model",
+                severity="error",
+                message=(
+                    "the reduced selective-pulse engine supports spin-1 only; "
+                    f"this site has spin {site.spin}. Use model='full' "
+                    "(SLSE) or the full-dynamics workflows directly"
+                ),
+            )
+        )
+    return findings
+
+
+DEFAULT_RULES: tuple[Rule, ...] = (
+    rephasing_rule,
+    noise_spec_rule,
+    hardware_wiring_rule,
+    nqr_model_rule,
+)
 
 
 def run_rules(

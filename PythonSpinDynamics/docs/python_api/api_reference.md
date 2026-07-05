@@ -484,6 +484,19 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `LoadedRun` | A run loaded from disk: spec, raw arrays, and best-effort result. |
 | function | `load_run(path: str) -> LoadedRun` |  |
 
+## `spin_dynamics.experiment.nqr_adapter`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `require_site(experiment: Any) -> QuadrupolarSite` |  |
+| function | `target_transition(site: QuadrupolarSite, label: str) -> NQRTransition` | Resolve a transition label. |
+| function | `bare_nutation_hz(site: QuadrupolarSite, label: str, effective_nutation_hz: float) -> float` | Convert the effective two-level Rabi rate to bare gamma*B1/(2*pi). |
+| function | `model_selection(experiment: Any) -> NQRModelSelection` | Run (cached) reduced-vs-full model selection for an NQR experiment. |
+| function | `resolved_slse_model(experiment: Any) -> str` |  |
+| function | `resolve_slse_func(experiment: Any) -> Callable[..., Any]` |  |
+| function | `slse_kwargs(experiment: Any) -> dict[str, Any]` |  |
+| function | `sorc_kwargs(experiment: Any) -> dict[str, Any]` |  |
+
 ## `spin_dynamics.experiment.plan`
 
 | Kind | Name | Summary |
@@ -509,6 +522,7 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `rephasing_rule(experiment: Experiment, entry: WorkflowEntry) -> list[RuleFinding]` | Front-load the isochromat-grid rephasing check. |
 | function | `noise_spec_rule(experiment: Experiment, entry: WorkflowEntry) -> list[RuleFinding]` | Validate the acquisition noise spec at plan time. |
 | function | `hardware_wiring_rule(experiment: Experiment, entry: WorkflowEntry) -> list[RuleFinding]` | Solve requested coil fields at plan time and surface wiring problems. |
+| function | `nqr_model_rule(experiment: Experiment, entry: WorkflowEntry) -> list[RuleFinding]` | Run ``select_nqr_model`` at plan time and check the engine dispatch. |
 | function | `run_rules(experiment: Experiment, entry: WorkflowEntry, rules: Iterable[Rule] = DEFAULT_RULES) -> list[RuleFinding]` |  |
 
 ## `spin_dynamics.experiment.runner`
@@ -541,6 +555,8 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `CPMGTrain` | Finite CPMG echo train with relaxation. |
 | class | `CPMGIRTrain` | Finite CPMG echo train preceded by an inversion-recovery delay sweep. |
 | class | `CPMGImaging` | Phase-encoded CPMG imaging (2-D spin-warp on a phantom). |
+| class | `NQRSLSE` | Spin-lock spin-echo NQR detection train. |
+| class | `NQRSORC` | Strong off-resonance comb NQR train (reduced spin-1 engine only). |
 | class | `Experiment` | A complete declarative experiment description. |
 | function | `non_default_fields(experiment: Experiment) -> dict[str, Any]` | Return dotted spec-field names whose values differ from the defaults. |
 

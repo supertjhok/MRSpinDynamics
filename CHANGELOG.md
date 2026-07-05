@@ -46,6 +46,18 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
   sample) — replacing the workflows' synthetic default B1. `plan()` reports a
   transmit-efficiency diagnostic and warns when most of a coil's B1 is
   parallel to B0 (an inefficiency the normalized maps would otherwise hide).
+- Experiment facade PR-5: NQR under the facade. `Sample.site` takes a
+  `QuadrupolarSite`; new `NQRSLSE`/`NQRSORC` sequence specs use the reduced
+  engine's effective-Rabi nutation convention, with the adapter owning the
+  conversion to the bare `gamma*B1/(2*pi)` the full engine expects
+  (`bare = effective / (2 * transition.strength)`). `NQRSLSE(model="auto")`
+  dispatches to `simulate_slse` (reduced) or `simulate_full_slse` (full
+  density matrix) via `select_nqr_model` at plan time; `plan()` reports the
+  recommendation with its reasons, warns on forced overrides and on SORC
+  sites that would need the (nonexistent) full SORC engine, and errors when
+  the reduced engine's spin-1 constraint is violated. `transition="auto"`
+  addresses the line most strongly coupled to the drive polarization (not
+  the largest bare strength, which can be RF-dark).
 
 ## [0.1.0] - 2026-06-28
 
