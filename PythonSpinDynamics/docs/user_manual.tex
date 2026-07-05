@@ -3140,6 +3140,40 @@ the same frequency where \(B_0\) is \(\sim\)3.8\(\times\) higher, with non-optim
 flip angles from the proton-calibrated pulses) to estimate its fractional signal
 contribution. Design note: \code{docs/field\_solvers\_quasistatic.md}.
 
+\subsection{Nonlinear magnetostatics: ferrites and saturable iron}
+\label{sec:fields-nonlinear-magnetostatics}
+
+The analytic solvers above superpose permanent-magnet dipoles and Biot-Savart
+filaments in \emph{free space}; they cannot represent flux-shaping magnetic
+materials. \code{spin\_dynamics.fields.nonlinear\_magnetostatics} adds a
+structured-grid nonlinear magnetostatic solver for exactly that: a
+high-permeability RF ferrite that focuses a \(B_1\) field, or saturable iron that
+shapes and returns a \(B_0\) field. Each nonlinear step's sparse linear system is
+solved by a SciPy LU factorization (FEMM-style; a NumPy matrix-free conjugate
+gradient is the fallback when SciPy is absent), with a material's saturation
+described by a smooth Brauer reluctivity
+\(\nu(B^2)=b_1+b_2\,e^{b_3 B^2}\) clamped to a physical \(\mu_r\ge 1\), and the
+nonlinear branch tracked by Anderson-accelerated Picard with residual-stall
+detection. No meshing dependency (structured grid).
+Two coordinate systems share the material model and solver:
+\code{PlanarMagnetostatics} solves the out-of-plane \(A_z\) for
+translationally-invariant \((x,y)\) problems, and
+\code{AxisymmetricMagnetostatics} solves the azimuthal \(A_\phi\) for
+rotationally-symmetric \((r,z)\) problems (solenoid / loop coils with cores). The
+planar solver is validated against the uniformly-magnetized-cylinder interior
+field \(B_r/2\) and the axisymmetric solver against the analytic solenoid
+on-axis field.
+
+The example \code{plot\_shim\_a\_ring\_magnet.py} builds a ``shim-a-ring'':\ a
+diametrically-magnetized NdFeB ring inside a concentric soft-iron ring. A
+uniformly magnetized \emph{tube} produces essentially zero bore field (the outer
+and inner \(\sin\theta\) surface-current sheets cancel); the high-permeability
+iron ring provides a low-reluctance return path that breaks the cancellation and
+establishes the transverse bore field, and its \emph{saturation} sets the
+achievable field --- a nonlinear effect analytic superposition cannot capture.
+The material model and nonlinear scheme are adapted from the author's
+Motor\_Design finite-element solver.
+
 \section{Received-Signal Noise}
 
 Noise is opt-in and output-referred. High-level workflows accept a

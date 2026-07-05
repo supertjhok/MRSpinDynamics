@@ -460,6 +460,22 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | --- | --- | --- |
 | class | `SpatialFieldMaps` | Spatial sample and field maps shared by imaging and diffusion workflows. |
 
+## `spin_dynamics.fields.nonlinear_magnetostatics`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `BrauerBH` | Smooth Brauer soft-magnetic reluctivity ``nu(B^2) = bk1 + bk2 exp(bk3 B^2)``. |
+| class | `MagneticMaterial` | A magnetic material region: linear or saturable, optionally a magnet. |
+| function | `air() -> MagneticMaterial` | Return free space (``mu_r = 1``). |
+| function | `linear_material(mu_r: float, *, name: str = 'linear') -> MagneticMaterial` | Return a linear material of relative permeability ``mu_r``. |
+| function | `rf_ferrite(mu_r: float = 1000.0, *, bh: BrauerBH | None = None) -> MagneticMaterial` | Return a high-permeability RF ferrite (linear by default, below saturation). |
+| function | `soft_iron(curve: str = 'soft_iron') -> MagneticMaterial` | Return a saturable soft-iron material from a named Brauer curve. |
+| function | `ndfeb(remanence_t: float = 1.3, *, mu_rec: float = 1.05) -> MagneticMaterial` | Return an NdFeB permanent magnet (recoil permeability ``mu_rec``). |
+| class | `PlanarSolution` | Result of a planar magnetostatic solve. |
+| class | `PlanarMagnetostatics` | 2D translationally-invariant nonlinear magnetostatics via ``A_z``. |
+| class | `AxisymmetricSolution` | Result of an axisymmetric magnetostatic solve. |
+| class | `AxisymmetricMagnetostatics` | Rotationally-symmetric nonlinear magnetostatics via ``A_phi``. |
+
 ## `spin_dynamics.fields.positions`
 
 | Kind | Name | Summary |
