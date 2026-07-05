@@ -242,6 +242,12 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `InductiveCoilDetector` | Field-referred adapter over an inductive probe's output-noise density. |
 | class | `IdealFaradayCoil` | Idealized inductive coil with ``1/f`` field-referred noise. |
 
+## `spin_dynamics.detection.opm`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `OPMMagnetometer` | Atomic magnetometer with a Lorentzian atomic-response bandwidth. |
+
 ## `spin_dynamics.detection.squid`
 
 | Kind | Name | Summary |

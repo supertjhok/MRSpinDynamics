@@ -217,7 +217,13 @@ ULF-MRI** numbers.
       Note: no ω-scaling *flag* was needed — the field-referred core keeps the
       signal detector-independent and puts the ω dependence in the coil's 1/f
       field-noise, so thermal/prepolarized is just a choice of `S(f)`.
-- [ ] **PR-3:** `OPMMagnetometer` (SERF + RF/Mₓ, rolloff) + ULF ¹⁴N NQR example.
+- [x] **PR-3:** `OPMMagnetometer` (SERF low-pass at DC + RF/Mₓ band-pass at a
+      tuned carrier; field noise `N² = S0²[1 + ((f−f_c)/Δf)²]` — the mandatory
+      atomic-bandwidth roll-off); `examples/plot_opm_nqr_detection.py` on a ¹⁴N
+      line (RF-OPM vs SERF vs SQUID vs coil, + bandwidth-matching penalty);
+      `tests/test_detection_opm.py`; manual §Non-Inductive Detection extended.
+      Anchored to 0.24 fT/√Hz @ 423 kHz (Savukov / US 7,521,928); SERF rolled off
+      ~f/Δf (≈2115×) at 423 kHz.
 - [ ] **PR-4:** detector-aware GRAPE objective wiring over the ensemble path.
 
 ## Resolved design decisions

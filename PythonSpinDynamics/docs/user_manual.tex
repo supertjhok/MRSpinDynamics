@@ -3213,9 +3213,26 @@ the SQUID wins, and with a prepolarized sample (moment set by \(B_p\), not
 \(T_2\) limit), while the Faraday SNR falls as \(B_0^{+1/2}\). The example
 \code{examples/plot\_squid\_ulf\_crossover.py} reproduces the noise-floor
 crossover, the prepolarized SNR-vs-\(B_0\) scalings, and the \(B_0\)-proportional
-line narrowing. The OPM (atomic-magnetometer) detector, with its
-atomic-bandwidth roll-off, and detector-aware GRAPE objectives follow in later
-increments (see \code{docs/non\_inductive\_detection.md}).
+line narrowing.
+
+Optically pumped (atomic) magnetometers (\code{OPMMagnetometer}) are field
+sensors like SQUIDs but reach sub-fT/\(\sqrt{\mathrm{Hz}}\) sensitivity without
+cryogenics, at the cost of a finite atomic-response bandwidth. The vapour-cell
+spins act as a Lorentzian filter of half-width \(\Delta f\), so the field-referred
+noise is flat on resonance and rises as the response rolls off,
+\(N^2(f)=S_0^2\,[1 + ((f-f_c)/\Delta f)^2]\). A \code{"serf"} (zero-field) OPM is
+a low-pass centred at DC---best for zero/ultra-low-field NMR but rolled off, and
+useless, at \(\mathrm{MHz}\); an \code{"rf"} (Mx) OPM tunes its bias field to
+place a band-pass on the line \(f_c\), reaching \(\sim\!0.24~\mathrm{fT}/\sqrt{\mathrm{Hz}}\)
+at \(423~\mathrm{kHz}\) for the \({}^{14}\mathrm{N}\) NQR of ammonium nitrate
+(Savukov et al.; US~7{,}521{,}928). Modelling the roll-off is essential: a SERF
+OPM's field noise at \(423~\mathrm{kHz}\) is \(\sim\!f/\Delta f\) (thousands of
+times) above its DC floor, and the RF-OPM's bandwidth must cover the NQR
+linewidth or the detected SNR degrades. The example
+\code{examples/plot\_opm\_nqr\_detection.py} compares an RF-OPM, a SERF OPM, a
+SQUID, and a coil on a \({}^{14}\mathrm{N}\) line and shows the
+bandwidth-matching penalty. Detector-aware GRAPE objectives follow in a later
+increment (see \code{docs/non\_inductive\_detection.md}).
 
 \section{Diffusion}
 

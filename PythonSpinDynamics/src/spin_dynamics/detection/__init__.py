@@ -5,8 +5,8 @@ inductive coils, SQUIDs, and OPMs differ only in a transfer shape and a
 field-referred noise floor. See ``docs/non_inductive_detection.md``.
 
 Ships the field-referred abstraction, inductive-coil detectors (a measured-probe
-adapter and an idealized ``1/f`` Faraday baseline), and the ``SQUIDMagnetometer``.
-``OPMMagnetometer`` follows in a later increment.
+adapter and an idealized ``1/f`` Faraday baseline), and the non-inductive
+``SQUIDMagnetometer`` and ``OPMMagnetometer``.
 """
 
 from .base import (
@@ -16,6 +16,7 @@ from .base import (
     field_referred_from_output,
 )
 from .inductive import IdealFaradayCoil, InductiveCoilDetector
+from .opm import OPMMagnetometer
 from .squid import SQUIDMagnetometer
 
 __all__ = [
@@ -26,4 +27,5 @@ __all__ = [
     "InductiveCoilDetector",
     "IdealFaradayCoil",
     "SQUIDMagnetometer",
+    "OPMMagnetometer",
 ]

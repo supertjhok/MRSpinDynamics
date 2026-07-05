@@ -33,6 +33,7 @@ MODULES = [
     "core.rotations",
     "detection.base",
     "detection.inductive",
+    "detection.opm",
     "detection.squid",
     "esr.deer",
     "esr.dipolar",
