@@ -53,6 +53,11 @@ class Detector(abc.ABC):
     def field_noise_psd(self, freqs, *, xp=np):
         """Return the field-referred noise PSD ``N^2(f)`` (``T^2/Hz``)."""
 
+    def field_noise_amplitude(self, freqs, *, xp=np):
+        """Field-referred noise amplitude ``N(f) = sqrt(PSD)`` (``T/sqrt(Hz)``)."""
+
+        return xp.sqrt(self.field_noise_psd(freqs, xp=xp))
+
 
 @dataclass(frozen=True)
 class DetectedFieldSNR:

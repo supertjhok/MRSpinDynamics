@@ -240,6 +240,13 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | Kind | Name | Summary |
 | --- | --- | --- |
 | class | `InductiveCoilDetector` | Field-referred adapter over an inductive probe's output-noise density. |
+| class | `IdealFaradayCoil` | Idealized inductive coil with ``1/f`` field-referred noise. |
+
+## `spin_dynamics.detection.squid`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `SQUIDMagnetometer` | Untuned SQUID magnetometer: flat field-noise floor with a ``1/f`` knee. |
 
 ## `spin_dynamics.esr.deer`
 

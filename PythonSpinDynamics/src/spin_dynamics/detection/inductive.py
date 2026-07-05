@@ -145,3 +145,54 @@ class InductiveCoilDetector(Detector):
 
         psd, f = matched_probe_output_noise_density(sp, pp, tf1=tf1)
         return cls.from_output_density(f, psd, rx_transfer=rx_transfer, name="matched coil")
+
+
+@dataclass(frozen=True)
+class IdealFaradayCoil(Detector):
+    """Idealized inductive coil with ``1/f`` field-referred noise.
+
+    A Faraday coil converts field to voltage with a responsivity proportional to
+    frequency (``EMF = -dPhi/dt``, so ``H(f) = f / f_ref``), while its intrinsic
+    voltage noise is, to leading order, frequency-flat across the tuned band. The
+    field-referred noise therefore rises toward low frequency:
+
+        ``N(f) = N_ref * (f_ref / |f|)``   (T/sqrt(Hz)),
+
+    i.e. ``field_noise_psd = N_ref^2 * (f_ref/|f|)^2``. This is the analytic
+    baseline for the SQUID/OPM crossover: with a prepolarized sample (signal set
+    by ``Bp``, not ``B0``) it reproduces Faraday SNR ``~ B0`` and, with a thermal
+    sample, SNR ``~ B0^2`` -- exactly the scalings in Clarke 2007, Summary Pt. 2.
+
+    This is the leading-order (``EMF ~ omega``) model; a fuller coil accounts for
+    skin-effect resistance ``R ~ sqrt(f)`` and the sample-noise-dominated regime.
+    For a measured circuit use :class:`InductiveCoilDetector` instead.
+    """
+
+    field_noise_T_per_rtHz_ref: float
+    f_ref_hz: float
+    name: str = "ideal Faraday coil"
+
+    def __post_init__(self) -> None:
+        ref = float(self.field_noise_T_per_rtHz_ref)
+        f_ref = float(self.f_ref_hz)
+        if not np.isfinite(ref) or ref <= 0:
+            raise ValueError("field_noise_T_per_rtHz_ref must be positive and finite")
+        if not np.isfinite(f_ref) or f_ref <= 0:
+            raise ValueError("f_ref_hz must be positive and finite")
+        object.__setattr__(self, "field_noise_T_per_rtHz_ref", ref)
+        object.__setattr__(self, "f_ref_hz", f_ref)
+        object.__setattr__(self, "name", str(self.name))
+
+    def transfer(self, freqs, *, xp=np):
+        f = xp.asarray(freqs)
+        return (f / self.f_ref_hz).astype(xp.asarray(1.0 + 0j).dtype)
+
+    def field_noise_psd(self, freqs, *, xp=np):
+        f = xp.asarray(freqs)
+        af = xp.abs(f)
+        positive = af[af > 0]
+        floor = positive.min() if positive.size else xp.asarray(1.0)
+        af = xp.where(af > 0, af, floor)
+        ref = self.field_noise_T_per_rtHz_ref
+        return (ref * ref) * (self.f_ref_hz / af) ** 2
+

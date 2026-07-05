@@ -209,8 +209,14 @@ ULF-MRI** numbers.
       `field_referred_from_output`) + `detection/inductive.py`
       (`InductiveCoilDetector`) + `tests/test_detection.py`
       (invariance + inductive equivalence) + api-reference regen.
-- [ ] **PR-2:** `SQUIDMagnetometer`, detection-mode ω-scaling flag, Clarke
-      validation example (crossover, linewidth∝B₀, 1 fT/√Hz), manual section.
+- [x] **PR-2:** `SQUIDMagnetometer` (flat + 1/f knee, presets) and
+      `IdealFaradayCoil` (analytic 1/f baseline); `Detector.field_noise_amplitude`
+      convenience; `examples/plot_squid_ulf_crossover.py` reproducing the
+      noise-floor crossover, prepolarized SNR∝B₀^∓½ scalings, and linewidth∝B₀
+      narrowing; `tests/test_detection_squid.py`; manual §Non-Inductive Detection.
+      Note: no ω-scaling *flag* was needed — the field-referred core keeps the
+      signal detector-independent and puts the ω dependence in the coil's 1/f
+      field-noise, so thermal/prepolarized is just a choice of `S(f)`.
 - [ ] **PR-3:** `OPMMagnetometer` (SERF + RF/Mₓ, rolloff) + ULF ¹⁴N NQR example.
 - [ ] **PR-4:** detector-aware GRAPE objective wiring over the ensemble path.
 

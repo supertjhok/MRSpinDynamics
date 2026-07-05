@@ -3162,6 +3162,61 @@ matched resonator. Result objects preserve clean deterministic fields and add
 noisy fields plus \code{NoiseMetadata} so repeated SNR studies remain
 reproducible.
 
+\section{Non-Inductive Detection: SQUID and OPM Magnetometers}
+\label{sec:non-inductive-detection}
+
+The probe noise model above describes a conventional inductive (Faraday) coil,
+whose observable is \(\mathrm{d}\Phi/\mathrm{d}t\) and whose noise is the coil
+Johnson noise. At ultra-low field, and for NQR, the enabling detectors are
+instead \emph{field} sensors---SQUIDs and optically pumped (atomic)
+magnetometers (OPMs)---which respond to \(B\) itself with a frequency-flat noise
+floor. The \code{spin\_dynamics.detection} package models all three on one axis
+by referring signal and noise to \emph{magnetic field at the sensor}
+(\(\mathrm{T}\), \(\mathrm{T}/\sqrt{\mathrm{Hz}}\)). A detector is then a transfer shape
+\(H(f)\) plus a field-referred noise PSD \(N^2(f)\), and the matched-filter
+detected SNR of a field-at-sensor spectrum \(S(f)\) is detector-agnostic:
+\[
+  \mathrm{SNR}^2 = \int \frac{\lvert S(f)\rvert^2}{N^2(f)}\,\mathrm{d}f .
+\]
+The field \(S(f)\) that the precessing sample presents at the pickup is the same
+for every detector; all detector differences live in \(N^2\). A Faraday coil's
+field-referred noise \emph{rises} as \(1/f\) toward low frequency (its
+responsivity \(H\propto f\) shrinks), so \(\int\lvert S\rvert^2/N^2\) reproduces
+the familiar \(B_0^2\) signal collapse automatically, whereas an untuned SQUID
+flux transformer has a \emph{flat} \(N^2\). Referring the existing inductive
+probe density to field via \(N^2_{\text{field}}=N^2_{\text{out}}/\lvert H\rvert^2\)
+leaves the matched-filter SNR unchanged, so the layer reproduces the tuned/
+untuned/matched probe numbers exactly (\code{InductiveCoilDetector}).
+
+\begin{lstlisting}[language=Python]
+import numpy as np
+from spin_dynamics.detection import (
+    SQUIDMagnetometer, IdealFaradayCoil, detected_field_snr,
+)
+
+squid   = SQUIDMagnetometer.berkeley_2007()          # flat 1 fT/rtHz floor
+faraday = IdealFaradayCoil(field_noise_T_per_rtHz_ref=1e-15, f_ref_hz=1e6)
+
+f = np.linspace(-500.0, 500.0, 2001)                 # a line at baseband
+s = (5.0/np.pi) / (f**2 + 5.0**2)                    # unit-area Lorentzian
+snr_squid   = detected_field_snr(s, f, squid).snr    # flat floor
+snr_faraday = detected_field_snr(s, f, faraday).snr  # 1/f floor
+\end{lstlisting}
+
+Following Clarke, Hatridge \& M\"o\ss{}le (\emph{Annu.\ Rev.\ Biomed.\ Eng.}\
+\textbf{9}, 389, 2007), the untuned SQUID floor sits near
+\(1~\mathrm{fT}/\sqrt{\mathrm{Hz}}\) and is frequency-independent, so it crosses
+the coil's rising \(1/f\) floor at a few \(\mathrm{MHz}\): below the crossover
+the SQUID wins, and with a prepolarized sample (moment set by \(B_p\), not
+\(B_0\)) the detected SNR \emph{grows} as \(B_0\) falls
+(\(\mathrm{SNR}\sim B_0^{-1/2}\) once the line has narrowed to the homogeneous
+\(T_2\) limit), while the Faraday SNR falls as \(B_0^{+1/2}\). The example
+\code{examples/plot\_squid\_ulf\_crossover.py} reproduces the noise-floor
+crossover, the prepolarized SNR-vs-\(B_0\) scalings, and the \(B_0\)-proportional
+line narrowing. The OPM (atomic-magnetometer) detector, with its
+atomic-bandwidth roll-off, and detector-aware GRAPE objectives follow in later
+increments (see \code{docs/non\_inductive\_detection.md}).
+
 \section{Diffusion}
 
 \begin{lstlisting}[language=Python]
