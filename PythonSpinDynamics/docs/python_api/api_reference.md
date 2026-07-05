@@ -452,6 +452,25 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `exchange_spectrum(system: ExchangeSystem, *, num_points: int = 4096, dwell_seconds: float | None = None, span_hz: float | None = None, line_broadening_hz: float = 0.0) -> tuple[np.ndarray, np.ndarray]` | Return ``(frequencies_hz, spectrum)`` from an exchange-broadened FID. |
 | function | `simulate_relaxation_exchange_2d(system: ExchangeSystem, encode_times: np.ndarray, detect_times: np.ndarray, mixing_time: float, *, include_t1: bool = True) -> RelaxationExchange2DResult` | Simulate an encode-mix-detect (T2-T2) relaxation exchange data set. |
 
+## `spin_dynamics.experiment.cli`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `build_parser() -> argparse.ArgumentParser` |  |
+| function | `main(argv: Sequence[str] | None = None) -> int` |  |
+
+## `spin_dynamics.experiment.config`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `ConfigError` | Raised when a config document cannot be built into an Experiment. |
+| function | `experiment_from_config(data: dict[str, Any]) -> Experiment` | Build an :class:`Experiment` from a friendly config mapping. |
+| function | `experiment_to_config(experiment: Experiment) -> dict[str, Any]` | Return a friendly config mapping for an experiment (round-trips). |
+| function | `dumps_toml(config: dict[str, Any]) -> str` | Serialize a friendly config mapping to a TOML string. |
+| function | `dumps_json(config: dict[str, Any]) -> str` |  |
+| function | `save_config(experiment: Experiment, path: str | Path) -> None` | Write an experiment to a ``.toml`` or ``.json`` config file. |
+| function | `load_config(path: str | Path) -> Experiment` | Read an experiment from a ``.toml`` or ``.json`` config file. |
+
 ## `spin_dynamics.experiment.esr_adapter`
 
 | Kind | Name | Summary |

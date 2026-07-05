@@ -79,6 +79,15 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
   `experiment_imaging_with_coil.py` (automatic coil-B1 solving), and
   `experiment_nqr_auto_model.py` (reduced-vs-full engine selection), all
   covered by the example smoke tests.
+- Experiment facade PR-7: a config-driven CLI. `python -m spin_dynamics.experiment`
+  offers `plan` / `run` / `show` / `convert` subcommands over a human-friendly
+  TOML or JSON config where each spec is a `type`-tagged table (distinct from
+  the machine result encoding). `plan` exits non-zero on plan errors and `run`
+  refuses to execute them. New `experiment.config` module
+  (`experiment_to_config` / `experiment_from_config`, `save_config` /
+  `load_config`, with a dependency-free TOML writer and `tomllib` reader) and
+  a shipped `examples/experiment_config_cpmg.toml`. Configs round-trip every
+  engine family including 2-D phantoms and nested coil geometry.
 
 ## [0.1.0] - 2026-06-28
 

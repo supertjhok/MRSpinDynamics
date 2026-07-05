@@ -15,6 +15,13 @@ with ``plan()``, execute via the existing ``run_*`` workflows with
 Design and milestones: ``docs/unified_workflow_plan.md``.
 """
 
+from spin_dynamics.experiment.config import (
+    ConfigError,
+    experiment_from_config,
+    experiment_to_config,
+    load_config,
+    save_config,
+)
 from spin_dynamics.experiment.estimate import (
     CostModel,
     RuntimeEstimate,
@@ -75,6 +82,7 @@ __all__ = [
     "CPMGIRTrain",
     "CPMGImaging",
     "CPMGTrain",
+    "ConfigError",
     "CostModel",
     "DEFAULT_RULES",
     "ESRFID",
@@ -101,8 +109,12 @@ __all__ = [
     "WorkflowEntry",
     "available_workflows",
     "calibrate",
+    "experiment_from_config",
+    "experiment_to_config",
+    "load_config",
     "load_run",
     "plan_experiment",
+    "save_config",
     "set_calibration",
     "register_result_type",
     "register_serializable",

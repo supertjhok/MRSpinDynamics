@@ -153,7 +153,47 @@ loaded.experiment.run()          # reproduce
 ```
 
 Specs are JSON-serializable directly, too (`Experiment.to_json()` /
-`Experiment.from_json(...)`), which is the basis for config-file-driven runs.
+`Experiment.from_json(...)`).
+
+## Config-driven runs (CLI)
+
+For runs you would rather describe in a file than in Python, the facade reads a
+human-friendly TOML or JSON config where each spec is a table tagged by its
+`type`:
+
+```toml
+[sequence]
+type = "CPMGTrain"
+num_echoes = 8
+
+[sample]
+t1_seconds = 2.0
+t2_seconds = 2.0
+
+[hardware]
+probe = "tuned"
+
+[acquisition]
+numpts = 501
+maxoffs = 10.0
+```
+
+The `sample`, `hardware`, and `acquisition` sections may omit `type` (their
+class is implied) and may be dropped entirely to accept the defaults. A CLI
+drives the same plan/run/save flow:
+
+```powershell
+python -m spin_dynamics.experiment plan examples\experiment_config_cpmg.toml
+python -m spin_dynamics.experiment run  examples\experiment_config_cpmg.toml -o run.npz
+python -m spin_dynamics.experiment show run.npz
+python -m spin_dynamics.experiment convert config.toml config.json
+```
+
+`plan` exits non-zero if the config has plan errors; `run` refuses to execute
+one. In Python, `save_config` / `load_config` and `experiment_to_config` /
+`experiment_from_config` expose the same round-trip. This friendly form covers
+the spec fields with scalar or array values (including phantoms and coil
+geometry); a fully general result archive still uses the NPZ/JSON form above.
 
 ## Scope
 

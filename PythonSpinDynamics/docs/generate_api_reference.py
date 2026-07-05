@@ -52,6 +52,8 @@ MODULES = [
     "esr.spectra",
     "esr.systems",
     "exchange",
+    "experiment.cli",
+    "experiment.config",
     "experiment.esr_adapter",
     "experiment.estimate",
     "experiment.hardware",

@@ -32,6 +32,15 @@ Reduced-vs-full NQR engine selection from the physics:
 python examples\experiment_nqr_auto_model.py --num-echoes 4
 ```
 
+Config-driven run from a TOML file via the facade CLI
+(`examples\experiment_config_cpmg.toml`):
+
+```powershell
+python -m spin_dynamics.experiment plan examples\experiment_config_cpmg.toml
+python -m spin_dynamics.experiment run examples\experiment_config_cpmg.toml --output results\config_run.npz
+python -m spin_dynamics.experiment show results\config_run.npz
+```
+
 ## Ideal CPMG
 
 ```powershell
