@@ -15,6 +15,7 @@ from .base import (
     detected_field_snr,
     field_referred_from_output,
 )
+from .gradiometer import Gradiometer
 from .inductive import IdealFaradayCoil, InductiveCoilDetector
 from .opm import OPMMagnetometer
 from .squid import SQUIDMagnetometer
@@ -28,4 +29,5 @@ __all__ = [
     "IdealFaradayCoil",
     "SQUIDMagnetometer",
     "OPMMagnetometer",
+    "Gradiometer",
 ]

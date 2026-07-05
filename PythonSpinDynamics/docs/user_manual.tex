@@ -3231,8 +3231,26 @@ times) above its DC floor, and the RF-OPM's bandwidth must cover the NQR
 linewidth or the detected SNR degrades. The example
 \code{examples/plot\_opm\_nqr\_detection.py} compares an RF-OPM, a SERF OPM, a
 SQUID, and a coil on a \({}^{14}\mathrm{N}\) line and shows the
-bandwidth-matching penalty. Detector-aware GRAPE objectives follow in a later
-increment (see \code{docs/non\_inductive\_detection.md}).
+bandwidth-matching penalty.
+
+Where a detector sets \emph{how quiet} the sensor is, a \emph{pickup geometry}
+(\code{Gradiometer}) sets \emph{where} it is sensitive. SQUID systems commonly
+wind the flux transformer as an axial gradiometer---coaxial loops with
+alternating turns---so a uniform ambient field (and, at second order, a uniform
+gradient) cancels while a nearby sample still couples. By reciprocity a pickup's
+receive sensitivity to a source at \(r\) equals the field it would transmit there
+per unit current, so the net sensitivity is the signed sum of loop fields
+\(S(r)=\sum_i w_i B_{\mathrm{loop},i}(r)\), evaluated by reusing the
+\code{fields.magnetostatics} loop-field routines. A dipole field and its first
+and second axial derivatives fall off as \(1/r^3\), \(1/r^4\), \(1/r^5\), so an
+order-\(n\) gradiometer's distant-source sensitivity falls as \(1/r^{3+n}\) and
+it rejects uniform (\(n\ge1\)) and first-gradient (\(n\ge2\)) ambient noise---the
+basis of the \(\sim\!1000\times\) common-mode rejection in Clarke's microtesla
+MRI. The example \code{examples/plot\_gradiometer\_sensitivity.py} maps the
+reciprocal (excited) region for a magnetometer and first/second-order
+gradiometers, showing how winding order localizes it. Detector-aware GRAPE
+objectives follow in a later increment (see
+\code{docs/non\_inductive\_detection.md}).
 
 \section{Diffusion}
 

@@ -235,6 +235,12 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `field_referred_from_output(output_psd, transfer)` | Refer an output-referred (volts^2/Hz) noise PSD to field via ``H``. |
 | function | `detected_field_snr(field_spectrum, freqs, detector, *, df = None) -> DetectedFieldSNR` | Matched-filter detected SNR of a field-at-sensor spectrum. |
 
+## `spin_dynamics.detection.gradiometer`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `Gradiometer` | A coaxial pickup: loops at ``positions_m`` with turns/sign ``weights``. |
+
 ## `spin_dynamics.detection.inductive`
 
 | Kind | Name | Summary |

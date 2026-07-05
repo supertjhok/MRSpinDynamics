@@ -32,6 +32,7 @@ MODULES = [
     "core.numerics",
     "core.rotations",
     "detection.base",
+    "detection.gradiometer",
     "detection.inductive",
     "detection.opm",
     "detection.squid",

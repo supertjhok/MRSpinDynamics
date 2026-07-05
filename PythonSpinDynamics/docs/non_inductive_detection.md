@@ -117,7 +117,28 @@ spin_dynamics/detection/
                   # noise densities; reproduces current numbers (regression guard)
   squid.py        # SQUIDMagnetometer — flat N² + 1/f knee, optional gradiometer
   opm.py          # OPMMagnetometer — SERF & RF/Mx modes, atomic-bandwidth rolloff
+  gradiometer.py  # Gradiometer pickup geometry — spatial sensitivity via fields/
 ```
+
+### Gradiometer pickup geometry
+
+The detectors above describe the *frequency* response (`H`, `N²`); a **pickup
+geometry** describes the *spatial* response — which sources couple in, and how
+ambient noise is rejected. Clarke's SQUID system uses a second-derivative axial
+gradiometer: a stack of coaxial loops wound so a spatially uniform field and its
+first gradient cancel, leaving a response to `∂²B_z/∂z²`. By **reciprocity**, a
+pickup's receive sensitivity to a source at `r` equals the field the winding
+would produce at `r` per unit current (its B1 map) — so the gradiometer's
+sensitive region is exactly the region it would "excite" as a transmitter.
+
+`Gradiometer` holds coaxial loops (radii, axial positions, winding weights) and
+computes the net sensitivity map `Σᵢ wᵢ B_loop,ᵢ(r)` by reusing `fields/coils.py`
+loop fields. The physics to reproduce (Clarke §Experimental): the field, its
+first, and its second derivative fall off from a dipole as `1/r³`, `1/r⁴`,
+`1/r⁵`, so an order-`n` gradiometer's distant-source sensitivity falls as
+`1/r^{3+n}` and it rejects uniform (and, at 2nd order, first-gradient) ambient
+noise, while a nearby sample sits close to the bottom loop and couples strongly.
+Presets: `magnetometer` (1 loop), `first_order_axial`, `second_order_axial`.
 
 Then thread an **optional, backward-compatible** `detector=` through the existing
 scorers (default `None` → today's inductive behavior, untouched):
@@ -170,6 +191,13 @@ ULF-MRI** numbers.
   this doc updated.
 - **PR-3 — `OPMMagnetometer`** (SERF + RF/Mₓ with atomic-bandwidth rolloff) and a
   ULF ¹⁴N NQR detection example. Designed-for now so the base protocol is stable.
+- [x] **PR-3.5 — gradiometer pickup geometry.** `Gradiometer` (coaxial loops +
+  winding weights) computing the spatial sensitivity / reciprocal excitation
+  region via `fields.magnetostatics` (`circular_loop` + `biot_savart`); presets
+  `magnetometer` / `first_order_axial` / `second_order_axial`;
+  `examples/plot_gradiometer_sensitivity.py` mapping the excited-region
+  localization + 1/r^{3+n} falloff; `tests/test_detection_gradiometer.py`
+  (uniform-field nulling, falloff exponents 3/4/5, near-sample coupling).
 - **PR-4 — detector-aware GRAPE objectives.** Optimize pulses / prepolarization
   for a flux readout instead of a tuned coil, over the existing ensemble path.
 
@@ -186,6 +214,9 @@ ULF-MRI** numbers.
   expected few-MHz scale.
 - **OPM rolloff:** SNR degrades past the atomic bandwidth; SERF ≲ kHz vs RF
   tunable carrier behave distinctly.
+- **Gradiometer:** a balanced order-`n` gradiometer nulls a uniform field (and,
+  at 2nd order, a uniform gradient); its distant-source sensitivity falls as
+  `1/r^{3+n}`; and its near-loop sensitivity localizes the excited region.
 - **Backward compatible:** `detector=None` reproduces current results.
 
 ## Risks / subtleties
