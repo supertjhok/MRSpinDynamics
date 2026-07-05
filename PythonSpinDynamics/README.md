@@ -60,7 +60,9 @@ extensions.
 - `spin_dynamics.core`, `fields`, `probes`, `sequences`, and `parameters`
   provide lower-level numerical pieces used by the workflows. `fields` also
   includes magnetostatic, quasistatic eddy-current, and induced-electric-field
-  solvers for coils and gradient drivers.
+  solvers for coils and gradient drivers, plus a nonlinear magnetostatic solver
+  (`nonlinear_magnetostatics`) for flux-shaping materials -- high-permeability RF
+  ferrites and saturable iron -- in planar and axisymmetric geometries.
 - `spin_dynamics.analysis` contains inverse-Laplace and regularization helpers
   for relaxation, diffusion, and exchange-map analysis.
 - `spin_dynamics.relaxation` contains microscopic relaxation models: BPP scalar
@@ -259,6 +261,8 @@ python examples\plot_nqr_powder_nutation.py --output results\nqr_powder_nutation
 python examples\plot_nqr_population_transfer.py --output results\nqr_population_transfer.png
 python examples\plot_esr_powder_spectrum.py --output results\esr_powder_spectrum.png
 python examples\plot_esr_pulsed_echo.py --output results\esr_pulsed_echo.png
+python examples\plot_shim_a_ring_magnet.py --output results\shim_a_ring.png
+python examples\plot_logging_ferrite_b1_focusing.py --output results\logging_ferrite_b1.png
 python examples\plot_zulf_quadrupolar_jcoupling.py --output results\zulf_jcoupling.png
 python examples\plot_zulf_quadrupolar_relaxation.py --output results\zulf_quadrupolar_relaxation.png
 python examples\plot_t1rho_prepolarized_dispersion.py --output results\t1rho_dispersion.png

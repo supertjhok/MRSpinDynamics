@@ -52,6 +52,7 @@ MODULES = [
     "fields.interpolate",
     "fields.magnetostatics",
     "fields.maps",
+    "fields.nonlinear_magnetostatics",
     "fields.positions",
     "fields.quasistatic",
     "interference.active",
