@@ -16,12 +16,17 @@ from spin_dynamics.experiment.estimate import CostModel
 from spin_dynamics.experiment.io import register_result_type
 from spin_dynamics.experiment.registry import WorkflowEntry, register_workflow
 from spin_dynamics.experiment.serialization import register_serializable
-from spin_dynamics.experiment import nqr_adapter
+from spin_dynamics.esr import ESRSpinSystem, ESRTransition
+from spin_dynamics.esr.pulsed import ESRFIDResult, ESRHahnEchoResult
+from spin_dynamics.esr.systems import ESREigensystem
+from spin_dynamics.experiment import esr_adapter, nqr_adapter
 from spin_dynamics.experiment.specs import (
     CPMG,
     CPMGImaging,
     CPMGIRTrain,
     CPMGTrain,
+    ESRFID,
+    ESRHahnEcho,
     Experiment,
     NQRSLSE,
     NQRSORC,
@@ -82,6 +87,8 @@ register_result_type(ProbeCPMGImagingResult)
 register_result_type(SLSEResult)
 register_result_type(SORCResult)
 register_result_type(FullNQRSLSEResult)
+register_result_type(ESRFIDResult)
+register_result_type(ESRHahnEchoResult)
 
 register_serializable(NoiseSpec)
 register_serializable(NoiseMetadata)
@@ -90,6 +97,9 @@ register_serializable(PhaseCycle)
 register_serializable(QuadrupolarSite)
 register_serializable(NQRTransition)
 register_serializable(NQREigensystem)
+register_serializable(ESRSpinSystem)
+register_serializable(ESRTransition)
+register_serializable(ESREigensystem)
 
 _ACQ_GRID = frozenset({"acquisition.numpts", "acquisition.maxoffs"})
 _ACQ_REPHASE = frozenset(
@@ -382,6 +392,31 @@ register_workflow(
         func=nqr_adapter.simulate_sorc,
         build_kwargs=nqr_adapter.sorc_kwargs,
         honors=_NQR_HONORS,
+    )
+)
+
+# ESR entries: pulsed FID / Hahn echo on a single electron spin; no probe
+# circuit is modeled, so they register under the default "ideal" probe. The
+# static field (hardware.b0 with field_tesla) sets the Larmor frequency.
+_ESR_HONORS = frozenset({"sample.esr_system", "hardware.b0"})
+register_workflow(
+    WorkflowEntry(
+        name="simulate_fid",
+        sequence_type=ESRFID,
+        probe="ideal",
+        func=esr_adapter.simulate_fid,
+        build_kwargs=esr_adapter.fid_kwargs,
+        honors=_ESR_HONORS,
+    )
+)
+register_workflow(
+    WorkflowEntry(
+        name="simulate_hahn_echo",
+        sequence_type=ESRHahnEcho,
+        probe="ideal",
+        func=esr_adapter.simulate_hahn_echo,
+        build_kwargs=esr_adapter.hahn_kwargs,
+        honors=_ESR_HONORS,
     )
 )
 

@@ -12,6 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from spin_dynamics.experiment.estimate import RuntimeEstimate, estimate_runtime
+from spin_dynamics.experiment.hardware import UniformB0
 from spin_dynamics.experiment.registry import WorkflowEntry, probes_for, resolve
 from spin_dynamics.experiment.rules import RuleFinding, run_rules
 from spin_dynamics.experiment.specs import (
@@ -20,6 +21,8 @@ from spin_dynamics.experiment.specs import (
     CPMGImaging,
     CPMGIRTrain,
     CPMGTrain,
+    ESRFID,
+    ESRHahnEcho,
     Experiment,
     NQRSLSE,
     NQRSORC,
@@ -94,6 +97,18 @@ def _spec_sanity_errors(experiment: Experiment) -> list[str]:
             f"sequence {type(sequence).__name__} requires sample.site "
             "(a spin_dynamics.nqr.QuadrupolarSite)"
         )
+    if isinstance(sequence, (ESRFID, ESRHahnEcho)):
+        if sample.esr_system is None:
+            errors.append(
+                f"sequence {type(sequence).__name__} requires sample.esr_system "
+                "(a spin_dynamics.esr.ESRSpinSystem)"
+            )
+        b0 = experiment.hardware.b0
+        if not isinstance(b0, UniformB0) or b0.field_tesla is None:
+            errors.append(
+                f"sequence {type(sequence).__name__} requires hardware.b0 = "
+                "UniformB0(field_tesla=...) to fix the electron Larmor frequency"
+            )
     if isinstance(sequence, CPMGImaging):
         if sample.phantom is None:
             errors.append("sequence CPMGImaging requires sample.phantom")

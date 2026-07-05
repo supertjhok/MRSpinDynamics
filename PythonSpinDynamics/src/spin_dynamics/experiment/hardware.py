@@ -134,9 +134,15 @@ class RxCoil:
 @register_serializable
 @dataclass(frozen=True)
 class UniformB0:
-    """Uniform static field: defines the direction B1 is projected against."""
+    """Uniform static field.
+
+    ``direction`` sets the axis B1 is projected against (imaging). Sequences
+    that need the absolute field — ESR sets the electron Larmor frequency
+    from it — additionally require ``field_tesla``.
+    """
 
     direction: tuple[float, float, float] = (0.0, 0.0, 1.0)
+    field_tesla: float | None = None
 
     def __post_init__(self) -> None:
         direction = _as_vec3(self.direction, "direction")
@@ -144,6 +150,17 @@ class UniformB0:
         if norm <= 0:
             raise ValueError("direction must be a non-zero vector")
         object.__setattr__(self, "direction", direction)
+        if self.field_tesla is not None and self.field_tesla <= 0:
+            raise ValueError("field_tesla must be positive when set")
+
+    def vector_tesla(self) -> tuple[float, float, float]:
+        """Return the field vector in Tesla (requires ``field_tesla``)."""
+
+        if self.field_tesla is None:
+            raise ValueError("UniformB0.field_tesla is not set")
+        norm = sum(c * c for c in self.direction) ** 0.5
+        scale = self.field_tesla / norm
+        return tuple(scale * c for c in self.direction)
 
 
 @register_serializable

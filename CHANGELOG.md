@@ -58,6 +58,17 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
   the reduced engine's spin-1 constraint is violated. `transition="auto"`
   addresses the line most strongly coupled to the drive polarization (not
   the largest bare strength, which can be RF-dark).
+- Experiment facade PR-5a: pulsed ESR under the facade. `Sample.esr_system`
+  takes an `ESRSpinSystem`; new `ESRFID`/`ESRHahnEcho` sequence specs wrap
+  `esr.simulate_fid`/`simulate_hahn_echo`. The static field comes from
+  `Hardware.b0` — `UniformB0` gained an optional `field_tesla` so it can fix
+  the electron Larmor frequency (ESR needs the absolute field, unlike the
+  rotating-frame NMR/NQR workflows); `plan()` errors when it is missing.
+  Hahn-echo defaults follow the 90-180 convention (refocus duration twice
+  the excitation, acquisition window `2*tau`). Also fixes
+  `ESRSpinSystem.__eq__`, which previously raised on the ambiguous
+  elementwise comparison of the (always 3x3) g tensor. DEER/ESEEM/HYSCORE/
+  ENDOR remain direct-call modules (analysis-style parameter surfaces).
 
 ## [0.1.0] - 2026-06-28
 

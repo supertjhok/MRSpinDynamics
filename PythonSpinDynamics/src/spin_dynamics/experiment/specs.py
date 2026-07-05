@@ -94,6 +94,8 @@ class Sample:
     phantom: Phantom | None = None
     site: Any | None = None
     """Quadrupolar site (``spin_dynamics.nqr.QuadrupolarSite``) for NQR sequences."""
+    esr_system: Any | None = None
+    """Electron spin system (``spin_dynamics.esr.ESRSpinSystem``) for ESR sequences."""
     label: str = ""
 
 
@@ -263,6 +265,73 @@ class NQRSORC:
             raise ValueError("half_spacing_seconds must be non-negative")
 
 
+@register_serializable
+@dataclass(frozen=True)
+class ESRFID:
+    """Pulsed ESR free-induction decay (rotating frame, single isochromat).
+
+    ``nutation_hz`` is the electron Rabi rate (engine convention); the static
+    field comes from ``Hardware.b0`` (a :class:`UniformB0` with
+    ``field_tesla`` set). The acquisition grid is
+    ``num_points`` samples over ``acquisition_seconds``.
+    """
+
+    nutation_hz: float
+    pulse_duration_seconds: float
+    acquisition_seconds: float
+    num_points: int = 512
+    rf_frequency_hz: float | None = None
+    phase: float = 0.0
+    t2_seconds: float | None = None
+
+    def __post_init__(self) -> None:
+        if self.nutation_hz <= 0 or self.pulse_duration_seconds <= 0:
+            raise ValueError("nutation_hz and pulse_duration_seconds must be positive")
+        if self.acquisition_seconds <= 0 or self.num_points <= 1:
+            raise ValueError("acquisition_seconds must be positive, num_points > 1")
+        if self.t2_seconds is not None and self.t2_seconds <= 0:
+            raise ValueError("t2_seconds must be positive when set")
+
+
+@register_serializable
+@dataclass(frozen=True)
+class ESRHahnEcho:
+    """Two-pulse ESR Hahn echo (single isochromat).
+
+    ``refocus_duration_seconds`` left as ``None`` uses twice the excitation
+    duration (a 90-180 pair at the same B1); ``acquisition_seconds`` left as
+    ``None`` samples a window of ``2 * tau_seconds`` after the refocusing
+    pulse, centering the echo.
+    """
+
+    nutation_hz: float
+    excitation_duration_seconds: float
+    tau_seconds: float
+    refocus_duration_seconds: float | None = None
+    acquisition_seconds: float | None = None
+    num_points: int = 512
+    rf_frequency_hz: float | None = None
+    excitation_phase: float = 0.0
+    refocus_phase: float | None = None
+    t2_seconds: float | None = None
+
+    def __post_init__(self) -> None:
+        if self.nutation_hz <= 0 or self.excitation_duration_seconds <= 0:
+            raise ValueError(
+                "nutation_hz and excitation_duration_seconds must be positive"
+            )
+        if self.tau_seconds <= 0:
+            raise ValueError("tau_seconds must be positive")
+        if self.refocus_duration_seconds is not None and self.refocus_duration_seconds <= 0:
+            raise ValueError("refocus_duration_seconds must be positive when set")
+        if self.acquisition_seconds is not None and self.acquisition_seconds <= 0:
+            raise ValueError("acquisition_seconds must be positive when set")
+        if self.num_points <= 1:
+            raise ValueError("num_points must be greater than 1")
+        if self.t2_seconds is not None and self.t2_seconds <= 0:
+            raise ValueError("t2_seconds must be positive when set")
+
+
 SEQUENCE_TYPES: tuple[type, ...] = (
     CPMG,
     CPMGTrain,
@@ -270,6 +339,8 @@ SEQUENCE_TYPES: tuple[type, ...] = (
     CPMGImaging,
     NQRSLSE,
     NQRSORC,
+    ESRFID,
+    ESRHahnEcho,
 )
 
 

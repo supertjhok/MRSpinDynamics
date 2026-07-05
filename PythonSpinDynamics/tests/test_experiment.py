@@ -804,16 +804,117 @@ def test_nqr_json_and_save_round_trip(tmp_path) -> None:
     )
 
 
+from spin_dynamics.esr import ESRSpinSystem, simulate_fid, simulate_hahn_echo  # noqa: E402
+from spin_dynamics.experiment import ESRFID, ESRHahnEcho, UniformB0  # noqa: E402
+
+_ESR_SYSTEM = ESRSpinSystem()
+_ESR_HW = Hardware(b0=UniformB0(field_tesla=0.35))
+_ESR_FID = ESRFID(
+    nutation_hz=25e6,
+    pulse_duration_seconds=10e-9,
+    acquisition_seconds=200e-9,
+    num_points=128,
+)
+
+
+@pytest.mark.smoke
+def test_esr_fid_parity() -> None:
+    record = Experiment(
+        sequence=_ESR_FID, sample=Sample(esr_system=_ESR_SYSTEM), hardware=_ESR_HW
+    ).run()
+    assert record.provenance["workflow"] == "simulate_fid"
+    direct = simulate_fid(
+        _ESR_SYSTEM,
+        (0.0, 0.0, 0.35),
+        nutation_hz=25e6,
+        pulse_duration_seconds=10e-9,
+        times_seconds=np.linspace(0.0, 200e-9, 128),
+    )
+    assert np.array_equal(record.result.signal, direct.signal)
+    assert record.result.rf_frequency_hz == direct.rf_frequency_hz
+
+
+@pytest.mark.smoke
+def test_esr_hahn_echo_parity_with_defaults() -> None:
+    """Default refocus = 2x excitation and window = 2*tau must match a
+    hand-built direct call."""
+
+    spec = ESRHahnEcho(
+        nutation_hz=25e6,
+        excitation_duration_seconds=10e-9,
+        tau_seconds=200e-9,
+        num_points=128,
+    )
+    record = Experiment(
+        sequence=spec, sample=Sample(esr_system=_ESR_SYSTEM), hardware=_ESR_HW
+    ).run()
+    assert record.provenance["workflow"] == "simulate_hahn_echo"
+    direct = simulate_hahn_echo(
+        _ESR_SYSTEM,
+        (0.0, 0.0, 0.35),
+        nutation_hz=25e6,
+        excitation_duration_seconds=10e-9,
+        refocus_duration_seconds=20e-9,
+        tau_seconds=200e-9,
+        times_seconds=np.linspace(0.0, 400e-9, 128),
+    )
+    assert np.array_equal(record.result.signal, direct.signal)
+    assert record.result.echo_center_seconds == direct.echo_center_seconds
+
+
+@pytest.mark.smoke
+def test_esr_requires_system_and_field() -> None:
+    plan = Experiment(sequence=_ESR_FID, hardware=_ESR_HW).plan()
+    assert not plan.ok
+    assert any("esr_system" in e for e in plan.errors)
+
+    plan2 = Experiment(sequence=_ESR_FID, sample=Sample(esr_system=_ESR_SYSTEM)).plan()
+    assert not plan2.ok
+    assert any("field_tesla" in e for e in plan2.errors)
+
+
+@pytest.mark.smoke
+def test_esr_spin_system_equality_is_array_safe() -> None:
+    assert ESRSpinSystem() == ESRSpinSystem()
+    assert ESRSpinSystem(g_tensor=(2.0, 2.0, 2.2)) == ESRSpinSystem(
+        g_tensor=(2.0, 2.0, 2.2)
+    )
+    assert ESRSpinSystem(g_tensor=2.0) != ESRSpinSystem(g_tensor=2.1)
+    assert ESRSpinSystem() != "not a system"
+
+
+@pytest.mark.smoke
+def test_esr_json_and_save_round_trip(tmp_path) -> None:
+    experiment = Experiment(
+        sequence=_ESR_FID,
+        sample=Sample(esr_system=ESRSpinSystem(g_tensor=(2.0, 2.0, 2.2))),
+        hardware=_ESR_HW,
+    )
+    assert Experiment.from_json(experiment.to_json()) == experiment
+
+    record = experiment.run()
+    path = tmp_path / "esr.npz"
+    record.save(str(path))
+    loaded = load_run(str(path))
+    assert loaded.experiment == experiment
+    assert np.array_equal(loaded.result.signal, record.result.signal)
+    rerun = loaded.experiment.run()
+    assert np.array_equal(rerun.result.signal, record.result.signal)
+
+
 @pytest.mark.smoke
 def test_registry_entries_point_at_public_workflows() -> None:
+    import spin_dynamics.esr as esr
     import spin_dynamics.nqr as nqr
 
     entries = available_workflows()
-    assert len(entries) == 17
+    assert len(entries) == 19
     public = set(workflows.STABLE_WORKFLOW_API) | set(workflows.EXTENDED_WORKFLOW_API)
     for entry in entries:
         if getattr(nqr, entry.name, None) is not None:
             assert getattr(nqr, entry.name) is entry.func, entry.name
+        elif getattr(esr, entry.name, None) is not None:
+            assert getattr(esr, entry.name) is entry.func, entry.name
         else:
             assert entry.name in public, entry.name
             assert getattr(workflows, entry.name) is entry.func
