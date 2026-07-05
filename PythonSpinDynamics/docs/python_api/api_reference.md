@@ -226,6 +226,50 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `calc_v0crit(del_w: np.ndarray, n: np.ndarray, alpha: np.ndarray) -> np.ndarray` | Calculate the critical-velocity parameter for a refocusing cycle. |
 | function | `calc_rotation_matrix(del_w: np.ndarray, w_1: np.ndarray | float, tp: np.ndarray, phi: np.ndarray, amp: np.ndarray) -> MatrixElements` | Calculate the equivalent rotation matrix of a composite pulse. |
 
+## `spin_dynamics.detection.base`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `Detector` | A frequency-domain detector referred to magnetic field at the sensor. |
+| class | `DetectedFieldSNR` | Result of a field-referred matched-filter SNR estimate. |
+| function | `field_referred_from_output(output_psd, transfer)` | Refer an output-referred (volts^2/Hz) noise PSD to field via ``H``. |
+| function | `detected_field_snr(field_spectrum, freqs, detector, *, df = None) -> DetectedFieldSNR` | Matched-filter detected SNR of a field-at-sensor spectrum. |
+| function | `snr_from_field_noise_psd(field_spectrum, freqs, field_noise_psd, *, df = None) -> DetectedFieldSNR` | Matched-filter SNR of ``S(f)`` against an explicit field-noise PSD ``N^2(f)``. |
+
+## `spin_dynamics.detection.gradiometer`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `Gradiometer` | A coaxial pickup: loops at ``positions_m`` with turns/sign ``weights``. |
+
+## `spin_dynamics.detection.inductive`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `InductiveCoilDetector` | Field-referred adapter over an inductive probe's output-noise density. |
+| class | `IdealFaradayCoil` | Idealized inductive coil with ``1/f`` field-referred noise. |
+
+## `spin_dynamics.detection.opm`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `OPMMagnetometer` | Atomic magnetometer with a Lorentzian atomic-response bandwidth. |
+
+## `spin_dynamics.detection.spatial`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `AmbientFieldSource` | A stochastic ambient field source with a field-noise PSD. |
+| function | `pickup_signal_spectrum(pickup, positions, moment_spectra, *, reference = None) -> np.ndarray` | Pickup-weighted field-at-sensor spectrum ``S(f) = sum_k g(r_k) m_k(f)``. |
+| function | `spatial_field_noise_psd(detector, freqs, ambient_sources, *, pickup = None, reference = None) -> np.ndarray` | Sensor floor augmented by ambient sources coupling through the pickup. |
+| function | `detected_field_snr_spatial(detector, positions, moment_spectra, freqs, *, ambient_sources = None, pickup = None, reference = None, df = None) -> DetectedFieldSNR` | Detected SNR of a distributed sample through ``detector`` + its pickup. |
+
+## `spin_dynamics.detection.squid`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `SQUIDMagnetometer` | Untuned SQUID magnetometer: flat field-noise floor with a ``1/f`` knee. |
+
 ## `spin_dynamics.esr.deer`
 
 | Kind | Name | Summary |
@@ -912,6 +956,14 @@ No public classes or functions found.
 | function | `eddy_terms_from_step_response(times: Sequence[float], response: Sequence[float], *, n_terms: int = 1, steady_value: float | None = None) -> tuple[tuple[float, float], ...]` | Fit eddy ``(alpha_k, tau_k)`` terms from a measured/simulated step response. |
 | class | `ReceiverResponse` | Output-side LTI filter for objectives on the *detected* signal. |
 | function | `build_control_delivery(n_segments, dt, *, rf_response = None, gradient_response = None)` | Build the commanded-to-delivered control transform for GRAPE objectives. |
+
+## `spin_dynamics.optimal_control.detection_objective`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `detector_noise_grid(detector, n_acq, dt_acq, *, center_hz = None) -> np.ndarray` | Field-noise PSD ``N^2(f)`` of a detector on the acquisition FFT grid. |
+| function | `detected_field_snr_jax(signal, dt_acq, noise_psd_grid, *, xp = None)` | Field-referred matched-filter SNR of a baseband echo against ``N^2(f)``. |
+| function | `make_detected_snr_objective(*, drift_batch: Sequence[np.ndarray], hx_batch: Sequence[np.ndarray], hy_batch: Sequence[np.ndarray], psi0: np.ndarray, detection_operator: np.ndarray, weights: np.ndarray, offsets_hz: np.ndarray, dt: float, n_segments: int, amplitude_template: np.ndarray, acquisition_points: int, acquisition_dt: float, detector = None, noise_psd_grid: np.ndarray | None = None, noise_center_hz: float | None = None, optimize_amplitude: bool = False, per_rf_power: bool = False, rf_response = None, propagator: str = 'expm') -> Callable[[np.ndarray], tuple[float, np.ndarray]]` | Build a ``value_and_grad`` maximizing detector-referred detected SNR. |
 
 ## `spin_dynamics.optimal_control.diffusion`
 

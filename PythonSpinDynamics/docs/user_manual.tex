@@ -3258,6 +3258,104 @@ matched resonator. Result objects preserve clean deterministic fields and add
 noisy fields plus \code{NoiseMetadata} so repeated SNR studies remain
 reproducible.
 
+\section{Non-Inductive Detection: SQUID and OPM Magnetometers}
+\label{sec:non-inductive-detection}
+
+The probe noise model above describes a conventional inductive (Faraday) coil,
+whose observable is \(\mathrm{d}\Phi/\mathrm{d}t\) and whose noise is the coil
+Johnson noise. At ultra-low field, and for NQR, the enabling detectors are
+instead \emph{field} sensors---SQUIDs and optically pumped (atomic)
+magnetometers (OPMs)---which respond to \(B\) itself with a frequency-flat noise
+floor. The \code{spin\_dynamics.detection} package models all three on one axis
+by referring signal and noise to \emph{magnetic field at the sensor}
+(\(\mathrm{T}\), \(\mathrm{T}/\sqrt{\mathrm{Hz}}\)). A detector is then a transfer shape
+\(H(f)\) plus a field-referred noise PSD \(N^2(f)\), and the matched-filter
+detected SNR of a field-at-sensor spectrum \(S(f)\) is detector-agnostic:
+\[
+  \mathrm{SNR}^2 = \int \frac{\lvert S(f)\rvert^2}{N^2(f)}\,\mathrm{d}f .
+\]
+The field \(S(f)\) that the precessing sample presents at the pickup is the same
+for every detector; all detector differences live in \(N^2\). A Faraday coil's
+field-referred noise \emph{rises} as \(1/f\) toward low frequency (its
+responsivity \(H\propto f\) shrinks), so \(\int\lvert S\rvert^2/N^2\) reproduces
+the familiar \(B_0^2\) signal collapse automatically, whereas an untuned SQUID
+flux transformer has a \emph{flat} \(N^2\). Referring the existing inductive
+probe density to field via \(N^2_{\text{field}}=N^2_{\text{out}}/\lvert H\rvert^2\)
+leaves the matched-filter SNR unchanged, so the layer reproduces the tuned/
+untuned/matched probe numbers exactly (\code{InductiveCoilDetector}).
+
+\begin{lstlisting}[language=Python]
+import numpy as np
+from spin_dynamics.detection import (
+    SQUIDMagnetometer, IdealFaradayCoil, detected_field_snr,
+)
+
+squid   = SQUIDMagnetometer.berkeley_2007()          # flat 1 fT/rtHz floor
+faraday = IdealFaradayCoil(field_noise_T_per_rtHz_ref=1e-15, f_ref_hz=1e6)
+
+f = np.linspace(-500.0, 500.0, 2001)                 # a line at baseband
+s = (5.0/np.pi) / (f**2 + 5.0**2)                    # unit-area Lorentzian
+snr_squid   = detected_field_snr(s, f, squid).snr    # flat floor
+snr_faraday = detected_field_snr(s, f, faraday).snr  # 1/f floor
+\end{lstlisting}
+
+Following Clarke, Hatridge \& M\"o\ss{}le (\emph{Annu.\ Rev.\ Biomed.\ Eng.}\
+\textbf{9}, 389, 2007), the untuned SQUID floor sits near
+\(1~\mathrm{fT}/\sqrt{\mathrm{Hz}}\) and is frequency-independent, so it crosses
+the coil's rising \(1/f\) floor at a few \(\mathrm{MHz}\): below the crossover
+the SQUID wins, and with a prepolarized sample (moment set by \(B_p\), not
+\(B_0\)) the detected SNR \emph{grows} as \(B_0\) falls
+(\(\mathrm{SNR}\sim B_0^{-1/2}\) once the line has narrowed to the homogeneous
+\(T_2\) limit), while the Faraday SNR falls as \(B_0^{+1/2}\). The example
+\code{examples/plot\_squid\_ulf\_crossover.py} reproduces the noise-floor
+crossover, the prepolarized SNR-vs-\(B_0\) scalings, and the \(B_0\)-proportional
+line narrowing.
+
+Optically pumped (atomic) magnetometers (\code{OPMMagnetometer}) are field
+sensors like SQUIDs but reach sub-fT/\(\sqrt{\mathrm{Hz}}\) sensitivity without
+cryogenics, at the cost of a finite atomic-response bandwidth. The vapour-cell
+spins act as a Lorentzian filter of half-width \(\Delta f\), so the field-referred
+noise is flat on resonance and rises as the response rolls off,
+\(N^2(f)=S_0^2\,[1 + ((f-f_c)/\Delta f)^2]\). A \code{"serf"} (zero-field) OPM is
+a low-pass centred at DC---best for zero/ultra-low-field NMR but rolled off, and
+useless, at \(\mathrm{MHz}\); an \code{"rf"} (Mx) OPM tunes its bias field to
+place a band-pass on the line \(f_c\), reaching \(\sim\!0.24~\mathrm{fT}/\sqrt{\mathrm{Hz}}\)
+at \(423~\mathrm{kHz}\) for the \({}^{14}\mathrm{N}\) NQR of ammonium nitrate
+(Savukov et al.; US~7{,}521{,}928). Modelling the roll-off is essential: a SERF
+OPM's field noise at \(423~\mathrm{kHz}\) is \(\sim\!f/\Delta f\) (thousands of
+times) above its DC floor, and the RF-OPM's bandwidth must cover the NQR
+linewidth or the detected SNR degrades. The example
+\code{examples/plot\_opm\_nqr\_detection.py} compares an RF-OPM, a SERF OPM, a
+SQUID, and a coil on a \({}^{14}\mathrm{N}\) line and shows the
+bandwidth-matching penalty.
+
+Where a detector sets \emph{how quiet} the sensor is, a \emph{pickup geometry}
+(\code{Gradiometer}) sets \emph{where} it is sensitive. SQUID systems commonly
+wind the flux transformer as an axial gradiometer---coaxial loops with
+alternating turns---so a uniform ambient field (and, at second order, a uniform
+gradient) cancels while a nearby sample still couples. By reciprocity a pickup's
+receive sensitivity to a source at \(r\) equals the field it would transmit there
+per unit current, so the net sensitivity is the signed sum of loop fields
+\(S(r)=\sum_i w_i B_{\mathrm{loop},i}(r)\), evaluated by reusing the
+\code{fields.magnetostatics} loop-field routines. A dipole field and its first
+and second axial derivatives fall off as \(1/r^3\), \(1/r^4\), \(1/r^5\), so an
+order-\(n\) gradiometer's distant-source sensitivity falls as \(1/r^{3+n}\) and
+it rejects uniform (\(n\ge1\)) and first-gradient (\(n\ge2\)) ambient noise---the
+basis of the \(\sim\!1000\times\) common-mode rejection in Clarke's microtesla
+MRI. A pickup attaches to a field sensor as \code{SQUIDMagnetometer(..., pickup=g)}
+(or \code{OPMMagnetometer(..., pickup=g)}), and
+\code{detected\_field\_snr\_spatial} then routes a distributed sample through the
+pickup coupling for the signal while ambient sources
+(\code{AmbientFieldSource}) couple through the \emph{same} pickup for the
+noise---so a uniform ambient field (coupling \(1\) for a magnetometer, \(0\) for
+a balanced gradiometer) is rejected exactly as a real gradiometer would. The
+example \code{examples/plot\_gradiometer\_sensitivity.py} maps the reciprocal
+(excited) region for a magnetometer and first/second-order gradiometers, shows
+how winding order localizes it, and prints the SQUID detected SNR with and
+without a uniform ambient field (the magnetometer loses \(\sim\!1000\times\), the
+gradiometers are unaffected). Detector-aware GRAPE objectives follow in a later
+increment (see \code{docs/non\_inductive\_detection.md}).
+
 \section{Diffusion}
 
 \begin{lstlisting}[language=Python]
@@ -4551,6 +4649,34 @@ rectangular (\(\phi=0\)) seed against a symmetric offset ensemble sits at an
 exact saddle (mirrored offsets' phase gradients cancel), so a single start never
 moves the phase -- random phase restarts escape it. The design note is
 \code{docs/optimal\_control\_pgse\_diffusion.md}.
+
+\subsection{Detector-aware objectives: optimizing for a flux readout}
+\label{sec:grape-detector-aware}
+
+The PGSE objective scores the detected echo through a tuned-probe
+\code{ReceiverResponse} over a scalar noise floor -- the inductive-coil picture.
+A SQUID or OPM (Section~\ref{sec:non-inductive-detection}) is a field sensor with
+a frequency-dependent field-noise floor \(N^2(f)\) (flat for a SQUID, a Lorentzian
+band-pass for an RF-OPM) and no \(\mathrm{d}\Phi/\mathrm{d}t\) weighting.
+\code{optimal\_control.detection\_objective} scores the same acquired echo with
+the field-referred matched filter
+\[
+  \mathrm{SNR} = \sqrt{\int \frac{\lvert S(f)\rvert^2}{N^2(f)}\,\mathrm{d}f},
+\]
+so the optimizer shapes the pulse to place signal where the \emph{detector} is
+quiet. Because \(N^2(f)\) is fixed over the acquisition frequency grid (it does
+not depend on the controls), it is precomputed once with NumPy
+(\code{detector\_noise\_grid}, which also re-centres a band-pass detector's
+response to baseband) and passed as a static weight into the differentiable
+objective; a flat \(N^2=\sigma^2\) reproduces \code{detected\_echo\_snr} with
+\code{noise}\({}=\sigma\) (Parseval), so it is a strict generalization.
+\code{make\_detected\_snr\_objective} builds the ``value\_and\_grad'' over a
+\((B_0,B_1)\) ensemble; with \code{per\_rf\_power} the score is SNR per unit RF
+amplitude, the efficiency figure of merit that makes the readout actually shape
+the pulse (raw SNR always rewards more excitation, since out-of-band signal never
+hurts). The example \code{examples/plot\_grape\_detector\_aware\_pulse.py}
+optimizes an excitation for a broadband SQUID versus a narrow SERF OPM and shows,
+by cross-evaluation, that each pulse is best under its own detector.
 
 \subsection{Axis-matched excitation (AMEX) and CPMG SNR per unit time}
 
