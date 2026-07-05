@@ -1,0 +1,66 @@
+! NaNO2 all-electron PBE electric-field-gradient calculation (Elk).
+!
+! Purpose: an all-electron LAPW cross-check of the ABINIT PAW EFG pipeline. The
+! Pseudodojo PBE PAW datasets under-predict the 14N asymmetry (eta ~ 0.11),
+! whereas all-electron PBE here recovers eta ~ 0.34, close to the measured 0.38 --
+! i.e. the eta shortfall was a PAW/pseudopotential artifact, not a functional one.
+! See README.md for the full comparison.
+!
+! Structure: ICSD 82857 experimental ferroelectric NaNO2, orthorhombic
+!   a=3.5653 b=5.5728 c=5.3846 Angstrom, I-centred, 8-atom conventional cell.
+! Target nucleus: nitrogen = species 2 in EFG.OUT (2 equivalent 14N sites).
+!
+! Copy this file to `elk.in` in a run directory before launching elk-lapw, or
+! use run_elk_efg_wsl.sh which does that for you.
+
+tasks
+  0             ! ground-state SCF
+  115           ! electric field gradient -> EFG.OUT
+
+! Native PBE (xctype 3). The packaged Ubuntu elk-lapw rejects the system libxc
+! (version mismatch), so libxc functionals -- including r2SCAN (xctype 100 497
+! 498) -- are unavailable without a source/conda rebuild of Elk. See README.md.
+xctype
+  3
+
+! The EFG is an l=2 quantity; the default lmaxi=1 is too small and task 115 stops
+! with "lmaxi too small for calculating the EFG".
+lmaxi
+  2
+
+! Angstrom -> Bohr, so the avec block below is written in Angstrom.
+scale
+  1.88972598858
+
+avec
+  3.5653  0.0     0.0
+  0.0     5.5728  0.0
+  0.0     0.0     5.3846
+
+sppath
+  '/usr/share/elk-lapw/species/'
+
+atoms
+  3
+  'Na.in'
+  2
+  0.0   0.5867    0.0
+  0.5   0.0867    0.5
+  'N.in'
+  2
+  0.0   0.12112   0.0
+  0.5   0.62112   0.5
+  'O.in'
+  4
+  0.0   0.0       0.19552
+  0.0   0.0       0.80448
+  0.5   0.5       0.30448
+  0.5   0.5       0.69552
+
+! Elk auto-reduces the N/O muffin-tin radii (short N-O bond) to ~1.16 Bohr; with
+! the small radii, rgkmax is the main EFG accuracy knob -- converge it (7 -> 9).
+rgkmax
+  8.0
+
+ngridk
+  4  3  3
