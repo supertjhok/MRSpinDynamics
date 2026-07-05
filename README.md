@@ -31,7 +31,11 @@ The repository brings together several related projects:
   MATLAB or small script edits.
 - `PythonSpinDynamics/` is the Python package. It contains the port of the
   MATLAB behavior, automated tests, examples, API documentation, and newer NQR
-  and ESR/EPR simulation features.
+  and ESR/EPR simulation features. Its recommended entry point is the unified
+  `spin_dynamics.experiment` facade: declarative experiment specs with a
+  `plan()`/`run()`/save flow, automatic coil-field wiring, engine selection
+  across the NMR/imaging/NQR/ESR simulators, and a config-driven CLI
+  (`python -m spin_dynamics.experiment`).
 - `QuadrupolarDFT/` analyzes electric-field-gradient tensors from
   first-principles calculations. These tensors determine nuclear quadrupole
   coupling constants, which are central to NQR interpretation.

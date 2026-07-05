@@ -53,10 +53,22 @@ extensions.
 
 ## Main Areas
 
-- `spin_dynamics.workflows` contains high-level NMR workflows such as ideal,
-  tuned, untuned, and matched-probe CPMG simulations, finite echo trains,
-  diffusion workflows, imaging workflows, time-varying-field examples, WURST
-  pulses, radiation damping, motion, and prepolarization.
+- `spin_dynamics.experiment` is the unified, declarative facade and the
+  recommended entry point for new code. You describe an experiment with
+  frozen-dataclass specs (sample, hardware, sequence, acquisition), front-load
+  validation with `plan()`, run it with `run()`, and save the result with
+  provenance. It delegates to the validated workflows below, so a default
+  experiment reproduces the direct call exactly, and adds compatibility
+  checking, runtime/memory estimation, automatic coil-geometry-to-B1 field
+  wiring for imaging, reduced-vs-full NQR engine dispatch, NPZ/JSON save-load,
+  and a config-driven CLI (`python -m spin_dynamics.experiment`) across the
+  NMR, imaging, NQR, and ESR engines. See
+  [`docs/python_api/experiment_workflow.md`](docs/python_api/experiment_workflow.md).
+- `spin_dynamics.workflows` contains the high-level NMR workflows the facade
+  delegates to, such as ideal, tuned, untuned, and matched-probe CPMG
+  simulations, finite echo trains, diffusion workflows, imaging workflows,
+  time-varying-field examples, WURST pulses, radiation damping, motion, and
+  prepolarization.
 - `spin_dynamics.core`, `fields`, `probes`, `sequences`, and `parameters`
   provide lower-level numerical pieces used by the workflows. `fields` also
   includes magnetostatic, quasistatic eddy-current, and induced-electric-field
@@ -159,7 +171,51 @@ See `docs/development_environment.md` for the full workflow.
 
 ## Quick Start
 
-Run a simple tuned-probe CPMG simulation:
+The recommended entry point is the `spin_dynamics.experiment` facade. Describe
+the experiment, inspect the plan (resolved workflow, compatibility checks, and a
+runtime/memory estimate) before running, then run and save with provenance:
+
+```python
+from spin_dynamics.experiment import Experiment, CPMGTrain, Sample, Hardware, Acquisition
+
+study = Experiment(
+    sequence=CPMGTrain(num_echoes=8),
+    sample=Sample(t1_seconds=2.0, t2_seconds=2.0),
+    hardware=Hardware(probe="tuned"),
+    acquisition=Acquisition(numpts=501, maxoffs=10.0),
+)
+
+print(study.plan().report())     # resolved workflow, warnings, cost estimate
+record = study.run()             # delegates to run_tuned_cpmg_train
+record.save("run1.npz")          # arrays + JSON provenance + spec round-trip
+```
+
+The same interface drives imaging (with automatic transmit-coil B1 solving),
+pulsed NQR (`NQRSLSE` / `NQRSORC`, with reduced-vs-full engine selection), and
+pulsed ESR (`ESRFID` / `ESRHahnEcho`). See
+[`docs/python_api/experiment_workflow.md`](docs/python_api/experiment_workflow.md)
+for the full guide.
+
+You can also drive it from a TOML or JSON config file with the CLI:
+
+```powershell
+python -m spin_dynamics.experiment plan examples\experiment_config_cpmg.toml
+python -m spin_dynamics.experiment run  examples\experiment_config_cpmg.toml -o run.npz
+python -m spin_dynamics.experiment show run.npz
+```
+
+The subcommands are `plan` (resolve and validate; non-zero exit on plan
+errors), `run` (plan then run, refusing an erroring plan, with an optional
+`-o` result archive), `show` (print a saved run's spec and provenance), and
+`convert` (rewrite a config between `.toml` and `.json`). Configs are the
+human-friendly form where each spec is a table tagged by its `type`; the
+`sample`, `hardware`, and `acquisition` sections imply their class and may be
+omitted to accept defaults.
+
+### Working with the underlying workflows directly
+
+If you already know which workflow you want, the validated runners remain fully
+supported. Run a simple tuned-probe CPMG simulation:
 
 ```python
 from spin_dynamics.workflows import run_tuned_cpmg
@@ -275,6 +331,8 @@ The full example catalog is documented in `docs/python_api/examples.md`.
 - `docs/user_manual.tex` is the LaTeX user manual with model equations,
   examples, validation notes, and an API reference.
 - `docs/python_api/index.md` is the Markdown documentation index.
+- `docs/python_api/experiment_workflow.md` is the getting-started guide for the
+  unified experiment facade (the recommended entry point) and its CLI.
 - `docs/python_api/api_reference.md` is generated from public functions,
   classes, and docstrings.
 - `docs/python_api/concepts.md` describes units and conventions.
