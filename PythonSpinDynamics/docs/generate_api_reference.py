@@ -35,6 +35,7 @@ MODULES = [
     "detection.gradiometer",
     "detection.inductive",
     "detection.opm",
+    "detection.spatial",
     "detection.squid",
     "esr.deer",
     "esr.dipolar",

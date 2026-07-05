@@ -32,7 +32,12 @@ from _source_path import add_src_to_path, load_matplotlib
 
 add_src_to_path()
 
-from spin_dynamics.detection import Gradiometer  # noqa: E402
+from spin_dynamics.detection import (  # noqa: E402
+    AmbientFieldSource,
+    Gradiometer,
+    SQUIDMagnetometer,
+    detected_field_snr_spatial,
+)
 
 
 def build_pickups(*, radius_m, baseline_m, n_segments):
@@ -66,13 +71,43 @@ def far_slope(g, r1=20.0):
     return float(np.log(s1 / s2) / np.log(2.0))
 
 
-def print_summary(pickups) -> None:
+def snr_through_squid(pickup, *, ambient_ft):
+    """Detected SNR of a near sample through a 1 fT/rtHz SQUID with this pickup.
+
+    Returns (sensor-only SNR, SNR with a uniform ambient field of ``ambient_ft``
+    fT/rtHz). A sample line sits 10 mm above the bottom loop.
+    """
+
+    squid = SQUIDMagnetometer.berkeley_2007(pickup=pickup)
+    freqs = np.linspace(-500.0, 500.0, 1001)
+    line = (5.0 / np.pi) / (freqs**2 + 5.0**2)
+    positions = np.array([[0.0, 0.0, 0.01]])
+    moments = line[None, :]
+    ambient = AmbientFieldSource(psd=np.full(freqs.size, (ambient_ft * 1e-15) ** 2))
+    snr0 = detected_field_snr_spatial(squid, positions, moments, freqs).snr
+    snr_amb = detected_field_snr_spatial(
+        squid, positions, moments, freqs, ambient_sources=[ambient]
+    ).snr
+    return snr0, snr_amb
+
+
+def print_summary(pickups, *, ambient_ft=1000.0) -> None:
     print("Gradiometer pickups (reciprocal spatial sensitivity)")
     for g in pickups:
         print(
             f"  {g.name:26s}: order {g.order}, "
-            f"uniform response {g.uniform_field_response():+.3e} m^2, "
+            f"uniform coupling {g.uniform_coupling():+.3e}, "
             f"far-field 1/r^{far_slope(g):.2f}"
+        )
+    print("\nDetected SNR through a 1 fT/rtHz SQUID (sample 10 mm from bottom loop),")
+    print(f"with a uniform {ambient_ft:.0f} fT/rtHz ambient field:")
+    ref0 = None
+    for g in pickups:
+        snr0, snr_amb = snr_through_squid(g, ambient_ft=ambient_ft)
+        ref0 = ref0 or snr0
+        print(
+            f"  {g.name:26s}: sensor-only {snr0 / ref0:5.2f}x  "
+            f"+ambient {snr_amb / ref0:8.2e}x  (ambient loss {snr0 / snr_amb:7.1f}x)"
         )
 
 

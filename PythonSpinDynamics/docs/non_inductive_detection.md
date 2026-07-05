@@ -198,6 +198,14 @@ ULF-MRI** numbers.
   `examples/plot_gradiometer_sensitivity.py` mapping the excited-region
   localization + 1/r^{3+n} falloff; `tests/test_detection_gradiometer.py`
   (uniform-field nulling, falloff exponents 3/4/5, near-sample coupling).
+- [x] **Gradiometer↔detector wiring.** `SQUIDMagnetometer`/`OPMMagnetometer` take
+  an optional `pickup=Gradiometer`; `detection/spatial.py` routes a distributed
+  sample through the pickup coupling (signal `Σ g(r_k) m_k(f)`) and ambient
+  sources (`AmbientFieldSource`, localized or uniform) through the same pickup
+  (noise `Σ g(r_j)² P_j(f)`); `detected_field_snr_spatial` gives the end-to-end
+  SNR. Reproduces Clarke's ~1000× uniform-ambient rejection (magnetometer loses
+  1000×, balanced gradiometer unaffected). `snr_from_field_noise_psd` factored
+  out of the core; `tests/test_detection_spatial.py`.
 - **PR-4 — detector-aware GRAPE objectives.** Optimize pulses / prepolarization
   for a flux readout instead of a tuned coil, over the existing ensemble path.
 

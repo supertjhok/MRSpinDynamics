@@ -3246,11 +3246,19 @@ and second axial derivatives fall off as \(1/r^3\), \(1/r^4\), \(1/r^5\), so an
 order-\(n\) gradiometer's distant-source sensitivity falls as \(1/r^{3+n}\) and
 it rejects uniform (\(n\ge1\)) and first-gradient (\(n\ge2\)) ambient noise---the
 basis of the \(\sim\!1000\times\) common-mode rejection in Clarke's microtesla
-MRI. The example \code{examples/plot\_gradiometer\_sensitivity.py} maps the
-reciprocal (excited) region for a magnetometer and first/second-order
-gradiometers, showing how winding order localizes it. Detector-aware GRAPE
-objectives follow in a later increment (see
-\code{docs/non\_inductive\_detection.md}).
+MRI. A pickup attaches to a field sensor as \code{SQUIDMagnetometer(..., pickup=g)}
+(or \code{OPMMagnetometer(..., pickup=g)}), and
+\code{detected\_field\_snr\_spatial} then routes a distributed sample through the
+pickup coupling for the signal while ambient sources
+(\code{AmbientFieldSource}) couple through the \emph{same} pickup for the
+noise---so a uniform ambient field (coupling \(1\) for a magnetometer, \(0\) for
+a balanced gradiometer) is rejected exactly as a real gradiometer would. The
+example \code{examples/plot\_gradiometer\_sensitivity.py} maps the reciprocal
+(excited) region for a magnetometer and first/second-order gradiometers, shows
+how winding order localizes it, and prints the SQUID detected SNR with and
+without a uniform ambient field (the magnetometer loses \(\sim\!1000\times\), the
+gradiometers are unaffected). Detector-aware GRAPE objectives follow in a later
+increment (see \code{docs/non\_inductive\_detection.md}).
 
 \section{Diffusion}
 

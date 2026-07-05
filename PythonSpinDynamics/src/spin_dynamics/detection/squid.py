@@ -20,6 +20,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from .base import Detector
+from .gradiometer import Gradiometer
 
 
 @dataclass(frozen=True)
@@ -44,6 +45,7 @@ class SQUIDMagnetometer(Detector):
     name: str = "SQUID magnetometer"
     bath_temperature_k: float = 4.2
     flux_transformer_turns: int | None = None
+    pickup: Gradiometer | None = None
 
     def __post_init__(self) -> None:
         s0 = float(self.field_noise_T_per_rtHz)
@@ -52,6 +54,8 @@ class SQUIDMagnetometer(Detector):
             raise ValueError("field_noise_T_per_rtHz must be positive and finite")
         if not np.isfinite(knee) or knee < 0:
             raise ValueError("one_over_f_knee_hz must be non-negative and finite")
+        if self.pickup is not None and not isinstance(self.pickup, Gradiometer):
+            raise ValueError("pickup must be a Gradiometer or None")
         object.__setattr__(self, "field_noise_T_per_rtHz", s0)
         object.__setattr__(self, "one_over_f_knee_hz", knee)
         object.__setattr__(self, "name", str(self.name))

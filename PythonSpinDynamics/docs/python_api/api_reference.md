@@ -234,6 +234,7 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `DetectedFieldSNR` | Result of a field-referred matched-filter SNR estimate. |
 | function | `field_referred_from_output(output_psd, transfer)` | Refer an output-referred (volts^2/Hz) noise PSD to field via ``H``. |
 | function | `detected_field_snr(field_spectrum, freqs, detector, *, df = None) -> DetectedFieldSNR` | Matched-filter detected SNR of a field-at-sensor spectrum. |
+| function | `snr_from_field_noise_psd(field_spectrum, freqs, field_noise_psd, *, df = None) -> DetectedFieldSNR` | Matched-filter SNR of ``S(f)`` against an explicit field-noise PSD ``N^2(f)``. |
 
 ## `spin_dynamics.detection.gradiometer`
 
@@ -253,6 +254,15 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | Kind | Name | Summary |
 | --- | --- | --- |
 | class | `OPMMagnetometer` | Atomic magnetometer with a Lorentzian atomic-response bandwidth. |
+
+## `spin_dynamics.detection.spatial`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `AmbientFieldSource` | A stochastic ambient field source with a field-noise PSD. |
+| function | `pickup_signal_spectrum(pickup, positions, moment_spectra, *, reference = None) -> np.ndarray` | Pickup-weighted field-at-sensor spectrum ``S(f) = sum_k g(r_k) m_k(f)``. |
+| function | `spatial_field_noise_psd(detector, freqs, ambient_sources, *, pickup = None, reference = None) -> np.ndarray` | Sensor floor augmented by ambient sources coupling through the pickup. |
+| function | `detected_field_snr_spatial(detector, positions, moment_spectra, freqs, *, ambient_sources = None, pickup = None, reference = None, df = None) -> DetectedFieldSNR` | Detected SNR of a distributed sample through ``detector`` + its pickup. |
 
 ## `spin_dynamics.detection.squid`
 

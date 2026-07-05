@@ -141,6 +141,33 @@ class Gradiometer:
 
         return self.sensitivity(points) @ _axis_unit(self.axis)
 
+    @property
+    def reference_point(self) -> tuple[float, float, float]:
+        """On-axis centre of the first (bottom/sample) loop -- the coupling reference."""
+
+        return _axis_center(self.axis, self.positions_m[0])
+
+    def reference_sensitivity(self, *, reference=None) -> float:
+        """Axial sensitivity at ``reference`` (default :attr:`reference_point`)."""
+
+        ref = self.reference_point if reference is None else reference
+        value = float(self.axial_sensitivity(np.asarray([ref], dtype=np.float64))[0])
+        if value == 0.0 or not np.isfinite(value):
+            raise ValueError("reference sensitivity must be finite and non-zero")
+        return value
+
+    def normalized_sensitivity(self, points, *, reference=None) -> np.ndarray:
+        """Dimensionless axial sensitivity, ``1`` at the reference point.
+
+        Normalizing to each pickup's own bottom-loop coupling makes pickup
+        geometries directly comparable: a sample at the reference couples with
+        weight ``1`` regardless of winding, so the differences that remain are
+        exactly the distant-source rejection (weight ``<< 1`` far away for a
+        gradiometer). Used by :mod:`spin_dynamics.detection.spatial`.
+        """
+
+        return self.axial_sensitivity(points) / self.reference_sensitivity(reference=reference)
+
     def uniform_field_response(self) -> float:
         """Reciprocal response to a spatially uniform axial unit field.
 
@@ -150,6 +177,18 @@ class Gradiometer:
         """
 
         return float(sum(w * np.pi * r * r for r, w in zip(self.radii_m, self.weights)))
+
+    def uniform_coupling(self) -> float:
+        """Dimensionless response to a uniform axial field vs the bottom loop.
+
+        ``uniform_field_response / (pi * r_bottom^2)`` -- ``1`` for a single-loop
+        magnetometer and ``~0`` for a balanced gradiometer. This is the common-mode
+        (uniform ambient field) coupling that a gradiometer rejects, on the same
+        normalized scale as :meth:`normalized_sensitivity`.
+        """
+
+        bottom_area = np.pi * self.radii_m[0] ** 2
+        return self.uniform_field_response() / bottom_area
 
     @classmethod
     def magnetometer(

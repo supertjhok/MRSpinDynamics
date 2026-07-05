@@ -103,6 +103,20 @@ def detected_field_snr(field_spectrum, freqs, detector, *, df=None) -> DetectedF
     uniform bin grid or a degenerate single-frequency line).
     """
 
+    f = np.asarray(freqs, dtype=np.float64).reshape(-1)
+    n2 = np.asarray(detector.field_noise_psd(f), dtype=np.float64).reshape(-1)
+    return snr_from_field_noise_psd(field_spectrum, freqs, n2, df=df)
+
+
+def snr_from_field_noise_psd(field_spectrum, freqs, field_noise_psd, *, df=None) -> DetectedFieldSNR:
+    """Matched-filter SNR of ``S(f)`` against an explicit field-noise PSD ``N^2(f)``.
+
+    The detector-referred core of :func:`detected_field_snr`, split out so a
+    caller can supply a noise PSD that is not simply ``detector.field_noise_psd``
+    -- e.g. the sensor floor augmented by pickup-coupled ambient sources (see
+    :mod:`spin_dynamics.detection.spatial`).
+    """
+
     s = np.asarray(field_spectrum, dtype=np.complex128).reshape(-1)
     f = np.asarray(freqs, dtype=np.float64).reshape(-1)
     if f.size != s.size:
@@ -112,9 +126,9 @@ def detected_field_snr(field_spectrum, freqs, detector, *, df=None) -> DetectedF
     if np.any(~np.isfinite(f)):
         raise ValueError("freqs must be finite")
 
-    n2 = np.asarray(detector.field_noise_psd(f), dtype=np.float64).reshape(-1)
+    n2 = np.asarray(field_noise_psd, dtype=np.float64).reshape(-1)
     if n2.size != s.size:
-        raise ValueError("detector.field_noise_psd must match field_spectrum")
+        raise ValueError("field_noise_psd must match field_spectrum")
     if np.any(~np.isfinite(n2)) or np.any(n2 <= 0):
         raise ValueError("field_noise_psd must be finite and positive")
 

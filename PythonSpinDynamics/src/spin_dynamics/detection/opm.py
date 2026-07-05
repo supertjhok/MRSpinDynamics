@@ -36,6 +36,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from .base import Detector
+from .gradiometer import Gradiometer
 
 
 @dataclass(frozen=True)
@@ -55,6 +56,7 @@ class OPMMagnetometer(Detector):
     carrier_hz: float = 0.0
     name: str = "OPM magnetometer"
     cell_temperature_k: float = 450.0
+    pickup: Gradiometer | None = None
 
     def __post_init__(self) -> None:
         s0 = float(self.field_noise_T_per_rtHz)
@@ -71,6 +73,8 @@ class OPMMagnetometer(Detector):
             raise ValueError("carrier_hz must be non-negative and finite")
         if mode == "rf" and carrier <= 0:
             raise ValueError("rf mode requires a positive carrier_hz")
+        if self.pickup is not None and not isinstance(self.pickup, Gradiometer):
+            raise ValueError("pickup must be a Gradiometer or None")
         object.__setattr__(self, "field_noise_T_per_rtHz", s0)
         object.__setattr__(self, "bandwidth_hz", bw)
         object.__setattr__(self, "mode", mode)
