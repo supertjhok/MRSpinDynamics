@@ -31,6 +31,8 @@ MODULES = [
     "core.kernels",
     "core.numerics",
     "core.rotations",
+    "detection.base",
+    "detection.inductive",
     "esr.deer",
     "esr.dipolar",
     "esr.distributions",

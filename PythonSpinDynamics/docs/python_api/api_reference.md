@@ -226,6 +226,21 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `calc_v0crit(del_w: np.ndarray, n: np.ndarray, alpha: np.ndarray) -> np.ndarray` | Calculate the critical-velocity parameter for a refocusing cycle. |
 | function | `calc_rotation_matrix(del_w: np.ndarray, w_1: np.ndarray | float, tp: np.ndarray, phi: np.ndarray, amp: np.ndarray) -> MatrixElements` | Calculate the equivalent rotation matrix of a composite pulse. |
 
+## `spin_dynamics.detection.base`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `Detector` | A frequency-domain detector referred to magnetic field at the sensor. |
+| class | `DetectedFieldSNR` | Result of a field-referred matched-filter SNR estimate. |
+| function | `field_referred_from_output(output_psd, transfer)` | Refer an output-referred (volts^2/Hz) noise PSD to field via ``H``. |
+| function | `detected_field_snr(field_spectrum, freqs, detector, *, df = None) -> DetectedFieldSNR` | Matched-filter detected SNR of a field-at-sensor spectrum. |
+
+## `spin_dynamics.detection.inductive`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `InductiveCoilDetector` | Field-referred adapter over an inductive probe's output-noise density. |
+
 ## `spin_dynamics.esr.deer`
 
 | Kind | Name | Summary |
