@@ -85,7 +85,7 @@ breaking API changes.
 
 ### Workspace
 
-- Zenodo archival with a concept DOI (10.5281/zenodo.21016178) wired into
+- Zenodo archival with a concept DOI (10.5281/zenodo.21016177) wired into
   `CITATION.cff` and the README.
 - Per-subproject `LICENSE` copies and a CC-BY-4.0 data license for the
   NQRDatabase curated data.

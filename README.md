@@ -4,7 +4,7 @@
 
 # MRSpinDynamics
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21016178.svg)](https://doi.org/10.5281/zenodo.21016178)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21016177.svg)](https://doi.org/10.5281/zenodo.21016177)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 
 MRSpinDynamics is a research workspace for magnetic-resonance simulation,
@@ -109,7 +109,7 @@ release notes are in [`CHANGELOG.md`](CHANGELOG.md); the process is documented i
 
 To cite this software, use the metadata in [`CITATION.cff`](CITATION.cff) (GitHub
 renders a "Cite this repository" button from it). The archive is on Zenodo under
-the concept DOI [10.5281/zenodo.21016178](https://doi.org/10.5281/zenodo.21016178),
+the concept DOI [10.5281/zenodo.21016177](https://doi.org/10.5281/zenodo.21016177),
 which always resolves to the latest release; each tagged release also gets its own
 version DOI.
 
