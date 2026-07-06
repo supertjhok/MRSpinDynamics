@@ -30,7 +30,7 @@ When you use this database, please:
 
 1. Cite the workspace using the repository's
    [`CITATION.cff`](../CITATION.cff) and Zenodo DOI
-   ([10.5281/zenodo.21016178](https://doi.org/10.5281/zenodo.21016178)); and
+   ([10.5281/zenodo.21016177](https://doi.org/10.5281/zenodo.21016177)); and
 2. Cite the **original measurement sources** for any values you rely on. Each
    record carries its provenance — see the `literature_references` and
    `reference_links` tables (and the `sources` / `landolt_*` tables) — so the
