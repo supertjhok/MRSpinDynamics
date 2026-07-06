@@ -7,94 +7,90 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
 
 ## [Unreleased]
 
-### Documentation
+## [0.2.0] - 2026-07-05
 
-- Documented the `spin_dynamics.experiment` facade and its config-driven CLI in
-  the workspace README, the PythonSpinDynamics README (facade-first Quick Start
-  plus a CLI walkthrough), and the user manual (a "Config-Driven Runs (CLI)"
-  section in the Unified Experiment Workflow chapter).
+A large feature release built on the v0.1.0 foundation. The headline addition is
+a unified, declarative experiment facade for PythonSpinDynamics; alongside it,
+this release adds optimal-control pulse design, non-inductive detection, pulsed
+dipolar and hyperfine ESR spectroscopy, higher-spin NQR, several new field
+solvers, and an all-electron DFT EFG cross-check that resolves the
+asymmetry-parameter accuracy gap. All changes are additive; there are no
+breaking API changes.
 
-### PythonSpinDynamics
+### PythonSpinDynamics — Python simulation package
 
-- New `spin_dynamics.experiment` facade (unified workflow PR-1): declarative
-  frozen-dataclass experiment specs (`Experiment`, `Sample`, `Hardware`,
-  `Acquisition`, `CPMG`/`CPMGTrain`/`CPMGIRTrain`), a workflow registry
-  covering the CPMG family (ideal/tuned/untuned/matched × asymptotic, finite
-  train, inversion-recovery train), a `plan()` stage that resolves the
-  workflow and warns about spec fields it would ignore, `run()` delegation
-  that reproduces the direct `run_*` calls bit for bit, and NPZ save/load
-  with JSON provenance and spec round-trip. Design and milestones in
-  `PythonSpinDynamics/docs/unified_workflow_plan.md`.
-- Experiment facade PR-2: `plan()` now runs a declarative compatibility rule
-  engine (`experiment/rules.py`). A front-loaded rephasing pre-check reports,
-  before `run()` executes, whether the isochromat grid is fine enough for the
-  sequence (with the recommended `numpts`), respecting
-  `acquisition.rephase_action` (`ignore`/`warn`/`raise`); a noise-spec rule
-  rejects malformed or unsupported noise at plan time. Findings are exposed
-  structurally on the plan (`ExperimentPlan.findings`) and merged into
-  `errors`/`warnings`. The per-workflow `max_time` timing formulas were
-  extracted into shared helpers so the plan-time verdict matches the
-  workflow's own run-time check exactly.
-- Experiment facade PR-3: `plan()` now reports an advisory runtime and memory
-  estimate (`experiment/estimate.py`, `ExperimentPlan.estimate`). Cost is
-  modeled as `seconds = a + b * work_units` with work units counted per
-  workflow (isochromats x pulse segments x phase-cycle branches x inversion
-  delays); the constants are calibrated once per process from two sub-second
-  ideal-train dry runs on the actual host and kernel backend, so estimates
-  track the machine rather than a reference host. `plan(estimate=False)` and
-  `set_calibration(...)` opt out or pin the constants.
-- Experiment facade PR-4: automatic hardware wiring for imaging. New geometry
-  specs (`SolenoidCoil`, `PlanarSpiralCoil`, `TxCoil`, `RxCoil`, `UniformB0`,
-  `ImagingPlane` — all in SI meters), a `Phantom` sample spec, and a
-  `CPMGImaging` sequence spec wired to the ideal/tuned/matched CPMG imaging
-  workflows. Coil B1 is solved by Biot-Savart on the phantom grid at plan
-  time (cached by a geometry hash), projected transverse to B0, and
-  normalized to a rho-weighted mean of one (transmit calibration at the
-  sample) — replacing the workflows' synthetic default B1. `plan()` reports a
-  transmit-efficiency diagnostic and warns when most of a coil's B1 is
-  parallel to B0 (an inefficiency the normalized maps would otherwise hide).
-- Experiment facade PR-5: NQR under the facade. `Sample.site` takes a
-  `QuadrupolarSite`; new `NQRSLSE`/`NQRSORC` sequence specs use the reduced
-  engine's effective-Rabi nutation convention, with the adapter owning the
-  conversion to the bare `gamma*B1/(2*pi)` the full engine expects
-  (`bare = effective / (2 * transition.strength)`). `NQRSLSE(model="auto")`
-  dispatches to `simulate_slse` (reduced) or `simulate_full_slse` (full
-  density matrix) via `select_nqr_model` at plan time; `plan()` reports the
-  recommendation with its reasons, warns on forced overrides and on SORC
-  sites that would need the (nonexistent) full SORC engine, and errors when
-  the reduced engine's spin-1 constraint is violated. `transition="auto"`
-  addresses the line most strongly coupled to the drive polarization (not
-  the largest bare strength, which can be RF-dark).
-- Experiment facade PR-5a: pulsed ESR under the facade. `Sample.esr_system`
-  takes an `ESRSpinSystem`; new `ESRFID`/`ESRHahnEcho` sequence specs wrap
-  `esr.simulate_fid`/`simulate_hahn_echo`. The static field comes from
-  `Hardware.b0` — `UniformB0` gained an optional `field_tesla` so it can fix
-  the electron Larmor frequency (ESR needs the absolute field, unlike the
-  rotating-frame NMR/NQR workflows); `plan()` errors when it is missing.
-  Hahn-echo defaults follow the 90-180 convention (refocus duration twice
-  the excitation, acquisition window `2*tau`). Also fixes
-  `ESRSpinSystem.__eq__`, which previously raised on the ambiguous
-  elementwise comparison of the (always 3x3) g tensor. DEER/ESEEM/HYSCORE/
-  ENDOR remain direct-call modules (analysis-style parameter surfaces).
-- Experiment facade PR-6 (documentation): a workflow-first getting-started
-  guide (`docs/python_api/experiment_workflow.md`) and a matching
-  "Unified Experiment Workflow" chapter in the user manual, both presenting
-  the eight-step sample→hardware→sequence→acquisition→plan→run→analyze→save
-  narrative; the docs index now lists the facade as the recommended entry
-  point and the examples index leads with it. Three runnable flagship
-  examples on the facade: `experiment_facade_quickstart.py` (plan/run/save),
-  `experiment_imaging_with_coil.py` (automatic coil-B1 solving), and
-  `experiment_nqr_auto_model.py` (reduced-vs-full engine selection), all
-  covered by the example smoke tests.
-- Experiment facade PR-7: a config-driven CLI. `python -m spin_dynamics.experiment`
-  offers `plan` / `run` / `show` / `convert` subcommands over a human-friendly
-  TOML or JSON config where each spec is a `type`-tagged table (distinct from
-  the machine result encoding). `plan` exits non-zero on plan errors and `run`
-  refuses to execute them. New `experiment.config` module
-  (`experiment_to_config` / `experiment_from_config`, `save_config` /
-  `load_config`, with a dependency-free TOML writer and `tomllib` reader) and
-  a shipped `examples/experiment_config_cpmg.toml`. Configs round-trip every
-  engine family including 2-D phantoms and nested coil geometry.
+- **Unified experiment facade and CLI.** New `spin_dynamics.experiment` package:
+  declarative frozen-dataclass specs (sample, hardware, sequence, acquisition)
+  wrapping the validated `run_*` / `simulate_*` workflows, so a default
+  experiment reproduces the direct call bit for bit. A `plan()` stage resolves
+  the workflow, runs compatibility rules (isochromat-grid rephasing pre-check,
+  noise-spec validation, coil-field wiring, and reduced-vs-full NQR model
+  selection), and reports an advisory host-calibrated runtime/memory estimate;
+  `run()` delegates and captures provenance; results save to NPZ with JSON
+  provenance and full spec round-trip. It covers the CPMG family, phase-encoded
+  imaging (with automatic Biot-Savart transmit-coil B1 solving on the phantom
+  grid), pulsed NQR (SLSE/SORC), and pulsed ESR (FID/Hahn echo). A config-driven
+  CLI (`python -m spin_dynamics.experiment` with `plan` / `run` / `show` /
+  `convert`) reads human-friendly TOML or JSON configs. See
+  `docs/python_api/experiment_workflow.md`.
+- **Optimal control (GRAPE).** New `spin_dynamics.optimal_control` package:
+  gradient-ascent pulse design for RF amplitude/phase with state-transfer,
+  propagator-fidelity, and robust/ensemble objectives; a gradient-waveform
+  control channel; NQR/quadrupolar targets; and a hardware-response layer
+  (probe, gradient-driver, and receiver LTI filters) with PGSE diffusion
+  objectives. Includes a CPMG SNR-per-time / AMEX example.
+- **Non-inductive detection.** New `spin_dynamics.detection` subpackage: a
+  field-referred `Detector` layer (transfer `H(f)` and field-noise `N²(f)`) with
+  an inductive-coil adapter, `SQUIDMagnetometer` and `OPMMagnetometer` models
+  with a Faraday crossover baseline, gradiometer pickup geometry with spatial
+  detected SNR, and a detector-aware GRAPE objective for flux readouts.
+- **Pulsed ESR spectroscopy.** Added dipolar ESR (DEER/PELDOR) with distance
+  recovery, and ESEEM/HYSCORE/ENDOR pulsed-ESR spectroscopy generalized to
+  quadrupolar nuclei (I = 1, 3/2), reusing the package phase-cycling machinery.
+- **NQR.** Support for quadrupolar spins > 3/2 (5/2, 7/2, 9/2) in the `(2I+1)`
+  density-matrix engine; circular and multi-axis RF excitation for powder ¹⁴N;
+  a corrected SLSE-vs-SORC sensitivity-per-time analysis; and a glycine
+  piezoelectric NQR drive workflow.
+- **Nonresonant field-reversal (CSAR).** New `spin_dynamics.nonresonant`
+  subpackage: RF-free spin manipulation by sudden field switching and adiabatic
+  rotations, reproducing Brill 2002.
+- **Radio-frequency interference.** New `spin_dynamics.interference` toolkit:
+  robust and active-feedforward cancellation, a frequency-domain Wiener
+  canceller, a reference-free Kalman harmonic tracker, a sparse-decomposition
+  canceller for impulsive pickup, a measured-record loader, Numba-accelerated
+  adaptive LMS/RLS, and a pulsed NQR RFI simulation.
+- **Field solvers.** Quasistatic E-field and eddy-current solvers, a nonlinear
+  magnetostatic solver for soft-magnetic and permanent-magnet materials, and
+  coil sample loading (reflected impedance) added to `spin_dynamics.fields`.
+- **Low-field and relaxation workflows.** Zero/ultra-low-field J-coupled spin
+  networks with ¹⁴N quadrupolar relaxation derived from `C_Q` and `τ_c`; a
+  prepolarized T1-rho spin-lock sequence with molecular-size dispersion; and a
+  balanced SSFP (bSSFP) steady-state imaging sequence.
+- **Examples.** A Jasper-Jackson multinuclear CPMG well-logging workflow (with
+  an optimized ferrite-focused RF coil and honest loss-limited SNR), an
+  accelerated porous-rock walker challenge, an inhomogeneous-`(B0, B1)` ESR echo
+  study, and higher-spin NQR surveys.
+
+### QuadrupolarDFT — ab initio EFG and quadrupolar coupling
+
+- A structure-relaxation stage and harmonic finite-temperature EFG averaging for
+  the NaNO₂ ¹⁴N workflow, with a CIF-based EFG validation example.
+- An EFG convergence-study tool and an asymmetry-parameter (η) accuracy
+  investigation.
+- An all-electron Elk EFG cross-check backend that resolves the η accuracy gap:
+  ABINIT PAW under-predicts η (≈ 0.11 vs experiment 0.38), while all-electron
+  Elk PBE at the same geometry and functional gives η ≈ 0.33, identifying the
+  gap as a PAW pseudopotential artifact rather than missing physics.
+- A DFT beginner's guide and an expanded user-manual η section.
+
+### Workspace
+
+- Zenodo archival with a concept DOI (10.5281/zenodo.21016178) wired into
+  `CITATION.cff` and the README.
+- Per-subproject `LICENSE` copies and a CC-BY-4.0 data license for the
+  NQRDatabase curated data.
+- A scientific-frontiers roadmap and updated development-environment
+  documentation for OneDrive/WSL `$HOME` virtual-environment layouts.
 
 ## [0.1.0] - 2026-06-28
 
