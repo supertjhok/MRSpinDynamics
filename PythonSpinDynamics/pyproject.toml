@@ -42,7 +42,8 @@ bench = [
   "pytest-benchmark>=4"
 ]
 opt = [
-  "scipy>=1.11"
+  "scipy>=1.11",
+  "pyamg>=5"
 ]
 numba = [
   "numba>=0.59"
