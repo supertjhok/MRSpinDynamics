@@ -167,11 +167,11 @@ class LinearSolverTests(unittest.TestCase):
         g = _grid(0.1, 11)
         prob = ReducedScalarPotential3D(g, g, g)
         prob._solver_mode = "auto"
-        # Small linear problem -> exact sparse LU.
-        self.assertEqual(prob._resolve_solver(27_000), "splu")
+        # Trivially small linear problem -> exact sparse LU.
+        self.assertEqual(prob._resolve_solver(5_000), "splu")
         if _HAVE_PYAMG:
-            # Large problem -> AMG-preconditioned CG.
-            self.assertEqual(prob._resolve_solver(500_000), "amg")
+            # Beyond the ~20^3 crossover -> AMG-preconditioned CG.
+            self.assertEqual(prob._resolve_solver(50_000), "amg")
 
 
 class ValidationTests(unittest.TestCase):

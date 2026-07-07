@@ -54,10 +54,12 @@ from spin_dynamics.fields.nonlinear_magnetostatics import (
 
 __all__ = ["ReducedScalarPotential3D", "ScalarPotentialSolution"]
 
-# Above this many unknowns, 3D sparse-LU fill-in makes the direct solve slow and
-# memory-heavy; ``solve(linear_solver="auto")`` switches to AMG-preconditioned CG
-# there when pyamg is available (see docs/reduced_scalar_potential_3d.md).
-_SPLU_MAX_UNKNOWNS = 45**3
+# Crossover above which AMG's O(N) solve beats sparse LU in wall-clock (measured:
+# AMG is already ~8x faster at 21^3 and ~50x at 41^3, since 3D LU fill-in scales
+# ~O(N^2)). Below it, LU is sub-second and exact, so ``solve(linear_solver="auto")``
+# keeps LU for trivially small grids and prefers AMG above -- when pyamg is
+# available (see docs/reduced_scalar_potential_3d.md).
+_SPLU_MAX_UNKNOWNS = 20**3
 
 
 @dataclass
@@ -497,12 +499,13 @@ class ReducedScalarPotential3D:
         evolving ``mu``).
 
         ``linear_solver`` selects the inner linear solve: ``"auto"`` (default)
-        uses sparse LU up to ~45^3 unknowns and AMG-preconditioned CG above that
-        when pyamg is available; ``"splu"``, ``"amg"``, and ``"cg"`` force a
-        specific solver. AMG is the path to grids beyond the ~50-64^3 sparse-LU
-        ceiling -- and grid refinement is the effective cure for the high-mu_r
-        cancellation error (the total/reduced-potential split does not help on
-        this centered scheme; see docs/reduced_scalar_potential_3d.md).
+        prefers AMG-preconditioned CG whenever pyamg is available and the grid is
+        beyond trivially small (~20^3), keeping the exact sparse LU only for tiny
+        grids and as the fallback when pyamg is absent; ``"splu"``, ``"amg"``, and
+        ``"cg"`` force a specific solver. AMG is the path to grids beyond the
+        ~50-64^3 sparse-LU ceiling -- and grid refinement is the effective cure for
+        the high-mu_r cancellation error (the total/reduced-potential split does
+        not help on this centered scheme; see docs/reduced_scalar_potential_3d.md).
         """
 
         valid = {"auto", "splu", "amg", "cg"}

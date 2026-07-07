@@ -174,10 +174,12 @@ are available via `solve(linear_solver=...)`, with `"auto"` choosing between the
   but slow at high permeability contrast. Used only when neither SciPy nor pyamg
   is present.
 
-**`"auto"`** uses AMG for nonlinear problems (many solves — LU would re-factorize
-every Picard step) and for large grids, and sparse LU for small linear ones;
-it degrades gracefully to CG if the optional solvers are absent. pyamg is an
-optional dependency, not a hard requirement.
+**`"auto"`** prefers AMG whenever pyamg is present and the grid is beyond
+trivially small (`~20³` — AMG already wins by ~8× at 21³ and ~50× at 41³, and
+nonlinear problems compound this since LU re-factorizes every Picard step),
+keeping the exact sparse LU only for tiny grids and as the fallback when pyamg is
+absent (then CG below the LU ceiling). pyamg is an optional dependency, not a hard
+requirement.
 
 ### 4. Open-boundary truncation
 
