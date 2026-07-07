@@ -23,11 +23,14 @@ intended use.
 
 RSP has known limits -- most importantly a cancellation error inside
 high-permeability iron that grows as ``mu_r (h/L)^2`` (trustworthy for
-``mu_r <~ 100-300``), and a ~50-64^3 grid ceiling from 3D sparse-LU fill-in. Both
-are quantified in ``docs/reduced_scalar_potential_3d.md``; the docstrings below
-point back to the relevant limit. The classical high-``mu_r`` fix (Simkin-
-Trowbridge total/reduced split) and an AMG preconditioner for larger grids are
-the documented upgrade paths.
+``mu_r <~ 100-300``), quantified in ``docs/reduced_scalar_potential_3d.md``. The
+classical Simkin-Trowbridge total/reduced split does *not* help on this centered
+nodal-FV grid -- the two formulations are related by an exact linear variable
+shift and give the identical discrete solution (verified to machine precision), so
+the error is discretization, not float64 cancellation. The effective lever is grid
+refinement, made practical by the optional AMG solver (``solve(linear_solver=...)``,
+:func:`_amg_linsolve_3d`), which has grid-independent iteration counts and scales
+past the ~50-64^3 sparse-LU fill-in ceiling to >10^6 unknowns.
 """
 
 from __future__ import annotations
@@ -41,13 +44,20 @@ from spin_dynamics.fields.magnetostatics import biot_savart
 from spin_dynamics.fields.nonlinear_magnetostatics import (
     MU0,
     MagneticMaterial,
+    _amg_linsolve_3d,
     _anderson_picard,
     _conjugate_gradient,
+    _HAVE_PYAMG,
     _HAVE_SCIPY,
     _sparse_factorize_3d,
 )
 
 __all__ = ["ReducedScalarPotential3D", "ScalarPotentialSolution"]
+
+# Above this many unknowns, 3D sparse-LU fill-in makes the direct solve slow and
+# memory-heavy; ``solve(linear_solver="auto")`` switches to AMG-preconditioned CG
+# there when pyamg is available (see docs/reduced_scalar_potential_3d.md).
+_SPLU_MAX_UNKNOWNS = 45**3
 
 
 @dataclass
@@ -168,6 +178,7 @@ class ReducedScalarPotential3D:
         self._gx, self._gy, self._gz = np.meshgrid(
             self.x, self.y, self.z, indexing="ij"
         )
+        self._solver_mode = "auto"
 
     # -- region masks -------------------------------------------------------
     def box(self, x_limits, y_limits, z_limits) -> np.ndarray:
@@ -425,9 +436,38 @@ class ReducedScalarPotential3D:
             arr[b] = 0.0
         return diag, c_ip, c_im, c_jp, c_jm, c_kp, c_km
 
-    def _make_linsolve(self, mu, free, cg_tol, cg_max_iter):
+    def _resolve_solver(self, n_unknowns: int) -> str:
+        """Pick the concrete linear solver for ``linear_solver='auto'``.
+
+        Sparse LU is exact and best for a single small solve; AMG wins for large
+        grids (splu fill-in) and for nonlinear problems (many solves, where splu
+        re-factorizes every Picard step while AMG re-uses a cheap O(N) setup).
+        """
+
+        mode = self._solver_mode
+        if mode != "auto":
+            return mode
+        nonlinear = bool(self.nl.any())
+        if _HAVE_PYAMG and (nonlinear or n_unknowns > _SPLU_MAX_UNKNOWNS):
+            return "amg"
+        if _HAVE_SCIPY and n_unknowns <= _SPLU_MAX_UNKNOWNS:
+            return "splu"  # small linear: exact direct solve, no tolerance to tune
+        if _HAVE_PYAMG:
+            return "amg"
         if _HAVE_SCIPY:
+            return "splu"
+        return "cg"
+
+    def _make_linsolve(self, mu, free, cg_tol, cg_max_iter):
+        mode = self._resolve_solver(mu.size)
+        if mode == "splu":
+            if not _HAVE_SCIPY:
+                raise RuntimeError("linear_solver='splu' requires SciPy")
             return _sparse_factorize_3d(*self._sparse_coeffs(mu))
+        if mode == "amg":
+            if not _HAVE_PYAMG:
+                raise RuntimeError("linear_solver='amg' requires pyamg")
+            return _amg_linsolve_3d(self._sparse_coeffs(mu), cg_tol, cg_max_iter)
         apply, diag = self._operator(mu)
 
         def linsolve(rhs, x0=None):
@@ -447,6 +487,7 @@ class ReducedScalarPotential3D:
         n_load_steps: int = 1,
         cg_tol: float = 1e-9,
         cg_max_iter: int = 20000,
+        linear_solver: str = "auto",
     ) -> ScalarPotentialSolution:
         """Solve the (possibly nonlinear) problem and return the fields.
 
@@ -454,8 +495,20 @@ class ReducedScalarPotential3D:
         Picard driver; the reduced-scalar-potential right-hand side
         ``div(mu H_s + B_r)`` is recomputed each iteration (it depends on the
         evolving ``mu``).
+
+        ``linear_solver`` selects the inner linear solve: ``"auto"`` (default)
+        uses sparse LU up to ~45^3 unknowns and AMG-preconditioned CG above that
+        when pyamg is available; ``"splu"``, ``"amg"``, and ``"cg"`` force a
+        specific solver. AMG is the path to grids beyond the ~50-64^3 sparse-LU
+        ceiling -- and grid refinement is the effective cure for the high-mu_r
+        cancellation error (the total/reduced-potential split does not help on
+        this centered scheme; see docs/reduced_scalar_potential_3d.md).
         """
 
+        valid = {"auto", "splu", "amg", "cg"}
+        if linear_solver not in valid:
+            raise ValueError(f"linear_solver must be one of {sorted(valid)}")
+        self._solver_mode = linear_solver
         shape = (self.x.size, self.y.size, self.z.size)
         free = np.ones(shape, dtype=bool)
         free[0, :, :] = free[-1, :, :] = False

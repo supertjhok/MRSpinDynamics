@@ -45,6 +45,13 @@ try:  # SciPy gives a fast sparse direct solve; fall back to matrix-free CG.
 except Exception:  # pragma: no cover - exercised only without SciPy installed
     _HAVE_SCIPY = False
 
+try:  # pyamg gives an O(N) AMG-preconditioned CG, lifting the 3D splu ceiling.
+    import pyamg as _pyamg
+
+    _HAVE_PYAMG = True
+except Exception:  # pragma: no cover - exercised only without pyamg installed
+    _HAVE_PYAMG = False
+
 MU0 = 4.0e-7 * np.pi
 
 
@@ -235,14 +242,15 @@ def _sparse_factorize(diag, c_ip, c_im, c_jp, c_jm):
     return linsolve
 
 
-def _sparse_factorize_3d(diag, c_ip, c_im, c_jp, c_jm, c_kp, c_km):
-    """Factorize the 7-point stencil sparse matrix (boundary rows are identity).
+def _build_matrix_3d(diag, c_ip, c_im, c_jp, c_jm, c_kp, c_km):
+    """Assemble the 7-point stencil sparse matrix (boundary rows are identity).
 
-    The 3D analog of :func:`_sparse_factorize`: ``diag`` and the six directional
-    coupling arrays are shaped like the ``(nx, ny, nz)`` grid, with boundary rows
-    already set to identity. Returns ``linsolve(rhs, x0=None)`` using a sparse LU
-    factorization. Fill-in is far heavier than in 2D (~O(N^{4/3}) memory); the
-    practical grid ceiling is ~50-64^3 -- see docs/reduced_scalar_potential_3d.md.
+    ``diag`` and the six directional coupling arrays are shaped like the
+    ``(nx, ny, nz)`` grid, with boundary rows already set to identity. Interior
+    rows retain their couplings to boundary nodes (whose values the right-hand
+    side pins), so the matrix is a nonsingular M-matrix; it is mildly asymmetric
+    only in those boundary-adjacent rows, which both the sparse LU and pyamg's
+    CG-accelerated solve handle.
     """
 
     n0, n1, n2 = diag.shape
@@ -266,14 +274,45 @@ def _sparse_factorize_3d(diag, c_ip, c_im, c_jp, c_jm, c_kp, c_km):
         -c_jp[:, :-1, :].ravel(), -c_jm[:, 1:, :].ravel(),
         -c_kp[:, :, :-1].ravel(), -c_km[:, :, 1:].ravel(),
     ]
-    matrix = _coo_matrix(
+    return _coo_matrix(
         (np.concatenate(data), (np.concatenate(rows), np.concatenate(cols))),
         shape=(total, total),
-    ).tocsc()
-    lu = _splu(matrix)
+    )
+
+
+def _sparse_factorize_3d(*coeffs):
+    """Factorize the 7-point matrix by sparse LU (fast, exact, small-grid default).
+
+    Returns ``linsolve(rhs, x0=None)``. Fill-in is far heavier than in 2D
+    (~O(N^{4/3}) memory, ~O(N^2) work); the practical ceiling is ~50-64^3, above
+    which the AMG path (:func:`_amg_linsolve_3d`) scales far better -- see
+    docs/reduced_scalar_potential_3d.md.
+    """
+
+    lu = _splu(_build_matrix_3d(*coeffs).tocsc())
 
     def linsolve(rhs, x0=None):
         return lu.solve(rhs.ravel()).reshape(rhs.shape)
+
+    return linsolve
+
+
+def _amg_linsolve_3d(coeffs, tol, max_iter):
+    """AMG-preconditioned CG solve of the 7-point matrix (O(N), for large grids).
+
+    Smoothed-aggregation AMG accelerated by CG. The setup is O(N) and the
+    iteration count is grid-independent (~15 V-cycles), so unlike sparse LU it
+    scales to 128-256^3 in memory and time. Warm-starts from ``x0`` (the previous
+    nonlinear iterate) when given.
+    """
+
+    matrix = _build_matrix_3d(*coeffs).tocsr()
+    ml = _pyamg.smoothed_aggregation_solver(matrix)
+
+    def linsolve(rhs, x0=None):
+        x0v = None if x0 is None else np.ravel(x0)
+        x = ml.solve(np.ravel(rhs), x0=x0v, tol=tol, maxiter=int(max_iter), accel="cg")
+        return x.reshape(rhs.shape)
 
     return linsolve
 

@@ -105,13 +105,43 @@ Structured 3D grids of 300–700 cells per feature are impractical (>10⁷–10�
 nodes). **Practical verdict: pure RSP is trustworthy for `μ_r ≲ 100–300`.** It is
 the correct regime for permanent magnets (recoil `μ_r ≈ 1.05`) and moderate
 ferrites, and it degrades — predictably, `∝ μ_r` — for high-`μ_r` linear iron and
-for unsaturated soft iron near its small-signal permeability. The classical fix
-is the **Simkin–Trowbridge total/reduced split** (total scalar potential inside
-iron, reduced outside, coupled at the interface), which removes the cancellation
-entirely; it is deliberately *out of scope* for this first solver and is the
-documented upgrade path. The floating-point part of the cancellation is
-negligible by comparison (`μ_r · ε_machine ≈ 1e-13`); the limit is discretization,
-so it improves with grid refinement rather than being a hard wall.
+for unsaturated soft iron near its small-signal permeability.
+
+**Why the Simkin–Trowbridge total/reduced split does *not* help here (a verified
+finding).** The classical fix for reduced-potential cancellation is to switch to
+the *total* scalar potential inside the iron (`H = −∇φ`, no `H_s` to cancel),
+coupled to the reduced potential outside. That remedy targets **floating-point**
+cancellation — the historical concern on 32-bit hardware, where `|H_s| ≫ |H|`
+inside iron loses significance. On this **centered nodal finite-volume grid**,
+however, the total and reduced formulations are related by an *exact linear
+variable shift* (`φ = ψ − χ`, where `∇χ = H_s`), so they produce the **identical
+discrete solution**. Solving the same μ_r=1000 sphere both ways confirms it: the
+two agree to `|B_red − B_tot|/B ≈ 3×10⁻¹³` and `φ = ψ − H₀z` to `1×10⁻¹³` — machine
+precision. Because the discrete solution is the same, the split removes *none* of
+the error we actually see: the μ_r=1000 sphere is ~20% off at n=41 in **both**
+formulations. In `float64` the finite-precision cancellation (`μ_r·ε_machine ≈
+1e-13`) is negligible; the real error is **discretization** (`μ_r (h/L)²` plus the
+staircased geometry of issue 5), which a variable change cannot touch.
+
+**The lever that does work: grid refinement — now practical via AMG (issue 3).**
+The discretization error falls with `h`, so refining the grid is the honest cure.
+For the μ_r=1000 sphere in a uniform field (AMG-solved):
+
+| `n` | unknowns | `R/h` | interior-`B` error | solve time |
+|----:|---------:|------:|-------------------:|-----------:|
+| 41  | 6.9e4    | 6.7   | 20.7 %             | 21 s (splu) |
+| 61  | 2.3e5    | 10.0  | 15.0 %             | 1.5 s (amg) |
+| 81  | 5.3e5    | 13.3  | 11.6 %             | 3.6 s (amg) |
+| 101 | 1.0e6    | 16.7  | 9.7 %              | 6.9 s (amg) |
+| 121 | 1.8e6    | 20.0  | 8.5 %              | 13 s (amg)  |
+
+Convergence is ~`O(h)` here (staircase-limited, not the `O(h²)` of the smooth
+interior), so high `μ_r` remains genuinely demanding — but it is a controllable
+error, not a wall, and AMG puts million-cell grids within reach. For
+`μ_r ≲ 100–300` the same refinement reaches a few-percent accuracy at very
+modest grids. (A body-fitted / cut-cell treatment of curved surfaces would lift
+the `O(h)` staircase floor — a separate, larger piece of work than the potential
+split, and the more promising future direction.)
 
 ### 2. `B` is not available from the unknown alone
 
@@ -126,25 +156,28 @@ unchanged. This is why `_anderson_picard` gained the `rhs_fn` hook.
 
 ### 3. Linear-solve scaling — the practical grid ceiling
 
-The 7-point SPD matrix on an `n³` grid has `N = n³` unknowns. The two solve paths
-scale very differently:
+The 7-point SPD matrix on an `n³` grid has `N = n³` unknowns. Three solve paths
+are available via `solve(linear_solver=...)`, with `"auto"` choosing between them:
 
-- **Sparse LU (`splu`, default when SciPy present).** 3D nested-dissection LU
-  costs `~O(N²)` work and `~O(N^{4/3})` memory — fill-in is severe in 3D (unlike
-  2D, where LU is near-optimal). Empirically the practical ceiling on a
-  workstation is **~50³ (≈1.3×10⁵ unknowns)**, tens of seconds and ~1–2 GB;
-  60³–64³ is the edge. This is *fine* for design-scale problems (a magnet + shim
-  ring resolved at a few mm) but is a hard memory wall, not a gentle slowdown.
-- **Jacobi-preconditioned CG (fallback, no SciPy).** Memory is O(N), but the
-  iteration count grows like `n·√κ` with condition number `κ ∝ (μ_max/μ_min)(L/h)²`.
-  With a 1000:1 permeability contrast and `n ≈ 50` this is many thousands of
-  iterations — correct but slow.
+- **Sparse LU (`"splu"`, SciPy).** 3D nested-dissection LU costs `~O(N²)` work and
+  `~O(N^{4/3})` memory — fill-in is severe in 3D (unlike 2D, where LU is
+  near-optimal). Empirically the practical ceiling is **~50³ (≈1.3×10⁵
+  unknowns)**, tens of seconds and ~1–2 GB; 60³–64³ is the edge. It is exact
+  (no tolerance) and best for a single small **linear** solve.
+- **AMG-preconditioned CG (`"amg"`, pyamg).** Smoothed-aggregation AMG accelerated
+  by CG. Setup is `O(N)` and the V-cycle count is **grid-independent (~14–17)**,
+  so it scales where LU cannot: 41³ in 0.3 s (vs 21 s for LU), 121³ (1.8×10⁶
+  unknowns) in ~13 s, agreeing with LU to ~`1e-10`. This lifts the ceiling to
+  128³–256³ and is the path that makes the issue-1 refinement study feasible.
+- **Jacobi-preconditioned CG (`"cg"`, NumPy-only fallback).** Memory is `O(N)`,
+  but the iteration count grows like `n·√κ` with `κ ∝ (μ_max/μ_min)(L/h)²` — correct
+  but slow at high permeability contrast. Used only when neither SciPy nor pyamg
+  is present.
 
-**Verdict: cap structured 3D grids at ~50–64³ with the built-in solvers.** The
-scale-up path for both accuracy (issue 1) and speed is the same as flagged in the
-original assessment: an **AMG-preconditioned CG** (e.g. `pyamg`), which would push
-practical grids to 128³–256³. It is left as an optional dependency rather than a
-hard requirement.
+**`"auto"`** uses AMG for nonlinear problems (many solves — LU would re-factorize
+every Picard step) and for large grids, and sparse LU for small linear ones;
+it degrades gracefully to CG if the optional solvers are absent. pyamg is an
+optional dependency, not a hard requirement.
 
 ### 4. Open-boundary truncation
 
@@ -182,5 +215,12 @@ example follows the 2D convention on this.
 - [x] `_anderson_picard` `rhs_fn` generalization + `_sparse_factorize_3d`
 - [x] Unit tests (`tests/test_scalar_potential_3d.py`)
 - [x] Worked example (`examples/plot_ferrite_sphere_3d.py`)
-- [ ] Simkin–Trowbridge total/reduced split for high-`μ_r` iron (future)
-- [ ] Optional AMG (`pyamg`) preconditioner for >64³ grids (future)
+- [x] Optional AMG (`pyamg`) preconditioner (`_amg_linsolve_3d`,
+      `solve(linear_solver="amg")`) — grid-independent iterations, scales to
+      >10⁶ unknowns; `"auto"` dispatch + solver-agreement / refinement tests
+- [~] Simkin–Trowbridge total/reduced split — **investigated and shown to be a
+      no-op** on this centered nodal-FV scheme (discretely identical to the
+      reduced formulation, verified to machine precision; see issue 1). Superseded
+      by AMG-enabled grid refinement, which is the effective high-`μ_r` lever.
+- [ ] Body-fitted / cut-cell curved boundaries to lift the `O(h)` staircase floor
+      (the more promising future direction for high `μ_r`; larger scope)

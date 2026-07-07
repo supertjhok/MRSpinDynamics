@@ -14,6 +14,7 @@ from spin_dynamics.fields.nonlinear_magnetostatics import (
     MU0,
     BrauerBH,
     MagneticMaterial,
+    _HAVE_PYAMG,
     linear_material,
 )
 from spin_dynamics.fields.scalar_potential_3d import ReducedScalarPotential3D
@@ -127,6 +128,50 @@ class NonlinearTests(unittest.TestCase):
         mu_eff, res = self._core_mu_eff(MagneticMaterial("sat", bh=bh), 1.0e6)
         self.assertLess(res, 1e-4)
         self.assertLess(mu_eff, 1.2)
+
+
+class LinearSolverTests(unittest.TestCase):
+    def _sphere_b_in(self, solver, n, mu_r):
+        g = _grid(0.15, n)
+        prob = ReducedScalarPotential3D(g, g, g)
+        prob.add_material(prob.sphere((0.0, 0.0, 0.0), 0.045), linear_material(mu_r))
+        prob.add_uniform_source_field((0.0, 0.0, 1000.0))
+        sol = prob.solve(linear_solver=solver, cg_tol=1e-10)
+        return float(sol.mean_b_in(prob.sphere((0.0, 0.0, 0.0), 0.02))[2])
+
+    def test_amg_and_cg_agree_with_splu(self) -> None:
+        # All three linear solvers must reach the same field on a linear problem.
+        ref = self._sphere_b_in("splu", 27, 5.0)
+        if _HAVE_PYAMG:
+            self.assertAlmostEqual(self._sphere_b_in("amg", 27, 5.0) / ref, 1.0, delta=1e-4)
+        self.assertAlmostEqual(self._sphere_b_in("cg", 27, 5.0) / ref, 1.0, delta=1e-4)
+
+    def test_refinement_reduces_high_mu_error(self) -> None:
+        # Grid refinement is the effective cure for the high-mu_r cancellation
+        # error (the total/reduced-potential split does not help; see the doc).
+        if not _HAVE_PYAMG:
+            self.skipTest("pyamg not installed")
+        mu_r = 500.0
+        analytic = MU0 * mu_r * 3.0 * 1000.0 / (mu_r + 2.0)
+        err_coarse = abs(self._sphere_b_in("amg", 31, mu_r) / analytic - 1.0)
+        err_fine = abs(self._sphere_b_in("amg", 51, mu_r) / analytic - 1.0)
+        self.assertLess(err_fine, err_coarse)
+
+    def test_invalid_solver_rejected(self) -> None:
+        g = _grid(0.1, 11)
+        prob = ReducedScalarPotential3D(g, g, g)
+        with self.assertRaisesRegex(ValueError, "linear_solver"):
+            prob.solve(linear_solver="bogus")
+
+    def test_auto_dispatch(self) -> None:
+        g = _grid(0.1, 11)
+        prob = ReducedScalarPotential3D(g, g, g)
+        prob._solver_mode = "auto"
+        # Small linear problem -> exact sparse LU.
+        self.assertEqual(prob._resolve_solver(27_000), "splu")
+        if _HAVE_PYAMG:
+            # Large problem -> AMG-preconditioned CG.
+            self.assertEqual(prob._resolve_solver(500_000), "amg")
 
 
 class ValidationTests(unittest.TestCase):
