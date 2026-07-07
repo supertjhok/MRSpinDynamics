@@ -60,6 +60,10 @@ from spin_dynamics.fields.positions import (
     positions_nd,
     velocity_array,
 )
+from spin_dynamics.fields.scalar_potential_3d import (
+    ReducedScalarPotential3D,
+    ScalarPotentialSolution,
+)
 from spin_dynamics.fields.quasistatic import (
     CoilLoading,
     EddyResult,
@@ -128,4 +132,7 @@ __all__ = [
     "PlanarSolution",
     "AxisymmetricMagnetostatics",
     "AxisymmetricSolution",
+    # reduced scalar potential (3D magnetostatics)
+    "ReducedScalarPotential3D",
+    "ScalarPotentialSolution",
 ]

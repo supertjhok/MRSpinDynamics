@@ -75,6 +75,7 @@ MODULES = [
     "fields.nonlinear_magnetostatics",
     "fields.positions",
     "fields.quasistatic",
+    "fields.scalar_potential_3d",
     "interference.active",
     "interference.cancellers",
     "interference.coils",

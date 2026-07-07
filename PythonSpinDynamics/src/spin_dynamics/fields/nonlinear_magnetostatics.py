@@ -235,8 +235,51 @@ def _sparse_factorize(diag, c_ip, c_im, c_jp, c_jm):
     return linsolve
 
 
+def _sparse_factorize_3d(diag, c_ip, c_im, c_jp, c_jm, c_kp, c_km):
+    """Factorize the 7-point stencil sparse matrix (boundary rows are identity).
+
+    The 3D analog of :func:`_sparse_factorize`: ``diag`` and the six directional
+    coupling arrays are shaped like the ``(nx, ny, nz)`` grid, with boundary rows
+    already set to identity. Returns ``linsolve(rhs, x0=None)`` using a sparse LU
+    factorization. Fill-in is far heavier than in 2D (~O(N^{4/3}) memory); the
+    practical grid ceiling is ~50-64^3 -- see docs/reduced_scalar_potential_3d.md.
+    """
+
+    n0, n1, n2 = diag.shape
+    total = n0 * n1 * n2
+    idx = np.arange(total).reshape(n0, n1, n2)
+    rows = [
+        idx.ravel(),
+        idx[:-1, :, :].ravel(), idx[1:, :, :].ravel(),
+        idx[:, :-1, :].ravel(), idx[:, 1:, :].ravel(),
+        idx[:, :, :-1].ravel(), idx[:, :, 1:].ravel(),
+    ]
+    cols = [
+        idx.ravel(),
+        idx[1:, :, :].ravel(), idx[:-1, :, :].ravel(),
+        idx[:, 1:, :].ravel(), idx[:, :-1, :].ravel(),
+        idx[:, :, 1:].ravel(), idx[:, :, :-1].ravel(),
+    ]
+    data = [
+        diag.ravel(),
+        -c_ip[:-1, :, :].ravel(), -c_im[1:, :, :].ravel(),
+        -c_jp[:, :-1, :].ravel(), -c_jm[:, 1:, :].ravel(),
+        -c_kp[:, :, :-1].ravel(), -c_km[:, :, 1:].ravel(),
+    ]
+    matrix = _coo_matrix(
+        (np.concatenate(data), (np.concatenate(rows), np.concatenate(cols))),
+        shape=(total, total),
+    ).tocsc()
+    lu = _splu(matrix)
+
+    def linsolve(rhs, x0=None):
+        return lu.solve(rhs.ravel()).reshape(rhs.shape)
+
+    return linsolve
+
+
 def _anderson_picard(
-    reluctivity,
+    coeff_fn,
     make_linsolve,
     rhs_full,
     free,
@@ -249,21 +292,30 @@ def _anderson_picard(
     n_load_steps,
     cg_tol,
     cg_max_iter,
+    rhs_fn=None,
 ):
     """Solve a nonlinear magnetostatic problem by Anderson-accelerated Picard.
 
-    ``reluctivity(a)`` returns the per-node reluctivity for potential ``a`` and
-    ``make_linsolve(nu, ...)`` returns a linear solver for the current operator.
-    Anderson mixing of depth ``depth`` (the technique the Motor_Design solver
-    uses at the re-entrant iron corner) collapses the iteration count that plain
-    relaxed Picard needs; ``n_load_steps > 1`` ramps the sources for
-    hard-saturation robustness.
+    ``coeff_fn(a)`` returns the per-node operator coefficient for potential ``a``
+    (reluctivity ``nu`` for the vector-potential solvers, permeability ``mu`` for
+    the reduced-scalar-potential solver) and ``make_linsolve(coeff, ...)`` returns
+    a linear solver for the current operator. Anderson mixing of depth ``depth``
+    (the technique the Motor_Design solver uses at the re-entrant iron corner)
+    collapses the iteration count that plain relaxed Picard needs;
+    ``n_load_steps > 1`` ramps the sources for hard-saturation robustness.
+
+    ``rhs_fn`` is an optional ``rhs_fn(coeff) -> rhs`` used when the source term
+    itself depends on the (evolving) coefficient -- the reduced scalar potential
+    needs this because its right-hand side ``div(mu H_s + B_r)`` carries ``mu``.
+    When ``rhs_fn is None`` the fixed ``rhs_full`` is used and the iteration is
+    identical to the vector-potential path.
     """
 
     a = np.zeros_like(rhs_full)
     if linear:
-        nu = reluctivity(a)
-        a = make_linsolve(nu, free, cg_tol, cg_max_iter)(rhs_full, a)
+        nu = coeff_fn(a)
+        rhs0 = rhs_full if rhs_fn is None else rhs_fn(nu)
+        a = make_linsolve(nu, free, cg_tol, cg_max_iter)(rhs0, a)
         a[~free] = 0.0
         return a, 1, 0.0
 
@@ -275,14 +327,16 @@ def _anderson_picard(
     best_resid, best_a = np.inf, a.copy()
     loads = list(np.linspace(1.0 / n_load_steps, 1.0, int(n_load_steps)))
     for step, load in enumerate(loads):
-        rhs = load * rhs_full
+        rhs = None if rhs_fn is not None else load * rhs_full
         is_final = step == len(loads) - 1
         g_hist: list[np.ndarray] = []
         f_hist: list[np.ndarray] = []
         local_best, stall = np.inf, 0
         for _ in range(int(max_iter)):
             total += 1
-            nu = reluctivity(a)
+            nu = coeff_fn(a)
+            if rhs_fn is not None:  # source depends on the evolving coefficient
+                rhs = load * rhs_fn(nu)
             solved = make_linsolve(nu, free, cg_tol, cg_max_iter)(rhs, a)
             g = (1.0 - relax) * a + relax * solved
             fk = g - a

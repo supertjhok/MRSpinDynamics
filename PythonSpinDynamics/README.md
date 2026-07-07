@@ -74,7 +74,9 @@ extensions.
   includes magnetostatic, quasistatic eddy-current, and induced-electric-field
   solvers for coils and gradient drivers, plus a nonlinear magnetostatic solver
   (`nonlinear_magnetostatics`) for flux-shaping materials -- high-permeability RF
-  ferrites and saturable iron -- in planar and axisymmetric geometries.
+  ferrites and saturable iron -- in planar and axisymmetric geometries, and a 3D
+  reduced-scalar-potential solver (`scalar_potential_3d`) for asymmetric magnet
+  and soft-magnetic geometries.
 - `spin_dynamics.analysis` contains inverse-Laplace and regularization helpers
   for relaxation, diffusion, and exchange-map analysis.
 - `spin_dynamics.relaxation` contains microscopic relaxation models: BPP scalar
