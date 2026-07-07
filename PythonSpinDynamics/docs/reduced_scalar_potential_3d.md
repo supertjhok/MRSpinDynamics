@@ -210,13 +210,60 @@ example follows the 2D convention on this.
 4. **Linear-below-the-knee** → a saturable core at weak drive matches its
    small-signal linear counterpart (mirrors the 2D nonlinear test).
 
+## Worked application: the NMR-MOUSE
+
+`examples/plot_nmr_mouse_3d.py` simulates the **NMR-MOUSE** (MObile Universal
+Surface Explorer; Blümich et al., *Magn. Reson. Imaging* **16**, 479 (1998),
+`References/`), a single-sided "inside-out" NMR sensor. It is the motivating class
+of problem for this solver: it needs **permanent magnets and a soft-magnetic yoke
+solved together**, which analytic dipole superposition cannot do.
+
+**Geometry (paper Fig. 1).** Two permanent magnets of *anti-parallel*
+magnetization (left `+y`, right `−y`) sit on a soft-iron yoke with a gap between
+them; a surface RF coil in the gap excites a sensitive volume in the stray field a
+few mm *above* the device. Frame: `z` across the gap, `y` out of the surface, `x`
+along the bars. Dimensions: 26 mm-wide × 32 mm-tall magnets, 13 mm gap, 15 mm
+yoke. The field arches over the gap so its dominant component `B0_z` (along the
+gap) is roughly orthogonal to the coil's `B1` (`y`) — the geometry that makes the
+sensor work.
+
+**What it exercises and reproduces** (NdFeB `B_r = 1.2` T, linear `μ_r = 1000`
+yoke, 1.5 mm grid, ~0.8 M nodes, one AMG solve):
+
+| quantity | simulation | paper |
+|---|---|---|
+| `B0` at the sensor (`y = 2.5` mm) | ~0.43 T → **18 MHz** (¹H) | 0.41 T, 17.5 MHz |
+| iron-yoke field boost vs magnets-only | **+10 %** | (the yoke's raison d'être) |
+| penetration (depth) gradient `dB0/dy` | ~14 T/m | 10–14 T/m |
+| lateral `B0_z(z)` across the gap | near-quadratic | Fig. 2 (quadratic) |
+
+The **yoke boost is the headline**: removing the yoke (a one-line change) drops the
+sensor field ~10 %, the low-reluctance return-path effect that only a
+magnetostatic solver captures. The yoke runs at mean `|B| ≈ 1.1` T, below
+saturation, so a linear `μ_r` matches a saturable `soft_iron()` model here (which
+agrees to <1 % but costs ~30× more) — a good illustration of when the nonlinear
+path is *not* needed. Two accuracy caveats apply and are noted in the example: the
+sensor sits just above the sharp magnet corners, whose `O(h)` staircasing (issue
+5) gives the *absolute* field a ~10 % resolution sensitivity (the *shape*, the
+yoke effect, and the operating point are robust); and the high-`μ_r` yoke is in
+the cancellation-error band (issue 1), but the reported fields are in the air
+above it, which is unaffected.
+
+A subtle but instructive point surfaced while building the map panel: `B0_z` must
+be *even* in `z` for this anti-parallel geometry (and `B0_y` odd), which the solve
+satisfies to machine precision — a free symmetry check that caught a plotting-only
+axis-transpose bug. It is a reminder that the solver's exact symmetries are a
+useful correctness probe for any new geometry.
+
 ## Status
 
 - [x] Assessment + quantified RSP limits (this document)
 - [x] `ReducedScalarPotential3D` solver (`fields/scalar_potential_3d.py`)
 - [x] `_anderson_picard` `rhs_fn` generalization + `_sparse_factorize_3d`
 - [x] Unit tests (`tests/test_scalar_potential_3d.py`)
-- [x] Worked example (`examples/plot_ferrite_sphere_3d.py`)
+- [x] Worked examples: `plot_ferrite_sphere_3d.py` (accuracy vs `μ_r`),
+      `plot_high_mu_convergence_3d.py` (AMG scaling + refinement),
+      `plot_nmr_mouse_3d.py` (NMR-MOUSE magnet + iron yoke, reproduces the paper)
 - [x] Optional AMG (`pyamg`) preconditioner (`_amg_linsolve_3d`,
       `solve(linear_solver="amg")`) — grid-independent iterations, scales to
       >10⁶ unknowns; `"auto"` dispatch + solver-agreement / refinement tests
