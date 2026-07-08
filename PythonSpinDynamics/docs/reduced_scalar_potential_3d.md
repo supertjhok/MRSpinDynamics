@@ -271,6 +271,16 @@ than the analytic image-yoke) and recovers a buried density gap as a hole in the
 profile. `tests/test_single_sided.py` covers the solved-field path and the
 backward-compatible analytic path together.
 
+The example is also careful about the depth physics. The walker signal is the
+*intrinsic* slice response, which actually *rises* with depth (the gradient
+weakens, so a fixed-bandwidth pulse excites a thicker slice); the engine does not
+include the geometric detection sensitivity. The measured signal multiplies by
+that sensitivity, `S(d) ~ B0(d)^2 B1(d)^2` (Curie polarization `~ B0`, reciprocity
+reception `~ omega_0 B1`, transmit `~ B1`, coil reception `~ B1`), computed from
+the solved `B0` and a surface-coil `B1`. `S` falls ~100x over the first cm
+(B1-dominated), so the *measured* profile decays with depth as real single-sided
+NMR does -- the raw walker profile alone must not be read as the measured signal.
+
 ## Status
 
 - [x] Assessment + quantified RSP limits (this document)

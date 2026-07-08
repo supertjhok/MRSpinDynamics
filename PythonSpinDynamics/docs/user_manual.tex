@@ -3493,7 +3493,14 @@ The example \code{plot\_nmr\_mouse\_depth\_profile\_solved.py} drives the
 moving-walker depth-profiling measurement from the 3-D MOUSE solve --- magnets and
 the finite iron yoke --- and recovers a buried density gap as a hole in the
 profile, a higher-fidelity counterpart to the analytic image-yoke profile of
-Sec.~\ref{sec:single-sided-nmr}.
+Sec.~\ref{sec:single-sided-nmr}. It also separates the two depth factors: the
+walker signal is the \emph{intrinsic} slice response, which rises with depth (a
+weaker gradient excites a thicker slice), while the \emph{measured} signal weights
+it by the geometric detection sensitivity \(S(d)\sim B_0^2 B_1^2\) (Curie
+polarization, reciprocity reception, and transmit/receive \(B_1\)) computed from
+the solved fields; \(S\) falls \(\sim\!100\times\) over the first centimetre
+(surface-coil \(B_1\) dominated), so the measured profile decays with depth as a
+real single-sided measurement does.
 
 \section{Received-Signal Noise}
 
