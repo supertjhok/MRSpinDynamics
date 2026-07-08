@@ -40,7 +40,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from spin_dynamics.fields.magnetostatics import biot_savart
+from spin_dynamics.fields.magnetostatics import GAMMA_PROTON, MagnetFieldMaps, biot_savart
 from spin_dynamics.fields.nonlinear_magnetostatics import (
     MU0,
     MagneticMaterial,
@@ -92,6 +92,69 @@ class ScalarPotentialSolution:
             _trilinear(self.b_x, xi, yi, zi),
             _trilinear(self.b_y, xi, yi, zi),
             _trilinear(self.b_z, xi, yi, zi),
+        )
+
+    def to_magnet_field_maps(
+        self,
+        lateral_axis,
+        depth_axis,
+        *,
+        lateral: str = "z",
+        depth: str = "y",
+        along: str = "x",
+        along_at: float = 0.0,
+        coil_segments=None,
+        coil_current: float = 1.0,
+        gamma: float = GAMMA_PROTON,
+    ) -> MagnetFieldMaps:
+        """Sample the solved field onto a 2-D plane as a :class:`MagnetFieldMaps`.
+
+        Returns the same container the analytic :func:`sample_magnet_field`
+        produces, so a solved 3-D field drives the imaging and single-sided motion
+        workflows exactly like the analytic magnet does. ``lateral``/``depth``/
+        ``along`` name which solver axis plays each workflow role (default matches
+        ``plot_nmr_mouse_3d.py``: ``z`` across the gap, ``y`` depth, ``x`` along the
+        bars, sampled at ``along_at``); the returned ``x_axis`` is the lateral axis
+        and ``y_axis`` the depth axis. An optional ``coil_segments`` (solver frame)
+        supplies the RF ``B1`` by free-space Biot-Savart, projected transverse to
+        the local ``B0`` -- a frame-invariant magnitude, so the axis roles do not
+        affect it.
+        """
+
+        if {lateral, depth, along} != {"x", "y", "z"}:
+            raise ValueError("lateral/depth/along must be a permutation of 'x','y','z'")
+        lat = np.asarray(lateral_axis, dtype=np.float64)
+        dep = np.asarray(depth_axis, dtype=np.float64)
+        plane_lat, plane_dep = np.meshgrid(lat, dep, indexing="ij")
+        coords = {
+            lateral: plane_lat,
+            depth: plane_dep,
+            along: np.full_like(plane_lat, float(along_at)),
+        }
+        b_x, b_y, b_z = self.sample(coords["x"], coords["y"], coords["z"])
+        b0_vec = np.stack([b_x, b_y, b_z], axis=-1)
+        b0_mag = np.sqrt(b_x**2 + b_y**2 + b_z**2)
+        # Per-axis so a degenerate (size-1) lateral or depth axis is tolerated.
+        g_lat = np.gradient(b0_mag, lat, axis=0) if lat.size >= 2 else np.zeros_like(b0_mag)
+        g_dep = np.gradient(b0_mag, dep, axis=1) if dep.size >= 2 else np.zeros_like(b0_mag)
+        b0_grad = np.sqrt(g_lat**2 + g_dep**2)
+        b1_vec = b1_trans = None
+        if coil_segments is not None:
+            # Lazy import: motion imports the fields package (circular at module scope).
+            from spin_dynamics.motion import transverse_b1_magnitude
+
+            points = np.stack([coords["x"], coords["y"], coords["z"]], axis=-1)
+            b1_vec = biot_savart(points, coil_segments, coil_current)
+            b1_trans = transverse_b1_magnitude(b0_vec, b1_vec)
+        return MagnetFieldMaps(
+            x_axis=lat,
+            y_axis=dep,
+            b0_vector=b0_vec,
+            b0_magnitude=b0_mag,
+            b0_gradient=b0_grad,
+            larmor_hz=gamma * b0_mag / (2.0 * np.pi),
+            b1_vector=b1_vec,
+            b1_transverse=b1_trans,
         )
 
     def mean_b_in(self, mask: np.ndarray) -> np.ndarray:

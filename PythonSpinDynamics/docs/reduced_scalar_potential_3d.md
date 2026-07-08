@@ -255,6 +255,22 @@ satisfies to machine precision — a free symmetry check that caught a plotting-
 axis-transpose bug. It is a reminder that the solver's exact symmetries are a
 useful correctness probe for any new geometry.
 
+### Driving the single-sided workflow with the solved field
+
+The solved field is wired into the higher-level workflow the same way the analytic
+magnet is. `ScalarPotentialSolution.to_magnet_field_maps(...)` samples the solved
+`B0` (and an optional coil `B1`) onto a `(lateral, depth)` plane and returns the
+same `MagnetFieldMaps` container the analytic `sample_magnet_field` produces, so a
+solved 3-D field is a drop-in field source. `workflows.SolvedMouseField` wraps a
+solution behind the `MouseFieldSource` interface, and `simulate_mouse_cpmg` /
+`mouse_depth_profile` / `resonant_depth` now accept either bars (analytic, the
+unchanged default) or a field source. The end-to-end example
+`plot_nmr_mouse_depth_profile_solved.py` drives the moving-walker depth-profiling
+measurement from the 3-D MOUSE solve (magnets **and** the finite iron yoke, rather
+than the analytic image-yoke) and recovers a buried density gap as a hole in the
+profile. `tests/test_single_sided.py` covers the solved-field path and the
+backward-compatible analytic path together.
+
 ## Status
 
 - [x] Assessment + quantified RSP limits (this document)
@@ -263,7 +279,10 @@ useful correctness probe for any new geometry.
 - [x] Unit tests (`tests/test_scalar_potential_3d.py`)
 - [x] Worked examples: `plot_ferrite_sphere_3d.py` (accuracy vs `μ_r`),
       `plot_high_mu_convergence_3d.py` (AMG scaling + refinement),
-      `plot_nmr_mouse_3d.py` (NMR-MOUSE magnet + iron yoke, reproduces the paper)
+      `plot_nmr_mouse_3d.py` (NMR-MOUSE magnet + iron yoke, reproduces the paper),
+      `plot_nmr_mouse_depth_profile_solved.py` (solved field driving the workflow)
+- [x] Workflow integration: `to_magnet_field_maps` adapter + `SolvedMouseField`
+      drive the single-sided depth-profiling workflow from a solved field
 - [x] Optional AMG (`pyamg`) preconditioner (`_amg_linsolve_3d`,
       `solve(linear_solver="amg")`) — grid-independent iterations, scales to
       >10⁶ unknowns; `"auto"` dispatch + solver-agreement / refinement tests

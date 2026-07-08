@@ -19,6 +19,7 @@ deviations seen here are the real-field physics, not numerics.
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from dataclasses import dataclass
 
@@ -30,6 +31,7 @@ from spin_dynamics.fields.magnetostatics import (
     bar_array_b0,
     sample_magnet_field,
 )
+from spin_dynamics.fields.scalar_potential_3d import ScalarPotentialSolution
 from spin_dynamics.motion import initialize_ensemble_from_density, make_motion_field_maps_2d
 from spin_dynamics.sequences.motion import run_motion_cpmg_sequence
 
@@ -91,28 +93,120 @@ class MouseDepthProfileResult:
     echo_times: np.ndarray
 
 
-def _on_axis_profile(bars, yoke_y, y_lo, y_hi, gamma):
-    y = np.linspace(y_lo, y_hi, 800)
-    bmag = np.hypot(*bar_array_b0(np.zeros_like(y), y, bars, yoke_y=yoke_y))
-    return y, gamma * bmag / (2.0 * np.pi)  # depth, Larmor Hz (decreasing with y)
+class MouseFieldSource(ABC):
+    """A B0/B1 field source for the single-sided (NMR-MOUSE) workflow.
+
+    The workflow drives the moving-isochromat engine from a magnet's own field.
+    Two implementations let the *same* depth-profiling code run on either the fast
+    analytic bar-magnet model (:class:`AnalyticMouseField`) or a full 3-D
+    magnetostatic solve (:class:`SolvedMouseField`). A source supplies the on-axis
+    Larmor profile (to locate the resonant slice) and the ``(lateral, depth)``
+    plane maps the engine consumes.
+    """
+
+    #: default on-axis depth window (m) in which to locate the resonant slice.
+    depth_range: tuple[float, float]
+
+    @abstractmethod
+    def larmor_profile(self, depth_lo, depth_hi, gamma, n=800):
+        """Return ``(depths, larmor_hz)`` on the through-plane axis at lateral = 0."""
+
+    @abstractmethod
+    def plane_field_maps(self, lateral_axis, depth_axis, *, coil_segments,
+                         coil_current, gamma):
+        """Return a ``MagnetFieldMaps`` on the ``(lateral, depth)`` plane."""
+
+
+@dataclass(frozen=True)
+class AnalyticMouseField(MouseFieldSource):
+    """Analytic bar-magnet field source with an optional image yoke (the default)."""
+
+    bars: Sequence[BarMagnet]
+    yoke_y: float | None = None
+    depth_range: tuple[float, float] = (0.021, 0.060)
+
+    def larmor_profile(self, depth_lo, depth_hi, gamma, n=800):
+        y = np.linspace(depth_lo, depth_hi, int(n))
+        bmag = np.hypot(*bar_array_b0(np.zeros_like(y), y, self.bars, yoke_y=self.yoke_y))
+        return y, gamma * bmag / (2.0 * np.pi)  # Larmor Hz (decreasing with depth)
+
+    def plane_field_maps(self, lateral_axis, depth_axis, *, coil_segments,
+                         coil_current, gamma):
+        return sample_magnet_field(lateral_axis, depth_axis, self.bars,
+                                   yoke_y=self.yoke_y, coil_segments=coil_segments,
+                                   coil_current=coil_current, gamma=gamma)
+
+
+@dataclass(frozen=True)
+class SolvedMouseField(MouseFieldSource):
+    """Field source backed by a solved 3-D :class:`ScalarPotentialSolution`.
+
+    Drives the workflow with a full magnetostatic solve -- permanent magnets *and*
+    a finite iron yoke -- instead of the analytic image-yoke approximation, so the
+    yoke's real flux-shaping enters the simulated measurement. ``lateral`` /
+    ``depth`` / ``along`` name which solver axis plays each workflow role (default
+    matches ``examples/plot_nmr_mouse_3d.py``: ``z`` across the gap, ``y`` depth,
+    ``x`` along the bars); ``along_at`` is the along-bar coordinate to sample and
+    ``depth_range`` the depth window for the resonant slice.
+    """
+
+    solution: ScalarPotentialSolution
+    lateral: str = "z"
+    depth: str = "y"
+    along: str = "x"
+    along_at: float = 0.0
+    depth_range: tuple[float, float] = (0.5e-3, 15.0e-3)
+
+    def __post_init__(self):
+        if {self.lateral, self.depth, self.along} != {"x", "y", "z"}:
+            raise ValueError("lateral/depth/along must be a permutation of 'x','y','z'")
+
+    def larmor_profile(self, depth_lo, depth_hi, gamma, n=800):
+        d = np.linspace(depth_lo, depth_hi, int(n))
+        coords = {self.lateral: np.zeros_like(d), self.depth: d,
+                  self.along: np.full_like(d, self.along_at)}
+        b_x, b_y, b_z = self.solution.sample(coords["x"], coords["y"], coords["z"])
+        return d, gamma * np.sqrt(b_x**2 + b_y**2 + b_z**2) / (2.0 * np.pi)
+
+    def plane_field_maps(self, lateral_axis, depth_axis, *, coil_segments,
+                         coil_current, gamma):
+        return self.solution.to_magnet_field_maps(
+            lateral_axis, depth_axis, lateral=self.lateral, depth=self.depth,
+            along=self.along, along_at=self.along_at, coil_segments=coil_segments,
+            coil_current=coil_current, gamma=gamma)
+
+
+def _as_field_source(source, yoke_y):
+    """Coerce ``source`` (bars or a MouseFieldSource) into a MouseFieldSource."""
+
+    if isinstance(source, MouseFieldSource):
+        return source
+    return AnalyticMouseField(source, yoke_y)
 
 
 def resonant_depth(
-    bars: Sequence[BarMagnet],
+    source,
     frequency_hz: float,
     *,
     yoke_y: float | None = None,
-    depth_range: tuple[float, float] = (0.021, 0.060),
+    depth_range: tuple[float, float] | None = None,
     gamma: float = GAMMA_PROTON,
 ) -> float:
-    """Return the on-axis depth where the proton Larmor frequency equals ``frequency_hz``."""
+    """Return the on-axis depth where the proton Larmor frequency equals ``frequency_hz``.
 
-    y, f = _on_axis_profile(bars, yoke_y, depth_range[0], depth_range[1], gamma)
+    ``source`` is either a sequence of :class:`BarMagnet` (analytic, the default)
+    or a :class:`MouseFieldSource` such as :class:`SolvedMouseField` wrapping a 3-D
+    solve. ``depth_range`` defaults to the source's own window.
+    """
+
+    fs = _as_field_source(source, yoke_y)
+    lo, hi = fs.depth_range if depth_range is None else depth_range
+    y, f = fs.larmor_profile(lo, hi, gamma)
     return float(np.interp(frequency_hz, f[::-1], y[::-1]))
 
 
 def simulate_mouse_cpmg(
-    bars: Sequence[BarMagnet],
+    source,
     sample: LayeredSample,
     frequency_hz: float,
     *,
@@ -128,24 +222,28 @@ def simulate_mouse_cpmg(
     substeps_per_interval: int = 4,
     coil_segments: Sequence | None = None,
     diffusion_scale: float = 1.0,
+    depth_range: tuple[float, float] | None = None,
     gamma: float = GAMMA_PROTON,
     seed: int = 0,
 ) -> MouseCPMGResult:
     """Simulate one CPMG measurement at ``frequency_hz`` in the real magnet field.
 
+    ``source`` is either a sequence of :class:`BarMagnet` (analytic) or a
+    :class:`MouseFieldSource` such as :class:`SolvedMouseField` (a 3-D solve).
     Walkers are seeded in a depth window around the resonant slice and diffuse
-    through the magnet's actual ``B0`` (off-resonance ``gamma|B0| - 2 pi f``) and,
+    through the source's actual ``B0`` (off-resonance ``gamma|B0| - 2 pi f``) and,
     if a coil is supplied, its actual transverse ``B1``. The finite excitation
     pulse selects the slice from the field; the echo train and its diffusion
     attenuation emerge from the motion.
     """
 
+    fs = _as_field_source(source, yoke_y)
     w0 = 2.0 * np.pi * float(frequency_hz)
-    y0 = resonant_depth(bars, frequency_hz, yoke_y=yoke_y, gamma=gamma)
+    y0 = resonant_depth(fs, frequency_hz, depth_range=depth_range, gamma=gamma)
     x_axis = np.linspace(-lateral_halfwidth, lateral_halfwidth, n_lateral)
     y_axis = np.linspace(y0 - depth_halfwidth, y0 + depth_halfwidth, n_depth)
-    fm = sample_magnet_field(x_axis, y_axis, bars, yoke_y=yoke_y,
-                             coil_segments=coil_segments, coil_current=1.0, gamma=gamma)
+    fm = fs.plane_field_maps(x_axis, y_axis, coil_segments=coil_segments,
+                             coil_current=1.0, gamma=gamma)
     offres = gamma * fm.b0_magnitude - w0
     if coil_segments is not None and fm.b1_transverse is not None:
         b1 = fm.b1_transverse / (fm.b1_transverse.max() or 1.0)
@@ -195,7 +293,7 @@ class MouseDiffusionResult:
 
 
 def measure_diffusion_at_depth(
-    bars: Sequence[BarMagnet],
+    source,
     sample: LayeredSample,
     frequency_hz: float,
     *,
@@ -219,10 +317,10 @@ def measure_diffusion_at_depth(
     rates: list[float] = []
     local_g = depth = None
     for seed in range(int(n_seeds)):
-        on = simulate_mouse_cpmg(bars, sample, frequency_hz, echo_time=echo_time,
+        on = simulate_mouse_cpmg(source, sample, frequency_hz, echo_time=echo_time,
                                  num_echoes=num_echoes, diffusion_scale=1.0,
                                  gamma=gamma, seed=seed, **cpmg_kwargs)
-        off = simulate_mouse_cpmg(bars, sample, frequency_hz, echo_time=echo_time,
+        off = simulate_mouse_cpmg(source, sample, frequency_hz, echo_time=echo_time,
                                   num_echoes=num_echoes, diffusion_scale=0.0,
                                   gamma=gamma, seed=seed, **cpmg_kwargs)
         local_g, depth = on.local_gradient, on.depth
@@ -250,7 +348,7 @@ def _fit_t2(times: np.ndarray, amps: np.ndarray, min_frac: float = 0.1) -> float
 
 
 def mouse_depth_profile(
-    bars: Sequence[BarMagnet],
+    source,
     sample: LayeredSample,
     frequencies_hz: Sequence[float],
     *,
@@ -259,16 +357,18 @@ def mouse_depth_profile(
 ) -> MouseDepthProfileResult:
     """Profile a sample in depth by sweeping the excitation frequency.
 
-    Each frequency runs :func:`simulate_mouse_cpmg`; the excited signal traces the
-    depth profile of spin density and the echo decay gives the apparent T2 at that
-    depth. Extra keyword arguments are forwarded to :func:`simulate_mouse_cpmg`.
+    ``source`` is a sequence of :class:`BarMagnet` (analytic) or a
+    :class:`MouseFieldSource` (e.g. a 3-D solve). Each frequency runs
+    :func:`simulate_mouse_cpmg`; the excited signal traces the depth profile of
+    spin density and the echo decay gives the apparent T2 at that depth. Extra
+    keyword arguments are forwarded to :func:`simulate_mouse_cpmg`.
     """
 
     freqs = np.asarray(list(frequencies_hz), dtype=np.float64)
     depths, grads, signals, t2s, trains = [], [], [], [], []
     times = None
     for f in freqs:
-        res = simulate_mouse_cpmg(bars, sample, float(f), yoke_y=yoke_y, **cpmg_kwargs)
+        res = simulate_mouse_cpmg(source, sample, float(f), yoke_y=yoke_y, **cpmg_kwargs)
         depths.append(res.depth)
         grads.append(res.local_gradient)
         signals.append(res.excited_signal)

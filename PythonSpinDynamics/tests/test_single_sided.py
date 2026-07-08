@@ -15,15 +15,39 @@ from spin_dynamics.motion import (
     make_motion_field_maps_2d,
 )
 from spin_dynamics.sequences.motion import run_motion_cpmg_sequence
+from spin_dynamics.fields.nonlinear_magnetostatics import linear_material, ndfeb
+from spin_dynamics.fields.scalar_potential_3d import ReducedScalarPotential3D
 from spin_dynamics.workflows.single_sided import (
+    AnalyticMouseField,
     LayeredSample,
     SampleLayer,
+    SolvedMouseField,
     measure_diffusion_at_depth,
     mouse_depth_profile,
     resonant_depth,
 )
 
 GAMMA = GAMMA_PROTON
+
+
+def _solved_mouse_field():
+    """A coarse 3-D NMR-MOUSE solve (magnets + iron yoke) wrapped for the workflow."""
+
+    mm = 1e-3
+
+    def axis(lo, hi, h=2.5 * mm):
+        return np.linspace(lo, hi, int(round((hi - lo) / h)) + 1)
+
+    x, y, z = axis(-50 * mm, 50 * mm), axis(-70 * mm, 50 * mm), axis(-90 * mm, 90 * mm)
+    prob = ReducedScalarPotential3D(x, y, z)
+    bar_x = (-20 * mm, 20 * mm)
+    prob.add_material(prob.box(bar_x, (-32 * mm, 0.0), (-32.5 * mm, -6.5 * mm)),
+                      ndfeb(1.2), remanence_direction=(0, 1, 0))
+    prob.add_material(prob.box(bar_x, (-32 * mm, 0.0), (6.5 * mm, 32.5 * mm)),
+                      ndfeb(1.2), remanence_direction=(0, -1, 0))
+    prob.add_material(prob.box(bar_x, (-47 * mm, -32 * mm), (-32.5 * mm, 32.5 * mm)),
+                      linear_material(1000.0))
+    return SolvedMouseField(prob.solve(), depth_range=(0.5e-3, 12.0e-3))
 
 
 class WalkerEngineTrustTest(unittest.TestCase):
@@ -121,6 +145,50 @@ class MouseMeasurementTests(unittest.TestCase):
         self.assertGreater(r.local_gradient, 10.0)
         self.assertTrue(1.0e-9 < r.diffusion < 4.0e-9,
                         f"D out of range: {r.diffusion:.2e}")
+
+
+class SolvedFieldMouseTests(unittest.TestCase):
+    """The single-sided workflow driven by a full 3-D magnetostatic solve
+    (magnets + iron yoke) instead of the analytic bar-magnet model."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.field = _solved_mouse_field()
+
+    def test_bars_wrap_into_a_field_source(self):
+        # Backward compatibility: passing bars still works (auto-wrapped).
+        bars, yoke = nmr_mouse_magnets(gap=0.012, remanence=1.30)
+        d = resonant_depth(bars, 12e6, yoke_y=yoke)
+        self.assertEqual(
+            d, resonant_depth(AnalyticMouseField(bars, yoke), 12e6)
+        )
+
+    def test_resonant_depth_decreases_with_frequency(self):
+        # The solved-field on-axis profile is monotonic like the analytic one.
+        d_lo, f_lo = self.field.larmor_profile(0.5e-3, 12e-3, GAMMA)
+        f_shallow, f_deep = np.interp([2.5e-3, 6.0e-3], d_lo, f_lo)
+        self.assertLess(resonant_depth(self.field, f_shallow),
+                        resonant_depth(self.field, f_deep))
+
+    def test_depth_profile_detects_a_gap_in_the_solved_field(self):
+        # Choose carrier frequencies that resonate at bulk / gap / bulk depths of
+        # the *solved* field, then confirm the density gap reads near-zero signal.
+        depths, larmor = self.field.larmor_profile(0.5e-3, 12e-3, GAMMA)
+        targets = np.array([2.5e-3, 4.0e-3, 5.5e-3])  # material, gap, material
+        freqs = np.interp(targets, depths, larmor)
+        sample = LayeredSample([
+            SampleLayer(0.0, 3.2e-3, rho=1.0, t2=0.05),
+            SampleLayer(3.2e-3, 4.8e-3, rho=0.0),        # gap
+            SampleLayer(4.8e-3, 20.0e-3, rho=1.0, t2=0.05),
+        ])
+        prof = mouse_depth_profile(
+            self.field, sample, freqs, echo_time=2e-4, num_echoes=4,
+            depth_halfwidth=0.4e-3, n_depth=21, walkers_per_cell=4,
+            substeps_per_interval=2, depth_range=(0.5e-3, 12e-3), seed=0,
+        )
+        bulk = min(prof.signal[0], prof.signal[2])
+        self.assertGreater(bulk, 0.0)
+        self.assertLess(prof.signal[1], 0.2 * bulk)  # gap is a hole
 
 
 if __name__ == "__main__":
