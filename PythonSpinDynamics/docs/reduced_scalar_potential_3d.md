@@ -290,7 +290,10 @@ NMR does -- the raw walker profile alone must not be read as the measured signal
 - [x] Worked examples: `plot_ferrite_sphere_3d.py` (accuracy vs `μ_r`),
       `plot_high_mu_convergence_3d.py` (AMG scaling + refinement),
       `plot_nmr_mouse_3d.py` (NMR-MOUSE magnet + iron yoke, reproduces the paper),
-      `plot_nmr_mouse_depth_profile_solved.py` (solved field driving the workflow)
+      `plot_nmr_mouse_depth_profile_solved.py` (solved field driving the workflow),
+      `plot_nmr_mouse_analytic_vs_solver.py` (analytic vs solver: accuracy + timing,
+      "when to use which" -- the solver captures the finite-bar shortfall the
+      infinite-bar analytic model misses, and converges to it as bars lengthen)
 - [x] Workflow integration: `to_magnet_field_maps` adapter + `SolvedMouseField`
       drive the single-sided depth-profiling workflow from a solved field
 - [x] Optional AMG (`pyamg`) preconditioner (`_amg_linsolve_3d`,
