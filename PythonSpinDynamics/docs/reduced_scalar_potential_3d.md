@@ -272,9 +272,10 @@ profile. `tests/test_single_sided.py` covers the solved-field path and the
 backward-compatible analytic path together.
 
 The example is also careful about the depth physics. The walker signal is the
-*intrinsic* slice response, which actually *rises* with depth (the gradient
-weakens, so a fixed-bandwidth pulse excites a thicker slice); the engine does not
-include the geometric detection sensitivity. The measured signal multiplies by
+*intrinsic* slice response, which actually *rises* with depth: the frequency-
+selected slice thickness is (pulse bandwidth)/gradient, and the `B0` gradient
+weakens with depth, so the excited slice -- and thus the sample volume -- grows.
+The engine does not include the geometric detection sensitivity. The measured signal multiplies by
 that sensitivity, `S(d) ~ B0(d)^2 B1(d)^2` (Curie polarization `~ B0`, reciprocity
 reception `~ omega_0 B1`, transmit `~ B1`, coil reception `~ B1`), computed from
 the solved `B0` and a surface-coil `B1`. `S` falls ~100x over the first cm

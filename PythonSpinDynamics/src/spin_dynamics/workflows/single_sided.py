@@ -237,9 +237,12 @@ def simulate_mouse_cpmg(
     attenuation emerge from the motion.
 
     ``excited_signal`` is the *intrinsic* slice response -- spin density, T2 /
-    diffusion contrast, and slice volume (which *grows* with depth as the gradient
-    weakens). It is deliberately not weighted by the geometric detection
-    sensitivity, which the engine does not model: thermal polarization
+    diffusion contrast, and slice volume. The volume term makes it *rise* with
+    depth: the frequency-selected slice thickness is (pulse bandwidth) / gradient,
+    and the ``B0`` gradient weakens with depth, so the slice -- and thus the
+    excited sample volume -- grows. It is deliberately not weighted by the
+    geometric detection sensitivity, which the engine does not model: thermal
+    polarization
     ``M0 ~ B0``, reciprocity reception ``~ omega_0 B1``, and transmit efficiency
     ``~ B1``, i.e. an overall ``~ B0^2 B1^2`` that falls steeply with depth (a
     surface coil's ``B1`` dominates). Apply that separately to get the measured

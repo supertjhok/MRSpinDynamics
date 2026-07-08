@@ -10,9 +10,10 @@ image-yoke model.
 **The measured signal is two factors, and they pull in opposite directions.**
 
 1. *Intrinsic slice response* -- what the moving-walker sim returns: spin density,
-   T2/diffusion contrast, and the slice volume. This *rises* with depth, because
-   the static gradient weakens with depth, so a fixed-bandwidth pulse excites a
-   thicker slice (more spins).
+   T2/diffusion contrast, and the slice volume. This *rises* with depth: the
+   frequency-selected slice thickness is (pulse bandwidth)/gradient, and the
+   static ``B0`` gradient weakens with depth, so the excited slice -- and thus the
+   sample volume -- grows.
 2. *Geometric detection sensitivity* -- the depth falloff the walker sim does not
    include (it uses an idealized uniform, per-slice-optimized RF and a
    density-only M0). By reciprocity and the Curie law the detected echo scales as
