@@ -23,6 +23,18 @@ from spin_dynamics.fields.coils import (
     planar_spiral,
     solenoid,
 )
+from spin_dynamics.fields.coil_properties import (
+    ALUMINIUM,
+    ANNEALED_COPPER,
+    HARD_DRAWN_COPPER,
+    SILVER,
+    CoilProperties,
+    ConductorMaterial,
+    medhurst_proximity_factor,
+    sheath_helix_dispersion,
+    solenoid_field_inductance,
+    solenoid_properties,
+)
 from spin_dynamics.fields.domain import SpatialDomain
 from spin_dynamics.fields.eddy_modes import EddyModes, EddyModeSpectrum
 from spin_dynamics.fields.interpolate import dlinear_sample
@@ -105,6 +117,17 @@ __all__ = [
     "maxwell_pair",
     "conducting_ring",
     "cylindrical_shield",
+    # coil properties (single-layer solenoid RF extraction)
+    "ConductorMaterial",
+    "ANNEALED_COPPER",
+    "HARD_DRAWN_COPPER",
+    "SILVER",
+    "ALUMINIUM",
+    "CoilProperties",
+    "medhurst_proximity_factor",
+    "sheath_helix_dispersion",
+    "solenoid_properties",
+    "solenoid_field_inductance",
     # quasistatic E / eddy
     "vector_potential",
     "induced_efield",

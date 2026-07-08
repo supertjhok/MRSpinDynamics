@@ -66,6 +66,7 @@ MODULES = [
     "experiment.serialization",
     "experiment.specs",
     "experiment.wiring",
+    "fields.coil_properties",
     "fields.coils",
     "fields.domain",
     "fields.eddy_modes",
