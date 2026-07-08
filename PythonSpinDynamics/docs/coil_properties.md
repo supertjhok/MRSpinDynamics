@@ -75,9 +75,33 @@ cp.to_probe_params()           # {"L", "R", "C"} for noise.tuned_probe_output_no
 ```
 
 `CoilProperties` also carries every intermediate (`proximity_phi`, `effective_diameter`,
-`k_L/k_s/k_m`, `skin_depth`, `beta`, `characteristic_impedance`, …). Material presets:
-`ANNEALED_COPPER`, `HARD_DRAWN_COPPER`, `SILVER`, `ALUMINIUM` (or a custom
-`ConductorMaterial`).
+`k_L/k_s/k_m`, `skin_depth`, `beta`, `characteristic_impedance`, …).
+
+### Conductor material and temperature
+
+Any metal is supported through `ConductorMaterial`; presets `ANNEALED_COPPER`,
+`HARD_DRAWN_COPPER`, `SILVER`, `ALUMINIUM` carry the QOIL resistivities (at 293.15 K)
+plus a linear temperature coefficient. Only the AC resistance (hence `Q`) depends on
+temperature — the inductance, capacitance and self-resonance are geometric.
+
+```python
+# A cryoprobe coil: cooling cuts resistivity, so R falls and unloaded Q rises.
+ofhc = ConductorMaterial("OFHC copper", 17.241e-9, mu_r=0.99999044,
+                         temp_coefficient=3.93e-3, residual_resistivity_ratio=100.0)
+cold = solenoid_properties(diameter=20e-3, length=30e-3, turns=10,
+                           wire_diameter=1.0e-3, frequency=10e6,
+                           material=ofhc, temperature=77.0)   # Q roughly doubles vs 293 K
+```
+
+`ConductorMaterial.resistivity_at(T)` uses two models. Without a
+`residual_resistivity_ratio` it applies the linear coefficient
+`rho(T) = rho_ref[1 + alpha(T − T_ref)]`, accurate within ~±100 K of room temperature but
+unphysical (negative) at cryogenic temperatures. With an RRR it switches to Matthiessen's
+rule — a residual floor `rho_res = rho_ref/RRR` plus a linear (high-temperature
+Bloch–Grüneisen limit) phonon term — valid from cryogenic up through room temperature. The
+linear phonon term over-predicts the ideal resistivity below ~Debye/3 (≈110 K for copper),
+so cryogenic `R` is a conservative (upper-bound) estimate; supply a measured `resistivity`
+at the operating temperature for a precise value.
 
 ## Validation
 

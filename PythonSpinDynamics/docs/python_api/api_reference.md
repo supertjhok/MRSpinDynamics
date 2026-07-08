@@ -606,11 +606,11 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 
 | Kind | Name | Summary |
 | --- | --- | --- |
-| class | `ConductorMaterial` | A conductor's RF-relevant material constants. |
+| class | `ConductorMaterial` | A conductor's RF-relevant material constants, with a temperature model. |
 | function | `medhurst_proximity_factor(l_over_D: float, p_over_d: float) -> float` | Medhurst proximity factor ``Phi`` from the ``(l/D, p/d)`` table. |
 | function | `sheath_helix_dispersion(frequency: float, a: float, psi: float) -> tuple[float, float, float]` | Solve the ``n = 0`` sheath-helix dispersion at ``frequency``. |
 | class | `CoilProperties` | Lumped RF properties of a single-layer solenoid at a design frequency. |
-| function | `solenoid_properties(*, diameter: float, length: float, turns: int, wire_diameter: float, frequency: float, material: ConductorMaterial = ANNEALED_COPPER) -> CoilProperties` | Extract the lumped RF properties of a single-layer round-wire solenoid. |
+| function | `solenoid_properties(*, diameter: float, length: float, turns: int, wire_diameter: float, frequency: float, material: ConductorMaterial = ANNEALED_COPPER, temperature: float | None = None) -> CoilProperties` | Extract the lumped RF properties of a single-layer round-wire solenoid. |
 | function | `solenoid_field_inductance(*, diameter: float, length: float, turns: int, wire_diameter: float, n_segments: int = 120) -> float` | Independent field-based inductance of the solenoid (Biot-Savart / Neumann). |
 
 ## `spin_dynamics.fields.coils`

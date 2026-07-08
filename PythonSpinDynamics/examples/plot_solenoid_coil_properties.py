@@ -34,6 +34,8 @@ add_src_to_path()
 
 from spin_dynamics.fields import coils
 from spin_dynamics.fields.coil_properties import (
+    ANNEALED_COPPER,
+    ConductorMaterial,
     solenoid_field_inductance,
     solenoid_properties,
 )
@@ -51,6 +53,8 @@ def main() -> None:
     parser.add_argument("--points", type=int, default=40)
     parser.add_argument("--design-mhz", type=float, default=10.0, help="Operating frequency for the SNR demo.")
     parser.add_argument("--sample-conductivity", type=float, default=0.7, help="Aqueous sample (S/m).")
+    parser.add_argument("--cryo-temperature-k", type=float, default=77.0, help="Cold temperature for the cryo-Q comparison.")
+    parser.add_argument("--cryo-rrr", type=float, default=100.0, help="Residual-resistivity ratio of the cold conductor.")
     parser.add_argument("--save", type=str, default=None)
     args = parser.parse_args()
 
@@ -125,6 +129,24 @@ def main() -> None:
     print(f"  loaded by sigma={args.sample_conductivity:.2f} S/m sample: "
           f"R_reflected={loading.reflected_resistance[0]:.4f} ohm  "
           f"Q_loaded={loading.q_loaded[0]:.0f}  noise penalty x{loading.noise_penalty[0]:.2f}")
+
+    # Cooling the coil cuts the conductor resistivity, so R drops and the unloaded Q
+    # rises -- the cryoprobe gain. RRR sets the residual (defect-scattering) floor.
+    cold = ConductorMaterial(
+        f"{ANNEALED_COPPER.name} (RRR={args.cryo_rrr:g})",
+        ANNEALED_COPPER.resistivity, ANNEALED_COPPER.mu_r,
+        temp_coefficient=ANNEALED_COPPER.temp_coefficient,
+        reference_temperature=ANNEALED_COPPER.reference_temperature,
+        residual_resistivity_ratio=args.cryo_rrr,
+    )
+    cp_cold = solenoid_properties(
+        diameter=D, length=length, turns=turns, wire_diameter=d, frequency=f0,
+        material=cold, temperature=args.cryo_temperature_k,
+    )
+    print(f"  cooling {cp0.temperature:.0f} K -> {cp_cold.temperature:.0f} K "
+          f"(RRR={args.cryo_rrr:g}): R {cp0.ac_resistance:.4f} -> {cp_cold.ac_resistance:.4f} ohm, "
+          f"Q_unloaded {cp0.q_factor:.0f} -> {cp_cold.q_factor:.0f} "
+          f"(x{cp_cold.q_factor / cp0.q_factor:.2f})")
 
     if args.save is not None:
         plt = load_matplotlib(required=True, headless=True)

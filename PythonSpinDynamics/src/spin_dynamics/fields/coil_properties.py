@@ -68,23 +68,60 @@ __all__ = [
 
 @dataclass(frozen=True)
 class ConductorMaterial:
-    """A conductor's RF-relevant material constants.
+    """A conductor's RF-relevant material constants, with a temperature model.
 
-    ``resistivity`` is the DC electrical resistivity (ohm*m) and ``mu_r`` the relative
-    permeability (near 1 for the diamagnetic/weakly-paramagnetic plating metals). Values
-    follow the QOIL plating table.
+    ``resistivity`` is the DC electrical resistivity (ohm*m) at ``reference_temperature``
+    (K) and ``mu_r`` the relative permeability (near 1 for the diamagnetic/weakly-
+    paramagnetic plating metals). The reference values follow the QOIL plating table
+    (293.15 K).
+
+    ``temp_coefficient`` is the linear temperature coefficient of resistivity
+    ``alpha`` (1/K) about the reference temperature. ``residual_resistivity_ratio``
+    (RRR ``= rho(293 K) / rho(~0 K)``) is optional and, when set, switches
+    :meth:`resistivity_at` to a Matthiessen model with a residual floor -- required for
+    cryogenic use, where the linear model would go negative.
     """
 
     name: str
     resistivity: float
     mu_r: float = 1.0
+    temp_coefficient: float = 0.0
+    reference_temperature: float = 293.15
+    residual_resistivity_ratio: float | None = None
+
+    def resistivity_at(self, temperature: float | None = None) -> float:
+        """Resistivity (ohm*m) at ``temperature`` (K); reference value if ``None``.
+
+        With no ``residual_resistivity_ratio`` a linear coefficient
+        ``rho(T) = rho_ref [1 + alpha (T - T_ref)]`` is used -- accurate within roughly
+        +/-100 K of the reference but unphysical (it would go negative) at cryogenic
+        temperatures. With an RRR, Matthiessen's rule adds a residual floor
+        ``rho_res = rho_ref / RRR`` to a linear (high-temperature Bloch-Grueneisen limit)
+        phonon term, valid from cryogenic up through room temperature; the phonon term
+        over-predicts the ideal resistivity well below ~Debye/3 (e.g. below ~110 K for
+        copper), so it is a conservative (upper-bound) estimate of the cryogenic loss.
+        """
+
+        if temperature is None:
+            return float(self.resistivity)
+        t = float(temperature)
+        if t < 0.0:
+            raise ValueError("temperature must be non-negative (kelvin)")
+        if self.residual_resistivity_ratio is None:
+            rho = self.resistivity * (1.0 + self.temp_coefficient * (t - self.reference_temperature))
+        else:
+            rho_res = self.resistivity / self.residual_resistivity_ratio
+            rho_phonon_ref = self.resistivity - rho_res
+            rho = rho_res + rho_phonon_ref * (t / self.reference_temperature)
+        return float(max(rho, 1e-13))
 
 
-# Plating presets (resistivity ohm*m, mu_r) -- QOIL `plating` table.
-ANNEALED_COPPER = ConductorMaterial("annealed copper", 17.241e-9, 0.99999044)
-HARD_DRAWN_COPPER = ConductorMaterial("hard-drawn copper", 17.71e-9, 0.99999044)
-SILVER = ConductorMaterial("silver", 15.9e-9, 0.9999738)
-ALUMINIUM = ConductorMaterial("aluminium", 28.24e-9, 1.00002212)
+# Plating presets (resistivity ohm*m at 293.15 K, mu_r, linear temp coefficient 1/K) --
+# QOIL `plating` table extended with textbook temperature coefficients.
+ANNEALED_COPPER = ConductorMaterial("annealed copper", 17.241e-9, 0.99999044, temp_coefficient=3.93e-3)
+HARD_DRAWN_COPPER = ConductorMaterial("hard-drawn copper", 17.71e-9, 0.99999044, temp_coefficient=3.93e-3)
+SILVER = ConductorMaterial("silver", 15.9e-9, 0.9999738, temp_coefficient=3.8e-3)
+ALUMINIUM = ConductorMaterial("aluminium", 28.24e-9, 1.00002212, temp_coefficient=4.03e-3)
 
 
 # --- Medhurst proximity-effect data ----------------------------------------------------
@@ -239,6 +276,8 @@ class CoilProperties:
     wire_diameter: float
     frequency: float
     material: ConductorMaterial
+    temperature: float
+    resistivity: float
     # Geometry / intermediates
     pitch: float
     proximity_phi: float
@@ -302,12 +341,17 @@ def solenoid_properties(
     wire_diameter: float,
     frequency: float,
     material: ConductorMaterial = ANNEALED_COPPER,
+    temperature: float | None = None,
 ) -> CoilProperties:
     """Extract the lumped RF properties of a single-layer round-wire solenoid.
 
     ``diameter`` is the mean coil diameter (conductor centre to centre, m), ``length``
     the coil length (m), ``turns`` the number of turns, ``wire_diameter`` the wire/tubing
     diameter (m), ``frequency`` the design frequency (Hz) and ``material`` the conductor.
+    ``temperature`` (K) sets the operating temperature for the conductor resistivity via
+    :meth:`ConductorMaterial.resistivity_at`; ``None`` uses the material's reference
+    (room) temperature. Only the AC resistance (hence ``Q``) depends on temperature --
+    the inductance, capacitance and self-resonance are geometric.
 
     Implements the Corum sheath-helix model with the Knight/Rosa/Lundin round-wire and
     non-uniformity corrections and Medhurst proximity data (see module docstring). The
@@ -357,13 +401,14 @@ def solenoid_properties(
         - 1.0 / (120.0 * nn**3) + 1.0 / (504.0 * nn**5) - 0.0011925 / nn**7 + c_9 / nn**9
     )
 
-    # Wire lengths and skin depth.
+    # Wire lengths and skin depth (resistivity at the operating temperature).
+    rho = material.resistivity_at(temperature)
     l_w_phys = np.sqrt((nn * np.pi * D) ** 2 + length**2)
     l_w_eff = np.sqrt((nn * np.pi * d_eff) ** 2 + length**2)
-    delta = np.sqrt(material.resistivity / (np.pi * f * MU0 * material.mu_r))
+    delta = np.sqrt(rho / (np.pi * f * MU0 * material.mu_r))
 
     # Effective series AC resistance (skin annulus * proximity, current-sharing (N-1)/N).
-    r_ac = material.resistivity * l_w_eff / (np.pi * (d * delta - delta**2)) * phi
+    r_ac = rho * l_w_eff / (np.pi * (d * delta - delta**2)) * phi
     if N > 1:
         r_ac *= (nn - 1.0) / nn
 
@@ -398,6 +443,8 @@ def solenoid_properties(
         wire_diameter=d,
         frequency=f,
         material=material,
+        temperature=float(material.reference_temperature if temperature is None else temperature),
+        resistivity=float(rho),
         pitch=float(p),
         proximity_phi=float(phi),
         effective_diameter=float(d_eff),

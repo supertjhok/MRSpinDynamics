@@ -3335,6 +3335,67 @@ the same frequency where \(B_0\) is \(\sim\)3.8\(\times\) higher, with non-optim
 flip angles from the proton-calibrated pulses) to estimate its fractional signal
 contribution. Design note: \code{docs/field\_solvers\_quasistatic.md}.
 
+\subsection{Coil property extraction: inductance, resistance, \texorpdfstring{$Q$}{Q}, and self-resonance}
+\label{sec:fields-coil-properties}
+
+The solvers above give a coil's \emph{fields}; a probe designer needs the coil's
+\emph{lumped RF properties}. \code{spin\_dynamics.fields.coil\_properties} extracts
+them for a single-layer helical round-wire solenoid ---
+\code{solenoid\_properties} returns a \code{CoilProperties} with the series
+inductance (the frequency-independent current-sheet value \(L_s\) and the RF value
+\(L_{\text{eff}}\)), the AC (skin~+~proximity) resistance \(R\), the stray
+capacitance \(C_p\), the unloaded quality factor \(Q=\omega L_{\text{eff}}/R\), and
+the first (quarter-wave) self-resonant frequency \(f_{\text{res}}\). These are exactly
+the numbers the tuned-probe noise model (Sec.~\ref{sec:field-solvers}, ``Received-Signal
+Noise'') and the matching-network designer consume, so a coil geometry now feeds the
+SNR budget directly instead of hand-typed \(L\), \(R\), \(C\):
+\code{to\_probe\_params()} returns \(\{L,R,C\}\) and \code{tuning\_capacitance()} the
+tank capacitor \(C=1/(\omega^2 L)\).
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.fields.coil_properties import solenoid_properties
+
+cp = solenoid_properties(diameter=20e-3, length=30e-3, turns=10,
+                         wire_diameter=1.0e-3, frequency=10e6)
+cp.inductance_effective, cp.ac_resistance, cp.q_factor, cp.self_resonant_frequency
+cp.to_probe_params()   # {"L", "R", "C"} -> tuned_probe_output_noise_density
+\end{lstlisting}
+
+The model is the \(n=0\) sheath-helix waveguide method of Corum, with the NIST
+round-wire self- and mutual-inductance corrections (Knight, Rosa), the Lundin
+field-non-uniformity correction, and the Medhurst proximity data. Because it is a
+transmission-line model it stays accurate for electrically long coils, where
+\(L_{\text{eff}}\) rises above the quasistatic \(L_s\) toward \(f_{\text{res}}\).
+It is a faithful port of Serge Stroobandt's QOIL calculator (GPL-3.0, vendored in
+\code{References/}), re-expressed with \code{scipy.special} Bessel functions and
+\code{brentq} root finds; it reproduces QOIL to \(\sim\!6\) significant figures.
+\code{solenoid\_field\_inductance} provides an independent cross-check: it sums the
+Biot-Savart/Neumann partial inductances of the coaxial turns (via
+\code{quasistatic.coil\_inductance}) and agrees with \(L_s\) to within \(\sim\!10\%\).
+
+\paragraph{Conductor material and temperature.} The model is not restricted to copper
+at room temperature. Presets \code{ANNEALED\_COPPER}, \code{HARD\_DRAWN\_COPPER},
+\code{SILVER}, and \code{ALUMINIUM}---or any custom \code{ConductorMaterial}---set the
+resistivity and permeability, and a \code{temperature} argument evaluates the
+resistivity (hence \(R\) and \(Q\); \(L\), \(C\), and \(f_{\text{res}}\) are geometric)
+at the operating temperature. A linear temperature coefficient covers moderate
+excursions about room temperature; supplying a residual-resistivity ratio
+(\(\mathrm{RRR}=\rho_{293\,\mathrm K}/\rho_{0}\)) switches to a Matthiessen model with a
+residual floor, valid down to cryogenic temperatures. Cooling an OFHC-copper coil
+(\(\mathrm{RRR}=100\)) from \(293\) to \(77\,\)K cuts \(R\) roughly in half and nearly
+doubles the unloaded \(Q\)---the cryoprobe gain. The cryogenic estimate is conservative
+(the linear phonon term over-predicts the ideal resistivity below \(\sim\)Debye\(/3\)),
+so pass a measured resistivity for a precise cold value.
+
+The example \code{plot\_solenoid\_coil\_properties.py} sweeps \(L_{\text{eff}}\),
+\(R\), and \(Q\) versus frequency (overlaying the field-based inductance and marking
+\(f_{\text{res}}\)), shows the classic \(Q\)-vs-form-factor peak near a cubical coil
+(\(\ell\approx D\)), and closes the loop by feeding the extracted \((L,R)\) into
+\code{coil\_loading} for the loaded \(Q\) and noise penalty against a conductive sample.
+Field-based extraction of proximity resistance and turn-to-turn capacitance for
+arbitrary (non-solenoidal) coil geometries is a planned follow-on. Design note:
+\code{docs/coil\_properties.md}.
+
 \subsection{Nonlinear magnetostatics: ferrites and saturable iron}
 \label{sec:fields-nonlinear-magnetostatics}
 

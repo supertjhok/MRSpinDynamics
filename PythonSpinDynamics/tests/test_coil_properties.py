@@ -24,6 +24,7 @@ from spin_dynamics.fields.coil_properties import (  # noqa: E402
     ANNEALED_COPPER,
     SILVER,
     CoilProperties,
+    ConductorMaterial,
     medhurst_proximity_factor,
     sheath_helix_dispersion,
     solenoid_field_inductance,
@@ -208,6 +209,59 @@ class HelperTests(unittest.TestCase):
             diameter=20e-3, length=30e-3, turns=10, wire_diameter=1.0e-3, frequency=5e6
         )
         self.assertIsInstance(r, CoilProperties)
+
+
+class MaterialTemperatureTests(unittest.TestCase):
+    _kw = dict(diameter=20e-3, length=30e-3, turns=10, wire_diameter=1.0e-3, frequency=5e6)
+
+    def test_reference_resistivity_recovered(self) -> None:
+        # No temperature (or the reference temperature) reproduces the tabulated value.
+        self.assertEqual(ANNEALED_COPPER.resistivity_at(), ANNEALED_COPPER.resistivity)
+        self.assertAlmostEqual(
+            ANNEALED_COPPER.resistivity_at(ANNEALED_COPPER.reference_temperature),
+            ANNEALED_COPPER.resistivity,
+            places=18,
+        )
+
+    def test_default_temperature_matches_room_temperature(self) -> None:
+        # The temperature argument must not change the default (room-temperature) result.
+        r_default = solenoid_properties(**self._kw)
+        r_room = solenoid_properties(temperature=293.15, **self._kw)
+        self.assertAlmostEqual(r_default.ac_resistance, r_room.ac_resistance, places=12)
+        self.assertEqual(r_default.temperature, 293.15)
+        self.assertAlmostEqual(r_default.resistivity, ANNEALED_COPPER.resistivity, places=18)
+
+    def test_hot_coil_raises_resistance_lowers_q(self) -> None:
+        r_room = solenoid_properties(**self._kw)
+        r_hot = solenoid_properties(temperature=350.0, **self._kw)
+        self.assertGreater(r_hot.ac_resistance, r_room.ac_resistance)
+        self.assertLess(r_hot.q_factor, r_room.q_factor)
+        # Only R (via resistivity) is temperature-dependent; L is geometric.
+        self.assertAlmostEqual(r_hot.inductance_effective, r_room.inductance_effective, places=12)
+
+    def test_cryogenic_rrr_lowers_resistance_raises_q(self) -> None:
+        ofhc = ConductorMaterial(
+            "OFHC copper", 17.241e-9, 0.99999044,
+            temp_coefficient=3.93e-3, residual_resistivity_ratio=100.0,
+        )
+        r_room = solenoid_properties(material=ofhc, temperature=293.15, **self._kw)
+        r_cryo = solenoid_properties(material=ofhc, temperature=77.0, **self._kw)
+        self.assertLess(r_cryo.ac_resistance, r_room.ac_resistance)
+        self.assertGreater(r_cryo.q_factor, r_room.q_factor)
+
+    def test_rrr_floor_at_low_temperature(self) -> None:
+        # Well below the reference temperature the Matthiessen resistivity approaches the
+        # residual floor rho_ref / RRR (from above), never below it.
+        rrr = 200.0
+        m = ConductorMaterial("copper", 17.241e-9, 1.0, temp_coefficient=3.93e-3,
+                              residual_resistivity_ratio=rrr)
+        floor = 17.241e-9 / rrr
+        self.assertGreaterEqual(m.resistivity_at(1.0), floor)
+        self.assertLess(m.resistivity_at(1.0), 0.05 * 17.241e-9)  # far below room value
+
+    def test_negative_temperature_rejected(self) -> None:
+        with self.assertRaises(ValueError):
+            ANNEALED_COPPER.resistivity_at(-10.0)
 
 
 if __name__ == "__main__":
