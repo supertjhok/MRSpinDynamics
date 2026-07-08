@@ -255,6 +255,33 @@ satisfies to machine precision — a free symmetry check that caught a plotting-
 axis-transpose bug. It is a reminder that the solver's exact symmetries are a
 useful correctness probe for any new geometry.
 
+### Driving the single-sided workflow with the solved field
+
+The solved field is wired into the higher-level workflow the same way the analytic
+magnet is. `ScalarPotentialSolution.to_magnet_field_maps(...)` samples the solved
+`B0` (and an optional coil `B1`) onto a `(lateral, depth)` plane and returns the
+same `MagnetFieldMaps` container the analytic `sample_magnet_field` produces, so a
+solved 3-D field is a drop-in field source. `workflows.SolvedMouseField` wraps a
+solution behind the `MouseFieldSource` interface, and `simulate_mouse_cpmg` /
+`mouse_depth_profile` / `resonant_depth` now accept either bars (analytic, the
+unchanged default) or a field source. The end-to-end example
+`plot_nmr_mouse_depth_profile_solved.py` drives the moving-walker depth-profiling
+measurement from the 3-D MOUSE solve (magnets **and** the finite iron yoke, rather
+than the analytic image-yoke) and recovers a buried density gap as a hole in the
+profile. `tests/test_single_sided.py` covers the solved-field path and the
+backward-compatible analytic path together.
+
+The example is also careful about the depth physics. The walker signal is the
+*intrinsic* slice response, which actually *rises* with depth: the frequency-
+selected slice thickness is (pulse bandwidth)/gradient, and the `B0` gradient
+weakens with depth, so the excited slice -- and thus the sample volume -- grows.
+The engine does not include the geometric detection sensitivity. The measured signal multiplies by
+that sensitivity, `S(d) ~ B0(d)^2 B1(d)^2` (Curie polarization `~ B0`, reciprocity
+reception `~ omega_0 B1`, transmit `~ B1`, coil reception `~ B1`), computed from
+the solved `B0` and a surface-coil `B1`. `S` falls ~100x over the first cm
+(B1-dominated), so the *measured* profile decays with depth as real single-sided
+NMR does -- the raw walker profile alone must not be read as the measured signal.
+
 ## Status
 
 - [x] Assessment + quantified RSP limits (this document)
@@ -263,7 +290,19 @@ useful correctness probe for any new geometry.
 - [x] Unit tests (`tests/test_scalar_potential_3d.py`)
 - [x] Worked examples: `plot_ferrite_sphere_3d.py` (accuracy vs `μ_r`),
       `plot_high_mu_convergence_3d.py` (AMG scaling + refinement),
-      `plot_nmr_mouse_3d.py` (NMR-MOUSE magnet + iron yoke, reproduces the paper)
+      `plot_nmr_mouse_3d.py` (NMR-MOUSE magnet + iron yoke, reproduces the paper),
+      `plot_nmr_mouse_depth_profile_solved.py` (solved field driving the workflow),
+      `plot_nmr_mouse_analytic_vs_solver.py` (analytic vs solver: accuracy + timing,
+      "when to use which" -- the solver captures the finite-bar shortfall the
+      infinite-bar analytic model misses, and converges to it as bars lengthen)
+- [x] Workflow integration: `to_magnet_field_maps` adapter + `SolvedMouseField`
+      drive the single-sided depth-profiling workflow from a solved field
+- [x] Imaging-facade integration: `experiment.SampledB0` +
+      `sampled_b0_from_solution` sample a solved field onto the imaging plane so a
+      real (inhomogeneous) magnet B0 drives the CPMG imaging facade -- a
+      spatially-varying off-resonance map (normalized by the RF nutation
+      frequency `omega_1`) plus per-voxel B0 direction for the transverse-B1
+      projection (`tests/test_experiment_solved_b0.py`)
 - [x] Optional AMG (`pyamg`) preconditioner (`_amg_linsolve_3d`,
       `solve(linear_solver="amg")`) — grid-independent iterations, scales to
       >10⁶ unknowns; `"auto"` dispatch + solver-agreement / refinement tests

@@ -71,8 +71,12 @@ from spin_dynamics.experiment.specs import (
     NQRSORC,
     Phantom,
     Sample,
+    SampledB0,
 )
-from spin_dynamics.experiment.wiring import solve_imaging_field_maps
+from spin_dynamics.experiment.wiring import (
+    sampled_b0_from_solution,
+    solve_imaging_field_maps,
+)
 
 from spin_dynamics.experiment import _catalog  # noqa: F401  (registers workflows)
 
@@ -102,6 +106,8 @@ __all__ = [
     "RuntimeEstimate",
     "RxCoil",
     "Sample",
+    "SampledB0",
+    "sampled_b0_from_solution",
     "SerializationError",
     "SolenoidCoil",
     "TxCoil",

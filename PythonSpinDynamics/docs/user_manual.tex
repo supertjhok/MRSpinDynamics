@@ -3480,6 +3480,30 @@ near-quadratic lateral \(B_{0z}(z)\) across the gap. A useful correctness check
 for any new geometry: the solver honours the problem's exact symmetries (here
 \(B_{0z}\) even in \(z\), \(B_{0y}\) odd) to machine precision.
 
+\paragraph{Driving the workflow with the solved field.} The solved field is wired
+into the single-sided workflow (Sec.~\ref{sec:single-sided-nmr}) exactly as the
+analytic magnet is. \code{ScalarPotentialSolution.to\_magnet\_field\_maps(...)}
+samples the solved \(B_0\) (and an optional coil \(B_1\)) onto a
+\((\text{lateral},\text{depth})\) plane and returns the same \code{MagnetFieldMaps}
+container the analytic \code{sample\_magnet\_field} produces, so a 3-D solve is a
+drop-in field source. \code{workflows.SolvedMouseField} wraps a solution, and
+\code{simulate\_mouse\_cpmg}/\code{mouse\_depth\_profile}/\code{resonant\_depth}
+now accept either bars (analytic, the unchanged default) or such a field source.
+The example \code{plot\_nmr\_mouse\_depth\_profile\_solved.py} drives the
+moving-walker depth-profiling measurement from the 3-D MOUSE solve --- magnets and
+the finite iron yoke --- and recovers a buried density gap as a hole in the
+profile, a higher-fidelity counterpart to the analytic image-yoke profile of
+Sec.~\ref{sec:single-sided-nmr}. It also separates the two depth factors: the
+walker signal is the \emph{intrinsic} slice response, which rises with depth
+(the slice thickness is pulse-bandwidth/gradient, and the weakening \(B_0\)
+gradient thickens the slice -- a larger excited sample volume), while the
+\emph{measured} signal weights it by the geometric detection sensitivity
+\(S(d)\sim B_0^2 B_1^2\) (Curie
+polarization, reciprocity reception, and transmit/receive \(B_1\)) computed from
+the solved fields; \(S\) falls \(\sim\!100\times\) over the first centimetre
+(surface-coil \(B_1\) dominated), so the measured profile decays with depth as a
+real single-sided measurement does.
+
 \section{Received-Signal Noise}
 
 Noise is opt-in and output-referred. High-level workflows accept a

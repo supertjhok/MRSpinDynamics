@@ -9,7 +9,7 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from spin_dynamics.fields.magnetostatics import circular_loop
+from spin_dynamics.fields.magnetostatics import GAMMA_PROTON, circular_loop
 from spin_dynamics.fields.nonlinear_magnetostatics import (
     MU0,
     BrauerBH,
@@ -172,6 +172,50 @@ class LinearSolverTests(unittest.TestCase):
         if _HAVE_PYAMG:
             # Beyond the ~20^3 crossover -> AMG-preconditioned CG.
             self.assertEqual(prob._resolve_solver(50_000), "amg")
+
+
+class MagnetFieldMapsAdapterTests(unittest.TestCase):
+    """`to_magnet_field_maps` turns a solve into the workflow's field-map container."""
+
+    def test_uniform_field_maps(self) -> None:
+        h0 = 1.0e5
+        g = _grid(0.05, 15)
+        prob = ReducedScalarPotential3D(g, g, g)
+        prob.add_uniform_source_field((0.0, 0.0, h0))  # B0z = mu0 h0, uniform
+        sol = prob.solve()
+        lat = np.linspace(-0.02, 0.02, 5)
+        dep = np.linspace(-0.02, 0.02, 7)
+        fm = sol.to_magnet_field_maps(lat, dep)  # default roles: z lateral, y depth
+        b0 = MU0 * h0
+        self.assertEqual(fm.b0_magnitude.shape, (5, 7))
+        self.assertTrue(np.allclose(fm.b0_magnitude, b0, atol=1e-9))
+        self.assertTrue(np.allclose(fm.b0_gradient, 0.0, atol=1e-6))  # uniform -> no gradient
+        self.assertTrue(np.allclose(fm.larmor_hz, GAMMA_PROTON * b0 / (2.0 * np.pi)))
+        self.assertIsNone(fm.b1_transverse)  # no coil
+
+    def test_axis_roles_must_be_a_permutation(self) -> None:
+        g = _grid(0.05, 11)
+        prob = ReducedScalarPotential3D(g, g, g)
+        prob.add_uniform_source_field((0.0, 0.0, 1.0e5))
+        sol = prob.solve()
+        with self.assertRaisesRegex(ValueError, "permutation"):
+            sol.to_magnet_field_maps(g, g, lateral="z", depth="z", along="x")
+
+    def test_coil_b1_is_transverse(self) -> None:
+        # B0 along z (uniform); a z-axis loop makes B1 mostly along z at its centre
+        # plane, so the transverse (perp-to-B0) part is below the full |B1|.
+        g = _grid(0.05, 15)
+        prob = ReducedScalarPotential3D(g, g, g)
+        prob.add_uniform_source_field((0.0, 0.0, 1.0e5))
+        sol = prob.solve()
+        coil = circular_loop((0.0, 0.0, 0.0), 0.02, axis="y", n_segments=60)
+        lat = np.linspace(-0.01, 0.01, 5)
+        dep = np.linspace(-0.01, 0.01, 5)
+        fm = sol.to_magnet_field_maps(lat, dep, coil_segments=coil)
+        self.assertIsNotNone(fm.b1_transverse)
+        full = np.linalg.norm(fm.b1_vector, axis=-1)
+        self.assertTrue(np.all(fm.b1_transverse <= full + 1e-12))
+        self.assertGreater(float(np.max(fm.b1_transverse)), 0.0)
 
 
 class ValidationTests(unittest.TestCase):

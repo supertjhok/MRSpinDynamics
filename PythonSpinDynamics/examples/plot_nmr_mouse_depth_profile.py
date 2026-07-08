@@ -9,12 +9,28 @@ off-resonance distribution cannot reproduce.
 
 On a layered phantom (a water layer, a gap, and a gel layer) it shows:
 
-1. The depth profile of CPMG signal -- the gap appears as a hole, the layers as
-   plateaus (depth resolution from the frequency-selected slice).
+1. The depth profile of CPMG signal -- the gap appears as a hole (depth resolution
+   from the frequency-selected slice), plotted as both the intrinsic response and
+   the measured signal (see the note below).
 2. The apparent T2 versus depth.
 3. The diffusion coefficient versus depth, measured by the diffusion-on/off echo
    ratio, recovering the fast (water) and slow (gel) layers -- with the accuracy
    honestly falling off with depth as the static gradient weakens.
+
+**Intrinsic vs measured signal.** The walker signal (``profile.signal``) is the
+*intrinsic* slice response -- spin density, T2/diffusion contrast, and slice
+volume. It *rises* with depth: the static ``B0`` gradient *decreases* with depth,
+and the frequency-selected slice thickness is (pulse bandwidth)/gradient, so a
+weaker gradient excites a *thicker* slice -- a larger sample volume, hence more
+signal. That is the opposite of the real *measured* signal, which additionally
+carries the geometric detection sensitivity ``S(d) ~ B0(d)^2 B1(d)^2`` (Curie
+polarization ``~B0``, reciprocity reception ``~omega_0 B1``, transmit/receive
+``B1``); a surface coil's ``B1`` collapses with depth, so the measured signal
+*falls* -- beyond a few mm it drops below the penetration limit, so the deep gel
+layer is invisible in the measured signal though it is present in the intrinsic
+response. Panel 1 shows both, computed from the analytic ``B0`` and a surface-coil
+``B1``. See ``plot_nmr_mouse_depth_profile_solved.py`` for the same decomposition
+with a 3-D solved field.
 
 Run with ``--output figure.png`` to save, or omit it to show interactively.
 The walker Monte-Carlo makes this example take ~1-2 minutes.
@@ -58,7 +74,7 @@ def main() -> None:
     plt = load_matplotlib(headless=bool(args.output))
 
     from spin_dynamics.fields.magnetostatics import (
-        nmr_mouse_magnets, bar_array_b0, GAMMA_PROTON,
+        nmr_mouse_magnets, bar_array_b0, circular_loop, sample_magnet_field, GAMMA_PROTON,
     )
     from spin_dynamics.workflows.single_sided import (
         SampleLayer, LayeredSample, mouse_depth_profile, measure_diffusion_at_depth,
@@ -114,16 +130,32 @@ def main() -> None:
         print(f"  depth {r.depth*1e3:4.1f} mm  G={r.local_gradient:5.1f} T/m  "
               f"D={r.diffusion*1e9:.2f}e-9")
 
+    # Geometric detection sensitivity S(d) ~ B0^2 B1^2 (see the module docstring):
+    # the measured signal is the intrinsic walker signal x S, and falls with depth.
+    # Coil axis along y (loop in the x-z plane) so the sample sits on the coil's
+    # axis: B1 falls off smoothly with depth (an in-plane coil would put the
+    # on-axis sample line through the wire). B1 || y is transverse to the on-axis
+    # B0 (|| x above the gap centre).
+    surface_coil = circular_loop((0.0, mw, 0.0), 0.5 * args.gap * 1e-3, axis="y", n_segments=48)
+    x_axis = np.array([-1e-4, 0.0, 1e-4])  # 3 points so sample_magnet_field's gradient is defined
+    fm = sample_magnet_field(x_axis, profile.depths, bars, yoke_y=yoke,
+                             coil_segments=surface_coil)
+    sensitivity = fm.b0_magnitude[1] ** 2 * fm.b1_transverse[1] ** 2  # on-axis (x = 0)
+    measured = profile.signal * sensitivity
+
     # ---- plots ----
     fig, axes = plt.subplots(2, 2, figsize=(12.6, 9.0))
     dz = profile.depths * 1e3
 
     ax = axes[0, 0]
-    ax.plot(dz, profile.signal, "o-", color="tab:blue")
+    ax.plot(dz, profile.signal / (profile.signal.max() or 1.0), "o--", color="tab:gray",
+            label="intrinsic (walker)")
+    ax.plot(dz, measured / (measured.max() or 1.0), "o-", color="tab:blue",
+            label="measured (x B0$^2$B1$^2$)")
     ax.axvspan(30, 34, color="gray", alpha=0.2, label="gap (no signal)")
-    ax.set(xlabel="depth (mm)", ylabel="CPMG signal (first echo)",
-           title="Depth profile: signal vs depth")
-    ax.legend()
+    ax.set(xlabel="depth (mm)", ylabel="signal (norm.)",
+           title="Depth profile: intrinsic rises, measured falls")
+    ax.legend(fontsize=8)
 
     ax = axes[0, 1]
     truth = sample.properties(profile.depths)

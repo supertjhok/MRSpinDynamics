@@ -576,6 +576,7 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | Kind | Name | Summary |
 | --- | --- | --- |
 | class | `Phantom` | Spatial sample description for imaging: density plus optional maps. |
+| class | `SampledB0` | A spatially-varying static field sampled on the imaging plane. |
 | class | `Sample` | Sample description. |
 | class | `Hardware` | Transmit/receive hardware description. |
 | class | `Acquisition` | Offset grid, receiver noise, and rephasing-guard configuration. |
@@ -596,6 +597,7 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | --- | --- | --- |
 | function | `uses_hardware_fields(hardware: Hardware) -> bool` | True when the hardware spec requests a coil-field solve. |
 | function | `grid_positions_m(shape: tuple[int, int], plane: ImagingPlane) -> np.ndarray` | Physical voxel positions (meters) of a phantom grid on the plane. |
+| function | `sampled_b0_from_solution(solution, plane: ImagingPlane, shape: tuple[int, int], carrier_hz: float, nutation_rad_s: float = 1.0) -> SampledB0` | Sample a solved 3-D field onto an imaging plane as a :class:`SampledB0`. |
 | function | `solve_imaging_field_maps(phantom: Phantom, hardware: Hardware, *, t1_seconds: float | None = None, t2_seconds: float | None = None) -> ImagingFieldMaps` | Assemble (and cache) the imaging field maps for a phantom + hardware. |
 | function | `solve_diagnostics(phantom: Phantom, hardware: Hardware) -> dict[str, float]` | Return the per-coil transmit-efficiency diagnostics (cached solve). |
 | function | `solve_for_experiment(experiment: Experiment) -> ImagingFieldMaps` | Solve field maps for an experiment's sample + hardware specs. |
@@ -1572,11 +1574,14 @@ No public classes or functions found.
 | class | `LayeredSample` | A stack of :class:`SampleLayer` ordered by depth. |
 | class | `MouseCPMGResult` | One simulated CPMG measurement at a fixed excitation frequency. |
 | class | `MouseDepthProfileResult` | A depth profile assembled from per-frequency CPMG measurements. |
-| function | `resonant_depth(bars: Sequence[BarMagnet], frequency_hz: float, *, yoke_y: float | None = None, depth_range: tuple[float, float] = (0.021, 0.06), gamma: float = GAMMA_PROTON) -> float` | Return the on-axis depth where the proton Larmor frequency equals ``frequency_hz``. |
-| function | `simulate_mouse_cpmg(bars: Sequence[BarMagnet], sample: LayeredSample, frequency_hz: float, *, yoke_y: float | None = None, echo_time: float = 0.0002, num_echoes: int = 64, excitation_duration: float = 1e-05, depth_halfwidth: float = 0.0005, lateral_halfwidth: float = 0.003, n_depth: int = 121, n_lateral: int = 3, walkers_per_cell: int = 12, substeps_per_interval: int = 4, coil_segments: Sequence | None = None, diffusion_scale: float = 1.0, gamma: float = GAMMA_PROTON, seed: int = 0) -> MouseCPMGResult` | Simulate one CPMG measurement at ``frequency_hz`` in the real magnet field. |
+| class | `MouseFieldSource` | A B0/B1 field source for the single-sided (NMR-MOUSE) workflow. |
+| class | `AnalyticMouseField` | Analytic bar-magnet field source with an optional image yoke (the default). |
+| class | `SolvedMouseField` | Field source backed by a solved 3-D :class:`ScalarPotentialSolution`. |
+| function | `resonant_depth(source, frequency_hz: float, *, yoke_y: float | None = None, depth_range: tuple[float, float] | None = None, gamma: float = GAMMA_PROTON) -> float` | Return the on-axis depth where the proton Larmor frequency equals ``frequency_hz``. |
+| function | `simulate_mouse_cpmg(source, sample: LayeredSample, frequency_hz: float, *, yoke_y: float | None = None, echo_time: float = 0.0002, num_echoes: int = 64, excitation_duration: float = 1e-05, depth_halfwidth: float = 0.0005, lateral_halfwidth: float = 0.003, n_depth: int = 121, n_lateral: int = 3, walkers_per_cell: int = 12, substeps_per_interval: int = 4, coil_segments: Sequence | None = None, diffusion_scale: float = 1.0, depth_range: tuple[float, float] | None = None, gamma: float = GAMMA_PROTON, seed: int = 0) -> MouseCPMGResult` | Simulate one CPMG measurement at ``frequency_hz`` in the real magnet field. |
 | class | `MouseDiffusionResult` | Diffusion measured at one depth from the diffusion-on/off echo ratio. |
-| function | `measure_diffusion_at_depth(bars: Sequence[BarMagnet], sample: LayeredSample, frequency_hz: float, *, echo_time: float = 0.00012, num_echoes: int = 40, n_seeds: int = 4, min_ratio: float = 0.1, gamma: float = GAMMA_PROTON, **cpmg_kwargs) -> MouseDiffusionResult` | Measure D at the slice by the diffusion-on / diffusion-off echo ratio. |
-| function | `mouse_depth_profile(bars: Sequence[BarMagnet], sample: LayeredSample, frequencies_hz: Sequence[float], *, yoke_y: float | None = None, **cpmg_kwargs) -> MouseDepthProfileResult` | Profile a sample in depth by sweeping the excitation frequency. |
+| function | `measure_diffusion_at_depth(source, sample: LayeredSample, frequency_hz: float, *, echo_time: float = 0.00012, num_echoes: int = 40, n_seeds: int = 4, min_ratio: float = 0.1, gamma: float = GAMMA_PROTON, **cpmg_kwargs) -> MouseDiffusionResult` | Measure D at the slice by the diffusion-on / diffusion-off echo ratio. |
+| function | `mouse_depth_profile(source, sample: LayeredSample, frequencies_hz: Sequence[float], *, yoke_y: float | None = None, **cpmg_kwargs) -> MouseDepthProfileResult` | Profile a sample in depth by sweeping the excitation frequency. |
 
 ## `spin_dynamics.workflows.slice_selective`
 
