@@ -45,6 +45,13 @@ try:  # SciPy gives a fast sparse direct solve; fall back to matrix-free CG.
 except Exception:  # pragma: no cover - exercised only without SciPy installed
     _HAVE_SCIPY = False
 
+try:  # pyamg gives an O(N) AMG-preconditioned CG, lifting the 3D splu ceiling.
+    import pyamg as _pyamg
+
+    _HAVE_PYAMG = True
+except Exception:  # pragma: no cover - exercised only without pyamg installed
+    _HAVE_PYAMG = False
+
 MU0 = 4.0e-7 * np.pi
 
 
@@ -235,8 +242,83 @@ def _sparse_factorize(diag, c_ip, c_im, c_jp, c_jm):
     return linsolve
 
 
+def _build_matrix_3d(diag, c_ip, c_im, c_jp, c_jm, c_kp, c_km):
+    """Assemble the 7-point stencil sparse matrix (boundary rows are identity).
+
+    ``diag`` and the six directional coupling arrays are shaped like the
+    ``(nx, ny, nz)`` grid, with boundary rows already set to identity. Interior
+    rows retain their couplings to boundary nodes (whose values the right-hand
+    side pins), so the matrix is a nonsingular M-matrix; it is mildly asymmetric
+    only in those boundary-adjacent rows, which both the sparse LU and pyamg's
+    CG-accelerated solve handle.
+    """
+
+    n0, n1, n2 = diag.shape
+    total = n0 * n1 * n2
+    idx = np.arange(total).reshape(n0, n1, n2)
+    rows = [
+        idx.ravel(),
+        idx[:-1, :, :].ravel(), idx[1:, :, :].ravel(),
+        idx[:, :-1, :].ravel(), idx[:, 1:, :].ravel(),
+        idx[:, :, :-1].ravel(), idx[:, :, 1:].ravel(),
+    ]
+    cols = [
+        idx.ravel(),
+        idx[1:, :, :].ravel(), idx[:-1, :, :].ravel(),
+        idx[:, 1:, :].ravel(), idx[:, :-1, :].ravel(),
+        idx[:, :, 1:].ravel(), idx[:, :, :-1].ravel(),
+    ]
+    data = [
+        diag.ravel(),
+        -c_ip[:-1, :, :].ravel(), -c_im[1:, :, :].ravel(),
+        -c_jp[:, :-1, :].ravel(), -c_jm[:, 1:, :].ravel(),
+        -c_kp[:, :, :-1].ravel(), -c_km[:, :, 1:].ravel(),
+    ]
+    return _coo_matrix(
+        (np.concatenate(data), (np.concatenate(rows), np.concatenate(cols))),
+        shape=(total, total),
+    )
+
+
+def _sparse_factorize_3d(*coeffs):
+    """Factorize the 7-point matrix by sparse LU (fast, exact, small-grid default).
+
+    Returns ``linsolve(rhs, x0=None)``. Fill-in is far heavier than in 2D
+    (~O(N^{4/3}) memory, ~O(N^2) work); the practical ceiling is ~50-64^3, above
+    which the AMG path (:func:`_amg_linsolve_3d`) scales far better -- see
+    docs/reduced_scalar_potential_3d.md.
+    """
+
+    lu = _splu(_build_matrix_3d(*coeffs).tocsc())
+
+    def linsolve(rhs, x0=None):
+        return lu.solve(rhs.ravel()).reshape(rhs.shape)
+
+    return linsolve
+
+
+def _amg_linsolve_3d(coeffs, tol, max_iter):
+    """AMG-preconditioned CG solve of the 7-point matrix (O(N), for large grids).
+
+    Smoothed-aggregation AMG accelerated by CG. The setup is O(N) and the
+    iteration count is grid-independent (~15 V-cycles), so unlike sparse LU it
+    scales to 128-256^3 in memory and time. Warm-starts from ``x0`` (the previous
+    nonlinear iterate) when given.
+    """
+
+    matrix = _build_matrix_3d(*coeffs).tocsr()
+    ml = _pyamg.smoothed_aggregation_solver(matrix)
+
+    def linsolve(rhs, x0=None):
+        x0v = None if x0 is None else np.ravel(x0)
+        x = ml.solve(np.ravel(rhs), x0=x0v, tol=tol, maxiter=int(max_iter), accel="cg")
+        return x.reshape(rhs.shape)
+
+    return linsolve
+
+
 def _anderson_picard(
-    reluctivity,
+    coeff_fn,
     make_linsolve,
     rhs_full,
     free,
@@ -249,21 +331,30 @@ def _anderson_picard(
     n_load_steps,
     cg_tol,
     cg_max_iter,
+    rhs_fn=None,
 ):
     """Solve a nonlinear magnetostatic problem by Anderson-accelerated Picard.
 
-    ``reluctivity(a)`` returns the per-node reluctivity for potential ``a`` and
-    ``make_linsolve(nu, ...)`` returns a linear solver for the current operator.
-    Anderson mixing of depth ``depth`` (the technique the Motor_Design solver
-    uses at the re-entrant iron corner) collapses the iteration count that plain
-    relaxed Picard needs; ``n_load_steps > 1`` ramps the sources for
-    hard-saturation robustness.
+    ``coeff_fn(a)`` returns the per-node operator coefficient for potential ``a``
+    (reluctivity ``nu`` for the vector-potential solvers, permeability ``mu`` for
+    the reduced-scalar-potential solver) and ``make_linsolve(coeff, ...)`` returns
+    a linear solver for the current operator. Anderson mixing of depth ``depth``
+    (the technique the Motor_Design solver uses at the re-entrant iron corner)
+    collapses the iteration count that plain relaxed Picard needs;
+    ``n_load_steps > 1`` ramps the sources for hard-saturation robustness.
+
+    ``rhs_fn`` is an optional ``rhs_fn(coeff) -> rhs`` used when the source term
+    itself depends on the (evolving) coefficient -- the reduced scalar potential
+    needs this because its right-hand side ``div(mu H_s + B_r)`` carries ``mu``.
+    When ``rhs_fn is None`` the fixed ``rhs_full`` is used and the iteration is
+    identical to the vector-potential path.
     """
 
     a = np.zeros_like(rhs_full)
     if linear:
-        nu = reluctivity(a)
-        a = make_linsolve(nu, free, cg_tol, cg_max_iter)(rhs_full, a)
+        nu = coeff_fn(a)
+        rhs0 = rhs_full if rhs_fn is None else rhs_fn(nu)
+        a = make_linsolve(nu, free, cg_tol, cg_max_iter)(rhs0, a)
         a[~free] = 0.0
         return a, 1, 0.0
 
@@ -275,14 +366,16 @@ def _anderson_picard(
     best_resid, best_a = np.inf, a.copy()
     loads = list(np.linspace(1.0 / n_load_steps, 1.0, int(n_load_steps)))
     for step, load in enumerate(loads):
-        rhs = load * rhs_full
+        rhs = None if rhs_fn is not None else load * rhs_full
         is_final = step == len(loads) - 1
         g_hist: list[np.ndarray] = []
         f_hist: list[np.ndarray] = []
         local_best, stall = np.inf, 0
         for _ in range(int(max_iter)):
             total += 1
-            nu = reluctivity(a)
+            nu = coeff_fn(a)
+            if rhs_fn is not None:  # source depends on the evolving coefficient
+                rhs = load * rhs_fn(nu)
             solved = make_linsolve(nu, free, cg_tol, cg_max_iter)(rhs, a)
             g = (1.0 - relax) * a + relax * solved
             fk = g - a

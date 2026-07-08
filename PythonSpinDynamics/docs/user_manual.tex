@@ -3176,7 +3176,22 @@ B1, relaxation, and density---through the dimension-agnostic
 \code{SpatialFieldMaps}), so the 1D, 2D, and 3D paths share one field
 representation and one gradient-coupling rule.
 
-\section{Magnet Field Sources and Single-Sided NMR}
+\section{Field Solvers}
+\label{sec:field-solvers}
+
+\code{spin\_dynamics.fields} computes device fields from first principles rather
+than assuming a synthetic map. Two families live here: closed-form \emph{analytic}
+sources --- permanent-magnet bars, finite Halbach arrays, and Biot-Savart coils
+--- and structured-grid \emph{numerical} solvers for the effects analytic
+superposition cannot represent: quasistatic induced-E and eddy currents, and
+nonlinear magnetostatics with flux-shaping ferrites, saturable iron, and permanent
+magnets in two and three dimensions. All are mesh-free (uniform grids) and depend
+only on NumPy; SciPy and (for the 3D solver) pyamg accelerate the larger linear
+solves when available. The single-sided NMR depth-profiling workflow that consumes
+these fields is described alongside the analytic sources it is built on.
+
+\subsection{Analytic magnet and coil sources}
+\label{sec:fields-analytic-sources}
 
 The imaging and motion workflows consume \code{(B0, B1)} maps;
 \code{spin\_dynamics.fields.magnetostatics} \emph{generates} them from
@@ -3232,6 +3247,8 @@ direction, uniformity, finite-length axial falloff, and gradient map. These
 fields also feed the polarization-enhanced NQR transport model in
 Sec.~\ref{sec:nqr-polarization-enhancement}.
 
+\paragraph{Single-sided depth profiling.}
+\label{sec:single-sided-nmr}
 Single-sided NMR profiles a sample by depth: an excitation frequency selects the
 iso-B0 sensitive slice, and the strong static gradient encodes diffusion. The
 defining feature is that the spins \emph{move through a spatially structured
@@ -3377,6 +3394,91 @@ negligible next to the brine. The reported figure of merit is therefore the
 \emph{net} per-echo SNR and the RF power for a fixed sweet-spot \(B_1\), not the
 naive reciprocity ratio. The material model and nonlinear scheme are adapted from
 the author's Motor\_Design finite-element solver.
+
+\subsection{Three-dimensional magnetostatics: the reduced scalar potential}
+\label{sec:fields-scalar-potential-3d}
+
+The vector-potential solvers above are two-dimensional --- symmetry collapses
+\(\mathbf A\) to a single scalar component. General 3D has no such symmetry, and
+the full curl-curl operator \(\nabla\times(\nu\nabla\times\mathbf A)=\mathbf J\) is
+singular on a nodal grid (a large gradient null space), which forces edge elements
+or a gauged block system. \code{ReducedScalarPotential3D} takes the pragmatic
+route for magnet- and iron-dominated problems: the \emph{reduced scalar
+potential}. Writing \(\mathbf H=\mathbf H_s-\nabla\psi\) with \(\mathbf H_s\) the
+free-space Biot-Savart field of the coils (so Ampere's law holds for any
+\(\psi\)), Gauss's law \(\nabla\cdot\mathbf B=0\) with \(\mathbf
+B=\mu(|\mathbf B|)(\mathbf H_s-\nabla\psi)+\mathbf B_r\) reduces to a single scalar,
+symmetric-positive-definite, variable-coefficient Poisson problem,
+\[
+  \nabla\cdot(\mu\,\nabla\psi)
+    = \nabla\cdot\big((\mu-\mu_0)\,\mathbf H_s+\mathbf B_r\big),
+\]
+solved on the same structured grid with the same Anderson-accelerated Picard
+driver and the same Brauer material model as the 2D solvers. Permanent magnets
+enter through the remanence \(\mathbf B_r\), soft or saturable iron through
+\(\mu\), and coils through \(\mathbf H_s\); box, sphere, and cylinder region masks
+paint the geometry.
+
+\begin{lstlisting}[language=Python]
+import numpy as np
+from spin_dynamics.fields.scalar_potential_3d import ReducedScalarPotential3D
+from spin_dynamics.fields.nonlinear_magnetostatics import ndfeb, linear_material
+
+g = np.linspace(-0.09, 0.09, 121)
+prob = ReducedScalarPotential3D(g, g, g)
+# Two anti-parallel NdFeB bars on a soft-iron yoke (NMR-MOUSE).
+prob.add_material(prob.box((-0.02, 0.02), (-0.032, 0.0), (-0.0325, -0.0065)),
+                  ndfeb(1.2), remanence_direction=(0, 1, 0))
+prob.add_material(prob.box((-0.02, 0.02), (-0.032, 0.0), (0.0065, 0.0325)),
+                  ndfeb(1.2), remanence_direction=(0, -1, 0))
+prob.add_material(prob.box((-0.02, 0.02), (-0.047, -0.032), (-0.0325, 0.0325)),
+                  linear_material(1000.0))
+sol = prob.solve(linear_solver="auto")        # AMG on the large grid
+bx, by, bz = sol.sample([0.0], [0.0025], [0.0])  # field 2.5 mm above the gap
+\end{lstlisting}
+
+Two implementation points matter. The source term uses \((\mu-\mu_0)\mathbf H_s\),
+not \(\mu\mathbf H_s\): because \(\mathbf H_s\) is divergence-free the vacuum part
+cancels analytically, which makes free space exact (\(\psi\equiv0\), \(\mathbf
+B=\mu_0\mathbf H_s\)) and removes the grid-erratic discrete divergence of the
+near-singular sampled coil field at the wire. And \(\mu\) is evaluated as a
+\emph{stateless} function of \(\psi\) --- inverting the B-H curve for
+\(\mu(|\mathbf H|)\), since \(\mathbf H=\mathbf H_s-\nabla\psi\) is available from
+the unknown alone --- which keeps the \(\mu\leftrightarrow\psi\) fixed point inside
+the Anderson mixing; carrying \(\mu\) as hidden state fails to converge under
+partial saturation.
+
+\paragraph{Accuracy and the linear solve.} Inside high-permeability material the
+physical \(\mathbf H=\mathbf H_s-\nabla\psi\) is a near-cancellation of two large
+quantities, so the field error scales as \(\mu_r\,(h/L)^2\); the solver is
+trustworthy for \(\mu_r\lesssim 100\text{--}300\), and excellent for permanent
+magnets (\(\mu_r\approx1.05\)). The classical Simkin-Trowbridge total/reduced
+split does \emph{not} help on this centered nodal grid: the two formulations are
+an exact linear variable shift apart and yield the identical discrete solution
+(verified to machine precision), so the residual error is discretization, not
+floating-point cancellation. The effective cure is grid refinement, made practical
+by the optional AMG solver. \code{solve(linear\_solver="auto")} uses an exact
+sparse LU for small grids and switches to pyamg's AMG-preconditioned CG above
+\(\sim\!20^3\) unknowns; its grid-independent iteration count scales to \(>10^6\)
+unknowns (a \(121^3\) grid solves in seconds, where sparse-LU fill-in cannot reach
+\(64^3\)). The design note \code{docs/reduced\_scalar\_potential\_3d.md} gives the
+full quantification and the equivalence proof.
+
+\paragraph{The NMR-MOUSE.} The example \code{plot\_nmr\_mouse\_3d.py} is the
+flagship application: the Bl\"umich NMR-MOUSE, two anti-parallel NdFeB bars on a
+soft-iron yoke with a surface coil in the gap. Unlike the analytic treatment of
+Sec.~\ref{sec:single-sided-nmr}, which adds the yoke by the method of images
+across a \(\mu\to\infty\) plane, the solver treats the magnets and the
+\emph{finite} iron yoke together, so the yoke's low-reluctance return path is
+resolved directly and is found to boost the sensor field by \(\sim\!10\%\) --- the
+effect that motivates the yoke and that free-space dipole superposition cannot
+capture. With the paper's geometry (26\,mm magnets, 13\,mm gap, 15\,mm yoke) the
+simulation reproduces the device's hallmarks: \(B_0\approx0.43\,\)T at the
+\(2.5\,\)mm sensor (\(\sim\!18\,\)MHz \(^1\)H; paper \(0.41\,\)T, \(17.5\,\)MHz), a
+\(\sim\!14\,\)T/m penetration gradient (paper \(10\text{--}14\)), and a
+near-quadratic lateral \(B_{0z}(z)\) across the gap. A useful correctness check
+for any new geometry: the solver honours the problem's exact symmetries (here
+\(B_{0z}\) even in \(z\), \(B_{0y}\) odd) to machine precision.
 
 \section{Received-Signal Noise}
 

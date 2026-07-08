@@ -693,6 +693,13 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `CoilLoading` | Frequency-swept sample loading of a coil by a conductive medium. |
 | function | `coil_loading(grid_points: np.ndarray, segments: Sequence[Segment], *, conductivity: float, mask: np.ndarray, spacing: Sequence[float], frequencies: Sequence[float], inductance: float, coil_resistance: float | np.ndarray, charge_correction: bool = False) -> CoilLoading` | Sweep the sample-loading effect of a conductive medium across frequency. |
 
+## `spin_dynamics.fields.scalar_potential_3d`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `ScalarPotentialSolution` | Result of a 3D reduced-scalar-potential magnetostatic solve. |
+| class | `ReducedScalarPotential3D` | 3D nonlinear magnetostatics via the reduced scalar potential ``psi``. |
+
 ## `spin_dynamics.interference.active`
 
 | Kind | Name | Summary |
