@@ -576,6 +576,7 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | Kind | Name | Summary |
 | --- | --- | --- |
 | class | `Phantom` | Spatial sample description for imaging: density plus optional maps. |
+| class | `SampledB0` | A spatially-varying static field sampled on the imaging plane. |
 | class | `Sample` | Sample description. |
 | class | `Hardware` | Transmit/receive hardware description. |
 | class | `Acquisition` | Offset grid, receiver noise, and rephasing-guard configuration. |
@@ -596,6 +597,7 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | --- | --- | --- |
 | function | `uses_hardware_fields(hardware: Hardware) -> bool` | True when the hardware spec requests a coil-field solve. |
 | function | `grid_positions_m(shape: tuple[int, int], plane: ImagingPlane) -> np.ndarray` | Physical voxel positions (meters) of a phantom grid on the plane. |
+| function | `sampled_b0_from_solution(solution, plane: ImagingPlane, shape: tuple[int, int], carrier_hz: float, nutation_rad_s: float = 1.0) -> SampledB0` | Sample a solved 3-D field onto an imaging plane as a :class:`SampledB0`. |
 | function | `solve_imaging_field_maps(phantom: Phantom, hardware: Hardware, *, t1_seconds: float | None = None, t2_seconds: float | None = None) -> ImagingFieldMaps` | Assemble (and cache) the imaging field maps for a phantom + hardware. |
 | function | `solve_diagnostics(phantom: Phantom, hardware: Hardware) -> dict[str, float]` | Return the per-coil transmit-efficiency diagnostics (cached solve). |
 | function | `solve_for_experiment(experiment: Experiment) -> ImagingFieldMaps` | Solve field maps for an experiment's sample + hardware specs. |

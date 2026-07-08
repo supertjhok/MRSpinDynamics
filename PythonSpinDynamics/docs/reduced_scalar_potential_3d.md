@@ -296,6 +296,12 @@ NMR does -- the raw walker profile alone must not be read as the measured signal
       infinite-bar analytic model misses, and converges to it as bars lengthen)
 - [x] Workflow integration: `to_magnet_field_maps` adapter + `SolvedMouseField`
       drive the single-sided depth-profiling workflow from a solved field
+- [x] Imaging-facade integration: `experiment.SampledB0` +
+      `sampled_b0_from_solution` sample a solved field onto the imaging plane so a
+      real (inhomogeneous) magnet B0 drives the CPMG imaging facade -- a
+      spatially-varying off-resonance map (normalized by the RF nutation
+      frequency `omega_1`) plus per-voxel B0 direction for the transverse-B1
+      projection (`tests/test_experiment_solved_b0.py`)
 - [x] Optional AMG (`pyamg`) preconditioner (`_amg_linsolve_3d`,
       `solve(linear_solver="amg")`) — grid-independent iterations, scales to
       >10⁶ unknowns; `"auto"` dispatch + solver-agreement / refinement tests

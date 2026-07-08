@@ -22,8 +22,8 @@ import numpy as np
 
 from spin_dynamics.experiment.hardware import ImagingPlane, RxCoil, TxCoil, UniformB0
 from spin_dynamics.experiment.serialization import encode
-from spin_dynamics.experiment.specs import Experiment, Hardware, Phantom
-from spin_dynamics.fields.magnetostatics import biot_savart
+from spin_dynamics.experiment.specs import Experiment, Hardware, Phantom, SampledB0
+from spin_dynamics.fields.magnetostatics import GAMMA_PROTON, biot_savart
 from spin_dynamics.motion import transverse_b1_magnitude
 from spin_dynamics.workflows.imaging import make_imaging_field_maps
 from spin_dynamics.workflows.imaging_types import ImagingFieldMaps
@@ -56,8 +56,8 @@ def uses_hardware_fields(hardware: Hardware) -> bool:
 
 
 def _validate_hardware(hardware: Hardware) -> None:
-    if hardware.b0 is not None and not isinstance(hardware.b0, UniformB0):
-        raise ValueError("hardware.b0 must be a UniformB0 spec")
+    if hardware.b0 is not None and not isinstance(hardware.b0, (UniformB0, SampledB0)):
+        raise ValueError("hardware.b0 must be a UniformB0 or SampledB0 spec")
     if hardware.tx_coil is not None and not isinstance(hardware.tx_coil, TxCoil):
         raise ValueError("hardware.tx_coil must be a TxCoil spec")
     if hardware.rx_coil is not None and not isinstance(hardware.rx_coil, RxCoil):
@@ -77,6 +77,28 @@ def grid_positions_m(shape: tuple[int, int], plane: ImagingPlane) -> np.ndarray:
     points[..., ax0] += c0[:, np.newaxis]
     points[..., ax1] += c1[np.newaxis, :]
     return points
+
+
+def sampled_b0_from_solution(solution, plane: ImagingPlane, shape: tuple[int, int],
+                             carrier_hz: float, nutation_rad_s: float = 1.0) -> SampledB0:
+    """Sample a solved 3-D field onto an imaging plane as a :class:`SampledB0`.
+
+    ``solution`` is anything with ``sample(x, y, z) -> (Bx, By, Bz)`` (e.g. a
+    :class:`~spin_dynamics.fields.scalar_potential_3d.ScalarPotentialSolution`).
+    ``plane`` and ``shape`` place and size the phantom grid in the solver frame,
+    so the resulting off-resonance and B0-direction maps come from the real,
+    inhomogeneous magnet field. ``nutation_rad_s`` normalizes the off-resonance to
+    the CPMG kernel's offset units (the RF ``omega_1``; see :class:`SampledB0`).
+    Wire it in as ``Hardware.b0``.
+    """
+
+    points = grid_positions_m(shape, plane)
+    b_x, b_y, b_z = solution.sample(points[..., 0], points[..., 1], points[..., 2])
+    return SampledB0(
+        b0_tesla=np.stack([b_x, b_y, b_z], axis=-1),
+        carrier_hz=carrier_hz,
+        nutation_rad_s=nutation_rad_s,
+    )
 
 
 def _normalized_transverse_b1(
@@ -125,11 +147,16 @@ def _cache_key(phantom: Phantom, hardware: Hardware) -> str:
             digest.update(str(arr.shape).encode())
             digest.update(np.ascontiguousarray(arr).tobytes())
     geometry = {
-        "b0": encode(hardware.b0),
         "tx_coil": encode(hardware.tx_coil),
         "rx_coil": encode(hardware.rx_coil),
         "plane": encode(hardware.plane),
     }
+    # Hash a SampledB0's array directly (encoding it to JSON would be huge).
+    if isinstance(hardware.b0, SampledB0):
+        digest.update(np.ascontiguousarray(hardware.b0.b0_tesla).tobytes())
+        digest.update(str(float(hardware.b0.carrier_hz)).encode())
+    else:
+        geometry["b0"] = encode(hardware.b0)
     digest.update(json.dumps(geometry, sort_keys=True).encode())
     return digest.hexdigest()
 
@@ -159,14 +186,23 @@ def solve_imaging_field_maps(
     t1_map = t_map(phantom.t1_map, t1_seconds)
     t2_map = t_map(phantom.t2_map, t2_seconds)
 
+    # A SampledB0 supplies a spatially-varying off-resonance map (a real magnet
+    # field); a UniformB0 (or no b0) leaves the workflow's zero off-resonance.
+    b0_map = None
+    if isinstance(hardware.b0, SampledB0):
+        b0_map = hardware.b0.off_resonance(GAMMA_PROTON)
+
     if not uses_hardware_fields(hardware):
-        return make_imaging_field_maps(phantom.rho, t1_map=t1_map, t2_map=t2_map)
+        return make_imaging_field_maps(
+            phantom.rho, t1_map=t1_map, t2_map=t2_map, b0_map=b0_map
+        )
 
     solved = _solve_coil_fields(phantom, hardware)
     return make_imaging_field_maps(
         phantom.rho,
         t1_map=t1_map,
         t2_map=t2_map,
+        b0_map=b0_map,
         b1_tx_map=solved.b1_tx_map,
         b1_rx_map=solved.b1_rx_map,
     )
@@ -180,8 +216,11 @@ def _solve_coil_fields(phantom: Phantom, hardware: Hardware) -> _SolvedFields:
 
     plane = hardware.plane if hardware.plane is not None else ImagingPlane()
     b0_spec = hardware.b0 if hardware.b0 is not None else UniformB0()
-    direction = np.asarray(b0_spec.direction, dtype=np.float64)
-    direction = direction / np.linalg.norm(direction)
+    if isinstance(b0_spec, SampledB0):
+        direction = b0_spec.direction()  # per-voxel (n0, n1, 3)
+    else:
+        direction = np.asarray(b0_spec.direction, dtype=np.float64)
+        direction = direction / np.linalg.norm(direction)
     points = grid_positions_m(phantom.rho.shape, plane)
 
     diagnostics: dict[str, float] = {}

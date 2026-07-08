@@ -77,6 +77,73 @@ class Phantom:
 
 
 @register_serializable
+@dataclass(frozen=True, eq=False)
+class SampledB0:
+    """A spatially-varying static field sampled on the imaging plane.
+
+    ``b0_tesla`` is the static-field vector on the phantom grid, shape
+    ``(n0, n1, 3)`` in tesla -- e.g. sampled from a 3-D magnetostatic solve via
+    :func:`spin_dynamics.experiment.wiring.sampled_b0_from_solution`.
+    Used as ``Hardware.b0`` it drives imaging with a real (inhomogeneous) magnet
+    field instead of the idealized uniform one: the per-voxel B0 direction sets
+    the transverse-B1 projection, and :meth:`off_resonance` supplies the imaging
+    ``b0_map``.
+
+    **Units.** The physical angular off-resonance is ``gamma |B0| - 2 pi
+    carrier_hz`` (rad/s). The CPMG imaging kernel normalizes off-resonance by the
+    RF **nutation frequency** ``omega_1 = gamma B1`` -- ``del_w_normalized =
+    del_w / omega_1`` -- so set ``nutation_rad_s`` to the imaging pulses' ``omega_1``
+    to get the map the kernel expects. Leave it at ``1.0`` to keep the physical
+    rad/s value (the motion / multislice engine convention).
+    """
+
+    b0_tesla: np.ndarray
+    carrier_hz: float
+    nutation_rad_s: float = 1.0
+
+    def __post_init__(self) -> None:
+        arr = np.asarray(self.b0_tesla, dtype=np.float64)
+        if arr.ndim != 3 or arr.shape[-1] != 3:
+            raise ValueError("b0_tesla must have shape (n0, n1, 3)")
+        object.__setattr__(self, "b0_tesla", arr)
+        if not (float(self.carrier_hz) > 0.0):
+            raise ValueError("carrier_hz must be positive")
+        if not (float(self.nutation_rad_s) > 0.0):
+            raise ValueError("nutation_rad_s must be positive")
+
+    def magnitude_tesla(self) -> np.ndarray:
+        """Return ``|B0|`` (T) on the grid."""
+
+        return np.linalg.norm(self.b0_tesla, axis=-1)
+
+    def off_resonance(self, gamma: float) -> np.ndarray:
+        """Return ``(gamma |B0| - 2 pi carrier) / nutation_rad_s``.
+
+        With ``nutation_rad_s = 1`` this is the physical angular off-resonance
+        (rad/s); set it to the RF nutation frequency ``omega_1`` to get the
+        CPMG imaging kernel's normalized offset (``del_w / omega_1``).
+        """
+
+        physical = gamma * self.magnitude_tesla() - 2.0 * np.pi * float(self.carrier_hz)
+        return physical / float(self.nutation_rad_s)
+
+    def direction(self) -> np.ndarray:
+        """Return the per-voxel unit B0 direction (for transverse-B1 projection)."""
+
+        mag = self.magnitude_tesla()
+        return self.b0_tesla / np.where(mag > 0.0, mag, 1.0)[..., np.newaxis]
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, SampledB0):
+            return NotImplemented
+        return (
+            float(self.carrier_hz) == float(other.carrier_hz)
+            and float(self.nutation_rad_s) == float(other.nutation_rad_s)
+            and bool(np.array_equal(self.b0_tesla, other.b0_tesla))
+        )
+
+
+@register_serializable
 @dataclass(frozen=True)
 class Sample:
     """Sample description.
