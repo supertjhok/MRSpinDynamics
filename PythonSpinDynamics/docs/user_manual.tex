@@ -3452,11 +3452,14 @@ coils.
 exports a \code{Conductor} to a FastHenry \code{.inp} deck and, on a Windows FastHenry2
 install (via its COM automation server), runs it and returns \(L(f)\)/\(R(f)\) for a direct
 comparison (\code{run\_fasthenry}, \code{compare\_with\_fasthenry}; use
-\code{cross\_section="rect"} to match FastHenry's rectangular conductors exactly). For a
-1\(\times\)1~mm copper bar the resistance agrees with FastHenry to \(\sim\)1\% at low
-frequency and the inductance to \(\sim\)6\% (a GMD-discretization offset versus FastHenry's
-exact Hoer-Love formulas), with growing divergence in the deep-skin regime where either
-solver under-resolves. \code{fields.fastercap\_interop} panelizes the wire surface and runs FasterCap (the
+\code{cross\_section="rect"} to match FastHenry's rectangular conductors exactly). The
+inductance agrees with FastHenry to \textbf{under 1\%} for both straight bars and helical
+solenoids --- the segment-pair mutual uses the exact closed form ported from FastHenry's
+\code{mutualfil} (Grover's method), which, unlike a numerical quadrature, does not
+over-couple the vertex-sharing segments of a coil path. The resistance agrees to \(\sim\)1\%
+at low frequency and converges to the exact Kelvin value with cell count; in deep skin at a
+coarse mesh it under-resolves, as FastHenry does at the same filament count.
+\code{fields.fastercap\_interop} panelizes the wire surface and runs FasterCap (the
 successor to FastCap) via its COM server, and \code{capacitance\_to\_ground} matches that
 boundary-element result to \(\sim\)1\% for a straight wire (both \(\sim\)10\% below the
 crude analytic formula, so the thin-wire kernel is confirmed against the reference rather

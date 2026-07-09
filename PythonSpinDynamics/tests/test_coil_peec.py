@@ -25,7 +25,7 @@ from scipy.special import bei, beip, ber, berp  # noqa: E402
 from spin_dynamics.fields.coil_peec import (  # noqa: E402
     Conductor,
     PEECCoilProperties,
-    _pair_mutual,
+    _mutualfil_matrix,
     capacitance_to_ground,
     coil_properties_peec,
     extract_impedance,
@@ -34,8 +34,8 @@ from spin_dynamics.fields.coil_peec import (  # noqa: E402
     self_partial_inductance,
 )
 from spin_dynamics.fields.coil_properties import ConductorMaterial, solenoid_properties  # noqa: E402
-from spin_dynamics.fields.magnetostatics import MU0, circular_loop  # noqa: E402
-from spin_dynamics.fields.quasistatic import coil_inductance, mutual_inductance  # noqa: E402
+from spin_dynamics.fields.magnetostatics import MU0  # noqa: E402
+from spin_dynamics.fields.quasistatic import coil_inductance  # noqa: E402
 
 COPPER = ConductorMaterial("copper", 1.7241e-8, 1.0)
 
@@ -51,15 +51,36 @@ def _straight_wire(a: float, length: float, n_radial: int, n_angular: int) -> Co
 
 
 class KernelTests(unittest.TestCase):
-    def test_pair_mutual_matches_neumann(self) -> None:
-        la = circular_loop([0, 0, 0], 0.05, axis="z", n_segments=60)
-        lb = circular_loop([0, 0, 0.03], 0.04, axis="z", n_segments=60)
-        sa = np.array([s for s, _ in la])
-        ea = np.array([e for _, e in la])
-        mida, dla = 0.5 * (sa + ea), ea - sa
-        sb = np.array([s for s, _ in lb])
-        eb = np.array([e for _, e in lb])
-        self.assertAlmostEqual(_pair_mutual(mida, dla, sb, eb), mutual_inductance(la, lb), places=12)
+    def test_mutualfil_matches_exact_parallel_filaments(self) -> None:
+        # The exact filament mutual reproduces the closed form for two parallel filaments,
+        # mu0*l/2pi*(asinh(l/d) - sqrt(1+(d/l)^2) + d/l), to machine precision.
+        length, d = 1.0, 1e-3
+        s1 = np.array([[0.0, 0.0, 0.0]])
+        e1 = np.array([[0.0, 0.0, length]])
+        s2 = np.array([[d, 0.0, 0.0]])
+        e2 = np.array([[d, 0.0, length]])
+        exact = (MU0 * length / (2 * np.pi)) * (np.arcsinh(length / d) - np.sqrt(1 + (d / length) ** 2) + d / length)
+        m = _mutualfil_matrix(s1, e1, s2, e2)[0, 0]
+        self.assertLess(abs(m - exact) / exact, 1e-12)
+
+    def test_mutualfil_collinear_split_is_additive(self) -> None:
+        # Splitting a straight filament into collinear pieces must reconstruct the same
+        # self-inductance (self_partial + exact mutuals) -- the property a numerical
+        # quadrature violates and that inflates coil inductance.
+        gmd = np.sqrt(1e-6 / np.pi) * np.exp(-0.25)
+        length = 0.1
+
+        def self_l(n):
+            z = np.linspace(0, length, n + 1)
+            s = np.column_stack([np.zeros(n), np.zeros(n), z[:-1]])
+            e = np.column_stack([np.zeros(n), np.zeros(n), z[1:]])
+            lens = np.linalg.norm(e - s, axis=1)
+            cross = _mutualfil_matrix(s, e, s, e)
+            np.fill_diagonal(cross, 0.0)
+            return sum(self_partial_inductance(x, gmd) for x in lens) + cross.sum()
+
+        # 1-segment vs 8-segment reconstruction agree to ~1.5%.
+        self.assertLess(abs(self_l(8) - self_l(1)) / self_l(1), 0.015)
 
     def test_self_partial_inductance_asymptote(self) -> None:
         length, r = 1.0, 1e-3
@@ -109,6 +130,18 @@ class InductanceTests(unittest.TestCase):
         centers[:, 2] = np.linspace(-length / 2, length / 2, turns)
         l_ref = coil_inductance(radii, centers, wire_radius=d / 2)
         self.assertLess(abs(imp.dc_inductance - l_ref) / l_ref, 0.25)
+
+    def test_solenoid_inductance_stable_with_path_resolution(self) -> None:
+        # The exact filament mutual makes the inductance path-resolution independent (a
+        # numerical quadrature over-couples vertex-sharing segments and drifts up without
+        # bound). L must be stable as n_per_turn increases.
+        vals = []
+        for n_per in (8, 12, 20):
+            c = helical_solenoid(diameter=20e-3, length=30e-3, turns=6, wire_radius=0.5e-3,
+                                 material=COPPER, n_per_turn=n_per, n_radial=3, n_angular=6)
+            vals.append(extract_impedance(c, [1.0]).dc_inductance)
+        # Spread across 8->20 segments/turn stays under 8% (a quadrature drifts ~2x).
+        self.assertLess((max(vals) - min(vals)) / min(vals), 0.08)
 
 
 class SolenoidVsQOILTests(unittest.TestCase):
@@ -180,8 +213,10 @@ class BundleTests(unittest.TestCase):
                                 material=cold, n_per_turn=12, n_radial=3, n_angular=6, temperature=293.15)
         cryo = helical_solenoid(diameter=20e-3, length=30e-3, turns=6, wire_radius=0.5e-3,
                                 material=cold, n_per_turn=12, n_radial=3, n_angular=6, temperature=77.0)
-        r_warm = extract_impedance(warm, [1e6]).resistance[0]
-        r_cryo = extract_impedance(cryo, [1e6]).resistance[0]
+        # Low frequency (uniform current, R = rho*L/A) so temperature scaling is clean;
+        # at high frequency the cryo wire's tiny skin depth is under-resolved.
+        r_warm = extract_impedance(warm, [1e4]).resistance[0]
+        r_cryo = extract_impedance(cryo, [1e4]).resistance[0]
         self.assertLess(r_cryo, r_warm)
 
 

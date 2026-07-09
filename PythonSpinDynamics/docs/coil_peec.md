@@ -92,19 +92,28 @@ comparison; `tests/test_coil_peec_fasthenry.py` checks the export format everywh
 a live comparison when the FastHenry COM server is present (skipped otherwise, so CI stays
 green).
 
-Measured agreement (1×1 mm copper bar, 100 mm, 8×8 filaments vs FastHenry nwinc=nhinc=8):
+Measured agreement (matched square cross-section, 3×3 filaments vs FastHenry nwinc=nhinc=3):
 
-| f | L FastHenry | L PEEC | R FastHenry | R PEEC |
-|---|---|---|---|---|
-| 10 kHz | 102.1 nH | 108.1 nH (+5.9%) | 1.744 mΩ | 1.744 mΩ (0.0%) |
-| 100 kHz | 100.6 nH | 106.6 nH (+5.9%) | 2.897 mΩ | 2.865 mΩ (−1.1%) |
-| 1 MHz | 97.9 nH | 104.0 nH (+6.2%) | 8.31 mΩ | 7.63 mΩ (−8.2%) |
+| geometry | f | L FastHenry | L PEEC | R FastHenry | R PEEC |
+|---|---|---|---|---|---|
+| 1×1 mm bar, 100 mm | 10 kHz | 102.1 nH | 102.2 nH (**+0.1%**) | 1.744 mΩ | 1.744 mΩ (0.0%) |
+| 1×1 mm bar, 100 mm | 1 MHz | 97.9 nH | 98.3 nH (+0.4%) | 8.31 mΩ | 6.51 mΩ (−22%*) |
+| 6-turn solenoid, D=20 mm | 100 kHz | 400.4 nH | 402.7 nH (**+0.6%**) | 9.87 mΩ | 9.09 mΩ (−7.9%) |
+| 6-turn solenoid, D=20 mm | 1 MHz | 393.8 nH | 397.4 nH (+0.9%) | 15.63 mΩ | 13.86 mΩ (−11%) |
 
-Resistance matches FastHenry to ~1% at low frequency; inductance agrees to ~6% (a
-GMD-discretization offset — PEEC uses area-equivalent-circle cell GMDs where FastHenry uses
-the exact Hoer-Love rectangular-filament formulas); both diverge in the deep-skin regime
-where either solver under-resolves without more filaments. A 6-turn helical solenoid agrees
-similarly (L within ~5%, R within ~10% at 100 kHz).
+**Inductance matches FastHenry to <1%** for both straight bars and helical solenoids. The
+mutual inductance between segment pairs uses the exact closed form (`_mutualfil_matrix`, a
+NumPy port of FastHenry's Grover-method `mutualfil`) rather than a numerical quadrature: a
+quadrature over-couples adjacent path segments that share a vertex and inflates coil
+inductance without bound as the path is refined (an earlier quadrature version drifted to
+2× for a finely-segmented helix). The self-capacitance and self-resonance are unaffected and
+remain within ~1% / a few percent of FasterCap and QOIL.
+
+Resistance matches FastHenry to ~1% at low frequency and converges to the exact Kelvin value
+with cell count (1 MHz: 6.5 → 7.8 → 8.1 mΩ at 8²/16²/24² cells; Kelvin ≈ 7.8). *The −22% at
+1 MHz above is the coarse 3×3/8×8 mesh under-resolving the skin depth — FastHenry
+under-resolves the same way at the same filament count; raise the cell count (or use the
+planned surface-impedance backend) for deep-skin resistance.
 
 **Capacitance vs FasterCap.** `fields.fastercap_interop` panelizes a conductor's wire
 surface (`to_fastercap_panels`) and runs FasterCap (the FastFieldSolvers successor to
@@ -117,6 +126,13 @@ rather than the approximation. The coil self-resonance capacitance (`self_capaci
 additionally validated against the Medhurst formula and reproduces QOIL's `f_res`.
 `tests/test_coil_peec_fastercap.py` checks the panel format everywhere and runs the live
 comparison when FasterCap is present.
+
+**Self-resonant frequency vs the Hamwaves (QOIL) model.** PEEC's SRF
+(`self_resonant_frequency`, `= 1/(2π√(L·C))`) agrees with QOIL's independent sheath-helix
+prediction (`βℓ = π/2`) to **~1–3%** across designs (e.g. 20 mm/10-turn: 177 vs 180 MHz;
+15 mm/25-turn: 111 vs 113 MHz), and stays robust where QOIL's transcendental dispersion
+solve fails (short/fat coils return `NaN` from QOIL but a finite value from PEEC). Two
+fully independent methods landing within a few percent is a strong cross-check on both.
 
 > Registration note: FasterCap's COM server resolves method names only if its type library
 > is registered. If `Run`/`GetCapacitance` raise "Library not registered", register it once

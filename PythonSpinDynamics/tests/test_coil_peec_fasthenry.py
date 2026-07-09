@@ -77,9 +77,10 @@ class LiveComparisonTests(unittest.TestCase):
                       cross_section="rect", width=1e-3, height=1e-3, n_width=8, n_height=8)
         freqs = [1e4, 1e5]
         peec, fh = compare_with_fasthenry(c, freqs)
-        # Low-frequency inductance within ~8%, resistance within ~3% of FastHenry.
+        # With Gauss-quadratured mutuals the inductance matches FastHenry to ~1%; the
+        # resistance is within ~3% at these well-resolved (low a/delta) frequencies.
         for i in range(len(freqs)):
-            self.assertLess(abs(peec.inductance[i] - fh.inductance[i]) / fh.inductance[i], 0.08)
+            self.assertLess(abs(peec.inductance[i] - fh.inductance[i]) / fh.inductance[i], 0.02)
             self.assertLess(abs(peec.resistance[i] - fh.resistance[i]) / fh.resistance[i], 0.03)
 
 

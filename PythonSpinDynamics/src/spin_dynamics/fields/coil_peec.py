@@ -12,22 +12,31 @@ cross-section; to resolve the current distribution the cross-section is tiled in
 parallel sub-filaments, each following the whole path. Because every sub-filament is a
 simple series chain from one terminal to the other, the branch system reduces **exactly**
 to a ``K x K`` chain-impedance system: sub-filament ``k`` is the path swept to cross-cell
-``k``, and the chain inductance ``L[k, k'] = mutual_inductance(filament_k, filament_k')``
-reuses the Neumann kernel in :mod:`spin_dynamics.fields.quasistatic`. Solving
-``Z_chain = R + j w L`` for the terminal impedance
-``Z(w) = 1 / (1^T Z_chain^{-1} 1)`` lets the current redistribute across the cross-section,
-which is exactly the skin effect (own cross-section) and proximity effect (neighbouring
-turns/legs of the same path). A dual thin-wire electrostatic solve on the same geometry
-gives the self-capacitance and hence the self-resonant frequency.
+``k``, and the chain inductance ``L[k, k']`` sums the exact closed-form mutual inductance
+between every pair of their straight segments (:func:`_mutualfil_matrix`, a vectorized port
+of FastHenry's Grover-formula ``mutualfil``). The closed form is essential: coil path
+segments share vertices, and a numerical quadrature there over-couples them and inflates the
+inductance without bound as the path is refined. Solving ``Z_chain = R + j w L`` for the
+terminal impedance ``Z(w) = 1 / (1^T Z_chain^{-1} 1)`` lets the current redistribute across
+the cross-section, which is exactly the skin effect (own cross-section) and proximity effect
+(neighbouring turns/legs). A dual thin-wire electrostatic solve on the same geometry gives
+the self-capacitance and hence the self-resonant frequency.
+
+Inductance matches FastHenry to <1% for both straight bars and helical solenoids (see
+``docs/coil_peec.md``), the self-capacitance matches FasterCap to ~1%, and the self-resonant
+frequency matches the QOIL model to a few percent.
 
 **Resolution ceiling (state it honestly).** The cross-section must resolve the skin depth
-``delta``: at ``a/delta`` up to ~5 a few hundred cells give sub-percent AC-resistance
-accuracy (validated against the exact Kelvin-function ratio); deeper skin (high-frequency
-RF, ``a/delta`` >~ 15) needs many cells and the resistance is under-resolved unless the
-cell count is raised. Inductance and capacitance are geometry-dominated and remain accurate
-at coarse cross-section resolution. A surface-impedance backend for the deep-skin regime is
-a planned follow-on; for a single-layer solenoid in that regime prefer
-:func:`spin_dynamics.fields.coil_properties.solenoid_properties`.
+``delta`` for the *resistance*: at ``a/delta`` up to ~5 a few hundred cells give sub-percent
+AC-resistance accuracy (validated against the exact Kelvin-function ratio and FastHenry);
+deeper skin (high-frequency RF, ``a/delta`` >~ 15) needs many cells and the resistance is
+under-resolved unless the cell count is raised -- exactly as for FastHenry at the same
+filament count. Inductance and capacitance are geometry-dominated and accurate at coarse
+cross-section resolution. A surface-impedance backend for the deep-skin resistance regime is
+a planned follow-on.
+
+The exact filament mutual is ported from FastHenry (``mutualfil``, Grover's method;
+originally M.I.T., maintained by FastFieldSolvers) -- the algorithm, re-implemented in NumPy.
 """
 
 from __future__ import annotations
@@ -39,9 +48,10 @@ import numpy as np
 
 from spin_dynamics.fields.coil_properties import ANNEALED_COPPER, ConductorMaterial
 from spin_dynamics.fields.magnetostatics import MU0
-from spin_dynamics.fields.quasistatic import mutual_inductance
 
 EPS0 = 8.8541878128e-12  # vacuum permittivity (F/m)
+MUOVER4PI = 1.0e-7  # mu0 / 4pi
+_FIL_EPS = 1e-13  # geometric tolerance for the filament-mutual branch selection
 
 Segment = tuple[np.ndarray, np.ndarray]
 
@@ -304,43 +314,133 @@ def conductor_from_segments(
 def filament_self_inductance(filament: list[Segment], gmd_radius: float) -> float:
     """Self partial inductance (H) of one open filamentary wire following the path.
 
-    Sum of each segment's :func:`self_partial_inductance` plus the mutual partial
-    inductance between distinct segments of the same filament. The cross-segment part is
-    ``mutual_inductance(filament, filament)`` -- its coincident-segment terms vanish (the
-    vector potential is guarded on the segment axis), leaving exactly the ``i != j`` sum.
+    Sum of each segment's :func:`self_partial_inductance` plus the exact
+    (:func:`_mutualfil_matrix`) mutual inductance between distinct segments of the same
+    filament (coincident pairs excluded).
     """
 
-    lengths = [float(np.linalg.norm(np.asarray(e) - np.asarray(s))) for s, e in filament]
+    starts = np.array([np.asarray(s) for s, _ in filament])
+    ends = np.array([np.asarray(e) for _, e in filament])
+    lengths = np.linalg.norm(ends - starts, axis=1)
     self_terms = sum(self_partial_inductance(ln, gmd_radius) for ln in lengths if ln > 0.0)
-    cross = mutual_inductance(filament, filament)
-    return float(self_terms + cross)
+    cross = _mutualfil_matrix(starts, ends, starts, ends)
+    np.fill_diagonal(cross, 0.0)
+    return float(self_terms + float(cross.sum()))
 
 
-def _pair_mutual(mid_i: np.ndarray, dl_i: np.ndarray, s_j: np.ndarray, e_j: np.ndarray) -> float:
-    """Neumann mutual inductance (H) between two filaments, vectorized over segments.
+def _atanh_clip(x: np.ndarray) -> np.ndarray:
+    return np.arctanh(np.clip(x, -1.0 + 1e-15, 1.0 - 1e-15))
 
-    ``mid_i``/``dl_i`` are the (M_i, 3) segment midpoints and vectors of filament i;
-    ``s_j``/``e_j`` the (M_j, 3) segment endpoints of filament j. Sums the exact
-    straight-segment vector potential of every j-segment evaluated at every i-midpoint,
-    dotted with ``dl_i`` -- the same closed form as
-    :func:`quasistatic.vector_potential` but with the inner segment loop broadcast away.
-    Coincident-segment terms vanish (guarded), so it also gives the cross-segment self sum.
+
+def _mutualfil_matrix(
+    s1: np.ndarray, e1: np.ndarray, s2: np.ndarray, e2: np.ndarray
+) -> np.ndarray:
+    """Exact mutual inductance (H) between every pair of straight filaments.
+
+    ``s1``/``e1`` are the (M1, 3) segment endpoints of the first filament set, ``s2``/``e2``
+    the (M2, 3) endpoints of the second; returns the (M1, M2) matrix of exact filament-pair
+    mutual inductances. This is a vectorized port of FastHenry's ``mutualfil`` (Grover's
+    closed form) with its four branches -- endpoint-touching, perpendicular (zero), parallel
+    (``mut_rect``, or a collinear log limit), and the general skew formula. The closed form
+    is essential for coils: adjacent path segments share a vertex, and a thin-filament
+    numerical quadrature there over-couples them and inflates the inductance without bound as
+    the path is refined.
     """
 
-    length_j = np.linalg.norm(e_j - s_j, axis=1)  # (Mj,)
-    good = length_j > 0.0
-    s_j, e_j, length_j = s_j[good], e_j[good], length_j[good]
-    e_hat = (e_j - s_j) / length_j[:, None]  # (Mj, 3)
-    # r1, r2 from every midpoint (Mi) to every j-segment endpoint (Mj): (Mi, Mj)
-    r1 = np.linalg.norm(mid_i[:, None, :] - s_j[None, :, :], axis=-1)
-    r2 = np.linalg.norm(mid_i[:, None, :] - e_j[None, :, :], axis=-1)
-    num = r1 + r2 + length_j[None, :]
-    denom = r1 + r2 - length_j[None, :]
-    with np.errstate(divide="ignore", invalid="ignore"):
-        logt = np.where(denom > 0.0, np.log(num / np.where(denom > 0.0, denom, 1.0)), 0.0)
-    # A(mid_i) = sum_j (mu0/4pi) log_ij e_hat_j ; then M = sum_i dl_i . A(mid_i)
-    a_vec = (MU0 / (4.0 * np.pi)) * np.einsum("ij,jk->ik", logt, e_hat)  # (Mi, 3)
-    return float(np.sum(dl_i * a_vec))
+    a1 = s1[:, None, :]
+    b1 = e1[:, None, :]
+    a2 = s2[None, :, :]
+    b2 = e2[None, :, :]
+    r1 = np.linalg.norm(b1 - b2, axis=-1)
+    r2 = np.linalg.norm(b1 - a2, axis=-1)
+    r3 = np.linalg.norm(a1 - a2, axis=-1)
+    r4 = np.linalg.norm(a1 - b2, axis=-1)
+    r1s, r2s, r3s, r4s = r1**2, r2**2, r3**2, r4**2
+    v1 = b1 - a1
+    v2 = b2 - a2
+    length1 = np.linalg.norm(v1, axis=-1)  # (M1, 1)
+    length2 = np.linalg.norm(v2, axis=-1)  # (1, M2)
+    lm = length1 * length2
+    dotp = np.sum(v1 * v2, axis=-1)
+    alpha = r4s - r3s + r2s - r1s
+
+    with np.errstate(all="ignore"):
+        realcos = dotp / lm
+        cose = np.clip(realcos, -1.0, 1.0)
+
+        # Touching branch (a shared endpoint): Grover's meeting-at-a-point formula.
+        r_t = np.where(r1 < _FIL_EPS, r3, np.where(r2 < _FIL_EPS, r4, np.where(r3 < _FIL_EPS, r1, r2)))
+        m_touch = MUOVER4PI * 2 * (dotp / lm) * (
+            length1 * _atanh_clip(length2 / (length1 + r_t))
+            + length2 * _atanh_clip(length1 / (length2 + r_t))
+        )
+
+        # Parallel branch: project filament 2 onto filament 1's axis.
+        u_hat = v1 / length1[..., None]
+        rr = a2 - a1
+        proj = np.sum(u_hat * rr, axis=-1, keepdims=True)
+        dvec = rr - proj * u_hat
+        d = np.linalg.norm(dvec, axis=-1)
+        x2_0 = np.sum((a2 - (a1 + dvec)) * u_hat, axis=-1)
+        x2_1 = np.sum((b2 - (a1 + dvec)) * u_hat, axis=-1)
+        x1_0 = np.zeros_like(d)
+        x1_1 = length1 + 0.0 * length2
+
+        def _mut_rect(length, dd):
+            dd = np.where(dd < 1e-300, 1e-300, dd)
+            return np.sqrt(length * length + dd * dd) - length * np.arcsinh(length / dd)
+
+        m_par = MUOVER4PI * (
+            _mut_rect(x2_1 - x1_1, d) - _mut_rect(x2_1 - x1_0, d)
+            - _mut_rect(x2_0 - x1_1, d) + _mut_rect(x2_0 - x1_0, d)
+        )
+
+        def _flog(x):
+            ax = np.abs(x)
+            return np.where(ax > 0, ax * np.log(np.where(ax > 0, ax, 1.0)), 0.0)
+
+        m_col = MUOVER4PI * (
+            _flog(x2_1 - x1_0) - _flog(x2_1 - x1_1) - _flog(x2_0 - x1_0) + _flog(x2_0 - x1_1)
+        )
+
+        # General skew branch.
+        l2 = length1**2
+        m2 = length2**2
+        denom = 4 * l2 * m2 - alpha**2
+        denom = np.where(np.abs(denom) < 1e-300, 1e-300, denom)
+        ug = length1 * (2 * m2 * (r2s - r3s - l2) + alpha * (r4s - r3s - m2)) / denom
+        vg = length2 * (2 * l2 * (r4s - r3s - m2) + alpha * (r2s - r3s - l2)) / denom
+        d2 = r3s - ug**2 - vg**2 + 2 * ug * vg * cose
+        dg = np.sqrt(np.clip(d2, 0.0, None))
+        sine = np.sqrt(np.clip(1.0 - cose**2, 0.0, None))
+        t1 = dg**2 * cose
+        t2 = dg * sine
+        t3 = sine**2
+        s2safe = np.where(np.abs(t2) < 1e-300, 1e-300, t2)
+        omega = (
+            np.arctan2(t1 + (ug + length1) * (vg + length2) * t3, s2safe * r1)
+            - np.arctan2(t1 + (ug + length1) * vg * t3, s2safe * r2)
+            + np.arctan2(t1 + ug * vg * t3, s2safe * r3)
+            - np.arctan2(t1 + ug * (vg + length2) * t3, s2safe * r4)
+        )
+        omega = np.where(dg < _FIL_EPS, 0.0, omega)
+        t4 = (
+            (ug + length1) * _atanh_clip(length2 / (r1 + r2))
+            + (vg + length2) * _atanh_clip(length1 / (r1 + r4))
+            - ug * _atanh_clip(length2 / (r3 + r4))
+            - vg * _atanh_clip(length1 / (r2 + r3))
+        )
+        t5 = np.where(sine < 1e-150, 0.0, omega * dg / np.where(sine < 1e-150, 1.0, sine))
+        m_gen = MUOVER4PI * cose * (2 * t4 - t5)
+
+        # Branch selection (order matters: touching overrides all).
+        parallel = np.abs(np.abs(cose) - 1.0) < _FIL_EPS
+        collinear = parallel & (d < _FIL_EPS)
+        touching = (r1 < _FIL_EPS) | (r2 < _FIL_EPS) | (r3 < _FIL_EPS) | (r4 < _FIL_EPS)
+        out = np.where(parallel, np.where(collinear, m_col, m_par), m_gen)
+        out = np.where(np.abs(realcos) < _FIL_EPS, 0.0, out)
+        out = np.where(touching, m_touch, out)
+    return out
 
 
 def _chain_inductance_matrix(conductor: Conductor) -> tuple[np.ndarray, np.ndarray]:
@@ -353,19 +453,21 @@ def _chain_inductance_matrix(conductor: Conductor) -> tuple[np.ndarray, np.ndarr
     rho = conductor.material.resistivity_at(conductor.temperature)
     r_series = rho * total_len / areas  # DC resistance of each sub-filament (whole path)
 
-    # Precompute per-filament segment endpoints, midpoints, vectors and lengths.
+    # Precompute per-filament segment endpoints and lengths.
     starts = [np.array([s for s, _ in f]) for f in filaments]
     ends = [np.array([e for _, e in f]) for f in filaments]
-    mids = [0.5 * (s + e) for s, e in zip(starts, ends)]
-    dls = [e - s for s, e in zip(starts, ends)]
-    lens = [np.linalg.norm(d, axis=1) for d in dls]
+    lens = [np.linalg.norm(e - s, axis=1) for s, e in zip(starts, ends)]
 
     lmat = np.zeros((k, k))
     for i in range(k):
+        # Diagonal (self of sub-filament i): each segment's own self-partial-inductance
+        # plus the exact mutual between its distinct segments (coincident pairs excluded).
         self_terms = float(np.sum([self_partial_inductance(ln, gmd[i]) for ln in lens[i] if ln > 0.0]))
-        lmat[i, i] = self_terms + _pair_mutual(mids[i], dls[i], starts[i], ends[i])
+        m_self = _mutualfil_matrix(starts[i], ends[i], starts[i], ends[i])
+        np.fill_diagonal(m_self, 0.0)
+        lmat[i, i] = self_terms + float(m_self.sum())
         for j in range(i + 1, k):
-            m = _pair_mutual(mids[i], dls[i], starts[j], ends[j])
+            m = float(_mutualfil_matrix(starts[i], ends[i], starts[j], ends[j]).sum())
             lmat[i, j] = lmat[j, i] = m
     return lmat, r_series
 

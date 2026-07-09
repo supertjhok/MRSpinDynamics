@@ -5,16 +5,16 @@ Runs the SAME geometries through the package's PEEC solver
 automation is present, through FastHenry itself (``fields.fasthenry_interop``), and prints
 the per-frequency L and R side by side. Two geometries:
 
-1. a straight square bar (exact cross-section match to FastHenry), and
-2. a helical solenoid (round wire, exported as an equal-area square bar).
+1. a straight square bar, and
+2. a helical solenoid (both square cross-section -- exact geometry match to FastHenry).
 
 Without FastHenry/pywin32 the script still prints the PEEC results and the reference
 numbers recorded from a prior FastHenry run, so the comparison is visible everywhere.
 
-Expected agreement: R within ~1% at low frequency (both near the DC value), L within a few
-percent (a GMD-discretization offset vs FastHenry's exact Hoer-Love formulas), and growing
-divergence in the deep-skin regime where both solvers under-resolve unless the filament
-count is raised.
+Expected agreement: inductance within ~1% of FastHenry for both geometries (the segment-pair
+mutual uses the exact closed form ported from FastHenry's mutualfil), resistance within ~1%
+at low frequency, with growing divergence in the deep-skin regime where both solvers
+under-resolve unless the filament count is raised.
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ from _source_path import add_src_to_path
 
 add_src_to_path()
 
-from spin_dynamics.fields.coil_peec import Conductor, extract_impedance, helical_solenoid
+from spin_dynamics.fields.coil_peec import Conductor, extract_impedance
 from spin_dynamics.fields.coil_properties import ANNEALED_COPPER
 
 # Reference FastHenry results recorded on Windows (FastHenry2 via COM) for the straight bar
@@ -93,13 +93,18 @@ def main() -> None:
     except Exception as exc:  # pragma: no cover
         print(f"  C_PEEC={c_peec * 1e12:.3f} pF  (FasterCap not run: {exc})")
 
-    # --- 2. Helical solenoid (round wire -> equal-area square bar in FastHenry) ---
-    print(f"\nHelical solenoid: D=20 mm, l=30 mm, {args.turns} turns, 1 mm wire")
+    # --- 2. Helical solenoid, square wire (exact geometry match to FastHenry) ---
+    print(f"\nHelical solenoid: D=20 mm, l=30 mm, {args.turns} turns, 1 mm square wire")
     sol_freqs = np.array([1e5, 1e6])
-    sol = helical_solenoid(diameter=20e-3, length=30e-3, turns=args.turns, wire_radius=0.5e-3,
-                           material=ANNEALED_COPPER, n_per_turn=10, n_radial=3, n_angular=6)
+    diam, length, turns, side = 20e-3, 30e-3, args.turns, 1e-3
+    n_per = 12
+    th = np.linspace(0, 2 * np.pi * turns, turns * n_per + 1)
+    z = np.linspace(-length / 2, length / 2, th.size)
+    path = np.column_stack([(diam / 2) * np.cos(th), (diam / 2) * np.sin(th), z])
+    sol = Conductor(path, material=ANNEALED_COPPER, cross_section="rect",
+                    width=side, height=side, n_width=3, n_height=3)
     peec_sol = extract_impedance(sol, sol_freqs)
-    fh_sol = _try_fasthenry(sol, sol_freqs, nwinc=4, nhinc=4)
+    fh_sol = _try_fasthenry(sol, sol_freqs, nwinc=3, nhinc=3)
     if fh_sol is not None:
         _print_table(sol_freqs, peec_sol, fh_sol.inductance * 1e9, fh_sol.resistance * 1e3)
     else:
