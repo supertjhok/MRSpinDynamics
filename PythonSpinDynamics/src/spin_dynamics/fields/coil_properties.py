@@ -45,10 +45,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy as np
-from scipy.optimize import brentq
-from scipy.special import i0, i1, k0, k1
 
 from spin_dynamics.fields.magnetostatics import MU0
+
+# scipy (Bessel functions, brentq) is imported lazily inside the functions that need it,
+# like every other fields module, so `import spin_dynamics` works on a numpy-only install
+# (the cross-project Integration CI installs the package without extras).
 
 C_0 = 299792458.0  # speed of light (m/s)
 
@@ -181,6 +183,8 @@ def medhurst_proximity_factor(l_over_D: float, p_over_d: float) -> float:
 def _dispersion_residual(tau: float, a: float, k_0: float, tan_psi: float) -> float:
     """Sheath-helix dispersion residual ``F(tau)`` (zero at the guided mode)."""
 
+    from scipy.special import i0, i1, k0, k1
+
     ta = tau * a
     return k1(ta) * i1(ta) / (k0(ta) * i0(ta)) - (tau / k_0 * tan_psi) ** 2
 
@@ -196,6 +200,9 @@ def sheath_helix_dispersion(
     ``psi`` the pitch angle (rad). Raises ``RuntimeError`` if the transcendental root is
     not bracketed (which happens as the coil approaches a resonance).
     """
+
+    from scipy.optimize import brentq
+    from scipy.special import i0, k0
 
     omega = 2.0 * np.pi * float(frequency)
     k_0 = omega / C_0
@@ -233,6 +240,8 @@ def _self_resonant_frequency(
     single root; it is bracketed starting from QOIL's ``c_0 / l_w_eff`` scale and solved
     with :func:`scipy.optimize.brentq`. Returns ``nan`` if a bracket cannot be found.
     """
+
+    from scipy.optimize import brentq
 
     target = np.pi / 2.0
 
