@@ -145,11 +145,15 @@ fully independent methods landing within a few percent is a strong cross-check o
 The cross-section must resolve the skin depth `delta`. At `a/delta` up to ~5 a few hundred
 cells give sub-percent AC-resistance accuracy; deeper skin (high-frequency RF,
 `a/delta >~ 15`) is under-resolved unless the cell count is raised, so `R` is
-**under-predicted** there (and `Q` correspondingly over-predicted). **Inductance,
+**under-predicted** there (and `Q` correspondingly over-predicted) — but it **converges
+monotonically to the exact Kelvin value as the cell count rises**, and FastHenry
+under-resolves the same way at the same filament count (`examples/validate_peec_vs_fasthenry.py`
+prints the convergence table; `tests/test_coil_peec.py` asserts it). **Inductance,
 capacitance and self-resonance are geometry-dominated and accurate at coarse cross-section
-resolution.** The cost is `O(K^2 M^2)` (K cells, M path segments), so validation/example
-geometries keep both modest; for a single-layer solenoid in the deep-skin regime prefer the
-analytic `coil_properties.solenoid_properties`.
+resolution.** The round cross-section is tiled on a Cartesian grid masked to the disc (cells
+stay square, areas rescaled to `pi a^2`) so the resistance converges; an equal-area *polar*
+tiling diverges as its wedge cells elongate. The cost is `O(K^2 M^2)` (K cells, M path
+segments), so validation/example geometries keep both modest.
 
 ## Deferred follow-ons
 

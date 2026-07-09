@@ -135,35 +135,37 @@ def _rotation_minimizing_frames(points: np.ndarray) -> tuple[np.ndarray, np.ndar
 def _round_cross_section(
     radius: float, n_radial: int, n_angular: int
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Equal-area polar tiling of a round wire cross-section.
+    """Cartesian tiling of a round wire cross-section, masked to the disc.
 
     Returns ``(offsets, areas, gmd)``: ``offsets`` (K, 2) cell-centroid positions in the
     local frame, ``areas`` (K,) cell areas, and ``gmd`` (K,) the self geometric-mean radius
-    of each cell (area-equivalent circle, ``sqrt(A/pi) * e^{-1/4}``).
+    of each cell (area-equivalent circle, ``sqrt(A/pi) * e^{-1/4}``). A square grid over the
+    bounding box keeps every cell (near-)square -- unlike an equal-area *polar* tiling, whose
+    elongated wedges break the square-cell GMD approximation and make the AC resistance
+    diverge rather than converge as the count rises. Cell areas are rescaled so they sum to
+    ``pi radius^2`` (an exact DC resistance). The requested ``n_radial * n_angular`` sets the
+    target cell count; the grid resolution is derived from it.
     """
 
     n_radial = int(n_radial)
     n_angular = int(n_angular)
     if n_radial < 1 or n_angular < 1:
         raise ValueError("n_radial and n_angular must be >= 1")
-    r_edges = radius * np.sqrt(np.linspace(0.0, 1.0, n_radial + 1))
-    xs, ys, areas = [], [], []
-    for i in range(n_radial):
-        r0, r1 = r_edges[i], r_edges[i + 1]
-        rc = (2.0 / 3.0) * (r1**3 - r0**3) / (r1**2 - r0**2) if r1 > r0 else 0.5 * (r0 + r1)
-        for j in range(n_angular):
-            area = 0.5 * (r1**2 - r0**2) * (2.0 * np.pi / n_angular)
-            if n_angular == 1:
-                # A full-circle sector's centroid is on the axis, not at radius rc.
-                xs.append(0.0)
-                ys.append(0.0)
-            else:
-                thc = 2.0 * np.pi * (j + 0.5) / n_angular
-                xs.append(rc * np.cos(thc))
-                ys.append(rc * np.sin(thc))
-            areas.append(area)
-    offsets = np.column_stack([xs, ys])
-    areas = np.asarray(areas, dtype=np.float64)
+    target = n_radial * n_angular
+    if target == 1:
+        return np.zeros((1, 2)), np.array([np.pi * radius**2]), np.array([radius * np.exp(-0.25)])
+    # A grid of n x n over the bounding square keeps ~ (pi/4) n^2 cells inside the disc.
+    n_grid = max(2, int(round(np.sqrt(target * 4.0 / np.pi))))
+    edges = np.linspace(-radius, radius, n_grid + 1)
+    centres = 0.5 * (edges[:-1] + edges[1:])
+    cell = (2.0 * radius / n_grid) ** 2
+    gx, gy = np.meshgrid(centres, centres, indexing="ij")
+    inside = gx**2 + gy**2 <= radius**2
+    if not np.any(inside):  # radius smaller than one cell -> single centred filament
+        return np.zeros((1, 2)), np.array([np.pi * radius**2]), np.array([radius * np.exp(-0.25)])
+    offsets = np.column_stack([gx[inside], gy[inside]])
+    areas = np.full(offsets.shape[0], cell)
+    areas *= (np.pi * radius**2) / areas.sum()  # rescale to the exact disc area
     gmd = np.sqrt(areas / np.pi) * np.exp(-0.25)
     return offsets, areas, gmd
 
@@ -235,9 +237,11 @@ class Conductor:
 
     @property
     def n_cells(self) -> int:
+        """Actual number of cross-section sub-filaments (round tiling masks to the disc)."""
+
         if self.cross_section == "rect":
             return int(self.n_width) * int(self.n_height)
-        return int(self.n_radial) * int(self.n_angular)
+        return int(self.subfilaments()[1].size)
 
     @property
     def segment_lengths(self) -> np.ndarray:

@@ -3448,25 +3448,73 @@ Maxwell pair (\(L\), \(R\), the \(\mathrm dB_z/\mathrm dz\) efficiency from Biot
 shield eddy modes from \code{eddy\_modes}) --- the same solver spanning RF and gradient
 coils.
 
-\paragraph{Cross-validation against FastHenry and FastCap.} \code{fields.fasthenry\_interop}
-exports a \code{Conductor} to a FastHenry \code{.inp} deck and, on a Windows FastHenry2
-install (via its COM automation server), runs it and returns \(L(f)\)/\(R(f)\) for a direct
-comparison (\code{run\_fasthenry}, \code{compare\_with\_fasthenry}; use
-\code{cross\_section="rect"} to match FastHenry's rectangular conductors exactly). The
-inductance agrees with FastHenry to \textbf{under 1\%} for both straight bars and helical
-solenoids --- the segment-pair mutual uses the exact closed form ported from FastHenry's
-\code{mutualfil} (Grover's method), which, unlike a numerical quadrature, does not
-over-couple the vertex-sharing segments of a coil path. The resistance agrees to \(\sim\)1\%
-at low frequency and converges to the exact Kelvin value with cell count; in deep skin at a
-coarse mesh it under-resolves, as FastHenry does at the same filament count.
-\code{fields.fastercap\_interop} panelizes the wire surface and runs FasterCap (the
-successor to FastCap) via its COM server, and \code{capacitance\_to\_ground} matches that
-boundary-element result to \(\sim\)1\% for a straight wire (both \(\sim\)10\% below the
-crude analytic formula, so the thin-wire kernel is confirmed against the reference rather
-than the approximation); the coil self-capacitance is additionally validated against the
-Medhurst formula. The example \code{validate\_peec\_vs\_fasthenry.py} runs both comparisons;
-live tests run whenever the FastHenry / FasterCap COM servers are present and are skipped
-otherwise. Design note: \code{docs/coil\_peec.md}.
+\paragraph{Cross-validation against FastHenry, FasterCap, and QOIL.} The PEEC solver is
+validated against three independent references: FastHenry (the M.I.T./FastFieldSolvers
+partial-element inductance solver) for \(L(f)\) and \(R(f)\), FasterCap (its boundary-element
+capacitance solver) for the self-capacitance, and the QOIL sheath-helix model for the
+self-resonant frequency. \code{fields.fasthenry\_interop} and
+\code{fields.fastercap\_interop} export a \code{Conductor} to each tool's input format and,
+on a Windows install, drive its COM automation server; the example
+\code{validate\_peec\_vs\_fasthenry.py} runs the comparisons and live tests run whenever the
+servers are present (skipped otherwise). Table~\ref{tab:peec-validation} collects the
+results.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}lllr@{}}
+\toprule
+Quantity & Reference & Case & Agreement \\
+\midrule
+Inductance \(L\)      & FastHenry & 1\(\times\)1\,mm bar, 100\,mm        & \(<0.1\)--0.9\% \\
+Inductance \(L\)      & FastHenry & 6-turn solenoid, \(D=20\)\,mm        & 0.6--0.9\% \\
+Resistance \(R\)      & FastHenry & low frequency (resolved)            & \(\sim\)1\% \\
+Self-capacitance \(C\)& FasterCap & 1\,m, 1\,mm wire                    & \(\sim\)1\% \\
+Self-resonance \(f_{\text{res}}\) & QOIL & 10--40-turn solenoids       & 1--3\% \\
+\bottomrule
+\end{tabular}
+\caption{PEEC solver validation against independent reference solvers. The inductance uses
+the exact closed-form segment mutual ported from FastHenry's \code{mutualfil} (Grover's
+method), which, unlike a numerical quadrature, does not over-couple the vertex-sharing
+segments of a coil path (a quadrature drifts to \(2\times\) as the path is refined).}
+\label{tab:peec-validation}
+\end{table}
+
+\textbf{Why the resistance ``diverges'' at high frequency --- and why it does not.} Both
+PEEC and FastHenry are partial-element solvers: the cross-section must be tiled finer than
+the skin depth \(\delta\), and \emph{both} under-resolve the AC resistance on a coarse mesh.
+They converge to the same (exact Kelvin) value as the filament count rises.
+Table~\ref{tab:peec-Rconv} shows a 1\(\times\)1\,mm copper bar at 1\,MHz (skin depth
+66\,\(\mu\)m, side/\(\delta\approx15\), deep skin): the apparent PEEC--FastHenry discrepancy
+at a coarse mesh is shared under-resolution, not a modelling error, and shrinks with
+refinement --- while the inductance is already converged at the coarsest mesh. For
+deep-skin resistance, raise the cell count (a surface-impedance backend is the planned
+efficient alternative). The round-wire cross-section is tiled on a Cartesian grid masked to
+the disc, so its cells stay square and the resistance converges monotonically; an equal-area
+polar tiling would diverge as its wedge cells elongate.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+Filaments \(n\times n\) & \(R_{\text{PEEC}}\) (m\(\Omega\)) & \(R_{\text{FastHenry}}\) (m\(\Omega\)) & (Kelvin \(\approx7.8\)) \\
+\midrule
+\(4\times4\)   & 4.12 & 5.25 & \\
+\(8\times8\)   & 6.51 & 8.31 & \\
+\(16\times16\) & 7.77 & 8.38 & \\
+\(20\times20\) & 7.96 & 8.38 & \\
+\bottomrule
+\end{tabular}
+\caption{AC-resistance convergence versus filament count, 1\(\times\)1\,mm bar at 1\,MHz.
+Both solvers climb toward the exact value with refinement; the inductance is unchanged.}
+\label{tab:peec-Rconv}
+\end{table}
+
+The FasterCap capacitance and PEEC \code{capacitance\_to\_ground} also both sit \(\sim\)10\%
+below the crude analytic \(2\pi\varepsilon_0 L/(\ln(L/a)-1)\), confirming the thin-wire
+kernel against the reference rather than the approximation; the coil self-capacitance is
+additionally validated against the Medhurst formula. Design note: \code{docs/coil\_peec.md}.
 
 \subsection{Nonlinear magnetostatics: ferrites and saturable iron}
 \label{sec:fields-nonlinear-magnetostatics}

@@ -27,8 +27,17 @@ from _source_path import add_src_to_path
 
 add_src_to_path()
 
+from scipy.special import bei, beip, ber, berp
+
 from spin_dynamics.fields.coil_peec import Conductor, extract_impedance
 from spin_dynamics.fields.coil_properties import ANNEALED_COPPER
+from spin_dynamics.fields.magnetostatics import MU0
+
+
+def _kelvin_rac_over_rdc(a, delta):
+    """Exact AC/DC resistance ratio of an isolated round wire (Kelvin functions)."""
+    q = np.sqrt(2.0) * a / delta
+    return (q / 2.0) * (ber(q) * beip(q) - bei(q) * berp(q)) / (berp(q) ** 2 + beip(q) ** 2)
 
 # Reference FastHenry results recorded on Windows (FastHenry2 via COM) for the straight bar
 # below (1x1 mm square, 100 mm long, copper, nwinc=nhinc=8).
@@ -112,6 +121,30 @@ def main() -> None:
         for i, f in enumerate(sol_freqs):
             print("  %8.0e  L_PEEC=%.3f uH  R_PEEC=%.4f ohm"
                   % (f, peec_sol.inductance[i] * 1e6, peec_sol.resistance[i]))
+
+    # --- 3. AC-resistance convergence vs filament count (deep skin) ---
+    # Why does R "diverge" between PEEC and FastHenry at high frequency? Both are
+    # partial-element solvers: the cross-section must be tiled finer than the skin depth,
+    # and BOTH under-resolve at a coarse mesh -- they converge to the same (exact Kelvin)
+    # value as the filament count rises. Inductance, by contrast, is already converged.
+    r_freq = 1e6
+    a_eq = np.sqrt(1e-3 * 1e-3 / np.pi)  # round wire of equal area, for the Kelvin anchor
+    delta = np.sqrt(2 * ANNEALED_COPPER.resistivity / (2 * np.pi * r_freq * MU0))
+    r_dc = ANNEALED_COPPER.resistivity * 0.1 / (np.pi * a_eq**2)
+    kelvin = _kelvin_rac_over_rdc(a_eq, delta) * r_dc
+    print(f"\nAC-resistance convergence, 1x1 mm bar at {r_freq:.0e} Hz "
+          f"(skin depth {delta * 1e6:.0f} um, side/delta {1e-3 / delta:.0f} -- deep skin)")
+    print(f"  Kelvin exact (round-equivalent) ~ {kelvin * 1e3:.2f} mOhm")
+    print("  %8s %12s %12s %10s" % ("n x n", "R_PEEC mO", "R_FH mO", "L_PEEC nH"))
+    for n in (4, 8, 16):
+        bar_n = Conductor(np.array([[0, 0, 0], [0, 0, 0.1]]), material=ANNEALED_COPPER,
+                          cross_section="rect", width=1e-3, height=1e-3, n_width=n, n_height=n)
+        imp_n = extract_impedance(bar_n, [r_freq])
+        fh_n = _try_fasthenry(bar_n, [r_freq], nwinc=n, nhinc=n)
+        r_fh = f"{fh_n.resistance[0] * 1e3:12.3f}" if fh_n is not None else f"{'--':>12}"
+        print("  %8s %12.3f %s %10.2f"
+              % (f"{n}x{n}", imp_n.resistance[0] * 1e3, r_fh, imp_n.inductance[0] * 1e9))
+    print("  -> both under-resolve at coarse mesh and climb toward Kelvin; L stays put.")
 
 
 if __name__ == "__main__":

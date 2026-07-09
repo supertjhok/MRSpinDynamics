@@ -106,6 +106,24 @@ class SkinEffectTests(unittest.TestCase):
         self.assertGreater(ratio, 1.0)  # AC resistance exceeds DC
         self.assertLess(abs(ratio - exact) / exact, 0.15)
 
+    def test_rac_converges_toward_kelvin_with_cells(self) -> None:
+        # Deep skin (a/delta ~ 15): a coarse cross-section mesh under-resolves the AC
+        # resistance; refining the cell count moves it monotonically toward the exact
+        # Kelvin value. This is why PEEC and FastHenry (both partial-element solvers) differ
+        # at high frequency on a coarse mesh but agree as the filament count rises.
+        a, length, freq = 1e-3, 1.0, 1e6
+        delta = np.sqrt(2 * COPPER.resistivity / (2 * np.pi * freq * MU0))
+        exact = _kelvin_rac_over_rdc(a, delta)
+        errs = []
+        for n in (6, 12, 20):
+            c = _straight_wire(a, length, n, n)
+            imp = extract_impedance(c, [freq])
+            errs.append(abs(imp.resistance[0] / imp.dc_resistance - exact) / exact)
+        # error shrinks monotonically with refinement and is small at the finest mesh
+        self.assertLess(errs[1], errs[0])
+        self.assertLess(errs[2], errs[1])
+        self.assertLess(errs[2], 0.15)
+
     def test_resistance_rises_with_frequency(self) -> None:
         a = 1e-3
         c = _straight_wire(a, 1.0, 12, 16)
