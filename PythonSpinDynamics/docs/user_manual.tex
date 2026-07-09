@@ -3456,12 +3456,14 @@ comparison (\code{run\_fasthenry}, \code{compare\_with\_fasthenry}; use
 1\(\times\)1~mm copper bar the resistance agrees with FastHenry to \(\sim\)1\% at low
 frequency and the inductance to \(\sim\)6\% (a GMD-discretization offset versus FastHenry's
 exact Hoer-Love formulas), with growing divergence in the deep-skin regime where either
-solver under-resolves. \code{capacitance\_to\_ground} matches the analytic isolated-wire
-capacitance (the single-conductor FastCap result) to \(\sim\)10\%, and the coil
-self-capacitance is validated against the Medhurst formula. The example
-\code{validate\_peec\_vs\_fasthenry.py} runs the comparison; a live test runs whenever the
-FastHenry COM server is present and is skipped otherwise. Design note:
-\code{docs/coil\_peec.md}.
+solver under-resolves. \code{fields.fastercap\_interop} panelizes the wire surface and runs FasterCap (the
+successor to FastCap) via its COM server, and \code{capacitance\_to\_ground} matches that
+boundary-element result to \(\sim\)1\% for a straight wire (both \(\sim\)10\% below the
+crude analytic formula, so the thin-wire kernel is confirmed against the reference rather
+than the approximation); the coil self-capacitance is additionally validated against the
+Medhurst formula. The example \code{validate\_peec\_vs\_fasthenry.py} runs both comparisons;
+live tests run whenever the FastHenry / FasterCap COM servers are present and are skipped
+otherwise. Design note: \code{docs/coil\_peec.md}.
 
 \subsection{Nonlinear magnetostatics: ferrites and saturable iron}
 \label{sec:fields-nonlinear-magnetostatics}

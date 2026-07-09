@@ -78,6 +78,21 @@ def main() -> None:
         print("  Using recorded FastHenry reference numbers:")
         _print_table(freqs, peec_bar, _BAR_FH_REF["inductance_nH"], _BAR_FH_REF["resistance_mOhm"])
 
+    # --- 1b. Capacitance vs FasterCap (isolated straight wire) ---
+    print("\nStraight wire self-capacitance vs FasterCap")
+    from spin_dynamics.fields.coil_peec import capacitance_to_ground
+    wire = Conductor(np.column_stack([np.zeros(200), np.zeros(200), np.linspace(0, 1.0, 200)]),
+                     wire_radius=1e-3, material=ANNEALED_COPPER)
+    c_peec = capacitance_to_ground(wire)
+    try:
+        from spin_dynamics.fields.fastercap_interop import run_fastercap
+
+        c_fc = run_fastercap(wire, n_theta=24)
+        print("  1 m, 1 mm wire:  C_PEEC=%.3f pF  C_FasterCap=%.3f pF  (%.1f%%)"
+              % (c_peec * 1e12, c_fc * 1e12, 100 * (c_peec - c_fc) / c_fc))
+    except Exception as exc:  # pragma: no cover
+        print(f"  C_PEEC={c_peec * 1e12:.3f} pF  (FasterCap not run: {exc})")
+
     # --- 2. Helical solenoid (round wire -> equal-area square bar in FastHenry) ---
     print(f"\nHelical solenoid: D=20 mm, l=30 mm, {args.turns} turns, 1 mm wire")
     sol_freqs = np.array([1e5, 1e6])

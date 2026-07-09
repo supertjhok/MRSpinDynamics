@@ -106,14 +106,23 @@ the exact Hoer-Love rectangular-filament formulas); both diverge in the deep-ski
 where either solver under-resolves without more filaments. A 6-turn helical solenoid agrees
 similarly (L within ~5%, R within ~10% at 100 kHz).
 
-**Capacitance / FastCap.** `capacitance_to_ground` (`= 1ᵀ P⁻¹ 1`) is the isolated-conductor
-self-capacitance a FastCap/FasterCap run returns for a single wire; it matches the analytic
-thin-wire formula `2π ε0 L/(ln(L/a)−1)` to ~10%. The coil self-resonance capacitance
-(`self_capacitance`) is validated against the Medhurst empirical formula and reproduces
-QOIL's `f_res`. Live FasterCap automation is **not** wired here: on this install FasterCap's
-type library is unregistered, so its COM `Run` cannot be resolved by name (FastHenry's
-typelib *is* registered, hence the live FastHenry path works). Run FasterCap manually on a
-panelized wire surface to complete the capacitance cross-check.
+**Capacitance vs FasterCap.** `fields.fastercap_interop` panelizes a conductor's wire
+surface (`to_fastercap_panels`) and runs FasterCap (the FastFieldSolvers successor to
+FastCap) through its COM server (`run_fastercap`, `compare_capacitance_with_fastercap`).
+`capacitance_to_ground` (`= 1ᵀ P⁻¹ 1`, the isolated-conductor self-capacitance) matches the
+FasterCap boundary-element solve to **~1%** for a straight wire (e.g. 1 m, 1 mm wire:
+PEEC 8.59 pF vs FasterCap 8.50 pF) — both ~10% below the crude analytic
+`2π ε0 L/(ln(L/a)−1)`, confirming the thin-wire electrostatic kernel against the reference
+rather than the approximation. The coil self-resonance capacitance (`self_capacitance`) is
+additionally validated against the Medhurst formula and reproduces QOIL's `f_res`.
+`tests/test_coil_peec_fastercap.py` checks the panel format everywhere and runs the live
+comparison when FasterCap is present.
+
+> Registration note: FasterCap's COM server resolves method names only if its type library
+> is registered. If `Run`/`GetCapacitance` raise "Library not registered", register it once
+> from an **elevated 32-bit** PowerShell (`C:\Windows\SysWOW64\WindowsPowerShell\v1.0\
+> powershell.exe`) with `LoadTypeLibEx("...\IFasterCap.tlb", REGKIND_REGISTER)`. The call
+> registers the typelib even though it then throws a harmless variant-marshaling error.
 
 ## Resolution ceiling (state it honestly)
 

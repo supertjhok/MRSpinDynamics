@@ -640,6 +640,14 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `run_fasthenry(conductor: Conductor, frequencies, *, nwinc: int | None = None, nhinc: int | None = None, timeout: float = 300.0, workdir: str | None = None) -> FastHenryResult` | Run FastHenry on ``conductor`` and return its ``L(f)``/``R(f)`` (single port). |
 | function | `compare_with_fasthenry(conductor: Conductor, frequencies, *, nwinc: int | None = None, nhinc: int | None = None)` | Return ``(peec, fasthenry)`` results for the same conductor and frequencies. |
 
+## `spin_dynamics.fields.fastercap_interop`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `to_fastercap_panels(conductor: Conductor, *, n_theta: int = 24, name: str = 'cond') -> str` | Return a FasterCap panel deck for the conductor's (round) wire surface. |
+| function | `run_fastercap(conductor: Conductor, *, n_theta: int = 24, tolerance: float = 0.01, timeout: float = 180.0, workdir: str | None = None) -> float` | Panelize ``conductor``, run FasterCap and return its self-capacitance (F). |
+| function | `compare_capacitance_with_fastercap(conductor: Conductor, *, n_theta: int = 24, tolerance: float = 0.01) -> tuple[float, float]` | Return ``(peec, fastercap)`` self-capacitance (F) for the same conductor. |
+
 ## `spin_dynamics.fields.coils`
 
 | Kind | Name | Summary |
