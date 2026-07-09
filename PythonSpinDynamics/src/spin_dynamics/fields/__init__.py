@@ -47,6 +47,7 @@ from spin_dynamics.fields.coil_peec import (
     extract_impedance,
     extract_impedance_surface,
     helical_solenoid,
+    radiation_resistance,
     self_capacitance,
     self_resonant_frequency,
 )
@@ -154,6 +155,7 @@ __all__ = [
     "capacitance_to_ground",
     "GroundedBox",
     "self_resonant_frequency",
+    "radiation_resistance",
     "coil_properties_peec",
     "PEECImpedance",
     "PEECCoilProperties",

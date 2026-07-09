@@ -270,9 +270,26 @@ real 1947 coils whose Q included losses beyond eddy-current proximity). Use `ful
 it; keep Medhurst's Φ (`coil_properties.medhurst_proximity_factor`) as a conservative
 cross-reference, not a correction.
 
+### Radiation resistance (first-order)
+
+`radiation_resistance(conductor, f)` adds the magnetic-dipole radiation loss:
+`R_rad = η₀ k⁴ |A_net|² / 6π`, with `A_net = ½ Σ rᵢ × rᵢ₊₁` the net vector area of the wire
+path closed end-to-end (translation-invariant; the closure stands in for the feed). It
+reduces to the textbook small-loop `20π²(C/λ)⁴` (validated to <1%), scales as `N²` for an
+N-turn solenoid, and vanishes for opposed-loop geometries (a Maxwell pair has `A_net ≈ 0`
+— gradient coils don't dipole-radiate). `coil_properties_peec` includes it by default:
+`ac_resistance` stays purely ohmic, the new `radiation_resistance` field reports it, and
+`q_factor` / `to_probe_params()` use the total. With the `k⁴` scaling it is utterly
+negligible at NMR/NQR frequencies for ordinary coils (nΩ at 2.5 MHz for the shielded-NQR
+example) and becomes the Q ceiling for large loops at VHF. First-order limits: magnetic
+dipole only — a `UserWarning` fires when the coil is not small vs the wavelength (higher
+multipoles + electric-dipole term missing), and common-mode "antenna-effect" radiation via
+the feed leads is a property of the installation, not the coil.
+
 **And even the computed R is a theoretical lower bound on loss:** a measured coil is usually
 another ~1.3–2× lossier still (dielectric-former `tan δ`, solder/lead resistance, surface
-oxidation, radiation), so a lab Q well below the computed one is expected, not a bug.
+oxidation, common-mode lead radiation), so a lab Q well below the computed one is expected,
+not a bug.
 
 ### Which eddy-loss model for a nearby conductor (shield, sample, former)
 

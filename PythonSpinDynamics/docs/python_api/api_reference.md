@@ -619,8 +619,9 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `capacitance_to_ground(conductor: Conductor, *, shield: GroundedBox | None = None, relative_permittivity: float = 1.0) -> float` | Isolated self-capacitance to ground (F): the charge held at unit potential,. |
 | function | `helical_solenoid(*, diameter: float, length: float, turns: int, wire_radius: float, material: ConductorMaterial = ANNEALED_COPPER, n_per_turn: int = 16, n_radial: int = 6, n_angular: int = 8, temperature: float | None = None, axis: str = 'z') -> Conductor` | Build a :class:`Conductor` for a helical single-layer solenoid. |
 | function | `self_resonant_frequency(conductor: Conductor) -> float` | First self-resonant frequency (Hz) ``1 / (2 pi sqrt(L C))``. |
+| function | `radiation_resistance(conductor: Conductor, frequency: float) -> float` | First-order (magnetic-dipole) radiation resistance (ohm) of the coil. |
 | class | `PEECCoilProperties` | Lumped RF properties of an arbitrary coil from the PEEC solve. |
-| function | `coil_properties_peec(conductor: Conductor, frequency: float, *, formulation: str = 'full') -> PEECCoilProperties` | Extract lumped RF properties of an arbitrary coil at ``frequency`` via PEEC. |
+| function | `coil_properties_peec(conductor: Conductor, frequency: float, *, formulation: str = 'full', include_radiation: bool = True) -> PEECCoilProperties` | Extract lumped RF properties of an arbitrary coil at ``frequency`` via PEEC. |
 
 ## `spin_dynamics.fields.coil_properties`
 
