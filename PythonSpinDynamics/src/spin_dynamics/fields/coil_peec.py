@@ -29,11 +29,17 @@ frequency matches the QOIL model to a few percent.
 **Resolution ceiling (state it honestly).** The cross-section must resolve the skin depth
 ``delta`` for the *resistance*: at ``a/delta`` up to ~5 a few hundred cells give sub-percent
 AC-resistance accuracy (validated against the exact Kelvin-function ratio and FastHenry);
-deeper skin (high-frequency RF, ``a/delta`` >~ 15) needs many cells and the resistance is
-under-resolved unless the cell count is raised -- exactly as for FastHenry at the same
-filament count. Inductance and capacitance are geometry-dominated and accurate at coarse
-cross-section resolution. A surface-impedance backend for the deep-skin resistance regime is
-a planned follow-on.
+deeper skin (high-frequency RF, ``a/delta`` >~ 15) needs many cells or the
+:func:`extract_impedance_surface` surface-impedance backend. Inductance and capacitance are
+geometry-dominated and accurate at coarse resolution.
+
+**Proximity limitation (affects Q).** The turn-to-turn proximity loss is only partially
+captured: the reduced K x K formulation gives each sub-filament a path-constant current, so
+the cross-section distribution cannot vary along the wire to crowd toward each neighbour
+(~1.1x where FastHenry gives ~1.4x for a tight coil), and the surface-impedance backend
+misses it entirely. For a closely-wound coil apply the analytic Medhurst factor
+(:func:`spin_dynamics.fields.coil_properties.solenoid_properties`) or use FastHenry. See
+``docs/coil_peec.md`` ("Loss modelling").
 
 The exact filament mutual is ported from FastHenry (``mutualfil``, Grover's method;
 originally M.I.T., maintained by FastFieldSolvers) -- the algorithm, re-implemented in NumPy.

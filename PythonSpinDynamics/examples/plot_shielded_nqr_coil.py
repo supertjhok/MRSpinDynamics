@@ -18,8 +18,17 @@ the PEEC solver:
 The plot (``--save out.png``) shows L, unloaded Q, and the capacitance / self-resonance for
 the free coil versus the shielded coil.
 
-The box eddy loss uses the first-order (Born) model (no skin-effect shielding in the wall),
-so the shielded-Q reduction is an upper bound; see docs/field_solvers_quasistatic.md.
+Two loss subtleties (see docs/coil_peec.md, "Loss modelling"):
+
+* **Proximity** -- the surface-impedance backend gives the skin resistance but not the
+  turn-to-turn proximity loss, so the skin-only Q is optimistic. The example multiplies it
+  by the validated Medhurst proximity factor from the analytic solenoid model. The result is
+  still a *theoretical* Q; a measured coil is typically another ~1.3-2x lower (dielectric
+  former, solder/lead resistance, radiation).
+* **Shield eddy loss** uses the surface-resistance model (loss in a skin depth of the wall,
+  R ~ sqrt f), which is correct for a solid metal box -- unlike the full-penetration
+  first-order eddy model, which would over-predict it by orders of magnitude at these
+  frequencies.
 """
 
 from __future__ import annotations
@@ -38,7 +47,7 @@ from spin_dynamics.fields.coil_peec import (
     extract_impedance_surface,
     self_capacitance,
 )
-from spin_dynamics.fields.coil_properties import ANNEALED_COPPER
+from spin_dynamics.fields.coil_properties import ANNEALED_COPPER, solenoid_properties
 from spin_dynamics.fields.magnetostatics import MU0, biot_savart
 
 SIGMA_AL = 3.5e7  # aluminium conductivity (S/m)
@@ -110,7 +119,13 @@ def main() -> None:
     freqs = np.linspace(1.0e6, 12.0e6, 23)
     imp = extract_impedance_surface(coil, freqs, n_perimeter=40)
     ind = imp.inductance
-    r_coil = imp.resistance
+    r_skin = imp.resistance  # skin resistance only (SIBC does not capture proximity)
+    # Proximity between turns: the surface-impedance backend (and the reduced-formulation
+    # volume solver) under-capture it, so apply the validated Medhurst proximity factor from
+    # the single-layer analytic model. R_coil = R_skin * Phi -- see docs/coil_peec.md.
+    phi = solenoid_properties(diameter=diameter, length=length, turns=int(args.turns),
+                              wire_diameter=d_wire, frequency=2.5e6).proximity_phi
+    r_coil = r_skin * phi
 
     # box wall eddy loss via the surface-impedance model: R_box(f) = 2 R_s(f) * field integral
     coil_segments = [(path[i], path[i + 1]) for i in range(len(path) - 1)]
@@ -119,8 +134,9 @@ def main() -> None:
     r_box = 2.0 * r_s * field_int
     r_total = r_coil + r_box
 
-    q_free = 2 * np.pi * freqs * ind / r_coil
-    q_box = 2 * np.pi * freqs * ind / r_total
+    q_skin = 2 * np.pi * freqs * ind / r_skin       # skin only (proximity ignored)
+    q_free = 2 * np.pi * freqs * ind / r_coil        # + turn-to-turn proximity
+    q_box = 2 * np.pi * freqs * ind / r_total        # + proximity + shield eddy loss
 
     def srf(c):
         return 1.0 / (2 * np.pi * np.sqrt(imp.dc_inductance * c))
@@ -131,10 +147,13 @@ def main() -> None:
     print(f"  self-C free        = {c_free * 1e12:.2f} pF   -> SRF {srf(c_free) / 1e6:.1f} MHz")
     print(f"  + Teflon former    = {c_teflon * 1e12:.2f} pF   -> SRF {srf(c_teflon) / 1e6:.1f} MHz")
     print(f"  + grounded box     = {c_box * 1e12:.2f} pF   -> SRF {srf(c_box) / 1e6:.1f} MHz")
-    print(f"  box eddy R (2.5 MHz) = {np.interp(2.5e6, freqs, r_box) * 1e3:.1f} mOhm "
-          f"(coil {np.interp(2.5e6, freqs, r_coil) * 1e3:.1f} mOhm)")
-    print(f"  Q (2.5 MHz): free {np.interp(2.5e6, freqs, q_free):.0f}  ->  shielded "
-          f"{np.interp(2.5e6, freqs, q_box):.0f}")
+    print(f"  R (2.5 MHz): skin {np.interp(2.5e6, freqs, r_skin) * 1e3:.0f} mOhm  "
+          f"x proximity(Phi={phi:.2f}) = {np.interp(2.5e6, freqs, r_coil) * 1e3:.0f} mOhm  "
+          f"+ box eddy {np.interp(2.5e6, freqs, r_box) * 1e3:.1f} mOhm")
+    print(f"  Q (2.5 MHz): skin-only {np.interp(2.5e6, freqs, q_skin):.0f}  ->  "
+          f"+proximity {np.interp(2.5e6, freqs, q_free):.0f}  ->  +shield {np.interp(2.5e6, freqs, q_box):.0f}")
+    print("  NOTE: this is the theoretical (idealized-copper) Q; a measured coil is typically")
+    print("        another ~1.3-2x lower (dielectric former, solder/lead resistance, radiation).")
     print(f"  SRF > 10 MHz target: {'MET' if srf(c_box) > 10e6 else 'NOT MET (box too tight)'}")
 
     if args.save is not None:
@@ -150,12 +169,13 @@ def main() -> None:
         ax3[0].set_title("Inductance (geometry-set, shield ~unchanged)")
         ax3[0].legend(fontsize=8)
 
-        ax3[1].plot(fm, q_free, "o-", color="C2", label="free coil")
-        ax3[1].plot(fm, q_box, "s-", color="C3", label="in grounded box")
+        ax3[1].plot(fm, q_skin, "^:", color="0.6", label="skin only")
+        ax3[1].plot(fm, q_free, "o-", color="C2", label="+ proximity")
+        ax3[1].plot(fm, q_box, "s-", color="C3", label="+ proximity + box")
         ax3[1].axvspan(*band, color="orange", alpha=0.15)
         ax3[1].set_xlabel("frequency (MHz)")
         ax3[1].set_ylabel("unloaded Q")
-        ax3[1].set_title("Q: shield eddy loss lowers it")
+        ax3[1].set_title("Q: proximity + shield loss (theoretical upper bound)")
         ax3[1].legend(fontsize=8)
 
         labels = ["free", "+Teflon", "+box"]

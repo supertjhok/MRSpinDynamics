@@ -199,6 +199,47 @@ surface-resistance integral `R_box = 2 R_s(f) ∮|H_tan/I|² dA`, `R_s = √(π 
 the correct skin-limited scaling for a solid wall, unlike the full-penetration first-order
 eddy model). A loose enclosure mainly shifts the SRF and lowers Q only modestly.
 
+## Loss modelling: proximity and eddy currents (read before trusting a Q)
+
+Getting the *inductance* right is easy; getting the *resistance* (hence Q) right needs the
+correct loss model for the situation. Two common trip-ups:
+
+### Proximity effect between turns
+
+The AC field of neighbouring turns crowds the current in each wire, raising R above the
+isolated-wire skin value (the Medhurst proximity factor Φ, typically 1.3–2 for a
+closely-wound solenoid). **Neither PEEC mode captures this fully:**
+
+- `extract_impedance_surface` (SIBC) carries only axial perimeter current, so it captures
+  skin effect but **essentially no proximity** (a solenoid comes out ≈ the straight-wire R).
+- `extract_impedance` (volume) captures proximity only *partially*: the reduced K×K
+  formulation gives every sub-filament a path-constant current, so the cross-section
+  distribution cannot vary along the wire to crowd toward each neighbour. It reaches
+  ~1.1× where FastHenry (independent per-segment currents) gives ~1.4× for a tight coil.
+
+So for a closely-wound coil these solvers **over-predict Q** if used alone. Options, best
+first: use the analytic `solenoid_properties` (validated Medhurst Φ) for a solenoid;
+multiply the SIBC skin resistance by that Φ (`R_SIBC × Φ ≈ QOIL R`, what the NQR example
+does); or run FastHenry via `fasthenry_interop` for arbitrary geometry. A full per-segment
+mesh in PEEC (proximity without Φ) is a planned follow-on.
+
+**And even Φ-corrected R is a theoretical lower bound on loss:** a measured coil is usually
+another ~1.3–2× lossier still (dielectric-former `tan δ`, solder/lead resistance, surface
+oxidation, radiation), so a lab Q well below the computed one is expected, not a bug.
+
+### Which eddy-loss model for a nearby conductor (shield, sample, former)
+
+| regime | model | scaling | use for |
+|---|---|---|---|
+| skin depth `δ` ≪ conductor thickness (solid metal at RF) | **surface resistance** `R = 2 R_s ∮\|H_tan/I\|² dA`, `R_s = √(πfμ₀/σ)` | `R ∝ √f` | a shield can, a metal box, thick copper at MHz |
+| `δ` ≫ thickness, or low-σ (thin foil, saline sample, weak conductor) | **first-order (Born) volume** `fields.quasistatic.reflected_resistance` / `eddy_currents` | `R ∝ f²` | thin shells, conductive samples, gradient-coil eddy shields |
+
+The trap: applying the **first-order volume** model to a **solid metal box at MHz** assumes
+the whole wall thickness conducts (no skin shielding) and over-predicts the loss by orders
+of magnitude (the skin depth in aluminium at 3 MHz is ~47 µm, far thinner than the wall).
+The shielded-NQR example therefore uses the surface-resistance model for the box; the
+first-order volume model is right only when the conductor is thin compared with `δ`.
+
 ## Deferred follow-ons
 
 - **FMM / H-matrix acceleration** of the `O(K^2)` chain matrix — the benchmark shows clean

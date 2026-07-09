@@ -3460,6 +3460,21 @@ SRF for free/former/box (e.g.\ \(1.5\to2.2\to3.4\)\,pF, SRF \(58\to48\to36\)\,MH
 the 10\,MHz target), and the Q reduction from box-wall eddy loss (a surface-resistance
 integral \(R_{\text{box}}=2R_s\!\oint|H_{\text{tan}}/I|^2\,\mathrm dA\), \(R_s\propto\sqrt f\)).
 
+\paragraph{Loss-model caveats (proximity and eddy currents).} Two easy trip-ups when
+trusting a computed \(Q\). \emph{Proximity:} the surface-impedance backend gives the skin
+resistance but not the turn-to-turn proximity loss, and the reduced volume solver captures
+it only partially (each sub-filament carries a path-constant current); for a closely-wound
+coil, multiply by the analytic Medhurst factor from \code{solenoid\_properties} or use
+FastHenry. Even then the result is a theoretical upper bound on \(Q\) --- a measured coil is
+typically \(\sim\)1.3--2\(\times\) lossier (dielectric former, solder/lead resistance,
+radiation). \emph{Eddy loss in a nearby conductor:} use the \emph{surface-resistance} model
+(\(R\propto\sqrt f\)) when the skin depth is much thinner than the conductor (a solid metal
+shield at RF), and the \emph{first-order volume} model
+(\code{fields.quasistatic.reflected\_resistance}, \(R\propto f^2\)) only when the conductor
+is thin compared with the skin depth (a foil, a weakly-conducting sample); applying the
+volume model to a solid metal box at MHz over-predicts the loss by orders of magnitude. See
+\code{docs/coil\_peec.md}.
+
 The example \code{plot\_peec\_coil\_solver.py} shows a two-layer solenoid (\(L\), \(R\),
 \(Q\), \(f_{\text{res}}\), and the cross-section current-crowding map) and a gradient
 Maxwell pair (\(L\), \(R\), the \(\mathrm dB_z/\mathrm dz\) efficiency from Biot-Savart, and
