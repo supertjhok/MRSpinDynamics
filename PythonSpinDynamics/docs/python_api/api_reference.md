@@ -612,6 +612,7 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `filament_self_inductance(filament: list[Segment], gmd_radius: float) -> float` | Self partial inductance (H) of one open filamentary wire following the path. |
 | class | `PEECImpedance` | Frequency-swept terminal impedance of a coil from the PEEC solve. |
 | function | `extract_impedance(conductor: Conductor, frequencies: Sequence[float]) -> PEECImpedance` | Solve the PEEC chain system for ``L(w)`` and ``R(w)`` including skin + proximity. |
+| function | `extract_impedance_surface(conductor: Conductor, frequencies: Sequence[float], *, n_perimeter: int = 48) -> PEECImpedance` | Surface-impedance (SIBC) solve for the deep-skin (high ``a/delta``) regime. |
 | function | `current_distribution(conductor: Conductor, frequency: float) -> tuple[np.ndarray, np.ndarray]` | Per-sub-filament current magnitude across the cross-section at ``frequency``. |
 | function | `self_capacitance(conductor: Conductor) -> float` | Lumped self-capacitance (F) of the coil from an electrostatic energy method. |
 | function | `capacitance_to_ground(conductor: Conductor) -> float` | Isolated self-capacitance to infinity (F) of the conductor. |

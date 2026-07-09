@@ -62,6 +62,7 @@ __all__ = [
     "self_partial_inductance",
     "filament_self_inductance",
     "extract_impedance",
+    "extract_impedance_surface",
     "current_distribution",
     "self_capacitance",
     "capacitance_to_ground",
@@ -170,28 +171,68 @@ def _round_cross_section(
     return offsets, areas, gmd
 
 
-def _rect_cross_section(
-    width: float, height: float, n_width: int, n_height: int
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Uniform Cartesian tiling of a rectangular (or square) wire cross-section.
+def _graded_edges(extent: float, n: int, grading: float) -> np.ndarray:
+    """``n+1`` cell edges on ``[-extent/2, extent/2]``, concentrated toward both ends.
 
-    Returns ``(offsets, areas, gmd)`` as :func:`_round_cross_section`. Used for strip/tape
-    conductors and for apples-to-apples comparison with FastHenry (whose conductors are
-    rectangular bars).
+    ``grading == 1`` is uniform; ``grading > 1`` clusters cells near the two surfaces
+    (a geometric-like power mapping), so the skin layer is resolved with fewer cells.
+    """
+
+    t = np.linspace(0.0, 1.0, n + 1)
+    if grading == 1.0:
+        s = t
+    else:
+        g = float(grading)
+        s = np.where(t < 0.5, 0.5 * (2.0 * t) ** g, 1.0 - 0.5 * (2.0 * (1.0 - t)) ** g)
+    return (s - 0.5) * extent
+
+
+def _rect_cross_section(
+    width: float, height: float, n_width: int, n_height: int, grading: float = 1.0
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Cartesian tiling of a rectangular (or square) wire cross-section.
+
+    Returns ``(offsets, areas, gmd)`` as :func:`_round_cross_section`. ``grading > 1``
+    concentrates cells toward the four edges (the skin layer) so the AC resistance converges
+    with fewer cells; ``grading == 1`` is the uniform tiling used for FastHenry comparison.
     """
 
     n_width = int(n_width)
     n_height = int(n_height)
     if n_width < 1 or n_height < 1:
         raise ValueError("n_width and n_height must be >= 1")
-    wx = (np.arange(n_width) + 0.5) / n_width - 0.5
-    hy = (np.arange(n_height) + 0.5) / n_height - 0.5
-    gx, gy = np.meshgrid(wx * width, hy * height, indexing="ij")
+    ex = _graded_edges(width, n_width, grading)
+    ey = _graded_edges(height, n_height, grading)
+    cx = 0.5 * (ex[:-1] + ex[1:])
+    cy = 0.5 * (ey[:-1] + ey[1:])
+    dwx = np.diff(ex)
+    dhy = np.diff(ey)
+    gx, gy = np.meshgrid(cx, cy, indexing="ij")
+    ax, ay = np.meshgrid(dwx, dhy, indexing="ij")
     offsets = np.column_stack([gx.ravel(), gy.ravel()])
-    cell_area = width * height / (n_width * n_height)
-    areas = np.full(offsets.shape[0], cell_area)
+    areas = (ax * ay).ravel()
     gmd = np.sqrt(areas / np.pi) * np.exp(-0.25)
     return offsets, areas, gmd
+
+
+def _sweep_offsets(path_points: np.ndarray, offsets: np.ndarray) -> list[list[Segment]]:
+    """Sweep ``(K, 2)`` cross-section offsets along the path with rotation-minimizing frames.
+
+    Returns ``filaments[k]``: the list of ``(start, end)`` segments of sub-filament ``k`` (the
+    path displaced to cross-section offset ``k``).
+    """
+
+    e1, e2 = _rotation_minimizing_frames(path_points)
+    base = path_points[np.newaxis, :, :]
+    disp = (
+        offsets[:, 0, np.newaxis, np.newaxis] * e1[np.newaxis, :, :]
+        + offsets[:, 1, np.newaxis, np.newaxis] * e2[np.newaxis, :, :]
+    )
+    verts = base + disp
+    return [
+        [(verts[k, m], verts[k, m + 1]) for m in range(verts.shape[1] - 1)]
+        for k in range(verts.shape[0])
+    ]
 
 
 @dataclass(frozen=True)
@@ -217,6 +258,7 @@ class Conductor:
     height: float | None = None
     n_width: int = 6
     n_height: int = 6
+    grading: float = 1.0
     _cache: dict = field(default_factory=dict, repr=False, compare=False)
 
     def __post_init__(self) -> None:
@@ -262,20 +304,13 @@ class Conductor:
 
         if "subfil" in self._cache:
             return self._cache["subfil"]
-        e1, e2 = _rotation_minimizing_frames(self.path_points)
         if self.cross_section == "rect":
-            offsets, areas, gmd = _rect_cross_section(self.width, self.height, self.n_width, self.n_height)
+            offsets, areas, gmd = _rect_cross_section(
+                self.width, self.height, self.n_width, self.n_height, self.grading
+            )
         else:
             offsets, areas, gmd = _round_cross_section(self.wire_radius, self.n_radial, self.n_angular)
-        # Vertex positions for each cell: (K, M+1, 3)
-        base = self.path_points[np.newaxis, :, :]
-        disp = offsets[:, 0, np.newaxis, np.newaxis] * e1[np.newaxis, :, :] \
-            + offsets[:, 1, np.newaxis, np.newaxis] * e2[np.newaxis, :, :]
-        verts = base + disp
-        filaments = [
-            [(verts[k, m], verts[k, m + 1]) for m in range(verts.shape[1] - 1)]
-            for k in range(verts.shape[0])
-        ]
+        filaments = _sweep_offsets(self.path_points, offsets)
         result = (filaments, areas, gmd)
         self._cache["subfil"] = result
         return result
@@ -529,6 +564,92 @@ def extract_impedance(
         dc_inductance=float(dc_l),
         dc_resistance=float(dc_r),
     )
+
+
+def _skin_depth(conductor: Conductor, frequency: float) -> float:
+    rho = conductor.material.resistivity_at(conductor.temperature)
+    return float(np.sqrt(rho / (np.pi * frequency * MU0 * conductor.material.mu_r)))
+
+
+def _perimeter_offsets(conductor: Conductor, delta: float, n: int) -> tuple[np.ndarray, np.ndarray]:
+    """Cross-section perimeter cells for the surface-impedance model.
+
+    Returns ``(offsets, widths)``: ``offsets`` (n, 2) filament positions one half skin depth
+    inside the boundary, ``widths`` (n,) the along-perimeter patch widths. Round -> a ring;
+    rect -> the four inset edges.
+    """
+
+    if conductor.cross_section == "rect":
+        w, h = float(conductor.width), float(conductor.height)
+        wi, hi = max(w - delta, w * 1e-3), max(h - delta, h * 1e-3)
+        perim = 2.0 * (wi + hi)
+        s = (np.arange(n) + 0.5) / n * perim  # arc length around the inset rectangle
+        xs, ys = np.empty(n), np.empty(n)
+        for i, si in enumerate(s):
+            t = si
+            if t < wi:  # bottom edge
+                xs[i], ys[i] = -wi / 2 + t, -hi / 2
+            elif t < wi + hi:  # right edge
+                xs[i], ys[i] = wi / 2, -hi / 2 + (t - wi)
+            elif t < 2 * wi + hi:  # top edge
+                xs[i], ys[i] = wi / 2 - (t - wi - hi), hi / 2
+            else:  # left edge
+                xs[i], ys[i] = -wi / 2, hi / 2 - (t - 2 * wi - hi)
+        widths = np.full(n, 2.0 * (w + h) / n)
+        return np.column_stack([xs, ys]), widths
+    a = conductor.wire_radius
+    r_fil = max(a - delta / 2.0, a * 0.5)
+    th = np.linspace(0.0, 2.0 * np.pi, n, endpoint=False)
+    widths = np.full(n, 2.0 * np.pi * a / n)
+    return np.column_stack([r_fil * np.cos(th), r_fil * np.sin(th)]), widths
+
+
+def extract_impedance_surface(
+    conductor: Conductor, frequencies: Sequence[float], *, n_perimeter: int = 48
+) -> PEECImpedance:
+    """Surface-impedance (SIBC) solve for the deep-skin (high ``a/delta``) regime.
+
+    Instead of tiling the whole cross-section (which needs cells thinner than the skin depth
+    -- prohibitively many when ``a/delta`` is large), this places ``n_perimeter`` filaments
+    around the cross-section boundary, one half skin depth inside, and gives each the analytic
+    surface impedance ``Z_s = (1+j) rho/delta * (length / patch_width)`` (its real part is the
+    skin resistance, its imaginary part the internal inductance). The external inductance is
+    the exact mutual between the ring filaments. Cost is ``O(n_perimeter^2)`` per frequency,
+    independent of ``a/delta`` -- and the accuracy *improves* with frequency, the opposite of
+    the volume solver. Complementary to :func:`extract_impedance` (best at low/moderate skin).
+    """
+
+    freqs = np.atleast_1d(np.asarray(frequencies, dtype=np.float64))
+    rho = conductor.material.resistivity_at(conductor.temperature)
+    total_len = conductor.total_length
+    l_out = np.empty(freqs.size)
+    r_out = np.empty(freqs.size)
+    for idx, f in enumerate(freqs):
+        delta = _skin_depth(conductor, f)
+        offsets, widths = _perimeter_offsets(conductor, delta, int(n_perimeter))
+        filaments = _sweep_offsets(conductor.path_points, offsets)
+        starts = [np.array([s for s, _ in fil]) for fil in filaments]
+        ends = [np.array([e for _, e in fil]) for fil in filaments]
+        n = len(filaments)
+        gmd = np.sqrt(widths * delta / np.pi) * np.exp(-0.25)  # patch cross-section GMD
+        lmat = np.zeros((n, n))
+        for i in range(n):
+            m_self = _mutualfil_matrix(starts[i], ends[i], starts[i], ends[i])
+            np.fill_diagonal(m_self, 0.0)
+            seg_len = np.linalg.norm(ends[i] - starts[i], axis=1)
+            lmat[i, i] = sum(self_partial_inductance(x, gmd[i]) for x in seg_len if x > 0) + m_self.sum()
+            for j in range(i + 1, n):
+                lmat[i, j] = lmat[j, i] = float(_mutualfil_matrix(starts[i], ends[i], starts[j], ends[j]).sum())
+        z_surface = (1.0 + 1j) * (rho / delta) * (total_len / widths)
+        omega = 2.0 * np.pi * f
+        z = np.diag(z_surface) + 1j * omega * lmat
+        z_term = 1.0 / (np.ones(n) @ np.linalg.solve(z, np.ones(n)))
+        r_out[idx] = z_term.real
+        l_out[idx] = z_term.imag / omega
+    dc_r = rho * total_len / (np.pi * conductor.wire_radius**2) if conductor.cross_section == "round" \
+        else rho * total_len / (conductor.width * conductor.height)
+    return PEECImpedance(frequency=freqs, inductance=l_out, resistance=r_out,
+                         dc_inductance=float(l_out[0]) if l_out.size else float("nan"), dc_resistance=float(dc_r))
 
 
 def current_distribution(

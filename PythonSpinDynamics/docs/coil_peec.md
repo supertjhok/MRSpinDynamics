@@ -155,11 +155,34 @@ stay square, areas rescaled to `pi a^2`) so the resistance converges; an equal-a
 tiling diverges as its wedge cells elongate. The cost is `O(K^2 M^2)` (K cells, M path
 segments), so validation/example geometries keep both modest.
 
+## Performance: surface-impedance backend and graded meshing
+
+The volume solver's cost is `O(K^2)` in the cross-section cell count, and deep skin needs
+`K ~ (a/delta)^2` cells to resolve — prohibitive at RF. Two accelerations fix this
+(`examples/plot_peec_performance.py` benchmarks them):
+
+- **Surface-impedance backend** — `extract_impedance_surface(conductor, freqs, n_perimeter)`
+  places a ring of filaments around the cross-section boundary, one half skin depth inside,
+  each with the analytic surface impedance `Z_s = (1+j) rho/delta * (length/width)` (real
+  part = skin resistance, imaginary = internal inductance); the external inductance is the
+  exact ring-filament mutual. Cost is independent of `a/delta` and the accuracy *improves*
+  with frequency — the opposite of the volume solver. Validated against Kelvin: −3.3% at
+  `a/delta = 15` and −0.3% at `a/delta = 151`, with `n_perimeter = 48`. For a deep-skin
+  solenoid it is ~10–100× faster than a volume solve **and** more accurate.
+- **Graded meshing** — `Conductor(..., grading=g)` (`g > 1`) concentrates volume cells
+  toward the surface, so the moderate-skin regime converges with far fewer cells (e.g. a
+  1 MHz square bar reaches ~5% at 64 cells vs a uniform mesh needing ~250).
+
+Rule of thumb: uniform/graded volume for low–moderate skin (`a/delta <~ 10`), the
+surface-impedance backend for deep skin.
+
 ## Deferred follow-ons
 
-- A **surface-impedance backend** for the deep-skin RF resistance regime.
+- **FMM / H-matrix acceleration** of the `O(K^2)` chain matrix — the benchmark shows clean
+  `O(K^2)` scaling (K = 16/64/144/256 → 0.3/5/26/76 s), but the surface-impedance backend
+  and graded meshing keep `K` small in the regimes that used to force large meshes, so this
+  is the lever only for very large single conductors or big multi-conductor arrays.
 - **Magnetic core/shield** coupling (via `fields.nonlinear_magnetostatics` /
   `fields.eddy_modes`).
-- Rectangular/tube/litz cross-sections; multi-conductor (multi-port) networks.
-- **Acceleration** (FMM / H-matrix) to lift the `O(K^2 M^2)` ceiling.
+- Tube/litz cross-sections; multi-conductor (multi-port) networks.
 - Surface-panel MoM capacitance (vs the present line-charge energy method).

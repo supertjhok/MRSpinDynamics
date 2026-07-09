@@ -3433,14 +3433,21 @@ ratio (isolated wire), the Neumann kernels, and the QOIL solenoid --- its \(L\),
 self-capacitance and self-resonance agree with QOIL to a few percent (the physical
 self-resonance, distinct from QOIL's lumped-equivalent \(C_p\) fitting capacitance).
 
-\paragraph{Resolution ceiling.} The cross-section must resolve the skin depth: for
-\(a/\delta\lesssim5\) a few hundred filaments give sub-percent AC-resistance accuracy
-(convergent to the Kelvin result), but deep skin (high-frequency RF, \(a/\delta\gtrsim15\))
-is under-resolved at modest cell counts, so \(R\) is under-predicted there --- inductance,
-capacitance and self-resonance remain accurate regardless, being geometry-dominated. For a
-single-layer solenoid in that regime prefer the analytic
-\code{solenoid\_properties}. A surface-impedance backend, magnetic-core coupling and
-FMM/H-matrix acceleration are planned follow-ons.
+\paragraph{Resolution ceiling and its accelerations.} The volume solver must tile the
+cross-section finer than the skin depth, so its \(O(K^2)\) cost (in the cell count \(K\))
+grows as \((a/\delta)^2\) --- prohibitive at RF. Two accelerations remove this, benchmarked
+in \code{plot\_peec\_performance.py}. The \textbf{surface-impedance backend}
+\code{extract\_impedance\_surface} rings the cross-section boundary with filaments carrying
+the analytic surface impedance \(Z_s=(1+\mathrm j)\rho/\delta\); its cost is independent of
+\(a/\delta\) and its accuracy \emph{improves} with frequency (\(-3.3\%\) at
+\(a/\delta=15\), \(-0.3\%\) at \(a/\delta=151\) with 48 cells), making it \(\sim\!10\)--
+\(100\times\) faster than a volume solve in deep skin while being more accurate.
+\textbf{Graded meshing} (\code{grading}\(>1\)) concentrates volume cells at the surface, so
+the moderate-skin regime converges with far fewer cells (a 1\,MHz square bar reaches
+\(\sim\!5\%\) at 64 cells versus \(\sim\!250\) for a uniform mesh). Inductance, capacitance
+and self-resonance are geometry-dominated and accurate regardless. FMM/H-matrix acceleration
+of the \(O(K^2)\) chain matrix and magnetic-core coupling remain planned follow-ons, though
+the two accelerations above keep \(K\) small in the regimes that used to force large meshes.
 
 The example \code{plot\_peec\_coil\_solver.py} shows a two-layer solenoid (\(L\), \(R\),
 \(Q\), \(f_{\text{res}}\), and the cross-section current-crowding map) and a gradient

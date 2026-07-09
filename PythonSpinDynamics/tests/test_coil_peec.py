@@ -124,6 +124,33 @@ class SkinEffectTests(unittest.TestCase):
         self.assertLess(errs[2], errs[1])
         self.assertLess(errs[2], 0.15)
 
+    def test_surface_impedance_matches_kelvin_deep_skin(self) -> None:
+        # SIBC: deep skin (a/delta ~ 48), 48 perimeter cells, within a few % of Kelvin --
+        # where the volume solver would need thousands of cells.
+        from spin_dynamics.fields.coil_peec import extract_impedance_surface
+
+        a, length, freq = 1e-3, 1.0, 1e7
+        delta = np.sqrt(2 * COPPER.resistivity / (2 * np.pi * freq * MU0))
+        exact = _kelvin_rac_over_rdc(a, delta) * COPPER.resistivity * length / (np.pi * a**2)
+        c = Conductor(np.array([[0, 0, 0], [0, 0, length]]), wire_radius=a, material=COPPER)
+        r = extract_impedance_surface(c, [freq], n_perimeter=48).resistance[0]
+        self.assertLess(abs(r - exact) / exact, 0.03)
+
+    def test_graded_mesh_more_accurate_than_uniform_at_fixed_cells(self) -> None:
+        # At a fixed (coarse) cell count in deep skin, surface-concentrated grading gives a
+        # markedly more accurate AC resistance than a uniform mesh.
+        side, length, freq = 1e-3, 0.1, 1e6
+        a_eq = np.sqrt(side * side / np.pi)
+        delta = np.sqrt(2 * COPPER.resistivity / (2 * np.pi * freq * MU0))
+        exact = _kelvin_rac_over_rdc(a_eq, delta)
+        pts = np.array([[0, 0, 0], [0, 0, length]])
+        kw = dict(material=COPPER, cross_section="rect", width=side, height=side, n_width=8, n_height=8)
+        r_unif = extract_impedance(Conductor(pts, grading=1.0, **kw), [freq])
+        r_grad = extract_impedance(Conductor(pts, grading=2.5, **kw), [freq])
+        e_unif = abs(r_unif.resistance[0] / r_unif.dc_resistance - exact) / exact
+        e_grad = abs(r_grad.resistance[0] / r_grad.dc_resistance - exact) / exact
+        self.assertLess(e_grad, e_unif)
+
     def test_resistance_rises_with_frequency(self) -> None:
         a = 1e-3
         c = _straight_wire(a, 1.0, 12, 16)
