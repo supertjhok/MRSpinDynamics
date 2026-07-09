@@ -26,6 +26,7 @@ from spin_dynamics.fields.coil_peec import (  # noqa: E402
     Conductor,
     PEECCoilProperties,
     _pair_mutual,
+    capacitance_to_ground,
     coil_properties_peec,
     extract_impedance,
     helical_solenoid,
@@ -132,6 +133,18 @@ class SolenoidVsQOILTests(unittest.TestCase):
             abs(p.self_resonant_frequency - self.q.self_resonant_frequency) / self.q.self_resonant_frequency,
             0.10,
         )
+
+    def test_capacitance_to_ground_matches_analytic_wire(self) -> None:
+        # Isolated-wire self-capacitance (the FastCap/FasterCap single-conductor result)
+        # vs the analytic thin-wire formula 2*pi*eps0*L/(ln(L/a)-1).
+        eps0 = 8.8541878128e-12
+        length, a = 1.0, 1e-3
+        npts = 300
+        pts = np.column_stack([np.zeros(npts), np.zeros(npts), np.linspace(0, length, npts)])
+        c = Conductor(pts, wire_radius=a, material=COPPER)
+        c_peec = capacitance_to_ground(c)
+        c_analytic = 2 * np.pi * eps0 * length / (np.log(length / a) - 1)
+        self.assertLess(abs(c_peec - c_analytic) / c_analytic, 0.15)
 
     def test_capacitance_matches_medhurst(self) -> None:
         # Medhurst empirical self-capacitance (pF) for a single-layer solenoid.

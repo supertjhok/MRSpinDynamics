@@ -81,6 +81,40 @@ The example `examples/plot_peec_coil_solver.py` shows a two-layer solenoid (`L`,
 `dB_z/dz` efficiency via Biot-Savart, and shield eddy modes via `eddy_modes`) — the same
 solver spanning RF and gradient coils.
 
+### Cross-validation against FastHenry and FastCap
+
+`fields.fasthenry_interop` exports a `Conductor` to a FastHenry `.inp` deck
+(`to_fasthenry_inp`) and, on Windows with FastHenry2 installed (its COM automation server),
+runs it and returns `L(f)`/`R(f)` (`run_fasthenry`, `compare_with_fasthenry`). A round wire
+is exported as an equal-area square bar; use `cross_section="rect"` for an exact match to
+FastHenry's rectangular conductors. `examples/validate_peec_vs_fasthenry.py` runs the
+comparison; `tests/test_coil_peec_fasthenry.py` checks the export format everywhere and runs
+a live comparison when the FastHenry COM server is present (skipped otherwise, so CI stays
+green).
+
+Measured agreement (1×1 mm copper bar, 100 mm, 8×8 filaments vs FastHenry nwinc=nhinc=8):
+
+| f | L FastHenry | L PEEC | R FastHenry | R PEEC |
+|---|---|---|---|---|
+| 10 kHz | 102.1 nH | 108.1 nH (+5.9%) | 1.744 mΩ | 1.744 mΩ (0.0%) |
+| 100 kHz | 100.6 nH | 106.6 nH (+5.9%) | 2.897 mΩ | 2.865 mΩ (−1.1%) |
+| 1 MHz | 97.9 nH | 104.0 nH (+6.2%) | 8.31 mΩ | 7.63 mΩ (−8.2%) |
+
+Resistance matches FastHenry to ~1% at low frequency; inductance agrees to ~6% (a
+GMD-discretization offset — PEEC uses area-equivalent-circle cell GMDs where FastHenry uses
+the exact Hoer-Love rectangular-filament formulas); both diverge in the deep-skin regime
+where either solver under-resolves without more filaments. A 6-turn helical solenoid agrees
+similarly (L within ~5%, R within ~10% at 100 kHz).
+
+**Capacitance / FastCap.** `capacitance_to_ground` (`= 1ᵀ P⁻¹ 1`) is the isolated-conductor
+self-capacitance a FastCap/FasterCap run returns for a single wire; it matches the analytic
+thin-wire formula `2π ε0 L/(ln(L/a)−1)` to ~10%. The coil self-resonance capacitance
+(`self_capacitance`) is validated against the Medhurst empirical formula and reproduces
+QOIL's `f_res`. Live FasterCap automation is **not** wired here: on this install FasterCap's
+type library is unregistered, so its COM `Run` cannot be resolved by name (FastHenry's
+typelib *is* registered, hence the live FastHenry path works). Run FasterCap manually on a
+panelized wire surface to complete the capacitance cross-check.
+
 ## Resolution ceiling (state it honestly)
 
 The cross-section must resolve the skin depth `delta`. At `a/delta` up to ~5 a few hundred

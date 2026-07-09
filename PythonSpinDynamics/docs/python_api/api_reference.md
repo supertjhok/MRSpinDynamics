@@ -607,13 +607,14 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | Kind | Name | Summary |
 | --- | --- | --- |
 | function | `self_partial_inductance(length: float, gmd_radius: float) -> float` | Self partial inductance (H) of a straight round filament. |
-| class | `Conductor` | A single current-carrying wire: a polyline centreline plus a round cross-section. |
+| class | `Conductor` | A single current-carrying wire: a polyline centreline plus a cross-section. |
 | function | `conductor_from_segments(segments: Sequence[Segment], *, wire_radius: float, material: ConductorMaterial = ANNEALED_COPPER, n_radial: int = 6, n_angular: int = 8, temperature: float | None = None) -> Conductor` | Build a :class:`Conductor` from a connected ``(start, end)`` segment list. |
 | function | `filament_self_inductance(filament: list[Segment], gmd_radius: float) -> float` | Self partial inductance (H) of one open filamentary wire following the path. |
 | class | `PEECImpedance` | Frequency-swept terminal impedance of a coil from the PEEC solve. |
 | function | `extract_impedance(conductor: Conductor, frequencies: Sequence[float]) -> PEECImpedance` | Solve the PEEC chain system for ``L(w)`` and ``R(w)`` including skin + proximity. |
 | function | `current_distribution(conductor: Conductor, frequency: float) -> tuple[np.ndarray, np.ndarray]` | Per-sub-filament current magnitude across the cross-section at ``frequency``. |
 | function | `self_capacitance(conductor: Conductor) -> float` | Lumped self-capacitance (F) of the coil from an electrostatic energy method. |
+| function | `capacitance_to_ground(conductor: Conductor) -> float` | Isolated self-capacitance to infinity (F) of the conductor. |
 | function | `helical_solenoid(*, diameter: float, length: float, turns: int, wire_radius: float, material: ConductorMaterial = ANNEALED_COPPER, n_per_turn: int = 16, n_radial: int = 6, n_angular: int = 8, temperature: float | None = None, axis: str = 'z') -> Conductor` | Build a :class:`Conductor` for a helical single-layer solenoid. |
 | function | `self_resonant_frequency(conductor: Conductor) -> float` | First self-resonant frequency (Hz) ``1 / (2 pi sqrt(L C))``. |
 | class | `PEECCoilProperties` | Lumped RF properties of an arbitrary coil from the PEEC solve. |
@@ -629,6 +630,15 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `CoilProperties` | Lumped RF properties of a single-layer solenoid at a design frequency. |
 | function | `solenoid_properties(*, diameter: float, length: float, turns: int, wire_diameter: float, frequency: float, material: ConductorMaterial = ANNEALED_COPPER, temperature: float | None = None) -> CoilProperties` | Extract the lumped RF properties of a single-layer round-wire solenoid. |
 | function | `solenoid_field_inductance(*, diameter: float, length: float, turns: int, wire_diameter: float, n_segments: int = 120) -> float` | Independent field-based inductance of the solenoid (Biot-Savart / Neumann). |
+
+## `spin_dynamics.fields.fasthenry_interop`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `to_fasthenry_inp(conductor: Conductor, frequencies, *, nwinc: int | None = None, nhinc: int | None = None) -> str` | Return a FastHenry ``.inp`` deck for ``conductor`` over ``frequencies`` (Hz). |
+| class | `FastHenryResult` | FastHenry ``L(f)`` and ``R(f)`` for the (single-port) conductor. |
+| function | `run_fasthenry(conductor: Conductor, frequencies, *, nwinc: int | None = None, nhinc: int | None = None, timeout: float = 300.0, workdir: str | None = None) -> FastHenryResult` | Run FastHenry on ``conductor`` and return its ``L(f)``/``R(f)`` (single port). |
+| function | `compare_with_fasthenry(conductor: Conductor, frequencies, *, nwinc: int | None = None, nhinc: int | None = None)` | Return ``(peec, fasthenry)`` results for the same conductor and frequencies. |
 
 ## `spin_dynamics.fields.coils`
 

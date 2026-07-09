@@ -3446,7 +3446,22 @@ The example \code{plot\_peec\_coil\_solver.py} shows a two-layer solenoid (\(L\)
 \(Q\), \(f_{\text{res}}\), and the cross-section current-crowding map) and a gradient
 Maxwell pair (\(L\), \(R\), the \(\mathrm dB_z/\mathrm dz\) efficiency from Biot-Savart, and
 shield eddy modes from \code{eddy\_modes}) --- the same solver spanning RF and gradient
-coils. Design note: \code{docs/coil\_peec.md}.
+coils.
+
+\paragraph{Cross-validation against FastHenry and FastCap.} \code{fields.fasthenry\_interop}
+exports a \code{Conductor} to a FastHenry \code{.inp} deck and, on a Windows FastHenry2
+install (via its COM automation server), runs it and returns \(L(f)\)/\(R(f)\) for a direct
+comparison (\code{run\_fasthenry}, \code{compare\_with\_fasthenry}; use
+\code{cross\_section="rect"} to match FastHenry's rectangular conductors exactly). For a
+1\(\times\)1~mm copper bar the resistance agrees with FastHenry to \(\sim\)1\% at low
+frequency and the inductance to \(\sim\)6\% (a GMD-discretization offset versus FastHenry's
+exact Hoer-Love formulas), with growing divergence in the deep-skin regime where either
+solver under-resolves. \code{capacitance\_to\_ground} matches the analytic isolated-wire
+capacitance (the single-conductor FastCap result) to \(\sim\)10\%, and the coil
+self-capacitance is validated against the Medhurst formula. The example
+\code{validate\_peec\_vs\_fasthenry.py} runs the comparison; a live test runs whenever the
+FastHenry COM server is present and is skipped otherwise. Design note:
+\code{docs/coil\_peec.md}.
 
 \subsection{Nonlinear magnetostatics: ferrites and saturable iron}
 \label{sec:fields-nonlinear-magnetostatics}

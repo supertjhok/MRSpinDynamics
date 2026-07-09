@@ -68,6 +68,7 @@ MODULES = [
     "experiment.wiring",
     "fields.coil_peec",
     "fields.coil_properties",
+    "fields.fasthenry_interop",
     "fields.coils",
     "fields.domain",
     "fields.eddy_modes",

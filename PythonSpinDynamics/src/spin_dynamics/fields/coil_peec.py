@@ -54,6 +54,7 @@ __all__ = [
     "extract_impedance",
     "current_distribution",
     "self_capacitance",
+    "capacitance_to_ground",
     "self_resonant_frequency",
     "coil_properties_peec",
     "PEECImpedance",
@@ -157,35 +158,75 @@ def _round_cross_section(
     return offsets, areas, gmd
 
 
+def _rect_cross_section(
+    width: float, height: float, n_width: int, n_height: int
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Uniform Cartesian tiling of a rectangular (or square) wire cross-section.
+
+    Returns ``(offsets, areas, gmd)`` as :func:`_round_cross_section`. Used for strip/tape
+    conductors and for apples-to-apples comparison with FastHenry (whose conductors are
+    rectangular bars).
+    """
+
+    n_width = int(n_width)
+    n_height = int(n_height)
+    if n_width < 1 or n_height < 1:
+        raise ValueError("n_width and n_height must be >= 1")
+    wx = (np.arange(n_width) + 0.5) / n_width - 0.5
+    hy = (np.arange(n_height) + 0.5) / n_height - 0.5
+    gx, gy = np.meshgrid(wx * width, hy * height, indexing="ij")
+    offsets = np.column_stack([gx.ravel(), gy.ravel()])
+    cell_area = width * height / (n_width * n_height)
+    areas = np.full(offsets.shape[0], cell_area)
+    gmd = np.sqrt(areas / np.pi) * np.exp(-0.25)
+    return offsets, areas, gmd
+
+
 @dataclass(frozen=True)
 class Conductor:
-    """A single current-carrying wire: a polyline centreline plus a round cross-section.
+    """A single current-carrying wire: a polyline centreline plus a cross-section.
 
-    ``path_points`` is an ``(M+1, 3)`` array of vertices (m); ``wire_radius`` the conductor
-    radius (m); ``material`` a :class:`ConductorMaterial`; ``temperature`` (K, optional) the
-    operating temperature for the resistivity. The cross-section is tiled into
-    ``n_radial * n_angular`` parallel sub-filaments to resolve the current distribution.
-    The two ends of the path are the terminals.
+    ``path_points`` is an ``(M+1, 3)`` array of vertices (m); ``material`` a
+    :class:`ConductorMaterial`; ``temperature`` (K, optional) the operating temperature.
+    ``cross_section`` is ``"round"`` (default; ``wire_radius`` m, tiled into
+    ``n_radial * n_angular`` sub-filaments) or ``"rect"`` (``width`` x ``height`` m, tiled
+    into ``n_width * n_height`` sub-filaments -- for strip/tape conductors and
+    apples-to-apples FastHenry comparison). The two ends of the path are the terminals.
     """
 
     path_points: np.ndarray
-    wire_radius: float
+    wire_radius: float = 0.0
     material: ConductorMaterial = ANNEALED_COPPER
     n_radial: int = 6
     n_angular: int = 8
     temperature: float | None = None
+    cross_section: str = "round"
+    width: float | None = None
+    height: float | None = None
+    n_width: int = 6
+    n_height: int = 6
     _cache: dict = field(default_factory=dict, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         pts = np.asarray(self.path_points, dtype=np.float64)
         if pts.ndim != 2 or pts.shape[1] != 3 or pts.shape[0] < 2:
             raise ValueError("path_points must be an (M+1, 3) array with M >= 1 segments")
-        if self.wire_radius <= 0.0:
-            raise ValueError("wire_radius must be positive")
         object.__setattr__(self, "path_points", pts)
+        if self.cross_section == "round":
+            if self.wire_radius <= 0.0:
+                raise ValueError("round cross-section requires wire_radius > 0")
+        elif self.cross_section == "rect":
+            if not self.width or not self.height or self.width <= 0.0 or self.height <= 0.0:
+                raise ValueError("rect cross-section requires width > 0 and height > 0")
+            # Area-equivalent radius for the electrostatic self-term.
+            object.__setattr__(self, "wire_radius", float(np.sqrt(self.width * self.height / np.pi)))
+        else:
+            raise ValueError("cross_section must be 'round' or 'rect'")
 
     @property
     def n_cells(self) -> int:
+        if self.cross_section == "rect":
+            return int(self.n_width) * int(self.n_height)
         return int(self.n_radial) * int(self.n_angular)
 
     @property
@@ -208,7 +249,10 @@ class Conductor:
         if "subfil" in self._cache:
             return self._cache["subfil"]
         e1, e2 = _rotation_minimizing_frames(self.path_points)
-        offsets, areas, gmd = _round_cross_section(self.wire_radius, self.n_radial, self.n_angular)
+        if self.cross_section == "rect":
+            offsets, areas, gmd = _rect_cross_section(self.width, self.height, self.n_width, self.n_height)
+        else:
+            offsets, areas, gmd = _round_cross_section(self.wire_radius, self.n_radial, self.n_angular)
         # Vertex positions for each cell: (K, M+1, 3)
         base = self.path_points[np.newaxis, :, :]
         disp = offsets[:, 0, np.newaxis, np.newaxis] * e1[np.newaxis, :, :] \
@@ -394,7 +438,10 @@ def current_distribution(
     """
 
     _, areas, _ = conductor.subfilaments()
-    offsets, _, _ = _round_cross_section(conductor.wire_radius, conductor.n_radial, conductor.n_angular)
+    if conductor.cross_section == "rect":
+        offsets, _, _ = _rect_cross_section(conductor.width, conductor.height, conductor.n_width, conductor.n_height)
+    else:
+        offsets, _, _ = _round_cross_section(conductor.wire_radius, conductor.n_radial, conductor.n_angular)
     lmat, r_series = _chain_inductance_matrix(conductor)
     omega = 2.0 * np.pi * float(frequency)
     z = np.diag(r_series) + 1j * omega * lmat
@@ -454,6 +501,23 @@ def self_capacitance(conductor: Conductor) -> float:
     q = np.linalg.solve(p, v)
     energy = 0.5 * float(q @ v)
     return float(2.0 * energy)
+
+
+def capacitance_to_ground(conductor: Conductor) -> float:
+    """Isolated self-capacitance to infinity (F) of the conductor.
+
+    The charge the whole conductor holds at unit potential, ``C = 1^T P^{-1} 1`` with ``P``
+    the thin-wire potential-coefficient matrix -- the quantity a capacitance solver
+    (FastCap/FasterCap) returns for a single isolated conductor. Distinct from
+    :func:`self_capacitance`, which uses the linear winding-potential energy method for the
+    coil self-resonance. For a straight wire this matches the analytic
+    ``2 pi eps0 L / (ln(L/a) - 1)`` to the thin-wire approximation.
+    """
+
+    p, _ = _potential_coefficient_matrix(conductor)
+    n = p.shape[0]
+    q = np.linalg.solve(p, np.ones(n))
+    return float(np.sum(q))
 
 
 def helical_solenoid(
