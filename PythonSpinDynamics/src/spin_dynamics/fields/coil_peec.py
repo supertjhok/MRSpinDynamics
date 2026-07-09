@@ -33,13 +33,23 @@ deeper skin (high-frequency RF, ``a/delta`` >~ 15) needs many cells or the
 :func:`extract_impedance_surface` surface-impedance backend. Inductance and capacitance are
 geometry-dominated and accurate at coarse resolution.
 
-**Proximity limitation (affects Q).** The turn-to-turn proximity loss is only partially
-captured: the reduced K x K formulation gives each sub-filament a path-constant current, so
-the cross-section distribution cannot vary along the wire to crowd toward each neighbour
-(~1.1x where FastHenry gives ~1.4x for a tight coil), and the surface-impedance backend
-misses it entirely. For a closely-wound coil apply the analytic Medhurst factor
-(:func:`spin_dynamics.fields.coil_properties.solenoid_properties`) or use FastHenry. See
-``docs/coil_peec.md`` ("Loss modelling").
+**Two formulations: ``chain`` (fast) and ``full`` (proximity-resolving).** The reduced
+``K x K`` chain system above gives each sub-filament a *path-constant* current, so the
+cross-section distribution cannot vary along the wire to crowd toward each neighbouring
+turn -- it captures the skin effect but only a fraction of the proximity effect. FastHenry
+does not have this limitation because it never reduces: every segment keeps its own
+``nwinc x nhinc`` filaments as independent branches, and its mesh analysis adds, for every
+segment, ``K - 1`` "mini-meshes" between adjacent filaments (``fillM.c``), so the
+cross-section current split is a free unknown *per segment* and proximity emerges from the
+partial-inductance coupling alone -- no empirical factor anywhere in its source. Passing
+``formulation="full"`` to :func:`extract_impedance` / :func:`extract_impedance_surface` /
+:func:`coil_properties_peec` reproduces exactly that: per-(segment, sub-filament) branch
+currents, constrained only by charge conservation at the path nodes (the mesh-analysis
+equivalent), at cost ``O((M K)^3)`` per frequency instead of ``O(K^3)``. Use ``full``
+whenever turns/legs are within a few wire diameters of each other (any tight coil);
+``chain`` remains the fast default for inductance, capacitance and isolated-wire skin
+resistance, which it gets right. The Medhurst proximity factor is no longer needed --
+it survives only as an independent *validation* reference for single-layer solenoids.
 
 The exact filament mutual is ported from FastHenry (``mutualfil``, Grover's method;
 originally M.I.T., maintained by FastFieldSolvers) -- the algorithm, re-implemented in NumPy.
@@ -489,21 +499,23 @@ def _mutualfil_matrix(
     return out
 
 
-def _chain_inductance_matrix(conductor: Conductor) -> tuple[np.ndarray, np.ndarray]:
-    """Return ``(L_chain, R_series)``: the K x K partial-inductance matrix of the
-    sub-filaments and the per-sub-filament DC series resistance."""
+def _filament_endpoints(
+    filaments: list[list[Segment]],
+) -> tuple[list[np.ndarray], list[np.ndarray], list[np.ndarray]]:
+    """Per-filament ``(starts, ends, lengths)`` arrays for the mutual-inductance kernels."""
 
-    filaments, areas, gmd = conductor.subfilaments()
-    k = len(filaments)
-    total_len = conductor.total_length
-    rho = conductor.material.resistivity_at(conductor.temperature)
-    r_series = rho * total_len / areas  # DC resistance of each sub-filament (whole path)
-
-    # Precompute per-filament segment endpoints and lengths.
     starts = [np.array([s for s, _ in f]) for f in filaments]
     ends = [np.array([e for _, e in f]) for f in filaments]
     lens = [np.linalg.norm(e - s, axis=1) for s, e in zip(starts, ends)]
+    return starts, ends, lens
 
+
+def _chain_lmat_from_filaments(
+    starts: list[np.ndarray], ends: list[np.ndarray], lens: list[np.ndarray], gmd: np.ndarray
+) -> np.ndarray:
+    """K x K chain (path-summed) partial-inductance matrix of the sub-filaments."""
+
+    k = len(starts)
     lmat = np.zeros((k, k))
     for i in range(k):
         # Diagonal (self of sub-filament i): each segment's own self-partial-inductance
@@ -515,7 +527,84 @@ def _chain_inductance_matrix(conductor: Conductor) -> tuple[np.ndarray, np.ndarr
         for j in range(i + 1, k):
             m = float(_mutualfil_matrix(starts[i], ends[i], starts[j], ends[j]).sum())
             lmat[i, j] = lmat[j, i] = m
-    return lmat, r_series
+    return lmat
+
+
+def _chain_inductance_matrix(conductor: Conductor) -> tuple[np.ndarray, np.ndarray]:
+    """Return ``(L_chain, R_series)``: the K x K partial-inductance matrix of the
+    sub-filaments and the per-sub-filament DC series resistance."""
+
+    filaments, areas, gmd = conductor.subfilaments()
+    total_len = conductor.total_length
+    rho = conductor.material.resistivity_at(conductor.temperature)
+    r_series = rho * total_len / areas  # DC resistance of each sub-filament (whole path)
+    starts, ends, lens = _filament_endpoints(filaments)
+    return _chain_lmat_from_filaments(starts, ends, lens, gmd), r_series
+
+
+_FULL_UNKNOWN_LIMIT = 6000  # dense-solve guardrail for the full (per-segment) formulation
+
+
+def _full_lmat_from_filaments(
+    starts: list[np.ndarray], ends: list[np.ndarray], lens: list[np.ndarray], gmd: np.ndarray
+) -> np.ndarray:
+    """Full ``(K M) x (K M)`` branch partial-inductance matrix, branch ``b = k*M + m``.
+
+    This is FastHenry's actual system: one branch per (path segment ``m``, cross-section
+    sub-filament ``k``), with the exact closed-form mutual between every pair of straight
+    branches and the analytic self partial inductance on the diagonal. The chain matrix is
+    the row/column block-sum of this one.
+    """
+
+    k = len(starts)
+    m = starts[0].shape[0]
+    n = k * m
+    if n > _FULL_UNKNOWN_LIMIT:
+        raise ValueError(
+            f"full formulation would need {n} branch unknowns (> {_FULL_UNKNOWN_LIMIT}); "
+            "reduce the path resolution (n_per_turn) and/or cross-section cells "
+            "(n_radial*n_angular, n_width*n_height, n_perimeter), or use formulation='chain'"
+        )
+    lb = np.empty((n, n))
+    for i in range(k):
+        for j in range(i, k):
+            blk = _mutualfil_matrix(starts[i], ends[i], starts[j], ends[j])
+            if i == j:
+                # coincident pairs are the analytic self partial inductance, not mutualfil
+                np.fill_diagonal(
+                    blk, [self_partial_inductance(ln, gmd[i]) if ln > 0.0 else 0.0 for ln in lens[i]]
+                )
+            lb[i * m:(i + 1) * m, j * m:(j + 1) * m] = blk
+            if j > i:
+                lb[j * m:(j + 1) * m, i * m:(i + 1) * m] = blk.T
+    return lb
+
+
+def _solve_full_terminal(
+    lb: np.ndarray, zb_diag: np.ndarray, n_fil: int, n_seg: int, omega: float
+) -> tuple[complex, np.ndarray]:
+    """Terminal impedance of the full per-segment branch system at ``omega``.
+
+    Branch ``b = k*M + m`` carries current ``I[k, m]``; all ``K`` branches of segment ``m``
+    connect the same two path nodes (as in FastHenry, where a segment's filaments share its
+    end nodes), so KVL gives one segment voltage ``V_m`` common to its branches and KCL gives
+    ``sum_k I[k, m] = I`` for every ``m`` -- the per-segment redistribution freedom that the
+    chain reduction removes and that carries the proximity effect. Eliminating the branch
+    currents ``I = Y B V`` (``Y = Z_b^{-1}``, ``B`` the segment-summing selector) leaves the
+    M x M system ``A V = I 1`` with ``A = B^T Y B``, and the terminal impedance
+    ``Z = sum_m V_m / I = 1^T A^{-1} 1`` (for ``M = 1`` this is exactly the chain formula
+    ``1 / (1^T Z_b^{-1} 1)``). Returns ``(Z, branch currents at I = 1)``.
+    """
+
+    n = n_fil * n_seg
+    zb = (1j * omega) * lb
+    zb[np.diag_indices(n)] += zb_diag
+    b = np.zeros((n, n_seg))
+    b[np.arange(n), np.tile(np.arange(n_seg), n_fil)] = 1.0
+    x = np.linalg.solve(zb, b)
+    a = b.T @ x
+    v = np.linalg.solve(a, np.ones(n_seg))
+    return complex(np.sum(v)), x @ v
 
 
 @dataclass(frozen=True)
@@ -530,31 +619,58 @@ class PEECImpedance:
 
 
 def extract_impedance(
-    conductor: Conductor, frequencies: Sequence[float]
+    conductor: Conductor, frequencies: Sequence[float], *, formulation: str = "chain"
 ) -> PEECImpedance:
-    """Solve the PEEC chain system for ``L(w)`` and ``R(w)`` including skin + proximity.
+    """Solve the PEEC system for ``L(w)`` and ``R(w)``.
 
-    Builds the ``K x K`` chain-impedance ``Z = R + j w L`` once and, at each frequency,
-    reduces the parallel sub-filaments to a terminal impedance
-    ``Z(w) = 1 / (1^T Z^{-1} 1)``; the current that flows is ``I_k proportional to
-    (Z^{-1} 1)_k``, which crowds to the surface (skin) and toward/away from neighbouring
-    conductors (proximity) as ``w`` rises. Returns ``L(w) = Im Z / w`` and ``R(w) = Re Z``.
+    ``formulation="chain"`` (default) builds the reduced ``K x K`` chain impedance
+    ``Z = R + j w L`` once and, at each frequency, reduces the parallel sub-filaments to a
+    terminal impedance ``Z(w) = 1 / (1^T Z^{-1} 1)``: the current crowds to the surface
+    (skin effect) but each sub-filament's current is constant along the path, so the
+    turn-to-turn **proximity** loss is only partially captured. Fast; right for inductance,
+    isolated wires, and well-spaced windings.
+
+    ``formulation="full"`` keeps one branch per (segment, sub-filament) -- FastHenry's
+    actual system -- so the cross-section distribution redistributes at every segment and
+    the proximity effect is resolved from first principles (see
+    :func:`_solve_full_terminal`). Cost ``O((M K)^3)`` per frequency; use it for any
+    closely-wound coil. Returns ``L(w) = Im Z / w`` and ``R(w) = Re Z``.
     """
 
+    if formulation not in ("chain", "full"):
+        raise ValueError("formulation must be 'chain' or 'full'")
     freqs = np.atleast_1d(np.asarray(frequencies, dtype=np.float64))
-    lmat, r_series = _chain_inductance_matrix(conductor)
-    k = lmat.shape[0]
-    ones = np.ones(k)
+    filaments, areas, gmd = conductor.subfilaments()
+    starts, ends, lens = _filament_endpoints(filaments)
+    rho = conductor.material.resistivity_at(conductor.temperature)
+    r_series = rho * conductor.total_length / areas  # per-sub-filament whole-path DC resistance
 
     l_out = np.empty(freqs.size)
     r_out = np.empty(freqs.size)
-    for idx, f in enumerate(freqs):
-        omega = 2.0 * np.pi * f
-        z = np.diag(r_series) + 1j * omega * lmat
-        y = ones @ np.linalg.solve(z, ones)
-        z_term = 1.0 / y
-        r_out[idx] = z_term.real
-        l_out[idx] = z_term.imag / omega if omega > 0 else np.nan
+    if formulation == "full":
+        k = len(filaments)
+        m = starts[0].shape[0]
+        lb = _full_lmat_from_filaments(starts, ends, lens, gmd)
+        # Per-branch DC resistance: rho * segment_length / cell_area.
+        rb = np.concatenate([rho * lens[i] / areas[i] for i in range(k)])
+        for idx, f in enumerate(freqs):
+            omega = 2.0 * np.pi * f
+            z_term, _ = _solve_full_terminal(lb, rb.astype(complex), k, m, omega)
+            r_out[idx] = z_term.real
+            l_out[idx] = z_term.imag / omega if omega > 0 else np.nan
+        # Chain matrix for the DC limits below: exactly the block-sum of the full matrix.
+        lmat = lb.reshape(k, m, k, m).sum(axis=(1, 3))
+    else:
+        lmat = _chain_lmat_from_filaments(starts, ends, lens, gmd)
+        k = lmat.shape[0]
+        ones = np.ones(k)
+        for idx, f in enumerate(freqs):
+            omega = 2.0 * np.pi * f
+            z = np.diag(r_series) + 1j * omega * lmat
+            y = ones @ np.linalg.solve(z, ones)
+            z_term = 1.0 / y
+            r_out[idx] = z_term.real
+            l_out[idx] = z_term.imag / omega if omega > 0 else np.nan
 
     # DC limits. At w -> 0 resistance dominates, so the current divides by conductance,
     # i0 = R^{-1}1 / (1^T R^{-1}1); the DC inductance is the inductive energy at that
@@ -612,7 +728,8 @@ def _perimeter_offsets(conductor: Conductor, delta: float, n: int) -> tuple[np.n
 
 
 def extract_impedance_surface(
-    conductor: Conductor, frequencies: Sequence[float], *, n_perimeter: int = 48
+    conductor: Conductor, frequencies: Sequence[float], *, n_perimeter: int = 48,
+    formulation: str = "chain",
 ) -> PEECImpedance:
     """Surface-impedance (SIBC) solve for the deep-skin (high ``a/delta``) regime.
 
@@ -624,41 +741,56 @@ def extract_impedance_surface(
     the exact mutual between the ring filaments. Cost is ``O(n_perimeter^2)`` per frequency,
     independent of ``a/delta`` -- and the accuracy *improves* with frequency, the opposite of
     the volume solver. Complementary to :func:`extract_impedance` (best at low/moderate skin).
+
+    ``formulation="chain"`` (default) gives each perimeter filament a path-constant current:
+    skin resistance only, essentially **no proximity** (a tight solenoid comes out at the
+    isolated-wire R). ``formulation="full"`` keeps one branch per (segment, perimeter cell)
+    so the current redistributes *around the perimeter at every segment* -- skin (analytic,
+    via ``Z_s``) **plus proximity** resolved, at deep skin where the volume solver cannot go.
+    This is the right mode for a closely-wound RF coil.
     """
 
+    if formulation not in ("chain", "full"):
+        raise ValueError("formulation must be 'chain' or 'full'")
     freqs = np.atleast_1d(np.asarray(frequencies, dtype=np.float64))
     rho = conductor.material.resistivity_at(conductor.temperature)
     total_len = conductor.total_length
     # The ring sits one half skin depth inside the boundary; delta/2 << a over a band, so the
-    # geometry (and its external-inductance chain matrix) is built ONCE at a reference skin
+    # geometry (and its external-inductance matrix) is built ONCE at a reference skin
     # depth, and only the surface impedance varies per frequency.
     delta_ref = _skin_depth(conductor, float(np.sqrt(freqs[0] * freqs[-1])))
     offsets, widths = _perimeter_offsets(conductor, delta_ref, int(n_perimeter))
     filaments = _sweep_offsets(conductor.path_points, offsets)
-    starts = [np.array([s for s, _ in fil]) for fil in filaments]
-    ends = [np.array([e for _, e in fil]) for fil in filaments]
+    starts, ends, lens = _filament_endpoints(filaments)
     n = len(filaments)
     gmd = np.sqrt(widths * delta_ref / np.pi) * np.exp(-0.25)
-    lmat = np.zeros((n, n))
-    for i in range(n):
-        m_self = _mutualfil_matrix(starts[i], ends[i], starts[i], ends[i])
-        np.fill_diagonal(m_self, 0.0)
-        seg_len = np.linalg.norm(ends[i] - starts[i], axis=1)
-        lmat[i, i] = sum(self_partial_inductance(x, gmd[i]) for x in seg_len if x > 0) + m_self.sum()
-        for j in range(i + 1, n):
-            lmat[i, j] = lmat[j, i] = float(_mutualfil_matrix(starts[i], ends[i], starts[j], ends[j]).sum())
 
-    ones = np.ones(n)
     l_out = np.empty(freqs.size)
     r_out = np.empty(freqs.size)
-    for idx, f in enumerate(freqs):
-        delta = _skin_depth(conductor, f)
-        z_surface = (1.0 + 1j) * (rho / delta) * (total_len / widths)
-        omega = 2.0 * np.pi * f
-        z = np.diag(z_surface) + 1j * omega * lmat
-        z_term = 1.0 / (ones @ np.linalg.solve(z, ones))
-        r_out[idx] = z_term.real
-        l_out[idx] = z_term.imag / omega
+    if formulation == "full":
+        m = starts[0].shape[0]
+        lb = _full_lmat_from_filaments(starts, ends, lens, gmd)
+        for idx, f in enumerate(freqs):
+            delta = _skin_depth(conductor, f)
+            # Per-branch surface impedance: (1+j) rho/delta * segment_length / patch_width.
+            zb = np.concatenate(
+                [(1.0 + 1j) * (rho / delta) * lens[i] / widths[i] for i in range(n)]
+            )
+            omega = 2.0 * np.pi * f
+            z_term, _ = _solve_full_terminal(lb, zb, n, m, omega)
+            r_out[idx] = z_term.real
+            l_out[idx] = z_term.imag / omega
+    else:
+        lmat = _chain_lmat_from_filaments(starts, ends, lens, gmd)
+        ones = np.ones(n)
+        for idx, f in enumerate(freqs):
+            delta = _skin_depth(conductor, f)
+            z_surface = (1.0 + 1j) * (rho / delta) * (total_len / widths)
+            omega = 2.0 * np.pi * f
+            z = np.diag(z_surface) + 1j * omega * lmat
+            z_term = 1.0 / (ones @ np.linalg.solve(z, ones))
+            r_out[idx] = z_term.real
+            l_out[idx] = z_term.imag / omega
     dc_r = rho * total_len / (np.pi * conductor.wire_radius**2) if conductor.cross_section == "round" \
         else rho * total_len / (conductor.width * conductor.height)
     return PEECImpedance(frequency=freqs, inductance=l_out, resistance=r_out,
@@ -666,7 +798,8 @@ def extract_impedance_surface(
 
 
 def current_distribution(
-    conductor: Conductor, frequency: float
+    conductor: Conductor, frequency: float, *, formulation: str = "chain",
+    segment: int | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Per-sub-filament current magnitude across the cross-section at ``frequency``.
 
@@ -675,18 +808,37 @@ def current_distribution(
     (summing to 1). As frequency rises the current crowds to the surface (skin effect) and,
     for a multi-turn/leg path, toward or away from neighbouring conductors (proximity) --
     the physical picture behind the AC resistance. Useful for visualization.
+
+    With ``formulation="full"`` the distribution is taken at one path segment (``segment``,
+    default the middle one), where the per-segment redistribution shows the *actual*
+    proximity crowding toward the neighbouring turns -- the chain default can only show the
+    path-averaged (skin-dominated) pattern.
     """
 
-    _, areas, _ = conductor.subfilaments()
+    if formulation not in ("chain", "full"):
+        raise ValueError("formulation must be 'chain' or 'full'")
+    filaments, areas, gmd = conductor.subfilaments()
     if conductor.cross_section == "rect":
         offsets, _, _ = _rect_cross_section(conductor.width, conductor.height, conductor.n_width, conductor.n_height)
     else:
         offsets, _, _ = _round_cross_section(conductor.wire_radius, conductor.n_radial, conductor.n_angular)
-    lmat, r_series = _chain_inductance_matrix(conductor)
     omega = 2.0 * np.pi * float(frequency)
-    z = np.diag(r_series) + 1j * omega * lmat
-    k = lmat.shape[0]
-    i_vec = np.linalg.solve(z, np.ones(k))
+    rho = conductor.material.resistivity_at(conductor.temperature)
+    if formulation == "full":
+        starts, ends, lens = _filament_endpoints(filaments)
+        k = len(filaments)
+        m = starts[0].shape[0]
+        seg = m // 2 if segment is None else int(segment)
+        if not 0 <= seg < m:
+            raise ValueError(f"segment must be in [0, {m})")
+        lb = _full_lmat_from_filaments(starts, ends, lens, gmd)
+        rb = np.concatenate([rho * lens[i] / areas[i] for i in range(k)])
+        _, i_branch = _solve_full_terminal(lb, rb.astype(complex), k, m, omega)
+        i_vec = i_branch[seg::m]  # branch b = k*M + m -> filament currents at segment `seg`
+    else:
+        lmat, r_series = _chain_inductance_matrix(conductor)
+        z = np.diag(r_series) + 1j * omega * lmat
+        i_vec = np.linalg.solve(z, np.ones(lmat.shape[0]))
     mag = np.abs(i_vec)
     return offsets, mag / np.sum(mag)
 
@@ -889,18 +1041,23 @@ class PEECCoilProperties:
         return {"L": self.inductance, "R": self.ac_resistance, "C": self.tuning_capacitance()}
 
 
-def coil_properties_peec(conductor: Conductor, frequency: float) -> PEECCoilProperties:
+def coil_properties_peec(
+    conductor: Conductor, frequency: float, *, formulation: str = "full"
+) -> PEECCoilProperties:
     """Extract lumped RF properties of an arbitrary coil at ``frequency`` via PEEC.
 
-    Solves the chain impedance for ``L(w)``/``R(w)`` (skin + proximity), the electrostatic
-    self-capacitance and the self-resonance, and packages them like
+    Solves the PEEC impedance for ``L(w)``/``R(w)``, the electrostatic self-capacitance and
+    the self-resonance, and packages them like
     :class:`spin_dynamics.fields.coil_properties.CoilProperties` so an arbitrary-geometry
-    coil feeds the same SNR / matching workflow. See the module docstring for the
-    resistance resolution ceiling at high ``a/delta``.
+    coil feeds the same SNR / matching workflow. The default ``formulation="full"`` resolves
+    the turn-to-turn proximity loss (FastHenry's per-segment system) so the Q of a tight coil
+    is right; pass ``formulation="chain"`` for the fast reduced solve when only L / C /
+    self-resonance matter. See the module docstring for the resistance resolution ceiling at
+    high ``a/delta``.
     """
 
     f = float(frequency)
-    imp = extract_impedance(conductor, [f])
+    imp = extract_impedance(conductor, [f], formulation=formulation)
     c = self_capacitance(conductor)
     f_res = float(1.0 / (2.0 * np.pi * np.sqrt(imp.dc_inductance * c)))
     ind = float(imp.inductance[0])

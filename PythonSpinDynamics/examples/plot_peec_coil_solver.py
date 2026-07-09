@@ -14,11 +14,16 @@ resistance:
    efficiency ``dB_z/dz`` per amp from Biot-Savart, and the shield eddy time constants from
    ``eddy_modes`` -- demonstrating the same solver spans RF and gradient coils.
 
-Run with ``--save out.png`` for the figure; otherwise it prints tables.
+Both geometries put multiple conductors close together, so the resistance uses the **full
+(per-segment) formulation** -- FastHenry's actual system -- which resolves the turn-to-turn
+proximity loss that the fast reduced ``chain`` formulation under-captures (see
+``docs/coil_peec.md``, "Loss modelling"). The R(f) table switches backend with skin depth:
+a graded volume solve at low frequency (``a/delta`` < ~3) and the surface-impedance (SIBC)
+solve above, both per-segment. The current-density map is taken at one mid-coil segment,
+where the crowding toward the neighbouring turns -- the proximity effect itself -- is
+visible; a chain map could only show the path-averaged (symmetric) pattern.
 
-Note: PEEC AC resistance is under-resolved in the deep-skin regime (high a/delta, i.e. high
-frequency) at modest cell counts -- see ``docs/coil_peec.md``. L, C and f_res are accurate
-regardless.
+Run with ``--save out.png`` for the figure; otherwise it prints tables.
 """
 
 from __future__ import annotations
@@ -34,9 +39,9 @@ add_src_to_path()
 from spin_dynamics.fields import coils
 from spin_dynamics.fields.coil_peec import (
     Conductor,
-    coil_properties_peec,
     current_distribution,
     extract_impedance,
+    extract_impedance_surface,
     self_capacitance,
 )
 from spin_dynamics.fields.coil_properties import ANNEALED_COPPER
@@ -86,28 +91,40 @@ def main() -> None:
 
     d = args.wire_mm * 1e-3
     # --- Two-layer RF solenoid ---
+    # n_per_turn=10 keeps the full (per-segment) system tractable: M*K unknowns.
     pts = two_layer_solenoid_path(args.diameter_mm * 1e-3, args.length_mm * 1e-3,
-                                  args.turns_per_layer, args.layer_gap_mm * 1e-3, n_per_turn=12)
-    coil = Conductor(pts, wire_radius=d / 2, material=ANNEALED_COPPER, n_radial=8, n_angular=12)
+                                  args.turns_per_layer, args.layer_gap_mm * 1e-3, n_per_turn=10)
+    coil = Conductor(pts, wire_radius=d / 2, material=ANNEALED_COPPER, n_radial=4, n_angular=6)
     freqs = np.array([0.05, 0.1, 0.3, 0.5, 1.0, 2.0]) * 1e6
-    imp = extract_impedance(coil, freqs)
+    # Hybrid full solve: graded volume below a/delta ~ 3, SIBC above -- both per-segment, so
+    # the turn-to-turn proximity loss is resolved at every frequency (docs/coil_peec.md).
+    rho = ANNEALED_COPPER.resistivity
+    MU0_ = 4e-7 * np.pi
+    a_over_delta = (d / 2) / np.sqrt(rho / (np.pi * freqs * MU0_))
+    lo = freqs[a_over_delta < 3.0]
+    hi = freqs[a_over_delta >= 3.0]
+    imp_lo = extract_impedance(coil, lo, formulation="full") if lo.size else None
+    imp_hi = extract_impedance_surface(coil, hi, n_perimeter=32, formulation="full") if hi.size else None
+    ind = np.concatenate([x.inductance for x in (imp_lo, imp_hi) if x is not None])
+    res = np.concatenate([x.resistance for x in (imp_lo, imp_hi) if x is not None])
+    l_dc = (imp_lo or imp_hi).dc_inductance
     cap = self_capacitance(coil)
-    p = coil_properties_peec(coil, args.map_frequency_mhz * 1e6)
+    f_srf = 1.0 / (2 * np.pi * np.sqrt(l_dc * cap))
 
     print("Two-layer RF solenoid (not expressible by the single-layer analytic model)")
     print(f"  {2 * args.turns_per_layer} turns, D={args.diameter_mm:.0f} mm inner, "
           f"layer gap {args.layer_gap_mm:.1f} mm, wire {args.wire_mm:.1f} mm")
-    print(f"  self-capacitance {cap * 1e12:.2f} pF, self-resonance {p.self_resonant_frequency / 1e6:.0f} MHz")
-    print(f"  {'f (MHz)':>8}{'L (uH)':>10}{'R (ohm)':>10}{'Q':>8}")
-    for f, ll, rr in zip(freqs, imp.inductance, imp.resistance):
-        print(f"  {f / 1e6:8.1f}{ll * 1e6:10.3f}{rr:10.4f}{2 * np.pi * f * ll / rr:8.0f}")
+    print(f"  self-capacitance {cap * 1e12:.2f} pF, self-resonance {f_srf / 1e6:.0f} MHz")
+    print(f"  {'f (MHz)':>8}{'L (uH)':>10}{'R (ohm)':>10}{'Q':>8}   (full formulation: skin + proximity)")
+    for f, ll, rr in zip(freqs, ind, res):
+        print(f"  {f / 1e6:8.2f}{ll * 1e6:10.3f}{rr:10.4f}{2 * np.pi * f * ll / rr:8.0f}")
 
     # --- Gradient Maxwell pair ---
     a = args.grad_radius_mm * 1e-3
     sep = a * np.sqrt(3.0)
     gpath = maxwell_pair_path(a, sep, n_per_turn=48)
     gcoil = Conductor(gpath, wire_radius=d / 2, material=ANNEALED_COPPER, n_radial=3, n_angular=6)
-    gimp = extract_impedance(gcoil, [10e3])
+    gimp = extract_impedance(gcoil, [10e3], formulation="full")
     # Gradient efficiency dB_z/dz per amp (Biot-Savart, opposed loops).
     grad_segs = coils.maxwell_pair(radius=a, separation=sep, axis="z")
     dz = 1e-4
@@ -129,30 +146,31 @@ def main() -> None:
         plt = load_matplotlib(required=True, headless=True)
         fig, axes = plt.subplots(1, 3, figsize=(16, 4.6))
         fmhz = freqs / 1e6
-        q = 2 * np.pi * freqs * imp.inductance / imp.resistance
+        q = 2 * np.pi * freqs * ind / res
 
         ax = axes[0]
-        ax.plot(fmhz, imp.inductance * 1e6, "o-", color="C0", label="L (uH)")
+        ax.plot(fmhz, ind * 1e6, "o-", color="C0", label="L (uH)")
         ax.set_xlabel("frequency (MHz)")
         ax.set_ylabel("L (uH)", color="C0")
-        ax.set_title(f"Two-layer solenoid L, R  (f_res={p.self_resonant_frequency / 1e6:.0f} MHz)")
+        ax.set_title(f"Two-layer solenoid L, R  (f_res={f_srf / 1e6:.0f} MHz)")
         axr = ax.twinx()
-        axr.plot(fmhz, imp.resistance, "s-", color="C3", label="R (ohm)")
+        axr.plot(fmhz, res, "s-", color="C3", label="R (ohm)")
         axr.set_ylabel("R (ohm)", color="C3")
 
         axes[1].plot(fmhz, q, "o-", color="C4")
         axes[1].set_xlabel("frequency (MHz)")
         axes[1].set_ylabel("Q")
-        axes[1].set_title("Unloaded Q (deep-skin R under-resolved)")
+        axes[1].set_title("Unloaded Q (full formulation: skin + proximity)")
 
-        # current-density map at the cross-section (map frequency)
-        offs, cur = current_distribution(coil, args.map_frequency_mhz * 1e6)
+        # current-density map at one mid-coil segment (full solve): the asymmetric crowding
+        # toward the neighbouring turns IS the proximity effect.
+        offs, cur = current_distribution(coil, args.map_frequency_mhz * 1e6, formulation="full")
         dens = cur  # normalized magnitude
         sc = axes[2].scatter(offs[:, 0] * 1e3, offs[:, 1] * 1e3, c=dens, s=120, cmap="inferno")
         axes[2].set_aspect("equal")
         axes[2].set_xlabel("x (mm)")
         axes[2].set_ylabel("y (mm)")
-        axes[2].set_title(f"Wire current crowding @ {args.map_frequency_mhz:.0f} MHz")
+        axes[2].set_title(f"Mid-coil segment current crowding @ {args.map_frequency_mhz:.0f} MHz")
         fig.colorbar(sc, ax=axes[2], fraction=0.046, label="|I| (norm.)")
         fig.tight_layout()
         fig.savefig(args.save, dpi=150)

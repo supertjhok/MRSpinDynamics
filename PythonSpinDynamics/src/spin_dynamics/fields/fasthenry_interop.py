@@ -51,12 +51,19 @@ def to_fasthenry_inp(
     *,
     nwinc: int | None = None,
     nhinc: int | None = None,
+    rw: float | None = None,
+    rh: float | None = None,
 ) -> str:
     """Return a FastHenry ``.inp`` deck for ``conductor`` over ``frequencies`` (Hz).
 
     Units are metres, so conductivity is written in S/m directly. The wire path becomes a
     chain of nodes/segments; the two ends are the single external port. ``nwinc``/``nhinc``
     set the cross-section filament counts (default: the conductor's own tiling counts).
+
+    ``rw``/``rh`` set the ratio of adjacent filament sizes across the width/height. **If
+    omitted, FastHenry defaults them to 2.0** (geometrically graded toward the surface --
+    ``readGeom.c``'s ``DEFAULTS``), NOT uniform; pass ``rw=rh=1.0`` for an apples-to-apples
+    comparison against this package's uniform (``grading=1``) tiling.
     """
 
     freqs = np.atleast_1d(np.asarray(frequencies, dtype=np.float64))
@@ -70,10 +77,15 @@ def to_fasthenry_inp(
         nw = nwinc if nwinc is not None else conductor.n_angular
         nh = nhinc if nhinc is not None else conductor.n_radial
 
+    ratios = ""
+    if rw is not None:
+        ratios += f" rw={float(rw):.8g}"
+    if rh is not None:
+        ratios += f" rh={float(rh):.8g}"
     lines = [
         "* FastHenry deck generated from a spin_dynamics PEEC Conductor",
         ".units m",
-        f".Default sigma={sigma:.8g} nwinc={int(nw)} nhinc={int(nh)}",
+        f".Default sigma={sigma:.8g} nwinc={int(nw)} nhinc={int(nh)}{ratios}",
         "",
     ]
     for i, p in enumerate(pts):
@@ -128,6 +140,8 @@ def run_fasthenry(
     *,
     nwinc: int | None = None,
     nhinc: int | None = None,
+    rw: float | None = None,
+    rh: float | None = None,
     timeout: float = 300.0,
     workdir: str | None = None,
 ) -> FastHenryResult:
@@ -140,7 +154,7 @@ def run_fasthenry(
     """
 
     freqs = np.atleast_1d(np.asarray(frequencies, dtype=np.float64))
-    deck = to_fasthenry_inp(conductor, freqs, nwinc=nwinc, nhinc=nhinc)
+    deck = to_fasthenry_inp(conductor, freqs, nwinc=nwinc, nhinc=nhinc, rw=rw, rh=rh)
     tmpdir = workdir or tempfile.mkdtemp(prefix="fasthenry_")
     inp_path = os.path.join(tmpdir, "peec_conductor.inp")
     with open(inp_path, "w", encoding="ascii") as fh:
@@ -174,15 +188,21 @@ def compare_with_fasthenry(
     *,
     nwinc: int | None = None,
     nhinc: int | None = None,
+    rw: float | None = None,
+    rh: float | None = None,
+    formulation: str = "chain",
 ):
     """Return ``(peec, fasthenry)`` results for the same conductor and frequencies.
 
     ``peec`` is a :class:`spin_dynamics.fields.coil_peec.PEECImpedance`; ``fasthenry`` a
-    :class:`FastHenryResult`. Convenience wrapper for validation scripts/tests.
+    :class:`FastHenryResult`. Convenience wrapper for validation scripts/tests. For an
+    apples-to-apples mesh pass ``rw=rh=1.0`` (FastHenry otherwise grades its filaments with
+    ratio 2 toward the surface) and ``formulation="full"`` for multi-turn geometries (the
+    per-segment system FastHenry itself uses).
     """
 
     from spin_dynamics.fields.coil_peec import extract_impedance
 
-    peec = extract_impedance(conductor, frequencies)
-    fh = run_fasthenry(conductor, frequencies, nwinc=nwinc, nhinc=nhinc)
+    peec = extract_impedance(conductor, frequencies, formulation=formulation)
+    fh = run_fasthenry(conductor, frequencies, nwinc=nwinc, nhinc=nhinc, rw=rw, rh=rh)
     return peec, fh

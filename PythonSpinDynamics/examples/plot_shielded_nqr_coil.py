@@ -5,9 +5,12 @@ inside a grounded rectangular aluminium box; one end of the coil and the box are
 The example extracts the coil properties versus frequency, with and without the box, using
 the PEEC solver:
 
-* **L(f), R(f)** -- the surface-impedance backend (`extract_impedance_surface`); at 2-3 MHz
-  the copper wire is already several skin depths thick (deep skin), where a volume mesh
-  would need thousands of cells.
+* **L(f), R(f)** -- the surface-impedance backend (`extract_impedance_surface`) with the
+  **full per-segment formulation**; at 2-3 MHz the copper wire is already several skin
+  depths thick (deep skin), where a volume mesh would need thousands of cells. The full
+  formulation resolves the turn-to-turn proximity loss from first principles (validated
+  against continuum FEM -- see docs/coil_peec.md), so no empirical proximity factor is
+  applied.
 * **Self-capacitance and self-resonance** -- `self_capacitance`, with the grounded box added
   as image charges (`GroundedBox`) and the Teflon former as an effective permittivity. Both
   raise C and lower the SRF; the design target is SRF > 10 MHz so the 2-3 MHz working band is
@@ -20,11 +23,13 @@ the free coil versus the shielded coil.
 
 Two loss subtleties (see docs/coil_peec.md, "Loss modelling"):
 
-* **Proximity** -- the surface-impedance backend gives the skin resistance but not the
-  turn-to-turn proximity loss, so the skin-only Q is optimistic. The example multiplies it
-  by the validated Medhurst proximity factor from the analytic solenoid model. The result is
-  still a *theoretical* Q; a measured coil is typically another ~1.3-2x lower (dielectric
-  former, solder/lead resistance, radiation).
+* **Proximity** -- the chain (reduced) SIBC solve gives the skin resistance only; the full
+  per-segment solve adds the turn-to-turn proximity crowding. The example plots both so the
+  proximity contribution is visible, and prints the resulting proximity factor next to
+  Medhurst's empirical table value for reference (the table reads ~20% high against
+  continuum-FEM references for tight winding; the full-PEEC number is the field-solver
+  answer). Either way this is a *theoretical* Q; a measured coil is typically another
+  ~1.3-2x lower (dielectric former, solder/lead resistance, radiation).
 * **Shield eddy loss** uses the surface-resistance model (loss in a skin depth of the wall,
   R ~ sqrt f), which is correct for a solid metal box -- unlike the full-penetration
   first-order eddy model, which would over-predict it by orders of magnitude at these
@@ -47,7 +52,7 @@ from spin_dynamics.fields.coil_peec import (
     extract_impedance_surface,
     self_capacitance,
 )
-from spin_dynamics.fields.coil_properties import ANNEALED_COPPER, solenoid_properties
+from spin_dynamics.fields.coil_properties import ANNEALED_COPPER, medhurst_proximity_factor
 from spin_dynamics.fields.magnetostatics import MU0, biot_savart
 
 SIGMA_AL = 3.5e7  # aluminium conductivity (S/m)
@@ -102,7 +107,8 @@ def main() -> None:
     d_wire = args.wire_mm * 1e-3
     diameter = args.id_inch * 25.4e-3 + d_wire  # conductor-centre diameter
     length = args.length_mm * 1e-3
-    path = solenoid_path(diameter, length, int(args.turns), n_per_turn=12)
+    # n_per_turn=10 keeps the full per-segment SIBC system tractable (M*K unknowns).
+    path = solenoid_path(diameter, length, int(args.turns), n_per_turn=10)
     coil = Conductor(path, wire_radius=d_wire / 2, material=ANNEALED_COPPER)
 
     # Grounded aluminium box centred on the coil (square cross-section along the coil axis z).
@@ -116,16 +122,18 @@ def main() -> None:
     c_box = self_capacitance(coil, shield=box, relative_permittivity=eps_eff)
 
     # --- L(f), R(f) from the surface-impedance backend; box eddy loss adds series R ---
-    freqs = np.linspace(1.0e6, 12.0e6, 23)
-    imp = extract_impedance_surface(coil, freqs, n_perimeter=40)
+    freqs = np.linspace(1.0e6, 12.0e6, 12)
+    # chain: skin only (isolated-wire crowding); full: + per-segment turn-to-turn proximity,
+    # resolved from first principles (no empirical factor) -- docs/coil_peec.md.
+    imp_skin = extract_impedance_surface(coil, freqs, n_perimeter=24)
+    imp = extract_impedance_surface(coil, freqs, n_perimeter=24, formulation="full")
     ind = imp.inductance
-    r_skin = imp.resistance  # skin resistance only (SIBC does not capture proximity)
-    # Proximity between turns: the surface-impedance backend (and the reduced-formulation
-    # volume solver) under-capture it, so apply the validated Medhurst proximity factor from
-    # the single-layer analytic model. R_coil = R_skin * Phi -- see docs/coil_peec.md.
-    phi = solenoid_properties(diameter=diameter, length=length, turns=int(args.turns),
-                              wire_diameter=d_wire, frequency=2.5e6).proximity_phi
-    r_coil = r_skin * phi
+    r_skin = imp_skin.resistance
+    r_coil = imp.resistance
+    # The realized proximity factor, with Medhurst's empirical table as a reference point
+    # (it reads ~20% high vs continuum-FEM references for tight winding).
+    phi_peec = float(np.interp(2.5e6, freqs, r_coil / r_skin))
+    phi_medhurst = medhurst_proximity_factor(length / diameter, (length / args.turns) / d_wire)
 
     # box wall eddy loss via the surface-impedance model: R_box(f) = 2 R_s(f) * field integral
     coil_segments = [(path[i], path[i + 1]) for i in range(len(path) - 1)]
@@ -148,7 +156,8 @@ def main() -> None:
     print(f"  + Teflon former    = {c_teflon * 1e12:.2f} pF   -> SRF {srf(c_teflon) / 1e6:.1f} MHz")
     print(f"  + grounded box     = {c_box * 1e12:.2f} pF   -> SRF {srf(c_box) / 1e6:.1f} MHz")
     print(f"  R (2.5 MHz): skin {np.interp(2.5e6, freqs, r_skin) * 1e3:.0f} mOhm  "
-          f"x proximity(Phi={phi:.2f}) = {np.interp(2.5e6, freqs, r_coil) * 1e3:.0f} mOhm  "
+          f"-> full solve {np.interp(2.5e6, freqs, r_coil) * 1e3:.0f} mOhm "
+          f"(proximity factor {phi_peec:.2f}; Medhurst table {phi_medhurst:.2f} for reference)  "
           f"+ box eddy {np.interp(2.5e6, freqs, r_box) * 1e3:.1f} mOhm")
     print(f"  Q (2.5 MHz): skin-only {np.interp(2.5e6, freqs, q_skin):.0f}  ->  "
           f"+proximity {np.interp(2.5e6, freqs, q_free):.0f}  ->  +shield {np.interp(2.5e6, freqs, q_box):.0f}")
@@ -169,8 +178,8 @@ def main() -> None:
         ax3[0].set_title("Inductance (geometry-set, shield ~unchanged)")
         ax3[0].legend(fontsize=8)
 
-        ax3[1].plot(fm, q_skin, "^:", color="0.6", label="skin only")
-        ax3[1].plot(fm, q_free, "o-", color="C2", label="+ proximity")
+        ax3[1].plot(fm, q_skin, "^:", color="0.6", label="skin only (chain)")
+        ax3[1].plot(fm, q_free, "o-", color="C2", label="+ proximity (full)")
         ax3[1].plot(fm, q_box, "s-", color="C3", label="+ proximity + box")
         ax3[1].axvspan(*band, color="orange", alpha=0.15)
         ax3[1].set_xlabel("frequency (MHz)")

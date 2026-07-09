@@ -260,6 +260,86 @@ class SolenoidVsQOILTests(unittest.TestCase):
         self.assertGreater(imp.resistance[0], imp.dc_resistance)
 
 
+class FullFormulationTests(unittest.TestCase):
+    """The FastHenry-style per-segment ("full") formulation vs the reduced chain one.
+
+    The chain reduction constrains each cross-section sub-filament to a path-constant
+    current, so it captures skin effect but only part of the turn-to-turn proximity effect.
+    The full formulation keeps one branch per (segment, sub-filament) -- FastHenry's actual
+    system (its ``fillM.c`` adds K-1 mini-meshes per segment) -- and resolves proximity from
+    first principles.
+    """
+
+    def test_full_equals_chain_for_straight_wire(self) -> None:
+        # A single-segment straight bar has no per-segment freedom to exploit: the full
+        # system reduces exactly to the chain system (M = 1 makes 1^T A^{-1} 1 == 1/(1^T Y 1)).
+        bar = Conductor(np.array([[0.0, 0.0, 0.0], [0.0, 0.0, 0.1]]), material=COPPER,
+                        cross_section="rect", width=1e-3, height=1e-3, n_width=6, n_height=6)
+        freqs = [1e4, 1e6]
+        chain = extract_impedance(bar, freqs)
+        full = extract_impedance(bar, freqs, formulation="full")
+        np.testing.assert_allclose(full.resistance, chain.resistance, rtol=1e-10)
+        np.testing.assert_allclose(full.inductance, chain.inductance, rtol=1e-10)
+
+    def test_full_reveals_proximity_loss_chain_misses(self) -> None:
+        # A closely-wound solenoid: the full solve must show MORE AC resistance than the
+        # chain solve (per-segment crowding toward neighbouring turns adds loss), while the
+        # inductance stays within ~2%.
+        c = helical_solenoid(diameter=20e-3, length=15e-3, turns=6, wire_radius=0.5e-3,
+                             material=COPPER, n_per_turn=10, n_radial=3, n_angular=6)
+        f = [2e5]
+        chain = extract_impedance(c, f)
+        full = extract_impedance(c, f, formulation="full")
+        self.assertGreater(full.resistance[0], 1.05 * chain.resistance[0])
+        self.assertLess(abs(full.inductance[0] - chain.inductance[0]) / chain.inductance[0], 0.02)
+
+    def test_hairpin_proximity_factor_matches_analytic(self) -> None:
+        # Two antiparallel round wires, spacing s, HF limit: the proximity factor is exactly
+        # 1/sqrt(1 - (d/s)^2) (conformal-map result). A long hairpin at s/d = 1.5 -> 1.3416.
+        # The SIBC-full solve approaches it from below as a/delta rises (validated to ~3%
+        # at 10 MHz); the chain SIBC solve misses it almost entirely.
+        from spin_dynamics.fields.coil_peec import extract_impedance_surface
+
+        d, s, leg = 1e-3, 1.5e-3, 0.5
+        nseg = 16
+        za = np.linspace(0.0, leg, nseg + 1)
+        leg1 = np.column_stack([np.zeros(nseg + 1), np.zeros(nseg + 1), za])
+        leg2 = np.column_stack([np.full(nseg + 1, s), np.zeros(nseg + 1), za[::-1]])
+        hairpin = Conductor(np.vstack([leg1, leg2]), wire_radius=d / 2, material=COPPER)
+        wire = Conductor(np.column_stack([np.zeros(nseg + 1), np.zeros(nseg + 1),
+                                          np.linspace(0.0, 2 * leg + s, nseg + 1)]),
+                         wire_radius=d / 2, material=COPPER)
+        exact = 1.0 / np.sqrt(1.0 - (d / s) ** 2)
+        f = [1e7]
+        r_pair = extract_impedance_surface(hairpin, f, n_perimeter=32, formulation="full").resistance[0]
+        r_wire = extract_impedance_surface(wire, f, n_perimeter=32).resistance[0]
+        factor = r_pair / r_wire
+        self.assertLess(abs(factor - exact) / exact, 0.05)
+
+    def test_full_current_distribution_shows_per_segment_crowding(self) -> None:
+        # In the hairpin, the full per-segment distribution at a mid-leg segment must be
+        # asymmetric (crowded toward the return leg); the chain distribution cannot be.
+        d, s, leg = 1e-3, 1.5e-3, 0.2
+        nseg = 8
+        za = np.linspace(0.0, leg, nseg + 1)
+        leg1 = np.column_stack([np.zeros(nseg + 1), np.zeros(nseg + 1), za])
+        leg2 = np.column_stack([np.full(nseg + 1, s), np.zeros(nseg + 1), za[::-1]])
+        hairpin = Conductor(np.vstack([leg1, leg2]), wire_radius=d / 2, material=COPPER,
+                            n_radial=4, n_angular=8)
+        from spin_dynamics.fields.coil_peec import current_distribution
+
+        offs, cur = current_distribution(hairpin, 1e6, formulation="full", segment=nseg // 2)
+        # centre-of-current shifts toward the return leg (positive x side)
+        shift = float(np.sum(offs[:, 0] * cur))
+        self.assertGreater(abs(shift), 0.02 * d / 2)
+
+    def test_full_size_guardrail(self) -> None:
+        c = helical_solenoid(diameter=20e-3, length=30e-3, turns=30, wire_radius=0.5e-3,
+                             material=COPPER, n_per_turn=20, n_radial=6, n_angular=8)
+        with self.assertRaises(ValueError):
+            extract_impedance(c, [1e6], formulation="full")
+
+
 class BundleTests(unittest.TestCase):
     def test_coil_properties_peec_fields_and_helpers(self) -> None:
         c = helical_solenoid(diameter=20e-3, length=30e-3, turns=6, wire_radius=0.5e-3,

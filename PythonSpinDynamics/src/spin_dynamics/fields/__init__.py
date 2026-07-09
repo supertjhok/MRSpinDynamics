@@ -152,6 +152,7 @@ __all__ = [
     "current_distribution",
     "self_capacitance",
     "capacitance_to_ground",
+    "GroundedBox",
     "self_resonant_frequency",
     "coil_properties_peec",
     "PEECImpedance",

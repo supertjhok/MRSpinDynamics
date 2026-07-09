@@ -3,18 +3,30 @@
 Runs the SAME geometries through the package's PEEC solver
 (``fields.coil_peec.extract_impedance``) and, if a Windows FastHenry2 install with COM
 automation is present, through FastHenry itself (``fields.fasthenry_interop``), and prints
-the per-frequency L and R side by side. Two geometries:
+the per-frequency L and R side by side. Three studies:
 
-1. a straight square bar, and
-2. a helical solenoid (both square cross-section -- exact geometry match to FastHenry).
+1. a straight square bar,
+2. a helical solenoid (both square cross-section -- exact geometry match to FastHenry),
+   comparing BOTH formulations: ``chain`` (reduced, skin only) and ``full`` (per-segment,
+   FastHenry's own system, resolves turn-to-turn proximity), and
+3. the AC-resistance mesh-convergence study.
 
 Without FastHenry/pywin32 the script still prints the PEEC results and the reference
 numbers recorded from a prior FastHenry run, so the comparison is visible everywhere.
 
-Expected agreement: inductance within ~1% of FastHenry for both geometries (the segment-pair
-mutual uses the exact closed form ported from FastHenry's mutualfil), resistance within ~1%
-at low frequency, with growing divergence in the deep-skin regime where both solvers
-under-resolve unless the filament count is raised.
+Mesh-matching note: FastHenry silently grades its ``nwinc x nhinc`` filaments toward the
+surface with adjacent-size ratio 2 unless told otherwise (its ``readGeom.c`` defaults
+``rw = rh = 2.0``); all matched comparisons here pass ``rw = rh = 1.0`` so both solvers use
+the identical uniform tiling.
+
+Expected agreement (uniform-vs-uniform): inductance within ~1% for both geometries (the
+segment-pair mutual uses the exact closed form ported from FastHenry's ``mutualfil``);
+straight-bar resistance within ~2% at every frequency; solenoid ``full`` resistance within
+a few % (the residual is the near-field kernel: FastHenry integrates exact rectangular
+cross-sections for close parallel filament pairs, this solver uses curved thin filaments
+with GMD self-terms). For *tightly wound* coils FastHenry itself under-predicts the
+proximity loss against a continuum-FEM reference -- see the proximity note printed by the
+script and docs/coil_peec.md.
 """
 
 from __future__ import annotations
@@ -40,11 +52,19 @@ def _kelvin_rac_over_rdc(a, delta):
     return (q / 2.0) * (ber(q) * beip(q) - bei(q) * berp(q)) / (berp(q) ** 2 + beip(q) ** 2)
 
 # Reference FastHenry results recorded on Windows (FastHenry2 via COM) for the straight bar
-# below (1x1 mm square, 100 mm long, copper, nwinc=nhinc=8).
+# below (1x1 mm square, 100 mm long, copper, nwinc=nhinc=8, rw=rh=1 i.e. uniform filaments
+# matching the PEEC tiling).
 _BAR_FH_REF = {
     "frequency": [1e4, 1e5, 1e6, 1e7],
-    "inductance_nH": [102.091, 100.597, 97.922, 97.076],
-    "resistance_mOhm": [1.7441, 2.8974, 8.3070, 21.4900],
+    "inductance_nH": [102.090, 100.585, 98.219, 97.886],
+    "resistance_mOhm": [1.7441, 2.8228, 6.5847, 8.2802],
+}
+
+# Recorded FastHenry results for the 6-turn solenoid below (uniform 3x3 filaments).
+_SOL_FH_REF = {
+    "frequency": [1e5, 1e6],
+    "inductance_nH": [401.71, 396.09],
+    "resistance_mOhm": [9.102, 14.379],
 }
 
 
@@ -74,13 +94,13 @@ def main() -> None:
     parser.add_argument("--turns", type=int, default=6)
     args = parser.parse_args()
 
-    # --- 1. Straight square bar (exact geometry match) ---
-    print("Straight square bar: 1x1 mm, 100 mm, copper, 8x8 filaments")
+    # --- 1. Straight square bar (exact geometry match; uniform filaments both sides) ---
+    print("Straight square bar: 1x1 mm, 100 mm, copper, 8x8 uniform filaments")
     freqs = np.array(_BAR_FH_REF["frequency"])
     bar = Conductor(np.array([[0, 0, 0], [0, 0, 0.1]]), material=ANNEALED_COPPER,
                     cross_section="rect", width=1e-3, height=1e-3, n_width=8, n_height=8)
     peec_bar = extract_impedance(bar, freqs)
-    fh = _try_fasthenry(bar, freqs)
+    fh = _try_fasthenry(bar, freqs, rw=1.0, rh=1.0)
     if fh is not None:
         _print_table(freqs, peec_bar, fh.inductance * 1e9, fh.resistance * 1e3)
     else:
@@ -103,7 +123,11 @@ def main() -> None:
         print(f"  C_PEEC={c_peec * 1e12:.3f} pF  (FasterCap not run: {exc})")
 
     # --- 2. Helical solenoid, square wire (exact geometry match to FastHenry) ---
-    print(f"\nHelical solenoid: D=20 mm, l=30 mm, {args.turns} turns, 1 mm square wire")
+    # Both formulations: `chain` reduces the sub-filaments to path-constant currents (skin
+    # only), `full` keeps one branch per (segment, sub-filament) -- FastHenry's own system --
+    # so the turn-to-turn proximity redistribution is resolved.
+    print(f"\nHelical solenoid: D=20 mm, l=30 mm, {args.turns} turns, 1 mm square wire, "
+          "uniform 3x3 filaments")
     sol_freqs = np.array([1e5, 1e6])
     diam, length, turns, side = 20e-3, 30e-3, args.turns, 1e-3
     n_per = 12
@@ -112,15 +136,33 @@ def main() -> None:
     path = np.column_stack([(diam / 2) * np.cos(th), (diam / 2) * np.sin(th), z])
     sol = Conductor(path, material=ANNEALED_COPPER, cross_section="rect",
                     width=side, height=side, n_width=3, n_height=3)
-    peec_sol = extract_impedance(sol, sol_freqs)
-    fh_sol = _try_fasthenry(sol, sol_freqs, nwinc=3, nhinc=3)
+    peec_chain = extract_impedance(sol, sol_freqs)
+    peec_full = extract_impedance(sol, sol_freqs, formulation="full")
+    fh_sol = _try_fasthenry(sol, sol_freqs, nwinc=3, nhinc=3, rw=1.0, rh=1.0)
     if fh_sol is not None:
-        _print_table(sol_freqs, peec_sol, fh_sol.inductance * 1e9, fh_sol.resistance * 1e3)
+        fh_L, fh_R = fh_sol.inductance * 1e9, fh_sol.resistance * 1e3
     else:
-        print("  (install FastHenry2 + pywin32 on Windows to run the solenoid comparison)")
-        for i, f in enumerate(sol_freqs):
-            print("  %8.0e  L_PEEC=%.3f uH  R_PEEC=%.4f ohm"
-                  % (f, peec_sol.inductance[i] * 1e6, peec_sol.resistance[i]))
+        print("  Using recorded FastHenry reference numbers:")
+        fh_L, fh_R = _SOL_FH_REF["inductance_nH"], _SOL_FH_REF["resistance_mOhm"]
+    print("  chain formulation (reduced; misses part of the proximity loss):")
+    _print_table(sol_freqs, peec_chain, fh_L, fh_R)
+    print("  full formulation (per-segment, FastHenry's system):")
+    _print_table(sol_freqs, peec_full, fh_L, fh_R)
+
+    # --- 2b. Tight-coil proximity: where the references themselves disagree ---
+    # For a CLOSELY-wound coil (pitch 1.5 mm, wire 1 mm) the proximity factor
+    # Phi = R_coil / R_straight_wire from different references at 0.5 / 2 MHz:
+    #   FEMM 4.2 (axisymmetric continuum FEM, 10-ring stack): 1.720 / 1.803
+    #   this solver, volume-full (round wire):                1.718 /  --  (0.1% vs FEMM)
+    #   this solver, SIBC-full:                               1.54  / 1.69 (-6% at deep skin)
+    #   FastHenry (graded 8x8, its converged mesh):           1.43  / 1.47 (~-20%)
+    #   Medhurst's measured table (HF asymptote):                2.27      (~+25%)
+    # The full-PEEC volume solve matches the continuum FEM; FastHenry under-predicts
+    # tight-coil proximity and Medhurst's empirical table reads high vs field solvers
+    # (his measured Q included real-coil losses beyond the eddy-current proximity).
+    print("\nTight-coil proximity factor (see docs/coil_peec.md 'Loss modelling'):")
+    print("  FEMM continuum reference 1.720 @0.5 MHz; PEEC volume-full 1.718;")
+    print("  FastHenry ~1.43 (under); Medhurst table 2.27 (over).")
 
     # --- 3. AC-resistance convergence vs filament count (deep skin) ---
     # Why does R "diverge" between PEEC and FastHenry at high frequency? Both are
@@ -140,7 +182,7 @@ def main() -> None:
         bar_n = Conductor(np.array([[0, 0, 0], [0, 0, 0.1]]), material=ANNEALED_COPPER,
                           cross_section="rect", width=1e-3, height=1e-3, n_width=n, n_height=n)
         imp_n = extract_impedance(bar_n, [r_freq])
-        fh_n = _try_fasthenry(bar_n, [r_freq], nwinc=n, nhinc=n)
+        fh_n = _try_fasthenry(bar_n, [r_freq], nwinc=n, nhinc=n, rw=1.0, rh=1.0)
         r_fh = f"{fh_n.resistance[0] * 1e3:12.3f}" if fh_n is not None else f"{'--':>12}"
         print("  %8s %12.3f %s %10.2f"
               % (f"{n}x{n}", imp_n.resistance[0] * 1e3, r_fh, imp_n.inductance[0] * 1e9))

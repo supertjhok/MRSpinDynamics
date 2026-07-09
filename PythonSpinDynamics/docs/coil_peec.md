@@ -31,11 +31,14 @@ the path swept to cross-cell `k`, and
 
 At each frequency the parallel sub-filaments reduce to the terminal impedance
 `Z(w) = 1 / (1^T (R + jwL)^{-1} 1)`, giving `L(w) = Im Z / w` and `R(w) = Re Z`. The current
-`I_k ~ (Z^{-1} 1)_k` redistributes as `w` rises — crowding to the surface (skin) and
-toward/away from neighbouring turns/legs (proximity). A dual thin-wire **electrostatic**
-solve on the same geometry (`self_capacitance`, potential-coefficient energy method with a
-linear winding potential) gives the self-capacitance and hence `self_resonant_frequency =
-1/(2 pi sqrt(L_dc C))`.
+`I_k ~ (Z^{-1} 1)_k` redistributes as `w` rises — crowding to the surface (skin) and, in a
+path-averaged way, toward/away from neighbouring turns/legs. Because the chain reduction
+forces each sub-filament's current to be constant along the path, it captures only part of
+the turn-to-turn **proximity** loss; `formulation="full"` removes the reduction (one branch
+per segment × sub-filament, FastHenry's actual system — see "Loss modelling" below). A dual
+thin-wire **electrostatic** solve on the same geometry (`self_capacitance`,
+potential-coefficient energy method with a linear winding potential) gives the
+self-capacitance and hence `self_resonant_frequency = 1/(2 pi sqrt(L_dc C))`.
 
 The DC inductance is the resistance-weighted limit `L_dc = i0^T L i0` with
 `i0 = R^{-1}1 / (1^T R^{-1}1)` (uniform-ish current), **not** the minimum-energy
@@ -92,14 +95,23 @@ comparison; `tests/test_coil_peec_fasthenry.py` checks the export format everywh
 a live comparison when the FastHenry COM server is present (skipped otherwise, so CI stays
 green).
 
-Measured agreement (matched square cross-section, 3×3 filaments vs FastHenry nwinc=nhinc=3):
+**Mesh-matching gotcha (found reading FastHenry's source):** FastHenry silently grades its
+`nwinc × nhinc` filaments toward the conductor surface with adjacent-size ratio 2 unless
+told otherwise — `readGeom.c` initializes `DEFAULTS` with `rw = rh = 2.0`. Early
+comparisons at "matched" filament counts were therefore graded-vs-uniform and diverged in
+the deep-skin regime. `to_fasthenry_inp(..., rw=1.0, rh=1.0)` pins FastHenry to the uniform
+tiling for apples-to-apples comparisons.
+
+Measured agreement (matched square cross-section, uniform filaments both sides;
+solenoid = 6 turns, D=20 mm, l=30 mm, 1 mm wire; PEEC `formulation="full"` for the coil):
 
 | geometry | f | L FastHenry | L PEEC | R FastHenry | R PEEC |
 |---|---|---|---|---|---|
-| 1×1 mm bar, 100 mm | 10 kHz | 102.1 nH | 102.2 nH (**+0.1%**) | 1.744 mΩ | 1.744 mΩ (0.0%) |
-| 1×1 mm bar, 100 mm | 1 MHz | 97.9 nH | 98.3 nH (+0.4%) | 8.31 mΩ | 6.51 mΩ (−22%*) |
-| 6-turn solenoid, D=20 mm | 100 kHz | 400.4 nH | 402.7 nH (**+0.6%**) | 9.87 mΩ | 9.09 mΩ (−7.9%) |
-| 6-turn solenoid, D=20 mm | 1 MHz | 393.8 nH | 397.4 nH (+0.9%) | 15.63 mΩ | 13.86 mΩ (−11%) |
+| 1×1 mm bar, 100 mm (8×8) | 10 kHz | 102.09 nH | 102.15 nH (+0.06%) | 1.7441 mΩ | 1.7441 mΩ (0.0%) |
+| 1×1 mm bar, 100 mm (8×8) | 1 MHz | 98.22 nH | 98.30 nH (+0.08%) | 6.585 mΩ | 6.514 mΩ (−1.1%) |
+| 1×1 mm bar, 100 mm (8×8) | 10 MHz | 97.89 nH | 97.98 nH (+0.09%) | 8.280 mΩ | 8.121 mΩ (−1.9%) |
+| 6-turn solenoid (3×3, full) | 100 kHz | 401.7 nH | 399.6 nH (−0.5%) | 9.10 mΩ | 9.82 mΩ (+7.9%) |
+| 6-turn solenoid (3×3, full) | 1 MHz | 396.1 nH | 393.7 nH (−0.6%) | 14.38 mΩ | 14.89 mΩ (+3.5%) |
 
 **Inductance matches FastHenry to <1%** for both straight bars and helical solenoids. The
 mutual inductance between segment pairs uses the exact closed form (`_mutualfil_matrix`, a
@@ -109,11 +121,14 @@ inductance without bound as the path is refined (an earlier quadrature version d
 2× for a finely-segmented helix). The self-capacitance and self-resonance are unaffected and
 remain within ~1% / a few percent of FasterCap and QOIL.
 
-Resistance matches FastHenry to ~1% at low frequency and converges to the exact Kelvin value
-with cell count (1 MHz: 6.5 → 7.8 → 8.1 mΩ at 8²/16²/24² cells; Kelvin ≈ 7.8). *The −22% at
-1 MHz above is the coarse 3×3/8×8 mesh under-resolving the skin depth — FastHenry
-under-resolves the same way at the same filament count; raise the cell count (or use the
-planned surface-impedance backend) for deep-skin resistance.
+Straight-bar resistance matches FastHenry to ~2% at every frequency once the meshes really
+match, and converges to the exact Kelvin value with cell count. The few-% solenoid-R
+residual is the near-field kernel: for close parallel filament pairs FastHenry integrates
+the exact rectangular cross-sections (`parallel_fils`/`exact_mutual`, or its `fourfil`
+5-filament approximation), while this solver uses curved thin filaments with GMD self-terms
+— the two discretizations converge with refinement but approach from different sides. DC
+resistance agrees to 0.07%. On two straight antiparallel legs (a hairpin, where no curvature
+is involved) the two solvers agree to 0.5%.
 
 **Capacitance vs FasterCap.** `fields.fastercap_interop` panelizes a conductor's wire
 surface (`to_fastercap_panels`) and runs FasterCap (the FastFieldSolvers successor to
@@ -174,7 +189,9 @@ The volume solver's cost is `O(K^2)` in the cross-section cell count, and deep s
   1 MHz square bar reaches ~5% at 64 cells vs a uniform mesh needing ~250).
 
 Rule of thumb: uniform/graded volume for low–moderate skin (`a/delta <~ 10`), the
-surface-impedance backend for deep skin.
+surface-impedance backend for deep skin. Both accept `formulation="full"` (per-segment
+currents, resolves turn-to-turn proximity — see "Loss modelling") at cost `O((MK)^3)` per
+frequency; for the SIBC backend at deep skin this is *the* way to get a tight coil's R.
 
 ## Shielding and dielectric formers
 
@@ -192,8 +209,10 @@ and `capacitance_to_ground` accept:
 The example `examples/plot_shielded_nqr_coil.py` designs a ¹⁴N NQR probe (2–3 MHz, coil
 ID ≈ 1.5″) on a Teflon former in a grounded aluminium box, one coil end and the box at
 ground, and plots the properties with and without the box: L(f) and R(f) from the
-surface-impedance backend (the wire is deep-skin at these frequencies), the self-capacitance
-and SRF for free / +former / +box (e.g. 1.5 → 2.2 → 3.4 pF, SRF 58 → 48 → 36 MHz — kept above
+surface-impedance backend with `formulation="full"` (the wire is deep-skin at these
+frequencies; the full formulation adds the turn-to-turn proximity loss with no empirical
+factor), the self-capacitance and SRF for free / +former / +box (e.g. 1.5 → 2.2 → 3.9 pF,
+SRF 60 → 50 → 37 MHz — kept above
 the 10 MHz target), and the Q reduction from box-wall eddy loss (computed as a
 surface-resistance integral `R_box = 2 R_s(f) ∮|H_tan/I|² dA`, `R_s = √(π f μ₀/σ)` ∝ √f —
 the correct skin-limited scaling for a solid wall, unlike the full-penetration first-order
@@ -204,26 +223,54 @@ eddy model). A loose enclosure mainly shifts the SRF and lowers Q only modestly.
 Getting the *inductance* right is easy; getting the *resistance* (hence Q) right needs the
 correct loss model for the situation. Two common trip-ups:
 
-### Proximity effect between turns
+### Proximity effect between turns: the `full` formulation
 
 The AC field of neighbouring turns crowds the current in each wire, raising R above the
-isolated-wire skin value (the Medhurst proximity factor Φ, typically 1.3–2 for a
-closely-wound solenoid). **Neither PEEC mode captures this fully:**
+isolated-wire skin value (proximity factor Φ, typically 1.3–2 for a closely-wound
+solenoid).
 
-- `extract_impedance_surface` (SIBC) carries only axial perimeter current, so it captures
-  skin effect but **essentially no proximity** (a solenoid comes out ≈ the straight-wire R).
-- `extract_impedance` (volume) captures proximity only *partially*: the reduced K×K
-  formulation gives every sub-filament a path-constant current, so the cross-section
-  distribution cannot vary along the wire to crowd toward each neighbour. It reaches
-  ~1.1× where FastHenry (independent per-segment currents) gives ~1.4× for a tight coil.
+**How FastHenry does it (verified in its source):** it never reduces the system. Every
+segment keeps its own `nwinc × nhinc` filaments as independent circuit branches
+(`assignFil`, `induct.c`), and the mesh analysis adds, *for every segment*, `K − 1`
+"mini-meshes" pairing adjacent filaments (`fillM.c`), on top of the loop meshes from the
+node graph. The solved system is `Z_m = M (R + jωL) Mᵀ` with per-filament diagonal `R` and
+the dense partial-inductance `L` — proximity emerges from the inductive coupling alone.
+There is **no empirical factor anywhere** in FastHenry (no "proximity", no "Medhurst" in
+the source); the per-segment cross-section redistribution freedom *is* the proximity model.
 
-So for a closely-wound coil these solvers **over-predict Q** if used alone. Options, best
-first: use the analytic `solenoid_properties` (validated Medhurst Φ) for a solenoid;
-multiply the SIBC skin resistance by that Φ (`R_SIBC × Φ ≈ QOIL R`, what the NQR example
-does); or run FastHenry via `fasthenry_interop` for arbitrary geometry. A full per-segment
-mesh in PEEC (proximity without Φ) is a planned follow-on.
+**This solver now has the same system:** `formulation="full"` on `extract_impedance`,
+`extract_impedance_surface` and `coil_properties_peec` keeps one branch per
+(segment, sub-filament) and constrains only the total current at the path nodes. For a
+series path this reduces to the M×M block system `A V = I·1` with
+`A[m,m'] = 1ᵀ (Z_b⁻¹)[m-block, m'-block] 1` and `Z_term = 1ᵀ A⁻¹ 1` (which collapses to the
+chain formula `1/(1ᵀ Z_b⁻¹ 1)` when M = 1 — a straight bar gives bit-identical results in
+both formulations). Cost is `O((MK)³)` per frequency (guardrailed at MK ≤ 6000), against
+`O(K³)` for the reduced `chain` formulation — which forces every sub-filament to carry a
+path-constant current and therefore misses the part of the proximity loss that varies along
+the wire. `current_distribution(..., formulation="full", segment=...)` shows the actual
+asymmetric crowding at any one segment.
 
-**And even Φ-corrected R is a theoretical lower bound on loss:** a measured coil is usually
+**Validation of the full formulation** (10-turn solenoid, D=20 mm, 1 mm round wire, pitch
+1.5 mm — tightly wound, Φ = R_coil/R_straight-wire):
+
+| reference | Φ @ 0.5 MHz (a/δ=5.3) | Φ @ 2 MHz (a/δ=10.7) |
+|---|---|---|
+| FEMM 4.2, axisymmetric continuum FEM (10-ring stack, 25/12.5 µm mesh) | **1.720** | **1.803** |
+| this solver, volume `full` (round, ~52 cells) | **1.718** (+0.1%) | — (mesh-limited) |
+| this solver, SIBC `full` (n_perimeter=28) | 1.54 (−10%; a/δ too shallow for SIBC) | 1.69 (−6%) |
+| FastHenry, graded 8×8 (its converged mesh) | 1.43 (−17%) | 1.47 (−18%) |
+| Medhurst measured table (HF asymptote) | 2.27 (+25% vs the a/δ→∞ trend ≈ 1.85–1.9) | |
+
+Independent checks: on two antiparallel straight round wires at s/d = 1.5 the exact HF
+proximity factor is `1/√(1−(d/s)²)` = 1.3416; the SIBC-full solve reaches it to ~3% at
+a/δ = 24 (and FastHenry agrees with the volume-full solve to 0.5% on the square-equivalent
+hairpin — the solvers only diverge on *curved multi-turn* geometries, where FastHenry reads
+low against the continuum FEM and Medhurst's empirical table reads high; Medhurst measured
+real 1947 coils whose Q included losses beyond eddy-current proximity). Use `full` and trust
+it; keep Medhurst's Φ (`coil_properties.medhurst_proximity_factor`) as a conservative
+cross-reference, not a correction.
+
+**And even the computed R is a theoretical lower bound on loss:** a measured coil is usually
 another ~1.3–2× lossier still (dielectric-former `tan δ`, solder/lead resistance, surface
 oxidation, radiation), so a lab Q well below the computed one is expected, not a bug.
 

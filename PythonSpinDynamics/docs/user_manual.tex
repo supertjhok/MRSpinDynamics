@@ -3409,9 +3409,15 @@ reduces \emph{exactly} to a \(K\times K\) chain-impedance system in which sub-fi
 is the whole path swept to cross-cell \(k\) and \(L_{kk'}\) is the Neumann mutual inductance
 between two such filaments (reusing \code{quasistatic.vector\_potential}). Solving
 \(Z(\omega)=1/(\mathbf 1^{\mathsf T}(R+j\omega L)^{-1}\mathbf 1)\) lets the current
-redistribute with frequency, which \emph{is} the skin effect (own cross-section) and
-proximity effect (neighbouring turns/legs); a dual thin-wire electrostatic solve on the same
-geometry gives the self-capacitance and hence the self-resonant frequency.
+redistribute with frequency, which \emph{is} the skin effect (own cross-section); a dual
+thin-wire electrostatic solve on the same geometry gives the self-capacitance and hence the
+self-resonant frequency. The chain reduction constrains each sub-filament to a
+\emph{path-constant} current, so it captures only part of the turn-to-turn \emph{proximity}
+effect; passing \code{formulation="full"} instead keeps one branch per (segment,
+sub-filament) --- FastHenry's actual system, in which the cross-section current split is a
+free unknown at every segment --- and resolves the proximity loss from first principles at
+cost \(O((MK)^3)\) per frequency. \code{coil\_properties\_peec} defaults to \code{full};
+use \code{chain} when only \(L\), \(C\) or the self-resonance matter.
 
 \begin{lstlisting}[language=Python]
 from spin_dynamics.fields.coil_peec import helical_solenoid, coil_properties_peec
@@ -3455,19 +3461,26 @@ dielectric former \code{relative\_permittivity}; both raise the coil capacitance
 the self-resonant frequency. The example \code{plot\_shielded\_nqr\_coil.py} designs a
 \(^{14}\)N NQR probe (2--3\,MHz, coil ID \(\approx1.5''\)) on a Teflon former in a grounded
 aluminium box (one coil end and the box grounded) and plots the properties with and without
-the box: \(L(f)\) and \(R(f)\) from the surface-impedance backend, the self-capacitance and
-SRF for free/former/box (e.g.\ \(1.5\to2.2\to3.4\)\,pF, SRF \(58\to48\to36\)\,MHz, kept above
-the 10\,MHz target), and the Q reduction from box-wall eddy loss (a surface-resistance
-integral \(R_{\text{box}}=2R_s\!\oint|H_{\text{tan}}/I|^2\,\mathrm dA\), \(R_s\propto\sqrt f\)).
+the box: \(L(f)\) and \(R(f)\) from the surface-impedance backend with
+\code{formulation="full"} (skin + turn-to-turn proximity, no empirical factor), the
+self-capacitance and SRF for free/former/box (e.g.\ \(1.5\to2.2\to3.9\)\,pF, SRF
+\(60\to50\to37\)\,MHz, kept above the 10\,MHz target), and the Q reduction from box-wall
+eddy loss (a surface-resistance integral
+\(R_{\text{box}}=2R_s\!\oint|H_{\text{tan}}/I|^2\,\mathrm dA\), \(R_s\propto\sqrt f\)).
 
 \paragraph{Loss-model caveats (proximity and eddy currents).} Two easy trip-ups when
-trusting a computed \(Q\). \emph{Proximity:} the surface-impedance backend gives the skin
-resistance but not the turn-to-turn proximity loss, and the reduced volume solver captures
-it only partially (each sub-filament carries a path-constant current); for a closely-wound
-coil, multiply by the analytic Medhurst factor from \code{solenoid\_properties} or use
-FastHenry. Even then the result is a theoretical upper bound on \(Q\) --- a measured coil is
-typically \(\sim\)1.3--2\(\times\) lossier (dielectric former, solder/lead resistance,
-radiation). \emph{Eddy loss in a nearby conductor:} use the \emph{surface-resistance} model
+trusting a computed \(Q\). \emph{Proximity:} use \code{formulation="full"} for any
+closely-wound coil --- both the volume and surface-impedance backends accept it, and the
+per-segment redistribution it enables \emph{is} the proximity model (FastHenry's own
+mechanism; no empirical factor). The full volume solve matches an axisymmetric
+continuum-FEM reference (FEMM~4.2) to 0.1\% on a tightly-wound test coil where the reduced
+\code{chain} formulation under-predicts the loss, FastHenry's converged graded mesh reads
+\(\sim\)20\% low, and Medhurst's empirical table reads \(\sim\)25\% high (his measured
+\(Q\) included real-coil losses beyond eddy-current proximity; keep
+\code{medhurst\_proximity\_factor} as a conservative cross-reference). Even the computed
+\(R\) is a theoretical upper bound on \(Q\) --- a measured coil is typically
+\(\sim\)1.3--2\(\times\) lossier (dielectric former, solder/lead resistance, radiation).
+\emph{Eddy loss in a nearby conductor:} use the \emph{surface-resistance} model
 (\(R\propto\sqrt f\)) when the skin depth is much thinner than the conductor (a solid metal
 shield at RF), and the \emph{first-order volume} model
 (\code{fields.quasistatic.reflected\_resistance}, \(R\propto f^2\)) only when the conductor
@@ -3499,9 +3512,12 @@ results.
 \toprule
 Quantity & Reference & Case & Agreement \\
 \midrule
-Inductance \(L\)      & FastHenry & 1\(\times\)1\,mm bar, 100\,mm        & \(<0.1\)--0.9\% \\
-Inductance \(L\)      & FastHenry & 6-turn solenoid, \(D=20\)\,mm        & 0.6--0.9\% \\
-Resistance \(R\)      & FastHenry & low frequency (resolved)            & \(\sim\)1\% \\
+Inductance \(L\)      & FastHenry & 1\(\times\)1\,mm bar, 100\,mm        & \(<0.1\)\% \\
+Inductance \(L\)      & FastHenry & 6-turn solenoid, \(D=20\)\,mm        & 0.5--0.6\% \\
+Resistance \(R\)      & FastHenry & straight bar, matched uniform mesh  & \(\le\)2\% \\
+Resistance \(R\) (full) & FastHenry & 6-turn solenoid                   & 3.5--8\% \\
+Proximity factor \(\Phi\) (full) & FEMM continuum FEM & tight 10-turn coil & 0.1\% \\
+Proximity factor \(\Phi\) (SIBC-full) & exact two-wire \(1/\sqrt{1-(d/s)^2}\) & hairpin & \(\sim\)3\% \\
 Self-capacitance \(C\)& FasterCap & 1\,m, 1\,mm wire                    & \(\sim\)1\% \\
 Self-resonance \(f_{\text{res}}\) & QOIL & 10--40-turn solenoids       & 1--3\% \\
 \bottomrule
@@ -3509,7 +3525,9 @@ Self-resonance \(f_{\text{res}}\) & QOIL & 10--40-turn solenoids       & 1--3\% 
 \caption{PEEC solver validation against independent reference solvers. The inductance uses
 the exact closed-form segment mutual ported from FastHenry's \code{mutualfil} (Grover's
 method), which, unlike a numerical quadrature, does not over-couple the vertex-sharing
-segments of a coil path (a quadrature drifts to \(2\times\) as the path is refined).}
+segments of a coil path (a quadrature drifts to \(2\times\) as the path is refined).
+Mesh-matching note: FastHenry silently grades its filaments (adjacent-size ratio 2,
+\code{readGeom.c} defaults) --- matched comparisons pass \code{rw=rh=1}.}
 \label{tab:peec-validation}
 \end{table}
 
@@ -3518,13 +3536,14 @@ PEEC and FastHenry are partial-element solvers: the cross-section must be tiled 
 the skin depth \(\delta\), and \emph{both} under-resolve the AC resistance on a coarse mesh.
 They converge to the same (exact Kelvin) value as the filament count rises.
 Table~\ref{tab:peec-Rconv} shows a 1\(\times\)1\,mm copper bar at 1\,MHz (skin depth
-66\,\(\mu\)m, side/\(\delta\approx15\), deep skin): the apparent PEEC--FastHenry discrepancy
-at a coarse mesh is shared under-resolution, not a modelling error, and shrinks with
-refinement --- while the inductance is already converged at the coarsest mesh. For
-deep-skin resistance, raise the cell count (a surface-impedance backend is the planned
-efficient alternative). The round-wire cross-section is tiled on a Cartesian grid masked to
-the disc, so its cells stay square and the resistance converges monotonically; an equal-area
-polar tiling would diverge as its wedge cells elongate.
+66\,\(\mu\)m, side/\(\delta\approx15\), deep skin): with the meshes \emph{really} matched
+(uniform filaments both sides, \code{rw=rh=1} --- FastHenry otherwise silently grades with
+ratio 2) the two solvers track each other to \(\le\)1.5\% at every mesh and climb together
+toward the exact value, while the inductance is already converged at the coarsest mesh. For
+deep-skin resistance, raise the cell count or use the surface-impedance backend. The
+round-wire cross-section is tiled on a Cartesian grid masked to the disc, so its cells stay
+square and the resistance converges monotonically; an equal-area polar tiling would diverge
+as its wedge cells elongate.
 
 \begin{table}[h]
 \centering
@@ -3533,14 +3552,15 @@ polar tiling would diverge as its wedge cells elongate.
 \toprule
 Filaments \(n\times n\) & \(R_{\text{PEEC}}\) (m\(\Omega\)) & \(R_{\text{FastHenry}}\) (m\(\Omega\)) & (Kelvin \(\approx7.8\)) \\
 \midrule
-\(4\times4\)   & 4.12 & 5.25 & \\
-\(8\times8\)   & 6.51 & 8.31 & \\
-\(16\times16\) & 7.77 & 8.38 & \\
-\(20\times20\) & 7.96 & 8.38 & \\
+\(4\times4\)   & 4.12 & 4.17 & \\
+\(8\times8\)   & 6.51 & 6.58 & \\
+\(16\times16\) & 7.77 & 7.80 & \\
+\(20\times20\) & 7.96 & 7.97 & \\
 \bottomrule
 \end{tabular}
-\caption{AC-resistance convergence versus filament count, 1\(\times\)1\,mm bar at 1\,MHz.
-Both solvers climb toward the exact value with refinement; the inductance is unchanged.}
+\caption{AC-resistance convergence versus filament count, 1\(\times\)1\,mm bar at 1\,MHz,
+uniform filaments both sides. The solvers track each other to \(\le\)1.5\% and climb toward
+the exact value together; the inductance is unchanged.}
 \label{tab:peec-Rconv}
 \end{table}
 
