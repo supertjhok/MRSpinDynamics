@@ -602,6 +602,23 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `solve_diagnostics(phantom: Phantom, hardware: Hardware) -> dict[str, float]` | Return the per-coil transmit-efficiency diagnostics (cached solve). |
 | function | `solve_for_experiment(experiment: Experiment) -> ImagingFieldMaps` | Solve field maps for an experiment's sample + hardware specs. |
 
+## `spin_dynamics.fields.coil_peec`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `self_partial_inductance(length: float, gmd_radius: float) -> float` | Self partial inductance (H) of a straight round filament. |
+| class | `Conductor` | A single current-carrying wire: a polyline centreline plus a round cross-section. |
+| function | `conductor_from_segments(segments: Sequence[Segment], *, wire_radius: float, material: ConductorMaterial = ANNEALED_COPPER, n_radial: int = 6, n_angular: int = 8, temperature: float | None = None) -> Conductor` | Build a :class:`Conductor` from a connected ``(start, end)`` segment list. |
+| function | `filament_self_inductance(filament: list[Segment], gmd_radius: float) -> float` | Self partial inductance (H) of one open filamentary wire following the path. |
+| class | `PEECImpedance` | Frequency-swept terminal impedance of a coil from the PEEC solve. |
+| function | `extract_impedance(conductor: Conductor, frequencies: Sequence[float]) -> PEECImpedance` | Solve the PEEC chain system for ``L(w)`` and ``R(w)`` including skin + proximity. |
+| function | `current_distribution(conductor: Conductor, frequency: float) -> tuple[np.ndarray, np.ndarray]` | Per-sub-filament current magnitude across the cross-section at ``frequency``. |
+| function | `self_capacitance(conductor: Conductor) -> float` | Lumped self-capacitance (F) of the coil from an electrostatic energy method. |
+| function | `helical_solenoid(*, diameter: float, length: float, turns: int, wire_radius: float, material: ConductorMaterial = ANNEALED_COPPER, n_per_turn: int = 16, n_radial: int = 6, n_angular: int = 8, temperature: float | None = None, axis: str = 'z') -> Conductor` | Build a :class:`Conductor` for a helical single-layer solenoid. |
+| function | `self_resonant_frequency(conductor: Conductor) -> float` | First self-resonant frequency (Hz) ``1 / (2 pi sqrt(L C))``. |
+| class | `PEECCoilProperties` | Lumped RF properties of an arbitrary coil from the PEEC solve. |
+| function | `coil_properties_peec(conductor: Conductor, frequency: float) -> PEECCoilProperties` | Extract lumped RF properties of an arbitrary coil at ``frequency`` via PEEC. |
+
 ## `spin_dynamics.fields.coil_properties`
 
 | Kind | Name | Summary |

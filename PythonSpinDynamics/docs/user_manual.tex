@@ -3392,9 +3392,61 @@ The example \code{plot\_solenoid\_coil\_properties.py} sweeps \(L_{\text{eff}}\)
 \(f_{\text{res}}\)), shows the classic \(Q\)-vs-form-factor peak near a cubical coil
 (\(\ell\approx D\)), and closes the loop by feeding the extracted \((L,R)\) into
 \code{coil\_loading} for the loaded \(Q\) and noise penalty against a conductive sample.
-Field-based extraction of proximity resistance and turn-to-turn capacitance for
-arbitrary (non-solenoidal) coil geometries is a planned follow-on. Design note:
-\code{docs/coil\_properties.md}.
+The field-based generalization to arbitrary geometry is the PEEC solver in the next
+subsection. Design note: \code{docs/coil\_properties.md}.
+
+\subsection{Arbitrary-geometry coil solver (PEEC): multi-layer, saddle, and gradient coils}
+\label{sec:fields-coil-peec}
+
+The analytic model above is limited to single-layer air-core solenoids. Real RF coils
+(multi-layer, saddle, birdcage, surface) and gradient coils have arbitrary wire paths, and
+\code{spin\_dynamics.fields.coil\_peec} extracts their lumped RF properties from first
+principles by the \emph{partial-element equivalent-circuit} (PEEC) method --- the mesh-light
+approach behind FastHenry/FastCap. A conductor is a polyline centreline plus a round
+cross-section; the cross-section is tiled into \(K\) parallel sub-filaments to resolve the
+current distribution. Because each sub-filament is a simple series chain, the branch system
+reduces \emph{exactly} to a \(K\times K\) chain-impedance system in which sub-filament \(k\)
+is the whole path swept to cross-cell \(k\) and \(L_{kk'}\) is the Neumann mutual inductance
+between two such filaments (reusing \code{quasistatic.vector\_potential}). Solving
+\(Z(\omega)=1/(\mathbf 1^{\mathsf T}(R+j\omega L)^{-1}\mathbf 1)\) lets the current
+redistribute with frequency, which \emph{is} the skin effect (own cross-section) and
+proximity effect (neighbouring turns/legs); a dual thin-wire electrostatic solve on the same
+geometry gives the self-capacitance and hence the self-resonant frequency.
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.fields.coil_peec import helical_solenoid, coil_properties_peec
+
+coil = helical_solenoid(diameter=20e-3, length=30e-3, turns=10,
+                        wire_radius=0.5e-3, n_radial=4, n_angular=8)
+p = coil_properties_peec(coil, frequency=5e6)
+p.inductance, p.ac_resistance, p.q_factor, p.self_resonant_frequency
+p.to_probe_params()   # {"L","R","C"} -> same probe-noise / matching pipeline
+\end{lstlisting}
+
+Build any coil from its wire path with \code{Conductor} / \code{conductor\_from\_segments};
+\code{extract\_impedance} sweeps \(L(\omega)\)/\(R(\omega)\) and
+\code{current\_distribution} returns the cross-section current for the crowding picture.
+\code{PEECCoilProperties} mirrors the universal fields of \code{CoilProperties} (Sec.\
+\ref{sec:fields-coil-properties}) so an arbitrary coil drops into the same probe-noise and
+matching workflow. The solver is validated against the exact Kelvin-function skin-effect
+ratio (isolated wire), the Neumann kernels, and the QOIL solenoid --- its \(L\),
+self-capacitance and self-resonance agree with QOIL to a few percent (the physical
+self-resonance, distinct from QOIL's lumped-equivalent \(C_p\) fitting capacitance).
+
+\paragraph{Resolution ceiling.} The cross-section must resolve the skin depth: for
+\(a/\delta\lesssim5\) a few hundred filaments give sub-percent AC-resistance accuracy
+(convergent to the Kelvin result), but deep skin (high-frequency RF, \(a/\delta\gtrsim15\))
+is under-resolved at modest cell counts, so \(R\) is under-predicted there --- inductance,
+capacitance and self-resonance remain accurate regardless, being geometry-dominated. For a
+single-layer solenoid in that regime prefer the analytic
+\code{solenoid\_properties}. A surface-impedance backend, magnetic-core coupling and
+FMM/H-matrix acceleration are planned follow-ons.
+
+The example \code{plot\_peec\_coil\_solver.py} shows a two-layer solenoid (\(L\), \(R\),
+\(Q\), \(f_{\text{res}}\), and the cross-section current-crowding map) and a gradient
+Maxwell pair (\(L\), \(R\), the \(\mathrm dB_z/\mathrm dz\) efficiency from Biot-Savart, and
+shield eddy modes from \code{eddy\_modes}) --- the same solver spanning RF and gradient
+coils. Design note: \code{docs/coil\_peec.md}.
 
 \subsection{Nonlinear magnetostatics: ferrites and saturable iron}
 \label{sec:fields-nonlinear-magnetostatics}

@@ -35,6 +35,18 @@ from spin_dynamics.fields.coil_properties import (
     solenoid_field_inductance,
     solenoid_properties,
 )
+from spin_dynamics.fields.coil_peec import (
+    Conductor,
+    PEECCoilProperties,
+    PEECImpedance,
+    coil_properties_peec,
+    conductor_from_segments,
+    current_distribution,
+    extract_impedance,
+    helical_solenoid,
+    self_capacitance,
+    self_resonant_frequency,
+)
 from spin_dynamics.fields.domain import SpatialDomain
 from spin_dynamics.fields.eddy_modes import EddyModes, EddyModeSpectrum
 from spin_dynamics.fields.interpolate import dlinear_sample
@@ -128,6 +140,17 @@ __all__ = [
     "sheath_helix_dispersion",
     "solenoid_properties",
     "solenoid_field_inductance",
+    # coil PEEC solver (arbitrary-geometry L/R/C/Q/f_res)
+    "Conductor",
+    "conductor_from_segments",
+    "helical_solenoid",
+    "extract_impedance",
+    "current_distribution",
+    "self_capacitance",
+    "self_resonant_frequency",
+    "coil_properties_peec",
+    "PEECImpedance",
+    "PEECCoilProperties",
     # quasistatic E / eddy
     "vector_potential",
     "induced_efield",
