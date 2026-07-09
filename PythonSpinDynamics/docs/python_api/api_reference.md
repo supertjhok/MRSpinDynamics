@@ -602,6 +602,54 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `solve_diagnostics(phantom: Phantom, hardware: Hardware) -> dict[str, float]` | Return the per-coil transmit-efficiency diagnostics (cached solve). |
 | function | `solve_for_experiment(experiment: Experiment) -> ImagingFieldMaps` | Solve field maps for an experiment's sample + hardware specs. |
 
+## `spin_dynamics.fields.coil_peec`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `self_partial_inductance(length: float, gmd_radius: float) -> float` | Self partial inductance (H) of a straight round filament. |
+| class | `Conductor` | A single current-carrying wire: a polyline centreline plus a cross-section. |
+| function | `conductor_from_segments(segments: Sequence[Segment], *, wire_radius: float, material: ConductorMaterial = ANNEALED_COPPER, n_radial: int = 6, n_angular: int = 8, temperature: float | None = None) -> Conductor` | Build a :class:`Conductor` from a connected ``(start, end)`` segment list. |
+| function | `filament_self_inductance(filament: list[Segment], gmd_radius: float) -> float` | Self partial inductance (H) of one open filamentary wire following the path. |
+| class | `PEECImpedance` | Frequency-swept terminal impedance of a coil from the PEEC solve. |
+| function | `extract_impedance(conductor: Conductor, frequencies: Sequence[float], *, formulation: str = 'chain') -> PEECImpedance` | Solve the PEEC system for ``L(w)`` and ``R(w)``. |
+| function | `extract_impedance_surface(conductor: Conductor, frequencies: Sequence[float], *, n_perimeter: int = 48, formulation: str = 'chain') -> PEECImpedance` | Surface-impedance (SIBC) solve for the deep-skin (high ``a/delta``) regime. |
+| function | `current_distribution(conductor: Conductor, frequency: float, *, formulation: str = 'chain', segment: int | None = None) -> tuple[np.ndarray, np.ndarray]` | Per-sub-filament current magnitude across the cross-section at ``frequency``. |
+| class | `GroundedBox` | A grounded rectangular shield enclosing the coil (walls at potential zero). |
+| function | `self_capacitance(conductor: Conductor, *, shield: GroundedBox | None = None, relative_permittivity: float = 1.0) -> float` | Lumped self-capacitance (F) of the coil from an electrostatic energy method. |
+| function | `capacitance_to_ground(conductor: Conductor, *, shield: GroundedBox | None = None, relative_permittivity: float = 1.0) -> float` | Isolated self-capacitance to ground (F): the charge held at unit potential,. |
+| function | `helical_solenoid(*, diameter: float, length: float, turns: int, wire_radius: float, material: ConductorMaterial = ANNEALED_COPPER, n_per_turn: int = 16, n_radial: int = 6, n_angular: int = 8, temperature: float | None = None, axis: str = 'z') -> Conductor` | Build a :class:`Conductor` for a helical single-layer solenoid. |
+| function | `self_resonant_frequency(conductor: Conductor) -> float` | First self-resonant frequency (Hz) ``1 / (2 pi sqrt(L C))``. |
+| class | `PEECCoilProperties` | Lumped RF properties of an arbitrary coil from the PEEC solve. |
+| function | `coil_properties_peec(conductor: Conductor, frequency: float, *, formulation: str = 'full') -> PEECCoilProperties` | Extract lumped RF properties of an arbitrary coil at ``frequency`` via PEEC. |
+
+## `spin_dynamics.fields.coil_properties`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `ConductorMaterial` | A conductor's RF-relevant material constants, with a temperature model. |
+| function | `medhurst_proximity_factor(l_over_D: float, p_over_d: float) -> float` | Medhurst proximity factor ``Phi`` from the ``(l/D, p/d)`` table. |
+| function | `sheath_helix_dispersion(frequency: float, a: float, psi: float) -> tuple[float, float, float]` | Solve the ``n = 0`` sheath-helix dispersion at ``frequency``. |
+| class | `CoilProperties` | Lumped RF properties of a single-layer solenoid at a design frequency. |
+| function | `solenoid_properties(*, diameter: float, length: float, turns: int, wire_diameter: float, frequency: float, material: ConductorMaterial = ANNEALED_COPPER, temperature: float | None = None) -> CoilProperties` | Extract the lumped RF properties of a single-layer round-wire solenoid. |
+| function | `solenoid_field_inductance(*, diameter: float, length: float, turns: int, wire_diameter: float, n_segments: int = 120) -> float` | Independent field-based inductance of the solenoid (Biot-Savart / Neumann). |
+
+## `spin_dynamics.fields.fasthenry_interop`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `to_fasthenry_inp(conductor: Conductor, frequencies, *, nwinc: int | None = None, nhinc: int | None = None, rw: float | None = None, rh: float | None = None) -> str` | Return a FastHenry ``.inp`` deck for ``conductor`` over ``frequencies`` (Hz). |
+| class | `FastHenryResult` | FastHenry ``L(f)`` and ``R(f)`` for the (single-port) conductor. |
+| function | `run_fasthenry(conductor: Conductor, frequencies, *, nwinc: int | None = None, nhinc: int | None = None, rw: float | None = None, rh: float | None = None, timeout: float = 300.0, workdir: str | None = None) -> FastHenryResult` | Run FastHenry on ``conductor`` and return its ``L(f)``/``R(f)`` (single port). |
+| function | `compare_with_fasthenry(conductor: Conductor, frequencies, *, nwinc: int | None = None, nhinc: int | None = None, rw: float | None = None, rh: float | None = None, formulation: str = 'chain')` | Return ``(peec, fasthenry)`` results for the same conductor and frequencies. |
+
+## `spin_dynamics.fields.fastercap_interop`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `to_fastercap_panels(conductor: Conductor, *, n_theta: int = 24, name: str = 'cond') -> str` | Return a FasterCap panel deck for the conductor's (round) wire surface. |
+| function | `run_fastercap(conductor: Conductor, *, n_theta: int = 24, tolerance: float = 0.01, timeout: float = 180.0, workdir: str | None = None) -> float` | Panelize ``conductor``, run FasterCap and return its self-capacitance (F). |
+| function | `compare_capacitance_with_fastercap(conductor: Conductor, *, n_theta: int = 24, tolerance: float = 0.01) -> tuple[float, float]` | Return ``(peec, fastercap)`` self-capacitance (F) for the same conductor. |
+
 ## `spin_dynamics.fields.coils`
 
 | Kind | Name | Summary |

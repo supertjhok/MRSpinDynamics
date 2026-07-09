@@ -23,6 +23,33 @@ from spin_dynamics.fields.coils import (
     planar_spiral,
     solenoid,
 )
+from spin_dynamics.fields.coil_properties import (
+    ALUMINIUM,
+    ANNEALED_COPPER,
+    HARD_DRAWN_COPPER,
+    SILVER,
+    CoilProperties,
+    ConductorMaterial,
+    medhurst_proximity_factor,
+    sheath_helix_dispersion,
+    solenoid_field_inductance,
+    solenoid_properties,
+)
+from spin_dynamics.fields.coil_peec import (
+    Conductor,
+    GroundedBox,
+    PEECCoilProperties,
+    PEECImpedance,
+    coil_properties_peec,
+    conductor_from_segments,
+    capacitance_to_ground,
+    current_distribution,
+    extract_impedance,
+    extract_impedance_surface,
+    helical_solenoid,
+    self_capacitance,
+    self_resonant_frequency,
+)
 from spin_dynamics.fields.domain import SpatialDomain
 from spin_dynamics.fields.eddy_modes import EddyModes, EddyModeSpectrum
 from spin_dynamics.fields.interpolate import dlinear_sample
@@ -105,6 +132,31 @@ __all__ = [
     "maxwell_pair",
     "conducting_ring",
     "cylindrical_shield",
+    # coil properties (single-layer solenoid RF extraction)
+    "ConductorMaterial",
+    "ANNEALED_COPPER",
+    "HARD_DRAWN_COPPER",
+    "SILVER",
+    "ALUMINIUM",
+    "CoilProperties",
+    "medhurst_proximity_factor",
+    "sheath_helix_dispersion",
+    "solenoid_properties",
+    "solenoid_field_inductance",
+    # coil PEEC solver (arbitrary-geometry L/R/C/Q/f_res)
+    "Conductor",
+    "conductor_from_segments",
+    "helical_solenoid",
+    "extract_impedance",
+    "extract_impedance_surface",
+    "current_distribution",
+    "self_capacitance",
+    "capacitance_to_ground",
+    "GroundedBox",
+    "self_resonant_frequency",
+    "coil_properties_peec",
+    "PEECImpedance",
+    "PEECCoilProperties",
     # quasistatic E / eddy
     "vector_potential",
     "induced_efield",

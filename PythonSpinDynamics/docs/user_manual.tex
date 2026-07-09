@@ -3335,6 +3335,240 @@ the same frequency where \(B_0\) is \(\sim\)3.8\(\times\) higher, with non-optim
 flip angles from the proton-calibrated pulses) to estimate its fractional signal
 contribution. Design note: \code{docs/field\_solvers\_quasistatic.md}.
 
+\subsection{Coil property extraction: inductance, resistance, \texorpdfstring{$Q$}{Q}, and self-resonance}
+\label{sec:fields-coil-properties}
+
+The solvers above give a coil's \emph{fields}; a probe designer needs the coil's
+\emph{lumped RF properties}. \code{spin\_dynamics.fields.coil\_properties} extracts
+them for a single-layer helical round-wire solenoid ---
+\code{solenoid\_properties} returns a \code{CoilProperties} with the series
+inductance (the frequency-independent current-sheet value \(L_s\) and the RF value
+\(L_{\text{eff}}\)), the AC (skin~+~proximity) resistance \(R\), the stray
+capacitance \(C_p\), the unloaded quality factor \(Q=\omega L_{\text{eff}}/R\), and
+the first (quarter-wave) self-resonant frequency \(f_{\text{res}}\). These are exactly
+the numbers the tuned-probe noise model (Sec.~\ref{sec:field-solvers}, ``Received-Signal
+Noise'') and the matching-network designer consume, so a coil geometry now feeds the
+SNR budget directly instead of hand-typed \(L\), \(R\), \(C\):
+\code{to\_probe\_params()} returns \(\{L,R,C\}\) and \code{tuning\_capacitance()} the
+tank capacitor \(C=1/(\omega^2 L)\).
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.fields.coil_properties import solenoid_properties
+
+cp = solenoid_properties(diameter=20e-3, length=30e-3, turns=10,
+                         wire_diameter=1.0e-3, frequency=10e6)
+cp.inductance_effective, cp.ac_resistance, cp.q_factor, cp.self_resonant_frequency
+cp.to_probe_params()   # {"L", "R", "C"} -> tuned_probe_output_noise_density
+\end{lstlisting}
+
+The model is the \(n=0\) sheath-helix waveguide method of Corum, with the NIST
+round-wire self- and mutual-inductance corrections (Knight, Rosa), the Lundin
+field-non-uniformity correction, and the Medhurst proximity data. Because it is a
+transmission-line model it stays accurate for electrically long coils, where
+\(L_{\text{eff}}\) rises above the quasistatic \(L_s\) toward \(f_{\text{res}}\).
+It is a faithful port of Serge Stroobandt's QOIL calculator (GPL-3.0, vendored in
+\code{References/}), re-expressed with \code{scipy.special} Bessel functions and
+\code{brentq} root finds; it reproduces QOIL to \(\sim\!6\) significant figures.
+\code{solenoid\_field\_inductance} provides an independent cross-check: it sums the
+Biot-Savart/Neumann partial inductances of the coaxial turns (via
+\code{quasistatic.coil\_inductance}) and agrees with \(L_s\) to within \(\sim\!10\%\).
+
+\paragraph{Conductor material and temperature.} The model is not restricted to copper
+at room temperature. Presets \code{ANNEALED\_COPPER}, \code{HARD\_DRAWN\_COPPER},
+\code{SILVER}, and \code{ALUMINIUM}---or any custom \code{ConductorMaterial}---set the
+resistivity and permeability, and a \code{temperature} argument evaluates the
+resistivity (hence \(R\) and \(Q\); \(L\), \(C\), and \(f_{\text{res}}\) are geometric)
+at the operating temperature. A linear temperature coefficient covers moderate
+excursions about room temperature; supplying a residual-resistivity ratio
+(\(\mathrm{RRR}=\rho_{293\,\mathrm K}/\rho_{0}\)) switches to a Matthiessen model with a
+residual floor, valid down to cryogenic temperatures. Cooling an OFHC-copper coil
+(\(\mathrm{RRR}=100\)) from \(293\) to \(77\,\)K cuts \(R\) roughly in half and nearly
+doubles the unloaded \(Q\)---the cryoprobe gain. The cryogenic estimate is conservative
+(the linear phonon term over-predicts the ideal resistivity below \(\sim\)Debye\(/3\)),
+so pass a measured resistivity for a precise cold value.
+
+The example \code{plot\_solenoid\_coil\_properties.py} sweeps \(L_{\text{eff}}\),
+\(R\), and \(Q\) versus frequency (overlaying the field-based inductance and marking
+\(f_{\text{res}}\)), shows the classic \(Q\)-vs-form-factor peak near a cubical coil
+(\(\ell\approx D\)), and closes the loop by feeding the extracted \((L,R)\) into
+\code{coil\_loading} for the loaded \(Q\) and noise penalty against a conductive sample.
+The field-based generalization to arbitrary geometry is the PEEC solver in the next
+subsection. Design note: \code{docs/coil\_properties.md}.
+
+\subsection{Arbitrary-geometry coil solver (PEEC): multi-layer, saddle, and gradient coils}
+\label{sec:fields-coil-peec}
+
+The analytic model above is limited to single-layer air-core solenoids. Real RF coils
+(multi-layer, saddle, birdcage, surface) and gradient coils have arbitrary wire paths, and
+\code{spin\_dynamics.fields.coil\_peec} extracts their lumped RF properties from first
+principles by the \emph{partial-element equivalent-circuit} (PEEC) method --- the mesh-light
+approach behind FastHenry/FastCap. A conductor is a polyline centreline plus a round
+cross-section; the cross-section is tiled into \(K\) parallel sub-filaments to resolve the
+current distribution. Because each sub-filament is a simple series chain, the branch system
+reduces \emph{exactly} to a \(K\times K\) chain-impedance system in which sub-filament \(k\)
+is the whole path swept to cross-cell \(k\) and \(L_{kk'}\) is the Neumann mutual inductance
+between two such filaments (reusing \code{quasistatic.vector\_potential}). Solving
+\(Z(\omega)=1/(\mathbf 1^{\mathsf T}(R+j\omega L)^{-1}\mathbf 1)\) lets the current
+redistribute with frequency, which \emph{is} the skin effect (own cross-section); a dual
+thin-wire electrostatic solve on the same geometry gives the self-capacitance and hence the
+self-resonant frequency. The chain reduction constrains each sub-filament to a
+\emph{path-constant} current, so it captures only part of the turn-to-turn \emph{proximity}
+effect; passing \code{formulation="full"} instead keeps one branch per (segment,
+sub-filament) --- FastHenry's actual system, in which the cross-section current split is a
+free unknown at every segment --- and resolves the proximity loss from first principles at
+cost \(O((MK)^3)\) per frequency. \code{coil\_properties\_peec} defaults to \code{full};
+use \code{chain} when only \(L\), \(C\) or the self-resonance matter.
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.fields.coil_peec import helical_solenoid, coil_properties_peec
+
+coil = helical_solenoid(diameter=20e-3, length=30e-3, turns=10,
+                        wire_radius=0.5e-3, n_radial=4, n_angular=8)
+p = coil_properties_peec(coil, frequency=5e6)
+p.inductance, p.ac_resistance, p.q_factor, p.self_resonant_frequency
+p.to_probe_params()   # {"L","R","C"} -> same probe-noise / matching pipeline
+\end{lstlisting}
+
+Build any coil from its wire path with \code{Conductor} / \code{conductor\_from\_segments};
+\code{extract\_impedance} sweeps \(L(\omega)\)/\(R(\omega)\) and
+\code{current\_distribution} returns the cross-section current for the crowding picture.
+\code{PEECCoilProperties} mirrors the universal fields of \code{CoilProperties} (Sec.\
+\ref{sec:fields-coil-properties}) so an arbitrary coil drops into the same probe-noise and
+matching workflow. The solver is validated against the exact Kelvin-function skin-effect
+ratio (isolated wire), the Neumann kernels, and the QOIL solenoid --- its \(L\),
+self-capacitance and self-resonance agree with QOIL to a few percent (the physical
+self-resonance, distinct from QOIL's lumped-equivalent \(C_p\) fitting capacitance).
+
+\paragraph{Resolution ceiling and its accelerations.} The volume solver must tile the
+cross-section finer than the skin depth, so its \(O(K^2)\) cost (in the cell count \(K\))
+grows as \((a/\delta)^2\) --- prohibitive at RF. Two accelerations remove this, benchmarked
+in \code{plot\_peec\_performance.py}. The \textbf{surface-impedance backend}
+\code{extract\_impedance\_surface} rings the cross-section boundary with filaments carrying
+the analytic surface impedance \(Z_s=(1+\mathrm j)\rho/\delta\); its cost is independent of
+\(a/\delta\) and its accuracy \emph{improves} with frequency (\(-3.3\%\) at
+\(a/\delta=15\), \(-0.3\%\) at \(a/\delta=151\) with 48 cells), making it \(\sim\!10\)--
+\(100\times\) faster than a volume solve in deep skin while being more accurate.
+\textbf{Graded meshing} (\code{grading}\(>1\)) concentrates volume cells at the surface, so
+the moderate-skin regime converges with far fewer cells (a 1\,MHz square bar reaches
+\(\sim\!5\%\) at 64 cells versus \(\sim\!250\) for a uniform mesh). Inductance, capacitance
+and self-resonance are geometry-dominated and accurate regardless. FMM/H-matrix acceleration
+of the \(O(K^2)\) chain matrix and magnetic-core coupling remain planned follow-ons, though
+the two accelerations above keep \(K\) small in the regimes that used to force large meshes.
+
+\paragraph{Shielding and dielectric formers.} \code{self\_capacitance} accepts a grounded
+enclosure \code{shield=GroundedBox(...)} (entered through its 3-D image-charge lattice) and a
+dielectric former \code{relative\_permittivity}; both raise the coil capacitance and lower
+the self-resonant frequency. The example \code{plot\_shielded\_nqr\_coil.py} designs a
+\(^{14}\)N NQR probe (2--3\,MHz, coil ID \(\approx1.5''\)) on a Teflon former in a grounded
+aluminium box (one coil end and the box grounded) and plots the properties with and without
+the box: \(L(f)\) and \(R(f)\) from the surface-impedance backend with
+\code{formulation="full"} (skin + turn-to-turn proximity, no empirical factor), the
+self-capacitance and SRF for free/former/box (e.g.\ \(1.5\to2.2\to3.9\)\,pF, SRF
+\(60\to50\to37\)\,MHz, kept above the 10\,MHz target), and the Q reduction from box-wall
+eddy loss (a surface-resistance integral
+\(R_{\text{box}}=2R_s\!\oint|H_{\text{tan}}/I|^2\,\mathrm dA\), \(R_s\propto\sqrt f\)).
+
+\paragraph{Loss-model caveats (proximity and eddy currents).} Two easy trip-ups when
+trusting a computed \(Q\). \emph{Proximity:} use \code{formulation="full"} for any
+closely-wound coil --- both the volume and surface-impedance backends accept it, and the
+per-segment redistribution it enables \emph{is} the proximity model (FastHenry's own
+mechanism; no empirical factor). The full volume solve matches an axisymmetric
+continuum-FEM reference (FEMM~4.2) to 0.1\% on a tightly-wound test coil where the reduced
+\code{chain} formulation under-predicts the loss, FastHenry's converged graded mesh reads
+\(\sim\)20\% low, and Medhurst's empirical table reads \(\sim\)25\% high (his measured
+\(Q\) included real-coil losses beyond eddy-current proximity; keep
+\code{medhurst\_proximity\_factor} as a conservative cross-reference). Even the computed
+\(R\) is a theoretical upper bound on \(Q\) --- a measured coil is typically
+\(\sim\)1.3--2\(\times\) lossier (dielectric former, solder/lead resistance, radiation).
+\emph{Eddy loss in a nearby conductor:} use the \emph{surface-resistance} model
+(\(R\propto\sqrt f\)) when the skin depth is much thinner than the conductor (a solid metal
+shield at RF), and the \emph{first-order volume} model
+(\code{fields.quasistatic.reflected\_resistance}, \(R\propto f^2\)) only when the conductor
+is thin compared with the skin depth (a foil, a weakly-conducting sample); applying the
+volume model to a solid metal box at MHz over-predicts the loss by orders of magnitude. See
+\code{docs/coil\_peec.md}.
+
+The example \code{plot\_peec\_coil\_solver.py} shows a two-layer solenoid (\(L\), \(R\),
+\(Q\), \(f_{\text{res}}\), and the cross-section current-crowding map) and a gradient
+Maxwell pair (\(L\), \(R\), the \(\mathrm dB_z/\mathrm dz\) efficiency from Biot-Savart, and
+shield eddy modes from \code{eddy\_modes}) --- the same solver spanning RF and gradient
+coils.
+
+\paragraph{Cross-validation against FastHenry, FasterCap, and QOIL.} The PEEC solver is
+validated against three independent references: FastHenry (the M.I.T./FastFieldSolvers
+partial-element inductance solver) for \(L(f)\) and \(R(f)\), FasterCap (its boundary-element
+capacitance solver) for the self-capacitance, and the QOIL sheath-helix model for the
+self-resonant frequency. \code{fields.fasthenry\_interop} and
+\code{fields.fastercap\_interop} export a \code{Conductor} to each tool's input format and,
+on a Windows install, drive its COM automation server; the example
+\code{validate\_peec\_vs\_fasthenry.py} runs the comparisons and live tests run whenever the
+servers are present (skipped otherwise). Table~\ref{tab:peec-validation} collects the
+results.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}lllr@{}}
+\toprule
+Quantity & Reference & Case & Agreement \\
+\midrule
+Inductance \(L\)      & FastHenry & 1\(\times\)1\,mm bar, 100\,mm        & \(<0.1\)\% \\
+Inductance \(L\)      & FastHenry & 6-turn solenoid, \(D=20\)\,mm        & 0.5--0.6\% \\
+Resistance \(R\)      & FastHenry & straight bar, matched uniform mesh  & \(\le\)2\% \\
+Resistance \(R\) (full) & FastHenry & 6-turn solenoid                   & 3.5--8\% \\
+Proximity factor \(\Phi\) (full) & FEMM continuum FEM & tight 10-turn coil & 0.1\% \\
+Proximity factor \(\Phi\) (SIBC-full) & exact two-wire \(1/\sqrt{1-(d/s)^2}\) & hairpin & \(\sim\)3\% \\
+Self-capacitance \(C\)& FasterCap & 1\,m, 1\,mm wire                    & \(\sim\)1\% \\
+Self-resonance \(f_{\text{res}}\) & QOIL & 10--40-turn solenoids       & 1--3\% \\
+\bottomrule
+\end{tabular}
+\caption{PEEC solver validation against independent reference solvers. The inductance uses
+the exact closed-form segment mutual ported from FastHenry's \code{mutualfil} (Grover's
+method), which, unlike a numerical quadrature, does not over-couple the vertex-sharing
+segments of a coil path (a quadrature drifts to \(2\times\) as the path is refined).
+Mesh-matching note: FastHenry silently grades its filaments (adjacent-size ratio 2,
+\code{readGeom.c} defaults) --- matched comparisons pass \code{rw=rh=1}.}
+\label{tab:peec-validation}
+\end{table}
+
+\textbf{Why the resistance ``diverges'' at high frequency --- and why it does not.} Both
+PEEC and FastHenry are partial-element solvers: the cross-section must be tiled finer than
+the skin depth \(\delta\), and \emph{both} under-resolve the AC resistance on a coarse mesh.
+They converge to the same (exact Kelvin) value as the filament count rises.
+Table~\ref{tab:peec-Rconv} shows a 1\(\times\)1\,mm copper bar at 1\,MHz (skin depth
+66\,\(\mu\)m, side/\(\delta\approx15\), deep skin): with the meshes \emph{really} matched
+(uniform filaments both sides, \code{rw=rh=1} --- FastHenry otherwise silently grades with
+ratio 2) the two solvers track each other to \(\le\)1.5\% at every mesh and climb together
+toward the exact value, while the inductance is already converged at the coarsest mesh. For
+deep-skin resistance, raise the cell count or use the surface-impedance backend. The
+round-wire cross-section is tiled on a Cartesian grid masked to the disc, so its cells stay
+square and the resistance converges monotonically; an equal-area polar tiling would diverge
+as its wedge cells elongate.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+Filaments \(n\times n\) & \(R_{\text{PEEC}}\) (m\(\Omega\)) & \(R_{\text{FastHenry}}\) (m\(\Omega\)) & (Kelvin \(\approx7.8\)) \\
+\midrule
+\(4\times4\)   & 4.12 & 4.17 & \\
+\(8\times8\)   & 6.51 & 6.58 & \\
+\(16\times16\) & 7.77 & 7.80 & \\
+\(20\times20\) & 7.96 & 7.97 & \\
+\bottomrule
+\end{tabular}
+\caption{AC-resistance convergence versus filament count, 1\(\times\)1\,mm bar at 1\,MHz,
+uniform filaments both sides. The solvers track each other to \(\le\)1.5\% and climb toward
+the exact value together; the inductance is unchanged.}
+\label{tab:peec-Rconv}
+\end{table}
+
+The FasterCap capacitance and PEEC \code{capacitance\_to\_ground} also both sit \(\sim\)10\%
+below the crude analytic \(2\pi\varepsilon_0 L/(\ln(L/a)-1)\), confirming the thin-wire
+kernel against the reference rather than the approximation; the coil self-capacitance is
+additionally validated against the Medhurst formula. Design note: \code{docs/coil\_peec.md}.
+
 \subsection{Nonlinear magnetostatics: ferrites and saturable iron}
 \label{sec:fields-nonlinear-magnetostatics}
 
