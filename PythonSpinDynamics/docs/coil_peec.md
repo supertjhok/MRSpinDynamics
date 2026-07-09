@@ -176,6 +176,29 @@ The volume solver's cost is `O(K^2)` in the cross-section cell count, and deep s
 Rule of thumb: uniform/graded volume for low–moderate skin (`a/delta <~ 10`), the
 surface-impedance backend for deep skin.
 
+## Shielding and dielectric formers
+
+A grounded metal enclosure and a dielectric coil former both change the coil's
+electrostatics (and hence its self-resonance), and the enclosure adds loss. `self_capacitance`
+and `capacitance_to_ground` accept:
+
+- `shield=GroundedBox(center, half_extents)` — a grounded rectangular enclosure entered
+  through its 3-D image-charge lattice (walls at zero potential, consistent with a grounded
+  coil end). It raises the coil capacitance and lowers the SRF; a box receding to infinity
+  recovers the free-space value, and `n_orders=1` is normally converged.
+- `relative_permittivity` — a dielectric former as an effective medium (e.g. a PTFE former
+  with partial fill, `1 + (eps_r - 1) * fill`), which scales the capacitance.
+
+The example `examples/plot_shielded_nqr_coil.py` designs a ¹⁴N NQR probe (2–3 MHz, coil
+ID ≈ 1.5″) on a Teflon former in a grounded aluminium box, one coil end and the box at
+ground, and plots the properties with and without the box: L(f) and R(f) from the
+surface-impedance backend (the wire is deep-skin at these frequencies), the self-capacitance
+and SRF for free / +former / +box (e.g. 1.5 → 2.2 → 3.4 pF, SRF 58 → 48 → 36 MHz — kept above
+the 10 MHz target), and the Q reduction from box-wall eddy loss (computed as a
+surface-resistance integral `R_box = 2 R_s(f) ∮|H_tan/I|² dA`, `R_s = √(π f μ₀/σ)` ∝ √f —
+the correct skin-limited scaling for a solid wall, unlike the full-penetration first-order
+eddy model). A loose enclosure mainly shifts the SRF and lowers Q only modestly.
+
 ## Deferred follow-ons
 
 - **FMM / H-matrix acceleration** of the `O(K^2)` chain matrix — the benchmark shows clean

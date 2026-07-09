@@ -614,8 +614,9 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `extract_impedance(conductor: Conductor, frequencies: Sequence[float]) -> PEECImpedance` | Solve the PEEC chain system for ``L(w)`` and ``R(w)`` including skin + proximity. |
 | function | `extract_impedance_surface(conductor: Conductor, frequencies: Sequence[float], *, n_perimeter: int = 48) -> PEECImpedance` | Surface-impedance (SIBC) solve for the deep-skin (high ``a/delta``) regime. |
 | function | `current_distribution(conductor: Conductor, frequency: float) -> tuple[np.ndarray, np.ndarray]` | Per-sub-filament current magnitude across the cross-section at ``frequency``. |
-| function | `self_capacitance(conductor: Conductor) -> float` | Lumped self-capacitance (F) of the coil from an electrostatic energy method. |
-| function | `capacitance_to_ground(conductor: Conductor) -> float` | Isolated self-capacitance to infinity (F) of the conductor. |
+| class | `GroundedBox` | A grounded rectangular shield enclosing the coil (walls at potential zero). |
+| function | `self_capacitance(conductor: Conductor, *, shield: GroundedBox | None = None, relative_permittivity: float = 1.0) -> float` | Lumped self-capacitance (F) of the coil from an electrostatic energy method. |
+| function | `capacitance_to_ground(conductor: Conductor, *, shield: GroundedBox | None = None, relative_permittivity: float = 1.0) -> float` | Isolated self-capacitance to ground (F): the charge held at unit potential,. |
 | function | `helical_solenoid(*, diameter: float, length: float, turns: int, wire_radius: float, material: ConductorMaterial = ANNEALED_COPPER, n_per_turn: int = 16, n_radial: int = 6, n_angular: int = 8, temperature: float | None = None, axis: str = 'z') -> Conductor` | Build a :class:`Conductor` for a helical single-layer solenoid. |
 | function | `self_resonant_frequency(conductor: Conductor) -> float` | First self-resonant frequency (Hz) ``1 / (2 pi sqrt(L C))``. |
 | class | `PEECCoilProperties` | Lumped RF properties of an arbitrary coil from the PEEC solve. |

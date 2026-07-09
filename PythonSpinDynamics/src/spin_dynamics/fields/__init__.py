@@ -37,6 +37,7 @@ from spin_dynamics.fields.coil_properties import (
 )
 from spin_dynamics.fields.coil_peec import (
     Conductor,
+    GroundedBox,
     PEECCoilProperties,
     PEECImpedance,
     coil_properties_peec,

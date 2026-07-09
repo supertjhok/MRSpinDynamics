@@ -66,6 +66,7 @@ __all__ = [
     "current_distribution",
     "self_capacitance",
     "capacitance_to_ground",
+    "GroundedBox",
     "self_resonant_frequency",
     "coil_properties_peec",
     "PEECImpedance",
@@ -622,28 +623,34 @@ def extract_impedance_surface(
     freqs = np.atleast_1d(np.asarray(frequencies, dtype=np.float64))
     rho = conductor.material.resistivity_at(conductor.temperature)
     total_len = conductor.total_length
+    # The ring sits one half skin depth inside the boundary; delta/2 << a over a band, so the
+    # geometry (and its external-inductance chain matrix) is built ONCE at a reference skin
+    # depth, and only the surface impedance varies per frequency.
+    delta_ref = _skin_depth(conductor, float(np.sqrt(freqs[0] * freqs[-1])))
+    offsets, widths = _perimeter_offsets(conductor, delta_ref, int(n_perimeter))
+    filaments = _sweep_offsets(conductor.path_points, offsets)
+    starts = [np.array([s for s, _ in fil]) for fil in filaments]
+    ends = [np.array([e for _, e in fil]) for fil in filaments]
+    n = len(filaments)
+    gmd = np.sqrt(widths * delta_ref / np.pi) * np.exp(-0.25)
+    lmat = np.zeros((n, n))
+    for i in range(n):
+        m_self = _mutualfil_matrix(starts[i], ends[i], starts[i], ends[i])
+        np.fill_diagonal(m_self, 0.0)
+        seg_len = np.linalg.norm(ends[i] - starts[i], axis=1)
+        lmat[i, i] = sum(self_partial_inductance(x, gmd[i]) for x in seg_len if x > 0) + m_self.sum()
+        for j in range(i + 1, n):
+            lmat[i, j] = lmat[j, i] = float(_mutualfil_matrix(starts[i], ends[i], starts[j], ends[j]).sum())
+
+    ones = np.ones(n)
     l_out = np.empty(freqs.size)
     r_out = np.empty(freqs.size)
     for idx, f in enumerate(freqs):
         delta = _skin_depth(conductor, f)
-        offsets, widths = _perimeter_offsets(conductor, delta, int(n_perimeter))
-        filaments = _sweep_offsets(conductor.path_points, offsets)
-        starts = [np.array([s for s, _ in fil]) for fil in filaments]
-        ends = [np.array([e for _, e in fil]) for fil in filaments]
-        n = len(filaments)
-        gmd = np.sqrt(widths * delta / np.pi) * np.exp(-0.25)  # patch cross-section GMD
-        lmat = np.zeros((n, n))
-        for i in range(n):
-            m_self = _mutualfil_matrix(starts[i], ends[i], starts[i], ends[i])
-            np.fill_diagonal(m_self, 0.0)
-            seg_len = np.linalg.norm(ends[i] - starts[i], axis=1)
-            lmat[i, i] = sum(self_partial_inductance(x, gmd[i]) for x in seg_len if x > 0) + m_self.sum()
-            for j in range(i + 1, n):
-                lmat[i, j] = lmat[j, i] = float(_mutualfil_matrix(starts[i], ends[i], starts[j], ends[j]).sum())
         z_surface = (1.0 + 1j) * (rho / delta) * (total_len / widths)
         omega = 2.0 * np.pi * f
         z = np.diag(z_surface) + 1j * omega * lmat
-        z_term = 1.0 / (np.ones(n) @ np.linalg.solve(z, np.ones(n)))
+        z_term = 1.0 / (ones @ np.linalg.solve(z, ones))
         r_out[idx] = z_term.real
         l_out[idx] = z_term.imag / omega
     dc_r = rho * total_len / (np.pi * conductor.wire_radius**2) if conductor.cross_section == "round" \
@@ -678,70 +685,109 @@ def current_distribution(
     return offsets, mag / np.sum(mag)
 
 
-def _potential_coefficient_matrix(conductor: Conductor) -> tuple[np.ndarray, np.ndarray]:
-    """Maxwell potential-coefficient matrix ``P`` (1/F) over the path segments, and the
-    segment lengths.
+@dataclass(frozen=True)
+class GroundedBox:
+    """A grounded rectangular shield enclosing the coil (walls at potential zero).
+
+    ``center`` and ``half_extents`` (m) define the box; the six walls at ``center +/- half``
+    are grounded and enter the electrostatic solve as a 3-D lattice of image charges (method
+    of images for a rectangular cavity), which raise the coil's capacitance and lower its
+    self-resonant frequency. ``n_orders`` is the number of reflections kept per axis
+    (``1`` -> the leading lattice, usually converged for a box a few coil-sizes across).
+    """
+
+    center: tuple[float, float, float]
+    half_extents: tuple[float, float, float]
+    n_orders: int = 1
+
+    def _axis_images(self, x: np.ndarray, lo: float, hi: float) -> list[tuple[np.ndarray, float]]:
+        """Per-axis image coordinates/signs of ``x`` between grounded planes ``lo``, ``hi``."""
+
+        span = hi - lo
+        out: list[tuple[np.ndarray, float]] = []
+        for k in range(-int(self.n_orders), int(self.n_orders) + 1):
+            out.append((x + 2.0 * k * span, +1.0))          # even reflections
+            out.append((2.0 * lo - x + 2.0 * k * span, -1.0))  # odd reflections
+        return out
+
+    def image_terms(self, points: np.ndarray) -> list[tuple[np.ndarray, float]]:
+        """Return ``(mirror_points, sign)`` for the full 3-D image lattice (real charge
+        excluded)."""
+
+        c = np.asarray(self.center, dtype=np.float64)
+        h = np.asarray(self.half_extents, dtype=np.float64)
+        lo, hi = c - h, c + h
+        ax = [self._axis_images(points[:, a], lo[a], hi[a]) for a in range(3)]
+        terms: list[tuple[np.ndarray, float]] = []
+        for ix, (xa, sx) in enumerate(ax[0]):
+            for iy, (ya, sy) in enumerate(ax[1]):
+                for iz, (za, sz) in enumerate(ax[2]):
+                    sign = sx * sy * sz
+                    # the real charge is the k=0 even-reflection term on every axis
+                    if sign == 1.0 and ix == self.n_orders * 2 and iy == self.n_orders * 2 and iz == self.n_orders * 2:
+                        continue
+                    terms.append((np.column_stack([xa, ya, za]), sign))
+        return terms
+
+
+def _potential_coefficient_matrix(
+    conductor: Conductor, shield: GroundedBox | None = None, relative_permittivity: float = 1.0
+) -> tuple[np.ndarray, np.ndarray]:
+    """Maxwell potential-coefficient matrix ``P`` (1/F) over the path segments, and lengths.
 
     Thin-wire electrostatics: each path segment carries a uniform total charge ``Q_j``;
-    ``P[i, j]`` is the potential at segment ``i``'s midpoint per unit ``Q_j``. The self
-    term is the analytic potential at the midpoint of a uniformly charged straight segment,
-    ``(1/(4 pi eps0 L)) * 2 asinh(L/2a)``; the off-diagonal is the midpoint approximation
-    ``1/(4 pi eps0 d_ij)`` (per unit total charge, so no length factor).
+    ``P[i, j]`` is the potential at segment ``i``'s midpoint per unit ``Q_j``. Self term:
+    the analytic uniformly-charged straight-segment midpoint potential; off-diagonal: the
+    midpoint approximation ``1/(4 pi eps0 d_ij)``. A :class:`GroundedBox` adds image charges
+    (the walls at zero potential); ``relative_permittivity`` scales for a uniform dielectric.
     """
 
     pts = conductor.path_points
-    starts = pts[:-1]
-    ends = pts[1:]
-    mids = 0.5 * (starts + ends)
-    lengths = np.linalg.norm(ends - starts, axis=1)
-    m = lengths.size
+    mids = 0.5 * (pts[:-1] + pts[1:])
+    lengths = np.linalg.norm(pts[1:] - pts[:-1], axis=1)
     a = conductor.wire_radius
-    k_e = 1.0 / (4.0 * np.pi * EPS0)
+    k_e = 1.0 / (4.0 * np.pi * EPS0 * relative_permittivity)
 
-    p = np.zeros((m, m))
-    for i in range(m):
-        for j in range(m):
-            if i == j:
-                ln = lengths[i]
-                p[i, j] = k_e / ln * 2.0 * np.arcsinh(ln / (2.0 * a))
-            else:
-                d = np.linalg.norm(mids[i] - mids[j])
-                p[i, j] = k_e / max(d, a)
+    d = np.linalg.norm(mids[:, None, :] - mids[None, :, :], axis=-1)
+    np.fill_diagonal(d, a)
+    p = k_e / np.maximum(d, a)
+    np.fill_diagonal(p, k_e / lengths * 2.0 * np.arcsinh(lengths / (2.0 * a)))
+
+    if shield is not None:
+        for mirror, sign in shield.image_terms(mids):
+            di = np.linalg.norm(mids[:, None, :] - mirror[None, :, :], axis=-1)
+            p = p + sign * k_e / np.maximum(di, a)
     return p, lengths
 
 
-def self_capacitance(conductor: Conductor) -> float:
+def self_capacitance(
+    conductor: Conductor, *, shield: GroundedBox | None = None, relative_permittivity: float = 1.0
+) -> float:
     """Lumped self-capacitance (F) of the coil from an electrostatic energy method.
 
     Solves the thin-wire potential-coefficient system for the charge distribution under
-    the physically-realistic linear winding potential (0 at one terminal rising to ``V0``
-    at the other, as in a resonating coil) and returns ``C_eff = 2 W_elec / V0^2 = q^T V /
-    V0^2``. This is the Medhurst-style lumped self-capacitance that, with the inductance,
-    sets the self-resonant frequency.
+    the physically-realistic linear winding potential (0 at the grounded terminal rising to
+    ``V0`` at the other, as in a resonating coil) and returns ``C_eff = 2 W_elec / V0^2``.
+    A grounded ``shield`` (its walls at zero potential, consistent with the grounded coil
+    end) and a dielectric former (``relative_permittivity``) both raise ``C_eff`` and so
+    lower the self-resonant frequency.
     """
 
-    p, lengths = _potential_coefficient_matrix(conductor)
-    # Linear potential along the winding, sampled at segment midpoints (V0 = 1).
+    p, lengths = _potential_coefficient_matrix(conductor, shield, relative_permittivity)
     cumlen = np.cumsum(lengths) - 0.5 * lengths
-    v = cumlen / conductor.total_length
-    # P q = V  ->  q = P^{-1} V ; energy W = 1/2 q^T V ; C_eff = 2W / V0^2, V0 = 1.
+    v = cumlen / conductor.total_length  # linear winding potential, V0 = 1
     q = np.linalg.solve(p, v)
-    energy = 0.5 * float(q @ v)
-    return float(2.0 * energy)
+    return float(2.0 * 0.5 * float(q @ v))
 
 
-def capacitance_to_ground(conductor: Conductor) -> float:
-    """Isolated self-capacitance to infinity (F) of the conductor.
-
-    The charge the whole conductor holds at unit potential, ``C = 1^T P^{-1} 1`` with ``P``
-    the thin-wire potential-coefficient matrix -- the quantity a capacitance solver
-    (FastCap/FasterCap) returns for a single isolated conductor. Distinct from
-    :func:`self_capacitance`, which uses the linear winding-potential energy method for the
-    coil self-resonance. For a straight wire this matches the analytic
-    ``2 pi eps0 L / (ln(L/a) - 1)`` to the thin-wire approximation.
+def capacitance_to_ground(
+    conductor: Conductor, *, shield: GroundedBox | None = None, relative_permittivity: float = 1.0
+) -> float:
+    """Isolated self-capacitance to ground (F): the charge held at unit potential,
+    ``C = 1^T P^{-1} 1``. With a grounded ``shield`` this is the coil-to-shield capacitance.
     """
 
-    p, _ = _potential_coefficient_matrix(conductor)
+    p, _ = _potential_coefficient_matrix(conductor, shield, relative_permittivity)
     n = p.shape[0]
     q = np.linalg.solve(p, np.ones(n))
     return float(np.sum(q))

@@ -3449,6 +3449,17 @@ and self-resonance are geometry-dominated and accurate regardless. FMM/H-matrix 
 of the \(O(K^2)\) chain matrix and magnetic-core coupling remain planned follow-ons, though
 the two accelerations above keep \(K\) small in the regimes that used to force large meshes.
 
+\paragraph{Shielding and dielectric formers.} \code{self\_capacitance} accepts a grounded
+enclosure \code{shield=GroundedBox(...)} (entered through its 3-D image-charge lattice) and a
+dielectric former \code{relative\_permittivity}; both raise the coil capacitance and lower
+the self-resonant frequency. The example \code{plot\_shielded\_nqr\_coil.py} designs a
+\(^{14}\)N NQR probe (2--3\,MHz, coil ID \(\approx1.5''\)) on a Teflon former in a grounded
+aluminium box (one coil end and the box grounded) and plots the properties with and without
+the box: \(L(f)\) and \(R(f)\) from the surface-impedance backend, the self-capacitance and
+SRF for free/former/box (e.g.\ \(1.5\to2.2\to3.4\)\,pF, SRF \(58\to48\to36\)\,MHz, kept above
+the 10\,MHz target), and the Q reduction from box-wall eddy loss (a surface-resistance
+integral \(R_{\text{box}}=2R_s\!\oint|H_{\text{tan}}/I|^2\,\mathrm dA\), \(R_s\propto\sqrt f\)).
+
 The example \code{plot\_peec\_coil\_solver.py} shows a two-layer solenoid (\(L\), \(R\),
 \(Q\), \(f_{\text{res}}\), and the cross-section current-crowding map) and a gradient
 Maxwell pair (\(L\), \(R\), the \(\mathrm dB_z/\mathrm dz\) efficiency from Biot-Savart, and

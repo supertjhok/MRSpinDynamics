@@ -224,6 +224,28 @@ class SolenoidVsQOILTests(unittest.TestCase):
         c_analytic = 2 * np.pi * eps0 * length / (np.log(length / a) - 1)
         self.assertLess(abs(c_peec - c_analytic) / c_analytic, 0.15)
 
+    def test_grounded_box_raises_capacitance(self) -> None:
+        # A grounded shield raises the coil's self-capacitance; a tighter box raises it more,
+        # and a box receding to infinity recovers the free-space value.
+        from spin_dynamics.fields.coil_peec import GroundedBox, helical_solenoid
+
+        coil = helical_solenoid(diameter=40e-3, length=60e-3, turns=12, wire_radius=0.8e-3,
+                                material=COPPER, n_per_turn=10, axis="z")
+        c_free = self_capacitance(coil)
+        c_near = self_capacitance(coil, shield=GroundedBox((0, 0, 0), (0.05, 0.05, 0.06)))
+        c_far = self_capacitance(coil, shield=GroundedBox((0, 0, 0), (2.0, 2.0, 2.0)))
+        self.assertGreater(c_near, c_free)               # shield adds capacitance
+        self.assertLess(abs(c_far - c_free) / c_free, 0.02)  # distant box -> free space
+
+    def test_dielectric_former_scales_capacitance(self) -> None:
+        from spin_dynamics.fields.coil_peec import helical_solenoid
+
+        coil = helical_solenoid(diameter=40e-3, length=60e-3, turns=12, wire_radius=0.8e-3,
+                                material=COPPER, n_per_turn=10)
+        self.assertAlmostEqual(
+            self_capacitance(coil, relative_permittivity=1.8) / self_capacitance(coil), 1.8, places=6
+        )
+
     def test_capacitance_matches_medhurst(self) -> None:
         # Medhurst empirical self-capacitance (pF) for a single-layer solenoid.
         d_cm, l_over_d = self.D * 100, self.l / self.D
