@@ -3855,6 +3855,61 @@ perfusion compete against the surface-peaked deposition), and the warm-up over
 a ten-minute exam. The fully quantum measurement-back-action description of
 spin noise and CFD/flow solving of the convection remain out of scope.
 
+\subsection{Flowing Samples}
+\label{subsec:flow}
+
+Many measurements run on a \emph{moving} sample -- inline process monitoring in
+a pipe, stopped-flow kinetics, hyphenated LC-NMR. The \code{spin\_dynamics.flow}
+package models how flow changes the measured signal, and the thermal package
+gains the matching advective-cooling terms; the design and validation are in
+\code{docs/flow\_modeling.md}. A \code{FlowModel} describes flow through a
+cylindrical sensitive region in a \code{"plug"} (uniform velocity) or
+\code{"laminar"} (Hagen-Poiseuille parabolic profile) regime.
+
+\textbf{Washout.} The sensitive volume is uniformly excited at $t=0$; excited
+spins then leave and fresh unexcited spins enter, so the acquired signal is
+multiplied by the fraction $W(t)$ of originally-excited spins still present.
+Plug flow gives a linear cutoff $W = 1 - t/\tau$ (with $\tau = V/Q$); laminar
+flow follows the same initial slope to $t = \tau/2$ and then a slow
+$\tau/(4t)$ tail from the near-wall streamlines. Both share the early-time
+apparent rate $1/T_2 + 1/\tau$, so flow shortens the apparent $T_2$ of a CPMG
+train:
+
+\begin{lstlisting}[language=Python]
+import numpy as np
+from spin_dynamics.flow import FlowModel, apply_washout
+
+flow = FlowModel(volumetric_flow_rate=3e-6, pipe_radius=4e-3,
+                 sensitive_length=25e-3, regime="laminar")
+techo = np.linspace(0.0, 1.0, 200)
+flowing = apply_washout(flow, techo, np.exp(-techo / 0.4))  # T2 = 0.4 s
+\end{lstlisting}
+
+\textbf{Inflow polarization.} The signal amplitude is set by the longitudinal
+magnetization the spins built up during transit through the upstream
+prepolarizer. \code{inflow\_polarization} returns the flux-weighted average,
+reusing the \code{spin\_dynamics.prepolarization} recovery model: plug flow
+reduces to the single-transit \code{prepolarized\_flow\_state}, and laminar
+flow integrates over the parabolic profile (slower flow $\rightarrow$ longer
+transit $\rightarrow$ more polarization, saturating at the polarizer
+equilibrium).
+
+\textbf{Advective cooling.} \code{thermal.flow\_conductance}
+$G = \rho c_p Q$ is used as a link to a bath at the inlet temperature (steady
+rise $P/(\rho c_p Q)$; formally the Pennes perfusion sink), and
+\code{Conduction1D} accepts a \code{velocity} that adds first-order upwind
+axial advection, whose steady profile matches the analytic advection-diffusion
+boundary layer $e^{\mathrm{Pe}\,x/L}$.
+
+Everything is validated analytically and by Monte-Carlo (FEMM's heat solver
+does not model bulk advection): piecewise $W(t)$, the plug-limit equality of
+the polarization, the advection-diffusion profile to within a percent of span,
+and independent particle cross-checks of both the washout and the
+flux-weighted transit distribution. The example
+\code{plot\_flowing\_pipe\_nmr.py} shows CPMG washout, apparent $T_2$ and
+amplitude versus flow rate, and advective cooling for an inline pipe monitor.
+Turbulent/well-mixed flow and analyte Taylor dispersion are out of scope.
+
 \section{Received-Signal Noise}
 
 Noise is opt-in and output-referred. High-level workflows accept a
