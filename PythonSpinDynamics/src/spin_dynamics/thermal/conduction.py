@@ -99,6 +99,7 @@ class Conduction1D:
         rho_cp,
         source=0.0,
         perfusion: PerfusionModel | None = None,
+        velocity: float = 0.0,
         inner_bc: tuple = ("insulated",),
         outer_bc: tuple = ("insulated",),
     ) -> None:
@@ -122,6 +123,20 @@ class Conduction1D:
             raise ValueError("conductivity and rho_cp must be positive")
         self.source = np.broadcast_to(np.asarray(source, dtype=np.float64), (n,)).copy()
         self.perfusion = perfusion
+        self.velocity = float(velocity)
+        if self.velocity != 0.0:
+            if not np.isfinite(self.velocity):
+                raise ValueError("velocity must be finite")
+            if self.m != 0:
+                raise ValueError("advection is only supported for slab geometry")
+            if self.velocity > 0 and inner_bc[0] != "temperature":
+                raise ValueError(
+                    "advection with velocity > 0 requires a 'temperature' inner (inlet) BC"
+                )
+            if self.velocity < 0 and outer_bc[0] != "temperature":
+                raise ValueError(
+                    "advection with velocity < 0 requires a 'temperature' outer (inlet) BC"
+                )
         self.inner_bc = inner_bc
         self.outer_bc = outer_bc
         # Face radii (n+1 faces) and their geometric weights r_face^m.
@@ -167,8 +182,44 @@ class Conduction1D:
 
         self._apply_boundary(a, side="inner", face=0, cell=0, weight=wf[0])
         self._apply_boundary(a, side="outer", face=n, cell=n - 1, weight=wf[-1])
+        if self.velocity != 0.0:
+            self._apply_advection(a)
         self.A = a
         self.cell_measure = self._cell_weight()
+
+    def _apply_advection(self, a) -> None:
+        """First-order upwind advection ``-rho_cp v dT/dx`` (slab only).
+
+        Advective flux across a face uses the upwind cell's value; the inlet
+        cell draws from the inlet (Dirichlet) temperature, the outlet cell
+        carries the interior value out of the domain (advective outflow). The
+        inflow term is additive to the conductive Dirichlet coupling at the
+        same boundary -- both fluxes physically cross the inlet face.
+        """
+
+        v = self.velocity
+        n = self.n
+        if v > 0:  # flow inner -> outer; inlet is the inner boundary
+            t_in = self.inner_bc[1]
+            for i in range(n):
+                g_adv = self.rho_cp[i] * v  # per unit slab area (weight 1)
+                if i == 0:
+                    a[0, 0] -= g_adv
+                    self._bc_source[0] += g_adv * t_in
+                else:
+                    a[i, i - 1] += g_adv
+                    a[i, i] -= g_adv
+        else:  # flow outer -> inner; inlet is the outer boundary
+            g_mag = -v
+            t_in = self.outer_bc[1]
+            for i in range(n):
+                g_adv = self.rho_cp[i] * g_mag
+                if i == n - 1:
+                    a[n - 1, n - 1] -= g_adv
+                    self._bc_source[n - 1] += g_adv * t_in
+                else:
+                    a[i, i + 1] += g_adv
+                    a[i, i] -= g_adv
 
     def _apply_boundary(self, a, *, side, face, cell, weight):
         bc = self.inner_bc if side == "inner" else self.outer_bc

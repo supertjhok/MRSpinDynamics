@@ -616,3 +616,101 @@ class TestConduction1D:
             )  # non-uniform
         with pytest.raises(ValueError):
             PerfusionModel(blood_perfusion=-1.0)
+
+
+class TestThermalFlow:
+    def test_flow_conductance_value(self) -> None:
+        from spin_dynamics.thermal import flow_conductance
+
+        # G = rho c_p Q; water at 1 mL/s.
+        g = flow_conductance(997.0, 4184.0, 1e-6)
+        assert g == pytest.approx(997.0 * 4184.0 * 1e-6)
+        with pytest.raises(ValueError):
+            flow_conductance(-1.0, 4184.0, 1e-6)
+
+    def test_lumped_flow_cooling_closed_form(self) -> None:
+        # Node with power P, advective link to an inlet bath: steady
+        # T = T_in + P / (rho c_p Q).
+        from spin_dynamics.thermal import flow_conductance
+
+        rho, cp, q, p, t_in = 997.0, 4184.0, 5e-7, 2.0, 295.0
+        g = flow_conductance(rho, cp, q)
+        nodes = [
+            ThermalNode("sample", heat_capacity=10.0, initial_temperature=t_in),
+            ThermalNode("inlet", heat_capacity=None, initial_temperature=t_in),
+        ]
+        links = [ThermalLink("sample", "inlet", conductance=g)]
+        net = ThermalNetwork(nodes, links, sources={"sample": p})
+        steady = net.steady_state()
+        assert steady["sample"] - t_in == pytest.approx(p / g)
+
+    def _adv_diff_analytic(self, x, L, T0, TL, Pe):
+        return T0 + (TL - T0) * (np.exp(Pe * x / L) - 1.0) / (np.exp(Pe) - 1.0)
+
+    def test_advection_diffusion_matches_analytic(self) -> None:
+        L, k, rho_cp, T0, TL = 0.1, 0.5, 1e6, 300.0, 320.0
+        Pe = 5.0
+        v = Pe * k / (rho_cp * L)
+        n = 400
+        x = np.linspace(L / (2 * n), L - L / (2 * n), n)
+        c = Conduction1D(
+            x, geometry="slab", conductivity=k, rho_cp=rho_cp, velocity=v,
+            inner_bc=("temperature", T0), outer_bc=("temperature", TL),
+        )
+        prof = c.steady_state().temperature
+        analytic = self._adv_diff_analytic(x, L, T0, TL, Pe)
+        np.testing.assert_allclose(prof, analytic, atol=0.15)  # <1% of the 20 K span
+
+    def test_zero_velocity_reduces_to_conduction(self) -> None:
+        L, k, rho_cp, T0, TL = 0.1, 0.5, 1e6, 300.0, 320.0
+        n = 100
+        x = np.linspace(L / (2 * n), L - L / (2 * n), n)
+        kw = dict(geometry="slab", conductivity=k, rho_cp=rho_cp,
+                  inner_bc=("temperature", T0), outer_bc=("temperature", TL))
+        no_v = Conduction1D(x, **kw).steady_state().temperature
+        zero_v = Conduction1D(x, velocity=0.0, **kw).steady_state().temperature
+        np.testing.assert_allclose(no_v, zero_v)
+        # Pure conduction is the linear profile.
+        np.testing.assert_allclose(no_v, T0 + (TL - T0) * x / L, atol=0.05)
+
+    def test_high_peclet_pushes_boundary_layer_downstream(self) -> None:
+        L, k, rho_cp, T0, TL = 0.1, 0.5, 1e6, 300.0, 320.0
+        Pe = 40.0
+        v = Pe * k / (rho_cp * L)
+        n = 600
+        x = np.linspace(L / (2 * n), L - L / (2 * n), n)
+        prof = Conduction1D(
+            x, geometry="slab", conductivity=k, rho_cp=rho_cp, velocity=v,
+            inner_bc=("temperature", T0), outer_bc=("temperature", TL),
+        ).steady_state().temperature
+        # Interior stays near the inlet T0; the rise is confined near the outlet.
+        assert prof[n // 2] - T0 < 0.05 * (TL - T0)
+        assert prof[-1] > 0.5 * (T0 + TL)
+
+    def test_reverse_flow_mirrors(self) -> None:
+        L, k, rho_cp, T0, TL = 0.1, 0.5, 1e6, 300.0, 320.0
+        Pe = 5.0
+        v = Pe * k / (rho_cp * L)
+        n = 400
+        x = np.linspace(L / (2 * n), L - L / (2 * n), n)
+        # Forward flow, inlet at inner end (T0).
+        fwd = Conduction1D(
+            x, geometry="slab", conductivity=k, rho_cp=rho_cp, velocity=v,
+            inner_bc=("temperature", T0), outer_bc=("temperature", TL),
+        ).steady_state().temperature
+        # Reverse flow with swapped inlet: mirror image.
+        rev = Conduction1D(
+            x, geometry="slab", conductivity=k, rho_cp=rho_cp, velocity=-v,
+            inner_bc=("temperature", TL), outer_bc=("temperature", T0),
+        ).steady_state().temperature
+        np.testing.assert_allclose(fwd, rev[::-1], atol=1e-9)
+
+    def test_advection_validation_errors(self) -> None:
+        n = 50
+        x = np.linspace(1e-3, 0.1, n)
+        with pytest.raises(ValueError):
+            Conduction1D(x, geometry="cylinder", conductivity=1.0, rho_cp=1e6,
+                         velocity=1e-3, inner_bc=("temperature", 300.0))
+        with pytest.raises(ValueError):
+            Conduction1D(x, geometry="slab", conductivity=1.0, rho_cp=1e6,
+                         velocity=1e-3, inner_bc=("insulated",))

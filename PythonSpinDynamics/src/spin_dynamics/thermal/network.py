@@ -31,6 +31,7 @@ __all__ = [
     "conduction_conductance",
     "cylindrical_shell_conductance",
     "convection_conductance",
+    "flow_conductance",
     "radiation_link",
 ]
 
@@ -118,6 +119,28 @@ def convection_conductance(film_coefficient: float, area: float) -> float:
         if value <= 0 or not np.isfinite(value):
             raise ValueError(f"{label} must be finite and positive")
     return film_coefficient * area
+
+
+def flow_conductance(
+    density: float, specific_heat: float, volumetric_flow_rate: float
+) -> float:
+    """Advective heat-removal conductance ``G = rho c_p Q`` (W/K).
+
+    A flowing sample carries heat out of the probe: modeled as a link from the
+    sample node to a bath held at the inlet temperature with this conductance,
+    so the removed power is ``G (T_sample - T_in)``. Formally identical to the
+    Pennes perfusion sink of :mod:`spin_dynamics.thermal.conduction` -- blood
+    perfusion is itself a volumetric flow term.
+    """
+
+    for label, value in (
+        ("density", density),
+        ("specific_heat", specific_heat),
+        ("volumetric_flow_rate", volumetric_flow_rate),
+    ):
+        if value <= 0 or not np.isfinite(value):
+            raise ValueError(f"{label} must be finite and positive")
+    return density * specific_heat * volumetric_flow_rate
 
 
 def radiation_link(

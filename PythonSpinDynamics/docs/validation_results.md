@@ -785,6 +785,22 @@ and the FEMM continuum FEA agrees within the mesh-resolution error. FEMM must
 be installed (`C:\femm42`) with `pyfemm`; the scripts print `FEMM: unavailable`
 and skip the FEA leg when it is not.
 
+## Flowing Samples (analytic + Monte-Carlo)
+
+The flow models (`spin_dynamics.flow`, see `docs/flow_modeling.md`) are
+validated in `tests/test_flow.py` against analytic forms and independent
+Monte-Carlo particle simulations (FEMM is not applicable -- its heat solver
+does not model bulk advection). Checks include: the piecewise washout `W(t)`
+for plug and laminar flow and its density identity; independent Monte-Carlo
+cross-checks of `W(t)` (spins sampled uniformly in the pipe volume with the
+parabolic velocity, counted as they exit) matching to `atol=3e-3`; the
+plug-flow inflow polarization equalling `prepolarization.prepolarized_flow_state`
+exactly; the laminar exit-age RTD normalization and mean; and a flux-weighted
+Monte-Carlo cross-check of the inflow polarization to `rtol=5e-3`. The thermal
+advection extension is validated in `tests/test_thermal.py` against the
+analytic advection-diffusion profile `exp(Pe x/L)` (within 1% of the
+temperature span) and the lumped closed form `T = T_in + P/(rho c_p Q)`.
+
 ## Notes
 
 - The first tests intentionally avoid plotting, toolboxes, MEX, and `.mat`
