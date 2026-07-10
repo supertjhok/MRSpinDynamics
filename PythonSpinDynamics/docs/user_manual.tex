@@ -3478,12 +3478,17 @@ to the single-ended ramp \(0\to1\); \code{potential=lambda s: s-0.5} is the diff
 coil-to-ground capacitance \(C_g=C_{\text{eff}}(\text{plane})-C_{\text{eff}}(\text{free})\) is
 several times smaller (the two winding halves' displacement currents to ground cancel in common
 mode), while \(L\), the copper resistance and the ground-plane eddy loss --- all set by the
-coil \emph{current} --- are mode-independent. That capacitive difference, through the board loss
-\(R_{\text{diel}}=\tan\delta\,\omega^3 L^2 C_g\), is the entire single-ended/differential Q split.
-The example \code{plot\_pcb\_coil\_ground\_mode\_q.py} works a PCB spiral on FR4 over copper:
-differential drive couples \(\sim\)7\(\times\) less to ground, roughly doubling the peak Q, and
-as the plane approaches the single-ended Q collapses while the differential Q holds --- the
-reason NMR/MRI surface and PCB coils are built balanced.
+coil \emph{current} --- are mode-independent. The plane's effect on \(L\) itself is the
+flux-exclusion image, added by \code{extract\_impedance(..., ground\_plane=GroundPlane(...))}
+(reflect each sub-filament across the plane and reverse its current, giving \(L=L_{\text{free}}
+-M(2h)\), validated against the analytic loop-over-plane mutual); it is set by the winding
+current and so is the same for both drives. That leaves the capacitive difference, through the
+board loss \(R_{\text{diel}}=\tan\delta\,\omega^3 L^2 C_g\), as the entire
+single-ended/differential Q split. The example \code{plot\_pcb\_coil\_ground\_mode\_q.py} works
+a PCB spiral on FR4 over copper: the plane lowers \(L\) (\(\sim\)619\(\to\)216\,nH at 0.8\,mm,
+both modes) and the differential drive couples \(\sim\)7\(\times\) less to ground
+(\(\sim\)8\(\times\) less dielectric loss), so the differential Q runs higher, widening with
+frequency --- the reason NMR/MRI surface and PCB coils are built balanced.
 
 \paragraph{Loss-model caveats (proximity and eddy currents).} Two easy trip-ups when
 trusting a computed \(Q\). \emph{Proximity:} use \code{formulation="full"} for any

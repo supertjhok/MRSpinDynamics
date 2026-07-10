@@ -514,8 +514,28 @@ def _filament_endpoints(
     return starts, ends, lens
 
 
+def _ground_image_filaments(
+    starts: list[np.ndarray], ends: list[np.ndarray], ground_plane: GroundPlane
+) -> tuple[list[np.ndarray], list[np.ndarray]]:
+    """Reflected + reversed sub-filament endpoints -- the flux-exclusion image over a plane.
+
+    A good-conductor plane holds ``B_normal = 0`` at its surface; the method of images for
+    that boundary reflects each filament across the plane **and reverses its current** (the
+    horizontal components flip, the normal component is preserved), i.e. the mirror geometry
+    traversed end-to-start. The mutual of the real filaments with these images (anti-parallel
+    for a coil lying parallel to the plane) is negative and so *lowers* the inductance, the
+    standard ``L = L_free - M(2h)`` ground-plane reduction. The image is set by the winding
+    current alone, so it is identical for any terminal drive (single-ended or differential).
+    """
+
+    img_s = [ground_plane.reflect(ends[j]) for j in range(len(ends))]  # swap start/end ->
+    img_e = [ground_plane.reflect(starts[j]) for j in range(len(starts))]  # reversed current
+    return img_s, img_e
+
+
 def _chain_lmat_from_filaments(
-    starts: list[np.ndarray], ends: list[np.ndarray], lens: list[np.ndarray], gmd: np.ndarray
+    starts: list[np.ndarray], ends: list[np.ndarray], lens: list[np.ndarray], gmd: np.ndarray,
+    ground_plane: GroundPlane | None = None,
 ) -> np.ndarray:
     """K x K chain (path-summed) partial-inductance matrix of the sub-filaments."""
 
@@ -531,10 +551,20 @@ def _chain_lmat_from_filaments(
         for j in range(i + 1, k):
             m = float(_mutualfil_matrix(starts[i], ends[i], starts[j], ends[j]).sum())
             lmat[i, j] = lmat[j, i] = m
+    if ground_plane is not None:
+        img_s, img_e = _ground_image_filaments(starts, ends, ground_plane)
+        for i in range(k):
+            for j in range(i, k):
+                m = float(_mutualfil_matrix(starts[i], ends[i], img_s[j], img_e[j]).sum())
+                lmat[i, j] += m
+                if j > i:
+                    lmat[j, i] += m
     return lmat
 
 
-def _chain_inductance_matrix(conductor: Conductor) -> tuple[np.ndarray, np.ndarray]:
+def _chain_inductance_matrix(
+    conductor: Conductor, ground_plane: GroundPlane | None = None
+) -> tuple[np.ndarray, np.ndarray]:
     """Return ``(L_chain, R_series)``: the K x K partial-inductance matrix of the
     sub-filaments and the per-sub-filament DC series resistance."""
 
@@ -543,21 +573,23 @@ def _chain_inductance_matrix(conductor: Conductor) -> tuple[np.ndarray, np.ndarr
     rho = conductor.material.resistivity_at(conductor.temperature)
     r_series = rho * total_len / areas  # DC resistance of each sub-filament (whole path)
     starts, ends, lens = _filament_endpoints(filaments)
-    return _chain_lmat_from_filaments(starts, ends, lens, gmd), r_series
+    return _chain_lmat_from_filaments(starts, ends, lens, gmd, ground_plane), r_series
 
 
 _FULL_UNKNOWN_LIMIT = 6000  # dense-solve guardrail for the full (per-segment) formulation
 
 
 def _full_lmat_from_filaments(
-    starts: list[np.ndarray], ends: list[np.ndarray], lens: list[np.ndarray], gmd: np.ndarray
+    starts: list[np.ndarray], ends: list[np.ndarray], lens: list[np.ndarray], gmd: np.ndarray,
+    ground_plane: GroundPlane | None = None,
 ) -> np.ndarray:
     """Full ``(K M) x (K M)`` branch partial-inductance matrix, branch ``b = k*M + m``.
 
     This is FastHenry's actual system: one branch per (path segment ``m``, cross-section
     sub-filament ``k``), with the exact closed-form mutual between every pair of straight
     branches and the analytic self partial inductance on the diagonal. The chain matrix is
-    the row/column block-sum of this one.
+    the row/column block-sum of this one. A ``ground_plane`` adds the flux-exclusion image
+    (:func:`_ground_image_filaments`) to every block.
     """
 
     k = len(starts)
@@ -569,6 +601,7 @@ def _full_lmat_from_filaments(
             "reduce the path resolution (n_per_turn) and/or cross-section cells "
             "(n_radial*n_angular, n_width*n_height, n_perimeter), or use formulation='chain'"
         )
+    img_s, img_e = _ground_image_filaments(starts, ends, ground_plane) if ground_plane else (None, None)
     lb = np.empty((n, n))
     for i in range(k):
         for j in range(i, k):
@@ -578,6 +611,8 @@ def _full_lmat_from_filaments(
                 np.fill_diagonal(
                     blk, [self_partial_inductance(ln, gmd[i]) if ln > 0.0 else 0.0 for ln in lens[i]]
                 )
+            if img_s is not None:  # flux-exclusion image (never coincident with the source)
+                blk = blk + _mutualfil_matrix(starts[i], ends[i], img_s[j], img_e[j])
             lb[i * m:(i + 1) * m, j * m:(j + 1) * m] = blk
             if j > i:
                 lb[j * m:(j + 1) * m, i * m:(i + 1) * m] = blk.T
@@ -623,7 +658,8 @@ class PEECImpedance:
 
 
 def extract_impedance(
-    conductor: Conductor, frequencies: Sequence[float], *, formulation: str = "chain"
+    conductor: Conductor, frequencies: Sequence[float], *, formulation: str = "chain",
+    ground_plane: GroundPlane | None = None,
 ) -> PEECImpedance:
     """Solve the PEEC system for ``L(w)`` and ``R(w)``.
 
@@ -639,6 +675,13 @@ def extract_impedance(
     the proximity effect is resolved from first principles (see
     :func:`_solve_full_terminal`). Cost ``O((M K)^3)`` per frequency; use it for any
     closely-wound coil. Returns ``L(w) = Im Z / w`` and ``R(w) = Re Z``.
+
+    ``ground_plane=GroundPlane(...)`` adds the good-conductor plane's flux-exclusion image
+    (a lossless PEC mirror), which lowers ``L`` -- the standard ``L = L_free - M(2h)``
+    reduction. It is set by the winding current, so it is **identical for any terminal drive**
+    (single-ended or differential): the ground plane's effect on inductance is mode-independent
+    (its resistive eddy loss is a separate surface-resistance integral). The magnetic dual of
+    the electrostatic :class:`GroundPlane` in :func:`self_capacitance`.
     """
 
     if formulation not in ("chain", "full"):
@@ -654,7 +697,7 @@ def extract_impedance(
     if formulation == "full":
         k = len(filaments)
         m = starts[0].shape[0]
-        lb = _full_lmat_from_filaments(starts, ends, lens, gmd)
+        lb = _full_lmat_from_filaments(starts, ends, lens, gmd, ground_plane)
         # Per-branch DC resistance: rho * segment_length / cell_area.
         rb = np.concatenate([rho * lens[i] / areas[i] for i in range(k)])
         for idx, f in enumerate(freqs):
@@ -665,7 +708,7 @@ def extract_impedance(
         # Chain matrix for the DC limits below: exactly the block-sum of the full matrix.
         lmat = lb.reshape(k, m, k, m).sum(axis=(1, 3))
     else:
-        lmat = _chain_lmat_from_filaments(starts, ends, lens, gmd)
+        lmat = _chain_lmat_from_filaments(starts, ends, lens, gmd, ground_plane)
         k = lmat.shape[0]
         ones = np.ones(k)
         for idx, f in enumerate(freqs):
@@ -931,15 +974,19 @@ class GroundPlane:
     point: tuple[float, float, float]
     normal: tuple[float, float, float]
 
-    def image_terms(self, points: np.ndarray) -> list[tuple[np.ndarray, float]]:
-        """Return ``[(mirror_points, -1.0)]``: each point reflected across the plane."""
+    def reflect(self, points: np.ndarray) -> np.ndarray:
+        """Mirror ``points`` (…, 3) geometrically across the plane."""
 
         p0 = np.asarray(self.point, dtype=np.float64)
         n = np.asarray(self.normal, dtype=np.float64)
         n = n / np.linalg.norm(n)
         signed = (points - p0) @ n
-        mirror = points - 2.0 * signed[:, None] * n[None, :]
-        return [(mirror, -1.0)]
+        return points - 2.0 * signed[..., None] * n
+
+    def image_terms(self, points: np.ndarray) -> list[tuple[np.ndarray, float]]:
+        """Return ``[(mirror_points, -1.0)]``: the electrostatic image (opposite charge)."""
+
+        return [(self.reflect(points), -1.0)]
 
 
 def _potential_coefficient_matrix(
@@ -1196,7 +1243,7 @@ class PEECCoilProperties:
 def coil_properties_peec(
     conductor: Conductor, frequency: float, *, formulation: str = "full",
     include_radiation: bool = True, shield: GroundedBox | GroundPlane | None = None,
-    relative_permittivity: float = 1.0,
+    relative_permittivity: float = 1.0, ground_plane: GroundPlane | None = None,
 ) -> PEECCoilProperties:
     """Extract lumped RF properties of an arbitrary coil at ``frequency`` via PEEC.
 
@@ -1221,10 +1268,14 @@ def coil_properties_peec(
     :func:`radiation_resistance`), consistently with its electrostatic role. The shield's own
     wall eddy loss is a separate integral (see ``examples/plot_shielded_nqr_coil.py``) and is
     not added here.
+
+    ``ground_plane`` (a :class:`GroundPlane`) lowers ``L`` and the self-resonance via the
+    flux-exclusion image in :func:`extract_impedance` (mode-independent). Its resistive eddy
+    loss is a separate surface integral (see ``examples/plot_pcb_coil_ground_mode_q.py``).
     """
 
     f = float(frequency)
-    imp = extract_impedance(conductor, [f], formulation=formulation)
+    imp = extract_impedance(conductor, [f], formulation=formulation, ground_plane=ground_plane)
     c = self_capacitance(conductor, shield=shield, relative_permittivity=relative_permittivity)
     f_res = float(1.0 / (2.0 * np.pi * np.sqrt(imp.dc_inductance * c)))
     ind = float(imp.inductance[0])

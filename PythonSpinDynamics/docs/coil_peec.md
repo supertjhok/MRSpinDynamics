@@ -218,19 +218,33 @@ terminal grounded). Passing `potential=lambda s: s-0.5` gives the **differential
 drive, antisymmetric about a virtual ground at the winding centre. Over a ground plane the two
 couple to it very differently: the coil-to-ground capacitance `C_g = C_eff(with plane) −
 C_eff(free space)` is several times smaller differentially, because the two winding halves'
-displacement currents to ground cancel in common mode. Since the magnetic behaviour (`L`, the
-copper skin/proximity `R`, and the ground-plane eddy loss) is set by the coil *current* and is
-identical in both modes, that capacitive difference is the whole single-ended/differential Q
-split. The lossy board (`tan δ`) turns `C_g` into an equivalent series resistance
-`R_diel = tan δ · ω³ L² · C_g` (first-order lumped model, below self-resonance).
+displacement currents to ground cancel in common mode. The lossy board (`tan δ`) turns `C_g`
+into an equivalent series resistance `R_diel = tan δ · ω³ L² · C_g` (first-order lumped model,
+below self-resonance), and **that capacitive difference is the whole single-ended/differential
+Q split** — because the magnetic behaviour is mode-independent:
+
+**Inductance is mode-independent (magnetic image).** `extract_impedance(..., ground_plane=
+GroundPlane(...))` adds the good-conductor plane's flux-exclusion image (reflect each
+sub-filament across the plane and reverse its current — anti-parallel for a coil lying parallel
+to the plane), lowering L by the standard `L = L_free − M(2h)` (validated against the analytic
+loop-over-plane coaxial mutual to <1%, and recovering `L_free` as the plane recedes). This image
+is set by the *winding current*, which is identical in both drive modes (a series winding carries
+the same I everywhere regardless of the terminal reference), so **the ground plane's effect on L
+— and its resistive eddy loss, and the skin/proximity R — are all mode-independent.** The one
+genuinely mode-specific magnetic term would be a single-ended *galvanic* return routed through
+the plane to a remote source-ground bond; for the natural local ground bond that current
+coincides with the flux-exclusion eddy (no separate term), so it is layout-dependent, not an
+intrinsic coil property, and is not modelled. The magnetic image is the exact dual of the
+electrostatic `GroundPlane`.
 
 `examples/plot_pcb_coil_ground_mode_q.py` works a 4-turn PCB spiral on 0.8 mm FR4 over a copper
-ground plane: differential drive couples ~7× less to ground, so its dielectric loss is ~8× lower
-(157 vs 1192 mΩ at 60 MHz) and its Q peaks ~2× higher; as the ground plane approaches, the
-single-ended Q collapses while the differential Q barely moves. This is the standard reason
-NMR/MRI surface and PCB coils are built balanced. (First-order caveats stated in the example:
-effective uniform `(ε_r+1)/2`, magnetic ground-image effect on `L` not swept, single-ended
-ground-return conduction loss not added — all of which only widen the differential advantage.)
+ground plane. The plane lowers L (≈ 619 → 216 nH at this 0.8 mm spacing, −65%, *both modes*) and
+raises the single-ended ground coupling ~7× over the differential (2.9 vs 0.38 pF), so the
+dielectric loss is ~8× lower differentially (19 vs 145 mΩ at 60 MHz) and the differential Q runs
+higher, the gap widening with frequency. Because dielectric loss scales as `L²`, the ground
+plane's L-collapse also *suppresses* the mode gain at very close spacing (the coil goes
+copper/eddy-limited) — so the differential advantage is largest when the coil is still a good
+inductor. This balanced-drive trick is why NMR/MRI surface and PCB coils are built symmetric.
 
 **Why ~7× and not ~2×.** The single-ended ramp is a uniform common-mode offset plus the
 differential profile, `v = ½ + (s − ½)`, and the differential drive carries ~zero net charge, so

@@ -527,6 +527,49 @@ class GroundPlaneAndDriveModeTests(unittest.TestCase):
         self.assertLess(abs(predicted - cg_se) / cg_se, 0.05)
         self.assertGreater(cg_uniform, 4.0 * cg_diff)  # monopole coupling >> multipole
 
+    def test_magnetic_image_matches_loop_over_plane(self) -> None:
+        # extract_impedance(ground_plane=...) adds the flux-exclusion image, lowering L by
+        # M(2h) -- the mutual of the loop with its anti-parallel mirror. Check against the
+        # analytic Maxwell coaxial-loop mutual, and that a receding plane recovers free space.
+        from scipy.special import ellipe, ellipk
+
+        from spin_dynamics.fields.coil_peec import GroundPlane, extract_impedance
+
+        R, a, npts = 20e-3, 0.5e-3, 90
+        th = np.linspace(0, 2 * np.pi, npts + 1)
+        # coarse cross-section: the check is geometric (image mutual), not skin-resolved
+        kw = dict(wire_radius=a, material=COPPER, n_radial=1, n_angular=4)
+
+        def coax_mutual(d: float) -> float:
+            m = 4 * R * R / ((2 * R) ** 2 + d * d)
+            return MU0 * R * ((2 / np.sqrt(m) - np.sqrt(m)) * ellipk(m) - (2 / np.sqrt(m)) * ellipe(m))
+
+        for h in (3e-3, 6e-3):
+            loop = Conductor(np.column_stack([R * np.cos(th), R * np.sin(th), np.full(npts + 1, h)]), **kw)
+            gp = GroundPlane((0, 0, 0), (0, 0, 1))
+            l_free = extract_impedance(loop, [1e5]).inductance[0]
+            l_gnd = extract_impedance(loop, [1e5], ground_plane=gp).inductance[0]
+            self.assertLess(l_gnd, l_free)  # ground plane lowers L
+            self.assertLess(abs((l_free - l_gnd) - coax_mutual(2 * h)) / coax_mutual(2 * h), 0.03)
+        # a distant plane recovers the free-space inductance
+        loop = Conductor(np.column_stack([R * np.cos(th), R * np.sin(th), np.full(npts + 1, 2.0)]), **kw)
+        l_free = extract_impedance(loop, [1e5]).inductance[0]
+        l_far = extract_impedance(loop, [1e5], ground_plane=GroundPlane((0, 0, 0), (0, 0, 1))).inductance[0]
+        self.assertLess(abs(l_far - l_free) / l_free, 1e-3)
+
+    def test_magnetic_image_full_equals_chain_reduction(self) -> None:
+        # The ground image is purely magnetic (drive-mode agnostic): both formulations get the
+        # same reduction, and it is applied identically regardless of any potential profile.
+        from spin_dynamics.fields.coil_peec import GroundPlane, extract_impedance
+
+        c = helical_solenoid(diameter=20e-3, length=15e-3, turns=5, wire_radius=0.4e-3,
+                             material=COPPER, n_per_turn=8, n_radial=2, n_angular=6)
+        gp = GroundPlane((0, 0, -12e-3), (0, 0, 1))
+        chain = extract_impedance(c, [1e5], ground_plane=gp).inductance[0]
+        full = extract_impedance(c, [1e5], ground_plane=gp, formulation="full").inductance[0]
+        self.assertLess(abs(full - chain) / chain, 0.03)
+        self.assertLess(chain, extract_impedance(c, [1e5]).inductance[0])  # reduced vs free
+
 
 class BundleTests(unittest.TestCase):
     def test_coil_properties_peec_fields_and_helpers(self) -> None:
