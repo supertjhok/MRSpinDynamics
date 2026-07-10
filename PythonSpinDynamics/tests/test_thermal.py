@@ -14,6 +14,8 @@ from spin_dynamics.radiation_damping import KB
 from spin_dynamics.sample import sphere_geometry, water_sample
 from spin_dynamics.spin_noise import SampleCoupling
 from spin_dynamics.thermal import (
+    Conduction1D,
+    PerfusionModel,
     CoupledCoilDrive,
     CoupledSAR,
     ThermalCoupling,
@@ -488,3 +490,129 @@ class TestThermalCoupling:
         warm, _ = tuned_probe_output_noise_density(sp_warm, pp, sample=coupling_b)
         edge = 5
         assert cold[edge] < warm[edge]  # cold coil lowers the baseline
+
+
+class TestConduction1D:
+    def test_slab_uniform_source_parabola(self) -> None:
+        L, k, q, t0 = 0.02, 0.5, 1e4, 300.0
+        n = 201
+        r = np.linspace(L / (2 * n), L - L / (2 * n), n)
+        c = Conduction1D(
+            r, geometry="slab", conductivity=k, rho_cp=1e6, source=q,
+            inner_bc=("temperature", t0), outer_bc=("temperature", t0),
+        )
+        prof = c.steady_state().temperature
+        assert prof.max() - t0 == pytest.approx(q * L**2 / (8 * k), rel=1e-3)
+
+    def test_cylinder_uniform_source_center_rise(self) -> None:
+        a, k, q, t0 = 0.015, 0.5, 1e4, 300.0
+        n = 200
+        r = np.linspace(a / (2 * n), a - a / (2 * n), n)
+        c = Conduction1D(
+            r, geometry="cylinder", conductivity=k, rho_cp=1e6, source=q,
+            inner_bc=("insulated",), outer_bc=("temperature", t0),
+        )
+        prof = c.steady_state().temperature
+        assert prof.max() - t0 == pytest.approx(q * a**2 / (4 * k), rel=1e-4)
+
+    def test_sphere_uniform_source_center_rise(self) -> None:
+        a, k, q, t0 = 0.015, 0.5, 1e4, 300.0
+        n = 200
+        r = np.linspace(a / (2 * n), a - a / (2 * n), n)
+        c = Conduction1D(
+            r, geometry="sphere", conductivity=k, rho_cp=1e6, source=q,
+            inner_bc=("insulated",), outer_bc=("temperature", t0),
+        )
+        prof = c.steady_state().temperature
+        assert prof.max() - t0 == pytest.approx(q * a**2 / (6 * k), rel=1e-3)
+
+    def test_convection_bc_matches_lumped(self) -> None:
+        # Thin slab, low Biot: convection BC steady state -> nearly uniform
+        # T = T_inf + q*L/(h) (all heat leaves one face; other insulated).
+        L, k, q, h, t_inf = 5e-3, 20.0, 2e4, 50.0, 293.0
+        n = 101
+        r = np.linspace(L / (2 * n), L - L / (2 * n), n)
+        c = Conduction1D(
+            r, geometry="slab", conductivity=k, rho_cp=1e6, source=q,
+            inner_bc=("insulated",), outer_bc=("convection", h, t_inf),
+        )
+        prof = c.steady_state().temperature
+        # Total flux per area q*L leaves through the film: dT_film = q L / h.
+        assert prof.min() - t_inf == pytest.approx(q * L / h, rel=1e-2)
+
+    def test_perfusion_uniform_limit(self) -> None:
+        # Insulated slab, uniform source, perfusion sink -> uniform
+        # T = T_a + q / (w_b c_b).
+        L, k, q = 0.02, 0.5, 1e4
+        n = 151
+        r = np.linspace(L / (2 * n), L - L / (2 * n), n)
+        perf = PerfusionModel(
+            blood_perfusion=2.0, blood_specific_heat=3600.0, arterial_temperature=310.0
+        )
+        c = Conduction1D(
+            r, geometry="slab", conductivity=k, rho_cp=1e6, source=q, perfusion=perf,
+            inner_bc=("insulated",), outer_bc=("insulated",),
+        )
+        prof = c.steady_state().temperature
+        assert prof.mean() == pytest.approx(310.0 + q / (2.0 * 3600.0), rel=1e-6)
+        assert prof.max() - prof.min() < 1e-6  # uniform
+
+    def test_perfusion_penetration_depth(self) -> None:
+        # With conduction + perfusion and a hot wall, the steady profile decays
+        # into the tissue with length sqrt(k / (w_b c_b)).
+        k = 0.5
+        perf = PerfusionModel(blood_perfusion=4.0, blood_specific_heat=3600.0,
+                              arterial_temperature=310.0)
+        depth = np.sqrt(k / perf.sink_rate)
+        L = 12.0 * depth
+        n = 400
+        r = np.linspace(L / (2 * n), L - L / (2 * n), n)
+        c = Conduction1D(
+            r, geometry="slab", conductivity=k, rho_cp=1e6, source=0.0, perfusion=perf,
+            inner_bc=("temperature", 320.0), outer_bc=("temperature", 310.0),
+        )
+        prof = c.steady_state().temperature
+        excess = prof - 310.0
+        # At one penetration depth the excess is ~1/e of the wall excess.
+        i_depth = np.argmin(np.abs(r - r[0] - depth))
+        assert excess[i_depth] / excess[0] == pytest.approx(np.exp(-1.0), rel=0.1)
+
+    def test_transient_relaxes_to_steady_state(self) -> None:
+        L, k, q, t0 = 0.02, 0.5, 5e3, 300.0
+        n = 81
+        r = np.linspace(L / (2 * n), L - L / (2 * n), n)
+        rho_cp = 1e6
+        c = Conduction1D(
+            r, geometry="slab", conductivity=k, rho_cp=rho_cp, source=q,
+            inner_bc=("temperature", t0), outer_bc=("temperature", t0),
+        )
+        steady = c.steady_state().temperature
+        tau = rho_cp * L**2 / k
+        res = c.transient(np.linspace(0.0, 5.0 * tau, 200), initial_temperature=t0)
+        np.testing.assert_allclose(res.final(), steady, rtol=1e-3, atol=1e-2)
+
+    def test_transient_conserves_energy_adiabatic(self) -> None:
+        # Fully insulated slab with uniform source: mean T rises linearly at
+        # q / rho_cp regardless of conduction.
+        L, k, q = 0.02, 0.5, 1e4
+        n = 61
+        r = np.linspace(L / (2 * n), L - L / (2 * n), n)
+        rho_cp = 1e6
+        c = Conduction1D(
+            r, geometry="slab", conductivity=k, rho_cp=rho_cp, source=q,
+            inner_bc=("insulated",), outer_bc=("insulated",),
+        )
+        times = np.linspace(0.0, 100.0, 51)
+        res = c.transient(times, initial_temperature=300.0)
+        mean_t = res.temperature.mean(axis=1)
+        np.testing.assert_allclose(mean_t, 300.0 + q * times / rho_cp, rtol=1e-6)
+
+    def test_validation_errors(self) -> None:
+        with pytest.raises(ValueError):
+            Conduction1D(np.array([0.0, 1.0]), conductivity=1.0, rho_cp=1.0)  # too few
+        with pytest.raises(ValueError):
+            Conduction1D(
+                np.array([0.0, 1.0, 3.0]), conductivity=1.0, rho_cp=1.0
+            )  # non-uniform
+        with pytest.raises(ValueError):
+            PerfusionModel(blood_perfusion=-1.0)

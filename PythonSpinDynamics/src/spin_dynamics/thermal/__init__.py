@@ -19,6 +19,11 @@ from spin_dynamics.thermal.materials import (
     ThermalMaterial,
     WATER_THERMAL,
 )
+from spin_dynamics.thermal.conduction import (
+    Conduction1D,
+    ConductionResult,
+    PerfusionModel,
+)
 from spin_dynamics.thermal.coupling import (
     CoupledCoilDrive,
     CoupledSAR,
@@ -60,6 +65,9 @@ __all__ = [
     "SAPPHIRE",
     "ThermalMaterial",
     "WATER_THERMAL",
+    "Conduction1D",
+    "ConductionResult",
+    "PerfusionModel",
     "CoupledCoilDrive",
     "CoupledSAR",
     "ThermalCoupling",
