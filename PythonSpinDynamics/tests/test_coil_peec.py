@@ -515,6 +515,18 @@ class GroundPlaneAndDriveModeTests(unittest.TestCase):
         self.assertGreater(cg_diff, 0.0)
         self.assertLess(cg_diff, 0.5 * cg_se)  # differential couples markedly less
 
+        # The single-ended ground coupling decomposes as 1/4 * (whole-coil plate) +
+        # differential (the common-mode offset of the 0->1 ramp has amplitude 1/2), because
+        # the differential drive carries ~zero net charge so its cross-term with the uniform
+        # mode vanishes. This is why the reduction is ~4x+ (not 2x): the plate/monopole term
+        # dominates over the differential multipole.
+        from spin_dynamics.fields.coil_peec import capacitance_to_ground
+
+        cg_uniform = capacitance_to_ground(coil, shield=gp) - capacitance_to_ground(coil)
+        predicted = 0.25 * cg_uniform + cg_diff
+        self.assertLess(abs(predicted - cg_se) / cg_se, 0.05)
+        self.assertGreater(cg_uniform, 4.0 * cg_diff)  # monopole coupling >> multipole
+
 
 class BundleTests(unittest.TestCase):
     def test_coil_properties_peec_fields_and_helpers(self) -> None:

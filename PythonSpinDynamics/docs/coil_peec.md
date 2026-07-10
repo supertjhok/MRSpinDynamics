@@ -232,6 +232,23 @@ NMR/MRI surface and PCB coils are built balanced. (First-order caveats stated in
 effective uniform `(ε_r+1)/2`, magnetic ground-image effect on `L` not swept, single-ended
 ground-return conduction loss not added — all of which only widen the differential advantage.)
 
+**Why ~7× and not ~2×.** The single-ended ramp is a uniform common-mode offset plus the
+differential profile, `v = ½ + (s − ½)`, and the differential drive carries ~zero net charge, so
+the ground capacitance splits cleanly (verified by the example to ~1%):
+
+```
+C_g(single-ended) = ¼·C_g(uniform) + C_g(differential),   ratio = 1 + ¼·C_g(uniform)/C_g(differential)
+```
+
+Two effects push past the naive 2×. First, the common-mode offset carries *three quarters* of
+the ramp's mean-square voltage — `⟨v²⟩ = 1/3`, of which the offset is `1/4` and the zero-mean
+part only `1/12` — so going differential already cuts the energy 4×, not 2×. Second, `C_g(uniform)`
+(the whole spiral held at one potential — a capacitor *plate*, i.e. a net-charge monopole) couples
+far more strongly to the plane than the differential mode (a zero-net-charge multipole that closes
+locally and cancels in the image): here `C_g(uniform)/C_g(differential) ≈ 26`, so the ratio is
+`1 + ¼·26 ≈ 7.5`. The same monopole-vs-multipole asymmetry makes the ratio *grow* as the plane
+recedes (6× at 0.4 mm → 17× at 3.2 mm: the monopole coupling decays slowly, the multipole fast).
+
 The example `examples/plot_shielded_nqr_coil.py` designs a ¹⁴N NQR probe (2–3 MHz, coil
 ID ≈ 1.5″) on a Teflon former in a grounded aluminium box, one coil end and the box at
 ground, and plots the properties with and without the box: L(f) and R(f) from the

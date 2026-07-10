@@ -27,6 +27,26 @@ first-order lumped model: below self-resonance the coil is inductive, the windin
 ~ wL*I, and the dielectric dissipates ``w tan d`` of the electric energy ``1/2 C_g V^2`` per
 radian). The Q is then ``wL / (R_copper + R_groundeddy + R_diel(mode))``.
 
+**Why the ground coupling drops ~7x, not ~2x.** The single-ended ramp ``v = s`` is a uniform
+common-mode offset plus exactly the differential profile: ``v = 1/2 + (s - 1/2)``. Two things
+follow. (i) The common-mode offset carries *three quarters* of the ramp's mean-square voltage,
+not half: ``<v^2> = int_0^1 s^2 ds = 1/3``, of which the offset is ``(1/2)^2 = 1/4`` and the
+zero-mean part only ``int_0^1 (s-1/2)^2 ds = 1/12``. So dropping the common mode (going
+differential) already cuts the energy 4x, not 2x. (ii) Because the differential drive carries
+~zero net charge, its cross-term with the uniform mode vanishes and the single-ended ground
+capacitance splits cleanly:
+
+    C_g(single-ended) = (1/4) * C_g(uniform) + C_g(differential)
+    ratio = C_g(SE) / C_g(diff) = 1 + (1/4) * C_g(uniform) / C_g(differential)
+
+where ``C_g(uniform)`` is the whole coil held at *one* potential over the plane -- the spiral as
+a capacitor plate. That plate (a monopole: net charge, slowly-decaying coupling) couples far
+more strongly to the plane than the differential mode (a zero-net-charge multipole, whose field
+closes locally and cancels in the image), so ``C_g(uniform)/C_g(diff) ~ 26`` here and the ratio
+lands near 7x rather than 4x. The same asymmetry makes the ratio *grow* as the plane recedes
+(the monopole coupling decays slowly, the multipole fast). The script prints this decomposition
+so the identity can be checked against the two directly-computed mode capacitances.
+
 Outputs (``--save out.png`` for the figure, otherwise tables):
 1. Q vs frequency, single-ended vs differential, with the common (mode-independent) copper +
    ground-eddy loss floor.
@@ -55,6 +75,7 @@ add_src_to_path()
 from spin_dynamics.fields.coil_peec import (
     Conductor,
     GroundPlane,
+    capacitance_to_ground,
     extract_impedance,
     self_capacitance,
 )
@@ -203,7 +224,15 @@ def main() -> None:
 
     print(f"  coil-to-ground C: single-ended {cg['single-ended'] * 1e12:.3f} pF, "
           f"differential {cg['differential'] * 1e12:.3f} pF "
-          f"({cg['single-ended'] / cg['differential']:.1f}x less common-mode coupling)\n")
+          f"({cg['single-ended'] / cg['differential']:.1f}x less common-mode coupling)")
+    # Why ~7x and not ~2x: single-ended = 1/4 common-mode (whole-coil plate) + differential.
+    cg_uniform = (capacitance_to_ground(coil_e, shield=gp, relative_permittivity=eps_eff)
+                  - capacitance_to_ground(coil_e, relative_permittivity=eps_eff))
+    predicted = 0.25 * cg_uniform + cg['differential']
+    print(f"    decomposition: C_g(uniform plate) {cg_uniform * 1e12:.3f} pF; "
+          f"1/4*plate + C_g(diff) = {predicted * 1e12:.3f} pF  (= C_g(SE) {cg['single-ended'] * 1e12:.3f} pF)")
+    print(f"    ratio = 1 + 1/4*(plate/diff) = {1 + 0.25 * cg_uniform / cg['differential']:.1f}x "
+          "(the plane over-weights the common/monopole mode vs the differential multipole)\n")
     print(f"  {'f (MHz)':>8}{'L (nH)':>9}{'R_cu':>8}{'R_eddy':>8}"
           f"{'Q_SE':>8}{'Q_diff':>9}{'gain':>7}")
     for i, f in enumerate(freqs):
