@@ -24,6 +24,7 @@ variants, packaging, and performance.
 - [NQR Models](nqr.md)
 - [ESR Models](esr.md)
 - [Phase Cycling Findings](phase_cycling.md)
+- [Sequence IR and Pulseq Import](sequence_ir.md)
 - [API Reference](api_reference.md)
 - [Performance](performance.md)
 - [Validation](validation.md)

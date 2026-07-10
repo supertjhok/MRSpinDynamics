@@ -1,6 +1,7 @@
 # Unified Experiment Workflow — Architecture Analysis and Plan
 
-Status: proposal (no code yet). Companion planning docs: `nqr_module_plan.md`,
+Status: facade milestones 1--7 implemented; the backend-neutral sequence IR
+follow-on is underway. Companion planning docs: `nqr_module_plan.md`,
 `non_inductive_detection.md`, `optimal_control_hardware_response.md`.
 
 ## 1. Motivation
@@ -101,7 +102,7 @@ late error).
 
 ### 2.5 User surface
 
-- 145 flat example scripts, all following the same implicit workflow
+- 162 example scripts, mostly following the same implicit workflow
   (args → params → run → plot → optional `--save-npz`). No hierarchy.
 - Docs are feature-by-feature (`docs/python_api/*.md`, ~6.5k lines) plus a
   LaTeX user manual; no workflow-first narrative or tutorial.

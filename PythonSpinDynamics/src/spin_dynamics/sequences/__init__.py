@@ -7,6 +7,19 @@ from spin_dynamics.sequences.cpmg import (
     toggling_frame_integral,
     udd_pulse_times,
 )
+from spin_dynamics.sequences.compiler import (
+    CompiledADC,
+    CompiledSequence,
+    compile_sequence,
+    compiled_to_motion_steps,
+)
+from spin_dynamics.sequences.ir import (
+    ADCEvent,
+    GradientWaveform,
+    RFPulse,
+    SequenceBlock,
+    SequenceIR,
+)
 from spin_dynamics.sequences.motion import (
     MotionSequenceResult,
     MotionSequenceStep,
@@ -16,15 +29,32 @@ from spin_dynamics.sequences.motion import (
     run_motion_sequence,
     run_motion_udd_sequence,
 )
+from spin_dynamics.sequences.pulseq import (
+    PulseqFormatError,
+    parse_pulseq,
+    read_pulseq,
+)
 
 __all__ = [
+    "ADCEvent",
+    "CompiledADC",
+    "CompiledSequence",
+    "GradientWaveform",
     "MotionSequenceResult",
     "MotionSequenceStep",
+    "PulseqFormatError",
+    "RFPulse",
+    "SequenceBlock",
+    "SequenceIR",
+    "compile_sequence",
+    "compiled_to_motion_steps",
     "cpmg_pulse_times",
     "dephasing_filter_function",
     "interval_durations",
     "make_motion_cpmg_sequence",
     "make_motion_udd_sequence",
+    "parse_pulseq",
+    "read_pulseq",
     "run_motion_cpmg_sequence",
     "run_motion_sequence",
     "run_motion_udd_sequence",

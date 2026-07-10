@@ -7,6 +7,15 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
 
 ## [Unreleased]
 
+### PythonSpinDynamics
+
+- Began the backend-neutral sequence IR and compiler: sequential blocks with
+  concurrent RF, three-axis gradient, and ADC events; piecewise-constant
+  timeline compilation; a moving-isochromat adapter; and core text import for
+  the open Pulseq 1.4/1.5 `.seq` format, including compressed shapes,
+  trapezoids, ADC phase shapes, and PPM offsets. Required Pulseq extensions are
+  rejected until their semantics are implemented.
+
 ## [0.2.0] - 2026-07-05
 
 A large feature release built on the v0.1.0 foundation. The headline addition is

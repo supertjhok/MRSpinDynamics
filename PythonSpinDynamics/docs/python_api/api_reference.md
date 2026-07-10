@@ -1437,6 +1437,25 @@ No public classes or functions found.
 | function | `simulate_radiation_damping_fid(time: np.ndarray, probe: RadiationDampingProbe, *, flip_angle: float = np.pi / 2, pulse_phase: float = 0.0, t1: float = np.inf, t2: float = np.inf, equilibrium_mz: float = 1.0, model: str = 'instant', max_step: float | None = None) -> RadiationDampingResult` | Simulate an FID after an ideal hard pulse in the RD model. |
 | function | `simulate_nmr_maser(time: np.ndarray, probe: RadiationDampingProbe, *, seed_mxy: complex = -1e-06j, initial_mz: float = -1.0, pump_mz: float = -1.0, t1: float, t2: float, model: str = 'circuit', initial_feedback: complex | None = None, max_step: float | None = None) -> RadiationDampingResult` | Simulate an idealized pumped NMR maser in the RD feedback model. |
 
+## `spin_dynamics.sequences.compiler`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `CompiledADC` | Receive samples on the absolute sequence timeline. |
+| class | `CompiledSequence` | Piecewise-constant RF/gradient timeline plus exact ADC sample times. |
+| function | `compile_sequence(sequence: SequenceIR, *, system_frequency_hz: float | None = None) -> CompiledSequence` | Compile an IR into piecewise-constant intervals. |
+| function | `compiled_to_motion_steps(compiled: CompiledSequence, *, spatial_dimensions: int = 2)` | Adapt compiled intervals to the existing moving-isochromat engine. |
+
+## `spin_dynamics.sequences.ir`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `RFPulse` | Sampled complex RF envelope in hertz. |
+| class | `GradientWaveform` | Sampled gradient waveform in hertz per meter. |
+| class | `ADCEvent` | Uniform receive-sampling event. |
+| class | `SequenceBlock` | Concurrent events with an explicit duration. |
+| class | `SequenceIR` | A complete backend-neutral pulse sequence. |
+
 ## `spin_dynamics.sequences.motion`
 
 | Kind | Name | Summary |
@@ -1448,6 +1467,14 @@ No public classes or functions found.
 | function | `make_motion_udd_sequence(num_pulses: int, total_duration: float, *, excitation_duration: float, refocusing_duration: float, excitation_phase: float = np.pi / 2, refocusing_phase: float = 0.0, gradient: tuple[float, float] = (0.0, 0.0), substeps_per_interval: int = 1) -> tuple[MotionSequenceStep, ...]` | Build a rectangular-pulse UDD sequence for moving isochromats. |
 | function | `run_motion_cpmg_sequence(ensemble: ParticleEnsemble, fields: MotionFields, *, num_echoes: int, echo_spacing: float, excitation_duration: float, refocusing_duration: float, gradient: tuple[float, float] = (0.0, 0.0), velocity: Velocity = None, rng: np.random.Generator | None = None, t1: float | Iterable[float] | np.ndarray = np.inf, t2: float | Iterable[float] | np.ndarray = np.inf, mth: float | Iterable[float] | np.ndarray = 1.0, boundary: Boundary = 'reflect', substeps_per_interval: int = 1, detuning_waveform: DetuningWaveform = None) -> MotionSequenceResult` | Run a rectangular-pulse CPMG sequence with moving isochromats. |
 | function | `run_motion_udd_sequence(ensemble: ParticleEnsemble, fields: MotionFields, *, num_pulses: int, total_duration: float, excitation_duration: float, refocusing_duration: float, gradient: tuple[float, float] = (0.0, 0.0), velocity: Velocity = None, rng: np.random.Generator | None = None, t1: float | Iterable[float] | np.ndarray = np.inf, t2: float | Iterable[float] | np.ndarray = np.inf, mth: float | Iterable[float] | np.ndarray = 1.0, boundary: Boundary = 'reflect', substeps_per_interval: int = 1, detuning_waveform: DetuningWaveform = None) -> MotionSequenceResult` | Run a rectangular-pulse UDD sequence with moving isochromats. |
+
+## `spin_dynamics.sequences.pulseq`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `PulseqFormatError` | Raised when a Pulseq file is malformed or uses an unsupported feature. |
+| function | `read_pulseq(path: str | Path) -> SequenceIR` | Read a Pulseq ``.seq`` text file. |
+| function | `parse_pulseq(text: str, *, source_name: str = '<string>') -> SequenceIR` | Parse Pulseq 1.4/1.5 text into :class:`SequenceIR`. |
 
 ## `spin_dynamics.susceptibility`
 

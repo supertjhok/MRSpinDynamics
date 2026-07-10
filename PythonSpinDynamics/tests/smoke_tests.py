@@ -13,6 +13,7 @@ import unittest
 
 from tests.test_basic_octave_fixtures import OctaveFixtureTests
 from tests.test_examples import ExampleSmokeTests
+from tests.test_sequence_ir import PulseqImportTests, SequenceIRTests
 
 
 FAST_FIXTURE_TESTS = [
@@ -53,6 +54,13 @@ FAST_EXAMPLE_TESTS = [
     "test_plot_examples_expose_cli_without_matplotlib",
 ]
 
+FAST_SEQUENCE_TESTS = [
+    (SequenceIRTests, "test_compile_preserves_concurrent_rf_gradient_and_adc_timing"),
+    (SequenceIRTests, "test_motion_adapter_converts_cycles_to_angular_units"),
+    (PulseqImportTests, "test_imports_pulseq_15_rf_adc_and_compiles"),
+    (PulseqImportTests, "test_decompresses_run_length_encoded_shape"),
+]
+
 
 def load_tests(
     loader: unittest.TestLoader,
@@ -64,6 +72,8 @@ def load_tests(
         suite.addTest(OctaveFixtureTests(name))
     for name in FAST_EXAMPLE_TESTS:
         suite.addTest(ExampleSmokeTests(name))
+    for case, name in FAST_SEQUENCE_TESTS:
+        suite.addTest(case(name))
     return suite
 
 
