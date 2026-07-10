@@ -388,6 +388,47 @@ class RadiationResistanceTests(unittest.TestCase):
         with self.assertWarns(UserWarning):
             radiation_resistance(self._loop(0.5), 100e6)  # 1 m loop at 100 MHz
 
+    def test_shield_suppresses_radiation_below_cutoff(self) -> None:
+        # A grounded box is a cavity: below its lowest resonance the closed conductor lets
+        # no field radiate, so R_rad -> 0. The same 5 cm loop that radiates 24 mOhm at
+        # 100 MHz in free space radiates nothing inside a 20 cm box (cutoff ~1 GHz).
+        from spin_dynamics.fields.coil_peec import GroundedBox, radiation_resistance
+
+        c = self._loop(0.05, n=64)
+        box = GroundedBox((0, 0, 0), (0.1, 0.1, 0.1))
+        self.assertGreater(radiation_resistance(c, 100e6), 1e-3)          # free space: real
+        self.assertEqual(radiation_resistance(c, 100e6, shield=box), 0.0)  # shielded: ~0
+
+    def test_shield_fundamental_resonance_matches_cavity_formula(self) -> None:
+        from spin_dynamics.fields.coil_peec import GroundedBox
+
+        # interior 70 x 70 x 100 mm -> TE101 = (c/2) sqrt(1/0.07^2 + 1/0.1^2) ~ 2.62 GHz
+        box = GroundedBox((0, 0, 0), (0.035, 0.035, 0.05))
+        expected = 0.5 * 299792458.0 * np.sqrt(1 / 0.07**2 + 1 / 0.1**2)
+        self.assertLess(abs(box.fundamental_resonance() - expected) / expected, 1e-9)
+
+    def test_shield_warns_near_cavity_resonance(self) -> None:
+        from spin_dynamics.fields.coil_peec import GroundedBox, radiation_resistance
+
+        box = GroundedBox((0, 0, 0), (0.1, 0.1, 0.1))
+        f_cav = box.fundamental_resonance()
+        with self.assertWarns(UserWarning):
+            radiation_resistance(self._loop(0.05, n=64), 0.9 * f_cav, shield=box)
+
+    def test_bundle_shield_suppresses_radiation_and_shifts_srf(self) -> None:
+        # coil_properties_peec threads the shield to both the capacitance (raises C, lowers
+        # SRF) and the radiation (suppressed -> higher Q than the unshielded free-space case).
+        from spin_dynamics.fields.coil_peec import GroundedBox
+
+        c = self._loop(0.05, n=24)
+        box = GroundedBox((0, 0, 0), (0.1, 0.1, 0.1))
+        free = coil_properties_peec(c, 50e6, formulation="chain")
+        shielded = coil_properties_peec(c, 50e6, formulation="chain", shield=box)
+        self.assertGreater(free.radiation_resistance, 0.0)
+        self.assertEqual(shielded.radiation_resistance, 0.0)
+        self.assertGreater(shielded.q_factor, free.q_factor)          # radiation removed
+        self.assertGreater(shielded.self_capacitance, free.self_capacitance)  # box raises C
+
     def test_bundle_includes_radiation_in_q(self) -> None:
         # At VHF for a large-ish loop, radiation dominates the ohmic loss and must lower Q;
         # ac_resistance stays ohmic while to_probe_params carries the total.

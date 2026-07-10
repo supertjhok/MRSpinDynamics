@@ -281,10 +281,23 @@ N-turn solenoid, and vanishes for opposed-loop geometries (a Maxwell pair has `A
 `ac_resistance` stays purely ohmic, the new `radiation_resistance` field reports it, and
 `q_factor` / `to_probe_params()` use the total. With the `k⁴` scaling it is utterly
 negligible at NMR/NQR frequencies for ordinary coils (nΩ at 2.5 MHz for the shielded-NQR
-example) and becomes the Q ceiling for large loops at VHF. First-order limits: magnetic
-dipole only — a `UserWarning` fires when the coil is not small vs the wavelength (higher
-multipoles + electric-dipole term missing), and common-mode "antenna-effect" radiation via
-the feed leads is a property of the installation, not the coil.
+example) and becomes the Q ceiling for large loops at VHF.
+
+**Shielding suppresses it.** For radiation a `GroundedBox` is a *cavity*, not the
+image-charge lattice used for capacitance: below the box's lowest resonant mode
+(`GroundedBox.fundamental_resonance()`, the rectangular-cavity `TE₁₀₁`) a closed conductor
+supports no propagating external field, so the far-field radiation is evanescent — the
+near-field energy that would have radiated is instead stored reactively and dissipated in
+the walls (the wall eddy loss, modelled separately). Passing `shield=` to
+`radiation_resistance` (or `coil_properties_peec`) therefore returns 0 below cutoff,
+consistent with how the same box enters `self_capacitance`, and warns as the frequency
+approaches the cavity resonance where the closed-cavity approximation breaks down. So the
+free-space `R_rad` is an *upper bound*: a shielded coil radiates less (the NQR example prints
+both — 52 nΩ free-space → 0 inside its 2.6 GHz box, negligible at 2.5 MHz either way).
+
+First-order limits: magnetic dipole only — a `UserWarning` fires when the coil is not small
+vs the wavelength (higher multipoles + electric-dipole term missing), and common-mode
+"antenna-effect" radiation via the feed leads is a property of the installation, not the coil.
 
 **And even the computed R is a theoretical lower bound on loss:** a measured coil is usually
 another ~1.3–2× lossier still (dielectric-former `tan δ`, solder/lead resistance, surface
