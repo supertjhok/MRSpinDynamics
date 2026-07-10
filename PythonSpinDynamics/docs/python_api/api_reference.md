@@ -1482,6 +1482,8 @@ No public classes or functions found.
 | --- | --- | --- |
 | class | `PulseqFormatError` | Raised when a Pulseq file is malformed or uses an unsupported feature. |
 | function | `read_pulseq(path: str | Path) -> SequenceIR` | Read a Pulseq ``.seq`` text file. |
+| function | `write_pulseq(sequence: SequenceIR, path: str | Path, *, definitions: Mapping[str, Any] | None = None, create_signature: bool = True) -> None` | Write ``sequence`` as a core Pulseq 1.5.0 ``.seq`` text file. |
+| function | `serialize_pulseq(sequence: SequenceIR, *, definitions: Mapping[str, Any] | None = None, create_signature: bool = True) -> str` | Serialize a raster-aligned sequence as core Pulseq 1.5.0 text. |
 | function | `parse_pulseq(text: str, *, source_name: str = '<string>') -> SequenceIR` | Parse Pulseq 1.4/1.5 text into :class:`SequenceIR`. |
 
 ## `spin_dynamics.susceptibility`

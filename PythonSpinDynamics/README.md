@@ -71,6 +71,7 @@ extensions.
   prepolarization.
 - `spin_dynamics.sequences` contains timing helpers plus a backend-neutral
   block/event sequence IR. It can import core Pulseq 1.4/1.5 text `.seq` files,
+  export raster-validated Pulseq 1.5.0 sequences,
   compile concurrent RF/gradient/ADC events to a piecewise-constant timeline,
   visualize aligned RF/gradient/ADC lanes, and adapt that timeline to the
   moving-isochromat engine. See

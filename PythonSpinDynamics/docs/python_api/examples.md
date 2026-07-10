@@ -49,6 +49,7 @@ pass a `.seq` path to inspect an external Pulseq file.
 
 ```powershell
 python examples\plot_sequence_timeline.py --output results\demo_sequence.png
+python examples\plot_sequence_timeline.py --export-pulseq results\demo_sequence.seq --output results\demo_sequence.png
 python examples\plot_sequence_timeline.py experiment.seq --output results\experiment.png
 ```
 

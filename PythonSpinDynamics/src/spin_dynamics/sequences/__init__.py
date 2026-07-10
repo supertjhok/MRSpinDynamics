@@ -33,6 +33,8 @@ from spin_dynamics.sequences.pulseq import (
     PulseqFormatError,
     parse_pulseq,
     read_pulseq,
+    serialize_pulseq,
+    write_pulseq,
 )
 from spin_dynamics.sequences.plotting import (
     SequencePlotData,
@@ -62,10 +64,12 @@ __all__ = [
     "parse_pulseq",
     "plot_sequence",
     "read_pulseq",
+    "serialize_pulseq",
     "sequence_plot_data",
     "run_motion_cpmg_sequence",
     "run_motion_sequence",
     "run_motion_udd_sequence",
     "toggling_frame_integral",
     "udd_pulse_times",
+    "write_pulseq",
 ]

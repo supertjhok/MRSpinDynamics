@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import hashlib
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import numpy as np
 
@@ -15,7 +18,10 @@ from spin_dynamics.sequences import (
     compiled_to_motion_steps,
     parse_pulseq,
     plot_sequence,
+    read_pulseq,
+    serialize_pulseq,
     sequence_plot_data,
+    write_pulseq,
 )
 
 
@@ -240,6 +246,116 @@ class PulseqImportTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(PulseqFormatError, "ROTATIONS"):
             parse_pulseq(text)
+
+
+class PulseqExportTests(unittest.TestCase):
+    def test_round_trip_preserves_core_events_and_metadata(self):
+        sequence = SequenceIR(
+            blocks=(
+                SequenceBlock(
+                    duration_seconds=40e-6,
+                    rf=RFPulse(
+                        [100.0, 100.0j, -50.0],
+                        dwell_seconds=1e-6,
+                        delay_seconds=1e-6,
+                        frequency_offset_hz=250.0,
+                        phase_offset_rad=0.2,
+                        use="excitation",
+                        center_seconds=1.25e-6,
+                    ),
+                    gradients=(
+                        GradientWaveform(
+                            [1000.0, -500.0, 250.0, 100.0],
+                            dwell_seconds=10e-6,
+                            first_hz_per_m=0.0,
+                            last_hz_per_m=20.0,
+                        ),
+                        None,
+                        None,
+                    ),
+                    adc=ADCEvent(
+                        2,
+                        dwell_seconds=1e-6,
+                        delay_seconds=4e-6,
+                        phase_offsets_rad=[0.0, np.pi / 2.0],
+                    ),
+                ),
+                SequenceBlock(
+                    duration_seconds=20e-6,
+                    gradients=(
+                        GradientWaveform(
+                            [100.0, 0.0],
+                            dwell_seconds=10e-6,
+                            first_hz_per_m=20.0,
+                            last_hz_per_m=0.0,
+                        ),
+                        None,
+                        None,
+                    ),
+                ),
+            ),
+            definitions={"Name": "round_trip"},
+        )
+
+        restored = parse_pulseq(serialize_pulseq(sequence))
+
+        np.testing.assert_allclose(
+            restored.blocks[0].rf.samples_hz, sequence.blocks[0].rf.samples_hz
+        )
+        self.assertAlmostEqual(restored.blocks[0].rf.center_seconds, 1.25e-6)
+        self.assertEqual(restored.blocks[0].rf.use, "excitation")
+        gradient = restored.blocks[0].gradients[0]
+        np.testing.assert_allclose(
+            gradient.samples_hz_per_m, [1000.0, -500.0, 250.0, 100.0]
+        )
+        self.assertAlmostEqual(gradient.first_hz_per_m, 0.0)
+        self.assertAlmostEqual(gradient.last_hz_per_m, 20.0)
+        self.assertAlmostEqual(restored.blocks[1].gradients[0].first_hz_per_m, 20.0)
+        np.testing.assert_allclose(
+            restored.blocks[0].adc.phase_offsets_rad, [0.0, np.pi / 2.0]
+        )
+
+    def test_export_signature_covers_sequence_text(self):
+        sequence = SequenceIR(blocks=(SequenceBlock(duration_seconds=20e-6),))
+        text = serialize_pulseq(sequence)
+        payload, signature = text.split("\n[SIGNATURE]\n")
+        fields = dict(line.split(maxsplit=1) for line in signature.splitlines())
+
+        self.assertEqual(fields["Type"], "md5")
+        self.assertEqual(fields["Hash"], hashlib.md5(payload.encode()).hexdigest())
+
+    def test_write_pulseq_creates_readable_file(self):
+        sequence = SequenceIR(blocks=(SequenceBlock(duration_seconds=20e-6),))
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "delay.seq"
+            write_pulseq(sequence, path)
+            restored = read_pulseq(path)
+        self.assertAlmostEqual(restored.duration_seconds, 20e-6)
+
+    def test_export_rejects_off_raster_timing(self):
+        sequence = SequenceIR(blocks=(SequenceBlock(duration_seconds=15e-6),))
+        with self.assertRaisesRegex(PulseqFormatError, "block 1 duration"):
+            serialize_pulseq(sequence)
+
+    def test_export_rejects_disconnected_gradient_boundaries(self):
+        sequence = SequenceIR(
+            blocks=(
+                SequenceBlock(
+                    duration_seconds=20e-6,
+                    gradients=(
+                        GradientWaveform(
+                            [1.0, 1.0],
+                            dwell_seconds=10e-6,
+                            last_hz_per_m=1.0,
+                        ),
+                        None,
+                        None,
+                    ),
+                ),
+            )
+        )
+        with self.assertRaisesRegex(PulseqFormatError, "end with zero"):
+            serialize_pulseq(sequence)
 
 
 if __name__ == "__main__":

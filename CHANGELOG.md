@@ -25,6 +25,9 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
   sequences, with RF I/Q, Gx/Gy/Gz, ADC, block-boundary lanes, `.plot()` hooks,
   and a `plot_sequence_timeline.py` example that also accepts external `.seq`
   files.
+- Added strict Pulseq 1.5.0 export with MD5 signatures, RF-center and gradient-
+  boundary preservation, raster and gradient-continuity validation, PyPulseq
+  interoperability checking, and export support in the timeline example.
 
 ## [0.2.0] - 2026-07-05
 

@@ -15,8 +15,9 @@ The highest-leverage gaps identified in the July 2026 audit are:
    compiler is now under development in `spin_dynamics.sequences`, using the
    open Pulseq `.seq` format as the first interchange standard. The initial
    slice supports sequential blocks with concurrent RF, three-axis gradient,
-   and ADC events; Pulseq 1.4/1.5 core text import; compilation to a
-   piecewise-constant timeline; and an adapter to the moving-isochromat engine.
+   and ADC events; Pulseq 1.4/1.5 core text import and raster-validated Pulseq
+   1.5.0 export; compilation to a piecewise-constant timeline; and an adapter
+   to the moving-isochromat engine.
    It does not yet replace the validated workflows.
 2. **Facade coverage.** The recommended `spin_dynamics.experiment` facade has
    19 registered routes, only eight with runtime/memory cost models. Diffusion,

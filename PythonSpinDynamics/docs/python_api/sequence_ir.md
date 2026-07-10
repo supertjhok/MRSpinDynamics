@@ -1,4 +1,4 @@
-# Sequence IR and Pulseq Import
+# Sequence IR and Pulseq Interchange
 
 `spin_dynamics.sequences` now contains the foundation of a backend-neutral
 pulse-sequence intermediate representation. It follows the block model of the
@@ -24,6 +24,7 @@ from spin_dynamics.sequences import (
     compile_sequence,
     compiled_to_motion_steps,
     read_pulseq,
+    write_pulseq,
 )
 
 sequence = read_pulseq("experiment.seq")
@@ -32,6 +33,9 @@ motion_steps = compiled_to_motion_steps(compiled, spatial_dimensions=3)
 
 # Both the source IR and compiled timeline expose the same plotting hook.
 figure, axes = sequence.plot(show_blocks=True)
+
+# Export a native or imported IR through the standard Pulseq 1.5.0 format.
+write_pulseq(sequence, "canonical.seq")
 ```
 
 Native sequences can be constructed from `SequenceIR`, `SequenceBlock`,
@@ -66,7 +70,7 @@ python examples\plot_sequence_timeline.py experiment.seq --output results\experi
 
 ## Pulseq Coverage
 
-The initial importer supports Pulseq 1.4.x and 1.5.x text files with:
+The importer supports Pulseq 1.4.x and 1.5.x text files with:
 
 - explicit block durations;
 - default-raster RF events;
@@ -76,14 +80,22 @@ The initial importer supports Pulseq 1.4.x and 1.5.x text files with:
 - compressed and uncompressed shapes;
 - absolute and PPM frequency/phase offsets.
 
+`serialize_pulseq` and `write_pulseq` export core Pulseq 1.5.0 files using
+uncompressed standard shapes. Export preserves RF effective centers, gradient
+boundary amplitudes, RF/ADC offsets, ADC phase modulation, and declared
+rasters. Timing is checked exactly: off-raster blocks, delays, or dwells raise
+`PulseqFormatError` rather than being rounded silently. Optional extensions are
+not emitted yet. Files are MD5-signed by default following the Pulseq signature
+convention; pass `create_signature=False` when unsigned text is specifically
+needed.
+
 Current intentional limitations:
 
 - explicit RF or gradient time-shape IDs are rejected;
 - optional extensions are retained as metadata but not executed;
 - files declaring required extensions are rejected;
 - Pulseq 1.5.1 rotation and RF-shimming extensions are not implemented;
-- signatures are parsed as inert sections and are not yet verified;
-- there is no Pulseq writer yet;
+- imported signatures are parsed as inert sections and are not yet verified;
 - only the moving-isochromat backend adapter is implemented.
 
 The IR is additive. Existing MATLAB-validated workflows remain the scientific

@@ -1,4 +1,4 @@
-"""Import the open, vendor-neutral Pulseq text format into the sequence IR.
+"""Import and export the open, vendor-neutral Pulseq sequence format.
 
 The initial importer supports the core event model in Pulseq 1.4.x and 1.5.x:
 blocks, RF, arbitrary/default-raster gradients, trapezoids, ADC, and compressed
@@ -8,9 +8,10 @@ required extensions and explicit non-default time shapes fail clearly.
 
 from __future__ import annotations
 
+import hashlib
 import warnings
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 import numpy as np
 
@@ -27,11 +28,229 @@ class PulseqFormatError(ValueError):
     """Raised when a Pulseq file is malformed or uses an unsupported feature."""
 
 
+_DEFAULT_DEFINITIONS = {
+    "AdcRasterTime": 1e-7,
+    "BlockDurationRaster": 1e-5,
+    "GradientRasterTime": 1e-5,
+    "RadiofrequencyRasterTime": 1e-6,
+}
+
+
 def read_pulseq(path: str | Path) -> SequenceIR:
     """Read a Pulseq ``.seq`` text file."""
 
     source = Path(path)
     return parse_pulseq(source.read_text(encoding="utf-8"), source_name=str(source))
+
+
+def write_pulseq(
+    sequence: SequenceIR,
+    path: str | Path,
+    *,
+    definitions: Mapping[str, Any] | None = None,
+    create_signature: bool = True,
+) -> None:
+    """Write ``sequence`` as a core Pulseq 1.5.0 ``.seq`` text file."""
+
+    Path(path).write_text(
+        serialize_pulseq(
+            sequence,
+            definitions=definitions,
+            create_signature=create_signature,
+        ),
+        encoding="utf-8",
+    )
+
+
+def serialize_pulseq(
+    sequence: SequenceIR,
+    *,
+    definitions: Mapping[str, Any] | None = None,
+    create_signature: bool = True,
+) -> str:
+    """Serialize a raster-aligned sequence as core Pulseq 1.5.0 text.
+
+    Native IR timing is never rounded silently. Blocks, delays, and event dwells
+    must align to the declared Pulseq rasters. Optional extensions and explicit
+    non-default time shapes remain import-only metadata and cannot be exported.
+    """
+
+    resolved = dict(_DEFAULT_DEFINITIONS)
+    resolved.update(sequence.definitions)
+    if definitions is not None:
+        resolved.update(definitions)
+    required_extensions = resolved.pop("RequiredExtensions", None)
+    if required_extensions is not None and str(required_extensions).strip():
+        raise PulseqFormatError("required Pulseq extensions cannot yet be exported")
+    _require_rasters(resolved, "sequence")
+
+    block_raster = float(resolved["BlockDurationRaster"])
+    rf_raster = float(resolved["RadiofrequencyRasterTime"])
+    gradient_raster = float(resolved["GradientRasterTime"])
+    adc_raster = float(resolved["AdcRasterTime"])
+    _validate_gradient_boundaries(sequence)
+
+    shapes: list[np.ndarray] = []
+    shape_ids: dict[tuple[int, bytes], int] = {}
+
+    def add_shape(values: np.ndarray) -> int:
+        array = np.asarray(values, dtype=np.float64)
+        key = (array.size, array.tobytes())
+        if key not in shape_ids:
+            shape_ids[key] = len(shapes) + 1
+            shapes.append(array)
+        return shape_ids[key]
+
+    blocks: list[str] = []
+    rf_lines: list[str] = []
+    gradient_lines: list[str] = []
+    adc_lines: list[str] = []
+    rf_id = gradient_id = adc_id = 0
+
+    for block_index, block in enumerate(sequence.blocks, start=1):
+        if block.extensions:
+            raise PulseqFormatError(
+                f"block {block_index}: Pulseq extensions cannot yet be exported"
+            )
+        duration = _integer_units(
+            block.duration_seconds, block_raster, f"block {block_index} duration"
+        )
+
+        block_rf = 0
+        if block.rf is not None:
+            event = block.rf
+            _require_close(event.dwell_seconds, rf_raster, "RF dwell")
+            rf_id += 1
+            block_rf = rf_id
+            amplitude = float(np.max(np.abs(event.samples_hz)))
+            magnitude = np.zeros(event.samples_hz.size) if amplitude == 0.0 else np.abs(event.samples_hz) / amplitude
+            phase_cycles = np.angle(event.samples_hz) / (2.0 * np.pi)
+            center = event.center_seconds
+            if center is None:
+                weights = np.abs(event.samples_hz)
+                centers = event.dwell_seconds * (
+                    np.arange(event.samples_hz.size, dtype=np.float64) + 0.5
+                )
+                center = float(np.average(centers, weights=weights)) if np.any(weights) else 0.5 * event.duration_seconds
+            rf_lines.append(
+                " ".join(
+                    [
+                        str(rf_id),
+                        _number(amplitude),
+                        str(add_shape(magnitude)),
+                        str(add_shape(phase_cycles)),
+                        "0",
+                        _number(center * 1e6),
+                        str(_integer_units(event.delay_seconds, 1e-6, "RF delay")),
+                        _number(event.frequency_offset_ppm),
+                        _number(event.phase_offset_rad_per_mhz),
+                        _number(event.frequency_offset_hz),
+                        _number(event.phase_offset_rad),
+                        _rf_use_code(event.use),
+                    ]
+                )
+            )
+
+        block_gradients: list[int] = []
+        for axis, event in zip("xyz", block.gradients):
+            if event is None:
+                block_gradients.append(0)
+                continue
+            if np.isclose(event.dwell_seconds, gradient_raster, rtol=0.0, atol=1e-15):
+                time_id = 0
+            elif np.isclose(event.dwell_seconds, 0.5 * gradient_raster, rtol=0.0, atol=1e-15):
+                time_id = -1
+            else:
+                raise PulseqFormatError(
+                    f"G{axis} dwell must equal GradientRasterTime or half of it"
+                )
+            gradient_id += 1
+            block_gradients.append(gradient_id)
+            amplitude = float(np.max(np.abs(event.samples_hz_per_m)))
+            normalized = np.zeros(event.samples_hz_per_m.size) if amplitude == 0.0 else event.samples_hz_per_m / amplitude
+            gradient_lines.append(
+                " ".join(
+                    [
+                        str(gradient_id),
+                        _number(amplitude),
+                        _number(event.first_hz_per_m),
+                        _number(event.last_hz_per_m),
+                        str(add_shape(normalized)),
+                        str(time_id),
+                        str(_integer_units(event.delay_seconds, 1e-6, f"G{axis} delay")),
+                    ]
+                )
+            )
+
+        block_adc = 0
+        if block.adc is not None:
+            event = block.adc
+            _integer_units(event.dwell_seconds, adc_raster, "ADC dwell")
+            adc_id += 1
+            block_adc = adc_id
+            phase_id = 0
+            if event.phase_offsets_rad is not None:
+                phase_id = add_shape(event.phase_offsets_rad / (2.0 * np.pi))
+            adc_lines.append(
+                " ".join(
+                    [
+                        str(adc_id),
+                        str(event.num_samples),
+                        _number(event.dwell_seconds * 1e9),
+                        str(_integer_units(event.delay_seconds, 1e-6, "ADC delay")),
+                        _number(event.frequency_offset_ppm),
+                        _number(event.phase_offset_rad_per_mhz),
+                        _number(event.frequency_offset_hz),
+                        _number(event.phase_offset_rad),
+                        str(phase_id),
+                    ]
+                )
+            )
+
+        blocks.append(
+            " ".join(
+                map(
+                    str,
+                    [
+                        block_index,
+                        duration,
+                        block_rf,
+                        *block_gradients,
+                        block_adc,
+                        0,
+                    ],
+                )
+            )
+        )
+
+    resolved["TotalDuration"] = sequence.duration_seconds
+    sections = [
+        "# Pulseq sequence file generated by PythonSpinDynamics",
+        "[VERSION]\nmajor 1\nminor 5\nrevision 0",
+        "[DEFINITIONS]\n" + "\n".join(
+            f"{key} {_definition(value)}" for key, value in sorted(resolved.items())
+        ),
+        "[BLOCKS]\n" + "\n".join(blocks),
+    ]
+    if rf_lines:
+        sections.append("[RF]\n" + "\n".join(rf_lines))
+    if gradient_lines:
+        sections.append("[GRADIENTS]\n" + "\n".join(gradient_lines))
+    if adc_lines:
+        sections.append("[ADC]\n" + "\n".join(adc_lines))
+    if shapes:
+        shape_blocks = []
+        for shape_id, values in enumerate(shapes, start=1):
+            shape_blocks.append(
+                f"shape_id {shape_id}\nnum_samples {values.size}\n"
+                + "\n".join(_number(value) for value in values)
+            )
+        sections.append("[SHAPES]\n" + "\n\n".join(shape_blocks))
+    text = "\n\n".join(sections) + "\n"
+    if create_signature:
+        digest = hashlib.md5(text.encode("utf-8")).hexdigest()
+        text += f"\n[SIGNATURE]\nType md5\nHash {digest}\n"
+    return text
 
 
 def parse_pulseq(text: str, *, source_name: str = "<string>") -> SequenceIR:
@@ -220,7 +439,7 @@ def _parse_rf(
                 mag_id,
                 phase_id,
                 time_id,
-                _center,
+                center,
                 delay,
                 freq_ppm,
                 phase_per_mhz,
@@ -244,6 +463,7 @@ def _parse_rf(
             phase_offset_rad=float(phase),
             phase_offset_rad_per_mhz=float(phase_per_mhz),
             use=_rf_use(str(use)),
+            center_seconds=float(center) * 1e-6 if version[1] == 5 else None,
         )
     return result
 
@@ -258,8 +478,9 @@ def _parse_gradients(
     for fields in _records(lines):
         if len(fields) == 5:
             event_id, amp, shape_id, time_id, delay = fields
+            first = last = 0.0
         elif len(fields) == 7:
-            event_id, amp, _first, _last, shape_id, time_id, delay = fields
+            event_id, amp, first, last, shape_id, time_id, delay = fields
         else:
             raise PulseqFormatError("Pulseq gradient records require 5 or 7 fields")
         time_id_int = int(time_id)
@@ -272,6 +493,8 @@ def _parse_gradients(
             samples_hz_per_m=float(amp) * _shape(shapes, int(shape_id)),
             dwell_seconds=dwell,
             delay_seconds=float(delay) * 1e-6,
+            first_hz_per_m=float(first),
+            last_hz_per_m=float(last),
         )
     return result
 
@@ -432,4 +655,80 @@ def _rf_use(value: str) -> str:
     }.get(value.lower(), value)
 
 
-__all__ = ["PulseqFormatError", "parse_pulseq", "read_pulseq"]
+def _rf_use_code(value: str) -> str:
+    return {
+        "excitation": "e",
+        "refocusing": "r",
+        "inversion": "i",
+        "saturation": "s",
+        "preparation": "p",
+        "other": "o",
+        "undefined": "u",
+    }.get(value.lower(), value[:1].lower() or "u")
+
+
+def _validate_gradient_boundaries(sequence: SequenceIR) -> None:
+    previous = np.zeros(3)
+    for block_index, block in enumerate(sequence.blocks, start=1):
+        following = np.zeros(3)
+        for axis, event in enumerate(block.gradients):
+            first = 0.0 if event is None else event.first_hz_per_m
+            if not np.isclose(previous[axis], first, rtol=0.0, atol=1e-12):
+                name = "xyz"[axis]
+                raise PulseqFormatError(
+                    f"block {block_index}: G{name} boundary does not connect to "
+                    "the preceding block"
+                )
+            if event is None:
+                continue
+            if first != 0.0 and event.delay_seconds != 0.0:
+                raise PulseqFormatError(
+                    f"block {block_index}: a nonzero gradient start requires zero delay"
+                )
+            ends_at_block = np.isclose(
+                event.end_seconds, block.duration_seconds, rtol=0.0, atol=1e-12
+            )
+            if event.last_hz_per_m != 0.0 and not ends_at_block:
+                raise PulseqFormatError(
+                    f"block {block_index}: a nonzero gradient end must align to block end"
+                )
+            following[axis] = event.last_hz_per_m if ends_at_block else 0.0
+        previous = following
+    if np.any(np.abs(previous) > 1e-12):
+        raise PulseqFormatError("the sequence must end with zero gradient boundary amplitudes")
+
+
+def _integer_units(value: float, quantum: float, name: str) -> int:
+    units = int(round(float(value) / float(quantum)))
+    tolerance = max(1e-15, abs(value) * 1e-12)
+    if units < 0 or not np.isclose(
+        units * quantum, value, rtol=0.0, atol=tolerance
+    ):
+        raise PulseqFormatError(f"{name} must align to {_number(quantum)} s")
+    return units
+
+
+def _require_close(value: float, expected: float, name: str) -> None:
+    if not np.isclose(value, expected, rtol=0.0, atol=1e-15):
+        raise PulseqFormatError(f"{name} must equal {_number(expected)} s")
+
+
+def _number(value: Any) -> str:
+    return format(float(value), ".17g")
+
+
+def _definition(value: Any) -> str:
+    if isinstance(value, str):
+        return value
+    if np.isscalar(value):
+        return _number(value)
+    return " ".join(_number(item) for item in value)
+
+
+__all__ = [
+    "PulseqFormatError",
+    "parse_pulseq",
+    "read_pulseq",
+    "serialize_pulseq",
+    "write_pulseq",
+]

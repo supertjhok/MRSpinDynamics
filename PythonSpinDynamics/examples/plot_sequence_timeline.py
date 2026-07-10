@@ -18,6 +18,7 @@ from spin_dynamics.sequences import (
     SequenceBlock,
     SequenceIR,
     read_pulseq,
+    write_pulseq,
 )
 
 
@@ -45,6 +46,12 @@ def _parse_args() -> argparse.Namespace:
         "--hide-blocks",
         action="store_true",
         help="Hide block boundaries and labels.",
+    )
+    parser.add_argument(
+        "--export-pulseq",
+        type=Path,
+        default=None,
+        help="Optional Pulseq 1.5.0 output path for the loaded or demo sequence.",
     )
     parser.add_argument(
         "--output",
@@ -102,7 +109,12 @@ def make_demo_spin_echo() -> SequenceIR:
                 label="readout",
             ),
         ),
-        definitions={"Name": "demo_spin_echo"},
+        definitions={
+            "Name": "demo_spin_echo",
+            "BlockDurationRaster": 20e-6,
+            "GradientRasterTime": 20e-6,
+            "RadiofrequencyRasterTime": 20e-6,
+        },
     )
 
 
@@ -110,6 +122,10 @@ def main() -> None:
     args = _parse_args()
     load_matplotlib()
     sequence = read_pulseq(args.sequence) if args.sequence else make_demo_spin_echo()
+    if args.export_pulseq is not None:
+        args.export_pulseq.parent.mkdir(parents=True, exist_ok=True)
+        write_pulseq(sequence, args.export_pulseq)
+        print(f"saved: {args.export_pulseq}")
     figure, _axes = sequence.plot(
         system_frequency_hz=args.system_frequency_hz,
         time_unit=args.time_unit,

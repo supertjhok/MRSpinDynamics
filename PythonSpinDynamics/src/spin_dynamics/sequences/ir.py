@@ -41,6 +41,7 @@ class RFPulse:
     phase_offset_rad: float = 0.0
     phase_offset_rad_per_mhz: float = 0.0
     use: str = "undefined"
+    center_seconds: float | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -57,6 +58,12 @@ class RFPulse:
             raise ValueError("phase_offset_rad must be finite")
         if not np.isfinite(self.phase_offset_rad_per_mhz):
             raise ValueError("phase_offset_rad_per_mhz must be finite")
+        if self.center_seconds is not None and (
+            not np.isfinite(self.center_seconds)
+            or self.center_seconds < 0.0
+            or self.center_seconds > self.duration_seconds
+        ):
+            raise ValueError("center_seconds must lie within the RF waveform")
 
     @property
     def duration_seconds(self) -> float:
@@ -74,6 +81,8 @@ class GradientWaveform:
     samples_hz_per_m: np.ndarray
     dwell_seconds: float
     delay_seconds: float = 0.0
+    first_hz_per_m: float = 0.0
+    last_hz_per_m: float = 0.0
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -82,6 +91,8 @@ class GradientWaveform:
             _finite_1d(self.samples_hz_per_m, "samples_hz_per_m"),
         )
         _validate_timing(self.dwell_seconds, self.delay_seconds)
+        if not np.isfinite(self.first_hz_per_m) or not np.isfinite(self.last_hz_per_m):
+            raise ValueError("gradient boundary amplitudes must be finite")
 
     @property
     def duration_seconds(self) -> float:
