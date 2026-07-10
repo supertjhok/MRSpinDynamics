@@ -136,7 +136,8 @@ def washout_fraction(flow: FlowModel, time: np.ndarray) -> np.ndarray:
         return np.clip(1.0 - t / tau, 0.0, 1.0)
     # laminar: 1 - t/tau up to tau/2, then the tau/(4t) tail
     safe_t = np.maximum(t, np.finfo(float).tiny)
-    w = np.where(t <= tau / 2.0, 1.0 - t / tau, tau / (4.0 * safe_t))
+    with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
+        w = np.where(t <= tau / 2.0, 1.0 - t / tau, tau / (4.0 * safe_t))
     return np.clip(w, 0.0, 1.0)
 
 

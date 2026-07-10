@@ -66,6 +66,15 @@ class TestWashout:
         assert washout_fraction(f, np.array([tau]))[0] == pytest.approx(0.25)
         assert washout_fraction(f, np.array([2.0 * tau]))[0] == pytest.approx(0.125)
 
+    def test_laminar_zero_time_avoids_unused_tail_overflow(self) -> None:
+        # np.where evaluates both branches. At t=0 with an enormous residence
+        # time, the unused tau/(4t) tail overflows even though the physical
+        # piecewise result is exactly one.
+        f = _flow("laminar", q=1e-310)
+        with np.errstate(divide="raise", invalid="raise", over="raise"):
+            value = washout_fraction(f, np.array([0.0]))
+        np.testing.assert_allclose(value, [1.0])
+
     def test_both_regimes_share_initial_slope(self) -> None:
         tau = _flow("plug").mean_residence_time
         dt = 1e-4 * tau
