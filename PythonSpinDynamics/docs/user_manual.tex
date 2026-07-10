@@ -3477,10 +3477,20 @@ continuum-FEM reference (FEMM~4.2) to 0.1\% on a tightly-wound test coil where t
 \code{chain} formulation under-predicts the loss, FastHenry's converged graded mesh reads
 \(\sim\)20\% low, and Medhurst's empirical table reads \(\sim\)25\% high (his measured
 \(Q\) included real-coil losses beyond eddy-current proximity; keep
-\code{medhurst\_proximity\_factor} as a conservative cross-reference). Even the computed
-\(R\) is a theoretical upper bound on \(Q\) --- a measured coil is typically
-\(\sim\)1.3--2\(\times\) lossier (dielectric former, solder/lead resistance, radiation).
-\emph{Eddy loss in a nearby conductor:} use the \emph{surface-resistance} model
+\code{medhurst\_proximity\_factor} as a conservative cross-reference). \emph{Radiation:}
+\code{radiation\_resistance} adds the first-order magnetic-dipole term
+\(R_{\text{rad}}=\eta_0 k^4|\mathbf A_{\text{net}}|^2/6\pi\) from the net vector area of
+the wire path (reduces to the small-loop \(20\pi^2(C/\lambda)^4\), scales as \(N^2\),
+vanishes for a Maxwell pair); \code{coil\_properties\_peec} includes it in \(Q\) and the
+probe parameters by default --- negligible at NMR/NQR frequencies, the \(Q\) ceiling for
+large loops at VHF. A \code{GroundedBox} shield \emph{suppresses} it: for radiation the box
+is a cavity, and below its lowest resonance (\code{fundamental\_resonance}, the \(TE_{101}\)
+mode) a closed conductor radiates nothing externally, so \code{shield=} returns \(0\) below
+cutoff (the would-be radiated power appears in the separately-modelled wall eddy loss),
+consistent with the box's electrostatic role. Even the computed \(R\) is a theoretical upper
+bound on \(Q\) --- a measured coil is typically \(\sim\)1.3--2\(\times\) lossier (dielectric
+former, solder/lead resistance, common-mode lead radiation). \emph{Eddy loss in a nearby
+conductor:} use the \emph{surface-resistance} model
 (\(R\propto\sqrt f\)) when the skin depth is much thinner than the conductor (a solid metal
 shield at RF), and the \emph{first-order volume} model
 (\code{fields.quasistatic.reflected\_resistance}, \(R\propto f^2\)) only when the conductor

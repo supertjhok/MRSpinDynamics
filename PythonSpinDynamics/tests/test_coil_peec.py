@@ -340,6 +340,111 @@ class FullFormulationTests(unittest.TestCase):
             extract_impedance(c, [1e6], formulation="full")
 
 
+class RadiationResistanceTests(unittest.TestCase):
+    """First-order (magnetic-dipole) radiation resistance."""
+
+    @staticmethod
+    def _loop(radius: float, n: int = 128, turns: int = 1, pitch: float = 0.0) -> Conductor:
+        th = np.linspace(0.0, 2.0 * np.pi * turns, turns * n + 1)
+        z = np.linspace(0.0, pitch * turns, th.size)
+        pts = np.column_stack([radius * np.cos(th), radius * np.sin(th), z])
+        return Conductor(pts, wire_radius=1e-3, material=COPPER)
+
+    def test_matches_small_loop_formula(self) -> None:
+        # Single circular loop: R_rad = 20 pi^2 (C/lambda)^4 (electrically small).
+        from spin_dynamics.fields.coil_peec import radiation_resistance
+
+        a, f = 0.1, 30e6
+        lam = 299792458.0 / f
+        exact = 20.0 * np.pi**2 * (2.0 * np.pi * a / lam) ** 4
+        r = radiation_resistance(self._loop(a), f)
+        self.assertLess(abs(r - exact) / exact, 0.01)  # polygon-area discretization only
+
+    def test_n_squared_scaling(self) -> None:
+        from spin_dynamics.fields.coil_peec import radiation_resistance
+
+        f = 10e6
+        r1 = radiation_resistance(self._loop(0.05, turns=1, pitch=1e-3), f)
+        r6 = radiation_resistance(self._loop(0.05, turns=6, pitch=1e-3), f)
+        self.assertLess(abs(r6 / r1 - 36.0) / 36.0, 0.05)
+
+    def test_opposed_loops_do_not_dipole_radiate(self) -> None:
+        # A Maxwell pair has zero net vector area -> no magnetic-dipole radiation.
+        from spin_dynamics.fields.coil_peec import radiation_resistance
+
+        a, sep, n, f = 0.05, 0.05, 96, 10e6
+        th = np.linspace(0.0, 2.0 * np.pi, n + 1)
+        top = np.column_stack([a * np.cos(th), a * np.sin(th), np.full(th.size, sep / 2)])
+        bot = np.column_stack([a * np.cos(th[::-1]), a * np.sin(th[::-1]),
+                               np.full(th.size, -sep / 2)])
+        pair = Conductor(np.vstack([top, bot[1:]]), wire_radius=1e-3, material=COPPER)
+        r_pair = radiation_resistance(pair, f)
+        r_single = radiation_resistance(self._loop(a, n=n), f)
+        self.assertLess(r_pair, 1e-3 * r_single)
+
+    def test_warns_when_not_electrically_small(self) -> None:
+        from spin_dynamics.fields.coil_peec import radiation_resistance
+
+        with self.assertWarns(UserWarning):
+            radiation_resistance(self._loop(0.5), 100e6)  # 1 m loop at 100 MHz
+
+    def test_shield_suppresses_radiation_below_cutoff(self) -> None:
+        # A grounded box is a cavity: below its lowest resonance the closed conductor lets
+        # no field radiate, so R_rad -> 0. The same 5 cm loop that radiates 24 mOhm at
+        # 100 MHz in free space radiates nothing inside a 20 cm box (cutoff ~1 GHz).
+        from spin_dynamics.fields.coil_peec import GroundedBox, radiation_resistance
+
+        c = self._loop(0.05, n=64)
+        box = GroundedBox((0, 0, 0), (0.1, 0.1, 0.1))
+        self.assertGreater(radiation_resistance(c, 100e6), 1e-3)          # free space: real
+        self.assertEqual(radiation_resistance(c, 100e6, shield=box), 0.0)  # shielded: ~0
+
+    def test_shield_fundamental_resonance_matches_cavity_formula(self) -> None:
+        from spin_dynamics.fields.coil_peec import GroundedBox
+
+        # interior 70 x 70 x 100 mm -> TE101 = (c/2) sqrt(1/0.07^2 + 1/0.1^2) ~ 2.62 GHz
+        box = GroundedBox((0, 0, 0), (0.035, 0.035, 0.05))
+        expected = 0.5 * 299792458.0 * np.sqrt(1 / 0.07**2 + 1 / 0.1**2)
+        self.assertLess(abs(box.fundamental_resonance() - expected) / expected, 1e-9)
+
+    def test_shield_warns_near_cavity_resonance(self) -> None:
+        from spin_dynamics.fields.coil_peec import GroundedBox, radiation_resistance
+
+        box = GroundedBox((0, 0, 0), (0.1, 0.1, 0.1))
+        f_cav = box.fundamental_resonance()
+        with self.assertWarns(UserWarning):
+            radiation_resistance(self._loop(0.05, n=64), 0.9 * f_cav, shield=box)
+
+    def test_bundle_shield_suppresses_radiation_and_shifts_srf(self) -> None:
+        # coil_properties_peec threads the shield to both the capacitance (raises C, lowers
+        # SRF) and the radiation (suppressed -> higher Q than the unshielded free-space case).
+        from spin_dynamics.fields.coil_peec import GroundedBox
+
+        c = self._loop(0.05, n=24)
+        box = GroundedBox((0, 0, 0), (0.1, 0.1, 0.1))
+        free = coil_properties_peec(c, 50e6, formulation="chain")
+        shielded = coil_properties_peec(c, 50e6, formulation="chain", shield=box)
+        self.assertGreater(free.radiation_resistance, 0.0)
+        self.assertEqual(shielded.radiation_resistance, 0.0)
+        self.assertGreater(shielded.q_factor, free.q_factor)          # radiation removed
+        self.assertGreater(shielded.self_capacitance, free.self_capacitance)  # box raises C
+
+    def test_bundle_includes_radiation_in_q(self) -> None:
+        # At VHF for a large-ish loop, radiation dominates the ohmic loss and must lower Q;
+        # ac_resistance stays ohmic while to_probe_params carries the total.
+        c = self._loop(0.05, n=24)
+        f = 50e6
+        with_rad = coil_properties_peec(c, f, formulation="chain")
+        without = coil_properties_peec(c, f, formulation="chain", include_radiation=False)
+        self.assertGreater(with_rad.radiation_resistance, 0.0)
+        self.assertLess(with_rad.q_factor, without.q_factor)
+        self.assertAlmostEqual(with_rad.ac_resistance, without.ac_resistance)
+        self.assertAlmostEqual(
+            with_rad.to_probe_params()["R"],
+            with_rad.ac_resistance + with_rad.radiation_resistance,
+        )
+
+
 class BundleTests(unittest.TestCase):
     def test_coil_properties_peec_fields_and_helpers(self) -> None:
         c = helical_solenoid(diameter=20e-3, length=30e-3, turns=6, wire_radius=0.5e-3,

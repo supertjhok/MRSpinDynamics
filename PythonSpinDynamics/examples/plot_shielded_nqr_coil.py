@@ -50,6 +50,7 @@ from spin_dynamics.fields.coil_peec import (
     Conductor,
     GroundedBox,
     extract_impedance_surface,
+    radiation_resistance,
     self_capacitance,
 )
 from spin_dynamics.fields.coil_properties import ANNEALED_COPPER, medhurst_proximity_factor
@@ -159,6 +160,14 @@ def main() -> None:
           f"-> full solve {np.interp(2.5e6, freqs, r_coil) * 1e3:.0f} mOhm "
           f"(proximity factor {phi_peec:.2f}; Medhurst table {phi_medhurst:.2f} for reference)  "
           f"+ box eddy {np.interp(2.5e6, freqs, r_box) * 1e3:.1f} mOhm")
+    r_rad_free = radiation_resistance(coil, 2.5e6)
+    r_rad_box = radiation_resistance(coil, 2.5e6, shield=box)
+    print(f"  radiation (magnetic-dipole, first-order): free-space {r_rad_free * 1e9:.1f} nOhm; "
+          f"inside the box {r_rad_box * 1e9:.1f} nOhm")
+    print(f"    (the box is a cavity resonant at {box.fundamental_resonance() / 1e9:.1f} GHz; "
+          "at 2.5 MHz -- far below cutoff -- it suppresses far-field radiation to ~0,")
+    print("     converting it to wall eddy loss counted above. Negligible either way here: "
+          "R_rad ~ f^4.)")
     print(f"  Q (2.5 MHz): skin-only {np.interp(2.5e6, freqs, q_skin):.0f}  ->  "
           f"+proximity {np.interp(2.5e6, freqs, q_free):.0f}  ->  +shield {np.interp(2.5e6, freqs, q_box):.0f}")
     print("  NOTE: this is the theoretical (idealized-copper) Q; a measured coil is typically")

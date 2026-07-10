@@ -67,6 +67,8 @@ from spin_dynamics.fields.magnetostatics import MU0
 
 EPS0 = 8.8541878128e-12  # vacuum permittivity (F/m)
 MUOVER4PI = 1.0e-7  # mu0 / 4pi
+C0 = 299792458.0  # speed of light (m/s)
+ETA0 = 376.730313668  # impedance of free space (ohm)
 _FIL_EPS = 1e-13  # geometric tolerance for the filament-mutual branch selection
 
 Segment = tuple[np.ndarray, np.ndarray]
@@ -84,6 +86,7 @@ __all__ = [
     "capacitance_to_ground",
     "GroundedBox",
     "self_resonant_frequency",
+    "radiation_resistance",
     "coil_properties_peec",
     "PEECImpedance",
     "PEECCoilProperties",
@@ -887,6 +890,24 @@ class GroundedBox:
                     terms.append((np.column_stack([xa, ya, za]), sign))
         return terms
 
+    def fundamental_resonance(self) -> float:
+        """Lowest resonant frequency (Hz) of the box treated as a closed PEC cavity.
+
+        The rectangular-cavity mode spectrum is ``f = (c/2) sqrt((l/Lx)^2 + (m/Ly)^2 +
+        (n/Lz)^2)`` over interior side lengths ``L = 2 * half_extents``; the lowest mode with
+        two non-zero indices (the smallest that actually resonates -- a mode needs at least
+        two indices) sets the cutoff. Below it a closed conducting box supports no propagating
+        field, so external radiation is evanescent (suppressed); it is the frequency above
+        which the closed-cavity radiation approximation in :func:`radiation_resistance` breaks
+        down. Used only for that guard, not the electrostatic capacitance.
+        """
+
+        sides = 2.0 * np.asarray(self.half_extents, dtype=np.float64)
+        inv2 = 1.0 / sides**2
+        # smallest sum of two distinct 1/L^2 terms -> drop the largest side's contribution
+        two = float(np.sum(inv2) - np.max(inv2))
+        return float(0.5 * C0 * np.sqrt(two))
+
 
 def _potential_coefficient_matrix(
     conductor: Conductor, shield: GroundedBox | None = None, relative_permittivity: float = 1.0
@@ -1011,6 +1032,74 @@ def self_resonant_frequency(conductor: Conductor) -> float:
     return float(1.0 / (2.0 * np.pi * np.sqrt(l_dc * c)))
 
 
+def radiation_resistance(
+    conductor: Conductor, frequency: float, *, shield: GroundedBox | None = None
+) -> float:
+    """First-order (magnetic-dipole) radiation resistance (ohm) of the coil.
+
+    An electrically small current loop radiates predominantly as a magnetic dipole with
+    moment ``m = I * A_net``, giving ``R_rad = eta0 k^4 |A_net|^2 / (6 pi)`` with
+    ``k = 2 pi f / c`` and ``A_net`` the **net vector area** of the wire path,
+    ``A_net = (1/2) sum_i r_i x r_(i+1)`` around the polyline closed end-to-end (the closure
+    stands in for the feed/tuning connection; the vector area of a closed polygon is
+    translation-invariant). For a single circular loop this reduces to the textbook
+    ``20 pi^2 (C/lambda)^4`` and for an N-turn solenoid it scales as ``N^2``; opposed-loop
+    geometries (Maxwell pairs, gradient coils) have ``A_net ~ 0`` and radiate only through
+    the neglected higher multipoles.
+
+    **Shielding.** A grounded enclosure is a cavity for radiation, not the image-charge
+    lattice used for capacitance: below its lowest resonant mode
+    (:meth:`GroundedBox.fundamental_resonance`) a closed conductor supports no propagating
+    external field, so the far-field radiation is suppressed to ~zero -- the near-field
+    energy that would have radiated is instead stored reactively and dissipated in the walls
+    (the wall eddy loss, modelled separately). Passing ``shield=GroundedBox(...)`` therefore
+    returns 0 below the box's cavity cutoff (consistent with feeding the same box to
+    :func:`self_capacitance`), and a ``UserWarning`` fires as the frequency approaches that
+    cutoff, where the closed-cavity approximation no longer holds.
+
+    First-order means: magnetic-dipole term only, valid for coils small compared with the
+    wavelength (a ``UserWarning`` is emitted when the coil extent exceeds ~lambda/12, where
+    higher multipoles and the electric-dipole/antenna term start to matter). Common-mode
+    ("antenna-effect") radiation via the feed leads is a property of the installation, not
+    the coil, and is not modelled.
+    """
+
+    pts = conductor.path_points
+    f = float(frequency)
+    if f <= 0.0:
+        return 0.0
+    if shield is not None:
+        import warnings
+
+        f_cav = shield.fundamental_resonance()
+        if f >= 0.5 * f_cav:
+            warnings.warn(
+                f"frequency {f:.3g} Hz approaches the shield's cavity resonance "
+                f"({f_cav:.3g} Hz): the closed-cavity radiation-suppression model no longer "
+                "holds (cavity modes and aperture leakage are not modelled)",
+                UserWarning,
+                stacklevel=2,
+            )
+        if f < f_cav:
+            # closed grounded box below cutoff: external radiation is evanescent (~0); the
+            # would-be radiated power appears in the wall eddy loss, modelled separately.
+            return 0.0
+    a_vec = 0.5 * (np.cross(pts[:-1], pts[1:]).sum(axis=0) + np.cross(pts[-1], pts[0]))
+    k = 2.0 * np.pi * f / C0
+    extent = float(np.linalg.norm(pts.max(axis=0) - pts.min(axis=0)))
+    if k * extent > 0.5:
+        import warnings
+
+        warnings.warn(
+            f"coil extent {extent:.3g} m is not small vs the wavelength "
+            f"({2 * np.pi / k:.3g} m): the magnetic-dipole radiation model is first-order "
+            "and under-predicts radiation here",
+            UserWarning,
+            stacklevel=2,
+        )
+    return float(ETA0 * k**4 * float(a_vec @ a_vec) / (6.0 * np.pi))
+
+
 @dataclass(frozen=True)
 class PEECCoilProperties:
     """Lumped RF properties of an arbitrary coil from the PEEC solve.
@@ -1022,12 +1111,19 @@ class PEECCoilProperties:
 
     frequency: float
     inductance: float          # L(w) at frequency (H)
-    ac_resistance: float       # R(w) at frequency (ohm)
-    q_factor: float            # w L / R
+    ac_resistance: float       # ohmic R(w) at frequency: skin + proximity (ohm)
+    q_factor: float            # w L / (R_ohmic + R_rad)
     self_capacitance: float    # electrostatic self-capacitance (F)
     self_resonant_frequency: float  # 1/(2 pi sqrt(L_dc C)) (Hz)
     dc_inductance: float       # L(0) (H)
     dc_resistance: float       # R(0) (ohm)
+    radiation_resistance: float = 0.0  # first-order magnetic-dipole R_rad (ohm)
+
+    @property
+    def total_resistance(self) -> float:
+        """Total series loss resistance: ohmic (skin + proximity) + radiation (ohm)."""
+
+        return self.ac_resistance + self.radiation_resistance
 
     def tuning_capacitance(self, frequency: float | None = None) -> float:
         """Capacitance that resonates the coil at ``frequency`` (default: solve frequency)."""
@@ -1036,13 +1132,15 @@ class PEECCoilProperties:
         return float(1.0 / ((2.0 * np.pi * f) ** 2 * self.inductance))
 
     def to_probe_params(self) -> dict[str, float]:
-        """Return ``{"L", "R", "C"}`` for the probe noise model."""
+        """Return ``{"L", "R", "C"}`` for the probe noise model (``R`` = total series loss)."""
 
-        return {"L": self.inductance, "R": self.ac_resistance, "C": self.tuning_capacitance()}
+        return {"L": self.inductance, "R": self.total_resistance, "C": self.tuning_capacitance()}
 
 
 def coil_properties_peec(
-    conductor: Conductor, frequency: float, *, formulation: str = "full"
+    conductor: Conductor, frequency: float, *, formulation: str = "full",
+    include_radiation: bool = True, shield: GroundedBox | None = None,
+    relative_permittivity: float = 1.0,
 ) -> PEECCoilProperties:
     """Extract lumped RF properties of an arbitrary coil at ``frequency`` via PEEC.
 
@@ -1054,15 +1152,30 @@ def coil_properties_peec(
     is right; pass ``formulation="chain"`` for the fast reduced solve when only L / C /
     self-resonance matter. See the module docstring for the resistance resolution ceiling at
     high ``a/delta``.
+
+    ``include_radiation`` (default True) adds the first-order magnetic-dipole
+    :func:`radiation_resistance` to the loss: ``q_factor`` and ``to_probe_params()`` use the
+    total ``R_ohmic + R_rad`` while ``ac_resistance`` stays purely ohmic. With its ``k^4``
+    scaling this is negligible at NMR/NQR frequencies for ordinary coil sizes and becomes
+    the Q ceiling at VHF or for large loops.
+
+    ``shield`` (a :class:`GroundedBox`) and ``relative_permittivity`` (a dielectric former)
+    enter the self-capacitance and self-resonance as in :func:`self_capacitance`; the shield
+    additionally **suppresses the radiation** below its cavity cutoff (see
+    :func:`radiation_resistance`), consistently with its electrostatic role. The shield's own
+    wall eddy loss is a separate integral (see ``examples/plot_shielded_nqr_coil.py``) and is
+    not added here.
     """
 
     f = float(frequency)
     imp = extract_impedance(conductor, [f], formulation=formulation)
-    c = self_capacitance(conductor)
+    c = self_capacitance(conductor, shield=shield, relative_permittivity=relative_permittivity)
     f_res = float(1.0 / (2.0 * np.pi * np.sqrt(imp.dc_inductance * c)))
     ind = float(imp.inductance[0])
     res = float(imp.resistance[0])
-    q = float(2.0 * np.pi * f * ind / res) if res > 0 else float("inf")
+    r_rad = radiation_resistance(conductor, f, shield=shield) if include_radiation else 0.0
+    r_total = res + r_rad
+    q = float(2.0 * np.pi * f * ind / r_total) if r_total > 0 else float("inf")
     return PEECCoilProperties(
         frequency=f,
         inductance=ind,
@@ -1072,4 +1185,5 @@ def coil_properties_peec(
         self_resonant_frequency=f_res,
         dc_inductance=float(imp.dc_inductance),
         dc_resistance=float(imp.dc_resistance),
+        radiation_resistance=float(r_rad),
     )
