@@ -210,6 +210,24 @@ and `capacitance_to_ground` accept:
 - `relative_permittivity` — a dielectric former as an effective medium (e.g. a PTFE former
   with partial fill, `1 + (eps_r - 1) * fill`), which scales the capacitance.
 
+**A metal shield is also a good conductor magnetically, so it lowers L too.** The same
+`GroundedBox` or `GroundPlane` passed to `extract_impedance(..., ground_plane=...)` or
+`extract_impedance_surface(..., shield=...)` adds the walls' flux-exclusion image
+(`magnetic_image_filaments`: reflect each sub-filament and reverse its current). For a box the
+six primary wall reflections are summed (the leading lattice term; higher-order edge/corner
+images add ~1% and are omitted for speed). So a metal enclosure has **two** competing effects
+on the self-resonance: it raises C (electric image, lowers SRF) *and* lowers L (magnetic
+image, raises SRF), which partly offset — the shielded-NQR example prints both (box: C
+1.5 → 3.9 pF, L 4.8 → 4.2 µH, net SRF 59 → 39 MHz). Model only the capacitance and the SRF
+comes out too low. The image is lossless (a PEC mirror); the shield's *resistive* wall loss is
+the separate surface-resistance integral below.
+
+**Wall eddy-loss factor.** For a good conductor the tangential field at the wall is *doubled*
+by the image (surface current `K = 2·H_tan,inc`), so the series loss is
+`R_wall = 4·R_s·∮|H_tan,inc/I|² dA` with `R_s = √(πfμ₀/σ)` (from `P = ½R_s|K|²` equated to
+`½I²R`). Both shielded examples use this `4·R_s` form (the box-eddy and the PCB ground-eddy
+integrals); dropping the image doubling underestimates the loss by 2×.
+
 ## Single-ended vs differential Q over a ground plane
 
 `self_capacitance` takes a `potential` profile — either an `(N,)` array or a callable of the

@@ -135,10 +135,11 @@ def densify(corners, z, *, seg_per_side=None, target_len=None):
 def ground_eddy_resistance(coil_segments, freq, half_span, z_plane=0.0, n=40):
     """Mode-independent eddy loss induced in the ground plane (ohm, series).
 
-    Surface-resistance model: ``R = 2 R_s * integral |H_tan/I|^2 dA`` over the plane, with the
-    tangential field the total (incident + image = 2x incident for a good conductor) and
-    ``R_s = sqrt(pi f mu0 / sigma)``. Set by the coil current, so identical single-ended vs
-    differential -- the common loss floor.
+    Surface-resistance model for a good conductor: the wall surface current is
+    ``K = |H_tan| = 2 |H_tan,inc|`` (the image doubles the tangential field), the loss per
+    area is ``(1/2) R_s |K|^2``, and equating to ``(1/2) I^2 R`` gives the series resistance
+    ``R = 4 R_s * integral(|H_tan,inc/I|^2 dA)`` with ``R_s = sqrt(pi f mu0 / sigma)``. Set by
+    the coil current, so identical single-ended vs differential -- the common loss floor.
     """
 
     gu = np.linspace(-half_span, half_span, n)
@@ -146,10 +147,9 @@ def ground_eddy_resistance(coil_segments, freq, half_span, z_plane=0.0, n=40):
     uu, vv = np.meshgrid(gu, gu, indexing="ij")
     pts = np.column_stack([uu.ravel(), vv.ravel(), np.full(uu.size, z_plane)])
     h = biot_savart(pts, coil_segments, 1.0) / MU0  # incident H per unit current (A/m)
-    h_tan2 = h[:, 0] ** 2 + h[:, 1] ** 2  # tangential (in-plane) components
-    integral = float(np.sum((2.0 * np.sqrt(h_tan2)) ** 2) * du * du)  # image doubles H_tan
+    field_int = float(np.sum(h[:, 0] ** 2 + h[:, 1] ** 2) * du * du)  # integral of |H_tan,inc/I|^2
     r_s = np.sqrt(np.pi * freq * MU0 / SIGMA_CU)
-    return 2.0 * r_s * integral
+    return 4.0 * r_s * field_int  # good-conductor image factor (see docstring)
 
 
 def coil_to_ground_capacitance(coil, gp, eps_eff, potential):

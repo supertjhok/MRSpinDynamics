@@ -557,6 +557,29 @@ class GroundPlaneAndDriveModeTests(unittest.TestCase):
         l_far = extract_impedance(loop, [1e5], ground_plane=GroundPlane((0, 0, 0), (0, 0, 1))).inductance[0]
         self.assertLess(abs(l_far - l_free) / l_free, 1e-3)
 
+    def test_grounded_box_magnetic_image_lowers_L(self) -> None:
+        # A grounded metal box excludes flux and lowers L, the magnetic dual of the box's
+        # electrostatic image (which raises C). Recovers free space as the box recedes.
+        from spin_dynamics.fields.coil_peec import GroundedBox, extract_impedance_surface
+
+        coil = helical_solenoid(diameter=38e-3, length=60e-3, turns=12, wire_radius=0.8e-3,
+                                material=COPPER, n_per_turn=8)
+        l_free = extract_impedance_surface(coil, [2.5e6], n_perimeter=20).inductance[0]
+        near = GroundedBox((0, 0, 0), (0.035, 0.035, 0.05))
+        far = GroundedBox((0, 0, 0), (1.0, 1.0, 1.0))
+        l_near = extract_impedance_surface(coil, [2.5e6], n_perimeter=20, shield=near).inductance[0]
+        l_far = extract_impedance_surface(coil, [2.5e6], n_perimeter=20, shield=far).inductance[0]
+        self.assertLess(l_near, 0.97 * l_free)          # box lowers L (~10%)
+        self.assertLess(abs(l_far - l_free) / l_free, 0.01)  # distant box -> free space
+
+    def test_box_magnetic_image_has_six_wall_reflections(self) -> None:
+        from spin_dynamics.fields.coil_peec import GroundedBox, GroundPlane
+
+        s = [np.zeros((3, 3))]
+        e = [np.ones((3, 3))]
+        self.assertEqual(len(GroundedBox((0, 0, 0), (1, 1, 1)).magnetic_image_filaments(s, e)), 6)
+        self.assertEqual(len(GroundPlane((0, 0, 0), (0, 0, 1)).magnetic_image_filaments(s, e)), 1)
+
     def test_magnetic_image_full_equals_chain_reduction(self) -> None:
         # The ground image is purely magnetic (drive-mode agnostic): both formulations get the
         # same reduction, and it is applied identically regardless of any potential profile.

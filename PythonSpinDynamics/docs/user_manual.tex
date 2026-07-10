@@ -3458,15 +3458,22 @@ the two accelerations above keep \(K\) small in the regimes that used to force l
 \paragraph{Shielding and dielectric formers.} \code{self\_capacitance} accepts a grounded
 enclosure \code{shield=GroundedBox(...)} (entered through its 3-D image-charge lattice) and a
 dielectric former \code{relative\_permittivity}; both raise the coil capacitance and lower
-the self-resonant frequency. The example \code{plot\_shielded\_nqr\_coil.py} designs a
+the self-resonant frequency. A metal box is also a good conductor \emph{magnetically}: the
+same shield passed to \code{extract\_impedance(..., ground\_plane=...)} /
+\code{extract\_impedance\_surface(..., shield=...)} adds the walls' flux-exclusion image
+(\code{magnetic\_image\_filaments}, six primary wall reflections for a box), which
+\emph{lowers} \(L\) and so \emph{raises} the SRF --- partly offsetting the capacitive
+lowering. The example \code{plot\_shielded\_nqr\_coil.py} designs a
 \(^{14}\)N NQR probe (2--3\,MHz, coil ID \(\approx1.5''\)) on a Teflon former in a grounded
 aluminium box (one coil end and the box grounded) and plots the properties with and without
 the box: \(L(f)\) and \(R(f)\) from the surface-impedance backend with
 \code{formulation="full"} (skin + turn-to-turn proximity, no empirical factor), the
-self-capacitance and SRF for free/former/box (e.g.\ \(1.5\to2.2\to3.9\)\,pF, SRF
-\(60\to50\to37\)\,MHz, kept above the 10\,MHz target), and the Q reduction from box-wall
-eddy loss (a surface-resistance integral
-\(R_{\text{box}}=2R_s\!\oint|H_{\text{tan}}/I|^2\,\mathrm dA\), \(R_s\propto\sqrt f\)).
+self-capacitance/inductance and SRF for free/former/box (e.g.\ \(C:1.5\to2.2\to3.9\)\,pF,
+\(L:4.8\to4.2\)\,\(\mu\)H, net SRF \(59\to49\to39\)\,MHz, kept above the 10\,MHz target), and
+the Q reduction from box-wall eddy loss. The good-conductor image doubles the tangential
+field at the wall, so that loss is
+\(R_{\text{box}}=4R_s\!\oint|H_{\text{tan,inc}}/I|^2\,\mathrm dA\) (\(R_s\propto\sqrt f\));
+dropping the doubling underestimates it by \(2\times\).
 
 \paragraph{Single-ended vs differential Q over a ground plane.} A \code{GroundPlane(point,
 normal)} shield is the single grounded plane (a half-space) below a planar coil, entered as the
