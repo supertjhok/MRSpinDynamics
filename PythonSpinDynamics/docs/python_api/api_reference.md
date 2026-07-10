@@ -615,13 +615,14 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `extract_impedance_surface(conductor: Conductor, frequencies: Sequence[float], *, n_perimeter: int = 48, formulation: str = 'chain') -> PEECImpedance` | Surface-impedance (SIBC) solve for the deep-skin (high ``a/delta``) regime. |
 | function | `current_distribution(conductor: Conductor, frequency: float, *, formulation: str = 'chain', segment: int | None = None) -> tuple[np.ndarray, np.ndarray]` | Per-sub-filament current magnitude across the cross-section at ``frequency``. |
 | class | `GroundedBox` | A grounded rectangular shield enclosing the coil (walls at potential zero). |
-| function | `self_capacitance(conductor: Conductor, *, shield: GroundedBox | None = None, relative_permittivity: float = 1.0) -> float` | Lumped self-capacitance (F) of the coil from an electrostatic energy method. |
-| function | `capacitance_to_ground(conductor: Conductor, *, shield: GroundedBox | None = None, relative_permittivity: float = 1.0) -> float` | Isolated self-capacitance to ground (F): the charge held at unit potential,. |
+| class | `GroundPlane` | A single infinite grounded conducting plane at zero potential (a half-space wall). |
+| function | `self_capacitance(conductor: Conductor, *, shield: GroundedBox | GroundPlane | None = None, relative_permittivity: float = 1.0, potential = None) -> float` | Lumped self-capacitance (F) of the coil from an electrostatic energy method. |
+| function | `capacitance_to_ground(conductor: Conductor, *, shield: GroundedBox | GroundPlane | None = None, relative_permittivity: float = 1.0) -> float` | Isolated self-capacitance to ground (F): the charge held at unit potential,. |
 | function | `helical_solenoid(*, diameter: float, length: float, turns: int, wire_radius: float, material: ConductorMaterial = ANNEALED_COPPER, n_per_turn: int = 16, n_radial: int = 6, n_angular: int = 8, temperature: float | None = None, axis: str = 'z') -> Conductor` | Build a :class:`Conductor` for a helical single-layer solenoid. |
 | function | `self_resonant_frequency(conductor: Conductor) -> float` | First self-resonant frequency (Hz) ``1 / (2 pi sqrt(L C))``. |
-| function | `radiation_resistance(conductor: Conductor, frequency: float, *, shield: GroundedBox | None = None) -> float` | First-order (magnetic-dipole) radiation resistance (ohm) of the coil. |
+| function | `radiation_resistance(conductor: Conductor, frequency: float, *, shield: GroundedBox | GroundPlane | None = None) -> float` | First-order (magnetic-dipole) radiation resistance (ohm) of the coil. |
 | class | `PEECCoilProperties` | Lumped RF properties of an arbitrary coil from the PEEC solve. |
-| function | `coil_properties_peec(conductor: Conductor, frequency: float, *, formulation: str = 'full', include_radiation: bool = True, shield: GroundedBox | None = None, relative_permittivity: float = 1.0) -> PEECCoilProperties` | Extract lumped RF properties of an arbitrary coil at ``frequency`` via PEEC. |
+| function | `coil_properties_peec(conductor: Conductor, frequency: float, *, formulation: str = 'full', include_radiation: bool = True, shield: GroundedBox | GroundPlane | None = None, relative_permittivity: float = 1.0) -> PEECCoilProperties` | Extract lumped RF properties of an arbitrary coil at ``frequency`` via PEEC. |
 
 ## `spin_dynamics.fields.coil_properties`
 

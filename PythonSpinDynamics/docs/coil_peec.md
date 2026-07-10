@@ -203,8 +203,51 @@ and `capacitance_to_ground` accept:
   through its 3-D image-charge lattice (walls at zero potential, consistent with a grounded
   coil end). It raises the coil capacitance and lowers the SRF; a box receding to infinity
   recovers the free-space value, and `n_orders=1` is normally converged.
+- `shield=GroundPlane(point, normal)` — a single grounded plane (a half-space wall, not a
+  closed cavity): the PCB/chassis ground plane below a planar coil, entered as the single
+  method-of-images mirror charge. Matches the analytic wire-over-plane
+  `C/ℓ = 2π ε₀ / acosh(h/a)` to a few percent.
 - `relative_permittivity` — a dielectric former as an effective medium (e.g. a PTFE former
   with partial fill, `1 + (eps_r - 1) * fill`), which scales the capacitance.
+
+## Single-ended vs differential Q over a ground plane
+
+`self_capacitance` takes a `potential` profile — either an `(N,)` array or a callable of the
+arc-length fraction `s ∈ [0,1]` — defaulting to the **single-ended** linear ramp `0→1` (one
+terminal grounded). Passing `potential=lambda s: s-0.5` gives the **differential** (balanced)
+drive, antisymmetric about a virtual ground at the winding centre. Over a ground plane the two
+couple to it very differently: the coil-to-ground capacitance `C_g = C_eff(with plane) −
+C_eff(free space)` is several times smaller differentially, because the two winding halves'
+displacement currents to ground cancel in common mode. Since the magnetic behaviour (`L`, the
+copper skin/proximity `R`, and the ground-plane eddy loss) is set by the coil *current* and is
+identical in both modes, that capacitive difference is the whole single-ended/differential Q
+split. The lossy board (`tan δ`) turns `C_g` into an equivalent series resistance
+`R_diel = tan δ · ω³ L² · C_g` (first-order lumped model, below self-resonance).
+
+`examples/plot_pcb_coil_ground_mode_q.py` works a 4-turn PCB spiral on 0.8 mm FR4 over a copper
+ground plane: differential drive couples ~7× less to ground, so its dielectric loss is ~8× lower
+(157 vs 1192 mΩ at 60 MHz) and its Q peaks ~2× higher; as the ground plane approaches, the
+single-ended Q collapses while the differential Q barely moves. This is the standard reason
+NMR/MRI surface and PCB coils are built balanced. (First-order caveats stated in the example:
+effective uniform `(ε_r+1)/2`, magnetic ground-image effect on `L` not swept, single-ended
+ground-return conduction loss not added — all of which only widen the differential advantage.)
+
+**Why ~7× and not ~2×.** The single-ended ramp is a uniform common-mode offset plus the
+differential profile, `v = ½ + (s − ½)`, and the differential drive carries ~zero net charge, so
+the ground capacitance splits cleanly (verified by the example to ~1%):
+
+```
+C_g(single-ended) = ¼·C_g(uniform) + C_g(differential),   ratio = 1 + ¼·C_g(uniform)/C_g(differential)
+```
+
+Two effects push past the naive 2×. First, the common-mode offset carries *three quarters* of
+the ramp's mean-square voltage — `⟨v²⟩ = 1/3`, of which the offset is `1/4` and the zero-mean
+part only `1/12` — so going differential already cuts the energy 4×, not 2×. Second, `C_g(uniform)`
+(the whole spiral held at one potential — a capacitor *plate*, i.e. a net-charge monopole) couples
+far more strongly to the plane than the differential mode (a zero-net-charge multipole that closes
+locally and cancels in the image): here `C_g(uniform)/C_g(differential) ≈ 26`, so the ratio is
+`1 + ¼·26 ≈ 7.5`. The same monopole-vs-multipole asymmetry makes the ratio *grow* as the plane
+recedes (6× at 0.4 mm → 17× at 3.2 mm: the monopole coupling decays slowly, the multipole fast).
 
 The example `examples/plot_shielded_nqr_coil.py` designs a ¹⁴N NQR probe (2–3 MHz, coil
 ID ≈ 1.5″) on a Teflon former in a grounded aluminium box, one coil end and the box at

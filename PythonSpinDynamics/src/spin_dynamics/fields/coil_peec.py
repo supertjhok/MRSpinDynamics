@@ -85,6 +85,7 @@ __all__ = [
     "self_capacitance",
     "capacitance_to_ground",
     "GroundedBox",
+    "GroundPlane",
     "self_resonant_frequency",
     "radiation_resistance",
     "coil_properties_peec",
@@ -909,16 +910,50 @@ class GroundedBox:
         return float(0.5 * C0 * np.sqrt(two))
 
 
+@dataclass(frozen=True)
+class GroundPlane:
+    """A single infinite grounded conducting plane at zero potential (a half-space wall).
+
+    The special case of a PCB or chassis ground plane below a planar coil: unlike
+    :class:`GroundedBox` (a closed cavity) it does not enclose the coil, and enters the
+    electrostatic solve as the single image charge of the method of images (a mirror charge
+    of opposite sign reflected across the plane), which holds the plane at zero potential.
+    ``point`` is any point on the plane and ``normal`` its (not necessarily unit) normal.
+
+    Feed it to :func:`self_capacitance` / :func:`capacitance_to_ground` exactly like a
+    ``GroundedBox``. Driving the winding single-ended (the default linear potential, one
+    terminal grounded) versus differentially (an antisymmetric ``potential`` profile, the
+    winding centre at virtual ground) then gives the two very different coil-to-ground
+    couplings behind the single-ended/differential Q split (see
+    ``examples/plot_pcb_coil_ground_mode_q.py``).
+    """
+
+    point: tuple[float, float, float]
+    normal: tuple[float, float, float]
+
+    def image_terms(self, points: np.ndarray) -> list[tuple[np.ndarray, float]]:
+        """Return ``[(mirror_points, -1.0)]``: each point reflected across the plane."""
+
+        p0 = np.asarray(self.point, dtype=np.float64)
+        n = np.asarray(self.normal, dtype=np.float64)
+        n = n / np.linalg.norm(n)
+        signed = (points - p0) @ n
+        mirror = points - 2.0 * signed[:, None] * n[None, :]
+        return [(mirror, -1.0)]
+
+
 def _potential_coefficient_matrix(
-    conductor: Conductor, shield: GroundedBox | None = None, relative_permittivity: float = 1.0
+    conductor: Conductor, shield: GroundedBox | GroundPlane | None = None,
+    relative_permittivity: float = 1.0,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Maxwell potential-coefficient matrix ``P`` (1/F) over the path segments, and lengths.
 
     Thin-wire electrostatics: each path segment carries a uniform total charge ``Q_j``;
     ``P[i, j]`` is the potential at segment ``i``'s midpoint per unit ``Q_j``. Self term:
     the analytic uniformly-charged straight-segment midpoint potential; off-diagonal: the
-    midpoint approximation ``1/(4 pi eps0 d_ij)``. A :class:`GroundedBox` adds image charges
-    (the walls at zero potential); ``relative_permittivity`` scales for a uniform dielectric.
+    midpoint approximation ``1/(4 pi eps0 d_ij)``. A grounded ``shield`` (:class:`GroundedBox`
+    or :class:`GroundPlane`) adds image charges (the conductor at zero potential);
+    ``relative_permittivity`` scales for a uniform dielectric.
     """
 
     pts = conductor.path_points
@@ -940,27 +975,45 @@ def _potential_coefficient_matrix(
 
 
 def self_capacitance(
-    conductor: Conductor, *, shield: GroundedBox | None = None, relative_permittivity: float = 1.0
+    conductor: Conductor, *, shield: GroundedBox | GroundPlane | None = None,
+    relative_permittivity: float = 1.0, potential=None,
 ) -> float:
     """Lumped self-capacitance (F) of the coil from an electrostatic energy method.
 
-    Solves the thin-wire potential-coefficient system for the charge distribution under
-    the physically-realistic linear winding potential (0 at the grounded terminal rising to
-    ``V0`` at the other, as in a resonating coil) and returns ``C_eff = 2 W_elec / V0^2``.
-    A grounded ``shield`` (its walls at zero potential, consistent with the grounded coil
-    end) and a dielectric former (``relative_permittivity``) both raise ``C_eff`` and so
-    lower the self-resonant frequency.
+    Solves the thin-wire potential-coefficient system for the charge distribution under a
+    prescribed winding potential and returns ``C_eff = 2 W_elec / V0^2 = v^T P^{-1} v``.
+    The default ``potential`` is the physically-realistic **single-ended** linear ramp
+    (0 at the grounded terminal rising to ``V0 = 1`` at the driven one, as in a resonating
+    coil with one end grounded). Pass ``potential`` as either an ``(N,)`` array of
+    per-segment potentials or a callable of the arc-length fraction ``s in [0, 1]`` to model
+    other drives -- e.g. ``potential=lambda s: s - 0.5`` for **differential** (balanced)
+    drive, antisymmetric about a virtual ground at the winding centre, which nulls most of
+    the common-mode coupling to a nearby ground plane.
+
+    A grounded ``shield`` (:class:`GroundedBox` walls or a :class:`GroundPlane`, at zero
+    potential) and a dielectric former (``relative_permittivity``) both raise ``C_eff`` and
+    so lower the self-resonant frequency; the *difference* ``C_eff(with shield) -
+    C_eff(without)`` is the coil-to-ground capacitance driving the ground-coupled loss.
     """
 
     p, lengths = _potential_coefficient_matrix(conductor, shield, relative_permittivity)
     cumlen = np.cumsum(lengths) - 0.5 * lengths
-    v = cumlen / conductor.total_length  # linear winding potential, V0 = 1
+    s = cumlen / conductor.total_length  # arc-length fraction of each segment midpoint
+    if potential is None:
+        v = s  # single-ended linear winding potential, V0 = 1
+    elif callable(potential):
+        v = np.asarray(potential(s), dtype=np.float64)
+    else:
+        v = np.asarray(potential, dtype=np.float64)
+        if v.shape != s.shape:
+            raise ValueError(f"potential array must have one entry per segment ({s.size})")
     q = np.linalg.solve(p, v)
-    return float(2.0 * 0.5 * float(q @ v))
+    return float(float(q @ v))
 
 
 def capacitance_to_ground(
-    conductor: Conductor, *, shield: GroundedBox | None = None, relative_permittivity: float = 1.0
+    conductor: Conductor, *, shield: GroundedBox | GroundPlane | None = None,
+    relative_permittivity: float = 1.0,
 ) -> float:
     """Isolated self-capacitance to ground (F): the charge held at unit potential,
     ``C = 1^T P^{-1} 1``. With a grounded ``shield`` this is the coil-to-shield capacitance.
@@ -1033,7 +1086,7 @@ def self_resonant_frequency(conductor: Conductor) -> float:
 
 
 def radiation_resistance(
-    conductor: Conductor, frequency: float, *, shield: GroundedBox | None = None
+    conductor: Conductor, frequency: float, *, shield: GroundedBox | GroundPlane | None = None
 ) -> float:
     """First-order (magnetic-dipole) radiation resistance (ohm) of the coil.
 
@@ -1068,7 +1121,10 @@ def radiation_resistance(
     f = float(frequency)
     if f <= 0.0:
         return 0.0
-    if shield is not None:
+    if isinstance(shield, GroundedBox):
+        # Only a CLOSED conductor suppresses radiation (a cavity below cutoff). An open
+        # GroundPlane does not enclose the coil and is ignored here (it modifies the pattern
+        # but does not null the far field -- beyond this first-order model).
         import warnings
 
         f_cav = shield.fundamental_resonance()
@@ -1139,7 +1195,7 @@ class PEECCoilProperties:
 
 def coil_properties_peec(
     conductor: Conductor, frequency: float, *, formulation: str = "full",
-    include_radiation: bool = True, shield: GroundedBox | None = None,
+    include_radiation: bool = True, shield: GroundedBox | GroundPlane | None = None,
     relative_permittivity: float = 1.0,
 ) -> PEECCoilProperties:
     """Extract lumped RF properties of an arbitrary coil at ``frequency`` via PEEC.
