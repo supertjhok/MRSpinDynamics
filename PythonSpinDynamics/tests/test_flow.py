@@ -163,3 +163,91 @@ class TestFlowEnhancedRate:
     def test_validation(self) -> None:
         with pytest.raises(ValueError):
             flow_enhanced_rate(_flow(), -1.0)
+
+
+class TestTransitPolarization:
+    def test_plug_matches_prepolarized_flow_state(self) -> None:
+        from spin_dynamics.flow import inflow_polarization, mean_transit_time
+        from spin_dynamics.prepolarization import prepolarized_flow_state
+
+        f = _flow("plug", q=2e-7, r=5e-3, length=20e-3)
+        l_pre = 0.1
+        b_pol, b_det, t1 = 0.5, 0.05, 2.0
+        mz = inflow_polarization(
+            f, polarizing_field_tesla=b_pol, detection_field_tesla=b_det,
+            prepolarizer_length_meters=l_pre, t1_seconds=t1,
+        )
+        ref = prepolarized_flow_state(
+            b_pol, b_det, l_pre, f.mean_velocity, t1,
+        )
+        assert mz == pytest.approx(float(ref.m0), rel=1e-9)
+        # Sanity: transit time = L_pre / v_mean.
+        assert mean_transit_time(f, l_pre) == pytest.approx(l_pre / f.mean_velocity)
+
+    def test_transit_distribution_normalized_and_mean(self) -> None:
+        from spin_dynamics.flow import mean_transit_time, transit_time_distribution
+
+        f = _flow("laminar")
+        l_pre = 0.1
+        tau = mean_transit_time(f, l_pre)
+        t = np.linspace(0.0, 300.0 * tau, 300_000)
+        e = transit_time_distribution(f, l_pre, t)
+        assert np.trapezoid(e, t) == pytest.approx(1.0, abs=3e-3)
+        # Laminar exit-age RTD has finite mean = tau (converges, unlike washout).
+        assert np.trapezoid(t * e, t) == pytest.approx(tau, rel=1e-2)
+
+    def test_laminar_polarization_between_limits(self) -> None:
+        from spin_dynamics.flow import inflow_polarization
+
+        f = _flow("laminar", q=2e-7)
+        kw = dict(
+            polarizing_field_tesla=0.5, detection_field_tesla=0.05,
+            prepolarizer_length_meters=0.1, t1_seconds=2.0,
+        )
+        mz = inflow_polarization(f, **kw)
+        # Full polarizer equilibrium in detection units = B_pol/B_det = 10.
+        assert 0.0 < mz < 10.0
+
+    def test_slower_flow_polarizes_more(self) -> None:
+        from spin_dynamics.flow import inflow_polarization
+
+        kw = dict(
+            polarizing_field_tesla=0.5, detection_field_tesla=0.05,
+            prepolarizer_length_meters=0.1, t1_seconds=2.0,
+        )
+        fast = inflow_polarization(_flow("laminar", q=2e-6), **kw)
+        slow = inflow_polarization(_flow("laminar", q=2e-8), **kw)
+        assert slow > fast  # longer transit -> more build-up
+
+    def test_slow_flow_approaches_full_equilibrium(self) -> None:
+        from spin_dynamics.flow import inflow_polarization
+
+        # tau_pre >> T1 -> spins reach the polarizing-field equilibrium (=10).
+        mz = inflow_polarization(
+            _flow("laminar", q=2e-10),
+            polarizing_field_tesla=0.5, detection_field_tesla=0.05,
+            prepolarizer_length_meters=0.1, t1_seconds=0.5,
+        )
+        assert mz == pytest.approx(10.0, rel=1e-3)
+
+    def test_monte_carlo_flux_weighted_cross_check(self) -> None:
+        from spin_dynamics.flow import inflow_polarization
+        from spin_dynamics.prepolarization import longitudinal_recovery
+
+        f = _flow("laminar", q=5e-7)
+        l_pre, b_pol, b_det, t1 = 0.08, 0.5, 0.05, 1.5
+        analytic = inflow_polarization(
+            f, polarizing_field_tesla=b_pol, detection_field_tesla=b_det,
+            prepolarizer_length_meters=l_pre, t1_seconds=t1,
+        )
+        rng = np.random.default_rng(3)
+        n = 2_000_000
+        # Flux weighting: probability of a spin ~ v(r) * area. Sample u=(r/R)^2
+        # uniform (area), then accept with prob proportional to v ~ (1-u).
+        u = rng.uniform(0.0, 1.0, n)
+        keep = rng.uniform(0.0, 1.0, n) < (1.0 - u)  # thin by velocity
+        u = u[keep]
+        transit = (l_pre / (2.0 * f.mean_velocity)) / (1.0 - u)
+        eq = 10.0  # b_pol/b_det
+        mz = longitudinal_recovery(0.0, eq, transit, t1)
+        assert mz.mean() == pytest.approx(analytic, rel=5e-3)

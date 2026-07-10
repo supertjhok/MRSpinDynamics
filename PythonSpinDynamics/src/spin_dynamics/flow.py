@@ -36,12 +36,17 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from spin_dynamics.prepolarization import field_ratio_equilibrium, longitudinal_recovery
+
 __all__ = [
     "FlowModel",
     "washout_fraction",
     "washout_density",
     "apply_washout",
     "flow_enhanced_rate",
+    "mean_transit_time",
+    "transit_time_distribution",
+    "inflow_polarization",
 ]
 
 
@@ -187,3 +192,91 @@ def flow_enhanced_rate(flow: FlowModel, t2_seconds: float) -> float:
     if t2_seconds <= 0 or not np.isfinite(t2_seconds):
         raise ValueError("t2_seconds must be finite and positive")
     return 1.0 / t2_seconds + 1.0 / flow.mean_residence_time
+
+
+# --- Phase B: transit-time inflow polarization --------------------------------
+
+
+def mean_transit_time(flow: FlowModel, length_meters: float) -> float:
+    """Mean transit time ``L / v_mean`` through an upstream region (s)."""
+
+    if length_meters <= 0 or not np.isfinite(length_meters):
+        raise ValueError("length_meters must be finite and positive")
+    return float(length_meters) / flow.mean_velocity
+
+
+def transit_time_distribution(
+    flow: FlowModel, length_meters: float, time: np.ndarray
+) -> np.ndarray:
+    """Flux-weighted exit-age RTD ``E(t)`` for transit through a length (1/s).
+
+    The distribution of transit times of the fluid *entering* the detector,
+    weighted by volumetric flux (what sets the average inflowing
+    magnetization). Plug: uniform density ``1/tau`` on ``[0, tau]`` standing in
+    for the Dirac at the single transit time ``tau = L / v_mean``. Laminar:
+    the classic ``E(t) = tau^2 / (2 t^3)`` for ``t >= tau/2`` (mean ``tau``).
+    Use :func:`inflow_polarization` for averaging; this is for inspection.
+    """
+
+    t = np.asarray(time, dtype=np.float64)
+    if np.any(t < 0):
+        raise ValueError("time must be non-negative")
+    tau = mean_transit_time(flow, length_meters)
+    if flow.regime == "plug":
+        return np.where(t <= tau, 1.0 / tau, 0.0)
+    safe_t = np.maximum(t, np.finfo(float).tiny)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        return np.where(t >= tau / 2.0, tau**2 / (2.0 * safe_t**3), 0.0)
+
+
+def inflow_polarization(
+    flow: FlowModel,
+    *,
+    polarizing_field_tesla: float,
+    detection_field_tesla: float,
+    prepolarizer_length_meters: float,
+    t1_seconds: float,
+    initial_magnetization: float = 0.0,
+    detection_equilibrium_magnetization: float = 1.0,
+    quadrature_points: int = 2000,
+) -> float:
+    """Flux-averaged longitudinal magnetization of spins entering the detector.
+
+    Each streamline spends its transit time in the polarizing field building up
+    ``Mz`` by T1 recovery; the detector sees the flux-weighted average. In the
+    detection-field units of :mod:`spin_dynamics.prepolarization`, ``1.0`` is
+    thermal equilibrium in the detection field and ``B_pol/B_det`` is full
+    equilibrium in the polarizer.
+
+    Plug flow reduces to the single-transit
+    :func:`spin_dynamics.prepolarization.prepolarized_flow_state` value.
+    Laminar flow integrates over the parabolic profile using the flux weight
+    ``2(1-u)`` with ``u = (r/R)^2`` and transit time ``tau/(2(1-u))``, a
+    bounded quadrature that avoids the singular ``1/t^3`` RTD tail.
+    """
+
+    if t1_seconds <= 0 or not np.isfinite(t1_seconds):
+        raise ValueError("t1_seconds must be finite and positive")
+    equilibrium = float(
+        field_ratio_equilibrium(
+            polarizing_field_tesla,
+            detection_field_tesla,
+            detection_equilibrium_magnetization=detection_equilibrium_magnetization,
+        )
+    )
+    tau_pre = mean_transit_time(flow, prepolarizer_length_meters)
+    if flow.regime == "plug":
+        return float(
+            longitudinal_recovery(initial_magnetization, equilibrium, tau_pre, t1_seconds)
+        )
+    if quadrature_points < 2:
+        raise ValueError("quadrature_points must be >= 2")
+    # Flux-weighted average over u = (r/R)^2 in (0, 1); weight 2(1-u) integrates
+    # to 1. Avoid the u=1 (wall, infinite transit) endpoint with a midpoint rule.
+    edges = np.linspace(0.0, 1.0, quadrature_points + 1)
+    u = 0.5 * (edges[:-1] + edges[1:])
+    du = edges[1] - edges[0]
+    transit = tau_pre / (2.0 * (1.0 - u))
+    mz = longitudinal_recovery(initial_magnetization, equilibrium, transit, t1_seconds)
+    weight = 2.0 * (1.0 - u)
+    return float(np.sum(weight * mz) * du)
