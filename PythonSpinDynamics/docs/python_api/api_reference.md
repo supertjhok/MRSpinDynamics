@@ -1468,6 +1468,14 @@ No public classes or functions found.
 | function | `run_motion_cpmg_sequence(ensemble: ParticleEnsemble, fields: MotionFields, *, num_echoes: int, echo_spacing: float, excitation_duration: float, refocusing_duration: float, gradient: tuple[float, float] = (0.0, 0.0), velocity: Velocity = None, rng: np.random.Generator | None = None, t1: float | Iterable[float] | np.ndarray = np.inf, t2: float | Iterable[float] | np.ndarray = np.inf, mth: float | Iterable[float] | np.ndarray = 1.0, boundary: Boundary = 'reflect', substeps_per_interval: int = 1, detuning_waveform: DetuningWaveform = None) -> MotionSequenceResult` | Run a rectangular-pulse CPMG sequence with moving isochromats. |
 | function | `run_motion_udd_sequence(ensemble: ParticleEnsemble, fields: MotionFields, *, num_pulses: int, total_duration: float, excitation_duration: float, refocusing_duration: float, gradient: tuple[float, float] = (0.0, 0.0), velocity: Velocity = None, rng: np.random.Generator | None = None, t1: float | Iterable[float] | np.ndarray = np.inf, t2: float | Iterable[float] | np.ndarray = np.inf, mth: float | Iterable[float] | np.ndarray = 1.0, boundary: Boundary = 'reflect', substeps_per_interval: int = 1, detuning_waveform: DetuningWaveform = None) -> MotionSequenceResult` | Run a rectangular-pulse UDD sequence with moving isochromats. |
 
+## `spin_dynamics.sequences.plotting`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `SequencePlotData` | Scaled arrays used by :func:`plot_sequence`. |
+| function | `sequence_plot_data(sequence: SequenceIR | CompiledSequence, *, system_frequency_hz: float | None = None, time_unit: TimeUnit = 'auto', max_points: int = 50000) -> SequencePlotData` | Return plotting arrays without importing Matplotlib. |
+| function | `plot_sequence(sequence: SequenceIR | CompiledSequence, *, system_frequency_hz: float | None = None, time_unit: TimeUnit = 'auto', show_blocks: bool = True, max_points: int = 50000, figure = None)` | Plot RF I/Q, gradient channels, and ADC on one aligned time axis. |
+
 ## `spin_dynamics.sequences.pulseq`
 
 | Kind | Name | Summary |

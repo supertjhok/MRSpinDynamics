@@ -72,7 +72,8 @@ extensions.
 - `spin_dynamics.sequences` contains timing helpers plus a backend-neutral
   block/event sequence IR. It can import core Pulseq 1.4/1.5 text `.seq` files,
   compile concurrent RF/gradient/ADC events to a piecewise-constant timeline,
-  and adapt that timeline to the moving-isochromat engine. See
+  visualize aligned RF/gradient/ADC lanes, and adapt that timeline to the
+  moving-isochromat engine. See
   [`docs/python_api/sequence_ir.md`](docs/python_api/sequence_ir.md).
 - `spin_dynamics.core`, `fields`, `probes`, `sequences`, and `parameters`
   provide lower-level numerical pieces used by the workflows. `fields` also

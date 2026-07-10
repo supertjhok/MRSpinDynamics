@@ -29,12 +29,40 @@ from spin_dynamics.sequences import (
 sequence = read_pulseq("experiment.seq")
 compiled = compile_sequence(sequence, system_frequency_hz=2.0e6)
 motion_steps = compiled_to_motion_steps(compiled, spatial_dimensions=3)
+
+# Both the source IR and compiled timeline expose the same plotting hook.
+figure, axes = sequence.plot(show_blocks=True)
 ```
 
 Native sequences can be constructed from `SequenceIR`, `SequenceBlock`,
 `RFPulse`, `GradientWaveform`, and `ADCEvent`. `compile_sequence` partitions
 blocks at event raster edges and ADC sample centers, then produces a
 piecewise-constant RF/gradient timeline with exact receive-sample metadata.
+
+## Timeline Visualizer
+
+`plot_sequence` presents five aligned lanes on one time axis: RF in-phase and
+quadrature envelopes, the physical Gx/Gy/Gz gradient channels, and ADC sample
+ticks. Pulseq or native block boundaries can be drawn across every lane, making
+overlap, unexpected gaps, phase changes, and acquisition alignment visible.
+
+The package-level function and the `.plot()` methods are equivalent:
+
+```python
+from spin_dynamics.sequences import plot_sequence, read_pulseq
+
+sequence = read_pulseq("experiment.seq")
+figure, axes = plot_sequence(sequence, time_unit="ms")
+figure.savefig("experiment_timeline.png", dpi=150)
+```
+
+The example script follows the other plotting examples and works with either a
+file or a built-in spin echo:
+
+```powershell
+python examples\plot_sequence_timeline.py --output results\demo_sequence.png
+python examples\plot_sequence_timeline.py experiment.seq --output results\experiment.png
+```
 
 ## Pulseq Coverage
 

@@ -15,6 +15,10 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
   the open Pulseq 1.4/1.5 `.seq` format, including compressed shapes,
   trapezoids, ADC phase shapes, and PPM offsets. Required Pulseq extensions are
   rejected until their semantics are implemented.
+- Added an aligned sequence timeline visualizer for native and Pulseq-imported
+  sequences, with RF I/Q, Gx/Gy/Gz, ADC, block-boundary lanes, `.plot()` hooks,
+  and a `plot_sequence_timeline.py` example that also accepts external `.seq`
+  files.
 
 ## [0.2.0] - 2026-07-05
 

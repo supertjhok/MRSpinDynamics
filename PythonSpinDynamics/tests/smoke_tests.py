@@ -57,6 +57,7 @@ FAST_EXAMPLE_TESTS = [
 FAST_SEQUENCE_TESTS = [
     (SequenceIRTests, "test_compile_preserves_concurrent_rf_gradient_and_adc_timing"),
     (SequenceIRTests, "test_motion_adapter_converts_cycles_to_angular_units"),
+    (SequenceIRTests, "test_plot_data_uses_shared_time_axis_and_block_metadata"),
     (PulseqImportTests, "test_imports_pulseq_15_rf_adc_and_compiles"),
     (PulseqImportTests, "test_decompresses_run_length_encoded_shape"),
 ]

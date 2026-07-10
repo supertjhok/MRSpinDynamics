@@ -34,6 +34,11 @@ from spin_dynamics.sequences.pulseq import (
     parse_pulseq,
     read_pulseq,
 )
+from spin_dynamics.sequences.plotting import (
+    SequencePlotData,
+    plot_sequence,
+    sequence_plot_data,
+)
 
 __all__ = [
     "ADCEvent",
@@ -46,6 +51,7 @@ __all__ = [
     "RFPulse",
     "SequenceBlock",
     "SequenceIR",
+    "SequencePlotData",
     "compile_sequence",
     "compiled_to_motion_steps",
     "cpmg_pulse_times",
@@ -54,7 +60,9 @@ __all__ = [
     "make_motion_cpmg_sequence",
     "make_motion_udd_sequence",
     "parse_pulseq",
+    "plot_sequence",
     "read_pulseq",
+    "sequence_plot_data",
     "run_motion_cpmg_sequence",
     "run_motion_sequence",
     "run_motion_udd_sequence",

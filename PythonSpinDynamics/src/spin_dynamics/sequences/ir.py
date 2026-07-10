@@ -184,6 +184,17 @@ class SequenceIR:
     def duration_seconds(self) -> float:
         return float(sum(block.duration_seconds for block in self.blocks))
 
+    def plot(self, **kwargs):
+        """Plot aligned RF, gradient, and ADC lanes.
+
+        Matplotlib is imported lazily. Keyword arguments are forwarded to
+        :func:`spin_dynamics.sequences.plotting.plot_sequence`.
+        """
+
+        from spin_dynamics.sequences.plotting import plot_sequence
+
+        return plot_sequence(self, **kwargs)
+
 
 def _validate_timing(dwell_seconds: float, delay_seconds: float) -> None:
     if not np.isfinite(dwell_seconds) or dwell_seconds <= 0.0:

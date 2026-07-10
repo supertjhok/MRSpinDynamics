@@ -28,6 +28,9 @@ class CompiledSequence:
     rf_hz: np.ndarray
     gradients_hz_per_m: np.ndarray
     block_indices: np.ndarray
+    block_start_times_seconds: np.ndarray
+    block_durations_seconds: np.ndarray
+    block_labels: tuple[str, ...]
     adc: CompiledADC
     source_format: str
     source_version: tuple[int, int, int] | None
@@ -37,6 +40,13 @@ class CompiledSequence:
         if self.durations_seconds.size == 0:
             return 0.0
         return float(self.start_times_seconds[-1] + self.durations_seconds[-1])
+
+    def plot(self, **kwargs):
+        """Plot aligned RF, gradient, and ADC lanes."""
+
+        from spin_dynamics.sequences.plotting import plot_sequence
+
+        return plot_sequence(self, **kwargs)
 
 
 def compile_sequence(
@@ -60,9 +70,15 @@ def compile_sequence(
     adc_frequencies: list[float] = []
     adc_phases: list[float] = []
     adc_blocks: list[int] = []
+    block_starts: list[float] = []
+    block_durations: list[float] = []
+    block_labels: list[str] = []
 
     block_start = 0.0
     for block_index, block in enumerate(sequence.blocks):
+        block_starts.append(block_start)
+        block_durations.append(float(block.duration_seconds))
+        block_labels.append(block.label or f"block_{block_index + 1}")
         boundaries = [0.0, float(block.duration_seconds)]
         if block.rf is not None:
             boundaries.extend(_event_edges(block.rf))
@@ -105,6 +121,9 @@ def compile_sequence(
         rf_hz=np.asarray(rf_values, dtype=np.complex128),
         gradients_hz_per_m=np.asarray(gradient_values, dtype=np.float64).reshape(-1, 3),
         block_indices=np.asarray(block_indices, dtype=np.int64),
+        block_start_times_seconds=np.asarray(block_starts, dtype=np.float64),
+        block_durations_seconds=np.asarray(block_durations, dtype=np.float64),
+        block_labels=tuple(block_labels),
         adc=CompiledADC(
             times_seconds=np.asarray(adc_times, dtype=np.float64),
             frequency_offsets_hz=np.asarray(adc_frequencies, dtype=np.float64),

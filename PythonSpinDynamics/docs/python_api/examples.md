@@ -41,6 +41,17 @@ python -m spin_dynamics.experiment run examples\experiment_config_cpmg.toml --ou
 python -m spin_dynamics.experiment show results\config_run.npz
 ```
 
+## Sequence Timeline Visualizer
+
+`plot_sequence_timeline.py` shows native or Pulseq-imported sequences as aligned
+RF I/Q, Gx/Gy/Gz, and ADC lanes. With no input it renders a built-in spin echo;
+pass a `.seq` path to inspect an external Pulseq file.
+
+```powershell
+python examples\plot_sequence_timeline.py --output results\demo_sequence.png
+python examples\plot_sequence_timeline.py experiment.seq --output results\experiment.png
+```
+
 ## Ideal CPMG
 
 ```powershell

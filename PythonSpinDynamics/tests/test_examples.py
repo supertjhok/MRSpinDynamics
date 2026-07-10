@@ -692,6 +692,9 @@ class ExampleSmokeTests(unittest.TestCase):
         result = run_example("examples/plot_grape_nqr_slse_excitation.py", "--help")
         self.assertIn("--tau-us", result.stdout)
         self.assertIn("--max-offset-ratio", result.stdout)
+        result = run_example("examples/plot_sequence_timeline.py", "--help")
+        self.assertIn("--system-frequency-hz", result.stdout)
+        self.assertIn("--hide-blocks", result.stdout)
 
 
 if __name__ == "__main__":

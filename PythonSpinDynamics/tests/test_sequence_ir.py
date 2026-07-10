@@ -14,6 +14,8 @@ from spin_dynamics.sequences import (
     compile_sequence,
     compiled_to_motion_steps,
     parse_pulseq,
+    plot_sequence,
+    sequence_plot_data,
 )
 
 
@@ -129,6 +131,54 @@ class SequenceIRTests(unittest.TestCase):
         compiled = compile_sequence(sequence, system_frequency_hz=10e6)
         expected_phase = 2.0 * np.pi * 20.0 * 0.5e-3
         self.assertAlmostEqual(np.angle(compiled.rf_hz[0]), expected_phase)
+
+    def test_plot_data_uses_shared_time_axis_and_block_metadata(self):
+        sequence = SequenceIR(
+            blocks=(
+                SequenceBlock(
+                    duration_seconds=1e-3,
+                    rf=RFPulse([1.0j], dwell_seconds=1e-3),
+                    label="pulse",
+                ),
+                SequenceBlock(
+                    duration_seconds=1e-3,
+                    adc=ADCEvent(1, dwell_seconds=1e-3),
+                    label="acquire",
+                ),
+            )
+        )
+
+        data = sequence_plot_data(sequence)
+
+        self.assertEqual(data.time_unit, "ms")
+        np.testing.assert_allclose(data.interval_edges, [0.0, 1.0, 1.5, 2.0])
+        np.testing.assert_allclose(data.rf_q_hz[:1], [1.0])
+        np.testing.assert_allclose(data.adc_times, [1.5])
+        np.testing.assert_allclose(data.block_boundaries, [0.0, 1.0, 2.0])
+        self.assertEqual(data.block_labels, ("pulse", "acquire"))
+
+    def test_plot_sequence_returns_five_aligned_lanes(self):
+        try:
+            import matplotlib
+        except ImportError:
+            self.skipTest("Matplotlib is optional")
+        matplotlib.use("Agg")
+        sequence = SequenceIR(
+            blocks=(
+                SequenceBlock(
+                    duration_seconds=1e-3,
+                    rf=RFPulse([100.0], dwell_seconds=1e-3),
+                ),
+            )
+        )
+
+        figure, axes = plot_sequence(sequence)
+
+        self.assertEqual(len(axes), 5)
+        self.assertEqual(axes[-1].get_xlabel(), "Time (ms)")
+        import matplotlib.pyplot as plt
+
+        plt.close(figure)
 
 
 class PulseqImportTests(unittest.TestCase):

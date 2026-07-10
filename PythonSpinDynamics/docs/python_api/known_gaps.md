@@ -2,8 +2,8 @@
 
 ## 2026-07 Capability Audit
 
-PythonSpinDynamics now has about 53,000 source lines in 183 Python modules,
-more than 20,000 test lines, and 162 example scripts. Its breadth has moved the
+PythonSpinDynamics now has about 53,000 source lines in 184 Python modules,
+more than 20,000 test lines, and 163 example scripts. Its breadth has moved the
 main architectural risk from missing individual models to disconnected feature
 islands. The next stabilization phase should emphasize composition,
 validation, reproducibility, and API maturity.
@@ -42,7 +42,7 @@ The highest-leverage gaps identified in the July 2026 audit are:
    3.10--3.12, but lacks coverage thresholds, static type checks, optional
    Numba/JAX lanes, wheel/sdist installation tests, benchmark regression gates,
    an installed console entry point, and an explicit deprecation policy.
-7. **Discoverability.** The 162 examples are a major asset but are still mostly
+7. **Discoverability.** The 163 examples are a major asset but are still mostly
    presented as a flat catalog. A registry-generated capability matrix and a
    smaller set of end-to-end journeys would make the package easier to learn.
 

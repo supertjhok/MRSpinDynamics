@@ -102,7 +102,7 @@ late error).
 
 ### 2.5 User surface
 
-- 162 example scripts, mostly following the same implicit workflow
+- 163 example scripts, mostly following the same implicit workflow
   (args → params → run → plot → optional `--save-npz`). No hierarchy.
 - Docs are feature-by-feature (`docs/python_api/*.md`, ~6.5k lines) plus a
   LaTeX user manual; no workflow-first narrative or tutorial.

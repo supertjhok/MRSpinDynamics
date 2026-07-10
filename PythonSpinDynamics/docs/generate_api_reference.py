@@ -133,6 +133,7 @@ MODULES = [
     "sequences.compiler",
     "sequences.ir",
     "sequences.motion",
+    "sequences.plotting",
     "sequences.pulseq",
     "susceptibility",
     "workflows.acquisition",
