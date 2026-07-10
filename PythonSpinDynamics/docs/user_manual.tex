@@ -3468,6 +3468,23 @@ self-capacitance and SRF for free/former/box (e.g.\ \(1.5\to2.2\to3.9\)\,pF, SRF
 eddy loss (a surface-resistance integral
 \(R_{\text{box}}=2R_s\!\oint|H_{\text{tan}}/I|^2\,\mathrm dA\), \(R_s\propto\sqrt f\)).
 
+\paragraph{Single-ended vs differential Q over a ground plane.} A \code{GroundPlane(point,
+normal)} shield is the single grounded plane (a half-space) below a planar coil, entered as the
+one method-of-images mirror charge (it reproduces the analytic wire-over-plane
+\(C/\ell=2\pi\varepsilon_0/\operatorname{acosh}(h/a)\) to a few percent). \code{self\_capacitance}
+also takes a \code{potential} profile (array or callable of the arc-length fraction), defaulting
+to the single-ended ramp \(0\to1\); \code{potential=lambda s: s-0.5} is the differential
+(balanced) drive, antisymmetric about a virtual ground. Over a ground plane the differential
+coil-to-ground capacitance \(C_g=C_{\text{eff}}(\text{plane})-C_{\text{eff}}(\text{free})\) is
+several times smaller (the two winding halves' displacement currents to ground cancel in common
+mode), while \(L\), the copper resistance and the ground-plane eddy loss --- all set by the
+coil \emph{current} --- are mode-independent. That capacitive difference, through the board loss
+\(R_{\text{diel}}=\tan\delta\,\omega^3 L^2 C_g\), is the entire single-ended/differential Q split.
+The example \code{plot\_pcb\_coil\_ground\_mode\_q.py} works a PCB spiral on FR4 over copper:
+differential drive couples \(\sim\)7\(\times\) less to ground, roughly doubling the peak Q, and
+as the plane approaches the single-ended Q collapses while the differential Q holds --- the
+reason NMR/MRI surface and PCB coils are built balanced.
+
 \paragraph{Loss-model caveats (proximity and eddy currents).} Two easy trip-ups when
 trusting a computed \(Q\). \emph{Proximity:} use \code{formulation="full"} for any
 closely-wound coil --- both the volume and surface-impedance backends accept it, and the

@@ -445,6 +445,77 @@ class RadiationResistanceTests(unittest.TestCase):
         )
 
 
+class GroundPlaneAndDriveModeTests(unittest.TestCase):
+    """Single grounded plane + settable winding potential (single-ended vs differential)."""
+
+    def test_wire_over_plane_capacitance_matches_analytic(self) -> None:
+        # Horizontal wire radius a at height h over a ground plane: C/length = 2 pi eps0 /
+        # acosh(h/a). The GroundPlane image reproduces it (thin-wire discretization ~few %).
+        from spin_dynamics.fields.coil_peec import GroundPlane, capacitance_to_ground
+
+        eps0 = 8.8541878128e-12
+        a, h, length, npts = 0.5e-3, 5e-3, 1.0, 400
+        z = np.linspace(0, length, npts)
+        wire = Conductor(np.column_stack([z, np.zeros(npts), np.full(npts, h)]),
+                         wire_radius=a, material=COPPER)
+        gp = GroundPlane(point=(0, 0, 0), normal=(0, 0, 1))
+        c_num = capacitance_to_ground(wire, shield=gp)
+        c_ana = 2 * np.pi * eps0 * length / np.arccosh(h / a)
+        self.assertLess(abs(c_num - c_ana) / c_ana, 0.05)
+
+    def test_ground_plane_raises_capacitance(self) -> None:
+        from spin_dynamics.fields.coil_peec import GroundPlane, self_capacitance
+
+        coil = helical_solenoid(diameter=20e-3, length=30e-3, turns=6, wire_radius=0.5e-3,
+                                material=COPPER, n_per_turn=12, axis="z")
+        gp = GroundPlane(point=(0, 0, -20e-3), normal=(0, 0, 1))
+        self.assertGreater(self_capacitance(coil, shield=gp), self_capacitance(coil))
+
+    def test_potential_profile_callable_equals_array(self) -> None:
+        from spin_dynamics.fields.coil_peec import self_capacitance
+
+        coil = helical_solenoid(diameter=20e-3, length=30e-3, turns=6, wire_radius=0.5e-3,
+                                material=COPPER, n_per_turn=12)
+        n = coil.path_points.shape[0] - 1
+        s = (np.cumsum(coil.segment_lengths) - 0.5 * coil.segment_lengths) / coil.total_length
+        c_call = self_capacitance(coil, potential=lambda ss: ss - 0.5)
+        c_arr = self_capacitance(coil, potential=s - 0.5)
+        self.assertAlmostEqual(c_call, c_arr, places=18)
+        with self.assertRaises(ValueError):
+            self_capacitance(coil, potential=np.ones(n + 3))
+
+    def test_differential_drive_nulls_ground_coupling(self) -> None:
+        # The headline: over a ground plane, the differential (antisymmetric) drive couples
+        # far less to ground than the single-ended (0->1 ramp) drive. C_g = C(with) - C(free).
+        from spin_dynamics.fields.coil_peec import GroundPlane, self_capacitance
+
+        # small planar square spiral in the z = h plane
+        corners, x, y, L0 = [], 0.0, 0.0, 12e-3
+        dirs = [(1, 0), (0, 1), (-1, 0), (0, -1)]
+        for k in range(8):
+            dx, dy = dirs[k % 4]
+            x += dx * L0
+            y += dy * L0
+            corners.append((x, y))
+            if k % 2 == 1:
+                L0 -= 1.0e-3
+        c = np.array(corners) - np.mean(corners, axis=0)
+        pts = [c[0]]
+        for a, b in zip(c[:-1], c[1:]):
+            for t in np.linspace(0, 1, 9)[1:]:
+                pts.append(a + t * (b - a))
+        xy = np.array(pts)
+        coil = Conductor(np.column_stack([xy[:, 0], xy[:, 1], np.full(xy.shape[0], 1e-3)]),
+                         cross_section="rect", width=0.5e-3, height=0.05e-3, material=COPPER)
+        gp = GroundPlane(point=(0, 0, 0), normal=(0, 0, 1))
+        cg_se = self_capacitance(coil, shield=gp) - self_capacitance(coil)
+        cg_diff = (self_capacitance(coil, shield=gp, potential=lambda s: s - 0.5)
+                   - self_capacitance(coil, potential=lambda s: s - 0.5))
+        self.assertGreater(cg_se, 0.0)
+        self.assertGreater(cg_diff, 0.0)
+        self.assertLess(cg_diff, 0.5 * cg_se)  # differential couples markedly less
+
+
 class BundleTests(unittest.TestCase):
     def test_coil_properties_peec_fields_and_helpers(self) -> None:
         c = helical_solenoid(diameter=20e-3, length=30e-3, turns=6, wire_radius=0.5e-3,

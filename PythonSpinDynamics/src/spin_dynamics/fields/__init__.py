@@ -38,6 +38,7 @@ from spin_dynamics.fields.coil_properties import (
 from spin_dynamics.fields.coil_peec import (
     Conductor,
     GroundedBox,
+    GroundPlane,
     PEECCoilProperties,
     PEECImpedance,
     coil_properties_peec,
@@ -154,6 +155,7 @@ __all__ = [
     "self_capacitance",
     "capacitance_to_ground",
     "GroundedBox",
+    "GroundPlane",
     "self_resonant_frequency",
     "radiation_resistance",
     "coil_properties_peec",
