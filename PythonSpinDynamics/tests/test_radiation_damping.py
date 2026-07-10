@@ -82,6 +82,34 @@ class RadiationDampingTests(unittest.TestCase):
             atol=2e-7,
         )
 
+    def test_damping_is_independent_of_transverse_phase(self) -> None:
+        # The Bloom-form feedback (-mxy/Trd) damps every transverse azimuth at
+        # the same rate. The textbook Eq. 10.29/10.30 conjugate form would
+        # anti-damp the x quadrature and drive mz downward for x-phase
+        # magnetization; this test pins the phase-independent convention.
+        probe = RadiationDampingProbe(
+            gamma=1.0,
+            omega0=100.0,
+            q=10.0,
+            fill_factor=0.5,
+            equilibrium_magnetization=1.0,
+        )
+        time = np.linspace(0.0, 3.0 * probe.trd, 501)
+        theta = np.deg2rad(45.0)
+        reference = simulate_radiation_damping_fid(time, probe, flip_angle=theta)
+        for pulse_phase in (np.pi / 4, np.pi / 2, np.pi, 5.0):
+            rotated = simulate_radiation_damping_fid(
+                time, probe, flip_angle=theta, pulse_phase=pulse_phase
+            )
+            np.testing.assert_allclose(
+                rotated.envelope, reference.envelope, rtol=1e-10, atol=1e-12
+            )
+            np.testing.assert_allclose(
+                rotated.mz, reference.mz, rtol=1e-10, atol=1e-12
+            )
+            # Energy flows spins -> circuit: mz recovers monotonically.
+            self.assertTrue(np.all(np.diff(rotated.mz) > 0.0))
+
     def test_circuit_model_lags_instant_feedback_for_high_q_probe(self) -> None:
         probe = RadiationDampingProbe(
             gamma=1e6,

@@ -1,7 +1,8 @@
 # Radiation Damping
 
 The radiation-damping implementation follows the rotating-frame back-action
-model in Section 10.2.5 of the local Measurements textbook. The probe is
+model in Section 10.2.5 of the local Measurements textbook (with one deliberate
+convention correction, see "Feedback Phase Convention" below). The probe is
 described by the same tuned or matched parameter sets used by the regular pulse
 sequence workflows, and the nonlinear feedback strength is set by
 
@@ -110,11 +111,41 @@ magnetization for the no-relaxation instant model, circuit lag relative to the
 instant model, CPMG workflow coupling, RF-pulse damping mode, sample presets,
 sensitivity-squared weighting, and NMR maser threshold growth.
 
+## Feedback Phase Convention
+
+The integrators drive the feedback with the phase-independent (Bloom 1957)
+target `-Mxy / Trd`, so the damping rate is the same for every transverse
+azimuth, `|M|^2` is conserved by the feedback (energy flows from the spins to
+the circuit for `Mz > 0`), and `Mz` recovers monotonically after a pulse of
+any phase.
+
+Textbook Eq. 10.29/10.30 instead writes the feedback field as proportional to
+the *conjugate* `M*_xy`. That conjugate traces to a sideband bookkeeping slip:
+Eqs. 10.26-10.28 derive the feedback as the coefficient of the `e^{+i w0 t}`
+sideband of the real lab-frame signal, but the book's own rotating-frame
+convention (`M_lab = M e^{-i w0 t}`, demodulation by `e^{-i w0 t}`) lives on
+the negative sideband, so converting to the rotating frame requires one more
+conjugation that Eq. 10.29 drops. Taken literally, the conjugate form is a
+phase-sensitive amplifier with no energy source: it anti-damps one transverse
+quadrature and drives `Mz` *downward* for magnetization along that quadrature.
+The two forms coincide exactly on the `+/-y` axis, which is where the book's
+own sech validation (Eq. 10.32) and all single-phase FID/maser trajectories
+live -- so the distinction only matters for multi-phase or stochastic inputs
+(CPMG with off-axis components, spin noise).
+
+The validated sech envelope, maser threshold, and circuit-lag behavior are
+identical in both conventions on their validation trajectories; the
+phase-independence itself is pinned by
+`test_damping_is_independent_of_transverse_phase`.
+
 ## Noise Boundary
 
 Radiation damping here is deterministic probe back-action. The existing
 `spin_dynamics.noise` helpers remain the received-signal noise layer for white
-or probe-colored receiver output noise. A future source-level spin-noise model
-can couple stochastic magnetization fluctuations into the same probe feedback
-state, but that is intentionally separate from the validated deterministic RD
-path.
+or probe-colored receiver output noise. The source-level spin-noise model now
+exists in `spin_dynamics.spin_noise` (see [spin_noise.md](spin_noise.md)): it
+couples stochastic magnetization fluctuations into the same probe feedback
+state and shares the coupling constant through
+`R_n0 = R_coil * T2 / (2 * Trd)`, but remains intentionally separate from the
+validated deterministic RD path. Both modules use the same phase-independent
+feedback form `-mxy / Trd` (see "Feedback Phase Convention" above).

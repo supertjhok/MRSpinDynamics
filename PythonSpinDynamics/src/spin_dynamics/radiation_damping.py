@@ -422,7 +422,12 @@ def _rhs(
     feedback = complex(state[2])
     bxy = _drive_at(drive, t)
 
-    target_feedback = np.exp(1j * probe.phase) * np.conj(mxy) / probe.trd
+    # Phase-independent (Bloom) feedback: the target is -mxy/Trd so damping is
+    # the same for every transverse azimuth. Textbook Eq. 10.29/10.30 write
+    # the conjugate M*_xy here, but that traces to a dropped conjugation when
+    # converting the e^{+i w0 t} sideband to the rotating frame; the conjugate
+    # form would anti-damp one quadrature (see docs/radiation_damping.md).
+    target_feedback = -np.exp(1j * probe.phase) * mxy / probe.trd
     if model == "instant":
         feedback = target_feedback
         dfeedback = 0.0 + 0.0j
@@ -469,7 +474,7 @@ def simulate_radiation_damping(
         raise ValueError("t2 must be positive")
 
     feedback0 = (
-        np.exp(1j * probe.phase) * np.conj(complex(initial_mxy)) / probe.trd
+        -np.exp(1j * probe.phase) * complex(initial_mxy) / probe.trd
         if initial_feedback is None and model == "instant"
         else (0.0 + 0.0j if initial_feedback is None else complex(initial_feedback))
     )

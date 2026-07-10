@@ -194,8 +194,18 @@ def ideal_noise_density(
 def tuned_probe_output_noise_density(
     sp: Mapping[str, Any] | Any,
     pp: Mapping[str, Any] | Any,
+    *,
+    sample: Any | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Return tuned-probe output-referred noise density and frequencies."""
+    """Return tuned-probe output-referred noise density and frequencies.
+
+    ``sample`` optionally supplies a spin-noise coupling
+    (:class:`spin_dynamics.spin_noise.SampleCoupling`): its impedance
+    ``Z_n(dw)`` is inserted in series with the coil and its Nyquist noise
+    ``4*k*T_sample*Re(Z_n)`` is added at the sample temperature, while the
+    coil resistance stays at the circuit temperature ``sp.T``. See
+    ``docs/spin_noise.md``.
+    """
 
     k = float(_field(sp, "k"))
     T = float(_field(sp, "T"))
@@ -212,11 +222,15 @@ def tuned_probe_output_noise_density(
     w1_max = (np.pi / 2) / float(_field(pp, "T_90"))
     s = 1j * (w0 + del_w * w1_max)
     f = np.imag(s) / (2 * np.pi)
+    zn = sample.z_n(del_w * w1_max) if sample is not None else 0.0
+    z_coil = s * L + R + zn
     Yin = s * Cin + 1 / Rin
-    Yp = s * C + 1 / Rd + 1 / (s * L + R)
-    tf = 1 / (1 + (s * L + R) * (s * C + 1 / Rd + Yin))
+    Yp = s * C + 1 / Rd + 1 / z_coil
+    tf = 1 / (1 + z_coil * (s * C + 1 / Rd + Yin))
     Zs = 1 / (Yin + Yp)
     vni2 = 4 * k * T * R * np.abs(tf) ** 2
+    if sample is not None:
+        vni2 = vni2 + 4 * k * float(sample.temperature) * np.real(zn) * np.abs(tf) ** 2
     pnoise = vn**2 + inn**2 * np.abs(Zs) ** 2 + vni2
     return np.asarray(pnoise, dtype=np.float64), f
 
@@ -224,8 +238,15 @@ def tuned_probe_output_noise_density(
 def untuned_probe_output_noise_density(
     sp: Mapping[str, Any] | Any,
     pp: Mapping[str, Any] | Any,
+    *,
+    sample: Any | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Return untuned-probe output-referred noise density and frequencies."""
+    """Return untuned-probe output-referred noise density and frequencies.
+
+    ``sample`` optionally inserts the spin-noise sample impedance in series
+    with the coil branch and adds its Nyquist noise at the sample temperature
+    (see :func:`tuned_probe_output_noise_density`).
+    """
 
     k = float(_field(sp, "k"))
     T = float(_field(sp, "T"))
@@ -247,14 +268,17 @@ def untuned_probe_output_noise_density(
     w1_max = (np.pi / 2) / float(_field(pp, "T_90"))
     s = 1j * (w0 + del_w * w1_max)
     f = np.imag(s) / (2 * np.pi)
+    zn = sample.z_n(del_w * w1_max) if sample is not None else 0.0
     Yin = s * Cin + 1 / Rin + 1 / Rd
-    Yp = s * C + 1 / (s * L + R)
+    Yp = s * C + 1 / (s * L + R + zn)
     Zp = 1 / Yp
     Nv = krx * Nrx * L1 / (L + L1)
     Zeff = (Zp + Rdup + R1) * Nv**2 + s * L1 * Nrx**2 * (1 - krx**2) + Nrx * R1
     tf = Nv / (1 + Zeff * Yin)
     Zs = Zeff / (1 + Yin * Zeff)
     vni2 = 4 * k * T * R * np.abs(tf) ** 2
+    if sample is not None:
+        vni2 = vni2 + 4 * k * float(sample.temperature) * np.real(zn) * np.abs(tf) ** 2
     pnoise = (
         vn**2
         + inn**2 * np.abs(Zs) ** 2
@@ -269,8 +293,16 @@ def matched_probe_output_noise_density(
     pp: Mapping[str, Any] | Any,
     *,
     tf1: np.ndarray | None = None,
+    sample: Any | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Return matched-probe output-referred noise density and frequencies."""
+    """Return matched-probe output-referred noise density and frequencies.
+
+    ``sample`` optionally adds the spin-noise sample impedance as a series
+    perturbation of the matched source: the transfer is scaled by the divider
+    ``2*Rc / (2*Rc + Z_n)`` (the network is not re-matched, so this is
+    quantitative for ``R_n0 << Rc``) and the sample's Nyquist noise enters at
+    the sample temperature through the same scaled transfer.
+    """
 
     k = float(_field(sp, "k"))
     T = float(_field(sp, "T"))
@@ -285,7 +317,12 @@ def matched_probe_output_noise_density(
         tf1 = np.asarray(tf1, dtype=np.complex128).reshape(-1)
     w1_max = (np.pi / 2) / float(_field(pp, "T_90"))
     f = (2 * np.pi * f0 + del_w * w1_max) / (2 * np.pi)
+    if sample is not None:
+        zn = sample.z_n(del_w * w1_max)
+        tf1 = tf1 * (2 * Rc) / (2 * Rc + zn)
     vni2 = 4 * k * T * Rc * np.abs(tf1) ** 2
+    if sample is not None:
+        vni2 = vni2 + 4 * k * float(sample.temperature) * np.real(zn) * np.abs(tf1) ** 2
     Fn = 10 ** (float(_field(sp, "NF")) / 10)
     # Amplifier excess-noise term `k*T*Rin*(F-1)`. The apparent "missing" factor
     # of 4 relative to the coil term's open-circuit `4*k*T*Rc` is correct for a
