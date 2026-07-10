@@ -1,4 +1,4 @@
-"""Tests for spin_dynamics.thermal (Phase 0: materials and sources)."""
+"""Tests for spin_dynamics.thermal (Phases 0-1: materials, sources, network)."""
 
 from __future__ import annotations
 
@@ -12,14 +12,22 @@ from spin_dynamics.thermal import (
     AIR,
     COPPER_THERMAL,
     MUSCLE_TISSUE,
+    STEFAN_BOLTZMANN,
+    ThermalLink,
     ThermalMaterial,
+    ThermalNetwork,
+    ThermalNode,
     WATER_THERMAL,
     ConstantSource,
     DutyCycledSource,
     average_coil_power,
     coil_joule_power,
+    conduction_conductance,
+    convection_conductance,
+    cylindrical_shell_conductance,
     duty_cycle_from_pulse_params,
     gradient_waveform_power,
+    radiation_link,
     sar_power_from_loading,
     sar_source_from_eddy,
     transmit_coil_current,
@@ -157,3 +165,133 @@ class TestSARSources:
         circuit = sar_power_from_loading(i0, r_reflected)
         volume_source, _ = sar_source_from_eddy(res)
         assert circuit.average_power == pytest.approx(volume_source.average_power, rel=1e-9)
+
+
+class TestConductanceHelpers:
+    def test_formulas(self) -> None:
+        assert conduction_conductance(10.0, 2e-4, 1e-2) == pytest.approx(0.2)
+        assert convection_conductance(25.0, 4e-3) == pytest.approx(0.1)
+        shell = cylindrical_shell_conductance(0.25, 0.05, 5e-3, 10e-3)
+        assert shell == pytest.approx(2 * np.pi * 0.25 * 0.05 / np.log(2.0))
+        with pytest.raises(ValueError):
+            cylindrical_shell_conductance(0.25, 0.05, 10e-3, 5e-3)
+
+    def test_radiation_link_coefficient(self) -> None:
+        link = radiation_link("a", "b", emissivity=0.5, area=2e-3)
+        assert link.radiation_coefficient == pytest.approx(0.5 * STEFAN_BOLTZMANN * 2e-3)
+        with pytest.raises(ValueError):
+            radiation_link("a", "b", emissivity=0.0, area=1.0)
+
+
+class TestThermalNetwork:
+    def _single_node(self, *, power: float = 2.0, g: float = 0.1, c: float = 50.0):
+        nodes = [
+            ThermalNode("coil", heat_capacity=c, initial_temperature=293.15),
+            ThermalNode("ambient", heat_capacity=None, initial_temperature=293.15),
+        ]
+        links = [ThermalLink("coil", "ambient", conductance=g)]
+        return ThermalNetwork(nodes, links, sources={"coil": power})
+
+    def test_single_node_steady_state(self) -> None:
+        net = self._single_node(power=2.0, g=0.1)
+        steady = net.steady_state()
+        assert steady["coil"] == pytest.approx(293.15 + 20.0)
+        assert steady["ambient"] == pytest.approx(293.15)
+
+    def test_single_node_exponential_transient(self) -> None:
+        power, g, c = 2.0, 0.1, 50.0
+        tau = c / g
+        net = self._single_node(power=power, g=g, c=c)
+        times = np.linspace(0.0, 3.0 * tau, 121)
+        result = net.transient(times)
+        expected = 293.15 + (power / g) * (1.0 - np.exp(-times / tau))
+        np.testing.assert_allclose(result.temperatures["coil"], expected, rtol=1e-6, atol=1e-6)
+
+    def test_rk4_fallback_matches_analytic(self) -> None:
+        power, g, c = 2.0, 0.1, 50.0
+        tau = c / g
+        net = self._single_node(power=power, g=g, c=c)
+        times = np.linspace(0.0, 2.0 * tau, 41)
+        caps = np.array([c, np.inf])
+        trajectory = net._transient_rk4(times, caps, None)
+        expected = 293.15 + (power / g) * (1.0 - np.exp(-times / tau))
+        np.testing.assert_allclose(trajectory[:, 0], expected, rtol=1e-6)
+
+    def test_two_node_chain_temperature_drops(self) -> None:
+        # bath <-G1- former <-G2- coil with P into the coil: in steady state
+        # the full P crosses both links, dropping P/G across each.
+        p, g1, g2 = 1.5, 0.3, 0.05
+        nodes = [
+            ThermalNode("coil", heat_capacity=10.0),
+            ThermalNode("former", heat_capacity=40.0),
+            ThermalNode("bath", heat_capacity=None, initial_temperature=290.0),
+        ]
+        links = [
+            ThermalLink("coil", "former", conductance=g2),
+            ThermalLink("former", "bath", conductance=g1),
+        ]
+        net = ThermalNetwork(nodes, links, sources={"coil": p})
+        steady = net.steady_state()
+        assert steady["former"] - steady["bath"] == pytest.approx(p / g1)
+        assert steady["coil"] - steady["former"] == pytest.approx(p / g2)
+
+    def test_radiation_only_steady_state(self) -> None:
+        coeff_area, emissivity, p = 1e-3, 0.8, 5.0
+        nodes = [
+            ThermalNode("hot", heat_capacity=1.0, initial_temperature=350.0),
+            ThermalNode("walls", heat_capacity=None, initial_temperature=293.15),
+        ]
+        links = [radiation_link("hot", "walls", emissivity=emissivity, area=coeff_area)]
+        net = ThermalNetwork(nodes, links, sources={"hot": p})
+        steady = net.steady_state()
+        expected = (p / (emissivity * STEFAN_BOLTZMANN * coeff_area) + 293.15**4) ** 0.25
+        assert steady["hot"] == pytest.approx(expected, rel=1e-9)
+
+    def test_adiabatic_node_heats_linearly(self) -> None:
+        c, p = 20.0, 4.0
+        nodes = [
+            ThermalNode("blob", heat_capacity=c, initial_temperature=300.0),
+            ThermalNode("bath", heat_capacity=None),
+        ]
+        # A vanishingly weak link keeps the network well-posed while staying
+        # effectively adiabatic over the simulated window.
+        links = [ThermalLink("blob", "bath", conductance=1e-12)]
+        net = ThermalNetwork(nodes, links, sources={"blob": p})
+        times = np.linspace(0.0, 10.0, 21)
+        result = net.transient(times)
+        np.testing.assert_allclose(
+            result.temperatures["blob"], 300.0 + p * times / c, rtol=1e-8
+        )
+
+    def test_transient_approaches_steady_state(self) -> None:
+        net = self._single_node(power=1.0, g=0.2, c=5.0)
+        steady = net.steady_state()
+        result = net.transient(np.linspace(0.0, 10.0 * 5.0 / 0.2, 61))
+        assert result.final()["coil"] == pytest.approx(steady["coil"], rel=1e-6)
+
+    def test_sources_accept_source_objects(self) -> None:
+        pulsed = DutyCycledSource("rf", peak_power=8.0, duty_cycle=0.25)
+        extra = ConstantSource("gradient", 1.0)
+        nodes = [
+            ThermalNode("coil", heat_capacity=10.0),
+            ThermalNode("bath", heat_capacity=None),
+        ]
+        links = [ThermalLink("coil", "bath", conductance=0.5)]
+        net = ThermalNetwork(nodes, links, sources={"coil": [pulsed, extra]})
+        steady = net.steady_state()
+        assert steady["coil"] - 293.15 == pytest.approx((2.0 + 1.0) / 0.5)
+
+    def test_validation_errors(self) -> None:
+        nodes = [
+            ThermalNode("a", heat_capacity=1.0),
+            ThermalNode("bath", heat_capacity=None),
+        ]
+        links = [ThermalLink("a", "bath", conductance=1.0)]
+        with pytest.raises(ValueError):
+            ThermalNetwork(nodes, links, sources={"missing": 1.0})
+        with pytest.raises(ValueError):
+            ThermalNetwork(nodes, [ThermalLink("a", "nope", conductance=1.0)])
+        with pytest.raises(ValueError):
+            ThermalLink("a", "a", conductance=1.0)
+        with pytest.raises(ValueError):
+            ThermalLink("a", "b")

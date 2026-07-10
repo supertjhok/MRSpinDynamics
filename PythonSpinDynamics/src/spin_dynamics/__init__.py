@@ -23,6 +23,7 @@ __all__ = [
     "sample",
     "spin_noise",
     "susceptibility",
+    "thermal",
     "pulses",
     "optimization",
     "probes",

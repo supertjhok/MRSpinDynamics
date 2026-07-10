@@ -19,6 +19,17 @@ from spin_dynamics.thermal.materials import (
     ThermalMaterial,
     WATER_THERMAL,
 )
+from spin_dynamics.thermal.network import (
+    STEFAN_BOLTZMANN,
+    ThermalLink,
+    ThermalNetwork,
+    ThermalNode,
+    ThermalTransientResult,
+    conduction_conductance,
+    convection_conductance,
+    cylindrical_shell_conductance,
+    radiation_link,
+)
 from spin_dynamics.thermal.sources import (
     ConstantSource,
     DutyCycledSource,
@@ -42,6 +53,15 @@ __all__ = [
     "SAPPHIRE",
     "ThermalMaterial",
     "WATER_THERMAL",
+    "STEFAN_BOLTZMANN",
+    "ThermalLink",
+    "ThermalNetwork",
+    "ThermalNode",
+    "ThermalTransientResult",
+    "conduction_conductance",
+    "convection_conductance",
+    "cylindrical_shell_conductance",
+    "radiation_link",
     "ConstantSource",
     "DutyCycledSource",
     "average_coil_power",
