@@ -209,6 +209,27 @@ diffusion-in-internal-gradient studies. These tools are documented in
 Chapter~\ref{chap:workflows}.
 }
 
+\scopebox{Accent}{
+\textbf{Coupled thermal modeling.} The \code{spin\_dynamics.thermal} namespace
+adds a thermal solver alongside the field solvers: duty-cycled heat sources
+(coil Joule power, gradient-waveform power, and sample SAR from the eddy
+solver), a lumped RC network with conduction/convection/radiation links, a
+quasi-static electro-thermal coupling loop that feeds coil \(R(T)\), \(Q\), and
+the sample temperature back into the noise and magnetization models, and
+1D/axisymmetric conduction with an optional Pennes blood-perfusion sink. The
+solvers are validated analytically and against FEMM and are documented in
+Section~\ref{subsec:thermal-modeling}.
+}
+
+\scopebox{Accent}{
+\textbf{Flowing samples.} The \code{spin\_dynamics.flow} namespace models
+measurements on a moving sample (inline pipe monitoring, stopped-flow,
+LC-NMR) in plug or laminar regimes: washout of excited spins during
+acquisition (flow-shortened apparent \(T_2\)), flux-weighted transit-time
+inflow polarization, and the matching advective heat removal in the thermal
+layer. These tools are documented in Section~\ref{subsec:flow}.
+}
+
 \scopebox{AccentTwo}{
 \textbf{Still outside the package scope.} Dipolar coupling networks, arbitrary
 nonselective multi-quantum pulse sequences, shaped sample microstructure beyond
@@ -216,7 +237,10 @@ the supplied field and density maps, and large sparse coupled-spin simulations.
 Ensemble-level spin noise is modeled semiclassically by
 \code{spin\_dynamics.spin\_noise} (sample impedance in the receiver circuit and
 a stochastic Langevin source coupled to radiation damping); only the fully
-quantum measurement-back-action description remains out of scope. Spin-spin effects enter the Bloch workflows only
+quantum measurement-back-action description remains out of scope. Thermal
+transport uses lumped and 1D/axisymmetric solvers with film-coefficient
+convection; full 3D conduction, CFD flow solving, and turbulent-flow washout
+are not modeled. Spin-spin effects enter the Bloch workflows only
 indirectly when represented by effective relaxation times such as \(T_2\) or
 \(T_2^*\). The Redfield/dipolar relaxation model treats fluctuating dipolar
 couplings as stochastic bath sources; it is not a coherent many-spin dipolar
@@ -317,6 +341,10 @@ Path & Purpose \\
 \code{docs/python\_api/} & Lightweight Markdown API notes. \\
 \code{docs/validation\_results.md} & Current validation status and tolerance notes. \\
 \code{docs/radiation\_damping.md} & Focused radiation-damping model notes. \\
+\code{docs/spin\_noise.md} & Spin-noise physics analysis and model options. \\
+\code{docs/thermal\_modeling.md} & Coupled thermal-modeling options and work plan. \\
+\code{docs/flow\_modeling.md} & Flowing-sample model design and validation. \\
+\code{validation/femm/} & FEMM cross-validation scripts (thermal). \\
 \bottomrule
 \end{longtable}
 
