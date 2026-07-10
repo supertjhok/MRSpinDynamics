@@ -3458,15 +3458,22 @@ the two accelerations above keep \(K\) small in the regimes that used to force l
 \paragraph{Shielding and dielectric formers.} \code{self\_capacitance} accepts a grounded
 enclosure \code{shield=GroundedBox(...)} (entered through its 3-D image-charge lattice) and a
 dielectric former \code{relative\_permittivity}; both raise the coil capacitance and lower
-the self-resonant frequency. The example \code{plot\_shielded\_nqr\_coil.py} designs a
+the self-resonant frequency. A metal box is also a good conductor \emph{magnetically}: the
+same shield passed to \code{extract\_impedance(..., ground\_plane=...)} /
+\code{extract\_impedance\_surface(..., shield=...)} adds the walls' flux-exclusion image
+(\code{magnetic\_image\_filaments}, six primary wall reflections for a box), which
+\emph{lowers} \(L\) and so \emph{raises} the SRF --- partly offsetting the capacitive
+lowering. The example \code{plot\_shielded\_nqr\_coil.py} designs a
 \(^{14}\)N NQR probe (2--3\,MHz, coil ID \(\approx1.5''\)) on a Teflon former in a grounded
 aluminium box (one coil end and the box grounded) and plots the properties with and without
 the box: \(L(f)\) and \(R(f)\) from the surface-impedance backend with
 \code{formulation="full"} (skin + turn-to-turn proximity, no empirical factor), the
-self-capacitance and SRF for free/former/box (e.g.\ \(1.5\to2.2\to3.9\)\,pF, SRF
-\(60\to50\to37\)\,MHz, kept above the 10\,MHz target), and the Q reduction from box-wall
-eddy loss (a surface-resistance integral
-\(R_{\text{box}}=2R_s\!\oint|H_{\text{tan}}/I|^2\,\mathrm dA\), \(R_s\propto\sqrt f\)).
+self-capacitance/inductance and SRF for free/former/box (e.g.\ \(C:1.5\to2.2\to3.9\)\,pF,
+\(L:4.8\to4.2\)\,\(\mu\)H, net SRF \(59\to49\to39\)\,MHz, kept above the 10\,MHz target), and
+the Q reduction from box-wall eddy loss. The good-conductor image doubles the tangential
+field at the wall, so that loss is
+\(R_{\text{box}}=4R_s\!\oint|H_{\text{tan,inc}}/I|^2\,\mathrm dA\) (\(R_s\propto\sqrt f\));
+dropping the doubling underestimates it by \(2\times\).
 
 \paragraph{Single-ended vs differential Q over a ground plane.} A \code{GroundPlane(point,
 normal)} shield is the single grounded plane (a half-space) below a planar coil, entered as the
@@ -3478,12 +3485,17 @@ to the single-ended ramp \(0\to1\); \code{potential=lambda s: s-0.5} is the diff
 coil-to-ground capacitance \(C_g=C_{\text{eff}}(\text{plane})-C_{\text{eff}}(\text{free})\) is
 several times smaller (the two winding halves' displacement currents to ground cancel in common
 mode), while \(L\), the copper resistance and the ground-plane eddy loss --- all set by the
-coil \emph{current} --- are mode-independent. That capacitive difference, through the board loss
-\(R_{\text{diel}}=\tan\delta\,\omega^3 L^2 C_g\), is the entire single-ended/differential Q split.
-The example \code{plot\_pcb\_coil\_ground\_mode\_q.py} works a PCB spiral on FR4 over copper:
-differential drive couples \(\sim\)7\(\times\) less to ground, roughly doubling the peak Q, and
-as the plane approaches the single-ended Q collapses while the differential Q holds --- the
-reason NMR/MRI surface and PCB coils are built balanced.
+coil \emph{current} --- are mode-independent. The plane's effect on \(L\) itself is the
+flux-exclusion image, added by \code{extract\_impedance(..., ground\_plane=GroundPlane(...))}
+(reflect each sub-filament across the plane and reverse its current, giving \(L=L_{\text{free}}
+-M(2h)\), validated against the analytic loop-over-plane mutual); it is set by the winding
+current and so is the same for both drives. That leaves the capacitive difference, through the
+board loss \(R_{\text{diel}}=\tan\delta\,\omega^3 L^2 C_g\), as the entire
+single-ended/differential Q split. The example \code{plot\_pcb\_coil\_ground\_mode\_q.py} works
+a PCB spiral on FR4 over copper: the plane lowers \(L\) (\(\sim\)619\(\to\)216\,nH at 0.8\,mm,
+both modes) and the differential drive couples \(\sim\)7\(\times\) less to ground
+(\(\sim\)8\(\times\) less dielectric loss), so the differential Q runs higher, widening with
+frequency --- the reason NMR/MRI surface and PCB coils are built balanced.
 
 \paragraph{Loss-model caveats (proximity and eddy currents).} Two easy trip-ups when
 trusting a computed \(Q\). \emph{Proximity:} use \code{formulation="full"} for any

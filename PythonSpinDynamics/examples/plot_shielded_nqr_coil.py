@@ -10,11 +10,13 @@ the PEEC solver:
   depths thick (deep skin), where a volume mesh would need thousands of cells. The full
   formulation resolves the turn-to-turn proximity loss from first principles (validated
   against continuum FEM -- see docs/coil_peec.md), so no empirical proximity factor is
-  applied.
+  applied. Passing `shield=box` adds the box walls' **magnetic flux-exclusion image**, which
+  *lowers* L (~11% here) -- the magnetic counterpart of the box's capacitive image below.
 * **Self-capacitance and self-resonance** -- `self_capacitance`, with the grounded box added
-  as image charges (`GroundedBox`) and the Teflon former as an effective permittivity. Both
-  raise C and lower the SRF; the design target is SRF > 10 MHz so the 2-3 MHz working band is
-  well below resonance.
+  as image charges (`GroundedBox`) and the Teflon former as an effective permittivity. The
+  box raises C (lowering the SRF) *and* lowers L (raising it) -- the two effects partly
+  offset, so the shielded SRF is a bit higher than the capacitance alone would give. The
+  design target is SRF > 10 MHz so the 2-3 MHz working band is well below resonance.
 * **Shield loss** -- eddy currents induced in the box walls couple back into the coil as an
   added series resistance (`fields.quasistatic.reflected_resistance`), lowering Q.
 
@@ -33,7 +35,8 @@ Two loss subtleties (see docs/coil_peec.md, "Loss modelling"):
 * **Shield eddy loss** uses the surface-resistance model (loss in a skin depth of the wall,
   R ~ sqrt f), which is correct for a solid metal box -- unlike the full-penetration
   first-order eddy model, which would over-predict it by orders of magnitude at these
-  frequencies.
+  frequencies. The good-conductor image doubles the tangential field at the wall, so the
+  series loss is `R_box = 4 R_s * integral(|H_tan,inc/I|^2 dA)` (see `wall_field_integral`).
 """
 
 from __future__ import annotations
@@ -61,13 +64,15 @@ EPS_TEFLON = 2.1  # PTFE relative permittivity
 
 
 def wall_field_integral(coil_segments, half, n=28):
-    """Integral of |H_tan/I|^2 over the six box faces (per unit coil current), 1/m^2 * m^2.
+    """Integral of |H_tan,inc/I|^2 over the six box faces (per unit coil current), m^2 / m^2.
 
-    Sampled from the coil's Biot-Savart field. With the surface resistance
-    ``R_s = sqrt(pi f mu0 / sigma)`` (ohm/square), the shield eddy loss couples back as a
-    reflected series resistance ``R_box(f) = 2 R_s(f) * integral`` -- the high-frequency
-    surface-impedance model (loss confined to a skin depth in the wall, so ``R_box ~ sqrt f``),
-    which is correct for a solid metal box unlike the full-penetration first-order eddy model.
+    Sampled from the coil's Biot-Savart (incident) field. For a good conductor the wall
+    surface current is ``K = 2 |H_tan,inc|`` (the image doubles the tangential field), so with
+    surface resistance ``R_s = sqrt(pi f mu0 / sigma)`` (ohm/square) the eddy loss couples back
+    as a series resistance ``R_box(f) = 4 R_s(f) * integral`` (``P = (1/2) R_s |K|^2`` equated
+    to ``(1/2) I^2 R``) -- the high-frequency surface-impedance model (loss confined to a skin
+    depth in the wall, ``R_box ~ sqrt f``), correct for a solid metal box unlike the
+    full-penetration first-order eddy model.
     """
 
     total = 0.0
@@ -124,10 +129,14 @@ def main() -> None:
 
     # --- L(f), R(f) from the surface-impedance backend; box eddy loss adds series R ---
     freqs = np.linspace(1.0e6, 12.0e6, 12)
-    # chain: skin only (isolated-wire crowding); full: + per-segment turn-to-turn proximity,
-    # resolved from first principles (no empirical factor) -- docs/coil_peec.md.
-    imp_skin = extract_impedance_surface(coil, freqs, n_perimeter=24)
-    imp = extract_impedance_surface(coil, freqs, n_perimeter=24, formulation="full")
+    # The coil sits inside the box: shield=box adds the walls' flux-exclusion image, which
+    # LOWERS L (and raises the SRF) -- the magnetic counterpart of the box's capacitive image
+    # (which raises C and lowers the SRF); the two partly offset. Its resistive wall loss is
+    # the separate surface-resistance integral below.
+    # chain: skin only (isolated-wire crowding); full: + per-segment turn-to-turn proximity.
+    imp_skin = extract_impedance_surface(coil, freqs, n_perimeter=24, shield=box)
+    imp = extract_impedance_surface(coil, freqs, n_perimeter=24, formulation="full", shield=box)
+    l_free_dc = extract_impedance_surface(coil, freqs, n_perimeter=24).dc_inductance  # coil alone
     ind = imp.inductance
     r_skin = imp_skin.resistance
     r_coil = imp.resistance
@@ -136,26 +145,29 @@ def main() -> None:
     phi_peec = float(np.interp(2.5e6, freqs, r_coil / r_skin))
     phi_medhurst = medhurst_proximity_factor(length / diameter, (length / args.turns) / d_wire)
 
-    # box wall eddy loss via the surface-impedance model: R_box(f) = 2 R_s(f) * field integral
+    # box wall eddy loss via the surface-impedance model: R_box(f) = 4 R_s(f) * field integral
     coil_segments = [(path[i], path[i + 1]) for i in range(len(path) - 1)]
     field_int = wall_field_integral(coil_segments, half)
     r_s = np.sqrt(np.pi * freqs * MU0 / SIGMA_AL)  # surface resistance (ohm/square) ~ sqrt(f)
-    r_box = 2.0 * r_s * field_int
+    r_box = 4.0 * r_s * field_int
     r_total = r_coil + r_box
 
     q_skin = 2 * np.pi * freqs * ind / r_skin       # skin only (proximity ignored)
     q_free = 2 * np.pi * freqs * ind / r_coil        # + turn-to-turn proximity
     q_box = 2 * np.pi * freqs * ind / r_total        # + proximity + shield eddy loss
 
-    def srf(c):
-        return 1.0 / (2 * np.pi * np.sqrt(imp.dc_inductance * c))
+    def srf(c, l_dc):
+        return 1.0 / (2 * np.pi * np.sqrt(l_dc * c))
 
     print(f"14N NQR coil: ID {args.id_inch:.2f}\" ({diameter * 1e3:.1f} mm), {args.turns} turns, "
           f"{args.length_mm:.0f} mm, {args.wire_mm:.1f} mm wire")
-    print(f"  L (2.5 MHz)        = {np.interp(2.5e6, freqs, ind) * 1e6:.2f} uH")
-    print(f"  self-C free        = {c_free * 1e12:.2f} pF   -> SRF {srf(c_free) / 1e6:.1f} MHz")
-    print(f"  + Teflon former    = {c_teflon * 1e12:.2f} pF   -> SRF {srf(c_teflon) / 1e6:.1f} MHz")
-    print(f"  + grounded box     = {c_box * 1e12:.2f} pF   -> SRF {srf(c_box) / 1e6:.1f} MHz")
+    print(f"  L (2.5 MHz): coil alone {l_free_dc * 1e6:.2f} uH -> in box "
+          f"{imp.dc_inductance * 1e6:.2f} uH ({100 * (imp.dc_inductance - l_free_dc) / l_free_dc:+.0f}%, "
+          "box flux-exclusion image)")
+    print(f"  self-C free        = {c_free * 1e12:.2f} pF   -> SRF {srf(c_free, l_free_dc) / 1e6:.1f} MHz")
+    print(f"  + Teflon former    = {c_teflon * 1e12:.2f} pF   -> SRF {srf(c_teflon, l_free_dc) / 1e6:.1f} MHz")
+    print(f"  + grounded box     = {c_box * 1e12:.2f} pF   -> SRF {srf(c_box, imp.dc_inductance) / 1e6:.1f} MHz "
+          "(box lowers L *and* raises C)")
     print(f"  R (2.5 MHz): skin {np.interp(2.5e6, freqs, r_skin) * 1e3:.0f} mOhm  "
           f"-> full solve {np.interp(2.5e6, freqs, r_coil) * 1e3:.0f} mOhm "
           f"(proximity factor {phi_peec:.2f}; Medhurst table {phi_medhurst:.2f} for reference)  "
@@ -172,7 +184,7 @@ def main() -> None:
           f"+proximity {np.interp(2.5e6, freqs, q_free):.0f}  ->  +shield {np.interp(2.5e6, freqs, q_box):.0f}")
     print("  NOTE: this is the theoretical (idealized-copper) Q; a measured coil is typically")
     print("        another ~1.3-2x lower (dielectric former, solder/lead resistance, radiation).")
-    print(f"  SRF > 10 MHz target: {'MET' if srf(c_box) > 10e6 else 'NOT MET (box too tight)'}")
+    print(f"  SRF > 10 MHz target: {'MET' if srf(c_box, imp.dc_inductance) > 10e6 else 'NOT MET (box too tight)'}")
 
     if args.save is not None:
         plt = load_matplotlib(required=True, headless=True)
@@ -198,7 +210,8 @@ def main() -> None:
 
         labels = ["free", "+Teflon", "+box"]
         caps = np.array([c_free, c_teflon, c_box]) * 1e12
-        srfs = np.array([srf(c_free), srf(c_teflon), srf(c_box)]) / 1e6
+        srfs = np.array([srf(c_free, l_free_dc), srf(c_teflon, l_free_dc),
+                         srf(c_box, imp.dc_inductance)]) / 1e6
         xb = np.arange(3)
         b = ax3[2].bar(xb, caps, color=["C0", "C4", "C3"], alpha=0.8)
         ax3[2].set_xticks(xb)

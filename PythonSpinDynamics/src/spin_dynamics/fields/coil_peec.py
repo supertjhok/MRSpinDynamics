@@ -515,9 +515,16 @@ def _filament_endpoints(
 
 
 def _chain_lmat_from_filaments(
-    starts: list[np.ndarray], ends: list[np.ndarray], lens: list[np.ndarray], gmd: np.ndarray
+    starts: list[np.ndarray], ends: list[np.ndarray], lens: list[np.ndarray], gmd: np.ndarray,
+    shield: GroundPlane | GroundedBox | None = None,
 ) -> np.ndarray:
-    """K x K chain (path-summed) partial-inductance matrix of the sub-filaments."""
+    """K x K chain (path-summed) partial-inductance matrix of the sub-filaments.
+
+    A ``shield`` (:class:`GroundPlane` or :class:`GroundedBox`) adds its flux-exclusion
+    image filaments (good-conductor ``B_normal = 0`` mirrors, current reversed), whose
+    anti-parallel mutual *lowers* L -- the ``L = L_free - M(2h)`` ground-plane reduction. The
+    image is set by the winding current, so it is identical for any terminal drive.
+    """
 
     k = len(starts)
     lmat = np.zeros((k, k))
@@ -531,10 +538,20 @@ def _chain_lmat_from_filaments(
         for j in range(i + 1, k):
             m = float(_mutualfil_matrix(starts[i], ends[i], starts[j], ends[j]).sum())
             lmat[i, j] = lmat[j, i] = m
+    if shield is not None:
+        for img_s, img_e in shield.magnetic_image_filaments(starts, ends):
+            for i in range(k):
+                for j in range(i, k):
+                    m = float(_mutualfil_matrix(starts[i], ends[i], img_s[j], img_e[j]).sum())
+                    lmat[i, j] += m
+                    if j > i:
+                        lmat[j, i] += m
     return lmat
 
 
-def _chain_inductance_matrix(conductor: Conductor) -> tuple[np.ndarray, np.ndarray]:
+def _chain_inductance_matrix(
+    conductor: Conductor, shield: GroundPlane | GroundedBox | None = None
+) -> tuple[np.ndarray, np.ndarray]:
     """Return ``(L_chain, R_series)``: the K x K partial-inductance matrix of the
     sub-filaments and the per-sub-filament DC series resistance."""
 
@@ -543,21 +560,23 @@ def _chain_inductance_matrix(conductor: Conductor) -> tuple[np.ndarray, np.ndarr
     rho = conductor.material.resistivity_at(conductor.temperature)
     r_series = rho * total_len / areas  # DC resistance of each sub-filament (whole path)
     starts, ends, lens = _filament_endpoints(filaments)
-    return _chain_lmat_from_filaments(starts, ends, lens, gmd), r_series
+    return _chain_lmat_from_filaments(starts, ends, lens, gmd, shield), r_series
 
 
 _FULL_UNKNOWN_LIMIT = 6000  # dense-solve guardrail for the full (per-segment) formulation
 
 
 def _full_lmat_from_filaments(
-    starts: list[np.ndarray], ends: list[np.ndarray], lens: list[np.ndarray], gmd: np.ndarray
+    starts: list[np.ndarray], ends: list[np.ndarray], lens: list[np.ndarray], gmd: np.ndarray,
+    shield: GroundPlane | GroundedBox | None = None,
 ) -> np.ndarray:
     """Full ``(K M) x (K M)`` branch partial-inductance matrix, branch ``b = k*M + m``.
 
     This is FastHenry's actual system: one branch per (path segment ``m``, cross-section
     sub-filament ``k``), with the exact closed-form mutual between every pair of straight
     branches and the analytic self partial inductance on the diagonal. The chain matrix is
-    the row/column block-sum of this one.
+    the row/column block-sum of this one. A ``shield`` adds its flux-exclusion image
+    filaments (:meth:`GroundPlane.magnetic_image_filaments`) to every block.
     """
 
     k = len(starts)
@@ -569,6 +588,7 @@ def _full_lmat_from_filaments(
             "reduce the path resolution (n_per_turn) and/or cross-section cells "
             "(n_radial*n_angular, n_width*n_height, n_perimeter), or use formulation='chain'"
         )
+    images = shield.magnetic_image_filaments(starts, ends) if shield is not None else []
     lb = np.empty((n, n))
     for i in range(k):
         for j in range(i, k):
@@ -578,6 +598,8 @@ def _full_lmat_from_filaments(
                 np.fill_diagonal(
                     blk, [self_partial_inductance(ln, gmd[i]) if ln > 0.0 else 0.0 for ln in lens[i]]
                 )
+            for img_s, img_e in images:  # flux-exclusion images (never coincident with source)
+                blk = blk + _mutualfil_matrix(starts[i], ends[i], img_s[j], img_e[j])
             lb[i * m:(i + 1) * m, j * m:(j + 1) * m] = blk
             if j > i:
                 lb[j * m:(j + 1) * m, i * m:(i + 1) * m] = blk.T
@@ -623,7 +645,8 @@ class PEECImpedance:
 
 
 def extract_impedance(
-    conductor: Conductor, frequencies: Sequence[float], *, formulation: str = "chain"
+    conductor: Conductor, frequencies: Sequence[float], *, formulation: str = "chain",
+    ground_plane: GroundPlane | GroundedBox | None = None,
 ) -> PEECImpedance:
     """Solve the PEEC system for ``L(w)`` and ``R(w)``.
 
@@ -639,6 +662,14 @@ def extract_impedance(
     the proximity effect is resolved from first principles (see
     :func:`_solve_full_terminal`). Cost ``O((M K)^3)`` per frequency; use it for any
     closely-wound coil. Returns ``L(w) = Im Z / w`` and ``R(w) = Re Z``.
+
+    ``ground_plane`` (a :class:`GroundPlane`, or a :class:`GroundedBox` for a full enclosure)
+    adds the good-conductor shield's flux-exclusion image (a lossless PEC mirror), which lowers
+    ``L`` -- the standard ``L = L_free - M(2h)`` reduction. It is set by the winding current, so
+    it is **identical for any terminal drive** (single-ended or differential): the shield's
+    effect on inductance is mode-independent (its resistive eddy loss is a separate
+    surface-resistance integral). The magnetic dual of the electrostatic image in
+    :func:`self_capacitance`.
     """
 
     if formulation not in ("chain", "full"):
@@ -654,7 +685,7 @@ def extract_impedance(
     if formulation == "full":
         k = len(filaments)
         m = starts[0].shape[0]
-        lb = _full_lmat_from_filaments(starts, ends, lens, gmd)
+        lb = _full_lmat_from_filaments(starts, ends, lens, gmd, ground_plane)
         # Per-branch DC resistance: rho * segment_length / cell_area.
         rb = np.concatenate([rho * lens[i] / areas[i] for i in range(k)])
         for idx, f in enumerate(freqs):
@@ -665,7 +696,7 @@ def extract_impedance(
         # Chain matrix for the DC limits below: exactly the block-sum of the full matrix.
         lmat = lb.reshape(k, m, k, m).sum(axis=(1, 3))
     else:
-        lmat = _chain_lmat_from_filaments(starts, ends, lens, gmd)
+        lmat = _chain_lmat_from_filaments(starts, ends, lens, gmd, ground_plane)
         k = lmat.shape[0]
         ones = np.ones(k)
         for idx, f in enumerate(freqs):
@@ -733,7 +764,7 @@ def _perimeter_offsets(conductor: Conductor, delta: float, n: int) -> tuple[np.n
 
 def extract_impedance_surface(
     conductor: Conductor, frequencies: Sequence[float], *, n_perimeter: int = 48,
-    formulation: str = "chain",
+    formulation: str = "chain", shield: GroundPlane | GroundedBox | None = None,
 ) -> PEECImpedance:
     """Surface-impedance (SIBC) solve for the deep-skin (high ``a/delta``) regime.
 
@@ -752,6 +783,12 @@ def extract_impedance_surface(
     so the current redistributes *around the perimeter at every segment* -- skin (analytic,
     via ``Z_s``) **plus proximity** resolved, at deep skin where the volume solver cannot go.
     This is the right mode for a closely-wound RF coil.
+
+    ``shield`` (a :class:`GroundedBox` enclosure or a :class:`GroundPlane`) adds the
+    good-conductor flux-exclusion image, lowering ``L`` (and raising the self-resonance) just
+    as in :func:`extract_impedance` -- the magnetic counterpart of the same shield's
+    electrostatic image in :func:`self_capacitance`, and mode-independent. Its resistive wall
+    loss is a separate surface-resistance integral (see ``examples/plot_shielded_nqr_coil.py``).
     """
 
     if formulation not in ("chain", "full"):
@@ -773,7 +810,7 @@ def extract_impedance_surface(
     r_out = np.empty(freqs.size)
     if formulation == "full":
         m = starts[0].shape[0]
-        lb = _full_lmat_from_filaments(starts, ends, lens, gmd)
+        lb = _full_lmat_from_filaments(starts, ends, lens, gmd, shield)
         for idx, f in enumerate(freqs):
             delta = _skin_depth(conductor, f)
             # Per-branch surface impedance: (1+j) rho/delta * segment_length / patch_width.
@@ -785,7 +822,7 @@ def extract_impedance_surface(
             r_out[idx] = z_term.real
             l_out[idx] = z_term.imag / omega
     else:
-        lmat = _chain_lmat_from_filaments(starts, ends, lens, gmd)
+        lmat = _chain_lmat_from_filaments(starts, ends, lens, gmd, shield)
         ones = np.ones(n)
         for idx, f in enumerate(freqs):
             delta = _skin_depth(conductor, f)
@@ -909,6 +946,33 @@ class GroundedBox:
         two = float(np.sum(inv2) - np.max(inv2))
         return float(0.5 * C0 * np.sqrt(two))
 
+    def magnetic_image_filaments(self, starts, ends):
+        """Flux-exclusion image filaments for the box's six primary wall reflections.
+
+        Each wall is a good conductor holding ``B_normal = 0``; it reflects the filaments
+        across itself and reverses their current (a single reflection). Returns one
+        ``(img_starts, img_ends)`` per wall. These six are the leading term of the
+        rectangular-cavity image lattice -- the dominant flux-exclusion inductance reduction
+        (higher-order edge/corner reflections, a further ~1% here, are omitted so the SIBC
+        solve stays fast). The magnetic dual of the electrostatic :meth:`image_terms`.
+        """
+
+        c = np.asarray(self.center, dtype=np.float64)
+        h = np.asarray(self.half_extents, dtype=np.float64)
+        images = []
+        for a in range(3):
+            for sgn in (-1.0, 1.0):
+                wall = c[a] + sgn * h[a]
+
+                def refl(p, a=a, wall=wall):
+                    q = p.copy()
+                    q[:, a] = 2.0 * wall - q[:, a]
+                    return q
+
+                # reflect ends -> new starts (start/end swap reverses the current)
+                images.append(([refl(e) for e in ends], [refl(s) for s in starts]))
+        return images
+
 
 @dataclass(frozen=True)
 class GroundPlane:
@@ -931,15 +995,30 @@ class GroundPlane:
     point: tuple[float, float, float]
     normal: tuple[float, float, float]
 
-    def image_terms(self, points: np.ndarray) -> list[tuple[np.ndarray, float]]:
-        """Return ``[(mirror_points, -1.0)]``: each point reflected across the plane."""
+    def reflect(self, points: np.ndarray) -> np.ndarray:
+        """Mirror ``points`` (…, 3) geometrically across the plane."""
 
         p0 = np.asarray(self.point, dtype=np.float64)
         n = np.asarray(self.normal, dtype=np.float64)
         n = n / np.linalg.norm(n)
         signed = (points - p0) @ n
-        mirror = points - 2.0 * signed[:, None] * n[None, :]
-        return [(mirror, -1.0)]
+        return points - 2.0 * signed[..., None] * n
+
+    def image_terms(self, points: np.ndarray) -> list[tuple[np.ndarray, float]]:
+        """Return ``[(mirror_points, -1.0)]``: the electrostatic image (opposite charge)."""
+
+        return [(self.reflect(points), -1.0)]
+
+    def magnetic_image_filaments(self, starts, ends):
+        """Flux-exclusion image filaments for a good-conductor plane (one image).
+
+        Returns ``[(img_starts, img_ends)]`` -- each per-filament segment array reflected
+        across the plane with its current reversed (start/end swapped), the ``B_normal = 0``
+        image whose (anti-parallel) mutual with the coil *lowers* L. See
+        :func:`extract_impedance`.
+        """
+
+        return [([self.reflect(e) for e in ends], [self.reflect(s) for s in starts])]
 
 
 def _potential_coefficient_matrix(
@@ -1215,16 +1294,18 @@ def coil_properties_peec(
     scaling this is negligible at NMR/NQR frequencies for ordinary coil sizes and becomes
     the Q ceiling at VHF or for large loops.
 
-    ``shield`` (a :class:`GroundedBox`) and ``relative_permittivity`` (a dielectric former)
-    enter the self-capacitance and self-resonance as in :func:`self_capacitance`; the shield
-    additionally **suppresses the radiation** below its cavity cutoff (see
-    :func:`radiation_resistance`), consistently with its electrostatic role. The shield's own
-    wall eddy loss is a separate integral (see ``examples/plot_shielded_nqr_coil.py``) and is
-    not added here.
+    ``shield`` (a :class:`GroundedBox` enclosure or a :class:`GroundPlane`) and
+    ``relative_permittivity`` (a dielectric former) enter the self-capacitance and
+    self-resonance as in :func:`self_capacitance`. The same shield is a good conductor
+    magnetically, so it **also lowers L** via the flux-exclusion image (:func:`extract_impedance`)
+    -- both effects on the self-resonance, partly offsetting -- and a `GroundedBox` additionally
+    **suppresses the radiation** below its cavity cutoff (:func:`radiation_resistance`). Its own
+    resistive wall/eddy loss is a separate surface integral (see the shielded-coil examples) and
+    is not added here.
     """
 
     f = float(frequency)
-    imp = extract_impedance(conductor, [f], formulation=formulation)
+    imp = extract_impedance(conductor, [f], formulation=formulation, ground_plane=shield)
     c = self_capacitance(conductor, shield=shield, relative_permittivity=relative_permittivity)
     f_res = float(1.0 / (2.0 * np.pi * np.sqrt(imp.dc_inductance * c)))
     ind = float(imp.inductance[0])

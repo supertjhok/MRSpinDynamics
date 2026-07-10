@@ -54,12 +54,19 @@ Outputs (``--save out.png`` for the figure, otherwise tables):
    while differential Q barely moves -- the balanced drive's headline advantage.
 3. The loss budget at the design frequency.
 
+The inductance includes the ground plane's flux-exclusion image (``extract_impedance(...,
+ground_plane=...)``), which lowers L by the standard ``L = L_free - M(2h)``. This image is
+set by the winding current, so it is **the same for both drive modes** -- the ground plane's
+effect on L is mode-independent (validated against the analytic loop-over-plane reduction).
+The mode difference is therefore purely capacitive, which is the point of the demo.
+
 Scope / first-order caveats: the coil-to-ground capacitance uses an effective uniform
-permittivity ``(eps_r+1)/2`` (trace at the air/FR4 interface); L and the copper resistance are
-computed in free space and held across the height sweep (the ground plane's magnetic image
-lowers L slightly -- a mode-independent effect -- so the single-ended/differential *ratio* is
-the robust quantity); and the single-ended ground-return conduction loss (extra current in the
-plane's resistance) is not added, so the real single-ended Q is if anything a touch lower still.
+permittivity ``(eps_r+1)/2`` (trace at the air/FR4 interface); the ground plane's magnetic
+image is a lossless PEC mirror (its resistive eddy loss is the separate surface integral
+above); and any single-ended *galvanic-return* inductance/loss (current routed back through
+the plane to a remote source-ground bond) is layout-dependent -- for the natural local ground
+bond it coincides with the flux-exclusion eddy, so it is not a separate intrinsic term and is
+not added here.
 """
 
 from __future__ import annotations
@@ -128,10 +135,11 @@ def densify(corners, z, *, seg_per_side=None, target_len=None):
 def ground_eddy_resistance(coil_segments, freq, half_span, z_plane=0.0, n=40):
     """Mode-independent eddy loss induced in the ground plane (ohm, series).
 
-    Surface-resistance model: ``R = 2 R_s * integral |H_tan/I|^2 dA`` over the plane, with the
-    tangential field the total (incident + image = 2x incident for a good conductor) and
-    ``R_s = sqrt(pi f mu0 / sigma)``. Set by the coil current, so identical single-ended vs
-    differential -- the common loss floor.
+    Surface-resistance model for a good conductor: the wall surface current is
+    ``K = |H_tan| = 2 |H_tan,inc|`` (the image doubles the tangential field), the loss per
+    area is ``(1/2) R_s |K|^2``, and equating to ``(1/2) I^2 R`` gives the series resistance
+    ``R = 4 R_s * integral(|H_tan,inc/I|^2 dA)`` with ``R_s = sqrt(pi f mu0 / sigma)``. Set by
+    the coil current, so identical single-ended vs differential -- the common loss floor.
     """
 
     gu = np.linspace(-half_span, half_span, n)
@@ -139,10 +147,9 @@ def ground_eddy_resistance(coil_segments, freq, half_span, z_plane=0.0, n=40):
     uu, vv = np.meshgrid(gu, gu, indexing="ij")
     pts = np.column_stack([uu.ravel(), vv.ravel(), np.full(uu.size, z_plane)])
     h = biot_savart(pts, coil_segments, 1.0) / MU0  # incident H per unit current (A/m)
-    h_tan2 = h[:, 0] ** 2 + h[:, 1] ** 2  # tangential (in-plane) components
-    integral = float(np.sum((2.0 * np.sqrt(h_tan2)) ** 2) * du * du)  # image doubles H_tan
+    field_int = float(np.sum(h[:, 0] ** 2 + h[:, 1] ** 2) * du * du)  # integral of |H_tan,inc/I|^2
     r_s = np.sqrt(np.pi * freq * MU0 / SIGMA_CU)
-    return 2.0 * r_s * integral
+    return 4.0 * r_s * field_int  # good-conductor image factor (see docstring)
 
 
 def coil_to_ground_capacitance(coil, gp, eps_eff, potential):
@@ -213,7 +220,10 @@ def main() -> None:
     q = {m: np.empty(freqs.size) for m in MODES}
     cg = {m: coil_to_ground_capacitance(coil_e, gp, eps_eff, prof)[0] for m, prof in MODES.items()}
     for i, f in enumerate(freqs):
-        imp = extract_impedance(coil, [f], formulation="full")
+        # L and R include the ground plane's flux-exclusion image (lowers L). This is set by
+        # the winding current, so it is IDENTICAL for both drive modes -- the ground plane's
+        # effect on inductance is mode-independent (only the capacitance splits by mode).
+        imp = extract_impedance(coil, [f], formulation="full", ground_plane=gp)
         L[i] = imp.inductance[0]
         r_cu[i] = imp.resistance[0]
         r_eddy[i] = ground_eddy_resistance(segs, f, half_span)
@@ -222,6 +232,10 @@ def main() -> None:
             r_diel = tand * w**3 * L[i] ** 2 * cg[m]
             q[m][i] = w * L[i] / (r_cu[i] + r_eddy[i] + r_diel)
 
+    l_free = extract_impedance(coil, [args.f0_mhz * 1e6], formulation="full").inductance[0]
+    l_gnd = np.interp(args.f0_mhz * 1e6, freqs, L)
+    print(f"  inductance at {args.f0_mhz:.0f} MHz: {l_free * 1e9:.0f} nH free -> {l_gnd * 1e9:.0f} nH over the plane "
+          f"({100 * (l_gnd - l_free) / l_free:+.0f}%, flux-exclusion image; same for both modes)\n")
     print(f"  coil-to-ground C: single-ended {cg['single-ended'] * 1e12:.3f} pF, "
           f"differential {cg['differential'] * 1e12:.3f} pF "
           f"({cg['single-ended'] / cg['differential']:.1f}x less common-mode coupling)")
@@ -250,24 +264,29 @@ def main() -> None:
     for m in MODES:
         print(f"    dielectric, {m:<12} {tand * w0**3 * L[i0] ** 2 * cg[m] * 1e3:7.1f}")
 
-    # --- (2) height sweep at f0 (isolates the capacitive mechanism) ---
+    # --- (2) height sweep at f0 ---
+    # Both L (flux-exclusion image, recomputed per height) and C_g change as the plane nears;
+    # L is mode-independent, C_g is not -- so the mode split is still purely capacitive.
     heights = np.array([0.4, 0.8, 1.6, 3.2]) * 1e-3
-    imp0 = extract_impedance(coil, [f0], formulation="full")
-    L0, r_cu0 = imp0.inductance[0], imp0.resistance[0]
-    r_eddy0 = r_eddy[i0]
     qh = {m: np.empty(heights.size) for m in MODES}
     cgh = {m: np.empty(heights.size) for m in MODES}
+    lh = np.empty(heights.size)
     for j, hgt in enumerate(heights):
+        coil_h = build_imp(hgt)
+        imp_h = extract_impedance(coil_h, [f0], formulation="full", ground_plane=gp)
+        lh[j], r_cu_h = imp_h.inductance[0], imp_h.resistance[0]
+        segs_h = [(coil_h.path_points[i], coil_h.path_points[i + 1]) for i in range(len(coil_h.path_points) - 1)]
+        r_eddy_h = ground_eddy_resistance(segs_h, f0, half_span, z_plane=0.0)
         ch = build_electro(hgt)
         for m, prof in MODES.items():
             c_g, _ = coil_to_ground_capacitance(ch, gp, eps_eff, prof)
             cgh[m][j] = c_g
-            r_diel = tand * w0**3 * L0**2 * c_g
-            qh[m][j] = w0 * L0 / (r_cu0 + r_eddy0 + r_diel)
-    print(f"\n  Q vs board thickness at {f0 / 1e6:.0f} MHz (L, R held; only C_g varies):")
-    print(f"  {'h (mm)':>8}{'C_g,SE':>10}{'C_g,diff':>10}{'Q_SE':>8}{'Q_diff':>9}{'gain':>7}")
+            r_diel = tand * w0**3 * lh[j] ** 2 * c_g
+            qh[m][j] = w0 * lh[j] / (r_cu_h + r_eddy_h + r_diel)
+    print(f"\n  Q vs board thickness at {f0 / 1e6:.0f} MHz (L mode-independent, C_g splits by mode):")
+    print(f"  {'h (mm)':>8}{'L (nH)':>9}{'C_g,SE':>10}{'C_g,diff':>10}{'Q_SE':>8}{'Q_diff':>9}{'gain':>7}")
     for j, hgt in enumerate(heights):
-        print(f"  {hgt * 1e3:8.2f}{cgh['single-ended'][j] * 1e12:9.3f}p{cgh['differential'][j] * 1e12:9.3f}p"
+        print(f"  {hgt * 1e3:8.2f}{lh[j] * 1e9:9.0f}{cgh['single-ended'][j] * 1e12:9.3f}p{cgh['differential'][j] * 1e12:9.3f}p"
               f"{qh['single-ended'][j]:8.0f}{qh['differential'][j]:9.0f}"
               f"{qh['differential'][j] / qh['single-ended'][j]:6.2f}x")
 
@@ -284,14 +303,18 @@ def main() -> None:
         ax[0].legend(fontsize=8)
         ax[0].grid(True, alpha=0.2)
 
-        ax[1].plot(heights * 1e3, qh["single-ended"], "o-", color="C3", label="single-ended")
-        ax[1].plot(heights * 1e3, qh["differential"], "s-", color="C0", label="differential")
+        ax[1].plot(heights * 1e3, qh["single-ended"], "o-", color="C3", label="Q single-ended")
+        ax[1].plot(heights * 1e3, qh["differential"], "s-", color="C0", label="Q differential")
         ax[1].axvline(args.board_mm, color="gray", ls=":", lw=1, label=f"{args.board_mm:.1f} mm board")
         ax[1].set_xlabel("coil height above ground plane (mm)")
         ax[1].set_ylabel(f"unloaded Q at {f0 / 1e6:.0f} MHz")
-        ax[1].set_title("Ground plane approaching: SE collapses, diff holds")
-        ax[1].legend(fontsize=8)
+        ax[1].set_title("Approaching plane: L collapses (both modes), Q falls")
+        ax[1].legend(fontsize=8, loc="upper left")
         ax[1].grid(True, alpha=0.2)
+        ax1r = ax[1].twinx()  # the mode-independent inductance collapse behind the Q trend
+        ax1r.plot(heights * 1e3, lh * 1e9, "^--", color="0.5", label="L (both modes)")
+        ax1r.set_ylabel("L (nH)", color="0.5")
+        ax1r.legend(fontsize=8, loc="lower right")
 
         # loss budget bars at f0
         labels = ["copper", "gnd eddy", "dielectric"]
