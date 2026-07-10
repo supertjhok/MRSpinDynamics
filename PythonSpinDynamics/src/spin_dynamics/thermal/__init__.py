@@ -40,6 +40,7 @@ from spin_dynamics.thermal.network import (
     conduction_conductance,
     convection_conductance,
     cylindrical_shell_conductance,
+    flow_conductance,
     radiation_link,
 )
 from spin_dynamics.thermal.sources import (
@@ -81,6 +82,7 @@ __all__ = [
     "conduction_conductance",
     "convection_conductance",
     "cylindrical_shell_conductance",
+    "flow_conductance",
     "radiation_link",
     "ConstantSource",
     "DutyCycledSource",
