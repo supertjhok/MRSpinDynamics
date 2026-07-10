@@ -620,9 +620,11 @@ def _radiation_damping_target(
     spec: RadiationDampingSpec,
     weights: np.ndarray,
 ) -> complex:
+    # Phase-independent (Bloom) feedback target -m+/Trd; see the convention
+    # note in spin_dynamics.radiation_damping._rhs and docs/radiation_damping.md.
     return (
-        np.exp(1j * spec.probe.phase)
-        * np.conj(np.sum(weights * mvect[2, :]))
+        -np.exp(1j * spec.probe.phase)
+        * np.sum(weights * mvect[2, :])
         / spec.trd
     )
 

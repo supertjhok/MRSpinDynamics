@@ -20,6 +20,8 @@ __all__ = [
     "pulse_diagnostics",
     "relaxation",
     "radiation_damping",
+    "sample",
+    "spin_noise",
     "susceptibility",
     "pulses",
     "optimization",

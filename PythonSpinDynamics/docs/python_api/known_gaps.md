@@ -168,7 +168,13 @@ Remaining gaps:
   the available-power `k*T*Rin*(F-1)` basis, consistent with the matched coil
   term (the factor-of-4 difference from the open-circuit `4*k*T*R` form is the
   matched 1/2-voltage / 1/4-power transfer); absolute SNR magnitudes still
-  benefit from validation against a measured noise figure;
+  benefit from validation against a measured noise figure. The physical
+  spin-noise models (`spin_dynamics.sample`, `spin_dynamics.spin_noise`, and
+  the `sample=` keyword on the probe noise densities; see
+  `docs/spin_noise.md`) are validated against internal identities and analytic
+  linear-response results but not yet against measured spin-noise spectra, and
+  the matched-probe variant treats the sample impedance as a series
+  perturbation without re-matching (quantitative for `R_n0 << Rc`);
 - ESEEM/HYSCORE/ENDOR beyond a single I<=3/2 nucleus with a field-collinear
   quadrupole tensor: spin I>3/2, anisotropic hyperfine `A` tensors with powder
   averaging, tilted (Euler-rotated) quadrupole tensors, and multiple coupled

@@ -212,8 +212,11 @@ Chapter~\ref{chap:workflows}.
 \scopebox{AccentTwo}{
 \textbf{Still outside the package scope.} Dipolar coupling networks, arbitrary
 nonselective multi-quantum pulse sequences, shaped sample microstructure beyond
-the supplied field and density maps, microscopic spin noise, and large sparse
-coupled-spin simulations. Spin-spin effects enter the Bloch workflows only
+the supplied field and density maps, and large sparse coupled-spin simulations.
+Ensemble-level spin noise is modeled semiclassically by
+\code{spin\_dynamics.spin\_noise} (sample impedance in the receiver circuit and
+a stochastic Langevin source coupled to radiation damping); only the fully
+quantum measurement-back-action description remains out of scope. Spin-spin effects enter the Bloch workflows only
 indirectly when represented by effective relaxation times such as \(T_2\) or
 \(T_2^*\). The Redfield/dipolar relaxation model treats fluctuating dipolar
 couplings as stochastic bath sources; it is not a coherent many-spin dipolar
@@ -3798,6 +3801,82 @@ important when the received spectrum is filtered by a tuned, untuned, or
 matched resonator. Result objects preserve clean deterministic fields and add
 noisy fields plus \code{NoiseMetadata} so repeated SNR studies remain
 reproducible.
+
+\subsection{Spin Noise}
+\label{subsec:spin-noise}
+
+Beyond the coil and amplifier, the spins themselves are a noise source: the
+transverse magnetization of $N$ spins fluctuates with RMS moment
+$\sqrt{N}\,\gamma\hbar/2$ (all spins, not the Boltzmann excess), with an
+exponential autocorrelation at $T_2$ and hence a Lorentzian power spectrum of
+width $1/(\pi T_2)$ centered on the Larmor frequency (Hoult \& Ginsberg 2001;
+Field \& Bain 2010; Annabestani et al.\ 2015 -- see
+\code{docs/spin\_noise.md} for the full analysis). Two physical models are
+provided; both derive their coupling strength from the same constant as
+radiation damping through $R_{n0} = R_{\mathrm{coil}} T_2 / (2 T_{\mathrm{rd}})$.
+
+Sample properties -- geometry, spin density, temperature, nucleus, relaxation
+-- live on a \code{Sample} object, kept distinct from the detector/coil
+parameters so the sample and circuit can sit at different temperatures
+(\code{sp.T} remains the coil temperature):
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.sample import cylinder_geometry, water_sample
+
+sample = water_sample(cylinder_geometry(2.5e-3, 10e-3), temperature=300.0, t2=0.1)
+sample.number_of_spins            # N from spin density and geometry
+sample.magnetization_density(1.0) # Curie-law M0 at B0 = 1 T (A/m)
+\end{lstlisting}
+
+\textbf{Frequency domain (circuit model).} The sample presents the Hoult
+impedance $Z_n(\Delta\omega) = R_{n0}/(1 + j\,\Delta\omega T_2)$ in series
+with the receive coil. Passing a \code{SampleCoupling} to the probe noise
+densities inserts $Z_n$ into the circuit and adds its Nyquist noise at the
+\emph{sample} temperature. The on-resonance feature emerges from the circuit
+algebra: a dip at thermal equilibrium (the sample loads the resonant peak),
+deeper for a cold sample, flipping to a bump for hot (or hyperpolarized-hot)
+spins, with radiation-damping line broadening and $X_n$ frequency pulling
+included:
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.noise import tuned_probe_output_noise_density
+from spin_dynamics.spin_noise import sample_coupling_from_sample
+
+coupling = sample_coupling_from_sample(
+    sample, field_tesla=0.0235, fill_factor=0.6, inductance=10e-6,
+)
+pnoise, freqs = tuned_probe_output_noise_density(sp, pp, sample=coupling)
+\end{lstlisting}
+
+\textbf{Time domain (stochastic source).} \code{simulate\_spin\_noise}
+integrates the Bloch equations with a complex Ornstein--Uhlenbeck Langevin
+force on the transverse magnetization (spin bath at the sample temperature)
+plus a coil-temperature Johnson force, coupled to the probe through the same
+radiation-damping feedback state as the deterministic module. The coil-noise
+realization is shared between the spin drive and the receiver EMF, so the
+equilibrium dip / hot-spin bump appears in the simulated spectra; it also
+seeds maser ignition from zero transverse magnetization:
+
+\begin{lstlisting}[language=Python]
+import numpy as np
+from spin_dynamics.spin_noise import (
+    estimate_spin_noise_spectrum,
+    simulate_spin_noise,
+    spin_noise_source_from_sample,
+)
+
+source = spin_noise_source_from_sample(sample, field_tesla=0.0235)
+result = simulate_spin_noise(np.arange(0.0, 60.0, 5e-4), probe, source, seed=1)
+freqs, psd = estimate_spin_noise_spectrum(result.emf, 5e-4, block_samples=4096)
+\end{lstlisting}
+
+The stochastic model is validated against the analytic linear-response
+spectrum (\code{spin\_noise\_output\_psd}), the stationary variance, and the
+$R(t) = m_{\mathrm{rms}}^2 e^{-t/T_2}$ autocorrelation;
+\code{examples/plot\_spin\_noise\_spectrum.py} reproduces the dip/bump
+phenomenology and a spin-noise-seeded maser. The quantum
+measurement-back-action description of spin noise (weak vs.\ strong readout)
+remains out of scope.
 
 \section{Non-Inductive Detection: SQUID and OPM Magnetometers}
 \label{sec:non-inductive-detection}
