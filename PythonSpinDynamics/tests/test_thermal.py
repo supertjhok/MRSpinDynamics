@@ -6,9 +6,17 @@ import numpy as np
 import pytest
 
 from spin_dynamics.fields import coils
+from spin_dynamics.fields.coil_properties import ANNEALED_COPPER, ConductorMaterial
 from spin_dynamics.fields.quasistatic import eddy_currents, reflected_resistance
+from spin_dynamics.noise import tuned_probe_output_noise_density
 from spin_dynamics.parameters import set_params_tuned_orig
+from spin_dynamics.radiation_damping import KB
+from spin_dynamics.sample import sphere_geometry, water_sample
+from spin_dynamics.spin_noise import SampleCoupling
 from spin_dynamics.thermal import (
+    CoupledCoilDrive,
+    CoupledSAR,
+    ThermalCoupling,
     AIR,
     COPPER_THERMAL,
     MUSCLE_TISSUE,
@@ -295,3 +303,188 @@ class TestThermalNetwork:
             ThermalLink("a", "a", conductance=1.0)
         with pytest.raises(ValueError):
             ThermalLink("a", "b")
+
+
+class TestThermalCoupling:
+    T_BATH = 293.15
+
+    def _factory(self, g: float = 0.05, c: float = 20.0, t_bath: float | None = None):
+        bath = self.T_BATH if t_bath is None else t_bath
+
+        def make(sources):
+            nodes = [
+                ThermalNode("coil", heat_capacity=c, initial_temperature=bath),
+                ThermalNode("bath", heat_capacity=None, initial_temperature=bath),
+            ]
+            links = [ThermalLink("coil", "bath", conductance=g)]
+            return ThermalNetwork(nodes, links, sources)
+
+        return make
+
+    def _drive(self, *, current=1.0, duty=0.25, r_ref=2.0, exponent=1.0):
+        return CoupledCoilDrive(
+            node="coil",
+            current=current,
+            duty_cycle=duty,
+            material=ANNEALED_COPPER,
+            reference_resistance=r_ref,
+            reference_temperature=self.T_BATH,
+            resistance_exponent=exponent,
+        )
+
+    def test_fixed_point_matches_closed_form(self) -> None:
+        # Linear tempco, exponent 1: P(T) = P0 (1 + alpha (T - T_bath)) and
+        # T - T_bath = P(T)/G has the closed form (P0/G) / (1 - P0 alpha / G).
+        g = 0.05
+        drive = self._drive(current=1.0, duty=0.25, r_ref=2.0, exponent=1.0)
+        coupling = ThermalCoupling(self._factory(g=g), drive)
+        result = coupling.fixed_point()
+        p0 = 0.5 * 1.0**2 * 2.0 * 0.25
+        alpha = ANNEALED_COPPER.temp_coefficient
+        expected_rise = (p0 / g) / (1.0 - p0 * alpha / g)
+        assert result.temperatures["coil"] - self.T_BATH == pytest.approx(
+            expected_rise, rel=1e-7
+        )
+        assert result.coil_resistance == pytest.approx(
+            2.0 * (1.0 + alpha * expected_rise), rel=1e-7
+        )
+        assert result.coil_power == pytest.approx(
+            g * expected_rise, rel=1e-7
+        )  # steady state: input equals loss
+
+    def test_thermal_runaway_raises(self) -> None:
+        # Feedback gain P0 * alpha / G > 1: no steady state exists.
+        hot = ConductorMaterial("runaway", 17e-9, temp_coefficient=0.5)
+        drive = CoupledCoilDrive(
+            node="coil",
+            current=2.0,
+            duty_cycle=1.0,
+            material=hot,
+            reference_resistance=2.0,
+            reference_temperature=self.T_BATH,
+            resistance_exponent=1.0,
+        )
+        coupling = ThermalCoupling(self._factory(g=0.05), drive)
+        with pytest.raises(RuntimeError, match="runaway|converge"):
+            coupling.fixed_point(max_iterations=50)
+
+    def test_march_approaches_fixed_point(self) -> None:
+        g, c = 0.05, 20.0
+        drive = self._drive()
+        coupling = ThermalCoupling(self._factory(g=g, c=c), drive)
+        steady = coupling.fixed_point()
+        tau = c / g
+        times = np.linspace(0.0, 12.0 * tau, 241)
+        marched = coupling.march(times, update_every=4)
+        assert marched.transient is not None
+        coil_t = marched.transient.temperatures["coil"]
+        assert np.all(np.diff(coil_t) > -1e-9)  # monotone warm-up
+        assert marched.temperatures["coil"] == pytest.approx(
+            steady.temperatures["coil"], rel=1e-4
+        )
+
+    def test_sample_and_sar_coupling(self) -> None:
+        def make(sources):
+            nodes = [
+                ThermalNode("coil", heat_capacity=20.0, initial_temperature=self.T_BATH),
+                ThermalNode("sample", heat_capacity=5.0, initial_temperature=self.T_BATH),
+                ThermalNode("bath", heat_capacity=None, initial_temperature=self.T_BATH),
+            ]
+            links = [
+                ThermalLink("coil", "bath", conductance=0.1),
+                ThermalLink("coil", "sample", conductance=0.02),
+                ThermalLink("sample", "bath", conductance=0.05),
+            ]
+            return ThermalNetwork(nodes, links, sources)
+
+        sample = water_sample(sphere_geometry(2.5e-3), temperature=self.T_BATH, t2=0.1)
+        sar = CoupledSAR(
+            node="sample",
+            reference_power=0.05,
+            reference_temperature=self.T_BATH,
+            tempco=0.02,
+        )
+        coupling = ThermalCoupling(
+            make,
+            self._drive(current=2.0, duty=0.25, r_ref=1.0, exponent=0.5),
+            sar=sar,
+            sample=sample,
+            sample_node="sample",
+        )
+        result = coupling.fixed_point()
+        assert result.temperatures["sample"] > self.T_BATH
+        assert result.sample is not None
+        assert result.sample.temperature == pytest.approx(result.temperatures["sample"])
+        # Warmer sample -> lower Curie-law magnetization.
+        assert result.sample.magnetization_density(1.0) < sample.magnetization_density(1.0)
+        # SAR grew with its positive tempco.
+        assert result.sample_power > 0.05
+
+    def test_probe_updates_expose_temperature_r_and_q(self) -> None:
+        drive = self._drive()
+        coupling = ThermalCoupling(self._factory(), drive)
+        result = coupling.fixed_point()
+        w0, inductance = 2 * np.pi * 1e6, 10e-6
+        updates = result.probe_updates(coil_node="coil", inductance=inductance, omega0=w0)
+        assert updates["T"] == pytest.approx(result.temperatures["coil"])
+        assert updates["R"] == pytest.approx(result.coil_resistance)
+        assert updates["Q"] == pytest.approx(w0 * inductance / result.coil_resistance)
+
+    def test_cryoprobe_two_temperature_noise(self) -> None:
+        # Coil cooled to a 77 K bath, sample held near 300 K: the coupled
+        # temperatures feed the two-temperature noise model and the cold coil
+        # must beat the room-temperature coil on baseline noise density.
+        cryo_copper = ConductorMaterial(
+            "rrr copper", 17.241e-9, temp_coefficient=3.93e-3,
+            residual_resistivity_ratio=50.0,
+        )
+
+        def make(sources):
+            nodes = [
+                ThermalNode("coil", heat_capacity=5.0, initial_temperature=77.0),
+                ThermalNode("sample", heat_capacity=5.0, initial_temperature=300.0),
+                ThermalNode("cryostat", heat_capacity=None, initial_temperature=77.0),
+                ThermalNode("room", heat_capacity=None, initial_temperature=300.0),
+            ]
+            links = [
+                ThermalLink("coil", "cryostat", conductance=0.5),
+                ThermalLink("sample", "room", conductance=0.5),
+                ThermalLink("coil", "sample", conductance=0.002),  # weak leak
+            ]
+            return ThermalNetwork(nodes, links, sources)
+
+        drive = CoupledCoilDrive(
+            node="coil",
+            current=0.5,
+            duty_cycle=0.1,
+            material=cryo_copper,
+            reference_resistance=1.0,
+            reference_temperature=293.15,
+            resistance_exponent=0.5,
+        )
+        sample = water_sample(sphere_geometry(2.5e-3), temperature=300.0, t2=0.05)
+        coupling = ThermalCoupling(
+            make, drive, sample=sample, sample_node="sample",
+        )
+        result = coupling.fixed_point()
+        t_coil = result.temperatures["coil"]
+        assert t_coil < 100.0  # coil stays cold
+        assert result.temperatures["sample"] > 295.0  # sample stays warm
+        assert result.coil_resistance < 1.0  # cryogenic R drop
+
+        # Feed the coupled state into the tuned-probe noise density.
+        f0, L = 1e6, 10e-6
+        w0 = 2 * np.pi * f0
+        sp_cold = {
+            "k": KB, "T": t_coil, "L": L, "R": result.coil_resistance,
+            "C": 1 / (w0**2 * L), "Cin": 1e-15, "Rin": 1e12, "Rd": 1e12,
+            "vn": 0.0, "in_": 0.0, "w0": w0,
+            "del_w": np.linspace(-2.0, 2.0, 801),
+        }
+        sp_warm = dict(sp_cold, T=293.15, R=1.0)
+        pp = {"T_90": 25e-6}
+        coupling_b = SampleCoupling(r_n0=0.05, t2=0.05, temperature=result.sample.temperature)
+        cold, _ = tuned_probe_output_noise_density(sp_cold, pp, sample=coupling_b)
+        warm, _ = tuned_probe_output_noise_density(sp_warm, pp, sample=coupling_b)
+        edge = 5
+        assert cold[edge] < warm[edge]  # cold coil lowers the baseline

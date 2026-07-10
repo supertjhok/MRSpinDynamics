@@ -19,6 +19,13 @@ from spin_dynamics.thermal.materials import (
     ThermalMaterial,
     WATER_THERMAL,
 )
+from spin_dynamics.thermal.coupling import (
+    CoupledCoilDrive,
+    CoupledSAR,
+    ThermalCoupling,
+    ThermalCouplingResult,
+    resistance_at_temperature,
+)
 from spin_dynamics.thermal.network import (
     STEFAN_BOLTZMANN,
     ThermalLink,
@@ -53,6 +60,11 @@ __all__ = [
     "SAPPHIRE",
     "ThermalMaterial",
     "WATER_THERMAL",
+    "CoupledCoilDrive",
+    "CoupledSAR",
+    "ThermalCoupling",
+    "ThermalCouplingResult",
+    "resistance_at_temperature",
     "STEFAN_BOLTZMANN",
     "ThermalLink",
     "ThermalNetwork",
