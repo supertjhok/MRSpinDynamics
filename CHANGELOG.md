@@ -1,5 +1,9 @@
 # Changelog
 
+- Stabilize PEEC parallel-terminal reductions by validating the direct complex solve and
+  falling back to an SVD least-squares solve when a numerical backend returns non-finite
+  currents.
+
 All notable changes to the **MRSpinDynamics** workspace are recorded here. The
 repository is released as a single citable unit (see [`CITATION.cff`](CITATION.cff)
 and [`docs/release_process.md`](docs/release_process.md)); one version covers all

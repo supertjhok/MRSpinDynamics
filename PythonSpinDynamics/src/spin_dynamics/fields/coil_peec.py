@@ -563,6 +563,39 @@ def _chain_inductance_matrix(
     return _chain_lmat_from_filaments(starts, ends, lens, gmd, shield), r_series
 
 
+def _parallel_terminal_impedance(z: np.ndarray) -> complex:
+    """Reduce parallel branches, retrying a numerically invalid direct solve.
+
+    Some LAPACK/OpenBLAS combinations have very occasionally returned non-finite values
+    from ``solve`` for otherwise modest, well-conditioned complex PEEC matrices.  Check the
+    solution and its residual rather than allowing that backend failure to become a silent
+    ``nan`` terminal impedance.  SVD least squares is an independent, stable fallback.
+    """
+
+    ones = np.ones(z.shape[0])
+
+    def valid(currents: np.ndarray) -> bool:
+        if not np.isfinite(currents).all():
+            return False
+        residual = np.linalg.norm(z @ currents - ones)
+        scale = np.linalg.norm(z) * np.linalg.norm(currents) + np.linalg.norm(ones)
+        return bool(np.isfinite(residual) and residual <= 1e-10 * scale)
+
+    try:
+        currents = np.linalg.solve(z, ones)
+    except np.linalg.LinAlgError:
+        currents = np.full(z.shape[0], np.nan, dtype=complex)
+    if not valid(currents):
+        currents = np.linalg.lstsq(z, ones, rcond=None)[0]
+    if not valid(currents):
+        raise np.linalg.LinAlgError("PEEC terminal-current solve did not converge")
+
+    admittance = ones @ currents
+    if not np.isfinite(admittance) or abs(admittance) <= np.finfo(float).tiny:
+        raise np.linalg.LinAlgError("PEEC terminal admittance is zero or non-finite")
+    return complex(1.0 / admittance)
+
+
 _FULL_UNKNOWN_LIMIT = 6000  # dense-solve guardrail for the full (per-segment) formulation
 
 
@@ -698,12 +731,10 @@ def extract_impedance(
     else:
         lmat = _chain_lmat_from_filaments(starts, ends, lens, gmd, ground_plane)
         k = lmat.shape[0]
-        ones = np.ones(k)
         for idx, f in enumerate(freqs):
             omega = 2.0 * np.pi * f
             z = np.diag(r_series) + 1j * omega * lmat
-            y = ones @ np.linalg.solve(z, ones)
-            z_term = 1.0 / y
+            z_term = _parallel_terminal_impedance(z)
             r_out[idx] = z_term.real
             l_out[idx] = z_term.imag / omega if omega > 0 else np.nan
 
@@ -823,13 +854,12 @@ def extract_impedance_surface(
             l_out[idx] = z_term.imag / omega
     else:
         lmat = _chain_lmat_from_filaments(starts, ends, lens, gmd, shield)
-        ones = np.ones(n)
         for idx, f in enumerate(freqs):
             delta = _skin_depth(conductor, f)
             z_surface = (1.0 + 1j) * (rho / delta) * (total_len / widths)
             omega = 2.0 * np.pi * f
             z = np.diag(z_surface) + 1j * omega * lmat
-            z_term = 1.0 / (ones @ np.linalg.solve(z, ones))
+            z_term = _parallel_terminal_impedance(z)
             r_out[idx] = z_term.real
             l_out[idx] = z_term.imag / omega
     dc_r = rho * total_len / (np.pi * conductor.wire_radius**2) if conductor.cross_section == "round" \

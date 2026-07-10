@@ -14,6 +14,7 @@ from __future__ import annotations
 import sys
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 
@@ -26,6 +27,7 @@ from spin_dynamics.fields.coil_peec import (  # noqa: E402
     Conductor,
     PEECCoilProperties,
     _mutualfil_matrix,
+    _parallel_terminal_impedance,
     capacitance_to_ground,
     coil_properties_peec,
     extract_impedance,
@@ -38,6 +40,22 @@ from spin_dynamics.fields.magnetostatics import MU0  # noqa: E402
 from spin_dynamics.fields.quasistatic import coil_inductance  # noqa: E402
 
 COPPER = ConductorMaterial("copper", 1.7241e-8, 1.0)
+
+
+class TerminalReductionTests(unittest.TestCase):
+    def test_nonfinite_direct_solve_uses_stable_fallback(self) -> None:
+        z = np.array([[3.0 + 2.0j, 0.25j], [0.25j, 4.0 + 1.5j]])
+        ones = np.ones(2)
+        expected = 1.0 / (ones @ np.linalg.solve(z, ones))
+
+        with patch(
+            "spin_dynamics.fields.coil_peec.np.linalg.solve",
+            return_value=np.full(2, np.nan + 1j * np.nan),
+        ):
+            actual = _parallel_terminal_impedance(z)
+
+        self.assertAlmostEqual(actual.real, expected.real, places=12)
+        self.assertAlmostEqual(actual.imag, expected.imag, places=12)
 
 
 def _kelvin_rac_over_rdc(a: float, delta: float) -> float:
