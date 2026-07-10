@@ -9,6 +9,8 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
 
 ### PythonSpinDynamics
 
+- Suppressed spurious floating-point warnings from the unused laminar-washout
+  tail branch at zero time and added an extreme-residence-time regression test.
 - Began the backend-neutral sequence IR and compiler: sequential blocks with
   concurrent RF, three-axis gradient, and ADC events; piecewise-constant
   timeline compilation; a moving-isochromat adapter; and core text import for
