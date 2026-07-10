@@ -3780,6 +3780,81 @@ the solved fields; \(S\) falls \(\sim\!100\times\) over the first centimetre
 (surface-coil \(B_1\) dominated), so the measured profile decays with depth as a
 real single-sided measurement does.
 
+\subsection{Coupled Thermal Modeling}
+\label{subsec:thermal-modeling}
+
+RF and gradient coils dissipate power and warm up, RF pulses deposit power in
+conductive samples (SAR), and the resulting temperatures feed back into nearly
+every quantity the package computes: coil resistance \(R(T)\) and \(Q\) (hence
+SNR and the probe transfer functions), Curie-law \(M_0\), and the
+two-temperature noise models of Sec.~\ref{subsec:spin-noise}. The
+\code{spin\_dynamics.thermal} package adds a thermal solver alongside the other
+field solvers to close this loop; the physics options and the phased plan are
+in \code{docs/thermal\_modeling.md}. The time-scale separation (RF microseconds
+versus thermal seconds-to-minutes) makes a quasi-static weak coupling exact for
+practical purposes.
+
+\textbf{Heat sources.} \code{thermal.sources} converts electromagnetic
+quantities into duty-cycle-averaged powers: coil Joule heating \(I^2R/2\) from
+the drive current and the coil resistance, RF duty cycles from the \code{pp}
+\code{tref}/\code{aref} arrays, gradient-waveform mean-square power, and sample
+SAR from the first-order eddy solver (\code{fields.quasistatic}) as either a
+volume-integrated power or a per-cell density map. A validation identity ties
+the two SAR views together: the volume-integrated eddy power equals the
+circuit-side \(P = I_0^2 R_{\mathrm{reflected}}/2\).
+
+\textbf{Lumped network (Option A).} \code{ThermalNetwork} is a nodal RC network
+of heat capacities \(C=\rho c_p V\) linked by conduction, convection, and
+grey-body radiation, matching the package's lumped-circuit philosophy. It
+solves the steady state (linear, or damped Newton with radiation) and the
+transient warm-up:
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.thermal import (
+    ThermalNode, ThermalLink, ThermalNetwork, convection_conductance,
+)
+
+net = ThermalNetwork(
+    nodes=[ThermalNode("coil", heat_capacity=2.0),
+           ThermalNode("ambient", heat_capacity=None)],  # None = fixed bath
+    links=[ThermalLink("coil", "ambient",
+                       conductance=convection_conductance(50.0, 4e-3))],
+    sources={"coil": 0.6},  # watts, or a DutyCycledSource
+)
+steady = net.steady_state()          # {"coil": ..., "ambient": ...}
+\end{lstlisting}
+
+\textbf{Coupling loop (Option B, Phase 2).} \code{ThermalCoupling} closes the
+feedback: coil resistance rises with coil temperature (skin-limited
+\(R\propto\sqrt{\rho}\) or DC-linear), sample SAR and \(M_0\) track the sample
+temperature, and the updated powers re-enter the thermal solve.
+\code{fixed\_point()} returns the converged steady state (and detects thermal
+runaway when the tempco feedback exceeds the cooling), while \code{march()}
+time-steps the warm-up. \code{probe\_updates()} hands back \(T\), \(R\), and
+\(Q\) for an \code{sp} mapping, so a cryoprobe's cold-coil / warm-sample state
+feeds the two-temperature noise density directly.
+
+\textbf{Conduction profiles (Option B, Phase 3).} \code{Conduction1D} solves
+the finite-volume heat equation on a slab, cylinder, or sphere with spatially
+varying properties, mixed boundary conditions, and an optional Pennes
+blood-perfusion sink \(w_b c_b (T_a - T)\) for biological tissue --- the
+internal profile (SAR hot-spot, coil-former stack) the lumped node cannot
+resolve.
+
+\textbf{Validation.} Every piece is checked against analytic results
+(single-node exponentials, slab/cylinder/sphere uniform-source center rises
+\(qL^2/8k\), \(qa^2/4k\), \(qa^2/6k\), the perfusion penetration depth
+\(\sqrt{k/w_bc_b}\), and the closed-form self-heating fixed point) and, where a
+field solution exists, cross-checked against FEMM axisymmetric heat-flow FEA
+(\code{validation/femm/}), which agrees to within half a percent of the
+temperature rise. The example \code{plot\_nmr\_mouse\_thermal.py} runs a
+single-sided (NMR-MOUSE) relaxometry exam on perfused tissue: it reports the
+coupled coil temperature and \(R(T)\), the SAR-attributable depth profile of
+the tissue heating (peak just below the skin, where surface cooling and
+perfusion compete against the surface-peaked deposition), and the warm-up over
+a ten-minute exam. The fully quantum measurement-back-action description of
+spin noise and CFD/flow solving of the convection remain out of scope.
+
 \section{Received-Signal Noise}
 
 Noise is opt-in and output-referred. High-level workflows accept a
