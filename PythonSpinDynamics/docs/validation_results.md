@@ -753,6 +753,38 @@ Octave printed `error: ignoring const execution_exception& while preparing to
 exit` after fixture generation, but returned exit code 0 and wrote the expected
 fixture files. The Python validation passed against those files.
 
+## Thermal Modeling (FEMM cross-checks)
+
+The coupled thermal solvers (`spin_dynamics.thermal`, see
+`docs/thermal_modeling.md`) are validated against analytic solutions in
+`tests/test_thermal.py` and against FEMM 4.2 axisymmetric heat-flow FEA via
+`pyfemm`. The FEMM scripts live in `validation/femm/` and print a three-way
+comparison (analytic / package network / FEMM):
+
+```powershell
+$env:PYTHONPATH='src'
+& '<python.exe>' validation\femm\validate_thermal_network.py
+& '<python.exe>' validation\femm\validate_conduction.py
+```
+
+Latest results:
+
+```text
+Coaxial shell, P on inner surface, convection on outer:
+  network vs analytic: 0.00e+00 K (exact)
+  FEMM vs analytic:    0.12% of the temperature rise
+
+Solid cylinder, uniform source, surface at T0:
+  package vs analytic: 1.4e-05 K
+  FEMM vs analytic:    0.42% of the temperature rise
+```
+
+The lumped network reproduces the 1D radial analytic solution exactly (the
+finite-volume discretization is exact for piecewise-constant conductivity),
+and the FEMM continuum FEA agrees within the mesh-resolution error. FEMM must
+be installed (`C:\femm42`) with `pyfemm`; the scripts print `FEMM: unavailable`
+and skip the FEA leg when it is not.
+
 ## Notes
 
 - The first tests intentionally avoid plotting, toolboxes, MEX, and `.mat`
