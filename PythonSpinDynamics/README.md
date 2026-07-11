@@ -204,7 +204,8 @@ record.save("run1.npz")          # arrays + JSON provenance + spec round-trip
 
 The same interface drives imaging (with automatic transmit-coil B1 solving),
 NQR (`NQRFID`, `NQRPopulationTransfer`, `NQRSLSE`, and `NQRSORC`) and ESR
-(`ESRCWSweep`, `ESRDEER`, `ESRFID`, and `ESRHahnEcho`). See
+(`ESRCWSweep`, `ESRDEER`, pulsed FID/Hahn, ESEEM, 2-D HYSCORE, and
+Davies/Mims ENDOR). See
 [`docs/python_api/experiment_workflow.md`](docs/python_api/experiment_workflow.md)
 for the full guide.
 

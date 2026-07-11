@@ -605,6 +605,11 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `ESRHahnEcho` | Two-pulse ESR Hahn echo (single isochromat). |
 | class | `ESRCWSweep` | Continuous-wave ESR field sweep at fixed microwave frequency. |
 | class | `ESRDEER` | DEER form factor calculated from ``Sample.deer_distribution``. |
+| class | `ESRTwoPulseESEEM` | Two-pulse ESEEM trace and frequency spectrum. |
+| class | `ESRThreePulseESEEM` | Three-pulse stimulated-echo ESEEM trace and spectrum. |
+| class | `ESRHYSCORE` | Two-dimensional HYSCORE time grid and spectrum. |
+| class | `ESRDaviesENDOR` | One-dimensional Davies ENDOR radiofrequency sweep. |
+| class | `ESRMimsENDOR` | One-dimensional Mims ENDOR sweep with blind-spot weighting. |
 | class | `Experiment` | A complete declarative experiment description. |
 | function | `non_default_fields(experiment: Experiment) -> dict[str, Any]` | Return dotted spec-field names whose values differ from the defaults. |
 

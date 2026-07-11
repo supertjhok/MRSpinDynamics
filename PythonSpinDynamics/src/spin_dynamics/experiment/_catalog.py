@@ -19,7 +19,7 @@ from spin_dynamics.experiment.serialization import register_serializable
 from spin_dynamics.esr import ESRSpinSystem, ESRTransition
 from spin_dynamics.esr.pulsed import ESRFIDResult, ESRHahnEchoResult
 from spin_dynamics.esr.systems import ESREigensystem
-from spin_dynamics.experiment import esr_adapter, nqr_adapter
+from spin_dynamics.experiment import esr_adapter, esr_multidim_adapter, nqr_adapter
 from spin_dynamics.experiment.specs import (
     CPMG,
     CPMGImaging,
@@ -29,6 +29,11 @@ from spin_dynamics.experiment.specs import (
     ESRHahnEcho,
     ESRCWSweep,
     ESRDEER,
+    ESRDaviesENDOR,
+    ESRHYSCORE,
+    ESRMimsENDOR,
+    ESRThreePulseESEEM,
+    ESRTwoPulseESEEM,
     Experiment,
     NQRSLSE,
     NQRSORC,
@@ -42,6 +47,8 @@ from spin_dynamics.nqr import QuadrupolarSite
 from spin_dynamics.nqr.full_dynamics import FullNQRFIDResult, FullNQRSLSEResult
 from spin_dynamics.nqr.simulation import PopulationTransferResult, SLSEResult, SORCResult
 from spin_dynamics.esr.spectra import ESRFieldSweepResult
+from spin_dynamics.esr.eseem import HyperfineCoupling
+from spin_dynamics.esr.endor import EndorSpectrum
 from spin_dynamics.nqr.systems import NQREigensystem, NQRTransition
 from spin_dynamics.noise import NoiseMetadata, NoiseSpec
 from spin_dynamics.parameters import (
@@ -103,6 +110,9 @@ register_result_type(ESRFIDResult)
 register_result_type(ESRHahnEchoResult)
 register_result_type(ESRFieldSweepResult)
 register_result_type(esr_adapter.ESRDEERResult)
+register_result_type(esr_multidim_adapter.ESRESEEMResult)
+register_result_type(esr_multidim_adapter.ESRHYSCOREResult)
+register_result_type(EndorSpectrum)
 register_result_type(PGSEMomentResult)
 register_result_type(PGSEWalkerResult)
 
@@ -116,6 +126,7 @@ register_serializable(NQREigensystem)
 register_serializable(ESRSpinSystem)
 register_serializable(ESRTransition)
 register_serializable(ESREigensystem)
+register_serializable(HyperfineCoupling)
 
 _ACQ_GRID = frozenset({"acquisition.numpts", "acquisition.maxoffs"})
 _ACQ_REPHASE = frozenset(
@@ -584,6 +595,85 @@ register_workflow(
         func=esr_adapter.run_deer,
         build_kwargs=esr_adapter.deer_kwargs,
         honors=frozenset({"sample.deer_distribution"}),
+    )
+)
+
+_HYPERFINE_HONORS = frozenset({"sample.hyperfine_coupling"})
+
+
+def _eseem_cost(experiment: Experiment) -> CostModel:
+    points = experiment.sequence.num_points
+    return CostModel(
+        work_units=float(points),
+        memory_bytes=points * 64,
+        notes=("analytic or small density-matrix electron-nuclear model",),
+    )
+
+
+def _hyscore_cost(experiment: Experiment) -> CostModel:
+    sequence = experiment.sequence
+    points = sequence.num_points1 * sequence.num_points2
+    transformed = (
+        sequence.zero_fill * sequence.num_points1
+        * sequence.zero_fill
+        * sequence.num_points2
+    )
+    return CostModel(
+        work_units=float(points),
+        memory_bytes=8 * (points + transformed),
+        notes=("nested 2-D density-matrix evolution plus zero-filled FFT",),
+    )
+register_workflow(
+    WorkflowEntry(
+        name="run_two_pulse_eseem",
+        sequence_type=ESRTwoPulseESEEM,
+        probe="ideal",
+        func=esr_multidim_adapter.run_two_pulse_eseem,
+        build_kwargs=esr_multidim_adapter.two_pulse_kwargs,
+        honors=_HYPERFINE_HONORS,
+        cost=_eseem_cost,
+    )
+)
+register_workflow(
+    WorkflowEntry(
+        name="run_three_pulse_eseem",
+        sequence_type=ESRThreePulseESEEM,
+        probe="ideal",
+        func=esr_multidim_adapter.run_three_pulse_eseem,
+        build_kwargs=esr_multidim_adapter.three_pulse_kwargs,
+        honors=_HYPERFINE_HONORS,
+        cost=_eseem_cost,
+    )
+)
+register_workflow(
+    WorkflowEntry(
+        name="run_hyscore",
+        sequence_type=ESRHYSCORE,
+        probe="ideal",
+        func=esr_multidim_adapter.run_hyscore,
+        build_kwargs=esr_multidim_adapter.hyscore_kwargs,
+        honors=_HYPERFINE_HONORS,
+        cost=_hyscore_cost,
+    )
+)
+register_workflow(
+    WorkflowEntry(
+        name="davies_endor_spectrum",
+        sequence_type=ESRDaviesENDOR,
+        probe="ideal",
+        func=esr_multidim_adapter.davies_endor_spectrum,
+        build_kwargs=esr_multidim_adapter.endor_kwargs,
+        honors=_HYPERFINE_HONORS,
+    )
+)
+register_workflow(
+    WorkflowEntry(
+        name="mims_endor_spectrum",
+        sequence_type=ESRMimsENDOR,
+        probe="ideal",
+        func=esr_multidim_adapter.mims_endor_spectrum,
+        build_kwargs=esr_multidim_adapter.mims_endor_kwargs,
+        honors=_HYPERFINE_HONORS,
     )
 )
 

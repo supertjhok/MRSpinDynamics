@@ -2928,6 +2928,10 @@ periodic boundaries, and optional uniform flow. \\
 ideal & Full FID, reduced spin-1 transfer, reduced/full SLSE, and reduced SORC. \\
 \code{ESRCWSweep}, \code{ESRDEER}, \code{ESRFID}, \code{ESRHahnEcho} & ideal &
 CW field sweep, distance-distribution DEER, and pulsed single-electron ESR. \\
+\code{ESRTwoPulseESEEM}, \code{ESRThreePulseESEEM}, \code{ESRHYSCORE} & ideal &
+Electron--nuclear modulation traces and the full 2-D HYSCORE plane. \\
+\code{ESRDaviesENDOR}, \code{ESRMimsENDOR} & ideal & Analytic pulsed-ENDOR
+radiofrequency sweeps. \\
 \bottomrule
 \end{longtable}
 
@@ -3009,6 +3013,15 @@ does not require fixed B0. \code{ESRDEER} consumes a serialized
 \code{DEERDistribution}. NQR also exposes full-model \code{NQRFID} and reduced
 spin-1 \code{NQRPopulationTransfer}; the FID's nutation rate follows the full
 engine's bare \(\gamma B_1/2\pi\) convention.
+
+ESEEM, HYSCORE, and ENDOR share a serialized
+\code{Sample.hyperfine\_coupling}. The ESEEM specs select the analytic
+spin-1/2 expressions automatically when valid and otherwise use the
+density-matrix engine. \code{ESRHYSCORE} returns both evolution-time axes, the
+2-D time signal, centered frequency axes, the 2-D spectrum, and predicted
+cross-peak positions; its plan estimates the nested grid and zero-filled FFT
+cost. The Davies and Mims ENDOR specs construct an automatic frequency window
+when explicit bounds are omitted.
 
 \section{Saving and Reloading}
 

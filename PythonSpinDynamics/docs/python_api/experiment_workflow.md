@@ -203,6 +203,15 @@ but supplies its own field axis, so it does not require fixed B0. `ESRDEER`
 instead consumes `Sample.deer_distribution = DEERDistribution(...)` and
 returns a persistable form-factor result.
 
+Electron-nuclear correlation experiments use a shared
+`Sample.hyperfine_coupling = HyperfineCoupling(...)`. The facade provides
+`ESRTwoPulseESEEM` and `ESRThreePulseESEEM` (automatic analytic spin-1/2 or
+density-matrix selection), `ESRHYSCORE` (persisted 2-D time and frequency
+planes plus predicted cross-peaks), and `ESRDaviesENDOR` / `ESRMimsENDOR`.
+The existing `plot_esr_eseem_hyscore.py` example now exercises these facade
+routes directly, so its plots also test the same planning and serialization
+surface used by configuration-driven runs.
+
 ## Saving and reloading
 
 `record.save(path)` writes an NPZ archive holding every array field of the

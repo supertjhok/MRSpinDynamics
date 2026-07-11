@@ -24,8 +24,13 @@ from spin_dynamics.experiment.specs import (
     DEERDistribution,
     ESRCWSweep,
     ESRDEER,
+    ESRDaviesENDOR,
     ESRFID,
+    ESRHYSCORE,
     ESRHahnEcho,
+    ESRMimsENDOR,
+    ESRThreePulseESEEM,
+    ESRTwoPulseESEEM,
     Experiment,
     NQRFID,
     NQRPopulationTransfer,
@@ -190,6 +195,20 @@ def _spec_sanity_errors(experiment: Experiment) -> list[str]:
         errors.append(
             "sequence ESRDEER requires sample.deer_distribution "
             "(a DEERDistribution)"
+        )
+    if isinstance(
+        sequence,
+        (
+            ESRTwoPulseESEEM,
+            ESRThreePulseESEEM,
+            ESRHYSCORE,
+            ESRDaviesENDOR,
+            ESRMimsENDOR,
+        ),
+    ) and sample.hyperfine_coupling is None:
+        errors.append(
+            f"sequence {type(sequence).__name__} requires "
+            "sample.hyperfine_coupling"
         )
     if isinstance(sequence, CPMGImaging):
         if sample.phantom is None:

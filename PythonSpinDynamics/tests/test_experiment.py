@@ -1042,17 +1042,29 @@ def test_nqr_json_and_save_round_trip(tmp_path) -> None:
 
 from spin_dynamics.esr import (  # noqa: E402
     ESRSpinSystem,
+    HyperfineCoupling,
+    davies_endor_spectrum,
+    hyscore_signal,
+    hyscore_spectrum,
+    mims_endor_spectrum,
     simulate_deer,
     simulate_fid,
     simulate_field_sweep,
     simulate_hahn_echo,
+    three_pulse_eseem,
+    two_pulse_eseem,
 )
 from spin_dynamics.experiment import (  # noqa: E402
     DEERDistribution,
     ESRCWSweep,
     ESRDEER,
+    ESRDaviesENDOR,
     ESRFID,
+    ESRHYSCORE,
     ESRHahnEcho,
+    ESRMimsENDOR,
+    ESRThreePulseESEEM,
+    ESRTwoPulseESEEM,
     UniformB0,
 )
 
@@ -1148,6 +1160,96 @@ def test_esr_deer_parity_and_round_trip(tmp_path) -> None:
     assert loaded.experiment == experiment
 
 
+_HYPERFINE = HyperfineCoupling(
+    larmor_hz=14.8e6, secular_hz=3.0e6, pseudosecular_hz=1.2e6
+)
+
+
+@pytest.mark.smoke
+def test_esr_two_and_three_pulse_eseem_parity() -> None:
+    sample = Sample(hyperfine_coupling=_HYPERFINE)
+    two = ESRTwoPulseESEEM(
+        acquisition_seconds=2e-6, num_points=24, zero_fill=2
+    )
+    two_record = Experiment(sequence=two, sample=sample).run()
+    times = np.linspace(0.0, 2e-6, 24)
+    assert two_record.result.model == "analytic"
+    assert np.array_equal(
+        two_record.result.signal, two_pulse_eseem(times, _HYPERFINE)
+    )
+
+    three = ESRThreePulseESEEM(
+        acquisition_seconds=2e-6,
+        tau_seconds=120e-9,
+        num_points=24,
+        zero_fill=2,
+    )
+    three_record = Experiment(sequence=three, sample=sample).run()
+    assert np.array_equal(
+        three_record.result.signal,
+        three_pulse_eseem(times, _HYPERFINE, tau_seconds=120e-9),
+    )
+
+
+@pytest.mark.smoke
+def test_esr_hyscore_parity_and_round_trip(tmp_path) -> None:
+    spec = ESRHYSCORE(
+        evolution1_seconds=1e-6,
+        evolution2_seconds=1.2e-6,
+        tau_seconds=100e-9,
+        num_points1=5,
+        num_points2=6,
+        zero_fill=1,
+    )
+    experiment = Experiment(
+        sequence=spec, sample=Sample(hyperfine_coupling=_HYPERFINE)
+    )
+    record = experiment.run()
+    t1 = np.linspace(0.0, 1e-6, 5)
+    t2 = np.linspace(0.0, 1.2e-6, 6)
+    signal = hyscore_signal(t1, t2, _HYPERFINE, tau_seconds=100e-9)
+    direct = hyscore_spectrum(t1, t2, signal, zero_fill=1)
+    assert np.array_equal(record.result.signal, signal)
+    assert np.array_equal(record.result.spectrum, direct.spectrum)
+    path = tmp_path / "hyscore.npz"
+    record.save(str(path))
+    loaded = load_run(str(path))
+    assert loaded.unsaved_result_fields == ()
+    assert loaded.experiment == experiment
+    assert np.array_equal(loaded.result.spectrum, record.result.spectrum)
+
+
+@pytest.mark.smoke
+def test_esr_endor_parity_and_hyperfine_input_guard() -> None:
+    sample = Sample(hyperfine_coupling=_HYPERFINE)
+    davies = ESRDaviesENDOR(
+        num_points=32,
+        linewidth_hz=0.1e6,
+        frequency_min_hz=10e6,
+        frequency_max_hz=20e6,
+    )
+    record = Experiment(sequence=davies, sample=sample).run()
+    axis = np.linspace(10e6, 20e6, 32)
+    direct = davies_endor_spectrum(axis, _HYPERFINE, linewidth_hz=0.1e6)
+    assert np.array_equal(record.result.spectrum, direct.spectrum)
+
+    mims = ESRMimsENDOR(
+        tau_seconds=200e-9,
+        num_points=32,
+        linewidth_hz=0.1e6,
+        frequency_min_hz=10e6,
+        frequency_max_hz=20e6,
+    )
+    mims_record = Experiment(sequence=mims, sample=sample).run()
+    mims_direct = mims_endor_spectrum(
+        axis, _HYPERFINE, tau_seconds=200e-9, linewidth_hz=0.1e6
+    )
+    assert np.array_equal(mims_record.result.spectrum, mims_direct.spectrum)
+    plan = Experiment(sequence=davies).plan()
+    assert not plan.ok
+    assert any("hyperfine_coupling" in error for error in plan.errors)
+
+
 @pytest.mark.smoke
 def test_esr_requires_system_and_field() -> None:
     plan = Experiment(sequence=_ESR_FID, hardware=_ESR_HW).plan()
@@ -1194,7 +1296,7 @@ def test_registry_entries_point_at_public_workflows() -> None:
     import spin_dynamics.nqr as nqr
 
     entries = available_workflows()
-    assert len(entries) == 25
+    assert len(entries) == 30
     public = set(workflows.STABLE_WORKFLOW_API) | set(workflows.EXTENDED_WORKFLOW_API)
     for entry in entries:
         if getattr(nqr, entry.name, None) is not None:
@@ -1203,6 +1305,14 @@ def test_registry_entries_point_at_public_workflows() -> None:
             from spin_dynamics.experiment import esr_adapter
 
             assert entry.func is esr_adapter.run_deer
+        elif entry.sequence_type in (
+            ESRTwoPulseESEEM,
+            ESRThreePulseESEEM,
+            ESRHYSCORE,
+        ):
+            from spin_dynamics.experiment import esr_multidim_adapter
+
+            assert entry.func.__module__ == esr_multidim_adapter.__name__
         elif getattr(esr, entry.name, None) is not None:
             assert getattr(esr, entry.name) is entry.func, entry.name
         else:

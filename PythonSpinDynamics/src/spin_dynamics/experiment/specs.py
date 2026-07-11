@@ -263,6 +263,8 @@ class Sample:
     """Electron spin system (``spin_dynamics.esr.ESRSpinSystem``) for ESR sequences."""
     deer_distribution: DEERDistribution | None = None
     """Distance distribution used by :class:`ESRDEER`."""
+    hyperfine_coupling: Any | None = None
+    """Electron-nuclear coupling used by ESEEM, HYSCORE, and ENDOR specs."""
     label: str = ""
 
 
@@ -651,6 +653,112 @@ class ESRDEER:
             raise ValueError("g values must be positive")
 
 
+def _validate_eseem(spec: Any) -> None:
+    if spec.acquisition_seconds <= 0 or spec.num_points <= 1:
+        raise ValueError("acquisition_seconds must be positive, num_points > 1")
+    if spec.model not in ("auto", "analytic", "quantum"):
+        raise ValueError("model must be 'auto', 'analytic', or 'quantum'")
+    if spec.zero_fill < 1:
+        raise ValueError("zero_fill must be at least 1")
+
+
+@register_serializable
+@dataclass(frozen=True)
+class ESRTwoPulseESEEM:
+    """Two-pulse ESEEM trace and frequency spectrum."""
+
+    acquisition_seconds: float
+    num_points: int = 512
+    model: str = "auto"
+    electron_offset_hz: float = 0.0
+    zero_fill: int = 4
+
+    def __post_init__(self) -> None:
+        _validate_eseem(self)
+
+
+@register_serializable
+@dataclass(frozen=True)
+class ESRThreePulseESEEM:
+    """Three-pulse stimulated-echo ESEEM trace and spectrum."""
+
+    acquisition_seconds: float
+    tau_seconds: float
+    num_points: int = 512
+    model: str = "auto"
+    zero_fill: int = 4
+
+    def __post_init__(self) -> None:
+        _validate_eseem(self)
+        if self.tau_seconds < 0:
+            raise ValueError("tau_seconds must be non-negative")
+
+
+@register_serializable
+@dataclass(frozen=True)
+class ESRHYSCORE:
+    """Two-dimensional HYSCORE time grid and spectrum."""
+
+    evolution1_seconds: float
+    evolution2_seconds: float
+    tau_seconds: float
+    num_points1: int = 128
+    num_points2: int = 128
+    zero_fill: int = 2
+
+    def __post_init__(self) -> None:
+        if self.evolution1_seconds <= 0 or self.evolution2_seconds <= 0:
+            raise ValueError("HYSCORE evolution windows must be positive")
+        if self.tau_seconds < 0:
+            raise ValueError("tau_seconds must be non-negative")
+        if self.num_points1 <= 1 or self.num_points2 <= 1:
+            raise ValueError("HYSCORE axes must each contain at least two points")
+        if self.zero_fill < 1:
+            raise ValueError("zero_fill must be at least 1")
+
+
+def _validate_endor(spec: Any) -> None:
+    if spec.num_points <= 1 or spec.linewidth_hz <= 0:
+        raise ValueError("num_points must be > 1 and linewidth_hz positive")
+    if (
+        spec.frequency_min_hz is not None
+        and spec.frequency_max_hz is not None
+        and spec.frequency_max_hz <= spec.frequency_min_hz
+    ):
+        raise ValueError("frequency_max_hz must exceed frequency_min_hz")
+
+
+@register_serializable
+@dataclass(frozen=True)
+class ESRDaviesENDOR:
+    """One-dimensional Davies ENDOR radiofrequency sweep."""
+
+    num_points: int = 1024
+    linewidth_hz: float = 1.0e5
+    frequency_min_hz: float | None = None
+    frequency_max_hz: float | None = None
+
+    def __post_init__(self) -> None:
+        _validate_endor(self)
+
+
+@register_serializable
+@dataclass(frozen=True)
+class ESRMimsENDOR:
+    """One-dimensional Mims ENDOR sweep with blind-spot weighting."""
+
+    tau_seconds: float
+    num_points: int = 1024
+    linewidth_hz: float = 1.0e5
+    frequency_min_hz: float | None = None
+    frequency_max_hz: float | None = None
+
+    def __post_init__(self) -> None:
+        _validate_endor(self)
+        if self.tau_seconds <= 0:
+            raise ValueError("tau_seconds must be positive")
+
+
 SEQUENCE_TYPES: tuple[type, ...] = (
     CPMG,
     CPMGTrain,
@@ -666,6 +774,11 @@ SEQUENCE_TYPES: tuple[type, ...] = (
     ESRHahnEcho,
     ESRCWSweep,
     ESRDEER,
+    ESRTwoPulseESEEM,
+    ESRThreePulseESEEM,
+    ESRHYSCORE,
+    ESRDaviesENDOR,
+    ESRMimsENDOR,
 )
 
 

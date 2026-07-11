@@ -290,11 +290,20 @@ def spectroscopy_inputs_rule(
 ) -> list[RuleFinding]:
     """Resolve spectroscopy sample objects and transition labels at plan time."""
 
-    from spin_dynamics.experiment import esr_adapter, nqr_adapter
+    from spin_dynamics.experiment import (
+        esr_adapter,
+        esr_multidim_adapter,
+        nqr_adapter,
+    )
     from spin_dynamics.experiment.specs import (
         ESRCWSweep,
+        ESRDaviesENDOR,
         ESRFID,
+        ESRHYSCORE,
         ESRHahnEcho,
+        ESRMimsENDOR,
+        ESRThreePulseESEEM,
+        ESRTwoPulseESEEM,
         NQRFID,
         NQRPopulationTransfer,
     )
@@ -309,6 +318,26 @@ def spectroscopy_inputs_rule(
             nqr_adapter.target_transition(site, sequence.detection_transition)
         elif isinstance(sequence, (ESRFID, ESRHahnEcho, ESRCWSweep)):
             esr_adapter.require_system(experiment)
+        elif isinstance(
+            sequence,
+            (
+                ESRTwoPulseESEEM,
+                ESRThreePulseESEEM,
+                ESRHYSCORE,
+                ESRDaviesENDOR,
+                ESRMimsENDOR,
+            ),
+        ):
+            coupling = esr_multidim_adapter.require_coupling(experiment)
+            if isinstance(sequence, (ESRTwoPulseESEEM, ESRThreePulseESEEM)):
+                offset = (
+                    sequence.electron_offset_hz
+                    if isinstance(sequence, ESRTwoPulseESEEM)
+                    else 0.0
+                )
+                esr_multidim_adapter.resolved_eseem_model(
+                    sequence.model, coupling, electron_offset_hz=offset
+                )
         else:
             return []
     except ValueError as exc:
