@@ -111,14 +111,14 @@
 \vspace{0.35in}
 \begin{minipage}{0.78\linewidth}
 \large
-Simulation workflows for magnetic-resonance spin dynamics across three useful
-scales: validated spin-1/2 Bloch kernels for NMR sequence and imaging work,
-small dense Hamiltonian models for explicitly quantum effects, and targeted
-extensions for pulsed NQR, ESR/EPR, exchange, relaxation, motion, and
-instrument-level field models.
+Simulation workflows for magnetic-resonance spin dynamics from experiment
+description to reproducible result: validated spin-1/2 Bloch kernels, small
+dense Hamiltonian models, an open sequence interchange layer, declarative
+experiment planning, and targeted models for NQR, ESR/EPR, relaxation,
+transport, fields, and instrument hardware.
 \end{minipage}
 \vfill
-{\large June 2026\par}
+{\large July 2026\par}
 \end{titlepage}
 \nopagecolor
 \clearpage
@@ -311,9 +311,11 @@ new analysis workflows.
 Read the manual in layers. Chapters 1--4 define the model boundaries and shared
 conventions. Chapters~\ref{chap:jcoupling}, \ref{chap:esr}, and
 \ref{chap:nqr} introduce the explicitly quantum extensions. Chapter
+\ref{chap:sequence-ir} describes the backend-neutral sequence representation,
+Pulseq interchange, compiler, and timeline visualizer. Chapter
 \ref{chap:experiment} presents the unified experiment facade -- the recommended
-declarative entry point that ties the sample, hardware, sequence, and
-acquisition together, plans a run, and saves it. Chapter
+declarative entry point that ties the sample, hardware, sequence, acquisition,
+and transport model together, plans a run, and saves it. Chapter
 \ref{chap:workflows} then documents the underlying experiment-level workflows
 the facade delegates to: CPMG, FID, imaging, diffusion, motion, field sources,
 phase cycling, exchange, analysis, and optimization. The final chapters collect
@@ -321,7 +323,8 @@ runnable examples, validation status, API tables, and known gaps.
 
 The supported surface includes ideal, tuned, untuned, and matched-probe CPMG
 workflows; finite echo trains; FID; phase-encoded and frequency-encoded
-imaging; diffusion and moving-isochromat simulations; WURST and UDD timing
+imaging; deterministic PGSE and seeded random-walker diffusion/flow;
+moving-isochromat simulations; Pulseq 1.4/1.5 interchange; WURST and UDD timing
 helpers; radiation damping; receiver noise; inverse-Laplace analysis; compact
 optimization scaffolds; small spin-1/2 scalar-coupling models; pulsed NQR;
 ESR/EPR; Bloch-McConnell exchange; susceptibility fields; and opt-in
@@ -2709,6 +2712,133 @@ spin-1 \code{x}, \code{y}, and \code{z} transitions. Off-diagonal features
 indicate that perturbation and detection frequencies are connected through the
 same quadrupolar site.
 
+\chapter{Sequence Interchange and Compilation}
+\label{chap:sequence-ir}
+
+Pulse programs are easiest to debug when their timing has one explicit,
+inspectable representation. The \code{spin\_dynamics.sequences} package provides
+that representation as a small intermediate representation (IR) patterned after
+the open Pulseq block model. It separates sequence construction and file
+interchange from a particular simulator backend: import or build the timeline
+once, validate it, plot it, and then compile it into the arrays a backend needs.
+
+\section{The Block Model and Units}
+
+A \code{SequenceIR} contains sequential \code{SequenceBlock} objects. Within a
+block, an RF event, physical x/y/z gradient events, and an ADC event may overlap.
+Every block has an explicit duration, and construction fails if an event extends
+beyond it. RF envelopes use cycles per second (Hz), gradients use cycles per
+second per meter (Hz/m), phases use radians, and all timing uses seconds. These
+are Pulseq-native units; backend adapters own conversions to angular-frequency
+or field units.
+
+\begin{longtable}{p{0.29\linewidth}p{0.59\linewidth}}
+\toprule
+Object & Meaning \\
+\midrule
+\code{RFPulse} & Sampled complex RF envelope plus dwell, delay, frequency and
+phase offsets, pulse use, and optional center time. \\
+\code{GradientWaveform} & Sampled physical gradient channel with dwell, delay,
+and boundary amplitudes. \\
+\code{ADCEvent} & Uniform receive samples, including frequency/phase offsets
+and optional per-sample phase. \\
+\code{SequenceBlock} & Concurrent events with an explicit duration, label, and
+retained extension metadata. \\
+\code{SequenceIR} & Ordered blocks, definitions, and source-format/version
+provenance. \\
+\bottomrule
+\end{longtable}
+
+For example, this constructs one RF block followed by a receive block:
+
+\begin{lstlisting}[language=Python]
+import numpy as np
+from spin_dynamics.sequences import ADCEvent, RFPulse, SequenceBlock, SequenceIR
+
+sequence = SequenceIR(blocks=(
+    SequenceBlock(
+        duration_seconds=1e-3,
+        rf=RFPulse(250.0 * np.hanning(100), dwell_seconds=10e-6),
+        label="excitation",
+    ),
+    SequenceBlock(
+        duration_seconds=4e-3,
+        adc=ADCEvent(num_samples=200, dwell_seconds=20e-6),
+        label="readout",
+    ),
+))
+\end{lstlisting}
+
+\section{Pulseq Import and Export}
+
+Pulseq is used instead of introducing another sequence file format. The importer
+accepts core Pulseq 1.4.x and 1.5.x files: blocks, RF, arbitrary or
+default-raster gradients, trapezoids, ADC, and compressed or uncompressed
+shapes. The exporter writes signed core Pulseq 1.5.0 files.
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.sequences import read_pulseq, write_pulseq
+
+sequence = read_pulseq("protocol.seq")
+print(sequence.source_version, sequence.duration_seconds)
+write_pulseq(sequence, "protocol_roundtrip.seq")
+\end{lstlisting}
+
+Timing is not rounded silently on export: blocks, delays, and waveform dwells
+must align with their declared rasters. Required extensions and explicit
+non-default time shapes raise \code{PulseqFormatError}. Optional extensions are
+retained as block metadata but are not yet executed or exported. PPM offsets
+are preserved; compiling them requires the system frequency.
+
+\section{Compiler and Motion Adapter}
+
+\code{compile\_sequence()} collects waveform raster edges and ADC sample
+centers into a piecewise-constant \code{CompiledSequence}. It reports absolute
+interval starts and durations, complex RF in Hz, three gradient channels in
+Hz/m, block provenance, and exact ADC times and offsets.
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.sequences import compile_sequence, compiled_to_motion_steps
+
+compiled = compile_sequence(sequence, system_frequency_hz=42.58e6)
+steps = compiled_to_motion_steps(compiled, spatial_dimensions=2)
+\end{lstlisting}
+
+The motion adapter converts frequencies to angular units and maps ADC-centered
+interval boundaries onto the existing moving-isochromat engine. It is the first
+execution target for the IR, not a claim that every high-level workflow can yet
+consume arbitrary Pulseq. RF use labels, extension semantics, scanner safety
+limits, and sequence-specific coherence pathways still require backend-aware
+interpretation.
+
+\section{Timeline Visualization}
+
+Both \code{SequenceIR.plot()} and \code{CompiledSequence.plot()} draw aligned RF
+magnitude/phase, x/y/z gradient, and ADC lanes. Block shading and labels make
+timing discontinuities, accidental overlaps, missing delays, and receive-window
+placement visible before a simulation is run. Matplotlib is imported lazily.
+
+\begin{lstlisting}[language=Python]
+figure, axes = sequence.plot(time_unit="ms", show_blocks=True)
+figure.savefig("results/protocol_timeline.png", dpi=150)
+\end{lstlisting}
+
+The command-line example accepts either a Pulseq file or its built-in spin echo:
+
+\begin{lstlisting}[language=bash]
+python examples/plot_sequence_timeline.py protocol.seq \
+  --system-frequency-hz 42580000 \
+  --output results/protocol_timeline.png
+
+python examples/plot_sequence_timeline.py \
+  --export-pulseq results/demo_spin_echo.seq \
+  --output results/demo_spin_echo.png
+\end{lstlisting}
+
+This visualization is deliberately part of the normal import/compile workflow,
+not a separate plotting data format: it consumes the same object that is passed
+to the compiler.
+
 \chapter{Unified Experiment Workflow}
 \label{chap:experiment}
 
@@ -2724,6 +2854,11 @@ know which \code{run\_*} function you want, calling it directly (Chapter
 \ref{chap:workflows}) remains fully supported; reach for the facade when you
 want that surrounding scaffolding or a single interface across the NMR, imaging,
 NQR, and ESR engines.
+
+The current catalog contains 21 registered sequence/probe routes across ten
+sequence specifications. Each route delegates to an existing public workflow
+and declares exactly which sample, hardware, acquisition, and execution fields
+it consumes.
 
 \section{The Eight-Step Workflow}
 
@@ -2764,6 +2899,83 @@ spec validity, coil-field wiring, and reduced-vs-full NQR model selection.
 Setting a spec field the resolved workflow does not consume produces an
 ``ignored'' warning, so mismatched specs never fail silently.
 
+\section{Current Facade Coverage}
+
+\begin{longtable}{p{0.27\linewidth}p{0.20\linewidth}p{0.43\linewidth}}
+\toprule
+Sequence specification & Probe routes & Delegated model \\
+\midrule
+\code{CPMG} & ideal, tuned, untuned, matched & Asymptotic CPMG. \\
+\code{CPMGTrain} & ideal, tuned, untuned, matched & Finite echo train,
+including supported probe and radiation-damping options. \\
+\code{CPMGIRTrain} & ideal, tuned, untuned, matched & Inversion-recovery echo
+trains. \\
+\code{CPMGImaging} & ideal, tuned, matched & Phase-encoded imaging with
+phantom and optional solved coil/field maps. \\
+\code{PGSE} & ideal & Closed-form gradient-moment attenuation with diffusion
+and transverse relaxation. \\
+\code{PGSEWalkers} & ideal & Explicit seeded 2-D diffusion, restricted or
+periodic boundaries, and optional uniform flow. \\
+\code{NQRSLSE}, \code{NQRSORC} & ideal & Reduced/full-model SLSE selection and
+reduced SORC. \\
+\code{ESRFID}, \code{ESRHahnEcho} & ideal & Pulsed single-electron ESR. \\
+\bottomrule
+\end{longtable}
+
+Cost models estimate work and memory for finite trains, inversion-recovery,
+closed-form PGSE, and walker transport. Estimates are planning aids calibrated
+to a machine, not promises about wall-clock time.
+
+\section{Diffusion and Flow Through the Facade}
+
+Use \code{PGSE} when free-diffusion attenuation is described adequately by the
+gradient moment. The facade passes the sample diffusion coefficient and
+transverse relaxation to the closed-form workflow:
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.experiment import Experiment, PGSE, Sample
+
+study = Experiment(
+    sequence=PGSE(gradient_amplitude=0.05,
+                  gradient_duration=2e-3,
+                  diffusion_time=20e-3),
+    sample=Sample(diffusion_coefficient=2.1e-9, t2_seconds=0.25),
+)
+result = study.run().result
+\end{lstlisting}
+
+Use \code{PGSEWalkers} when geometry, boundaries, or advection make particle
+paths explicit. \code{TransportDomain2D} supplies density and physical axes;
+\code{UniformFlow2D} adds a constant velocity in m/s. A fixed seed makes the
+facade/config round-trip reproducible.
+
+\begin{lstlisting}[language=Python]
+import numpy as np
+from spin_dynamics.experiment import (
+    Experiment, PGSEWalkers, Sample, TransportDomain2D, UniformFlow2D,
+)
+
+domain = TransportDomain2D(
+    rho=np.ones((3, 2)),
+    x_axis=np.array([-1e-3, 0.0, 1e-3]),
+    z_axis=np.array([-0.5e-3, 0.5e-3]),
+)
+study = Experiment(
+    sequence=PGSEWalkers(seed=17, walkers_per_cell=32,
+                         boundary="periodic", jitter=True),
+    sample=Sample(diffusion_coefficient=1.2e-9, t2_seconds=0.15,
+                  transport_domain=domain,
+                  flow=UniformFlow2D((0.002, 0.0))),
+)
+print(study.plan().report())
+record = study.run()
+\end{lstlisting}
+
+This walker route represents uniform translation plus Brownian displacement. It
+does not solve a velocity field; use the specialized pipe-flow and thermal-flow
+models in Chapter~\ref{chap:workflows} when washout, inflow polarization, or
+advective heat removal is the quantity of interest.
+
 \section{Automatic Hardware Wiring}
 
 For imaging sequences, describe the transmit coil as geometry in SI meters and
@@ -2792,12 +3004,15 @@ native result plus a JSON document with the full experiment spec, provenance,
 and scalar result fields. \code{load\_run(path)} returns a \code{LoadedRun}
 exposing the raw arrays, the reconstructed native result, and -- via
 \code{loaded.experiment} -- the original spec, so a saved run can be re-run or
-tweaked. Specs are JSON-serializable directly
-(\code{Experiment.to\_json()} / \code{Experiment.from\_json(...)}). Runnable
-versions of every stage above live in
-\code{examples/experiment\_facade\_quickstart.py},
-\code{examples/experiment\_imaging\_with\_coil.py}, and
-\code{examples/experiment\_nqr\_auto\_model.py}.
+tweaked. Specs are JSON-serializable directly with
+\code{Experiment.to\_json()} and \code{Experiment.from\_json(...)}. Runnable
+versions of the stages above are grouped in these examples:
+
+\begin{itemize}
+  \item \code{examples/experiment\_facade\_quickstart.py}
+  \item \code{examples/experiment\_imaging\_with\_coil.py}
+  \item \code{examples/experiment\_nqr\_auto\_model.py}
+\end{itemize}
 
 \section{Config-Driven Runs (CLI)}
 
@@ -2845,8 +3060,14 @@ In Python, \code{save\_config} / \code{load\_config} and
 \code{experiment\_to\_config} / \code{experiment\_from\_config} expose the same
 round-trip. This friendly form covers spec fields with scalar or array values,
 including imaging phantoms and coil geometry; a fully general result archive
-still uses the NPZ/JSON form of the previous section. A ready-to-run config
-ships at \code{examples/experiment\_config\_cpmg.toml}.
+still uses the NPZ/JSON form of the previous section. Ready-to-run configs ship
+at:
+
+\begin{itemize}
+  \item \code{examples/experiment\_config\_cpmg.toml}
+  \item \code{examples/experiment\_config\_pgse.toml}
+  \item \code{examples/experiment\_config\_pgse\_walkers\_flow.toml}
+\end{itemize}
 
 \chapter{Workflow Guides}
 \label{chap:workflows}
@@ -5696,6 +5917,7 @@ python examples\grape_broadband_pulse_optimization.py --segments 16 --starts 24
 Plotting examples require Matplotlib:
 
 \begin{lstlisting}[language=bash]
+python examples\plot_sequence_timeline.py --export-pulseq results\demo.seq --output results\demo_sequence.png
 python examples\plot_ideal_workflows.py --numpts 201 --output results\ideal_workflows.png
 python examples\plot_ideal_imaging.py --pixels 6 --ny 7 --output results\ideal_imaging.png
 python examples\plot_custom_imaging_fields.py --pixels 8 --ny 7 --output results\custom_imaging_fields.png
@@ -5754,6 +5976,17 @@ python examples\plot_nqr_weak_b0_spectrum.py --output results\nqr_weak_b0_spectr
 python examples\plot_nqr_polarization_enhancement.py --output results\nqr_polarization_enhancement.png
 \end{lstlisting}
 
+Facade examples and configurations exercise the same plan/run interface used by
+application code:
+
+\begin{lstlisting}[language=bash]
+python examples\experiment_facade_quickstart.py
+python examples\experiment_imaging_with_coil.py
+python examples\experiment_nqr_auto_model.py
+python -m spin_dynamics.experiment plan examples\experiment_config_pgse.toml
+python -m spin_dynamics.experiment run examples\experiment_config_pgse_walkers_flow.toml -o results\pgse_walkers_flow.npz
+\end{lstlisting}
+
 \chapter{Validation}
 
 Validation fixtures live in \code{validation/fixtures}. The tests compare the
@@ -5761,6 +5994,28 @@ Python implementation against compact MATLAB or Octave arrays for core
 rotations, echo conversion, FID, the \code{arb10} kernel, finite acquisition,
 probe response, imaging, pulse-shape helpers, optimization result handling, and
 public workflow result shapes.
+
+Use three complementary validation levels. Unit and smoke tests catch local API
+and numerical regressions; fixture comparisons pin MATLAB/Octave parity where a
+reference implementation exists; analytical limits and external solver or
+published-data comparisons validate newer models that have no MATLAB ancestor.
+The current evidence and tolerances are recorded in
+\code{docs/validation\_results.md} rather than inferred from test count alone.
+
+The hosted smoke gate can be reproduced locally:
+
+\begin{lstlisting}[language=bash]
+python -m ruff check src tests examples
+python docs/generate_api_reference.py
+git diff --exit-code docs/python_api/api_reference.md
+python -m unittest tests.smoke_tests
+\end{lstlisting}
+
+Run the full Python suite before merging numerical changes:
+
+\begin{lstlisting}[language=bash]
+python -m unittest discover -s tests
+\end{lstlisting}
 
 Regenerate dependency-light fixtures with Octave or MATLAB from the
 \code{PythonSpinDynamics} directory:
@@ -5789,6 +6044,8 @@ spin_dynamics.coupling
 spin_dynamics.nqr
 spin_dynamics.noise
 spin_dynamics.motion
+spin_dynamics.experiment
+spin_dynamics.sequences
 spin_dynamics.sequences.motion
 spin_dynamics.prepolarization
 spin_dynamics.relaxation
@@ -5800,6 +6057,38 @@ Use \code{spin\_dynamics.coupling} for the scoped dense scalar-coupled
 spin-1/2 tools described in Chapter~\ref{chap:jcoupling}. Use
 \code{spin\_dynamics.nqr} for the selective pulsed NQR tools described in
 Chapter~\ref{chap:nqr}.
+
+\section{Experiment and Sequence APIs}
+
+\begin{longtable}{p{0.35\linewidth}p{0.57\linewidth}}
+\toprule
+Public object or function & Purpose \\
+\midrule
+\code{Experiment} & Immutable sample/hardware/sequence/acquisition description
+with \code{plan()}, \code{run()}, JSON conversion, and result provenance. \\
+\code{CPMG}, \code{CPMGTrain}, \code{CPMGIRTrain}, \code{CPMGImaging} & NMR
+and imaging sequence specifications supported by the facade. \\
+\code{PGSE}, \code{PGSEWalkers} & Deterministic and explicit-particle
+diffusion specifications. \\
+\code{TransportDomain2D}, \code{UniformFlow2D} & Physical density/axis domain
+and optional uniform velocity for walker transport. \\
+\code{NQRSLSE}, \code{NQRSORC}, \code{ESRFID}, \code{ESRHahnEcho} & NQR and
+ESR facade specifications. \\
+\code{load\_config}, \code{save\_config}, \code{load\_run} & Reproducible
+configuration and result-archive I/O. \\
+\code{SequenceIR}, \code{SequenceBlock} & Backend-neutral ordered sequence and
+concurrent event block. \\
+\code{RFPulse}, \code{GradientWaveform}, \code{ADCEvent} & Sampled sequence
+events in Pulseq-compatible units. \\
+\code{read\_pulseq}, \code{write\_pulseq} & Pulseq core import and signed
+1.5.0 export. \\
+\code{compile\_sequence} & Piecewise-constant RF/gradient timeline with exact
+ADC sample times. \\
+\code{compiled\_to\_motion\_steps} & Adapter for the moving-isochromat engine. \\
+\code{plot\_sequence}, \code{sequence\_plot\_data} & Aligned timeline display
+and its backend-neutral plotting data. \\
+\bottomrule
+\end{longtable}
 
 \section{Workflow Results}
 
@@ -6662,19 +6951,46 @@ detected SNR on a tuned probe with eddy currents (Section~\ref{sec:grape-pgse}).
 
 \chapter{Known Gaps}
 
-The Python port is intentionally conservative where MATLAB parity still matters.
-The largest remaining gaps fall into three groups. First are parity and
-validation gaps: broader high-Q matched-probe validation, full historical
-MATLAB \code{.mat} structure parity, broad \code{fmincon} parity, and
-paper-level scalar-coupling fixture comparisons. Second are physics extensions:
-relaxation-aware dense coupled-spin pulse-sequence runners, full nonselective
-quadrupolar pulse propagation, experimental NQR fixture comparisons, ESR
-anisotropic hyperfine and multi-electron interactions, and coherent many-spin
-dipolar networks beyond the stochastic Redfield treatment. Third are
-implementation extensions, especially acceleration backends beyond the current
-NumPy implementation.
+The remaining work is now more architectural than a simple MATLAB-port backlog.
+The package has broad component coverage; the highest-value improvements make
+those components compose predictably and make the evidence behind a result easy
+to inspect.
 
-New work should add small reference fixtures first, then a NumPy implementation,
-then optional acceleration or plotting once numerical behavior is pinned down.
+\begin{description}
+  \item[Sequence execution.] The IR imports, exports, compiles, and visualizes
+  Pulseq core events, but arbitrary IR is only adapted to the moving-isochromat
+  engine. More facade and quantum backends need explicit compiler targets.
+  Pulseq extensions, explicit non-default time shapes, scanner safety limits,
+  and vendor conversion remain outside the executable subset.
+  \item[Facade breadth.] The facade covers the main CPMG, imaging, PGSE, NQR,
+  and pulsed-ESR routes, including random-walker flow. Specialized diffusion,
+  exchange, prepolarization, thermal, RFI, optimization, and coupled-spin
+  workflows still use their direct APIs. They should be added only when their
+  planning rules and provenance fields are meaningful, not as thin name aliases.
+  \item[Composition and adapters.] Field solutions, thermal states, flow fields,
+  hardware responses, and sequence timelines need more shared typed adapters.
+  Today several end-to-end studies still require users to align grids, axes,
+  units, and time bases manually.
+  \item[Validation evidence.] Broader high-Q matched-probe fixtures, historical
+  MATLAB \code{.mat} parity, optimization comparisons, paper-level
+  scalar-coupling checks, and experimental NQR/ESR fixtures remain valuable.
+  Validation should be reported by level: unit invariant, analytical limit,
+  reference-code parity, external solver, or experimental comparison.
+  \item[Provenance and reproducibility.] Saved facade runs capture specifications
+  and results, but richer environment, fixture, calibration, input-file digest,
+  and backend metadata would make long-lived studies easier to audit.
+  \item[Performance and scale.] NumPy, Numba, JAX, batching, and benchmark tools
+  exist, but coverage is uneven. Large sparse coupled-spin systems, full 3-D
+  transport/thermal solves, CFD-derived flow, and multi-GPU execution are not
+  general package capabilities.
+  \item[Scientific scope.] Relaxation-aware dense coupled-spin sequence runners,
+  full nonselective quadrupolar propagation, anisotropic multi-electron ESR, and
+  coherent many-spin dipolar networks remain longer-term physics extensions.
+\end{description}
+
+New numerical work should first state the model boundary and validation level,
+then add a small NumPy reference path and fixture or analytical limit. Optional
+acceleration, facade exposure, visualization, and interchange should follow once
+the behavior is pinned down.
 
 \end{document}
