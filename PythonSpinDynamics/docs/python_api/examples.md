@@ -480,6 +480,28 @@ Use `--snr`, `--support-factor`, `--iterations`, and `--seed` to explore noise
 sensitivity and the magnitude-only phase-retrieval ambiguity. Only NumPy and
 Matplotlib are needed.
 
+## q-Space Imaging Robustness
+
+The robustness study broadens the inverse problem from a circular pore to an
+ellipse, a narrow slit, and a connected domain. It repeats phase retrieval
+across independent seeds while separating finite intensity SNR, radial q-window
+truncation, and random missing samples. Reconstruction scores account for the
+translation/reflection ambiguity of magnitude-only data.
+
+```powershell
+python examples\plot_pgse_qspace_robustness.py `
+    --output results\qspace_imaging_robustness.png `
+    --csv results\qspace_imaging_robustness_trials.csv
+```
+
+Use `--snr`, `--qmax-fraction`, `--missing-fraction`, `--threshold-sigma`, and
+`--trials` to change the acquisition envelope. The default reference study
+shows why unmeasured points need an explicit sampling mask and why a known
+intensity-noise-floor gate is more important than extending the q window for
+these compact pore shapes. See
+[`../qspace_imaging_robustness.md`](../qspace_imaging_robustness.md) for the
+trial-level results and interpretation.
+
 ## PGSTE Stimulated-Echo Diffusion
 
 This example uses the stimulated-echo backend (`run_pgste_walkers`) to show why

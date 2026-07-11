@@ -1683,13 +1683,18 @@ No public classes or functions found.
 | --- | --- | --- |
 | class | `QSpaceReconstructionResult` | Image-domain result reconstructed from a centered q-space grid. |
 | class | `QSpacePhaseRetrievalResult` | Constrained pore-shape estimate from magnitude-only q-space samples. |
+| class | `QSpaceShapeMetrics` | Shift/reflection-invariant quality metrics for a reconstructed pore. |
 | class | `PGSEQSpaceWalkerResult` | Finite-pulse PGSE response sampled on a centered two-dimensional q grid. |
 | function | `acquire_pgse_qspace_walkers(rho: np.ndarray, x_axis: np.ndarray, z_axis: np.ndarray, qx_axis: np.ndarray, qz_axis: np.ndarray, *, gradient_duration: float = 0.0005, diffusion_time: float = 0.02, diffusion_coefficient: float = 2.3e-09, gamma: float = 267500000.0, walkers_per_cell: int = 32, seed: int | None = None, jitter: bool = True, excitation_duration: float = 0.0001, refocusing_duration: float = 0.0002, t1_seconds: float = np.inf, t2_seconds: float = np.inf, velocity: Velocity = None, fields: MotionFieldMaps2D | None = None, boundary: Boundary = 'reflect', substeps_per_interval: int = 8) -> PGSEQSpaceWalkerResult` | Acquire a finite-pulse restricted-diffusion response on a q-space grid. |
 | function | `qspace_axes_from_real_space(x_axis: np.ndarray, z_axis: np.ndarray) -> tuple[np.ndarray, np.ndarray]` | Return centered angular q axes compatible with a real-space grid. |
 | function | `real_space_axes_from_qspace(qx_axis: np.ndarray, qz_axis: np.ndarray) -> tuple[np.ndarray, np.ndarray]` | Return centered real-space axes for a uniformly sampled q-space grid. |
 | function | `pore_form_factor_from_density(density: np.ndarray, *, normalize: bool = True) -> np.ndarray` | Return the centered complex pore form factor of a 2D density map. |
+| function | `qspace_sampling_mask(qx_axis: np.ndarray, qz_axis: np.ndarray, *, qmax_fraction: float = 1.0, missing_fraction: float = 0.0, seed: int | None = None) -> np.ndarray` | Build a reproducible radial-window and random-dropout sampling mask. |
+| function | `add_qspace_intensity_noise(intensity: np.ndarray, *, snr: float, seed: int | None = None, sample_mask: np.ndarray | None = None) -> tuple[np.ndarray, float]` | Add Gaussian intensity noise and return the clipped data and sigma. |
+| function | `threshold_qspace_intensity(intensity: np.ndarray, *, noise_sigma: float, threshold_sigma: float = 2.0, sample_mask: np.ndarray | None = None) -> np.ndarray` | Suppress a known additive intensity-noise floor before phase retrieval. |
+| function | `qspace_shape_metrics(estimate: np.ndarray, reference: np.ndarray, *, threshold: float = 0.2) -> QSpaceShapeMetrics` | Compare pore shapes modulo translation and axis reflections. |
 | function | `reconstruct_qspace_image(response: np.ndarray, qx_axis: np.ndarray, qz_axis: np.ndarray, *, data_kind: QSpaceDataKind = 'complex', clip_negative: bool = False, normalize: bool = True) -> QSpaceReconstructionResult` | Reconstruct an image or autocorrelation from centered q-space samples. |
-| function | `phase_retrieve_qspace_magnitude(magnitude: np.ndarray, qx_axis: np.ndarray, qz_axis: np.ndarray, *, support: np.ndarray | None = None, iterations: int = 300, beta: float = 0.8, seed: int | None = None, input_is_intensity: bool = False, er_iterations: int = 40) -> QSpacePhaseRetrievalResult` | Estimate a non-negative pore image from magnitude-only q-space data. |
+| function | `phase_retrieve_qspace_magnitude(magnitude: np.ndarray, qx_axis: np.ndarray, qz_axis: np.ndarray, *, support: np.ndarray | None = None, iterations: int = 300, beta: float = 0.8, seed: int | None = None, input_is_intensity: bool = False, er_iterations: int = 40, sample_mask: np.ndarray | None = None) -> QSpacePhaseRetrievalResult` | Estimate a non-negative pore image from magnitude-only q-space data. |
 
 ## `spin_dynamics.workflows.single_sided`
 

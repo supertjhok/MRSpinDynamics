@@ -773,6 +773,16 @@ shape from magnitude-only diffraction data. The example
 `plot_pgse_qspace_pore_imaging.py` demonstrates the circular-pore case and adds
 a finite-SNR q-space intensity measurement controlled by `--snr`.
 
+For incomplete acquisitions, build the measured-point mask with
+`qspace_sampling_mask` and pass it as `sample_mask` to phase retrieval. This
+leaves unmeasured Fourier coefficients free instead of treating them as exact
+zeros. `add_qspace_intensity_noise` defines the intensity-SNR convention, while
+`threshold_qspace_intensity` applies an explicit noise-floor gate and
+`qspace_shape_metrics` compares reconstructions modulo translation and axis
+reflection. `plot_pgse_qspace_robustness.py` combines those tools in repeated
+ellipse, slit, and connected-domain studies; the reference results are recorded
+in [`../qspace_imaging_robustness.md`](../qspace_imaging_robustness.md).
+
 For slow exchange between two compartments, use
 `spin_dynamics.motion.make_semipermeable_plane`. The membrane is an internal
 line (`x = interface` or `z = interface`) inside the rectangular bounds. A

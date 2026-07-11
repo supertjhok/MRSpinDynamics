@@ -42,6 +42,10 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
 - Added finite-pulse walker-to-q-space acquisition with arbitrary in-plane PGSE
   gradient directions, zero-q normalization, elliptical-pore reconstruction
   validation, and a runnable walker-to-pore-imaging example.
+- Completed q-space imaging robustness studies for ellipse, slit, and connected
+  pores across finite intensity SNR, radial q-window truncation, and random
+  missing samples; added mask-aware phase retrieval, explicit noise-floor
+  gating, ambiguity-invariant shape metrics, and committed trial-level results.
 
 ### Integration
 

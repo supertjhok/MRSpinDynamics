@@ -299,6 +299,7 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_pgse_restricted_diffusion.py",
             "examples/plot_pgse_circular_pore_diffraction.py",
             "examples/plot_pgse_qspace_pore_imaging.py",
+            "examples/plot_pgse_qspace_robustness.py",
             "examples/plot_pgste_stimulated_echo.py",
             "examples/plot_phase_cycled_stimulated_echo.py",
             "examples/plot_pgse_double_encoding_elliptical_pore.py",
@@ -443,6 +444,11 @@ class ExampleSmokeTests(unittest.TestCase):
         self.assertIn("--support-factor", result.stdout)
         self.assertIn("--iterations", result.stdout)
         self.assertIn("--snr", result.stdout)
+        result = run_example("examples/plot_pgse_qspace_robustness.py", "--help")
+        self.assertIn("--trials", result.stdout)
+        self.assertIn("--qmax-fraction", result.stdout)
+        self.assertIn("--missing-fraction", result.stdout)
+        self.assertIn("--threshold-sigma", result.stdout)
         result = run_example("examples/plot_pgste_stimulated_echo.py", "--help")
         self.assertIn("--fixed-b", result.stdout)
         self.assertIn("--t1", result.stdout)

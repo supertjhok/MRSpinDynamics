@@ -11,10 +11,14 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from spin_dynamics.workflows import (
     acquire_pgse_qspace_walkers,
+    add_qspace_intensity_noise,
     phase_retrieve_qspace_magnitude,
     pore_form_factor_from_density,
     qspace_axes_from_real_space,
+    qspace_sampling_mask,
+    qspace_shape_metrics,
     reconstruct_qspace_image,
+    threshold_qspace_intensity,
 )
 from spin_dynamics.motion import make_elliptical_reflector
 
@@ -55,6 +59,81 @@ def _best_aligned_iou(estimate: np.ndarray, reference: np.ndarray) -> float:
 
 
 class QSpaceImagingTests(unittest.TestCase):
+    def test_sampling_mask_combines_q_window_and_reproducible_dropout(self) -> None:
+        _, axis, _ = _ellipse(n=24)
+        qx, qz = qspace_axes_from_real_space(axis, axis)
+        first = qspace_sampling_mask(
+            qx, qz, qmax_fraction=0.7, missing_fraction=0.25, seed=19
+        )
+        second = qspace_sampling_mask(
+            qx, qz, qmax_fraction=0.7, missing_fraction=0.25, seed=19
+        )
+
+        np.testing.assert_array_equal(first, second)
+        self.assertTrue(first[axis.size // 2, axis.size // 2])
+        self.assertLess(float(np.mean(first)), 0.5)
+        self.assertGreater(float(np.mean(first)), 0.15)
+
+    def test_mask_aware_retrieval_handles_noise_and_incomplete_q_coverage(self) -> None:
+        n = 40
+        axis = (np.arange(n, dtype=np.float64) - n // 2) * 1.0e-6
+        xx, zz = np.meshgrid(axis, axis, indexing="ij")
+        left = (xx + 6.0e-6) ** 2 + zz**2 <= (4.5e-6) ** 2
+        right = (xx - 6.0e-6) ** 2 + zz**2 <= (4.5e-6) ** 2
+        bridge = (np.abs(xx) <= 6.0e-6) & (np.abs(zz) <= 1.5e-6)
+        rho = (left | right | bridge).astype(float)
+        support = (np.abs(xx) <= 12.0e-6) & (np.abs(zz) <= 7.0e-6)
+        qx, qz = qspace_axes_from_real_space(axis, axis)
+        intensity = np.abs(pore_form_factor_from_density(rho)) ** 2
+        sample_mask = qspace_sampling_mask(
+            qx, qz, qmax_fraction=0.7, missing_fraction=0.25, seed=7
+        )
+        measured, sigma = add_qspace_intensity_noise(
+            intensity, snr=30.0, seed=8, sample_mask=sample_mask
+        )
+        raw = phase_retrieve_qspace_magnitude(
+            measured,
+            qx,
+            qz,
+            support=support,
+            sample_mask=sample_mask,
+            input_is_intensity=True,
+            iterations=300,
+            er_iterations=80,
+            seed=9,
+        )
+        gated_data = threshold_qspace_intensity(
+            measured, noise_sigma=sigma, threshold_sigma=2.0, sample_mask=sample_mask
+        )
+        gated = phase_retrieve_qspace_magnitude(
+            gated_data,
+            qx,
+            qz,
+            support=support,
+            sample_mask=sample_mask,
+            input_is_intensity=True,
+            iterations=300,
+            er_iterations=80,
+            seed=9,
+        )
+        raw_metrics = qspace_shape_metrics(raw.density, rho, threshold=0.2)
+        gated_metrics = qspace_shape_metrics(gated.density, rho, threshold=0.2)
+
+        self.assertAlmostEqual(sigma, 1.0 / 30.0)
+        self.assertAlmostEqual(gated.coverage_fraction, float(np.mean(sample_mask)))
+        self.assertGreater(gated_metrics.correlation, raw_metrics.correlation + 0.1)
+        self.assertGreater(gated_metrics.intersection_over_union, 0.5)
+        self.assertLess(gated.residual, 0.5)
+
+    def test_shape_metrics_remove_shift_and_reflection_ambiguity(self) -> None:
+        rho, _, _ = _ellipse(n=32)
+        transformed = np.roll(rho[::-1, :], (5, -3), axis=(0, 1))
+        metrics = qspace_shape_metrics(transformed, rho)
+
+        self.assertAlmostEqual(metrics.correlation, 1.0)
+        self.assertAlmostEqual(metrics.intersection_over_union, 1.0)
+        self.assertAlmostEqual(metrics.area_ratio, 1.0)
+
     def test_finite_pulse_walkers_reconstruct_elliptical_pore_autocorrelation(self) -> None:
         n = 12
         axis = (np.arange(n, dtype=np.float64) - n // 2) * 1.0e-6

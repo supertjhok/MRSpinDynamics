@@ -54,6 +54,7 @@ class QSpacePhaseRetrievalResult:
     support: np.ndarray
     iterations: int
     residual_history: np.ndarray
+    sample_mask: np.ndarray | None = None
 
     @property
     def residual(self) -> float:
@@ -62,6 +63,26 @@ class QSpacePhaseRetrievalResult:
         if self.residual_history.size == 0:
             return 0.0
         return float(self.residual_history[-1])
+
+    @property
+    def coverage_fraction(self) -> float:
+        """Return the fraction of q-space samples constrained by measurement."""
+
+        if self.sample_mask is None:
+            return 1.0
+        return float(np.mean(self.sample_mask))
+
+
+@dataclass(frozen=True)
+class QSpaceShapeMetrics:
+    """Shift/reflection-invariant quality metrics for a reconstructed pore."""
+
+    correlation: float
+    intersection_over_union: float
+    area_ratio: float
+    shift_pixels: tuple[int, int]
+    reflected_x: bool
+    reflected_z: bool
 
 
 @dataclass(frozen=True)
@@ -259,6 +280,204 @@ def pore_form_factor_from_density(
     return form.astype(np.complex128, copy=False)
 
 
+def qspace_sampling_mask(
+    qx_axis: np.ndarray,
+    qz_axis: np.ndarray,
+    *,
+    qmax_fraction: float = 1.0,
+    missing_fraction: float = 0.0,
+    seed: int | None = None,
+) -> np.ndarray:
+    """Build a reproducible radial-window and random-dropout sampling mask.
+
+    qmax_fraction is the retained elliptical radius relative to the largest
+    sampled absolute qx and qz values. missing_fraction then removes that
+    fraction of otherwise retained samples at random. The zero-q sample is
+    always preserved because it supplies the intensity normalization.
+    """
+
+    qx = _uniform_axis(qx_axis, "qx_axis")
+    qz = _uniform_axis(qz_axis, "qz_axis")
+    fraction = float(qmax_fraction)
+    missing = float(missing_fraction)
+    if not (0.0 < fraction <= 1.0):
+        raise ValueError("qmax_fraction must be in (0, 1]")
+    if not (0.0 <= missing < 1.0):
+        raise ValueError("missing_fraction must be in [0, 1)")
+
+    if fraction == 1.0:
+        mask = np.ones((qx.size, qz.size), dtype=bool)
+    else:
+        qx_scale = max(float(np.max(np.abs(qx))), np.finfo(float).eps)
+        qz_scale = max(float(np.max(np.abs(qz))), np.finfo(float).eps)
+        qxx, qzz = np.meshgrid(qx / qx_scale, qz / qz_scale, indexing="ij")
+        mask = qxx**2 + qzz**2 <= fraction**2 + 10.0 * np.finfo(float).eps
+
+    zero_x = np.flatnonzero(np.isclose(qx, 0.0, rtol=0.0, atol=1e-12))
+    zero_z = np.flatnonzero(np.isclose(qz, 0.0, rtol=0.0, atol=1e-12))
+    if zero_x.size != 1 or zero_z.size != 1:
+        raise ValueError("qx_axis and qz_axis must each contain exactly one zero sample")
+    zero = (int(zero_x[0]), int(zero_z[0]))
+
+    if missing > 0.0:
+        candidates = np.flatnonzero(mask.ravel())
+        zero_flat = np.ravel_multi_index(zero, mask.shape)
+        candidates = candidates[candidates != zero_flat]
+        count = min(int(np.floor(missing * candidates.size)), max(candidates.size - 1, 0))
+        if count:
+            rng = np.random.default_rng(seed)
+            dropped = rng.choice(candidates, size=count, replace=False)
+            mask.ravel()[dropped] = False
+    mask[zero] = True
+    return mask
+
+
+def add_qspace_intensity_noise(
+    intensity: np.ndarray,
+    *,
+    snr: float,
+    seed: int | None = None,
+    sample_mask: np.ndarray | None = None,
+) -> tuple[np.ndarray, float]:
+    """Add Gaussian intensity noise and return the clipped data and sigma.
+
+    SNR is peak intensity divided by the Gaussian standard deviation. Noise is
+    added only at measured samples when sample_mask is provided; unmeasured
+    values are returned as zero and ignored by mask-aware phase retrieval.
+    """
+
+    values = np.asarray(intensity, dtype=np.float64)
+    if values.ndim != 2 or min(values.shape) < 2:
+        raise ValueError("intensity must be a 2D array with at least 2x2 samples")
+    if not np.all(np.isfinite(values)) or np.any(values < 0.0):
+        raise ValueError("intensity must contain finite non-negative values")
+    snr_value = float(snr)
+    if np.isnan(snr_value) or snr_value <= 0.0:
+        raise ValueError("snr must be positive")
+    measured = (
+        np.ones(values.shape, dtype=bool)
+        if sample_mask is None
+        else _support(sample_mask, values.shape, name="sample_mask")
+    )
+    if np.isinf(snr_value):
+        sigma = 0.0
+        noisy = values.copy()
+    else:
+        sigma = float(np.max(values[measured])) / snr_value
+        rng = np.random.default_rng(seed)
+        noisy = values.copy()
+        noisy[measured] += rng.normal(scale=sigma, size=int(np.count_nonzero(measured)))
+    noisy = np.maximum(noisy, 0.0)
+    noisy[~measured] = 0.0
+    return noisy, sigma
+
+
+def threshold_qspace_intensity(
+    intensity: np.ndarray,
+    *,
+    noise_sigma: float,
+    threshold_sigma: float = 2.0,
+    sample_mask: np.ndarray | None = None,
+) -> np.ndarray:
+    """Suppress a known additive intensity-noise floor before phase retrieval.
+
+    Samples below ``threshold_sigma * noise_sigma`` are set to zero. The gate
+    is intentionally explicit: it trades weak high-q diffraction features for
+    resistance to the positive bias produced when noisy intensities are clipped
+    at zero. Unmeasured samples remain zero when a sampling mask is supplied.
+    """
+
+    values = np.asarray(intensity, dtype=np.float64)
+    if values.ndim != 2 or min(values.shape) < 2:
+        raise ValueError("intensity must be a 2D array with at least 2x2 samples")
+    if not np.all(np.isfinite(values)) or np.any(values < 0.0):
+        raise ValueError("intensity must contain finite non-negative values")
+    sigma = float(noise_sigma)
+    factor = float(threshold_sigma)
+    if not np.isfinite(sigma) or sigma < 0.0:
+        raise ValueError("noise_sigma must be finite and non-negative")
+    if not np.isfinite(factor) or factor < 0.0:
+        raise ValueError("threshold_sigma must be finite and non-negative")
+    measured = (
+        np.ones(values.shape, dtype=bool)
+        if sample_mask is None
+        else _support(sample_mask, values.shape, name="sample_mask")
+    )
+    gated = np.where(measured & (values >= factor * sigma), values, 0.0)
+    return gated
+
+
+def qspace_shape_metrics(
+    estimate: np.ndarray,
+    reference: np.ndarray,
+    *,
+    threshold: float = 0.2,
+) -> QSpaceShapeMetrics:
+    """Compare pore shapes modulo translation and axis reflections.
+
+    Both arrays are normalized by their maxima. The best alignment maximizes
+    continuous Pearson correlation; intersection-over-union and area ratio use
+    the same relative threshold. This explicitly accounts for the unavoidable
+    translation and inversion ambiguities of magnitude-only phase retrieval.
+    """
+
+    recovered = _density2d(estimate)
+    truth = _density2d(reference)
+    if recovered.shape != truth.shape:
+        raise ValueError("estimate and reference must have the same shape")
+    level = float(threshold)
+    if not (0.0 < level < 1.0):
+        raise ValueError("threshold must be in (0, 1)")
+    recovered_scale = float(np.max(recovered))
+    truth_scale = float(np.max(truth))
+    if recovered_scale <= 0.0 or truth_scale <= 0.0:
+        raise ValueError("estimate and reference must each contain a positive value")
+    recovered = recovered / recovered_scale
+    truth = truth / truth_scale
+
+    best: QSpaceShapeMetrics | None = None
+    for reflected_x, reflected_z in ((False, False), (True, False), (False, True), (True, True)):
+        candidate = recovered
+        if reflected_x:
+            candidate = candidate[::-1, :]
+        if reflected_z:
+            candidate = candidate[:, ::-1]
+        cross = np.fft.ifft2(
+            np.fft.fft2(candidate) * np.conj(np.fft.fft2(truth))
+        ).real
+        peak = np.unravel_index(int(np.argmax(cross)), cross.shape)
+        shift = tuple(
+            -index if index <= size // 2 else size - index
+            for index, size in zip(peak, truth.shape, strict=True)
+        )
+        aligned = np.roll(candidate, shift, axis=(0, 1))
+        if np.std(aligned) <= np.finfo(float).eps or np.std(truth) <= np.finfo(float).eps:
+            correlation = 0.0
+        else:
+            correlation = float(np.corrcoef(aligned.ravel(), truth.ravel())[0, 1])
+        estimate_mask = aligned >= level
+        truth_mask = truth >= level
+        union = int(np.count_nonzero(estimate_mask | truth_mask))
+        intersection = int(np.count_nonzero(estimate_mask & truth_mask))
+        iou = float(intersection / union) if union else 0.0
+        truth_area = max(int(np.count_nonzero(truth_mask)), 1)
+        metrics = QSpaceShapeMetrics(
+            correlation=correlation,
+            intersection_over_union=iou,
+            area_ratio=float(np.count_nonzero(estimate_mask) / truth_area),
+            shift_pixels=(int(shift[0]), int(shift[1])),
+            reflected_x=reflected_x,
+            reflected_z=reflected_z,
+        )
+        if best is None or (metrics.correlation, metrics.intersection_over_union) > (
+            best.correlation,
+            best.intersection_over_union,
+        ):
+            best = metrics
+    assert best is not None
+    return best
+
+
 def reconstruct_qspace_image(
     response: np.ndarray,
     qx_axis: np.ndarray,
@@ -320,6 +539,7 @@ def phase_retrieve_qspace_magnitude(
     seed: int | None = None,
     input_is_intensity: bool = False,
     er_iterations: int = 40,
+    sample_mask: np.ndarray | None = None,
 ) -> QSpacePhaseRetrievalResult:
     """Estimate a non-negative pore image from magnitude-only q-space data.
 
@@ -329,6 +549,9 @@ def phase_retrieve_qspace_magnitude(
     local minima. A loose finite ``support`` mask is therefore strongly
     recommended for pore-shape imaging. If ``input_is_intensity=True``,
     ``magnitude`` is interpreted as ``|F(q)|^2`` and square-rooted first.
+    ``sample_mask`` marks acquired q-space points. Fourier amplitudes are
+    enforced only there; unmeasured coefficients remain free rather than being
+    mistaken for measured zeros.
     """
 
     amp = _qspace2d(magnitude, qx_axis, qz_axis)
@@ -345,8 +568,19 @@ def phase_retrieve_qspace_magnitude(
     if beta < 0.0:
         raise ValueError("beta must be non-negative")
     support_mask = (
-        np.ones(target.shape, dtype=bool) if support is None else _support(support, target.shape)
+        np.ones(target.shape, dtype=bool)
+        if support is None
+        else _support(support, target.shape, name="support")
     )
+    measured = (
+        np.ones(target.shape, dtype=bool)
+        if sample_mask is None
+        else _support(sample_mask, target.shape, name="sample_mask")
+    )
+    if np.max(target[measured]) <= 0.0:
+        raise ValueError("measured q-space samples must contain a non-zero value")
+    target = target / np.max(target[measured])
+    target = np.where(measured, target, 0.0)
 
     rng = np.random.default_rng(seed)
     phase = rng.uniform(-np.pi, np.pi, size=target.shape)
@@ -356,16 +590,16 @@ def phase_retrieve_qspace_magnitude(
     history: list[float] = []
 
     for _ in range(int(iterations)):
-        projected = _fourier_project(estimate, target)
+        projected = _fourier_project(estimate, target, measured)
         valid = support_mask & (projected >= 0.0)
         next_estimate = np.where(valid, projected, estimate - float(beta) * projected)
         estimate = next_estimate
-        history.append(_magnitude_residual(estimate, target))
+        history.append(_magnitude_residual(estimate, target, measured))
 
     for _ in range(int(er_iterations)):
-        projected = _fourier_project(estimate, target)
+        projected = _fourier_project(estimate, target, measured)
         estimate = np.where(support_mask, np.maximum(projected, 0.0), 0.0)
-        history.append(_magnitude_residual(estimate, target))
+        history.append(_magnitude_residual(estimate, target, measured))
 
     total = float(np.sum(estimate))
     if total > np.finfo(float).eps:
@@ -378,24 +612,37 @@ def phase_retrieve_qspace_magnitude(
         qx_axis=np.asarray(qx_axis, dtype=np.float64),
         qz_axis=np.asarray(qz_axis, dtype=np.float64),
         support=support_mask,
+        sample_mask=measured,
         iterations=int(iterations) + int(er_iterations),
         residual_history=np.asarray(history, dtype=np.float64),
     )
 
 
-def _fourier_project(estimate: np.ndarray, target: np.ndarray) -> np.ndarray:
+def _fourier_project(
+    estimate: np.ndarray,
+    target: np.ndarray,
+    sample_mask: np.ndarray,
+) -> np.ndarray:
     spectrum = np.fft.fftshift(np.fft.fft2(np.fft.ifftshift(estimate)))
     phase = np.ones_like(spectrum)
     nonzero = np.abs(spectrum) > np.finfo(float).eps
     phase[nonzero] = spectrum[nonzero] / np.abs(spectrum[nonzero])
-    projected = np.fft.fftshift(np.fft.ifft2(np.fft.ifftshift(target * phase)))
+    constrained = spectrum.copy()
+    constrained[sample_mask] = target[sample_mask] * phase[sample_mask]
+    projected = np.fft.fftshift(np.fft.ifft2(np.fft.ifftshift(constrained)))
     return _positive_real(projected, clip=False)
 
 
-def _magnitude_residual(estimate: np.ndarray, target: np.ndarray) -> float:
+def _magnitude_residual(
+    estimate: np.ndarray,
+    target: np.ndarray,
+    sample_mask: np.ndarray,
+) -> float:
     spectrum = np.fft.fftshift(np.fft.fft2(np.fft.ifftshift(estimate)))
-    scale = max(float(np.linalg.norm(target)), np.finfo(float).eps)
-    return float(np.linalg.norm(np.abs(spectrum) - target) / scale)
+    scale = max(float(np.linalg.norm(target[sample_mask])), np.finfo(float).eps)
+    return float(
+        np.linalg.norm(np.abs(spectrum[sample_mask]) - target[sample_mask]) / scale
+    )
 
 
 def _positive_real(values: np.ndarray, *, clip: bool = True) -> np.ndarray:
@@ -423,12 +670,17 @@ def _qspace2d(values: np.ndarray, qx_axis: np.ndarray, qz_axis: np.ndarray) -> n
     return arr
 
 
-def _support(values: np.ndarray, shape: tuple[int, int]) -> np.ndarray:
+def _support(
+    values: np.ndarray,
+    shape: tuple[int, int],
+    *,
+    name: str = "support",
+) -> np.ndarray:
     arr = np.asarray(values, dtype=bool)
     if arr.shape != shape:
-        raise ValueError("support must have the same shape as q-space data")
+        raise ValueError(f"{name} must have the same shape as q-space data")
     if not np.any(arr):
-        raise ValueError("support must contain at least one true pixel")
+        raise ValueError(f"{name} must contain at least one true pixel")
     return arr
 
 

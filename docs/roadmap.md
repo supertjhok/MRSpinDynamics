@@ -120,9 +120,10 @@ package — see section 6.
   form factors, direct complex inversion, intensity/autocorrelation inversion,
   and support-constrained phase retrieval. The new
   `plot_pgse_qspace_pore_imaging.py` example reconstructs a circular pore from
-  ideal and finite-SNR q-space intensity data. Remaining work is connecting the
-  inverse path directly to finite-pulse walker measurements and broader pore
-  geometries.
+  ideal and finite-SNR q-space intensity data. The inverse path is now connected
+  to finite-pulse walker measurements, and robustness is quantified for ellipse,
+  slit, and connected-domain pores under finite SNR, reduced q range, and random
+  missing samples.
 - Microscopic relaxation first increment is done in `spin_dynamics.relaxation`:
   shared Liouville helpers, `PhenomenologicalRelaxationModel`, dipolar bath
   sources, rigid-solid and isotropic-liquid motional averaging, and
@@ -159,9 +160,10 @@ AIMD/PIMD averaging for anharmonic cases like NaNO₂ near Tc.
 
 1. **Close the DFT → sim → DB loop.** Highest science value, modest code.
    Started here as the `integration/` package; NaNO₂ is the seed case.
-2. **q-space diffusion-diffraction** (roadmap #4) — ideal inversion and the
-   finite-pulse walker-to-image validation are done; next value is broader pore
-   geometry, finite-SNR, and incomplete-q-coverage studies.
+2. **q-space diffusion-diffraction** (roadmap #4) — ideal inversion,
+   finite-pulse walker-to-image validation, broader pore geometry, finite-SNR,
+   and incomplete-q-coverage studies are done. The next frontier is experimental
+   benchmarking and non-Cartesian/three-dimensional acquisition.
 3. **Validate and broaden microscopic relaxation.** The shared Redfield/dipolar
    model exists; next value is tying it to measured liquid NMR/NQR relaxation
    data, convergence checks, and clearer limits of validity.
@@ -211,14 +213,23 @@ Completed increments:
 - The regression validation requires the walker reconstruction to correlate
   with the ideal autocorrelation, preserve the ellipse anisotropy, and recover
   the pore mask with intersection-over-union above 0.6.
+- `qspace_sampling_mask` distinguishes unmeasured q points from measured zeros;
+  mask-aware phase retrieval leaves those Fourier coefficients unconstrained.
+- `add_qspace_intensity_noise`, `threshold_qspace_intensity`, and
+  `qspace_shape_metrics` provide a reproducible SNR convention, an explicit
+  noise-floor mitigation, and translation/reflection-invariant quality metrics.
+- `examples/plot_pgse_qspace_robustness.py` repeats the inverse for ellipse,
+  slit, and connected-domain pores under finite SNR, radial q-window truncation,
+  and random dropout. At the default SNR 30, q-range fraction 0.7, and 25%
+  dropout, a two-sigma gate retains IoU above 0.5 in all trials for all three
+  shapes; trial-level data and interpretation are in
+  `PythonSpinDynamics/docs/qspace_imaging_robustness.md`.
 
-Next increments:
+Next frontiers:
 
-- Extend finite-pulse validation from the ellipse to slit and connected-domain
-  pores, and compare how much shape survives magnitude-only phase retrieval at
-  finite SNR.
-- Add sampling-window and missing-k-space studies, since real q-space pore
-  imaging is often limited more by q-coverage and SNR than by the ideal inverse.
+- Benchmark against experimental or published q-space pore data with a measured
+  noise model and acquisition mask.
+- Extend the Cartesian 2D inverse to non-Cartesian sampling and 3D pore imaging.
 
 ## 6. The `integration/` layer (operational; expanding)
 
