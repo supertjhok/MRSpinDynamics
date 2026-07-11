@@ -1,0 +1,34 @@
+{
+  "dataset_id": "smith2011_rdx_relaxation",
+  "citation": "J. A. S. Smith, M. Blanz, T. J. Rayner, M. D. Rowe, S. Bedford, and K. Althoefer, Journal of Magnetic Resonance 213, 98-106 (2011)",
+  "doi": "10.1016/j.jmr.2011.09.011",
+  "title": "14N quadrupole resonance and 1H T1 dispersion in the explosive RDX",
+  "source": "Publisher-hosted large figure images for Figures 2 and 8",
+  "accessed": "2026-07-11",
+  "reported_activation_energy_j_per_mol": 92000,
+  "reported_activation_energy_wording": "close to 92 kJ mol(-1)",
+  "nqr_fixture": {
+    "file": "smith2011_rdx_nqr_t1.csv",
+    "observable": "14N NQR T1",
+    "curve": "representative filled-square nu+ line near 5192 kHz",
+    "axis_calibration": "Figure 8 log10(T1/ms) versus 1/T",
+    "inverse_temperature_digitization_uncertainty_per_k": 0.000015,
+    "relative_t1_digitization_uncertainty": 0.15,
+    "fit_regime": "activated high-temperature branch before the low-temperature plateau"
+  },
+  "nmr_fixture": {
+    "file": "smith2011_rdx_nmr_cross_relaxation.csv",
+    "observable": "1H T1 dispersion minima",
+    "curve": "322 K filled-circle curve",
+    "axis_calibration": "Figure 2 log10(T1/ms) versus proton NMR frequency",
+    "frequency_digitization_uncertainty_khz": 10,
+    "relative_t1_digitization_uncertainty": 0.20
+  },
+  "sample_warning": "The NMR sample was RDX in Galden oil; the NQR sample was PE4 containing approximately 88% RDX. Absolute amplitudes must not be jointly fitted without accounting for preparation.",
+  "limitations": [
+    "Values are digitized from plotted symbols and are not author-supplied tables.",
+    "The NQR fixture represents one of six nearly coincident ring-nitrogen curves rather than every plotted point.",
+    "A log-linear Arrhenius fit is restricted to the activated NQR branch; it is not a replacement for the full NMR cross-relaxation dispersion model.",
+    "The paper reports no uncertainty for the approximately 92 kJ/mol activation energy in its abstract."
+  ]
+}

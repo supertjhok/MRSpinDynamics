@@ -1083,6 +1083,7 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 
 | Kind | Name | Summary |
 | --- | --- | --- |
+| class | `ZeroFieldRedfieldEFGModel` | Non-diagonal zero-field Redfield model for fluctuating EFGs. |
 | class | `SpectralOverlapRelaxationFit` | Linear fit of a background rate plus spectral-overlap relaxation. |
 | function | `transition_rms_linewidth_hz(frequency_offsets_hz: Iterable[float] | np.ndarray, intensities: Iterable[float] | np.ndarray, *, intrinsic_sigma_hz: float = 0.0) -> float` | Return the intensity-weighted RMS transition width. |
 | function | `spectral_overlap_factors(linewidths_hz: Iterable[float] | np.ndarray, *, reference_index: int = 0, exponent: float = 1.0) -> np.ndarray` | Return normalized overlap factors from transition linewidths. |
@@ -1421,6 +1422,7 @@ No public classes or functions found.
 | function | `single_spin_matrices(spin: float) -> SingleSpinMatrices` | Return dense angular-momentum matrices for one spin. |
 | function | `quadrupolar_tesseral_operators(spin: float) -> tuple[np.ndarray, ...]` | Return five Hermitian rank-2 spin-tensor components. |
 | class | `BPPRelaxationRates` | Temperature-dependent BPP rates, times, and spectral densities. |
+| class | `ArrheniusFit` | Log-linear Arrhenius fit for a positive measured quantity. |
 | class | `BPPRelaxationModel` | Configurable BPP relaxation model with Arrhenius correlation time. |
 | class | `PhenomenologicalRelaxationModel` | Phenomenological relaxation model in the Hamiltonian energy basis. |
 | class | `RelaxationSuperoperator` | Protocol for relaxation models that build Hamiltonian-aware Liouvillians. |
@@ -1434,6 +1436,7 @@ No public classes or functions found.
 | class | `WallCollisionRelaxationModel` | Gas-wall collision relaxation from a stochastic spin map. |
 | function | `spectral_density_lorentzian(angular_frequency_rad_per_s: float | Iterable[float] | np.ndarray, correlation_time_seconds: float | Iterable[float] | np.ndarray) -> np.ndarray` | Return the isotropic rotational spectral density ``2 tau/(1+w^2 tau^2)``. |
 | function | `arrhenius_correlation_time(temperature_kelvin: float | Iterable[float] | np.ndarray, *, tau_ref_seconds: float, reference_temperature_kelvin: float = 298.15, activation_energy_j_per_mol: float = 0.0) -> np.ndarray` | Return ``tau_c(T)`` using an Arrhenius activation energy. |
+| function | `fit_arrhenius_observable(temperature_kelvin: float | Iterable[float] | np.ndarray, values: float | Iterable[float] | np.ndarray, *, relative_uncertainty: float | Iterable[float] | np.ndarray | None = None) -> ArrheniusFit` | Fit ``ln(values)`` against ``1 / temperature``. |
 | function | `stokes_einstein_debye_correlation_time(hydrodynamic_radius_m: float | Iterable[float] | np.ndarray, viscosity_pa_s: float | Iterable[float] | np.ndarray, temperature_kelvin: float | Iterable[float] | np.ndarray, *, slip_factor: float = 1.0) -> np.ndarray` | Return the rank-2 rotational correlation time from Stokes-Einstein-Debye. |
 | function | `tau_c_from_t1_minimum(angular_frequency_rad_per_s: float, *, r1_coefficients: tuple[float, float, float] = (0.0, 1.0, 4.0)) -> float` | Return the correlation time at the BPP ``T1`` minimum for a Larmor freq. |
 | function | `gas_mean_speed_m_per_s(temperature_kelvin: float | Iterable[float] | np.ndarray, mass_amu: float) -> np.ndarray` | Return Maxwell-Boltzmann mean molecular speed for a gas species. |

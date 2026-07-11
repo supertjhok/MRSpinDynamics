@@ -46,6 +46,11 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
   pores across finite intensity SNR, radial q-window truncation, and random
   missing samples; added mask-aware phase retrieval, explicit noise-floor
   gating, ambiguity-invariant shape metrics, and committed trial-level results.
+- Deepened microscopic relaxation validation with measured sodium-chlorate,
+  transition-resolved bismuth, and joint RDX NMR/NQR benchmarks; added a
+  read-only NQRDatabase relaxation audit, non-diagonal zero-field EFG Redfield
+  model, Arrhenius fitting, transition-resolved quadrupolar relaxation and
+  field-cycling/NMRD workflows, runnable examples, and expanded manual guidance.
 
 ### Integration
 

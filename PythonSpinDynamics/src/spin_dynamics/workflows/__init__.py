@@ -196,6 +196,14 @@ from spin_dynamics.workflows.wurst import (
     run_matched_wurst_cpmg,
     run_matched_wurst_inversion,
 )
+from spin_dynamics.workflows.relaxation import (
+    NMRDWorkflowResult,
+    QuadrupolarRelaxationWorkflowResult,
+    run_arrhenius_quadrupolar_relaxation,
+    run_field_cycling_nmrd,
+    run_nmrd,
+    run_quadrupolar_relaxation,
+)
 
 STABLE_WORKFLOW_API = (
     "CPMGResult",
@@ -210,6 +218,12 @@ STABLE_WORKFLOW_API = (
     "run_tuned_cpmg_train",
     "run_untuned_cpmg",
     "run_untuned_cpmg_train",
+    "NMRDWorkflowResult",
+    "QuadrupolarRelaxationWorkflowResult",
+    "run_arrhenius_quadrupolar_relaxation",
+    "run_field_cycling_nmrd",
+    "run_nmrd",
+    "run_quadrupolar_relaxation",
 )
 
 EXTENDED_WORKFLOW_API = (
@@ -461,4 +475,10 @@ __all__ = [
     "reconstruct_qspace_image",
     "sinusoidal_field_waveform",
     "summarize_imaging_noise_trials",
+    "NMRDWorkflowResult",
+    "QuadrupolarRelaxationWorkflowResult",
+    "run_arrhenius_quadrupolar_relaxation",
+    "run_field_cycling_nmrd",
+    "run_nmrd",
+    "run_quadrupolar_relaxation",
 ]

@@ -15,5 +15,7 @@
     "FA": "isotropic fluctuating-EFG model",
     "FVA": "fluctuating-EFG model with a vibrational spectral-density mode"
   },
+  "published_fva_parameters": "The CSV repeats q_cc, tau_c, and nu_v from Table 1 for every transition in each sample/temperature group.",
+  "normalization_note": "Package validation compares rate shapes after one amplitude scale per group because the Cartesian fluctuating-EFG tensor and the paper's spherical q_cc convention differ by a constant normalization.",
   "model_boundary": "The published R2_sim columns are comparison targets, not experimental observations and not package-generated expected values."
 }

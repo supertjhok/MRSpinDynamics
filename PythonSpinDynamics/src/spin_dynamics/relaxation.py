@@ -126,6 +126,24 @@ class BPPRelaxationRates:
 
 
 @dataclass(frozen=True)
+class ArrheniusFit:
+    """Log-linear Arrhenius fit for a positive measured quantity.
+
+    The fitted convention is ``ln(y) = intercept + Ea / (R T)``.  It is
+    appropriate when the measured quantity is proportional to a correlation
+    time in an activated regime (for example, a slow-motion relaxation time).
+    It must not be applied blindly across a relaxation minimum or a sum of
+    mechanisms.
+    """
+
+    activation_energy_j_per_mol: float
+    standard_error_j_per_mol: float
+    intercept: float
+    predicted_values: np.ndarray
+    residual_log_rms: float
+
+
+@dataclass(frozen=True)
 class BPPRelaxationModel:
     """Configurable BPP relaxation model with Arrhenius correlation time."""
 
@@ -748,6 +766,79 @@ def arrhenius_correlation_time(
     tau = float(tau_ref_seconds) * np.exp(exponent)
     _require_finite_array(tau, "correlation_time_seconds")
     return tau
+
+
+def fit_arrhenius_observable(
+    temperature_kelvin: float | Iterable[float] | np.ndarray,
+    values: float | Iterable[float] | np.ndarray,
+    *,
+    relative_uncertainty: float | Iterable[float] | np.ndarray | None = None,
+) -> ArrheniusFit:
+    """Fit ``ln(values)`` against ``1 / temperature``.
+
+    ``relative_uncertainty`` is interpreted as the one-standard-deviation
+    uncertainty of ``ln(values)``.  This is the usual first-order conversion
+    for figure-digitized or experimentally reported relative errors.  At least
+    three observations are required so the slope uncertainty is estimable.
+    """
+
+    temperature, observable = np.broadcast_arrays(
+        np.asarray(temperature_kelvin, dtype=np.float64),
+        np.asarray(values, dtype=np.float64),
+    )
+    temperature = temperature.reshape(-1)
+    observable = observable.reshape(-1)
+    _require_finite_array(temperature, "temperature_kelvin")
+    _require_finite_array(observable, "values")
+    if temperature.size < 3:
+        raise ValueError("at least three observations are required")
+    if np.any(temperature <= 0.0):
+        raise ValueError("temperature_kelvin must be positive")
+    if np.any(observable <= 0.0):
+        raise ValueError("values must be positive")
+
+    if relative_uncertainty is None:
+        sigma = np.ones_like(observable)
+        absolute_scale_known = False
+    else:
+        sigma = np.broadcast_to(
+            np.asarray(relative_uncertainty, dtype=np.float64),
+            observable.shape,
+        ).copy()
+        _require_finite_array(sigma, "relative_uncertainty")
+        if np.any(sigma <= 0.0):
+            raise ValueError("relative_uncertainty must be positive")
+        absolute_scale_known = True
+
+    inverse_temperature = 1.0 / temperature
+    design = np.column_stack((np.ones_like(inverse_temperature), inverse_temperature))
+    weighted_design = design / sigma[:, None]
+    weighted_log_values = np.log(observable) / sigma
+    coefficients, _, rank, _ = np.linalg.lstsq(
+        weighted_design,
+        weighted_log_values,
+        rcond=None,
+    )
+    if rank != 2:
+        raise ValueError("temperatures must contain at least two distinct values")
+
+    predicted_log = design @ coefficients
+    residuals = np.log(observable) - predicted_log
+    degrees_of_freedom = temperature.size - 2
+    covariance = np.linalg.inv(weighted_design.T @ weighted_design)
+    if not absolute_scale_known:
+        covariance *= float(np.sum(residuals**2) / degrees_of_freedom)
+    activation_energy = float(coefficients[1] * GAS_CONSTANT_J_PER_MOL_K)
+    activation_standard_error = float(
+        np.sqrt(covariance[1, 1]) * GAS_CONSTANT_J_PER_MOL_K
+    )
+    return ArrheniusFit(
+        activation_energy_j_per_mol=activation_energy,
+        standard_error_j_per_mol=activation_standard_error,
+        intercept=float(coefficients[0]),
+        predicted_values=np.exp(predicted_log),
+        residual_log_rms=float(np.sqrt(np.mean(residuals**2))),
+    )
 
 
 def stokes_einstein_debye_correlation_time(

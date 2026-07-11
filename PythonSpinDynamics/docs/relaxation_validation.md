@@ -24,6 +24,15 @@ The first three stages are quantitative literature reproductions. The database
 stage is a coverage and anomaly-detection exercise, not a microscopic parameter
 fit. The final two stages are intentionally gated on additional physics.
 
+The validated model pieces are exposed through two high-level workflow paths.
+`run_quadrupolar_relaxation` and its Arrhenius wrapper return transition-labeled
+initial population and coherence decay rates from the secular fluctuating-EFG
+model. `run_nmrd` and `run_field_cycling_nmrd` return condition-by-frequency
+BPP grids while retaining fields, temperatures, correlation times, and spectral
+density terms. These workflow tests establish correct assembly, axes, limits,
+and metadata; they do not add independent experimental evidence beyond the
+datasets described below.
+
 ## Local NQRDatabase inventory
 
 The inventory below was computed from
@@ -105,11 +114,26 @@ particularly diagnostic because a purely diagonal secular Redfield matrix is
 not generally valid at zero field. Degenerate energy gaps couple density-matrix
 coherences, including single- and double-quantum terms.
 
-This stage will add fluctuating-EFG operators and retain Redfield blocks between
-degenerate transition frequencies. It will first reproduce the published
-fluctuation-only model and then the fluctuation-plus-vibration model. The
-published transition-rate table, not values read back from a rendered plot,
-will be the fixture.
+The 24 experimental rates, published FA/FVA predictions, and FVA fit parameters
+are now stored in `validation/experimental/goesweiner2020_bi209_r2.csv`. They
+were transcribed from Table 1 and visually checked against the open-access PDF.
+
+`ZeroFieldRedfieldEFGModel` implements the one-sided Redfield tensor of paper
+Equations (A3a-b), including the two Kramers-degeneracy terms absent from its
+standard NMR form. It averages rotated rank-2 EFG fluctuation operators over
+SO(3), selects the paper's single/double-coherence basis, and uses the shifted
+Lorentzian FVA spectral density. This is intentionally a lineshape-validation
+model rather than a generally completely-positive propagation model.
+
+For deuterated triphenylbismuth at 77 K, the calculated rate ratios are
+`1, 0.307, 0.143, 0.118`; the published FVA ratios are
+`1, 0.308, 0.148, 0.131`. The coupled lowest-transition rate is more than twice
+its diagonal-only value. Across all six compound/temperature groups, the mean
+relative difference from the published FVA rate shapes is 7.9% after fitting
+one amplitude scale per group. That scale is required because the paper's
+reported fluctuating `q_cc` and the package's Cartesian tensor use different
+normalization conventions; `tau_c` and the vibrational frequency remain fixed
+at their published values.
 
 Acceptance criteria:
 
@@ -118,9 +142,15 @@ Acceptance criteria:
 - the implementation demonstrates the failure of the diagonal-only
   approximation for the lowest transition;
 - fitted transition-rate ratios reproduce the published qualitative ordering;
-- mean relative deviation is no worse than the published model within a
-  documented digitization/rounding allowance; and
-- trace preservation, Hermiticity preservation, and zero-coupling limits pass.
+- mean relative deviation from the published FVA rate shapes is below 10%; and
+- the diagonal-only calculation is explicitly shown to underestimate the
+  lowest-transition decay by more than a factor of two.
+
+These criteria pass. Direct agreement with experiment is uneven for
+tris(4-fluorophenyl)bismuth at 77 K, for which the published FVA model itself
+has deviations as large as 54%. This dataset therefore validates the
+non-diagonal mechanism and published calculation more strongly than it
+validates the simplified single-mode dynamics for every material.
 
 ### Stage 3: joint 14N NQR and 1H NMR relaxation in RDX
 
@@ -130,30 +160,63 @@ are interpreted through hindered NO2 rotation with an activation energy near
 92 kJ/mol. It is therefore a stronger microscopic test than fitting unrelated
 NMR and NQR curves separately.
 
-Values available only in figures will be digitized into a CSV fixture. Each
-curve will carry the figure or table identifier, axis units, digitization date,
-and a digitization uncertainty. Raw figure-derived points will never be labeled
-as author-supplied data.
+The publisher-hosted large images for Figures 2 and 8 were digitized into two
+fixtures. `smith2011_rdx_nqr_t1.csv` follows the activated branch of the
+representative 5192 kHz ring-nitrogen line. A weighted log-linear fit gives
+`Ea = 91.8 +/- 1.4 kJ/mol` from the stated vertical digitization uncertainty,
+in agreement with the paper's approximately 92 kJ/mol interpretation. The
+additional uncertainty in reading `1/T` from the horizontal axis is recorded
+in the metadata but is not included in that formal fit error, so the agreement
+should be read at a few kJ/mol rather than at decimal precision.
+
+`smith2011_rdx_nmr_cross_relaxation.csv` records the three minima on the 322 K
+proton-dispersion curve. Their digitized centers (115, 390, and 510 kHz) agree,
+within the 10 kHz reading uncertainty, with the paper's assignments to the
+nitro-nitrogen `nu0`, `nu-`, and `nu+` transitions (120, 390, and 510 kHz).
+This is a direct cross-modal check: the proton experiment detects the nitrogen
+transition frequencies through cross-relaxation.
+
+The NMR and NQR samples were not identical: the NMR experiment used RDX in
+Galden oil, whereas the NQR experiment used PE4 containing about 88% RDX.
+Consequently, absolute amplitudes are not jointly fitted. A full simultaneous
+fit of the NMR dispersion shape also needs the heteronuclear cross-relaxation
+geometry and is still beyond this stage. Applying a straight Arrhenius line to
+the NMR `T1` curve would be physically misleading because it contains several
+resonances and background mechanisms.
 
 Acceptance criteria:
 
-- NMR and NQR predictions share one Arrhenius correlation-time law;
-- the fitted activation energy is consistent with the reported value within
-  combined fit and digitization uncertainty;
-- held-out temperatures or transitions are predicted rather than refitted; and
-- T1, T2, T2e, and T2* remain distinct observables in the data model.
+- the NQR activated branch gives an activation energy within 4 kJ/mol of the
+  reported value (passes: 91.8 versus approximately 92 kJ/mol);
+- all three digitized proton `T1` minima agree with their assigned nitrogen
+  transition frequencies within 10 kHz (passes);
+- figure-derived points retain their source, sample, observable, and
+  digitization uncertainty (passes); and
+- a joint absolute-amplitude or held-out-temperature NMR/NQR fit is not claimed
+  until the full heteronuclear dispersion model is implemented.
 
 ### Stage 4: NQRDatabase plausibility envelope
 
-After the targeted mechanisms are in place, all usable local relaxation records
-will be processed by a read-only inventory and validation script. This stage
-will report coverage and anomalies by isotope, source, temperature availability,
-and observable. Records missing essential conditions will be excluded from
-microscopic fitting but retained in the coverage report.
+`validation/audit_nqr_relaxation.py` now processes every normalized record
+read-only and writes `validation/nqr_relaxation_audit.json`. The audit confirms
+89 relaxation-bearing lines: 84 with T1, 50 with T2, and three with T2*. All
+normalized values are positive, and none of the 47 records containing both T1
+and T2 has T2 greater than T1. These are useful normalization checks, not proof
+of a microscopic model.
 
-The first known audit target is sodium nitrite: values in different sources
-appear to mix intrinsic, inhomogeneous, and multipulse lifetimes. The audit must
-resolve definitions and units before those records become fit targets.
+Only two records state a temperature and only nine preserve a reported
+uncertainty. No dataset in the normalized database combines a temperature
+series, uncertainty, pulse-sequence definition, and enough microscopic inputs
+for a defensible fit. The audit therefore marks zero records as immediately
+fit-eligible while retaining all 89 in its coverage report.
+
+The sodium-nitrite warning is now concrete. The CWRU HTML and NRL summary contain
+the same three frequencies, but every HTML-normalized T1 and T2 is exactly 1000
+times the corresponding NRL value. The bare HTML cells omit units; the NRL
+values are in seconds and are consistent with interpreting the HTML numbers as
+milliseconds. Until the source normalization is curated in NQRDatabase, the
+six HTML relaxation values are an unresolved unit conflict and must not be
+treated as independent measurements or model targets.
 
 ### Stage 5: zero- to ultralow-field liquids
 
@@ -217,7 +280,7 @@ reproducer, reference, and limitations.
    nuclear quadrupole resonance coherences and the important role of degenerate
    energy levels," *Molecular Physics* 118, e1743888 (2020),
    <https://doi.org/10.1080/00268976.2020.1743888>.
-3. M. J. Hunt et al., "14N quadrupole resonance and 1H T1 dispersion in the
+3. J. A. S. Smith et al., "14N quadrupole resonance and 1H T1 dispersion in the
    explosive RDX," *Journal of Magnetic Resonance* 213, 98--106 (2011),
    <https://doi.org/10.1016/j.jmr.2011.09.011>.
 4. S. Alcicek et al., "Data from: Zero- to ultralow-field relaxometry of

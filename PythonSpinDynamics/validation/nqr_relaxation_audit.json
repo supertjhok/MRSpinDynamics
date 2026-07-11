@@ -1,0 +1,182 @@
+{
+  "schema_version": 1,
+  "database_path": "NQRDatabase/data/normalized",
+  "record_definition": "A line with at least one normalized T1, T2, or T2* value.",
+  "coverage": {
+    "relaxation_records": 89,
+    "explicit_temperature_records": 2,
+    "records_with_reported_uncertainty": 9,
+    "by_isotope": {
+      "14N": 80,
+      "35Cl": 2,
+      "39K": 1,
+      "unassigned": 6
+    },
+    "by_source": {
+      "cwru_html_4-methylimidazole-nqr-database": 2,
+      "cwru_html_amlodipine-nqr-database": 1,
+      "cwru_html_ampicillin-trihydrate-nqr-database": 1,
+      "cwru_html_benzocaine-nqr-database": 1,
+      "cwru_html_caffeine-nqr-database": 2,
+      "cwru_html_chloroquine-diphosphate-nqr-database": 1,
+      "cwru_html_dipicolinic-acid-nqr-database": 1,
+      "cwru_html_furosemide-lasix-prescription-nqr-database": 6,
+      "cwru_html_glycine-nqr-database": 2,
+      "cwru_html_hydrochlorothiazide-nqr-database": 2,
+      "cwru_html_l-histidine-nqr-database": 1,
+      "cwru_html_metakelfin-nqr-database": 2,
+      "cwru_html_sodium-chlorate-cl-nqr-database": 1,
+      "cwru_html_sodium-nitrite-nqr-database": 3,
+      "kcl_paracetamol_pdf": 1,
+      "nrl_line_summary_pdf": 62
+    },
+    "observable_ranges": {
+      "t1_s": {
+        "count": 84,
+        "minimum_seconds": 0.00197,
+        "maximum_seconds": 328.0
+      },
+      "t2_s": {
+        "count": 50,
+        "minimum_seconds": 0.0001,
+        "maximum_seconds": 17.1
+      },
+      "t2_star_s": {
+        "count": 3,
+        "minimum_seconds": 4e-05,
+        "maximum_seconds": 0.000202
+      }
+    }
+  },
+  "plausibility": {
+    "nonpositive_values": [],
+    "t2_greater_than_t1_line_ids": [],
+    "cross_source_scale_conflicts": [
+      {
+        "compound": "Sodium Nitrite",
+        "frequency_khz": 1038.0,
+        "observable": "t1_s",
+        "max_to_min_ratio": 1000.0,
+        "records": [
+          {
+            "line_id": "line:cwru-html-sodium-nitrite-nqr-database-sodium-nitrite-default-nitro-14n-5497-0-378-cwru-html-sodium-nitrite-nqr-database-1038-3",
+            "source_id": "cwru_html_sodium-nitrite-nqr-database",
+            "normalized_seconds": 328.0,
+            "original": "328"
+          },
+          {
+            "line_id": "line:nrl-site-summary-pdf-sodium-nitrite-default-1-nitro-14n-5497-0-378-nrl-line-summary-pdf-1038-2162",
+            "source_id": "nrl_line_summary_pdf",
+            "normalized_seconds": 0.328,
+            "original": "0.328"
+          }
+        ]
+      },
+      {
+        "compound": "Sodium Nitrite",
+        "frequency_khz": 1038.0,
+        "observable": "t2_s",
+        "max_to_min_ratio": 1000.0,
+        "records": [
+          {
+            "line_id": "line:cwru-html-sodium-nitrite-nqr-database-sodium-nitrite-default-nitro-14n-5497-0-378-cwru-html-sodium-nitrite-nqr-database-1038-3",
+            "source_id": "cwru_html_sodium-nitrite-nqr-database",
+            "normalized_seconds": 5.1,
+            "original": "5.1"
+          },
+          {
+            "line_id": "line:nrl-site-summary-pdf-sodium-nitrite-default-1-nitro-14n-5497-0-378-nrl-line-summary-pdf-1038-2162",
+            "source_id": "nrl_line_summary_pdf",
+            "normalized_seconds": 0.0051,
+            "original": "0.0051"
+          }
+        ]
+      },
+      {
+        "compound": "Sodium Nitrite",
+        "frequency_khz": 3604.0,
+        "observable": "t1_s",
+        "max_to_min_ratio": 1000.0,
+        "records": [
+          {
+            "line_id": "line:cwru-html-sodium-nitrite-nqr-database-sodium-nitrite-default-nitro-14n-5497-0-378-cwru-html-sodium-nitrite-nqr-database-3604-2",
+            "source_id": "cwru_html_sodium-nitrite-nqr-database",
+            "normalized_seconds": 280.0,
+            "original": "280"
+          },
+          {
+            "line_id": "line:nrl-site-summary-pdf-sodium-nitrite-default-1-nitro-14n-5497-0-378-nrl-line-summary-pdf-3604-2161",
+            "source_id": "nrl_line_summary_pdf",
+            "normalized_seconds": 0.28,
+            "original": "0.280"
+          }
+        ]
+      },
+      {
+        "compound": "Sodium Nitrite",
+        "frequency_khz": 3604.0,
+        "observable": "t2_s",
+        "max_to_min_ratio": 1000.0,
+        "records": [
+          {
+            "line_id": "line:cwru-html-sodium-nitrite-nqr-database-sodium-nitrite-default-nitro-14n-5497-0-378-cwru-html-sodium-nitrite-nqr-database-3604-2",
+            "source_id": "cwru_html_sodium-nitrite-nqr-database",
+            "normalized_seconds": 3.3,
+            "original": "3.3"
+          },
+          {
+            "line_id": "line:nrl-site-summary-pdf-sodium-nitrite-default-1-nitro-14n-5497-0-378-nrl-line-summary-pdf-3604-2161",
+            "source_id": "nrl_line_summary_pdf",
+            "normalized_seconds": 0.0033,
+            "original": "0.0033"
+          }
+        ]
+      },
+      {
+        "compound": "Sodium Nitrite",
+        "frequency_khz": 4642.0,
+        "observable": "t1_s",
+        "max_to_min_ratio": 1000.0,
+        "records": [
+          {
+            "line_id": "line:cwru-html-sodium-nitrite-nqr-database-sodium-nitrite-default-nitro-14n-5497-0-378-cwru-html-sodium-nitrite-nqr-database-4642-1",
+            "source_id": "cwru_html_sodium-nitrite-nqr-database",
+            "normalized_seconds": 90.3,
+            "original": "90.3"
+          },
+          {
+            "line_id": "line:nrl-site-summary-pdf-sodium-nitrite-default-1-nitro-14n-5497-0-378-nrl-line-summary-pdf-4642-2160",
+            "source_id": "nrl_line_summary_pdf",
+            "normalized_seconds": 0.0903,
+            "original": "0.0903"
+          }
+        ]
+      },
+      {
+        "compound": "Sodium Nitrite",
+        "frequency_khz": 4642.0,
+        "observable": "t2_s",
+        "max_to_min_ratio": 1000.0,
+        "records": [
+          {
+            "line_id": "line:cwru-html-sodium-nitrite-nqr-database-sodium-nitrite-default-nitro-14n-5497-0-378-cwru-html-sodium-nitrite-nqr-database-4642-1",
+            "source_id": "cwru_html_sodium-nitrite-nqr-database",
+            "normalized_seconds": 5.3,
+            "original": "5.3"
+          },
+          {
+            "line_id": "line:nrl-site-summary-pdf-sodium-nitrite-default-1-nitro-14n-5497-0-378-nrl-line-summary-pdf-4642-2160",
+            "source_id": "nrl_line_summary_pdf",
+            "normalized_seconds": 0.0053,
+            "original": "0.0053"
+          }
+        ]
+      }
+    ]
+  },
+  "interpretation": {
+    "microscopic_fit_eligible": 0,
+    "reason": "No record set combines a relaxation observable, explicit temperature series, uncertainty, pulse-sequence definition, and sufficient model inputs.",
+    "sodium_nitrite": "The CWRU HTML and NRL summary duplicate the same three lines, but the HTML-normalized T1/T2 values are exactly 1000 times the NRL values. Treat the HTML entries as unresolved unit conflicts, not independent data."
+  }
+}

@@ -717,6 +717,29 @@ Use `--larmor-mhz`, `--tau-ref-ns`, `--activation-energy-kj-mol`, and
 `--coupling-scale` to tune the curve shape and absolute relaxation rates. Only
 Matplotlib is required.
 
+## Quadrupolar Relaxation Workflow
+
+This example starts from an isotope-aware NQR site and reports the initial
+population and coherence decay rate of every allowed transition over an
+Arrhenius temperature sweep. It keeps transition labels and frequencies beside
+the rate columns and distinguishes the static quadrupole coupling from the RMS
+fluctuating-EFG amplitude.
+
+```powershell
+python examples/plot_quadrupolar_relaxation_workflow.py --output results/quadrupolar_relaxation.png
+```
+
+## Field-Cycling NMRD Workflow
+
+This example converts a magnetic-field schedule to proton Larmor frequency and
+returns a temperature-by-field BPP grid containing rates, times, and spectral
+density terms. It includes zero field in the calculation and omits that point
+only from the logarithmic plot axis.
+
+```powershell
+python examples/plot_field_cycling_nmrd.py --output results/field_cycling_nmrd.png
+```
+
 ## 129Xe Wall-Collision Relaxation
 
 This plotting example uses `spin_dynamics.relaxation.WallCollisionRelaxationModel`

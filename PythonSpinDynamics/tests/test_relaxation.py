@@ -19,6 +19,7 @@ from spin_dynamics.relaxation import (
     apply_relaxation_to_parameters,
     arrhenius_correlation_time,
     bpp_relaxation_rates,
+    fit_arrhenius_observable,
     gas_mean_speed_m_per_s,
     liouville_superoperator,
     matrix_exponential,
@@ -54,6 +55,17 @@ class RelaxationTests(unittest.TestCase):
         self.assertAlmostEqual(float(tau[1]), 1.0e-9)
         self.assertGreater(tau[0], tau[1])
         self.assertGreater(tau[1], tau[2])
+
+    def test_arrhenius_fit_recovers_activation_energy(self) -> None:
+        temperature = np.array([260.0, 275.0, 295.0, 320.0, 345.0])
+        expected_energy = 37_000.0
+        values = 2.5 * np.exp(expected_energy / 8.31446261815324 / temperature)
+
+        fit = fit_arrhenius_observable(temperature, values)
+
+        self.assertAlmostEqual(fit.activation_energy_j_per_mol, expected_energy)
+        self.assertAlmostEqual(fit.standard_error_j_per_mol, 0.0, places=6)
+        np.testing.assert_allclose(fit.predicted_values, values)
 
     def test_stokes_einstein_debye_matches_closed_form_and_scaling(self) -> None:
         radius = 1.45e-10

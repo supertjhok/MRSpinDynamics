@@ -123,6 +123,7 @@ from spin_dynamics.relaxation import (
 )
 from spin_dynamics.nqr.relaxation import (
     SpectralOverlapRelaxationFit,
+    ZeroFieldRedfieldEFGModel,
     fit_spectral_overlap_relaxation,
     spectral_overlap_factors,
     transition_rms_linewidth_hz,
@@ -238,6 +239,7 @@ __all__ = [
     "RedfieldEFGRelaxationModel",
     "RigidSolidMotionalAveraging",
     "VibrationalMotionalAveraging",
+    "ZeroFieldRedfieldEFGModel",
     "SpectralOverlapRelaxationFit",
     "acoustic_strain_energy",
     "apply_selective_pulse",

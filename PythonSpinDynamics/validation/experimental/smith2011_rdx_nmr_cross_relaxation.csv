@@ -1,0 +1,4 @@
+observation_id,figure,source_type,compound,sample,isotope,temperature_k,assigned_transition,assigned_frequency_khz,digitized_t1_minimum_frequency_khz,frequency_digitization_uncertainty_khz,t1_at_minimum_ms,relative_t1_digitization_uncertainty
+rdx_nmr_dip_001,2,figure_digitized,RDX,RDX in Galden oil,1H,322,14N_NO2_nu_zero,120,115,10,8.0,0.20
+rdx_nmr_dip_002,2,figure_digitized,RDX,RDX in Galden oil,1H,322,14N_NO2_nu_minus,390,390,10,11.0,0.20
+rdx_nmr_dip_003,2,figure_digitized,RDX,RDX in Galden oil,1H,322,14N_NO2_nu_plus,510,510,10,22.0,0.20

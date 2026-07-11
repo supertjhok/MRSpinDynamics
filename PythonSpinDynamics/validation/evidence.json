@@ -242,16 +242,16 @@
     {
       "id": "relaxation_models",
       "component": "Phenomenological and Redfield relaxation",
-      "claim": "Relaxation propagators preserve required density-matrix invariants and limiting behavior, and the Hamiltonian-derived spectral-overlap model reproduces measured weak-field 35Cl SLSE relaxation in sodium chlorate.",
-      "evidence_types": ["A", "E", "R"],
-      "basis": "Trace/Hermiticity preservation, equilibrium limits, exponential decay, shared-model cross-namespace parity, and Chen et al. Table 1 measurements.",
-      "parameter_range": "Implemented Bloch, Liouville, BPP/Redfield, wall, and rotating-frame helper models; NaClO3 powder at room temperature from 0 to 41 G.",
-      "metric": "Trace, Hermiticity, positivity diagnostics, decay rates, and experimental RMS rate residual",
-      "tolerance": "Near floating-point precision for invariants; NaClO3 RMS rate residual <= 10 s^-1 and nonzero-field T2 within 15%.",
+      "claim": "Relaxation propagators preserve required invariants and limiting behavior; measured weak-field 35Cl SLSE relaxation is reproduced; the non-diagonal zero-field Redfield model reproduces published transition-resolved 209Bi FVA rate shapes; and RDX NMR/NQR observations recover the published activated barrier and cross-relaxation assignments.",
+      "evidence_types": ["A", "D", "E", "R"],
+      "basis": "Trace/Hermiticity preservation, equilibrium limits, Chen et al. Table 1 measurements, 24 experimental plus published FA/FVA rates from Goesweiner et al. Table 1, Smith et al. RDX Figures 2 and 8, and a read-only audit of 89 NQRDatabase relaxation records.",
+      "parameter_range": "Implemented Bloch, Liouville, BPP/Redfield, wall, and rotating-frame models; NaClO3 powder from 0 to 41 G; three 209Bi aryl compounds at 77 and 310 K with four transitions each; RDX 14N NQR from 266 to 340 K and 1H cross-relaxation minima from 0 to 540 kHz.",
+      "metric": "Invariant diagnostics, experimental RMS rate residual, coupled/diagonal lowest-transition ratio, mean relative FVA rate-shape deviation, Arrhenius activation energy, and cross-relaxation resonance position",
+      "tolerance": "NaClO3 RMS residual <= 10 s^-1 and nonzero-field T2 within 15%; 209Bi mean relative deviation from published FVA rate shapes < 10% after one amplitude scale per sample/temperature group; RDX activation energy within 4 kJ/mol of 92 kJ/mol and resonance centers within 10 kHz.",
       "status": "partially_validated",
-      "reproducers": ["tests/test_relaxation.py", "tests/test_nqr_redfield_relaxation.py", "tests/test_relaxation_validation.py::test_chen2020_naclo3_weak_field_validation", "examples/plot_chen2020_slse_relaxation.py"],
-      "references": ["Bloch exponential relaxation", "BPP and Redfield limiting formulas", "Chen et al., J. Magn. Reson. 311, 106660 (2020), doi:10.1016/j.jmr.2019.106660"],
-      "limitations": ["The NaClO3 field dependence is predicted from the Hamiltonian-derived powder linewidth, but its field-independent floor and absolute cross-relaxation strength are fitted nuisance parameters.", "Transition-resolved EFG-fluctuation and joint NMR/NQR temperature validations remain staged work."]
+      "reproducers": ["tests/test_relaxation.py", "tests/test_relaxation_workflows.py", "tests/test_nqr_redfield_relaxation.py", "tests/test_relaxation_validation.py", "tests/test_nqr_database_relaxation_audit.py", "validation/audit_nqr_relaxation.py", "examples/plot_chen2020_slse_relaxation.py", "examples/plot_quadrupolar_relaxation_workflow.py", "examples/plot_field_cycling_nmrd.py"],
+      "references": ["Bloch exponential relaxation", "BPP and Redfield limiting formulas", "Chen et al., J. Magn. Reson. 311, 106660 (2020), doi:10.1016/j.jmr.2019.106660", "Goesweiner et al., Molecular Physics 118, e1743888 (2020), doi:10.1080/00268976.2020.1743888", "Smith et al., J. Magn. Reson. 213, 98-106 (2011), doi:10.1016/j.jmr.2011.09.011"],
+      "limitations": ["The NaClO3 field-independent floor and absolute cross-relaxation strength are fitted nuisance parameters.", "The 209Bi validation fits one amplitude normalization per material/temperature group and is uneven for tris(4-fluorophenyl)bismuth at 77 K, where the published single-mode FVA model is also inaccurate.", "RDX values are figure-digitized; differing sample preparations preclude a joint absolute-amplitude fit, and the full heteronuclear dispersion model is not yet implemented.", "NQRDatabase has no immediately fit-eligible microscopic relaxation series and contains a factor-1000 sodium-nitrite source conflict."]
     },
     {
       "id": "inverse_laplace",

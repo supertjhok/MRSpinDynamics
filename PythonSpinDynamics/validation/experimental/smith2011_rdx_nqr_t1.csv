@@ -1,0 +1,13 @@
+observation_id,figure,source_type,compound,sample,isotope,site,transition,nqr_frequency_khz,inverse_temperature_per_k,temperature_k,t1_ms,relative_digitization_uncertainty
+rdx_nqr_001,8,figure_digitized,RDX,PE4 (88% RDX),14N,ring nitrogen,nu_plus_5192,5192,0.00294,340.14,0.10,0.15
+rdx_nqr_002,8,figure_digitized,RDX,PE4 (88% RDX),14N,ring nitrogen,nu_plus_5192,5192,0.00302,331.13,0.22,0.15
+rdx_nqr_003,8,figure_digitized,RDX,PE4 (88% RDX),14N,ring nitrogen,nu_plus_5192,5192,0.00310,322.58,0.40,0.15
+rdx_nqr_004,8,figure_digitized,RDX,PE4 (88% RDX),14N,ring nitrogen,nu_plus_5192,5192,0.00317,315.46,0.80,0.15
+rdx_nqr_005,8,figure_digitized,RDX,PE4 (88% RDX),14N,ring nitrogen,nu_plus_5192,5192,0.00325,307.69,2.10,0.15
+rdx_nqr_006,8,figure_digitized,RDX,PE4 (88% RDX),14N,ring nitrogen,nu_plus_5192,5192,0.00332,301.20,5.00,0.15
+rdx_nqr_007,8,figure_digitized,RDX,PE4 (88% RDX),14N,ring nitrogen,nu_plus_5192,5192,0.00339,294.99,11.0,0.15
+rdx_nqr_008,8,figure_digitized,RDX,PE4 (88% RDX),14N,ring nitrogen,nu_plus_5192,5192,0.00347,288.18,27.0,0.15
+rdx_nqr_009,8,figure_digitized,RDX,PE4 (88% RDX),14N,ring nitrogen,nu_plus_5192,5192,0.00355,281.69,65.0,0.15
+rdx_nqr_010,8,figure_digitized,RDX,PE4 (88% RDX),14N,ring nitrogen,nu_plus_5192,5192,0.00362,276.24,140,0.15
+rdx_nqr_011,8,figure_digitized,RDX,PE4 (88% RDX),14N,ring nitrogen,nu_plus_5192,5192,0.00370,270.27,400,0.15
+rdx_nqr_012,8,figure_digitized,RDX,PE4 (88% RDX),14N,ring nitrogen,nu_plus_5192,5192,0.00376,265.96,700,0.15

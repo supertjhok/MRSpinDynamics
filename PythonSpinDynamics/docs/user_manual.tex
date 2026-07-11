@@ -772,6 +772,112 @@ prepared = prepolarized_state(
 )
 \end{lstlisting}
 
+\subsection{Field-Cycling and NMRD Workflows}
+
+An NMRD experiment asks how relaxation changes as the observation frequency
+moves across the molecular spectral density. In a field-cycling instrument, the
+sample relaxes at a sequence of magnetic fields and is usually detected at a
+fixed field afterward. The relaxation field sets the Larmor frequency
+\(f_0=|\gamma|B\), so field and frequency sweeps are two views of the same axis.
+
+Use \code{run\_nmrd} when correlation times and Larmor frequencies are already
+known. Use \code{run\_field\_cycling\_nmrd} when the schedule is specified in
+tesla and the correlation time follows one Arrhenius law. Result arrays use the
+convention
+\[
+  \text{shape} = (\text{number of temperatures or conditions},
+                   \text{number of fields}).
+\]
+Each row is one NMRD curve. The result retains field and frequency axes,
+\(R_1/R_2\), \(T_1/T_2\), and \(J(0)\), \(J(\omega_0)\), and
+\(J(2\omega_0)\), so the source of a dispersion turnover remains visible.
+
+\begin{lstlisting}[language=Python]
+import numpy as np
+from spin_dynamics.workflows import run_field_cycling_nmrd
+
+fields_t = np.concatenate(([0.0], np.geomspace(1e-6, 3.0, 179)))
+nmrd = run_field_cycling_nmrd(
+    fields_t,
+    temperature_kelvin=[280.0, 300.0, 320.0],
+    gamma_hz_per_t=42.57747892e6,
+    tau_ref_seconds=8e-9,
+    reference_temperature_kelvin=300.0,
+    activation_energy_j_per_mol=16e3,
+    coupling_scale_per_second2=5e8,
+)
+# nmrd.r1_per_second.shape == (3, 180)
+\end{lstlisting}
+
+This workflow is a BPP baseline, not a universal inverse model. A measured
+dispersion may require several motions, chemical-shift anisotropy, exchange,
+surface relaxation, paramagnetic terms, or an instrument transfer function.
+Add missing physics rather than silently folding it into an ‘‘effective’’
+activation energy. The example \code{plot\_field\_cycling\_nmrd.py} shows the
+complete field-to-frequency workflow.
+
+\subsection{Transition-Resolved Quadrupolar Relaxation}
+
+For a quadrupolar nucleus, start with a \code{QuadrupolarSite}. The site fixes
+the isotope, spin, static quadrupole coupling, asymmetry, and NQR transition
+frequencies. Relaxation needs a separate description of the \emph{time
+dependent} EFG. The static coupling \(C_Q\) is not the RMS fluctuation amplitude
+passed to the Redfield model.
+
+\code{run\_quadrupolar\_relaxation} diagonalizes the site Hamiltonian, builds a
+secular fluctuating-EFG Redfield superoperator for each correlation time, and
+reports two local rates for every allowed transition:
+\begin{description}
+  \item[\(R_1\)] initial decay of the transition population difference;
+  \item[\(R_2\)] initial decay of its energy-basis coherence.
+\end{description}
+Arrays have shape \code{(n\_correlation\_times, n\_transitions)}. Labels and
+frequencies stay in the same result so a rate column cannot silently become
+detached from its NQR line.
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.nqr import quadrupolar_site
+from spin_dynamics.workflows import run_arrhenius_quadrupolar_relaxation
+
+site = quadrupolar_site("14N", cq_hz=3.0e6, eta=0.2)
+quad = run_arrhenius_quadrupolar_relaxation(
+    site,
+    temperature_kelvin=[270.0, 300.0, 330.0],
+    tau_ref_seconds=1e-9,
+    reference_temperature_kelvin=300.0,
+    activation_energy_j_per_mol=18e3,
+    fluctuation_amplitude_hz=20e3,
+)
+print(quad.transition_labels)
+print(quad.transition_frequencies_hz)
+print(quad.r2_per_second)
+\end{lstlisting}
+
+These are initial single-rate summaries. Strongly coupled degenerate coherences
+can decay multiexponentially, in which case the full superoperator is the
+correct object. The validated \code{ZeroFieldRedfieldEFGModel} retains the
+non-diagonal Kramers-degeneracy terms required by the
+\(^{209}\mathrm{Bi}\) benchmark; the general workflow uses the
+completely-positive secular model. Use the specialized model for that
+zero-field coupled-coherence lineshape problem. The example
+\code{plot\_quadrupolar\_relaxation\_workflow.py} plots all transitions and
+their spectroscopy metadata together.
+
+\subsection{What the Experimental Validation Establishes}
+
+Sodium chlorate tests weak-field powder splitting, spectral overlap, and a
+measured SLSE lifetime. The \(^{209}\mathrm{Bi}\) data test non-diagonal
+zero-field coherence relaxation. RDX tests an activated \(^{14}\mathrm{N}\) NQR
+branch (\(91.8\pm1.4\,\mathrm{kJ\,mol^{-1}}\) from the digitized vertical
+uncertainty) and the alignment of proton NMRD minima with nitrogen transitions.
+
+The read-only NQRDatabase audit shows why not every relaxation record is a fit
+target. Of 89 records, only two state a temperature and only nine preserve an
+uncertainty; none combines a complete series, pulse-sequence definition,
+uncertainty, and microscopic inputs. It also finds a factor-1000 unit conflict
+between duplicate sodium-nitrite sources. Consult
+\code{docs/relaxation\_validation.md} before fitting a literature fixture.
+
 \subsection{Prepolarized Spin-Lock (\texorpdfstring{$T_{1\rho}$}{T1rho}) Dispersion}
 
 A spin-lock experiment measures relaxation in the presence of a resonant RF
@@ -919,10 +1025,11 @@ example covers a different microscopic regime, polarized gas whose dominant
 relaxation source is repeated surface contact.
 Use fitted \(T_1/T_2\) values when the experiment only needs the observed decay
 law, use BPP rates when a compact temperature- or correlation-time trend is the
-goal, and use Redfield/dipolar relaxation when the geometry and motional regime
-of the bath are part of the physics being tested. Use the wall-collision model
-when container size, gas temperature, and per-collision spin loss are the
-physics being tested.
+goal, and use \code{run\_field\_cycling\_nmrd} when frequency is the experiment.
+Use transition-resolved quadrupolar relaxation when EFG motion and the identity
+of each NQR line matter. Use Redfield/dipolar relaxation when bath geometry and
+motional regime matter, and use the wall-collision model when container size,
+gas temperature, and per-collision spin loss are the physics being tested.
 
 \section{Echo Conversion}
 
@@ -6574,6 +6681,8 @@ and its backend-neutral plotting data. \\
 \toprule
 Class & Purpose \\
 \midrule
+\code{NMRDWorkflowResult} & Condition-by-field BPP dispersion grid with field and frequency axes, rates, times, and spectral-density terms. \\
+\code{QuadrupolarRelaxationWorkflowResult} & Transition-resolved initial population and coherence decay rates with NQR labels and frequencies. \\
 \code{CPMGResult} & Asymptotic CPMG spectrum, echo, time vector, SNR, probe label, and phase-cycle metadata. \\
 \code{CPMGTrainResult} & Finite echo-train spectra, echoes, echo integrals, sequence timing, and phase-cycle metadata. \\
 \code{CPMGIRTrainResult} & Inversion-recovery finite trains over a \code{tauvect}. \\
@@ -6643,9 +6752,11 @@ from spin_dynamics.relaxation import (
     IsotropicLiquidMotionalAveraging,
     PhenomenologicalRelaxationModel,
     RedfieldDipolarRelaxationModel,
+    RedfieldEFGRelaxationModel,
     RigidSolidMotionalAveraging,
     spectral_density_lorentzian,
     arrhenius_correlation_time,
+    fit_arrhenius_observable,
     bpp_relaxation_rates,
     apply_relaxation_to_parameters,
 )
@@ -6665,6 +6776,8 @@ Symbol & Purpose \\
 \code{RigidSolidMotionalAveraging} & Fixed-frame dipolar covariance for rigid solids and NQR-style orientation-dependent relaxation. \\
 \code{IsotropicLiquidMotionalAveraging} & Rotationally averaged dipolar covariance for liquid-state NMR. \\
 \code{RedfieldDipolarRelaxationModel} & Secular Markovian Liouville-space dissipator built from stochastic dipolar bath sources. \\
+\code{RedfieldEFGRelaxationModel} & Completely-positive secular dissipator for a fluctuating electric-field gradient. \\
+\code{fit\_arrhenius\_observable} & Weighted log-linear activation-energy fit for a positive observable in one activated regime. \\
 \bottomrule
 \end{longtable}
 
@@ -6672,6 +6785,10 @@ Symbol & Purpose \\
 
 \begin{lstlisting}
 from spin_dynamics.workflows import (
+    NMRDWorkflowResult, QuadrupolarRelaxationWorkflowResult,
+    run_nmrd, run_field_cycling_nmrd,
+    run_quadrupolar_relaxation,
+    run_arrhenius_quadrupolar_relaxation,
     run_ideal_cpmg, run_tuned_cpmg, run_untuned_cpmg, run_matched_cpmg,
     run_ideal_cpmg_train, run_tuned_cpmg_train,
     run_untuned_cpmg_train, run_matched_cpmg_train,
