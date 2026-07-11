@@ -31,6 +31,7 @@ from spin_dynamics.experiment.specs import (
     NQRSLSE,
     NQRSORC,
     PGSE,
+    PGSEWalkers,
 )
 from spin_dynamics.experiment.wiring import solve_for_experiment
 from spin_dynamics.nqr import QuadrupolarSite
@@ -55,6 +56,7 @@ from spin_dynamics.workflows import (
     run_matched_cpmg_ir_train,
     run_matched_cpmg_train,
     run_pgse_moment,
+    run_pgse_walkers,
     run_tuned_cpmg,
     run_tuned_cpmg_imaging,
     run_tuned_cpmg_ir_train,
@@ -79,7 +81,7 @@ from spin_dynamics.workflows.imaging_types import (
     IdealCPMGImagingResult,
     ProbeCPMGImagingResult,
 )
-from spin_dynamics.workflows.pgse import PGSEMomentResult
+from spin_dynamics.workflows.pgse import PGSEMomentResult, PGSEWalkerResult
 
 register_result_type(CPMGResult)
 register_result_type(CPMGTrainResult)
@@ -93,6 +95,7 @@ register_result_type(FullNQRSLSEResult)
 register_result_type(ESRFIDResult)
 register_result_type(ESRHahnEchoResult)
 register_result_type(PGSEMomentResult)
+register_result_type(PGSEWalkerResult)
 
 register_serializable(NoiseSpec)
 register_serializable(NoiseMetadata)
@@ -411,6 +414,76 @@ register_workflow(
         build_kwargs=_pgse_kwargs,
         honors=frozenset({"sample.diffusion_coefficient", "sample.t2_seconds"}),
         cost=_pgse_cost,
+    )
+)
+
+
+def _pgse_walkers_kwargs(experiment: Experiment) -> dict[str, Any]:
+    sequence = experiment.sequence
+    sample = experiment.sample
+    domain = sample.transport_domain
+    kwargs: dict[str, Any] = {
+        "rho": domain.rho,
+        "x_axis": domain.x_axis,
+        "z_axis": domain.z_axis,
+        "num_echoes": sequence.num_echoes,
+        "gradient_amplitude": sequence.gradient_amplitude,
+        "gradient_duration": sequence.gradient_duration,
+        "diffusion_time": sequence.diffusion_time,
+        "gamma": sequence.gamma,
+        "gradient_axis": sequence.gradient_axis,
+        "walkers_per_cell": sequence.walkers_per_cell,
+        "seed": sequence.seed,
+        "jitter": sequence.jitter,
+        "excitation_duration": sequence.excitation_duration,
+        "refocusing_duration": sequence.refocusing_duration,
+        "echo_spacing_seconds": sequence.echo_spacing_seconds,
+        "boundary": sequence.boundary,
+        "substeps_per_interval": sequence.substeps_per_interval,
+    }
+    if sample.diffusion_coefficient is not None:
+        kwargs["diffusion_coefficient"] = sample.diffusion_coefficient
+    if sample.t1_seconds is not None:
+        kwargs["t1_seconds"] = sample.t1_seconds
+    if sample.t2_seconds is not None:
+        kwargs["t2_seconds"] = sample.t2_seconds
+    if sample.flow is not None:
+        kwargs["velocity"] = sample.flow.as_array()
+    return kwargs
+
+
+def _pgse_walkers_cost(experiment: Experiment) -> CostModel:
+    sequence = experiment.sequence
+    domain = experiment.sample.transport_domain
+    occupied_cells = int(np.count_nonzero(domain.rho > 0.0))
+    particles = occupied_cells * sequence.walkers_per_cell
+    intervals = 5 + 3 * max(0, sequence.num_echoes - 1)
+    units = float(particles * intervals * sequence.substeps_per_interval)
+    memory = particles * 96 + sequence.num_echoes * 32
+    return CostModel(
+        work_units=units,
+        memory_bytes=memory,
+        notes=("seeded random-walker transport with explicit 2-D domain",),
+    )
+
+
+register_workflow(
+    WorkflowEntry(
+        name="run_pgse_walkers",
+        sequence_type=PGSEWalkers,
+        probe="ideal",
+        func=run_pgse_walkers,
+        build_kwargs=_pgse_walkers_kwargs,
+        honors=frozenset(
+            {
+                "sample.diffusion_coefficient",
+                "sample.t1_seconds",
+                "sample.t2_seconds",
+                "sample.transport_domain",
+                "sample.flow",
+            }
+        ),
+        cost=_pgse_walkers_cost,
     )
 )
 

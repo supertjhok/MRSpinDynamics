@@ -27,6 +27,9 @@ from spin_dynamics.experiment.specs import (
     NQRSLSE,
     NQRSORC,
     PGSE,
+    PGSEWalkers,
+    TransportDomain2D,
+    UniformFlow2D,
     non_default_fields,
 )
 
@@ -117,6 +120,41 @@ def _spec_sanity_errors(experiment: Experiment) -> list[str]:
             errors.append("sequence.echo_spacing_seconds must be positive when set")
         if sequence.gamma <= 0:
             errors.append("sequence.gamma must be positive")
+    if isinstance(sequence, PGSEWalkers):
+        if not isinstance(sample.transport_domain, TransportDomain2D):
+            errors.append(
+                "sequence PGSEWalkers requires sample.transport_domain "
+                "(a TransportDomain2D)"
+            )
+        if sample.flow is not None and not isinstance(sample.flow, UniformFlow2D):
+            errors.append("sample.flow must be a UniformFlow2D when set")
+        if sequence.num_echoes <= 0:
+            errors.append("sequence.num_echoes must be positive")
+        if sequence.gradient_duration <= 0:
+            errors.append("sequence.gradient_duration must be positive")
+        if sequence.diffusion_time <= (
+            sequence.gradient_duration + sequence.refocusing_duration
+        ):
+            errors.append(
+                "sequence.diffusion_time must exceed gradient_duration + "
+                "refocusing_duration"
+            )
+        if sequence.gamma <= 0:
+            errors.append("sequence.gamma must be positive")
+        if sequence.gradient_axis not in ("x", "z"):
+            errors.append("sequence.gradient_axis must be 'x' or 'z'")
+        if sequence.walkers_per_cell <= 0:
+            errors.append("sequence.walkers_per_cell must be positive")
+        if sequence.seed is not None and sequence.seed < 0:
+            errors.append("sequence.seed must be non-negative when set")
+        if sequence.excitation_duration <= 0 or sequence.refocusing_duration <= 0:
+            errors.append("sequence RF pulse durations must be positive")
+        if sequence.echo_spacing_seconds is not None and sequence.echo_spacing_seconds <= 0:
+            errors.append("sequence.echo_spacing_seconds must be positive when set")
+        if sequence.boundary not in ("reflect", "periodic", "clip"):
+            errors.append("sequence.boundary must be 'reflect', 'periodic', or 'clip'")
+        if sequence.substeps_per_interval <= 0:
+            errors.append("sequence.substeps_per_interval must be positive")
     if isinstance(sequence, (NQRSLSE, NQRSORC)) and sample.site is None:
         errors.append(
             f"sequence {type(sequence).__name__} requires sample.site "

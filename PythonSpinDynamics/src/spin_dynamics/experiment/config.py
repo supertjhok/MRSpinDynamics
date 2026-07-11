@@ -58,8 +58,11 @@ from spin_dynamics.experiment.specs import (
     NQRSLSE,
     NQRSORC,
     PGSE,
+    PGSEWalkers,
     Phantom,
     Sample,
+    TransportDomain2D,
+    UniformFlow2D,
 )
 from spin_dynamics.noise import NoiseSpec
 from spin_dynamics.nqr import QuadrupolarSite
@@ -76,6 +79,9 @@ _SPEC_CLASSES: tuple[type, ...] = (
     NQRSLSE,
     NQRSORC,
     PGSE,
+    PGSEWalkers,
+    TransportDomain2D,
+    UniformFlow2D,
     ESRFID,
     ESRHahnEcho,
     SolenoidCoil,

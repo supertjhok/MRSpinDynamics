@@ -15,10 +15,13 @@ from spin_dynamics.experiment import (
     ImagingPlane,
     NQRSLSE,
     PGSE,
+    PGSEWalkers,
     Phantom,
     Sample,
     SolenoidCoil,
     TxCoil,
+    TransportDomain2D,
+    UniformFlow2D,
     UniformB0,
     experiment_from_config,
     experiment_to_config,
@@ -49,6 +52,23 @@ _EXPERIMENTS = {
             diffusion_time=16e-3,
         ),
         sample=Sample(diffusion_coefficient=1.8e-9, t2_seconds=0.1),
+    ),
+    "pgse_walkers": Experiment(
+        sequence=PGSEWalkers(
+            walkers_per_cell=4,
+            seed=5,
+            boundary="periodic",
+            substeps_per_interval=2,
+        ),
+        sample=Sample(
+            diffusion_coefficient=1.0e-9,
+            transport_domain=TransportDomain2D(
+                rho=np.ones((2, 2)),
+                x_axis=np.array([-1e-3, 1e-3]),
+                z_axis=np.array([-1e-3, 1e-3]),
+            ),
+            flow=UniformFlow2D((1e-3, 0.0)),
+        ),
     ),
     "nqr": Experiment(
         sequence=NQRSLSE(
@@ -221,3 +241,18 @@ def test_shipped_pgse_config_plans_cleanly(capsys) -> None:
     output = capsys.readouterr().out
     assert "workflow: run_pgse_moment" in output
     assert "estimate:" in output
+
+
+@pytest.mark.smoke
+def test_shipped_pgse_walkers_flow_config_plans_cleanly(capsys) -> None:
+    from pathlib import Path
+
+    config = (
+        Path(__file__).resolve().parents[1]
+        / "examples"
+        / "experiment_config_pgse_walkers_flow.toml"
+    )
+    assert cli.main(["plan", str(config)]) == 0
+    output = capsys.readouterr().out
+    assert "workflow: run_pgse_walkers" in output
+    assert "random-walker transport" in output

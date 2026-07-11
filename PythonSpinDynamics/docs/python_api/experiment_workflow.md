@@ -74,6 +74,8 @@ errors; warnings are surfaced but do not block. Current rules:
   transmit-efficiency diagnostic (see below).
 - **nqr_model** — runs `select_nqr_model` and reports the reduced-vs-full
   recommendation with its reasons.
+- **transport** — reports uniform-flow speed and axis crossing times, and warns
+  when reflecting boundaries turn nominal flow into a closed bouncing ensemble.
 
 Set fields the resolved workflow does not consume and `plan()` warns that they
 will be ignored, so mismatched specs never fail silently.
@@ -109,7 +111,7 @@ sample and warns when most of it is parallel to B0 — an inefficiency the
 normalization would otherwise hide. Runnable version:
 [`examples/experiment_imaging_with_coil.py`](../../examples/experiment_imaging_with_coil.py).
 
-## Diffusion
+## Diffusion and flow
 
 The deterministic PGSE moment backend is available through the same facade.
 Gradient timing belongs to the `PGSE` sequence while the isotropic diffusion
@@ -133,8 +135,38 @@ record = study.run()
 
 Planning checks Stejskal-Tanner timing and sample diffusion values before
 execution. The result and complete spec round-trip through NPZ/JSON and the
-friendly config format. Explicit random-walker PGSE remains a direct workflow
-until motion geometry and boundary conditions have first-class facade specs.
+friendly config format.
+
+For explicit transport, `TransportDomain2D` defines density and physical axes,
+`PGSEWalkers` owns stochastic and boundary settings, and an optional
+`UniformFlow2D` adds advection:
+
+```python
+from spin_dynamics.experiment import (
+    Experiment, PGSEWalkers, Sample, TransportDomain2D, UniformFlow2D,
+)
+
+study = Experiment(
+    sequence=PGSEWalkers(
+        walkers_per_cell=32, seed=17, jitter=True,
+        boundary="periodic", substeps_per_interval=4,
+    ),
+    sample=Sample(
+        diffusion_coefficient=1.2e-9,
+        transport_domain=TransportDomain2D(
+            rho=rho, x_axis=x_axis_m, z_axis=z_axis_m,
+        ),
+        flow=UniformFlow2D((2e-3, 0.0)),  # (vx, vz), m/s
+    ),
+)
+```
+
+The seed, walker density, domain, flow, and boundary are part of the serialized
+experiment, making stochastic runs reproducible. NPZ archives retain the
+primary signal/echo arrays and identify the large nested ensemble snapshots as
+unsaved fields; the stored experiment and seed regenerate them exactly. A
+runnable configuration is provided as
+[`examples/experiment_config_pgse_walkers_flow.toml`](../../examples/experiment_config_pgse_walkers_flow.toml).
 
 ## Other engines
 
@@ -227,7 +259,8 @@ geometry); a fully general result archive still uses the NPZ/JSON form above.
 
 ## Scope
 
-The facade currently wraps deterministic PGSE diffusion, the CPMG family (asymptotic, finite train, and
+The facade currently wraps deterministic and random-walker PGSE diffusion with
+uniform 2-D flow, the CPMG family (asymptotic, finite train, and
 inversion-recovery train for ideal/tuned/untuned/matched probes), phase-encoded
 CPMG imaging, pulsed NQR (SLSE and SORC), and pulsed ESR (FID and Hahn echo).
 Design notes and the milestone roadmap are in

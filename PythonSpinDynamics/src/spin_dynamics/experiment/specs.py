@@ -78,6 +78,64 @@ class Phantom:
 
 @register_serializable
 @dataclass(frozen=True, eq=False)
+class TransportDomain2D:
+    """Density and physical axes for 2-D random-walker transport.
+
+    ``rho`` has shape ``(len(x_axis), len(z_axis))``. Axes are strictly
+    increasing and use meters; density is non-negative and need not be
+    normalized.
+    """
+
+    rho: np.ndarray
+    x_axis: np.ndarray
+    z_axis: np.ndarray
+
+    def __post_init__(self) -> None:
+        rho = np.asarray(self.rho, dtype=np.float64)
+        x_axis = np.asarray(self.x_axis, dtype=np.float64).reshape(-1)
+        z_axis = np.asarray(self.z_axis, dtype=np.float64).reshape(-1)
+        if rho.ndim != 2 or rho.shape != (x_axis.size, z_axis.size):
+            raise ValueError("rho shape must equal (len(x_axis), len(z_axis))")
+        if x_axis.size < 2 or z_axis.size < 2:
+            raise ValueError("transport axes must each contain at least two points")
+        if not np.all(np.isfinite(rho)) or np.any(rho < 0.0) or not np.any(rho > 0.0):
+            raise ValueError("rho must be finite, non-negative, and contain mass")
+        for values, name in ((x_axis, "x_axis"), (z_axis, "z_axis")):
+            if not np.all(np.isfinite(values)) or np.any(np.diff(values) <= 0.0):
+                raise ValueError(f"{name} must be finite and strictly increasing")
+        object.__setattr__(self, "rho", rho.copy())
+        object.__setattr__(self, "x_axis", x_axis.copy())
+        object.__setattr__(self, "z_axis", z_axis.copy())
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, TransportDomain2D):
+            return NotImplemented
+        return bool(
+            np.array_equal(self.rho, other.rho)
+            and np.array_equal(self.x_axis, other.x_axis)
+            and np.array_equal(self.z_axis, other.z_axis)
+        )
+
+
+@register_serializable
+@dataclass(frozen=True)
+class UniformFlow2D:
+    """Uniform ``(vx, vz)`` transport velocity in meters per second."""
+
+    velocity_m_per_s: tuple[float, float] = (0.0, 0.0)
+
+    def __post_init__(self) -> None:
+        velocity = tuple(float(value) for value in self.velocity_m_per_s)
+        if len(velocity) != 2 or not np.all(np.isfinite(velocity)):
+            raise ValueError("velocity_m_per_s must contain two finite values")
+        object.__setattr__(self, "velocity_m_per_s", velocity)
+
+    def as_array(self) -> np.ndarray:
+        return np.asarray(self.velocity_m_per_s, dtype=np.float64)
+
+
+@register_serializable
+@dataclass(frozen=True, eq=False)
 class SampledB0:
     """A spatially-varying static field sampled on the imaging plane.
 
@@ -161,6 +219,10 @@ class Sample:
     t2_seconds: float | None = None
     diffusion_coefficient: float | None = None
     """Isotropic diffusion coefficient in m^2/s for diffusion workflows."""
+    transport_domain: TransportDomain2D | None = None
+    """Explicit density and axes for random-walker transport workflows."""
+    flow: UniformFlow2D | None = None
+    """Optional uniform advective velocity for transport workflows."""
     phantom: Phantom | None = None
     site: Any | None = None
     """Quadrupolar site (``spin_dynamics.nqr.QuadrupolarSite``) for NQR sequences."""
@@ -277,6 +339,27 @@ class PGSE:
     first_echo_time_seconds: float | None = None
     echo_spacing_seconds: float | None = None
     gamma: float = 2.675e8
+
+
+@register_serializable
+@dataclass(frozen=True)
+class PGSEWalkers:
+    """Explicit random-walker PGSE with diffusion and optional uniform flow."""
+
+    num_echoes: int = 1
+    gradient_amplitude: float = 0.05
+    gradient_duration: float = 2.0e-3
+    diffusion_time: float = 20.0e-3
+    gamma: float = 2.675e8
+    gradient_axis: str = "x"
+    walkers_per_cell: int = 128
+    seed: int | None = None
+    jitter: bool = False
+    excitation_duration: float = 100.0e-6
+    refocusing_duration: float = 200.0e-6
+    echo_spacing_seconds: float | None = None
+    boundary: str = "reflect"
+    substeps_per_interval: int = 8
 
 
 def _validate_nqr_common(spec: Any) -> None:
@@ -427,6 +510,7 @@ SEQUENCE_TYPES: tuple[type, ...] = (
     CPMGIRTrain,
     CPMGImaging,
     PGSE,
+    PGSEWalkers,
     NQRSLSE,
     NQRSORC,
     ESRFID,

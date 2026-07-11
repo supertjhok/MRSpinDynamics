@@ -285,11 +285,63 @@ def nqr_model_rule(experiment: Experiment, entry: WorkflowEntry) -> list[RuleFin
     return findings
 
 
+def transport_rule(experiment: Experiment, entry: WorkflowEntry) -> list[RuleFinding]:
+    """Report uniform-flow scale and flag closed reflecting transport."""
+
+    from spin_dynamics.experiment.specs import PGSEWalkers
+
+    if not isinstance(experiment.sequence, PGSEWalkers):
+        return []
+    flow = experiment.sample.flow
+    domain = experiment.sample.transport_domain
+    if flow is None or domain is None:
+        return []
+    velocity = flow.as_array()
+    speed = float(np.linalg.norm(velocity))
+    widths = np.array(
+        [domain.x_axis[-1] - domain.x_axis[0], domain.z_axis[-1] - domain.z_axis[0]]
+    )
+    crossing_times = np.divide(
+        widths,
+        np.abs(velocity),
+        out=np.full(2, np.inf),
+        where=np.abs(velocity) > 0.0,
+    )
+    details = {
+        "velocity_m_per_s": velocity.tolist(),
+        "speed_m_per_s": speed,
+        "axis_crossing_times_seconds": crossing_times.tolist(),
+        "boundary": experiment.sequence.boundary,
+    }
+    if speed > 0.0 and experiment.sequence.boundary == "reflect":
+        return [
+            RuleFinding(
+                rule="transport",
+                severity="warn",
+                message=(
+                    "nonzero uniform flow with reflecting boundaries models a "
+                    "closed bouncing ensemble, not through-flow; use periodic "
+                    "boundaries for translational bulk flow"
+                ),
+                details=details,
+            )
+        ]
+    return [
+        RuleFinding(
+            rule="transport",
+            severity="ok",
+            message=f"uniform-flow transport speed is {speed:.3g} m/s",
+            details=details,
+        )
+    ]
+
+
 DEFAULT_RULES: tuple[Rule, ...] = (
     rephasing_rule,
     noise_spec_rule,
     hardware_wiring_rule,
     nqr_model_rule,
+    transport_rule,
 )
 
 

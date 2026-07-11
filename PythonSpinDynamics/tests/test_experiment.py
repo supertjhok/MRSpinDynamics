@@ -25,10 +25,13 @@ from spin_dynamics.experiment import (
     ImagingPlane,
     Phantom,
     PGSE,
+    PGSEWalkers,
     Sample,
     SerializationError,
     SolenoidCoil,
     TxCoil,
+    TransportDomain2D,
+    UniformFlow2D,
     available_workflows,
     load_run,
 )
@@ -686,6 +689,126 @@ def test_pgse_plan_rejects_invalid_diffusion_timing() -> None:
     assert "diffusion_coefficient" in errors
 
 
+def _transport_domain() -> TransportDomain2D:
+    return TransportDomain2D(
+        rho=np.array([[1.0, 0.5], [1.0, 1.0], [0.5, 1.0]]),
+        x_axis=np.array([-1e-3, 0.0, 1e-3]),
+        z_axis=np.array([-0.5e-3, 0.5e-3]),
+    )
+
+
+@pytest.mark.smoke
+def test_pgse_walkers_with_flow_matches_direct_workflow() -> None:
+    spec = PGSEWalkers(
+        num_echoes=2,
+        gradient_amplitude=0.025,
+        gradient_duration=1e-3,
+        diffusion_time=10e-3,
+        walkers_per_cell=8,
+        seed=17,
+        jitter=True,
+        echo_spacing_seconds=24e-3,
+        boundary="periodic",
+        substeps_per_interval=2,
+    )
+    sample = Sample(
+        diffusion_coefficient=1.2e-9,
+        t1_seconds=0.5,
+        t2_seconds=0.15,
+        transport_domain=_transport_domain(),
+        flow=UniformFlow2D((2e-3, -0.5e-3)),
+    )
+    experiment = Experiment(sequence=spec, sample=sample)
+
+    plan = experiment.plan()
+    assert plan.ok
+    assert plan.workflow == "run_pgse_walkers"
+    assert plan.estimate is not None
+    transport = [finding for finding in plan.findings if finding.rule == "transport"]
+    assert len(transport) == 1
+    assert transport[0].severity == "ok"
+    assert transport[0].details["boundary"] == "periodic"
+
+    record = experiment.run()
+    domain = sample.transport_domain
+    direct = workflows.run_pgse_walkers(
+        rho=domain.rho,
+        x_axis=domain.x_axis,
+        z_axis=domain.z_axis,
+        num_echoes=2,
+        gradient_amplitude=0.025,
+        gradient_duration=1e-3,
+        diffusion_time=10e-3,
+        diffusion_coefficient=1.2e-9,
+        walkers_per_cell=8,
+        seed=17,
+        jitter=True,
+        echo_spacing_seconds=24e-3,
+        t1_seconds=0.5,
+        t2_seconds=0.15,
+        velocity=np.array([2e-3, -0.5e-3]),
+        boundary="periodic",
+        substeps_per_interval=2,
+    )
+    _assert_results_equal(record.result, direct)
+    assert np.array_equal(
+        record.result.sequence.final_ensemble.positions,
+        direct.sequence.final_ensemble.positions,
+    )
+
+
+@pytest.mark.smoke
+def test_pgse_walkers_config_json_and_primary_result_round_trip(tmp_path) -> None:
+    experiment = Experiment(
+        sequence=PGSEWalkers(
+            walkers_per_cell=4,
+            seed=3,
+            boundary="periodic",
+            substeps_per_interval=2,
+        ),
+        sample=Sample(
+            diffusion_coefficient=0.0,
+            transport_domain=_transport_domain(),
+            flow=UniformFlow2D((1e-3, 0.0)),
+        ),
+    )
+    assert Experiment.from_json(experiment.to_json()) == experiment
+
+    record = experiment.run()
+    path = tmp_path / "pgse_walkers.npz"
+    record.save(str(path))
+    loaded = load_run(str(path))
+    assert loaded.experiment == experiment
+    assert loaded.unsaved_result_fields == ("sequence", "initial_ensemble")
+    assert np.array_equal(loaded.result.signal, record.result.signal)
+    assert np.array_equal(loaded.result.echo_times, record.result.echo_times)
+
+
+@pytest.mark.smoke
+def test_pgse_walkers_plan_requires_domain_and_valid_boundary() -> None:
+    plan = Experiment(
+        sequence=PGSEWalkers(boundary="open", seed=-1),
+    ).plan()
+    assert not plan.ok
+    errors = "\n".join(plan.errors)
+    assert "transport_domain" in errors
+    assert "boundary" in errors
+    assert "seed" in errors
+
+
+@pytest.mark.smoke
+def test_pgse_walkers_warns_when_flow_reflects() -> None:
+    plan = Experiment(
+        sequence=PGSEWalkers(walkers_per_cell=2, seed=1),
+        sample=Sample(
+            transport_domain=_transport_domain(),
+            flow=UniformFlow2D((1e-3, 0.0)),
+        ),
+    ).plan()
+    assert plan.ok
+    assert any("not through-flow" in warning for warning in plan.warnings)
+
+
 from spin_dynamics.experiment import NQRSLSE, NQRSORC  # noqa: E402
 from spin_dynamics.nqr import (  # noqa: E402
     QuadrupolarSite,
@@ -970,7 +1093,7 @@ def test_registry_entries_point_at_public_workflows() -> None:
     import spin_dynamics.nqr as nqr
 
     entries = available_workflows()
-    assert len(entries) == 20
+    assert len(entries) == 21
     public = set(workflows.STABLE_WORKFLOW_API) | set(workflows.EXTENDED_WORKFLOW_API)
     for entry in entries:
         if getattr(nqr, entry.name, None) is not None:

@@ -31,6 +31,9 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
 - Expanded the declarative experiment facade to deterministic PGSE diffusion,
   including sample diffusion coefficients, plan-time timing validation, cost
   estimates, config/JSON/NPZ round-trips, and direct-workflow parity tests.
+- Added a seeded random-walker PGSE facade route with explicit 2-D transport
+  domains, boundary policies, uniform flow/advection, stochastic cost estimates,
+  friendly configs, and exact direct-workflow parity.
 
 ## [0.2.0] - 2026-07-05
 

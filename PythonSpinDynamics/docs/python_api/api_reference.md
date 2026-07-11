@@ -551,6 +551,7 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `noise_spec_rule(experiment: Experiment, entry: WorkflowEntry) -> list[RuleFinding]` | Validate the acquisition noise spec at plan time. |
 | function | `hardware_wiring_rule(experiment: Experiment, entry: WorkflowEntry) -> list[RuleFinding]` | Solve requested coil fields at plan time and surface wiring problems. |
 | function | `nqr_model_rule(experiment: Experiment, entry: WorkflowEntry) -> list[RuleFinding]` | Run ``select_nqr_model`` at plan time and check the engine dispatch. |
+| function | `transport_rule(experiment: Experiment, entry: WorkflowEntry) -> list[RuleFinding]` | Report uniform-flow scale and flag closed reflecting transport. |
 | function | `run_rules(experiment: Experiment, entry: WorkflowEntry, rules: Iterable[Rule] = DEFAULT_RULES) -> list[RuleFinding]` |  |
 
 ## `spin_dynamics.experiment.runner`
@@ -576,6 +577,8 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | Kind | Name | Summary |
 | --- | --- | --- |
 | class | `Phantom` | Spatial sample description for imaging: density plus optional maps. |
+| class | `TransportDomain2D` | Density and physical axes for 2-D random-walker transport. |
+| class | `UniformFlow2D` | Uniform ``(vx, vz)`` transport velocity in meters per second. |
 | class | `SampledB0` | A spatially-varying static field sampled on the imaging plane. |
 | class | `Sample` | Sample description. |
 | class | `Hardware` | Transmit/receive hardware description. |
@@ -585,6 +588,7 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `CPMGIRTrain` | Finite CPMG echo train preceded by an inversion-recovery delay sweep. |
 | class | `CPMGImaging` | Phase-encoded CPMG imaging (2-D spin-warp on a phantom). |
 | class | `PGSE` | Deterministic pulsed-gradient spin echo diffusion encoding. |
+| class | `PGSEWalkers` | Explicit random-walker PGSE with diffusion and optional uniform flow. |
 | class | `NQRSLSE` | Spin-lock spin-echo NQR detection train. |
 | class | `NQRSORC` | Strong off-resonance comb NQR train (reduced spin-1 engine only). |
 | class | `ESRFID` | Pulsed ESR free-induction decay (rotating frame, single isochromat). |
