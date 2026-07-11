@@ -15,6 +15,9 @@ from typing import Literal
 
 import numpy as np
 
+from spin_dynamics.motion import Boundary, MotionFieldMaps2D, Velocity
+from spin_dynamics.workflows.pgse import run_pgse_walkers
+
 
 QSpaceDataKind = Literal["complex", "magnitude", "intensity"]
 
@@ -59,6 +62,145 @@ class QSpacePhaseRetrievalResult:
         if self.residual_history.size == 0:
             return 0.0
         return float(self.residual_history[-1])
+
+
+@dataclass(frozen=True)
+class PGSEQSpaceWalkerResult:
+    """Finite-pulse PGSE response sampled on a centered two-dimensional q grid."""
+
+    response: np.ndarray
+    qx_axis: np.ndarray
+    qz_axis: np.ndarray
+    zero_q_signal: complex
+    gradient_duration: float
+    diffusion_time: float
+    diffusion_coefficient: float
+    gamma: float
+    walkers_per_cell: int
+    seed: int | None
+
+    @property
+    def intensity(self) -> np.ndarray:
+        """Return the real, non-negative long-time pore-intensity estimate.
+
+        Restricted PGSE measures the characteristic function of displacement.
+        In the long-diffusion-time limit it approaches ``|F(q)|^2``. Finite
+        walker sampling can leave small imaginary or negative components, which
+        are removed here for magnitude-only reconstruction.
+        """
+
+        return np.maximum(np.real(self.response), 0.0)
+
+
+def acquire_pgse_qspace_walkers(
+    rho: np.ndarray,
+    x_axis: np.ndarray,
+    z_axis: np.ndarray,
+    qx_axis: np.ndarray,
+    qz_axis: np.ndarray,
+    *,
+    gradient_duration: float = 0.5e-3,
+    diffusion_time: float = 20.0e-3,
+    diffusion_coefficient: float = 2.3e-9,
+    gamma: float = 2.675e8,
+    walkers_per_cell: int = 32,
+    seed: int | None = None,
+    jitter: bool = True,
+    excitation_duration: float = 100.0e-6,
+    refocusing_duration: float = 200.0e-6,
+    t1_seconds: float = np.inf,
+    t2_seconds: float = np.inf,
+    velocity: Velocity = None,
+    fields: MotionFieldMaps2D | None = None,
+    boundary: Boundary = "reflect",
+    substeps_per_interval: int = 8,
+) -> PGSEQSpaceWalkerResult:
+    """Acquire a finite-pulse restricted-diffusion response on a q-space grid.
+
+    The angular q-vector convention is ``q = gamma * G * delta`` in rad/m.
+    Each grid point is run through :func:`run_pgse_walkers`; a shared seed gives
+    every point the same initial ensemble and Brownian trajectory, so changes
+    across q reflect encoding rather than independent Monte Carlo noise. The
+    response is normalized by the explicitly acquired zero-q echo.
+
+    At long diffusion time this response approaches the pore intensity
+    ``|F(q)|^2``. For finite pulses and finite diffusion time it retains the
+    physically realistic edge averaging and incomplete-mixing blur.
+    """
+
+    rho_arr = _density2d(rho)
+    x = _uniform_axis(x_axis, "x_axis")
+    z = _uniform_axis(z_axis, "z_axis")
+    if rho_arr.shape != (x.size, z.size):
+        raise ValueError("rho shape must match (len(x_axis), len(z_axis))")
+    qx = _uniform_axis(qx_axis, "qx_axis")
+    qz = _uniform_axis(qz_axis, "qz_axis")
+    delta = float(gradient_duration)
+    gamma_value = float(gamma)
+    if delta <= 0.0:
+        raise ValueError("gradient_duration must be positive")
+    if gamma_value <= 0.0:
+        raise ValueError("gamma must be positive")
+
+    zero_x = np.flatnonzero(np.isclose(qx, 0.0, rtol=0.0, atol=1e-12))
+    zero_z = np.flatnonzero(np.isclose(qz, 0.0, rtol=0.0, atol=1e-12))
+    if zero_x.size != 1 or zero_z.size != 1:
+        raise ValueError("qx_axis and qz_axis must each contain exactly one zero sample")
+
+    response = np.empty((qx.size, qz.size), dtype=np.complex128)
+    common = dict(
+        rho=rho_arr,
+        x_axis=x,
+        z_axis=z,
+        gradient_duration=delta,
+        diffusion_time=float(diffusion_time),
+        diffusion_coefficient=float(diffusion_coefficient),
+        gamma=gamma_value,
+        walkers_per_cell=int(walkers_per_cell),
+        seed=seed,
+        jitter=bool(jitter),
+        excitation_duration=float(excitation_duration),
+        refocusing_duration=float(refocusing_duration),
+        t1_seconds=float(t1_seconds),
+        t2_seconds=float(t2_seconds),
+        velocity=velocity,
+        fields=fields,
+        boundary=boundary,
+        substeps_per_interval=int(substeps_per_interval),
+    )
+    for ix, qx_value in enumerate(qx):
+        for iz, qz_value in enumerate(qz):
+            q_vector = np.array([qx_value, qz_value], dtype=np.float64)
+            q_norm = float(np.linalg.norm(q_vector))
+            if q_norm <= np.finfo(float).eps:
+                amplitude = 0.0
+                direction: str | tuple[float, float] = "x"
+            else:
+                amplitude = q_norm / (gamma_value * delta)
+                direction = (float(q_vector[0] / q_norm), float(q_vector[1] / q_norm))
+            result = run_pgse_walkers(
+                gradient_amplitude=amplitude,
+                gradient_axis=direction,
+                **common,
+            )
+            response[ix, iz] = result.signal[0]
+
+    zero_signal = complex(response[int(zero_x[0]), int(zero_z[0])])
+    if abs(zero_signal) <= np.finfo(float).eps:
+        raise ValueError("zero-q PGSE echo is zero and cannot normalize the response")
+    response = response / zero_signal
+    return PGSEQSpaceWalkerResult(
+        response=response,
+        qx_axis=qx,
+        qz_axis=qz,
+        zero_q_signal=zero_signal,
+        gradient_duration=delta,
+        diffusion_time=float(diffusion_time),
+        diffusion_coefficient=float(diffusion_coefficient),
+        gamma=gamma_value,
+        walkers_per_cell=int(walkers_per_cell),
+        seed=seed,
+    )
 
 
 def qspace_axes_from_real_space(

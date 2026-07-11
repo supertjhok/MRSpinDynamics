@@ -4708,6 +4708,18 @@ with additive Gaussian noise (\code{--snr} is the zero-\(q\) peak divided by the
 noise standard deviation) and running the same constrained retrieval on the
 noisy data.
 
+For realistic finite rectangular pulses, use
+\code{acquire\_pgse\_qspace\_walkers}. It converts every angular-q vector to
+the in-plane gradient \(\mathbf G=\mathbf q/(\gamma\delta)\), runs the explicit PGSE
+walker sequence with a common seed across the grid, and divides by an acquired
+zero-q echo. The resulting response includes finite-pulse edge averaging and
+incomplete pore mixing; its \code{intensity} property removes the small
+imaginary and negative Monte Carlo components before magnitude-only inversion.
+\code{plot\_pgse\_qspace\_walkers.py} validates this handoff on an elliptical
+reflecting pore and shows the finite-pulse grid beside its short-pulse limit and
+recovered pore estimate. As in all walker calculations, convergence must be
+checked against walker count and boundary substeps.
+
 For slow exchange between two compartments, use
 \code{make\_semipermeable\_plane}. The membrane is an internal line
 \(x=x_m\) or \(z=z_m\) inside the rectangular bounds. A walker that crosses the

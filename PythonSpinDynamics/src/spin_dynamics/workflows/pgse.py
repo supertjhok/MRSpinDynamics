@@ -29,6 +29,7 @@ from spin_dynamics.sequences.motion import (
 
 PGSEBackend = Literal["moment", "walkers"]
 PGSEAxis = Literal["x", "z"]
+PGSEDirection = PGSEAxis | tuple[float, float]
 
 
 @dataclass(frozen=True)
@@ -282,7 +283,7 @@ def run_pgse_walkers(
     diffusion_time: float = 20.0e-3,
     diffusion_coefficient: float = 2.3e-9,
     gamma: float = 2.675e8,
-    gradient_axis: PGSEAxis = "x",
+    gradient_axis: PGSEDirection = "x",
     walkers_per_cell: int = 128,
     seed: int | None = None,
     jitter: bool = False,
@@ -1068,13 +1069,20 @@ def _gradient_vector(value: float, axis_index: int, ndim: int) -> tuple[float, .
     return tuple(vector)
 
 
-def _gradient_tuple(value: float, axis: PGSEAxis) -> tuple[float, float]:
+def _gradient_tuple(value: float, axis: PGSEDirection) -> tuple[float, float]:
     # 2-D specialization over the (x, z) plane: "x" -> axis 0, "z" -> axis 1.
     if axis == "x":
         return _gradient_vector(value, 0, 2)  # type: ignore[return-value]
     if axis == "z":
         return _gradient_vector(value, 1, 2)  # type: ignore[return-value]
-    raise ValueError("gradient_axis must be 'x' or 'z'")
+    direction = np.asarray(axis, dtype=np.float64).reshape(-1)
+    if direction.size != 2 or not np.all(np.isfinite(direction)):
+        raise ValueError("gradient_axis must be 'x', 'z', or a finite (x, z) direction")
+    norm = float(np.linalg.norm(direction))
+    if norm <= np.finfo(float).eps:
+        raise ValueError("gradient direction must have non-zero length")
+    unit = direction / norm
+    return float(value * unit[0]), float(value * unit[1])
 
 
 def _default_motion_fields(

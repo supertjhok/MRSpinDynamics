@@ -10,11 +10,13 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from spin_dynamics.workflows import (
+    acquire_pgse_qspace_walkers,
     phase_retrieve_qspace_magnitude,
     pore_form_factor_from_density,
     qspace_axes_from_real_space,
     reconstruct_qspace_image,
 )
+from spin_dynamics.motion import make_elliptical_reflector
 
 
 def _ellipse(n: int = 32) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -53,6 +55,68 @@ def _best_aligned_iou(estimate: np.ndarray, reference: np.ndarray) -> float:
 
 
 class QSpaceImagingTests(unittest.TestCase):
+    def test_finite_pulse_walkers_reconstruct_elliptical_pore_autocorrelation(self) -> None:
+        n = 12
+        axis = (np.arange(n, dtype=np.float64) - n // 2) * 1.0e-6
+        xx, zz = np.meshgrid(axis, axis, indexing="ij")
+        semi_axes = (3.2e-6, 2.1e-6)
+        rho = (
+            (xx / semi_axes[0]) ** 2 + (zz / semi_axes[1]) ** 2 <= 1.0
+        ).astype(float)
+        qx, qz = qspace_axes_from_real_space(axis, axis)
+
+        acquired = acquire_pgse_qspace_walkers(
+            rho,
+            axis,
+            axis,
+            qx,
+            qz,
+            gradient_duration=0.3e-3,
+            diffusion_time=24.0e-3,
+            diffusion_coefficient=1.0e-9,
+            walkers_per_cell=32,
+            seed=8,
+            boundary=make_elliptical_reflector((0.0, 0.0), semi_axes),
+            substeps_per_interval=5,
+        )
+        reconstructed = reconstruct_qspace_image(
+            acquired.intensity,
+            qx,
+            qz,
+            data_kind="intensity",
+            clip_negative=True,
+        )
+        ideal = reconstruct_qspace_image(
+            np.abs(pore_form_factor_from_density(rho)) ** 2,
+            qx,
+            qz,
+            data_kind="intensity",
+            clip_negative=True,
+        )
+
+        self.assertAlmostEqual(float(acquired.intensity[n // 2, n // 2]), 1.0)
+        correlation = np.corrcoef(
+            reconstructed.image.reshape(-1), ideal.image.reshape(-1)
+        )[0, 1]
+        self.assertGreater(float(correlation), 0.9)
+        center = n // 2
+        x_width = int(np.count_nonzero(reconstructed.image[:, center] > 0.2))
+        z_width = int(np.count_nonzero(reconstructed.image[center, :] > 0.2))
+        self.assertGreater(x_width, z_width)
+        support = (xx / 4.5e-6) ** 2 + (zz / 3.2e-6) ** 2 <= 1.0
+        retrieved = phase_retrieve_qspace_magnitude(
+            acquired.intensity,
+            qx,
+            qz,
+            support=support,
+            input_is_intensity=True,
+            iterations=220,
+            er_iterations=60,
+            seed=3,
+        )
+        estimate = retrieved.density / retrieved.density.max() > 0.2
+        self.assertGreater(_best_aligned_iou(estimate, rho > 0.0), 0.6)
+
     def test_complex_form_factor_reconstructs_density(self) -> None:
         rho, x_axis, z_axis = _ellipse()
         qx, qz = qspace_axes_from_real_space(x_axis, z_axis)
