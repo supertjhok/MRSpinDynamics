@@ -33,6 +33,7 @@ from _source_path import add_src_to_path, load_matplotlib
 add_src_to_path()
 
 
+# Keep CLI choices together so scientific defaults are easy to find and override.
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
@@ -85,6 +86,7 @@ def _normalize(image: np.ndarray, reference_max: float) -> np.ndarray:
     return image / peak * reference_max if peak > 0 else image
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     args = _parse_args()
     plt = load_matplotlib(headless=bool(args.output))

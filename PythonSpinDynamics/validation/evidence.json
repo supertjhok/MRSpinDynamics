@@ -1,0 +1,386 @@
+{
+  "schema_version": 1,
+  "evidence_levels": {
+    "A": "Analytical identity, exact solution, or limiting case",
+    "B": "Parity with the MATLAB or Octave reference implementation",
+    "C": "Comparison with an independent numerical tool or implementation",
+    "D": "Published benchmark, theory curve, or literature dataset",
+    "E": "Comparison with experimental measurements",
+    "R": "Regression, invariant, or internal cross-backend check"
+  },
+  "records": [
+    {
+      "id": "bloch_core_matlab",
+      "component": "Bloch rotations and acquisition kernels",
+      "claim": "Core rotations, echo conversion, acquisition, and arb10 propagation reproduce the established MATLAB/Octave implementation.",
+      "evidence_types": ["B", "A"],
+      "basis": "CSV fixtures generated from MATLAB R2025b or Octave 11.3, plus rotation-matrix invariants.",
+      "parameter_range": "Compact offset grids and ideal/tuned/untuned/matched reference parameter sets stored in validation/fixtures.",
+      "metric": "Elementwise numerical agreement",
+      "tolerance": "Per-test numpy.testing tolerances, normally 1e-10 to 1e-7 absolute/relative.",
+      "status": "validated",
+      "reproducers": [
+        "tests/octave_fixtures/core.py::test_calc_rotation_matrix_matches_octave",
+        "validation/octave/generate_basic_fixtures.m"
+      ],
+      "references": ["MATLABSpinDynamics/Version_3/code"],
+      "limitations": ["Fixtures sample representative grids; they are not an exhaustive proof over all parameter combinations."]
+    },
+    {
+      "id": "cpmg_workflow_parity",
+      "component": "CPMG, FID, imaging, and probe workflows",
+      "claim": "Public ideal, tuned, untuned, and matched workflow assemblies preserve the reference signal and result conventions.",
+      "evidence_types": ["B", "R"],
+      "basis": "MATLAB/Octave workflow fixtures, result-shape checks, and serial/parallel equality tests.",
+      "parameter_range": "Representative finite/asymptotic echo trains, Q and mistuning sweeps, and compact imaging phantoms.",
+      "metric": "Array agreement and workflow invariants",
+      "tolerance": "Fixture-specific numerical tolerances; exact equality for deterministic serial/parallel paths.",
+      "status": "validated",
+      "reproducers": [
+        "tests/octave_fixtures/workflows.py",
+        "validation/octave/generate_imaging_fixtures.m"
+      ],
+      "references": ["MATLABSpinDynamics/Version_3/code"],
+      "limitations": ["High-Q matched-probe coverage remains concentrated on compact fixtures."]
+    },
+    {
+      "id": "pulse_response_matlab",
+      "component": "Probe pulse responses and phase programs",
+      "claim": "Rectangular tuned, untuned, and matched pulse responses and selected phase-program helpers match the MATLAB implementation.",
+      "evidence_types": ["B"],
+      "basis": "MATLAB/Octave waveform and catalog fixtures.",
+      "parameter_range": "Bundled rectangular-pulse fixtures and selected SPA phase programs.",
+      "metric": "Complex waveform and scalar metric agreement",
+      "tolerance": "Per-fixture numerical tolerances, normally near floating-point precision.",
+      "status": "validated",
+      "reproducers": [
+        "tests/octave_fixtures/optimization.py",
+        "validation/octave/generate_pulse_fixtures.m"
+      ],
+      "references": ["MATLABSpinDynamics/Version_3/code/Pulse Shape"],
+      "limitations": ["Arbitrary measured probe transfer functions are not covered by the historical fixtures."]
+    },
+    {
+      "id": "sequence_ir_pulseq",
+      "component": "Sequence IR, Pulseq interchange, and compiler",
+      "claim": "Core Pulseq 1.4/1.5 events retain timing and metadata through import, compilation, plotting data, facade execution, and raster-aligned 1.5.0 round trips.",
+      "evidence_types": ["R"],
+      "basis": "Hand-audited Pulseq text fixtures, round-trip checks, exact timing assertions, moving-isochromat facade parity, and signature verification.",
+      "parameter_range": "Core RF, arbitrary/trapezoid gradients, ADC, compressed shapes, offsets, and block timing.",
+      "metric": "Exact metadata/timing invariants and numerical waveform equality",
+      "tolerance": "Exact for discrete metadata; 1e-12 seconds or tighter for timing comparisons.",
+      "status": "regression_only",
+      "reproducers": [
+        "tests/test_sequence_ir.py::test_imports_pulseq_15_rf_adc_and_compiles",
+        "tests/test_sequence_ir.py::test_round_trip_preserves_core_events_and_metadata",
+        "tests/test_sequence_ir.py::test_export_signature_covers_sequence_text",
+        "tests/test_experiment.py::test_sequence_ir_facade_matches_direct_motion_backend",
+        "tests/test_experiment.py::test_sequence_ir_facade_executes_pulseq_round_trip"
+      ],
+      "references": ["Pulseq specification 1.4.x and 1.5.0"],
+      "limitations": ["No independent scanner/vendor execution comparison yet.", "Optional extensions are retained but not executed."]
+    },
+    {
+      "id": "pgse_free_diffusion",
+      "component": "PGSE diffusion encoding",
+      "claim": "The deterministic moment backend follows the Stejskal-Tanner b-value and exp(-bD) attenuation, and free walkers converge toward that result.",
+      "evidence_types": ["A", "C"],
+      "basis": "Closed-form Stejskal-Tanner equations and an independently sampled random-walker backend.",
+      "parameter_range": "Rectangular lobes, unrestricted isotropic diffusion, zero-gradient/diffusion limits, and compact walker ensembles.",
+      "metric": "b-value equality, log-signal slope, and walker confidence envelope",
+      "tolerance": "Machine precision for moments; statistical tolerance set from finite walker count for particle simulations.",
+      "status": "validated",
+      "reproducers": [
+        "tests/test_pgse.py::test_moment_b_value_matches_stejskal_tanner_formula",
+        "tests/test_pgse.py::test_moment_signal_has_expected_diffusion_slope",
+        "tests/test_pgse.py::test_walker_pgse_converges_toward_moment_attenuation"
+      ],
+      "references": ["Stejskal-Tanner pulsed-gradient spin-echo theory"],
+      "limitations": ["The analytical comparison assumes unrestricted isotropic diffusion and ideal rectangular gradients."]
+    },
+    {
+      "id": "motion_diffusion",
+      "component": "Moving-isochromat diffusion and boundaries",
+      "claim": "Seeded particle motion has the expected diffusion statistics, boundary behavior, RF rotation, and static-gradient refocusing limits.",
+      "evidence_types": ["A", "R"],
+      "basis": "Brownian mean-square displacement, deterministic zero-diffusion limits, and sequence refocusing invariants.",
+      "parameter_range": "One to three spatial dimensions with reflecting/periodic boundaries on sampled domains.",
+      "metric": "Moment statistics, signal limits, and deterministic seed equality",
+      "tolerance": "Analytical or sampling-error tolerance chosen per test.",
+      "status": "validated",
+      "reproducers": [
+        "tests/test_motion.py::test_advection_diffusion_and_boundaries_are_seeded",
+        "tests/test_motion_sequence.py::test_cpmg_sequence_refocuses_static_gradient_without_diffusion"
+      ],
+      "references": ["Brownian diffusion and spin-echo refocusing identities"],
+      "limitations": ["Complex pore geometries have synthetic rather than experimental benchmarks."]
+    },
+    {
+      "id": "pipe_flow",
+      "component": "Flow washout and transit polarization",
+      "claim": "Plug and laminar pipe washout and flux-weighted transit polarization follow their analytical distributions and Monte Carlo estimates.",
+      "evidence_types": ["A", "C"],
+      "basis": "Closed-form residence-time distributions and independent Monte Carlo sampling.",
+      "parameter_range": "Ideal plug and fully developed laminar flow in a cylindrical sensitive region.",
+      "metric": "Survival fraction, density normalization, mean transit time, and polarization",
+      "tolerance": "Exact/near-machine precision for identities; finite-sample bounds for Monte Carlo checks.",
+      "status": "validated",
+      "reproducers": [
+        "tests/test_flow.py::test_laminar_matches_derived_piecewise",
+        "tests/test_flow.py::test_monte_carlo_cross_check_laminar",
+        "tests/test_flow.py::test_monte_carlo_flux_weighted_cross_check"
+      ],
+      "references": ["Poiseuille flow and flux-weighted residence-time theory"],
+      "limitations": ["No CFD or turbulent-flow comparison; velocity profiles are prescribed."]
+    },
+    {
+      "id": "magnetostatic_fields",
+      "component": "Magnetostatic field solvers",
+      "claim": "Biot-Savart coil fields and selected magnet geometries reproduce analytical center-field, symmetry, scaling, and finite-length limits.",
+      "evidence_types": ["A"],
+      "basis": "Circular-loop center field, symmetry planes, current scaling, and known Halbach field orientation.",
+      "parameter_range": "Loop coils, yoke-image checks, finite Halbach rods, and NMR-MOUSE-scale grids.",
+      "metric": "Vector-field value, direction, symmetry, and scaling",
+      "tolerance": "Geometry/discretization-specific tolerances declared in tests.",
+      "status": "validated",
+      "reproducers": [
+        "tests/test_magnetostatics.py::test_loop_center_matches_analytic",
+        "tests/test_magnetostatics.py::test_field_scales_with_current",
+        "tests/test_magnetostatics.py::test_four_rod_halbach_phasing_points_bore_field_along_x"
+      ],
+      "references": ["Biot-Savart circular-loop solution", "Ideal Halbach dipole symmetry"],
+      "limitations": ["Nonlinear material models have analytical/synthetic checks but limited measured-magnet comparison."]
+    },
+    {
+      "id": "coil_peec",
+      "component": "PEEC coil impedance and parasitics",
+      "claim": "PEEC inductance/resistance trends agree with analytical kernels and selected independent QOIL, FastHenry, and FasterCap comparisons.",
+      "evidence_types": ["C", "A"],
+      "basis": "Partial-element analytical kernels, bundled QOIL regression values, and optional live external-solver comparisons.",
+      "parameter_range": "Round-wire loops and compact solenoids represented by the bundled test geometries.",
+      "metric": "Inductance, resistance, capacitance, and impedance deviation",
+      "tolerance": "Tool- and discretization-specific thresholds declared in PEEC tests.",
+      "status": "partially_validated",
+      "reproducers": [
+        "tests/test_coil_peec.py::test_coil_properties_peec_fields_and_helpers",
+        "tests/test_coil_peec_fasthenry.py",
+        "tests/test_coil_peec_fastercap.py"
+      ],
+      "references": ["QOIL", "FastHenry", "FasterCap"],
+      "limitations": ["Live external-tool tests are optional and not run in ordinary CI.", "Validation is sparse for shields, complex windings, and high-frequency radiation."]
+    },
+    {
+      "id": "thermal_models",
+      "component": "Thermal networks and conduction",
+      "claim": "Lumped, one-dimensional, axisymmetric, perfused, and advective thermal models reproduce closed-form steady and transient limits; selected cases are cross-checked with FEMM.",
+      "evidence_types": ["A", "C"],
+      "basis": "RC exponential response, slab/cylinder/sphere source solutions, conservation laws, advection-diffusion solutions, and FEMM scripts.",
+      "parameter_range": "Constant-property linear materials, standard boundary conditions, and selected coupled coil/sample cases.",
+      "metric": "Temperature, energy balance, steady-state rise, and transient time constant",
+      "tolerance": "Analytical solver/discretization tolerances declared per test and FEMM validation script.",
+      "status": "validated",
+      "reproducers": [
+        "tests/test_thermal.py::test_single_node_exponential_transient",
+        "tests/test_thermal.py::test_slab_uniform_source_parabola",
+        "tests/test_thermal.py::test_advection_diffusion_matches_analytic",
+        "validation/femm/validate_conduction.py"
+      ],
+      "references": ["FEMM", "Classical heat-equation and Pennes limits"],
+      "limitations": ["No general full-3D or CFD thermal validation."]
+    },
+    {
+      "id": "nqr_hamiltonians",
+      "component": "NQR Hamiltonians and pulse models",
+      "claim": "Spin-1 and spin-3/2 transition conventions, powder weights, selective pulses, and SORC/SLSE limits reproduce analytical and published theory results.",
+      "evidence_types": ["A", "D"],
+      "basis": "Angular-momentum identities, closed-form quadrupole transitions, Konnai SORC theory, and the published Glickstein melamine enhancement example.",
+      "parameter_range": "Spin 1 and 3/2 core cases, axial/asymmetric EFGs, single-crystal and powder grids, and weak-B0 limits.",
+      "metric": "Frequency, population transfer, normalized powder signal, and operator identities",
+      "tolerance": "Analytical numerical tolerances declared per test; published-example agreement at reported precision.",
+      "status": "partially_validated",
+      "reproducers": [
+        "tests/test_nqr.py::test_spin_one_quadrupole_transitions_match_xyz_convention",
+        "tests/test_nqr.py::test_spin_three_halves_nqr_line_uses_chlorine_convention",
+        "tests/test_nqr.py::test_sorc_pathway_converges_to_konnai_powder_theory",
+        "tests/test_nqr.py::test_glickstein_spin_one_enhancement_matches_melamine_example"
+      ],
+      "references": ["Konnai SORC powder theory", "Glickstein spin-1 polarization enhancement example"],
+      "limitations": ["Experimental waveform and absolute-signal comparisons remain limited.", "Higher-spin validation is primarily analytical rather than experimental."]
+    },
+    {
+      "id": "esr_models",
+      "component": "ESR/EPR spectra and pulsed dynamics",
+      "claim": "Zeeman resonance, lineshape, hyperfine splitting, relaxation, and Hahn-echo behavior reproduce analytical spin-1/2 limits.",
+      "evidence_types": ["A", "D"],
+      "basis": "Bohr-magneton resonance, Hermiticity/scaling identities, exact isotropic hyperfine doublets, and echo-refocusing theory.",
+      "parameter_range": "Single-electron spin-1/2 systems with scalar/anisotropic g, simple hyperfine systems, static disorder, and phenomenological T1/T2.",
+      "metric": "Resonance field/frequency, splitting, normalization, decay, and echo timing",
+      "tolerance": "Analytical numerical tolerances declared per test.",
+      "status": "partially_validated",
+      "reproducers": [
+        "tests/test_esr.py::test_isotropic_resonance_frequency_uses_bohr_magneton_scale",
+        "tests/test_esr.py::test_single_nucleus_hyperfine_doublet_splitting_matches_coupling",
+        "tests/test_esr.py::test_detuned_isochromat_ensemble_rephases_at_hahn_echo_time"
+      ],
+      "references": ["Standard spin-1/2 ESR resonance and hyperfine formulas"],
+      "limitations": ["No broad experimental spectral library comparison.", "Multi-electron and general anisotropic hyperfine systems remain incomplete."]
+    },
+    {
+      "id": "scalar_coupling",
+      "component": "Small scalar-coupled spin systems",
+      "claim": "Dense spin operators, scalar-coupling Hamiltonians, and selected low-field editing models satisfy exact operator and spectral limits.",
+      "evidence_types": ["A", "R"],
+      "basis": "Commutators, Hermiticity, trace conservation, exact two-spin energy levels, and synthetic editing limits.",
+      "parameter_range": "Small dense spin-1/2 systems and the implemented J-editing/TANGO/SLIC models.",
+      "metric": "Operator identities, eigenvalues, populations, and filter response",
+      "tolerance": "Near floating-point precision for algebraic identities.",
+      "status": "partially_validated",
+      "reproducers": ["tests/test_coupling.py", "tests/test_zulf_jcoupling.py"],
+      "references": ["Exact spin-1/2 angular-momentum and scalar-coupling solutions"],
+      "limitations": ["Paper-level fixtures and relaxation-aware general pulse-sequence comparisons are still sparse."]
+    },
+    {
+      "id": "relaxation_models",
+      "component": "Phenomenological and Redfield relaxation",
+      "claim": "Relaxation propagators preserve required density-matrix invariants and reproduce exponential and limiting behavior.",
+      "evidence_types": ["A", "R"],
+      "basis": "Trace/Hermiticity preservation, equilibrium limits, exponential decay, and shared-model cross-namespace parity.",
+      "parameter_range": "Implemented Bloch, Liouville, BPP/Redfield, wall, and rotating-frame helper models.",
+      "metric": "Trace, Hermiticity, positivity diagnostics, and decay rates",
+      "tolerance": "Near floating-point precision for invariants; model-specific curve tolerances.",
+      "status": "partially_validated",
+      "reproducers": ["tests/test_relaxation.py", "tests/test_nqr_redfield_relaxation.py"],
+      "references": ["Bloch exponential relaxation", "BPP and Redfield limiting formulas"],
+      "limitations": ["Microscopic parameter predictions are not broadly compared with experimental relaxation datasets."]
+    },
+    {
+      "id": "inverse_laplace",
+      "component": "Inverse-Laplace analysis",
+      "claim": "The 1-D and compact 2-D solvers recover known synthetic peaks and obey kernel and non-negativity constraints.",
+      "evidence_types": ["R", "A"],
+      "basis": "Forward-generated synthetic T1/T2/D distributions with known ground truth and direct kernel identities.",
+      "parameter_range": "Compact well-separated synthetic peaks over the grids used in tests and examples.",
+      "metric": "Recovered peak location, residual, and non-negativity",
+      "tolerance": "Grid-resolution and SNR-dependent bounds declared in tests.",
+      "status": "regression_only",
+      "reproducers": ["tests/test_analysis_ilt.py", "examples/plot_inverse_laplace.py"],
+      "references": ["Synthetic forward models generated by the package"],
+      "limitations": ["Ill-conditioned experimental inversions need independent datasets and uncertainty studies."]
+    },
+    {
+      "id": "spin_noise",
+      "component": "Spin noise and radiation damping",
+      "claim": "Equilibrium spin-noise spectra and stochastic dynamics reproduce fluctuation, radiation-damping, Ornstein-Uhlenbeck, and two-bath analytical identities.",
+      "evidence_types": ["A", "R"],
+      "basis": "Magnetization/polarization identities, stationary variance, analytic autocorrelation/spectra, and zero-noise deterministic limits.",
+      "parameter_range": "Semiclassical spin-1/2 samples coupled to tuned, untuned, or matched receiver models.",
+      "metric": "Variance, autocorrelation, spectrum, line position, and deterministic limit",
+      "tolerance": "Analytical numerical or seeded sampling tolerances declared per test.",
+      "status": "validated",
+      "reproducers": [
+        "tests/test_spin_noise.py::test_stationary_variance_matches_two_bath_balance",
+        "tests/test_spin_noise.py::test_autocorrelation_decays_at_total_rate",
+        "tests/test_spin_noise.py::test_zero_noise_recovers_deterministic_damping"
+      ],
+      "references": ["Ornstein-Uhlenbeck process", "Radiation-damping circuit identity"],
+      "limitations": ["The model is semiclassical and does not validate quantum measurement back-action."]
+    },
+    {
+      "id": "optimal_control",
+      "component": "Optimal-control propagation and gradients",
+      "claim": "NumPy/JAX propagators, control gradients, hardware-response primitives, and bounded objectives agree across implementations and with finite-difference limits.",
+      "evidence_types": ["C", "R", "B"],
+      "basis": "Independent NumPy/JAX implementations, finite differences, exact rotations, and selected MATLAB optimization fixtures.",
+      "parameter_range": "Small dense spin systems and compact RF/gradient control programs used by the test suite.",
+      "metric": "Propagator norm, objective value, gradient error, and fixture score",
+      "tolerance": "Backend- and differentiation-specific tolerances declared in tests.",
+      "status": "partially_validated",
+      "reproducers": [
+        "tests/test_optimal_control_propagation.py::test_state_propagation_matches",
+        "tests/test_grape_solver.py",
+        "tests/octave_fixtures/optimization.py"
+      ],
+      "references": ["Finite-difference gradient checks", "MATLAB optimization result fixtures"],
+      "limitations": ["Optimizer convergence is problem-dependent; a passing gradient check does not establish a global optimum."]
+    },
+    {
+      "id": "experiment_facade",
+      "component": "Unified experiment facade",
+      "claim": "Facade routes reproduce their direct workflow calls and preserve specifications, configs, arrays, and provenance through round trips.",
+      "evidence_types": ["R"],
+      "basis": "Bitwise/numerical route parity, validation-rule tests, and JSON/TOML/NPZ round trips.",
+      "parameter_range": "Registered CPMG, imaging, deterministic/walker PGSE, NQR, ESR, and general SequenceIR/Pulseq routes.",
+      "metric": "Native-result equality and serialization invariants",
+      "tolerance": "Exact for serialized metadata; workflow-specific numerical parity for arrays.",
+      "status": "regression_only",
+      "reproducers": [
+        "tests/test_experiment.py::test_pgse_moment_parity_and_plan",
+        "tests/test_experiment.py::test_pgse_walkers_with_flow_matches_direct_workflow",
+        "tests/test_experiment.py::test_nqr_slse_reduced_parity",
+        "tests/test_experiment.py::test_nqr_fid_parity",
+        "tests/test_experiment.py::test_nqr_population_transfer_parity_and_spin_guard",
+        "tests/test_experiment.py::test_esr_fid_parity",
+        "tests/test_experiment.py::test_esr_cw_sweep_parity_without_fixed_b0",
+        "tests/test_experiment.py::test_esr_deer_parity_and_round_trip",
+        "tests/test_experiment.py::test_esr_two_and_three_pulse_eseem_parity",
+        "tests/test_experiment.py::test_esr_hyscore_parity_and_round_trip",
+        "tests/test_experiment.py::test_esr_endor_parity_and_hyperfine_input_guard",
+        "tests/test_experiment.py::test_sequence_ir_facade_matches_direct_motion_backend",
+        "tests/test_experiment.py::test_sequence_ir_facade_round_trip_noise_and_reproduction"
+      ],
+      "references": ["Direct public workflow implementations"],
+      "limitations": ["Facade parity validates delegation, not the physical model underneath each route."]
+    },
+    {
+      "id": "reproducible_provenance",
+      "component": "Reproducible results and provenance",
+      "claim": "Facade archives identify experiment inputs, implementation, numerical environment, randomness, and result content and can verify an exact rerun while remaining backward-compatible with version-1 archives.",
+      "evidence_types": ["R"],
+      "basis": "Canonical fingerprint invariance/change tests, archive integrity checks, seeded/unseeded classification, exact rerun comparison, CLI verification, and legacy archive loading.",
+      "parameter_range": "Deterministic and noisy facade runs, NPZ format versions 1 and 2.",
+      "metric": "SHA-256 identity equality and structured reproduction verdict",
+      "tolerance": "Exact canonical metadata and result bytes.",
+      "status": "regression_only",
+      "reproducers": [
+        "tests/test_experiment.py::test_provenance_fingerprints_are_stable_and_specific",
+        "tests/test_experiment.py::test_provenance_classifies_seeded_and_unseeded_randomness",
+        "tests/test_experiment.py::test_version_one_run_archive_remains_readable",
+        "tests/test_experiment.py::test_archive_fingerprints_detect_spec_and_result_tampering",
+        "tests/test_experiment_cli.py::test_cli_run_and_show"
+      ],
+      "references": ["FAIR Guiding Principles for scientific data management"],
+      "limitations": ["Exact computational reproduction does not validate the physical model; unseeded legacy runs cannot be made reproducible after the fact."]
+    },
+    {
+      "id": "acceleration_backends",
+      "component": "Numba and JAX acceleration",
+      "claim": "Accelerated kernels reproduce the NumPy reference for supported batched rotations, propagation, and optimization primitives.",
+      "evidence_types": ["C", "R"],
+      "basis": "Independent backend implementations compared on deterministic arrays and seeded random inputs.",
+      "parameter_range": "The supported core, batched, and objective operations exercised by optional-backend tests.",
+      "metric": "Array and objective agreement",
+      "tolerance": "Backend/precision-specific numpy.testing tolerances.",
+      "status": "validated",
+      "reproducers": ["tests/test_numba_backend.py", "tests/test_jax_backend.py", "tests/test_jax_optimizer.py"],
+      "references": ["NumPy reference backend"],
+      "limitations": ["Backend parity does not independently validate physics and does not cover every package workflow."]
+    },
+    {
+      "id": "rfi_rejection",
+      "component": "RFI synthesis and rejection",
+      "claim": "Reference-channel cancellers preserve protected acquisition windows and suppress known synthetic coherent, colored, and impulsive interference.",
+      "evidence_types": ["R"],
+      "basis": "Synthetic sources with known clean residuals, mask identities, seeded estimators, and recording round trips.",
+      "parameter_range": "Implemented scalar, multichannel, adaptive, windowed, sparse, and harmonic-tracking estimators.",
+      "metric": "Suppression, signal leakage, mask consistency, and reconstruction residual",
+      "tolerance": "Scenario-specific deterministic or seeded bounds declared in tests.",
+      "status": "regression_only",
+      "reproducers": [
+        "tests/test_interference.py::test_sparse_canceller_removes_coherent_rfi_and_impulses",
+        "tests/test_interference.py::test_nqr_mask_accepts_absolute_baseline_windows"
+      ],
+      "references": ["Synthetic clean/reference-channel mixtures"],
+      "limitations": ["Field recordings and hardware-loop comparisons are not yet a routine validation dataset."]
+    }
+  ]
+}

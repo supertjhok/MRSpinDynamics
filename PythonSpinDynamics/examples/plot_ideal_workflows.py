@@ -1,4 +1,9 @@
-"""Plot the currently validated ideal CPMG and FID workflows."""
+"""Plot the currently validated ideal CPMG and FID workflows.
+
+Follow the timing and transport assumptions carefully, then inspect how they
+change attenuation, phase, or the echo train. Run ``python
+examples/plot_ideal_workflows.py --help`` to see the adjustable inputs.
+"""
 
 from __future__ import annotations
 
@@ -20,6 +25,7 @@ from spin_dynamics.workflows.fid import sim_fid_ideal
 
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--numpts", type=int, default=201, help="Number of offset points.")

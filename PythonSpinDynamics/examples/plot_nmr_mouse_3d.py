@@ -159,6 +159,7 @@ def _geom(args):
     }
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter

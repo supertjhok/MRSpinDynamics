@@ -89,6 +89,7 @@ def _nearest_indices(axis: np.ndarray, values: list[float]) -> list[int]:
     return [int(np.argmin(np.abs(axis - value))) for value in values]
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=__doc__,

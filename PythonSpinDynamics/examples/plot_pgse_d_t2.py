@@ -1,4 +1,9 @@
-"""Simulate PGSE-prepared CPMG data and recover a D-T2 map with 2D ILT."""
+"""Simulate PGSE-prepared CPMG data and recover a D-T2 map with 2D ILT.
+
+Follow the timing and transport assumptions carefully, then inspect how they
+change attenuation, phase, or the echo train. Run ``python
+examples/plot_pgse_d_t2.py --help`` to see the adjustable inputs.
+"""
 
 from __future__ import annotations
 
@@ -21,6 +26,7 @@ def _has_scipy() -> bool:
     return True
 
 
+# Keep CLI choices together so scientific defaults are easy to find and override.
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
@@ -109,6 +115,7 @@ def _pgse_b_axis() -> tuple[np.ndarray, np.ndarray]:
     return gradients, b_values
 
 
+# Run the numerical experiment without plotting so its outputs remain reusable.
 def _simulate_pgse_cpmg_data() -> tuple[
     np.ndarray,
     np.ndarray,
@@ -136,6 +143,7 @@ def _simulate_pgse_cpmg_data() -> tuple[
     return data, b_values, echo_times, diffusion_axis, t2_axis, components
 
 
+# Keep visualization separate from simulation for headless runs and reuse.
 def _plot_results(
     plt,
     b_values: np.ndarray,
@@ -200,6 +208,7 @@ def _plot_results(
     return fig
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     args = _parse_args()
     nonnegative = not args.unconstrained

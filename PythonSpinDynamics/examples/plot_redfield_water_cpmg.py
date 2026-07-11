@@ -48,6 +48,7 @@ class WaterCPMGResult:
     echo_spacing_seconds: float
 
 
+# Keep CLI choices together so scientific defaults are easy to find and override.
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--larmor-mhz", type=float, default=20.0)
@@ -93,6 +94,7 @@ def _fit_t2(echo_times: np.ndarray, amplitudes: np.ndarray) -> float:
     return -1.0 / slope if slope < 0.0 else np.inf
 
 
+# Run the numerical experiment without plotting so its outputs remain reusable.
 def _simulate_one(
     *,
     larmor_hz: float,
@@ -136,6 +138,7 @@ def _simulate_one(
     return echo_times, echoes, _fit_t2(echo_times, echoes)
 
 
+# Run the numerical experiment without plotting so its outputs remain reusable.
 def _simulate(args: argparse.Namespace) -> WaterCPMGResult:
     larmor_hz = float(args.larmor_mhz) * 1.0e6
     echo_spacing_seconds = (
@@ -183,6 +186,7 @@ def _simulate(args: argparse.Namespace) -> WaterCPMGResult:
     )
 
 
+# Keep visualization separate from simulation for headless runs and reuse.
 def _plot(plt, result: WaterCPMGResult):
     fig, axes = plt.subplots(1, 3, figsize=(13.2, 4.4), constrained_layout=True)
     for tau_c, train, t2 in zip(
@@ -220,6 +224,7 @@ def _plot(plt, result: WaterCPMGResult):
     return fig
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     args = _parse_args()
     if args.num_echoes <= 1:

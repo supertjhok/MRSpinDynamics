@@ -65,6 +65,7 @@ def _median_time(run, repeats: int) -> float:
     return float(np.median(samples))
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=__doc__,

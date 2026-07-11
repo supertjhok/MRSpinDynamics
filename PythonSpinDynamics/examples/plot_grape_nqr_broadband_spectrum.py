@@ -68,6 +68,7 @@ def _model_for(isotope, nu_q_hz, eta, rf):
     )
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--isotope", type=str, default="63Cu")

@@ -91,6 +91,7 @@ def _selectivity_metrics(positions, mz, half_width):
     }
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--segments", type=int, default=24, help="Number of pulse segments.")

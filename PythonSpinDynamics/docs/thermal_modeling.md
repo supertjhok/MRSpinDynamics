@@ -1,12 +1,15 @@
-# Coupled Thermal Modeling: Options and Work Plan
+# Coupled Thermal Modeling: Design and Validation
 
-Design/planning note for adding a thermal solver to `spin_dynamics`, alongside
-the existing field solvers, to model the coupled heating of RF coils, gradient
-coils, and the sample.
+> **Status (audited 2026-07-11): implemented.** Material, source, network,
+> conduction, RF/gradient coupling, and flowing-sample thermal paths are
+> available with tests and examples. This page explains the model boundaries.
+
+Design and validation note for the thermal solver in `spin_dynamics`, which
+models coupled heating of RF coils, gradient coils, and the sample.
 
 ## Motivation
 
-Three heating paths matter in real experiments and are currently unmodeled:
+Three heating paths matter in real experiments and motivate the implemented models:
 
 1. **RF coil self-heating.** Transmit pulses dissipate `I^2 R` in the coil;
    the coil warms, its resistivity rises, `Q` drops, Johnson noise grows, and

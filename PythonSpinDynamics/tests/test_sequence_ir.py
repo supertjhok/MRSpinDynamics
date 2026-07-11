@@ -10,6 +10,7 @@ import numpy as np
 from spin_dynamics.sequences import (
     ADCEvent,
     GradientWaveform,
+    HardwareEffectsPolicy,
     PulseqFormatError,
     RFPulse,
     SequenceBlock,
@@ -66,6 +67,29 @@ num_samples 4
 
 
 class SequenceIRTests(unittest.TestCase):
+    def test_hardware_effects_policy_is_explicit_and_independent(self):
+        sequence = SequenceIR(
+            blocks=(SequenceBlock(duration_seconds=20e-6),),
+            hardware_effects=HardwareEffectsPolicy(
+                transmit="apply", receive="ignore"
+            ),
+        )
+        compiled = compile_sequence(sequence)
+        self.assertEqual(compiled.hardware_effects, sequence.hardware_effects)
+        with self.assertRaisesRegex(NotImplementedError, "transmit"):
+            compiled_to_motion_steps(compiled)
+
+    def test_hardware_effects_default_to_ideal_and_validate_modes(self):
+        sequence = SequenceIR(blocks=(SequenceBlock(duration_seconds=20e-6),))
+        self.assertEqual(sequence.hardware_effects, HardwareEffectsPolicy())
+        with self.assertRaisesRegex(ValueError, "receive"):
+            HardwareEffectsPolicy(receive="sometimes")
+        with self.assertRaisesRegex(TypeError, "HardwareEffectsPolicy"):
+            SequenceIR(
+                blocks=(SequenceBlock(duration_seconds=20e-6),),
+                hardware_effects={"transmit": "apply"},  # type: ignore[arg-type]
+            )
+
     def test_compile_preserves_concurrent_rf_gradient_and_adc_timing(self):
         sequence = SequenceIR(
             blocks=(

@@ -119,8 +119,6 @@ does not silently round the sequence.
 
 ## Repository Map
 
-## Repository Map
-
 - `MATLABSpinDynamics/` is the original MATLAB implementation. It remains the
   reference point for validated Bloch-equation NMR workflows and historical
   examples. Many core routines also run in GNU Octave; optimization, MATLAB
@@ -141,8 +139,10 @@ does not silently round the sequence.
   three subprojects into a single predict-simulate-validate loop: it converts
   ab initio EFG/`C_Q` values into spin-dynamics NQR sites, checks the two
   Hamiltonian implementations against each other, and compares predicted lines
-  against the measured database. See `docs/roadmap.md` for the workspace-level
-  survey and plan.
+  against the measured database. Its target survey ranks structure-backed
+  compounds by the next missing DFT or database input, while its uncertainty
+  layer propagates explicit `(C_Q, eta)` distributions into simulated line
+  intervals. See `docs/roadmap.md` for the workspace-level survey and plan.
 - `References/` is mostly a local, ignored source-material archive used during
   development. Published papers, books, copied reference documents, and large
   source captures should not be committed. The folder does track a small number
@@ -151,11 +151,13 @@ does not silently round the sequence.
 
 ## Documentation and Development
 
+- [Documentation guide and document-status map](docs/documentation_guide.md)
 - [Python user manual (PDF)](PythonSpinDynamics/docs/user_manual.pdf) and
   [LaTeX source](PythonSpinDynamics/docs/user_manual.tex)
 - [Python package README](PythonSpinDynamics/README.md),
   [generated API reference](PythonSpinDynamics/docs/python_api/api_reference.md),
-  and [validation status](PythonSpinDynamics/docs/validation_results.md)
+  [validation evidence matrix](PythonSpinDynamics/docs/validation_matrix.md),
+  and [historical validation results](PythonSpinDynamics/docs/validation_results.md)
 - [Workspace roadmap and capability gaps](docs/roadmap.md) and
   [release process](docs/release_process.md)
 - [QuadrupolarDFT guide](QuadrupolarDFT/README.md),
@@ -174,6 +176,7 @@ cd PythonSpinDynamics
 python -m ruff check src tests examples
 python docs/generate_api_reference.py
 git diff --exit-code docs/python_api/api_reference.md
+python docs/generate_validation_matrix.py --check
 python -m unittest tests.smoke_tests
 ```
 

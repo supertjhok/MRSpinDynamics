@@ -285,6 +285,70 @@ def nqr_model_rule(experiment: Experiment, entry: WorkflowEntry) -> list[RuleFin
     return findings
 
 
+def spectroscopy_inputs_rule(
+    experiment: Experiment, entry: WorkflowEntry
+) -> list[RuleFinding]:
+    """Resolve spectroscopy sample objects and transition labels at plan time."""
+
+    from spin_dynamics.experiment import (
+        esr_adapter,
+        esr_multidim_adapter,
+        nqr_adapter,
+    )
+    from spin_dynamics.experiment.specs import (
+        ESRCWSweep,
+        ESRDaviesENDOR,
+        ESRFID,
+        ESRHYSCORE,
+        ESRHahnEcho,
+        ESRMimsENDOR,
+        ESRThreePulseESEEM,
+        ESRTwoPulseESEEM,
+        NQRFID,
+        NQRPopulationTransfer,
+    )
+
+    sequence = experiment.sequence
+    try:
+        if isinstance(sequence, NQRFID):
+            nqr_adapter.require_site(experiment)
+        elif isinstance(sequence, NQRPopulationTransfer):
+            site = nqr_adapter.require_site(experiment)
+            nqr_adapter.target_transition(site, sequence.perturbation_transition)
+            nqr_adapter.target_transition(site, sequence.detection_transition)
+        elif isinstance(sequence, (ESRFID, ESRHahnEcho, ESRCWSweep)):
+            esr_adapter.require_system(experiment)
+        elif isinstance(
+            sequence,
+            (
+                ESRTwoPulseESEEM,
+                ESRThreePulseESEEM,
+                ESRHYSCORE,
+                ESRDaviesENDOR,
+                ESRMimsENDOR,
+            ),
+        ):
+            coupling = esr_multidim_adapter.require_coupling(experiment)
+            if isinstance(sequence, (ESRTwoPulseESEEM, ESRThreePulseESEEM)):
+                offset = (
+                    sequence.electron_offset_hz
+                    if isinstance(sequence, ESRTwoPulseESEEM)
+                    else 0.0
+                )
+                esr_multidim_adapter.resolved_eseem_model(
+                    sequence.model, coupling, electron_offset_hz=offset
+                )
+        else:
+            return []
+    except ValueError as exc:
+        return [
+            RuleFinding(
+                rule="spectroscopy_inputs", severity="error", message=str(exc)
+            )
+        ]
+    return []
+
+
 def transport_rule(experiment: Experiment, entry: WorkflowEntry) -> list[RuleFinding]:
     """Report uniform-flow scale and flag closed reflecting transport."""
 
@@ -336,12 +400,50 @@ def transport_rule(experiment: Experiment, entry: WorkflowEntry) -> list[RuleFin
     ]
 
 
+def sequence_ir_rule(experiment: Experiment, entry: WorkflowEntry) -> list[RuleFinding]:
+    """Compile general IR at plan time and reject unsupported backend policy."""
+
+    from spin_dynamics.experiment import sequence_adapter
+    from spin_dynamics.experiment.specs import SequenceIRExecution
+
+    if not isinstance(experiment.sequence, SequenceIRExecution):
+        return []
+    try:
+        compiled, _steps = sequence_adapter.prepare_for_experiment(experiment)
+    except (TypeError, ValueError, NotImplementedError) as exc:
+        return [
+            RuleFinding(rule="sequence_ir", severity="error", message=str(exc))
+        ]
+    return [
+        RuleFinding(
+            rule="sequence_ir",
+            severity="ok",
+            message=(
+                f"compiled {compiled.durations_seconds.size} intervals and "
+                f"{compiled.adc.times_seconds.size} ADC samples for a "
+                f"{len(experiment.sample.sequence_domain.axes)}-D motion backend"
+            ),
+            details={
+                "intervals": int(compiled.durations_seconds.size),
+                "adc_samples": int(compiled.adc.times_seconds.size),
+                "particles": int(
+                    np.count_nonzero(experiment.sample.sequence_domain.density > 0.0)
+                    * experiment.sequence.walkers_per_cell
+                ),
+                "source_format": compiled.source_format,
+            },
+        )
+    ]
+
+
 DEFAULT_RULES: tuple[Rule, ...] = (
     rephasing_rule,
     noise_spec_rule,
     hardware_wiring_rule,
     nqr_model_rule,
+    spectroscopy_inputs_rule,
     transport_rule,
+    sequence_ir_rule,
 )
 
 

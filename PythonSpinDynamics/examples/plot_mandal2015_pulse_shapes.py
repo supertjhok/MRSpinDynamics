@@ -23,6 +23,7 @@ def _phase_label(cycles: float) -> str:
     return f"{cycles:g} cycles"
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--probe", choices=["tuned", "untuned", "matched"], default="tuned")

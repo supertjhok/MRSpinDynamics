@@ -1,4 +1,9 @@
-"""Plot BPP T1 and T2 relaxation versus temperature."""
+"""Plot BPP T1 and T2 relaxation versus temperature.
+
+Read the setup, simulation, and reporting stages in order; each stage is kept
+explicit so the example can be adapted without hidden state. Run ``python
+examples/plot_bpp_relaxation_temperature.py --help`` to see the adjustable inputs.
+"""
 
 from __future__ import annotations
 
@@ -30,6 +35,7 @@ def build_temperature_sweep(args: argparse.Namespace):
     return temperatures, model.rates(temperatures)
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--temp-min-k", type=float, default=250.0)

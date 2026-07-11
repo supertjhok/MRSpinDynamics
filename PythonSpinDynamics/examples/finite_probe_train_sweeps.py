@@ -1,4 +1,9 @@
-"""Run compact finite CPMG train probe-parameter sweeps."""
+"""Run compact finite CPMG train probe-parameter sweeps.
+
+Use the printed or plotted signal to connect pulse timing, probe choice, and
+relaxation to the resulting acquisition. Run ``python
+examples/finite_probe_train_sweeps.py --help`` to see the adjustable inputs.
+"""
 
 from __future__ import annotations
 
@@ -28,6 +33,7 @@ def _summary(label: str, result) -> None:
     print(f"  max |integral|: {abs(result.echo_integrals).max():.6g}")
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--numpts", type=int, default=21)

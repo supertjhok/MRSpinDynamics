@@ -29,6 +29,7 @@ from spin_dynamics.fields import coils
 from spin_dynamics.fields.eddy_modes import EddyModes
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--coil-radius-mm", type=float, default=40.0)

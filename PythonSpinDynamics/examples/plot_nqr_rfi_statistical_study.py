@@ -551,6 +551,7 @@ def _mean_ci(values: np.ndarray, axis: int = 0) -> tuple[np.ndarray, np.ndarray]
     return mean, ci
 
 
+# Keep visualization separate from simulation for headless runs and reuse.
 def _plot(
     plt,
     noise_study: dict[str, np.ndarray],
@@ -662,6 +663,7 @@ def _print_summary(
     )
 
 
+# Keep CLI choices together so scientific defaults are easy to find and override.
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--trials", type=int, default=48)
@@ -713,6 +715,7 @@ def _rms(values: np.ndarray) -> float:
     return float(np.sqrt(np.mean(np.abs(values) ** 2)))
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     args = _parse_args()
     if args.trials <= 0:
@@ -722,8 +725,13 @@ def main() -> None:
     if args.sensor_initial_echo_snr <= 0.0:
         raise SystemExit("--sensor-initial-echo-snr must be positive")
     plt = load_matplotlib(headless=args.output is not None)
+    # The first sweep varies detector SNR at fixed reference quality; the second
+    # varies reference-sensor quality at fixed detector SNR. Keeping them separate
+    # reveals whether performance is noise-limited or reference-limited.
     noise_study = _run_noise_study(args)
     sensor_study = _run_sensor_study(args)
+    # Plots show trial-to-trial distributions; the compact text summary reports
+    # the median improvements most useful for experiment planning.
     _plot(plt, noise_study, sensor_study, args)
     _print_summary(noise_study, sensor_study, args)
 

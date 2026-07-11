@@ -8,6 +8,7 @@ combination.
 from __future__ import annotations
 
 import dataclasses
+import json
 
 import numpy as np
 import pytest
@@ -27,15 +28,37 @@ from spin_dynamics.experiment import (
     PGSE,
     PGSEWalkers,
     Sample,
+    SequenceDomain,
+    SequenceIRExecution,
     SerializationError,
     SolenoidCoil,
     TxCoil,
     TransportDomain2D,
     UniformFlow2D,
     available_workflows,
+    experiment_fingerprint,
     load_run,
+    result_fingerprint,
 )
 from spin_dynamics.noise import NoiseSpec
+from spin_dynamics.motion import (
+    initialize_ensemble_from_domain,
+    make_motion_field_maps,
+)
+from spin_dynamics.fields.domain import SpatialDomain
+from spin_dynamics.sequences import (
+    ADCEvent,
+    GradientWaveform,
+    HardwareEffectsPolicy,
+    RFPulse,
+    SequenceBlock,
+    SequenceIR,
+    compile_sequence,
+    compiled_to_motion_steps,
+    parse_pulseq,
+    run_motion_sequence,
+    serialize_pulseq,
+)
 
 PROBES = ("ideal", "tuned", "untuned", "matched")
 
@@ -122,6 +145,124 @@ def test_noise_parity_with_seed() -> None:
     )
     direct = workflows.run_ideal_cpmg(numpts=31, maxoffs=8.0, noise=noise)
     _assert_results_equal(experiment.run().result, direct)
+
+
+@pytest.mark.smoke
+def test_provenance_fingerprints_are_stable_and_specific(tmp_path) -> None:
+    experiment = Experiment(
+        sequence=CPMG(), acquisition=Acquisition(numpts=31, maxoffs=8.0)
+    )
+    first = experiment.run()
+    second = experiment.run()
+    assert first.provenance["schema_version"] == 2
+    assert first.provenance["experiment_sha256"] == experiment_fingerprint(experiment)
+    assert first.provenance["result_sha256"] == second.provenance["result_sha256"]
+    assert first.provenance["result_sha256"] == result_fingerprint(first.result)
+    assert first.provenance["randomness"]["status"] == "deterministic"
+    assert first.provenance["implementation"]["module_sha256"]
+    assert first.provenance["environment"]["sha256"]
+    assert first.provenance["source"]["package_source_sha256"]
+    assert experiment_fingerprint(experiment) != experiment_fingerprint(
+        dataclasses.replace(
+            experiment, acquisition=Acquisition(numpts=33, maxoffs=8.0)
+        )
+    )
+
+    path = tmp_path / "reproducible.npz"
+    first.save(str(path))
+    loaded = load_run(str(path))
+    assert loaded.format_version == 2
+    assert loaded.specification_matches is True
+    assert loaded.result_matches is True
+    report = loaded.verify_reproduction()
+    assert report.matches
+    assert report.archive_result_matches is True
+    assert report.implementation_matches is True
+    assert report.environment_matches is True
+    report.require_match()
+
+
+@pytest.mark.smoke
+def test_provenance_classifies_seeded_and_unseeded_randomness() -> None:
+    seeded = Experiment(
+        sequence=CPMG(),
+        acquisition=Acquisition(
+            numpts=31, maxoffs=8.0, noise=NoiseSpec(sigma=0.01, seed=7)
+        ),
+    ).run()
+    assert seeded.provenance["randomness"]["status"] == "seeded"
+    assert seeded.provenance["randomness"]["sources"][0]["seed"] == 7
+
+    unseeded = Experiment(
+        sequence=CPMG(),
+        acquisition=Acquisition(numpts=31, maxoffs=8.0, noise=0.01),
+    ).run()
+    assert unseeded.provenance["randomness"]["status"] == "unseeded"
+
+
+def test_version_one_run_archive_remains_readable(tmp_path) -> None:
+    path = tmp_path / "current.npz"
+    Experiment(sequence=CPMG(), acquisition=Acquisition(numpts=15)).run().save(
+        str(path)
+    )
+    with np.load(path, allow_pickle=False) as archive:
+        meta = json.loads(str(archive["__meta__"]))
+        arrays = {
+            key: archive[key].copy()
+            for key in archive.files
+            if key != "__meta__"
+        }
+    meta["format_version"] = 1
+    for key in (
+        "schema_version",
+        "experiment_sha256",
+        "result_sha256",
+        "implementation",
+        "environment",
+        "source",
+        "randomness",
+    ):
+        meta["provenance"].pop(key, None)
+    legacy = tmp_path / "legacy.npz"
+    np.savez(legacy, __meta__=json.dumps(meta), **arrays)
+    loaded = load_run(str(legacy))
+    assert loaded.format_version == 1
+    assert loaded.specification_matches is None
+    assert loaded.result_matches is None
+    report = loaded.verify_reproduction()
+    assert not report.matches
+    assert "no result fingerprint" in report.notes[0]
+
+
+def test_archive_fingerprints_detect_spec_and_result_tampering(tmp_path) -> None:
+    original = tmp_path / "original.npz"
+    Experiment(sequence=CPMG(), acquisition=Acquisition(numpts=15)).run().save(
+        str(original)
+    )
+    with np.load(original, allow_pickle=False) as archive:
+        meta = json.loads(str(archive["__meta__"]))
+        arrays = {
+            key: archive[key].copy()
+            for key in archive.files
+            if key != "__meta__"
+        }
+
+    array_key = next(iter(arrays))
+    arrays[array_key].flat[0] += 1.0
+    changed_result = tmp_path / "changed-result.npz"
+    np.savez(changed_result, __meta__=json.dumps(meta), **arrays)
+    assert load_run(str(changed_result)).result_matches is False
+
+    with np.load(original, allow_pickle=False) as archive:
+        arrays = {
+            key: archive[key].copy()
+            for key in archive.files
+            if key != "__meta__"
+        }
+    meta["experiment"]["acquisition"]["numpts"] = 17
+    changed_spec = tmp_path / "changed-spec.npz"
+    np.savez(changed_spec, __meta__=json.dumps(meta), **arrays)
+    assert load_run(str(changed_spec)).specification_matches is False
 
 
 @pytest.mark.smoke
@@ -809,7 +950,12 @@ def test_pgse_walkers_warns_when_flow_reflects() -> None:
     assert any("not through-flow" in warning for warning in plan.warnings)
 
 
-from spin_dynamics.experiment import NQRSLSE, NQRSORC  # noqa: E402
+from spin_dynamics.experiment import (  # noqa: E402
+    NQRFID,
+    NQRPopulationTransfer,
+    NQRSLSE,
+    NQRSORC,
+)
 from spin_dynamics.nqr import (  # noqa: E402
     QuadrupolarSite,
     SelectivePulse,
@@ -817,6 +963,8 @@ from spin_dynamics.nqr import (  # noqa: E402
     SORCSequence,
     diagonalize_site,
     simulate_full_slse,
+    simulate_full_fid,
+    simulate_population_transfer,
     simulate_slse,
     simulate_sorc,
 )
@@ -930,6 +1078,50 @@ def test_nqr_sorc_parity() -> None:
 
 
 @pytest.mark.smoke
+def test_nqr_fid_parity() -> None:
+    spec = NQRFID(
+        nutation_hz=10e3,
+        pulse_duration_seconds=25e-6,
+        acquisition_seconds=100e-6,
+        num_points=32,
+    )
+    record = Experiment(sequence=spec, sample=Sample(site=_SPIN1)).run()
+    direct = simulate_full_fid(
+        _SPIN1,
+        nutation_hz=10e3,
+        pulse_duration_seconds=25e-6,
+        times_seconds=np.linspace(0.0, 100e-6, 32),
+    )
+    assert np.array_equal(record.result.signal, direct.signal)
+
+
+@pytest.mark.smoke
+def test_nqr_population_transfer_parity_and_spin_guard() -> None:
+    spec = NQRPopulationTransfer(
+        perturbation_duration_seconds=100e-6,
+        perturbation_nutation_hz=2.5e3,
+        detection_duration_seconds=100e-6,
+        detection_nutation_hz=2.5e3,
+        echo_spacing_seconds=1e-3,
+        num_echoes=3,
+        perturbation_transition="x",
+        detection_transition="y",
+        orientations="single",
+    )
+    record = Experiment(sequence=spec, sample=Sample(site=_SPIN1)).run()
+    direct = simulate_population_transfer(
+        _SPIN1,
+        SelectivePulse("x", 100e-6, 2.5e3),
+        SLSESequence(SelectivePulse("y", 100e-6, 2.5e3), 1e-3, 3),
+        orientations="single",
+    )
+    assert np.array_equal(record.result.normalized_difference, direct.normalized_difference)
+    plan = Experiment(sequence=spec, sample=Sample(site=_SPIN32)).plan()
+    assert not plan.ok
+    assert any("spin-1" in error for error in plan.errors)
+
+
+@pytest.mark.smoke
 def test_nqr_bare_nutation_conversion() -> None:
     from spin_dynamics.experiment import nqr_adapter
 
@@ -989,8 +1181,33 @@ def test_nqr_json_and_save_round_trip(tmp_path) -> None:
     )
 
 
-from spin_dynamics.esr import ESRSpinSystem, simulate_fid, simulate_hahn_echo  # noqa: E402
-from spin_dynamics.experiment import ESRFID, ESRHahnEcho, UniformB0  # noqa: E402
+from spin_dynamics.esr import (  # noqa: E402
+    ESRSpinSystem,
+    HyperfineCoupling,
+    davies_endor_spectrum,
+    hyscore_signal,
+    hyscore_spectrum,
+    mims_endor_spectrum,
+    simulate_deer,
+    simulate_fid,
+    simulate_field_sweep,
+    simulate_hahn_echo,
+    three_pulse_eseem,
+    two_pulse_eseem,
+)
+from spin_dynamics.experiment import (  # noqa: E402
+    DEERDistribution,
+    ESRCWSweep,
+    ESRDEER,
+    ESRDaviesENDOR,
+    ESRFID,
+    ESRHYSCORE,
+    ESRHahnEcho,
+    ESRMimsENDOR,
+    ESRThreePulseESEEM,
+    ESRTwoPulseESEEM,
+    UniformB0,
+)
 
 _ESR_SYSTEM = ESRSpinSystem()
 _ESR_HW = Hardware(b0=UniformB0(field_tesla=0.35))
@@ -1048,6 +1265,133 @@ def test_esr_hahn_echo_parity_with_defaults() -> None:
 
 
 @pytest.mark.smoke
+def test_esr_cw_sweep_parity_without_fixed_b0() -> None:
+    spec = ESRCWSweep(
+        microwave_frequency_hz=9.5e9,
+        orientations="single",
+        num_points=64,
+    )
+    record = Experiment(sequence=spec, sample=Sample(esr_system=_ESR_SYSTEM)).run()
+    direct = simulate_field_sweep(
+        _ESR_SYSTEM, 9.5e9, orientations="single", points=64
+    )
+    assert np.array_equal(record.result.spectrum, direct.spectrum)
+
+
+@pytest.mark.smoke
+def test_esr_deer_parity_and_round_trip(tmp_path) -> None:
+    distances = np.linspace(2.0, 4.0, 9)
+    weights = np.exp(-0.5 * ((distances - 3.0) / 0.25) ** 2)
+    sample = Sample(deer_distribution=DEERDistribution(distances, weights))
+    spec = ESRDEER(acquisition_seconds=2e-6, num_points=32, n_theta=101)
+    experiment = Experiment(sequence=spec, sample=sample)
+    assert Experiment.from_json(experiment.to_json()) == experiment
+    record = experiment.run()
+    direct = simulate_deer(
+        np.linspace(0.0, 2e-6, 32),
+        distances,
+        weights,
+        n_theta=101,
+    )
+    assert np.array_equal(record.result.form_factor, direct)
+    path = tmp_path / "deer.npz"
+    record.save(str(path))
+    loaded = load_run(str(path))
+    assert loaded.unsaved_result_fields == ()
+    assert loaded.experiment == experiment
+
+
+_HYPERFINE = HyperfineCoupling(
+    larmor_hz=14.8e6, secular_hz=3.0e6, pseudosecular_hz=1.2e6
+)
+
+
+@pytest.mark.smoke
+def test_esr_two_and_three_pulse_eseem_parity() -> None:
+    sample = Sample(hyperfine_coupling=_HYPERFINE)
+    two = ESRTwoPulseESEEM(
+        acquisition_seconds=2e-6, num_points=24, zero_fill=2
+    )
+    two_record = Experiment(sequence=two, sample=sample).run()
+    times = np.linspace(0.0, 2e-6, 24)
+    assert two_record.result.model == "analytic"
+    assert np.array_equal(
+        two_record.result.signal, two_pulse_eseem(times, _HYPERFINE)
+    )
+
+    three = ESRThreePulseESEEM(
+        acquisition_seconds=2e-6,
+        tau_seconds=120e-9,
+        num_points=24,
+        zero_fill=2,
+    )
+    three_record = Experiment(sequence=three, sample=sample).run()
+    assert np.array_equal(
+        three_record.result.signal,
+        three_pulse_eseem(times, _HYPERFINE, tau_seconds=120e-9),
+    )
+
+
+@pytest.mark.smoke
+def test_esr_hyscore_parity_and_round_trip(tmp_path) -> None:
+    spec = ESRHYSCORE(
+        evolution1_seconds=1e-6,
+        evolution2_seconds=1.2e-6,
+        tau_seconds=100e-9,
+        num_points1=5,
+        num_points2=6,
+        zero_fill=1,
+    )
+    experiment = Experiment(
+        sequence=spec, sample=Sample(hyperfine_coupling=_HYPERFINE)
+    )
+    record = experiment.run()
+    t1 = np.linspace(0.0, 1e-6, 5)
+    t2 = np.linspace(0.0, 1.2e-6, 6)
+    signal = hyscore_signal(t1, t2, _HYPERFINE, tau_seconds=100e-9)
+    direct = hyscore_spectrum(t1, t2, signal, zero_fill=1)
+    assert np.array_equal(record.result.signal, signal)
+    assert np.array_equal(record.result.spectrum, direct.spectrum)
+    path = tmp_path / "hyscore.npz"
+    record.save(str(path))
+    loaded = load_run(str(path))
+    assert loaded.unsaved_result_fields == ()
+    assert loaded.experiment == experiment
+    assert np.array_equal(loaded.result.spectrum, record.result.spectrum)
+
+
+@pytest.mark.smoke
+def test_esr_endor_parity_and_hyperfine_input_guard() -> None:
+    sample = Sample(hyperfine_coupling=_HYPERFINE)
+    davies = ESRDaviesENDOR(
+        num_points=32,
+        linewidth_hz=0.1e6,
+        frequency_min_hz=10e6,
+        frequency_max_hz=20e6,
+    )
+    record = Experiment(sequence=davies, sample=sample).run()
+    axis = np.linspace(10e6, 20e6, 32)
+    direct = davies_endor_spectrum(axis, _HYPERFINE, linewidth_hz=0.1e6)
+    assert np.array_equal(record.result.spectrum, direct.spectrum)
+
+    mims = ESRMimsENDOR(
+        tau_seconds=200e-9,
+        num_points=32,
+        linewidth_hz=0.1e6,
+        frequency_min_hz=10e6,
+        frequency_max_hz=20e6,
+    )
+    mims_record = Experiment(sequence=mims, sample=sample).run()
+    mims_direct = mims_endor_spectrum(
+        axis, _HYPERFINE, tau_seconds=200e-9, linewidth_hz=0.1e6
+    )
+    assert np.array_equal(mims_record.result.spectrum, mims_direct.spectrum)
+    plan = Experiment(sequence=davies).plan()
+    assert not plan.ok
+    assert any("hyperfine_coupling" in error for error in plan.errors)
+
+
+@pytest.mark.smoke
 def test_esr_requires_system_and_field() -> None:
     plan = Experiment(sequence=_ESR_FID, hardware=_ESR_HW).plan()
     assert not plan.ok
@@ -1087,17 +1431,207 @@ def test_esr_json_and_save_round_trip(tmp_path) -> None:
     assert np.array_equal(rerun.result.signal, record.result.signal)
 
 
+def _general_ir(*, hardware_effects=None) -> SequenceIR:
+    return SequenceIR(
+        blocks=(
+            SequenceBlock(
+                duration_seconds=1e-3,
+                rf=RFPulse([250.0j], dwell_seconds=1e-3),
+                label="excitation",
+            ),
+            SequenceBlock(
+                duration_seconds=2e-3,
+                adc=ADCEvent(
+                    2,
+                    dwell_seconds=1e-3,
+                    phase_offset_rad=0.2,
+                    phase_offsets_rad=[0.0, np.pi / 2.0],
+                ),
+                label="readout",
+            ),
+        ),
+        hardware_effects=(
+            HardwareEffectsPolicy()
+            if hardware_effects is None
+            else hardware_effects
+        ),
+    )
+
+
+def _general_domain() -> SequenceDomain:
+    return SequenceDomain(
+        axes=(np.array([-1e-3, 1e-3]),),
+        density=np.array([0.4, 0.6]),
+    )
+
+
+@pytest.mark.smoke
+def test_sequence_ir_facade_matches_direct_motion_backend() -> None:
+    ir = _general_ir()
+    experiment = Experiment(
+        sequence=SequenceIRExecution(ir=ir),
+        sample=Sample(sequence_domain=_general_domain()),
+    )
+    plan = experiment.plan()
+    assert plan.ok
+    assert plan.workflow == "run_sequence_ir"
+    finding = next(item for item in plan.findings if item.rule == "sequence_ir")
+    assert finding.details["adc_samples"] == 2
+
+    record = experiment.run()
+    compiled = compile_sequence(ir)
+    domain = SpatialDomain(_general_domain().axes)
+    ensemble = initialize_ensemble_from_domain(
+        domain, _general_domain().density
+    )
+    fields = make_motion_field_maps(domain)
+    direct = run_motion_sequence(
+        ensemble,
+        fields,
+        compiled_to_motion_steps(compiled, spatial_dimensions=1),
+    )
+    expected = direct.signal * np.exp(-1j * compiled.adc.phase_offsets_rad)
+    assert np.array_equal(record.result.clean_signal, expected)
+    assert np.array_equal(record.result.signal, expected)
+    assert np.array_equal(
+        record.result.sample_times_seconds, compiled.adc.times_seconds
+    )
+    assert all(label.startswith("readout:") for label in record.result.sample_labels)
+
+
+@pytest.mark.smoke
+def test_sequence_ir_gradient_channel_mapping_and_adc_frequency_phase() -> None:
+    ir = SequenceIR(
+        blocks=(
+            SequenceBlock(
+                duration_seconds=1e-3,
+                gradients=(
+                    None,
+                    None,
+                    GradientWaveform([7.0], dwell_seconds=1e-3),
+                ),
+                adc=ADCEvent(
+                    1,
+                    dwell_seconds=1e-3,
+                    frequency_offset_hz=100.0,
+                    phase_offset_rad=0.2,
+                ),
+            ),
+        )
+    )
+    compiled = compile_sequence(ir)
+    steps = compiled_to_motion_steps(
+        compiled, spatial_dimensions=2, gradient_axes=(0, 2)
+    )
+    assert steps[0].gradient == pytest.approx((0.0, 2.0 * np.pi * 7.0))
+    assert compiled.adc.phase_offsets_rad[0] == pytest.approx(
+        0.2 + 2.0 * np.pi * 100.0 * 0.5e-3
+    )
+
+
+@pytest.mark.smoke
+def test_sequence_ir_facade_round_trip_noise_and_reproduction(tmp_path) -> None:
+    experiment = Experiment(
+        sequence=SequenceIRExecution(ir=_general_ir(), seed=19),
+        sample=Sample(sequence_domain=_general_domain()),
+        acquisition=Acquisition(noise=NoiseSpec(sigma=0.01, seed=23)),
+    )
+    assert Experiment.from_json(experiment.to_json()) == experiment
+    record = experiment.run()
+    assert not np.array_equal(record.result.signal, record.result.clean_signal)
+    path = tmp_path / "sequence-ir.npz"
+    record.save(str(path))
+    loaded = load_run(str(path))
+    assert loaded.unsaved_result_fields == ()
+    assert loaded.experiment == experiment
+    assert loaded.result_matches is True
+    assert loaded.verify_reproduction().matches
+
+
+@pytest.mark.smoke
+def test_sequence_ir_facade_executes_pulseq_round_trip() -> None:
+    native = SequenceIR(
+        blocks=(
+            SequenceBlock(
+                duration_seconds=1e-3,
+                rf=RFPulse([250.0j], dwell_seconds=1e-3),
+            ),
+            SequenceBlock(
+                duration_seconds=2e-3,
+                adc=ADCEvent(2, dwell_seconds=1e-3),
+            ),
+        ),
+        definitions={
+            "BlockDurationRaster": 1e-3,
+            "GradientRasterTime": 1e-3,
+            "RadiofrequencyRasterTime": 1e-3,
+        },
+    )
+    pulseq = parse_pulseq(serialize_pulseq(native))
+    experiment = Experiment(
+        sequence=SequenceIRExecution(ir=pulseq),
+        sample=Sample(sequence_domain=_general_domain()),
+    )
+    plan = experiment.plan()
+    finding = next(item for item in plan.findings if item.rule == "sequence_ir")
+    assert plan.ok
+    assert finding.details["source_format"] == "pulseq"
+    assert experiment.run().result.signal.size == 2
+
+
+@pytest.mark.smoke
+def test_sequence_ir_facade_rejects_missing_domain_and_probe_effects() -> None:
+    missing = Experiment(sequence=SequenceIRExecution(ir=_general_ir())).plan()
+    assert not missing.ok
+    assert any("sequence_domain" in error for error in missing.errors)
+
+    policy = HardwareEffectsPolicy(transmit="apply")
+    unsupported = Experiment(
+        sequence=SequenceIRExecution(ir=_general_ir(hardware_effects=policy)),
+        sample=Sample(sequence_domain=_general_domain()),
+    ).plan()
+    assert not unsupported.ok
+    assert any("probe hardware effects" in error for error in unsupported.errors)
+
+    extended = Experiment(
+        sequence=SequenceIRExecution(
+            ir=SequenceIR(
+                blocks=(SequenceBlock(1e-3, extensions=("custom",)),)
+            )
+        ),
+        sample=Sample(sequence_domain=_general_domain()),
+    ).plan()
+    assert not extended.ok
+    assert any("block extensions" in error for error in extended.errors)
+
+
 @pytest.mark.smoke
 def test_registry_entries_point_at_public_workflows() -> None:
     import spin_dynamics.esr as esr
     import spin_dynamics.nqr as nqr
 
     entries = available_workflows()
-    assert len(entries) == 21
+    assert len(entries) == 31
     public = set(workflows.STABLE_WORKFLOW_API) | set(workflows.EXTENDED_WORKFLOW_API)
     for entry in entries:
         if getattr(nqr, entry.name, None) is not None:
             assert getattr(nqr, entry.name) is entry.func, entry.name
+        elif entry.sequence_type is ESRDEER:
+            from spin_dynamics.experiment import esr_adapter
+
+            assert entry.func is esr_adapter.run_deer
+        elif entry.sequence_type in (
+            ESRTwoPulseESEEM,
+            ESRThreePulseESEEM,
+            ESRHYSCORE,
+        ):
+            from spin_dynamics.experiment import esr_multidim_adapter
+
+            assert entry.func.__module__ == esr_multidim_adapter.__name__
+        elif entry.sequence_type is SequenceIRExecution:
+            from spin_dynamics.experiment import sequence_adapter
+
+            assert entry.func is sequence_adapter.run_sequence_ir
         elif getattr(esr, entry.name, None) is not None:
             assert getattr(esr, entry.name) is entry.func, entry.name
         else:

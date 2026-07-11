@@ -156,6 +156,7 @@ def _gradient_part() -> None:
         print(f"    alpha {a_t:.3f} -> {a_f:.3f}   tau {tau_t * 1e6:.0f} us -> {tau_f * 1e6:.0f} us")
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--segments", type=int, default=24)

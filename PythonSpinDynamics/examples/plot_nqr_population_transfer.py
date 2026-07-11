@@ -1,4 +1,9 @@
-"""Plot a diagnostic spin-1 two-frequency NQR population-transfer map."""
+"""Plot a diagnostic spin-1 two-frequency NQR population-transfer map.
+
+Follow how the quadrupolar site, pulse/acquisition settings, and orientation model
+lead to the reported NQR response. Run ``python
+examples/plot_nqr_population_transfer.py --help`` to see the adjustable inputs.
+"""
 
 from __future__ import annotations
 
@@ -21,6 +26,7 @@ from spin_dynamics.nqr import (  # noqa: E402
 )
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=__doc__,

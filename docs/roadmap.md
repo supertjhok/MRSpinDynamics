@@ -1,6 +1,6 @@
 # MRSpinDynamics — Repository Survey and Roadmap
 
-_Last updated: 2026-07-01_
+_Last updated: 2026-07-11_
 
 This is a workspace-level survey and forward plan. Subproject-specific
 status lives in each subproject's own docs (e.g.
@@ -29,11 +29,12 @@ work is therefore still **structural and cross-cutting**: connect subprojects,
 validate new physics against measurements, and make the mature Python surface
 easier to install, cite, and use.
 
-## 2. The headline gap: the subprojects don't talk to each other
+## 2. The cross-project loop (first implementation complete)
 
 The repository contains the three pieces of a complete **predict → simulate →
-validate** loop, but (as of this survey) **zero cross-project imports** connect
-them:
+validate** loop. The first working bridge now lives in `integration/`; it
+connects all three components for NaNO2 and provides reusable conversion,
+cross-validation, database-query, and reporting helpers:
 
 - `QuadrupolarDFT` computes a *predicted* NQR frequency from first principles
   (EFG → C_Q, η → ν).
@@ -41,9 +42,9 @@ them:
   (C_Q, η, spin).
 - `NQRDatabase` holds the *measured* ν for 184 compounds, with citations.
 
-Closing this loop is the single highest-science-value, modest-code improvement
-available. A ready-made first case already exists on all three sides: **NaNO₂
-¹⁴N**.
+The seed case is **NaNO2 14N**. The next scientific step is breadth: more DFT
+systems, measured benchmarks, and uncertainty-aware comparison rather than a
+second one-off bridge.
 
 - DFT (ICSD 82857 run): C_Q ≈ −5.034 MHz, η ≈ 0.112 → lines 0.282, 3.635,
   3.916 MHz.
@@ -86,11 +87,13 @@ package — see section 6.
   second-order-quadrupolar / MAS regime, not the operators (see §7, F1).
 
 **Packaging / distribution**
-- `version = "0.0.0"`, "Development Status :: 3 - Alpha", not on PyPI, no
-  published API-docs site (the `generate_api_reference.py` + MkDocs scaffolding
-  is half-built). This is the limiting factor on adoption/citation; a JOSS
-  paper is realistic given the validation depth. A detailed beta/PyPI/MkDocs
-  release plan now lives in `docs/publishing_plan.md`.
+- Versioned wheel and source-distribution builds now carry an installed
+  `spin-dynamics` console command and `py.typed` marker. CI installs both
+  artifacts into clean environments, checks metadata, gates an initial typed
+  surface with MyPy, enforces 70% branch coverage, and applies an explicit
+  two-minor-release deprecation policy. Remaining adoption work is publishing
+  to a package index and hosting the API documentation site; the detailed
+  beta/PyPI/MkDocs plan lives in `docs/publishing_plan.md`.
 - The Python user manual has been reorganized around model boundaries,
   relaxation levels of description, and workflow guides, but there is still no
   hosted documentation site that ties the manual, API reference, examples, and
@@ -106,8 +109,8 @@ package — see section 6.
   ABINIT-input staging. `NQRDatabase` now has a rebuild/validation workflow that
   runs the PDF-backed builder, validates SQLite and JSONL exports, and fails if
   generated artifacts are stale.
-- No coverage measurement; benchmarks exist but aren't gated, so perf
-  regressions are invisible. ESR (newest module) has the thinnest test surface.
+- PythonSpinDynamics now measures branch coverage and enforces a 70% floor;
+  benchmarks still are not gated, so performance regressions remain invisible.
 
 **Physics depth** (next-frontier, from the science-impact roadmap)
 - q-space / averaged-propagator pore-size (diffusion-diffraction) — first
@@ -117,9 +120,10 @@ package — see section 6.
   form factors, direct complex inversion, intensity/autocorrelation inversion,
   and support-constrained phase retrieval. The new
   `plot_pgse_qspace_pore_imaging.py` example reconstructs a circular pore from
-  ideal and finite-SNR q-space intensity data. Remaining work is connecting the
-  inverse path directly to finite-pulse walker measurements and broader pore
-  geometries.
+  ideal and finite-SNR q-space intensity data. The inverse path is now connected
+  to finite-pulse walker measurements, and robustness is quantified for ellipse,
+  slit, and connected-domain pores under finite SNR, reduced q range, and random
+  missing samples.
 - Microscopic relaxation first increment is done in `spin_dynamics.relaxation`:
   shared Liouville helpers, `PhenomenologicalRelaxationModel`, dipolar bath
   sources, rigid-solid and isotropic-liquid motional averaging, and
@@ -156,9 +160,10 @@ AIMD/PIMD averaging for anharmonic cases like NaNO₂ near Tc.
 
 1. **Close the DFT → sim → DB loop.** Highest science value, modest code.
    Started here as the `integration/` package; NaNO₂ is the seed case.
-2. **q-space diffusion-diffraction** (roadmap #4) — ideal inversion and the
-   finite-pulse walker-to-image validation are done; next value is broader pore
-   geometry, finite-SNR, and incomplete-q-coverage studies.
+2. **q-space diffusion-diffraction** (roadmap #4) — ideal inversion,
+   finite-pulse walker-to-image validation, broader pore geometry, finite-SNR,
+   and incomplete-q-coverage studies are done. The next frontier is experimental
+   benchmarking and non-Cartesian/three-dimensional acquisition.
 3. **Validate and broaden microscopic relaxation.** The shared Redfield/dipolar
    model exists; next value is tying it to measured liquid NMR/NQR relaxation
    data, convergence checks, and clearer limits of validity.
@@ -174,9 +179,9 @@ AIMD/PIMD averaging for anharmonic cases like NaNO₂ near Tc.
    subpackage is a deferred future option (`docs/publishing_plan.md`).
 6. **Database enrichment from DFT** — a "predicted vs measured" column in the
    NQR explorer UI. Visually striking, directly useful.
-7. **Repo hygiene** — ABINIT binaries are now gitignored (done); remaining:
-   add coverage reporting and broaden CI beyond smoke/rebuild checks where the
-   newer subprojects still need deeper fixtures.
+7. **Repo hygiene** — ABINIT binaries are gitignored and PythonSpinDynamics now
+   gates coverage, typing, and built distributions; remaining work is broader
+   CI for the newer subprojects and benchmark regression gates.
 
 ## 5. The q-space diffusion-diffraction layer (started)
 
@@ -208,22 +213,31 @@ Completed increments:
 - The regression validation requires the walker reconstruction to correlate
   with the ideal autocorrelation, preserve the ellipse anisotropy, and recover
   the pore mask with intersection-over-union above 0.6.
+- `qspace_sampling_mask` distinguishes unmeasured q points from measured zeros;
+  mask-aware phase retrieval leaves those Fourier coefficients unconstrained.
+- `add_qspace_intensity_noise`, `threshold_qspace_intensity`, and
+  `qspace_shape_metrics` provide a reproducible SNR convention, an explicit
+  noise-floor mitigation, and translation/reflection-invariant quality metrics.
+- `examples/plot_pgse_qspace_robustness.py` repeats the inverse for ellipse,
+  slit, and connected-domain pores under finite SNR, radial q-window truncation,
+  and random dropout. At the default SNR 30, q-range fraction 0.7, and 25%
+  dropout, a two-sigma gate retains IoU above 0.5 in all trials for all three
+  shapes; trial-level data and interpretation are in
+  `PythonSpinDynamics/docs/qspace_imaging_robustness.md`.
 
-Next increments:
+Next frontiers:
 
-- Extend finite-pulse validation from the ellipse to slit and connected-domain
-  pores, and compare how much shape survives magnitude-only phase retrieval at
-  finite SNR.
-- Add sampling-window and missing-k-space studies, since real q-space pore
-  imaging is often limited more by q-coverage and SNR than by the ideal inverse.
+- Benchmark against experimental or published q-space pore data with a measured
+  noise model and acquisition mask.
+- Extend the Cartesian 2D inverse to non-Cartesian sampling and 3D pore imaging.
 
-## 6. The `integration/` layer (in progress)
+## 6. The `integration/` layer (operational; expanding)
 
 A new top-level package, `mr_integration`, that depends on both
 `spin_dynamics` and `quadrupolar_dft` and reads the NQR SQLite export. It is the
 concrete realization of opportunity #1.
 
-Scope of the first increment:
+Implemented foundation:
 
 - `conversions` — validated C_Q ↔ ν_Q mapping and a `quadrupolar_site_from_cq`
   / `quadrupolar_site_from_efg_record` builder that returns a
@@ -266,9 +280,28 @@ checked Landolt sets are flagged — e.g. a `QCC` OCR error (313 MHz for a line 
 ~2.7 MHz). Regenerate with
 `integration/scripts/write_landolt_review_flags.py`.
 
-Later increments: feed DFT η/C_Q distributions into the simulator's
-EFG-broadening models; widen DFT coverage so the predict-vs-measured loop runs
-over more than NaNO₂; extend Landolt checking beyond ¹⁴N once spin ≥ 5/2 lands.
+Fifth increment (done): **structure-to-validation target survey**. The
+`mr_integration.coverage` layer joins the `QuadrupolarDFT/structures` inventory,
+curated DFT summary rows, and isotope-tagged database measurements. It executes
+all comparison-ready summary records and classifies every structure-backed
+material by its next missing input. The current queue exposes five compounds
+ready for DFT (paracetamol, famotidine, glycine, L-proline, and melamine), three
+whose measured lines first need isotope metadata, and one without a pure-compound
+measurement. Run `integration/examples/integration_target_survey.py`; CI runs
+the same survey so coverage growth remains visible.
+
+Sixth increment (done): **uncertainty-aware line comparison**.
+`mr_integration.uncertainty` propagates a correlated distribution over DFT
+`(C_Q, eta)` through both Hamiltonian implementations, produces central
+prediction intervals for each transition, and scores measured lines for
+interval coverage. The API requires an explicit uncertainty model rather than
+manufacturing error bars from a point calculation; the NaNO2 example uses
+clearly labelled illustrative widths.
+
+Later increments: execute the new DFT queue; derive calibrated `(C_Q, eta)`
+uncertainties from convergence and structural/functional ensembles; feed full
+site distributions into the simulator's EFG-broadening models; extend Landolt
+checking beyond ¹⁴N once spin ≥ 5/2 lands.
 
 ## 7. Next scientific frontiers (creative roadmap)
 

@@ -29,6 +29,7 @@ from spin_dynamics.esr import (  # noqa: E402
 )
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--mean-nm", type=float, default=2.5, help="Mean spin-spin distance (nm).")

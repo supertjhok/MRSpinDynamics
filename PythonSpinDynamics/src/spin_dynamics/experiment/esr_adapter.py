@@ -16,12 +16,31 @@ parameter surfaces and are not wrapped here.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
 
-from spin_dynamics.esr import ESRSpinSystem, simulate_fid, simulate_hahn_echo
+from spin_dynamics.esr import (
+    ESRSpinSystem,
+    simulate_deer,
+    simulate_fid,
+    simulate_field_sweep,
+    simulate_hahn_echo,
+)
 from spin_dynamics.experiment.hardware import UniformB0
+
+
+@dataclass(frozen=True)
+class ESRDEERResult:
+    """DEER time-domain form factor and its source distance distribution."""
+
+    times_seconds: np.ndarray
+    form_factor: np.ndarray
+    distances_nm: np.ndarray
+    distribution: np.ndarray
+    lambda_depth: float
+    n_theta: int
 
 
 def require_system(experiment: Any) -> ESRSpinSystem:
@@ -95,11 +114,64 @@ def hahn_kwargs(experiment: Any) -> dict[str, Any]:
     return kwargs
 
 
+def cw_sweep_kwargs(experiment: Any) -> dict[str, Any]:
+    sequence = experiment.sequence
+    kwargs: dict[str, Any] = {
+        "system": require_system(experiment),
+        "microwave_frequency_hz": sequence.microwave_frequency_hz,
+        "orientations": sequence.orientations,
+        "broadening_tesla": sequence.broadening_tesla,
+        "points": sequence.num_points,
+        "lineshape": sequence.lineshape,
+        "detection_mode": sequence.detection_mode,
+    }
+    if sequence.span_tesla is not None:
+        kwargs["span_tesla"] = sequence.span_tesla
+    return kwargs
+
+
+def deer_kwargs(experiment: Any) -> dict[str, Any]:
+    sequence = experiment.sequence
+    distribution = experiment.sample.deer_distribution
+    return {
+        "times_seconds": np.linspace(
+            0.0, sequence.acquisition_seconds, sequence.num_points
+        ),
+        "distances_nm": distribution.distances_nm,
+        "distribution": distribution.weights,
+        "lambda_depth": sequence.lambda_depth,
+        "n_theta": sequence.n_theta,
+        "g_a": sequence.g_a,
+        "g_b": sequence.g_b,
+    }
+
+
+def run_deer(**kwargs: Any) -> ESRDEERResult:
+    """Adapt the array-returning DEER engine to a persistable facade result."""
+
+    times = np.asarray(kwargs["times_seconds"], dtype=np.float64)
+    distances = np.asarray(kwargs["distances_nm"], dtype=np.float64)
+    weights = np.asarray(kwargs["distribution"], dtype=np.float64)
+    return ESRDEERResult(
+        times_seconds=times,
+        form_factor=simulate_deer(**kwargs),
+        distances_nm=distances,
+        distribution=weights / np.sum(weights),
+        lambda_depth=float(kwargs["lambda_depth"]),
+        n_theta=int(kwargs["n_theta"]),
+    )
+
+
 __all__ = [
+    "ESRDEERResult",
+    "cw_sweep_kwargs",
+    "deer_kwargs",
     "fid_kwargs",
     "hahn_kwargs",
     "require_b0_vector",
     "require_system",
+    "run_deer",
+    "simulate_field_sweep",
     "simulate_fid",
     "simulate_hahn_echo",
 ]

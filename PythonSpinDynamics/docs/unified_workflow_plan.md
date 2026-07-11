@@ -1,15 +1,17 @@
-# Unified Experiment Workflow — Architecture Analysis and Plan
+# Unified Experiment Workflow: Architecture Record
 
-Status: facade milestones 1--7 implemented; the backend-neutral sequence IR
-follow-on is underway. Companion planning docs: `nqr_module_plan.md`,
-`non_inductive_detection.md`, `optimal_control_hardware_response.md`.
+> **Status (audited 2026-07-11): implemented through milestone 10.** The facade,
+> CLI, reproducible-result provenance, broad NQR/ESR routes, and general
+> `SequenceIRExecution` target are operational. This file preserves the design
+> reasoning and milestone history; users should start with
+> `docs/python_api/experiment_workflow.md`.
 
 ## 1. Motivation
 
-PythonSpinDynamics has grown feature-first: each new capability (probes, NQR,
+PythonSpinDynamics grew feature-first: each new capability (probes, NQR,
 ESR, imaging, diffusion, GRAPE, field solvers, detectors, RFI cancellation)
-arrived as a well-tested vertical slice, but there is no horizontal layer that
-tells a user *how the pieces compose*. The proposed remedy is a default
+arrived as a well-tested vertical slice, but initially there was no horizontal
+layer that told a user *how the pieces compose*. The implemented remedy is a default
 workflow of the form:
 
 > define geometry → define transmitters/receivers → define sample → define
@@ -21,9 +23,9 @@ warns about incompatible combinations. This document analyzes the current
 architecture, refines that concept, and lays out feasible implementation
 paths.
 
-## 2. Architecture as it stands
+## 2. Architecture at the time of the design audit
 
-### 2.1 Six engine families, no apex abstractions
+### 2.1 Six engine families before the facade
 
 | Engine | Sample object | Entry points | Results |
 |---|---|---|---|
@@ -102,7 +104,7 @@ late error).
 
 ### 2.5 User surface
 
-- 163 example scripts, mostly following the same implicit workflow
+- 165 example scripts, mostly following the same implicit workflow
   (args → params → run → plot → optional `--save-npz`). No hierarchy.
 - Docs are feature-by-feature (`docs/python_api/*.md`, ~6.5k lines) plus a
   LaTeX user manual; no workflow-first narrative or tutorial.
@@ -224,10 +226,14 @@ set. A hand-built Qt/desktop GUI is not warranted.
 | 3 ✅ | Runtime/memory estimator (`estimate.py`, `ExperimentPlan.estimate`): per-workflow work-unit cost models, `seconds = a + b·units`. Calibrated once per process from two sub-second on-host ideal-train dry runs (per active kernel backend) rather than from the `benchmarks/` host constants — more accurate on the user's machine and self-updating. `plan(estimate=False)` / `set_calibration()` to opt out or pin | advisory, order-of-magnitude accuracy |
 | 4 ✅ | Hardware wiring (`hardware.py` + `wiring.py`): `TxCoil`/`RxCoil`/`UniformB0`/`ImagingPlane` specs (SI meters) + `Phantom` + `CPMGImaging` sequence → automatic Biot-Savart solve onto the phantom grid at plan time, transverse-B1 projection, rho-weighted-mean normalization, geometry-hash caching; transmit-efficiency diagnostic warns on coils mostly parallel to B0. Scope notes: targets the 2-D `ImagingFieldMaps` container (the imaging workflows' interface) rather than `SpatialFieldMaps`; magnet-array B0 solves and non-inductive detectors (RxChain) defer to PR-5+ | closes the biggest manual-glue gap (§2.3) |
 | 5 ✅ | NQR adapter (`nqr_adapter.py`): `Sample.site` + `NQRSLSE`/`NQRSORC` specs; reduced-vs-full dispatch via `select_nqr_model` inside `plan()` (recommendation + reasons surfaced as findings; forced overrides warn; spin-1 engine constraint errors). The adapter owns the effective↔bare nutation conversion (`bare = eff/(2·strength)`) and `transition="auto"` picks the line most coupled to the drive polarization. ESR adapters split into PR-5a | reuses the existing selector verbatim |
-| 5a ✅ | ESR adapter (`esr_adapter.py`): `Sample.esr_system` + `ESRFID`/`ESRHahnEcho` specs over the pulsed core; `UniformB0.field_tesla` fixes the electron Larmor frequency (plan error when missing); 90-180 Hahn defaults; fixed the previously-raising `ESRSpinSystem.__eq__`. DEER/ESEEM/HYSCORE/ENDOR stay direct-call (analysis-style modules, one parameter surface each — wrap on demand) | pulsed core only, by design |
+| 5a ✅ | ESR adapter (`esr_adapter.py`): `Sample.esr_system` + `ESRFID`/`ESRHahnEcho` specs over the pulsed core; `UniformB0.field_tesla` fixes the electron Larmor frequency (plan error when missing); 90-180 Hahn defaults; fixed the previously-raising `ESRSpinSystem.__eq__`. | pulsed core |
+| 5b ✅ | Measurement-level spectroscopy facade: full-model `NQRFID`, reduced spin-1 `NQRPopulationTransfer`, `ESRCWSweep`, and `ESRDEER`; DEER distance distributions serialize with the experiment and its array result is wrapped for normal NPZ provenance. | closes primary 1-D NQR/ESR gaps |
+| 5c ✅ | Electron-nuclear correlation facade: two-/three-pulse ESEEM with analytic/full selection, 2-D HYSCORE time and frequency planes, and Davies/Mims ENDOR over serialized `HyperfineCoupling`; HYSCORE planning includes grid/FFT cost. | completes ESEEM/HYSCORE/ENDOR coverage |
 | 6 ✅ | Docs (Path A): getting-started guide (`docs/python_api/experiment_workflow.md`) + user-manual chapter "Unified Experiment Workflow" (both the 8-step narrative); docs index lists the facade as the recommended entry point; examples index leads with a facade section. Three flagship facade examples (`experiment_facade_quickstart.py`, `experiment_imaging_with_coil.py`, `experiment_nqr_auto_model.py`) in the example smoke tests | Path A folded in here |
 | 7 ✅ | CLI runner (`python -m spin_dynamics.experiment` with plan/run/show/convert) over a human-friendly `type`-tagged TOML/JSON config (`experiment/config.py` + `cli.py`, dependency-free TOML writer + `tomllib` reader); shipped `examples/experiment_config_cpmg.toml`. Round-trips every engine family incl. 2-D phantoms + nested coils | free by-product of the spec |
 | 8 (opt) | Notebook/web GUI prototype on the registry | only after 1–7 prove out |
+| 9 ✅ | Reproducible-result provenance: canonical experiment/result SHA-256 identities, resolved callable/module hashes, Git revision/dirty state, numerical environment/build/thread capture, randomness classification, archive integrity properties, and rerun verification in Python and the CLI; reads legacy v1 archives. | distinguishes reproducibility from physical validation |
+| 10 ✅ | General `SequenceIRExecution` facade target: explicit 1--3-D `SequenceDomain`, native/Pulseq compilation, gradient-axis mapping, RF/gradient moving-isochromat execution, ADC demodulation, white noise, planning/cost checks, persistence, and exact rerun support. Probe-required policies fail closed pending a probe-aware target. | makes the standard interchange IR executable without inventing a second sequence format |
 
 Each PR keeps the pre-submit gates (ruff + regenerated `api_reference.md`) and
 adds fixture-style tests asserting the facade reproduces the direct `run_*`

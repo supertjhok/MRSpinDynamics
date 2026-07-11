@@ -60,6 +60,7 @@ class WallRelaxationResult:
     longitudinal_decays: dict[float, np.ndarray]
 
 
+# Keep CLI choices together so scientific defaults are easy to find and override.
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--temperature-k", type=float, default=295.0)
@@ -157,6 +158,7 @@ def _normalized_observable_decay(
     return transverse, longitudinal
 
 
+# Run the numerical experiment without plotting so its outputs remain reusable.
 def _simulate(args: argparse.Namespace) -> WallRelaxationResult:
     sizes_m = np.asarray(args.sizes_mm, dtype=np.float64) * 1.0e-3
     selected_m = np.asarray(args.selected_diameters_mm, dtype=np.float64) * 1.0e-3
@@ -227,6 +229,7 @@ def _simulate(args: argparse.Namespace) -> WallRelaxationResult:
     )
 
 
+# Keep visualization separate from simulation for headless runs and reuse.
 def _plot(plt, result: WallRelaxationResult):
     fig, axes = plt.subplots(1, 3, figsize=(13.5, 4.4), constrained_layout=True)
 
@@ -292,6 +295,7 @@ def _plot(plt, result: WallRelaxationResult):
     return fig
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     args = _parse_args()
     if args.temperature_k <= 0.0:

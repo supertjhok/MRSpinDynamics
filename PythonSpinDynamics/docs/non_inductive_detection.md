@@ -1,10 +1,14 @@
 # Non-Inductive Detection: SQUID and OPM Magnetometers
 
-This note is the design/progress document for adding **non-inductive detectors**
+> **Status (audited 2026-07-11): implemented.** SQUID, OPM, inductive,
+> gradiometer, and spatial-coupling models now share the detection layer. The
+> text below preserves the design choices and validation basis.
+
+This note records the design for adding **non-inductive detectors**
 — SQUIDs (Superconducting QUantum Interference Devices) and OPMs (Optically
 Pumped / atomic Magnetometers) — to the `spin_dynamics` signal-detection chain.
-Every receiver model in the package today assumes a conventional **inductive
-(Faraday) coil**. SQUIDs and OPMs are the enabling detectors for ultra-low-field
+The earlier receiver layer assumed a conventional **inductive (Faraday) coil**.
+SQUIDs and OPMs are the enabling detectors for ultra-low-field
 (ULF) NMR/MRI and for zero-/low-field NQR, and they obey a *different* detection
 physics that the current pipeline cannot express.
 

@@ -66,10 +66,11 @@ The matched-diffusion high-Q benchmark is a solver-validation boundary, not a
 physical limit. The current pure-Python matched transient calculation is
 validated for compact cases through Q=2000 and warns above that boundary.
 
-## Acceleration Roadmap
+## Acceleration Status and Next Targets
 
-Numba/JAX backends are opt-in and must stay tied to NumPy-reference parity
-tests and timing baselines. Current and near-term acceleration targets include:
+Numba/JAX backends are opt-in and remain tied to NumPy-reference parity tests
+and timing baselines. Acceleration is already available for selected core,
+motion, walker, optimal-control, and RFI kernels. The next useful targets are:
 
 - large finite CPMG echo trains;
 - matched-probe transient response calculations;

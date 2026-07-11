@@ -1,8 +1,10 @@
 # Installation
 
-PythonSpinDynamics is currently a source-tree package. The recommended setup
-for development, examples, tests, plotting, and benchmarks is a persistent
-virtual environment managed by the repository scripts.
+PythonSpinDynamics builds standard wheels and source distributions. Until a
+package index release is published, install from a checkout or from an artifact
+produced by `python -m build`. The recommended setup for development, examples,
+tests, plotting, and benchmarks is a persistent virtual environment managed by
+the repository scripts.
 
 From `PythonSpinDynamics` on Windows:
 
@@ -48,6 +50,23 @@ For a runtime-only editable install, use:
 python -m pip install -e .
 ```
 
+After installation, the experiment facade is available as a console command:
+
+```powershell
+spin-dynamics plan examples\experiment_config_cpmg.toml
+spin-dynamics run examples\experiment_config_cpmg.toml -o run.npz
+spin-dynamics verify run.npz
+```
+
+`python -m spin_dynamics.experiment` remains an equivalent, supported entry
+point. To build and inspect release artifacts locally:
+
+```powershell
+python -m build
+python -m twine check dist\*
+python -m pip install dist\python_spin_dynamics-*.whl
+```
+
 The scripts in `examples/` also add `../src` to `sys.path` automatically, so
 simple examples can run from either `PythonSpinDynamics` or
 `PythonSpinDynamics/examples` while developing:
@@ -79,8 +98,9 @@ Install a custom subset only when deliberately building a smaller environment:
 python -m pip install -e ".[opt,plot]"
 ```
 
-The package metadata is in `pyproject.toml`. The port is not yet published as a
-wheel or conda package.
+The package metadata is in `pyproject.toml`. Wheels include the `py.typed`
+marker for downstream static type checkers. The project is not yet published
+to a public package index or conda channel.
 
 ## NumPy Compatibility
 

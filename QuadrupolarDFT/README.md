@@ -25,14 +25,17 @@ components, not only the total energy.
 
 ## Documentation
 
-The full user manual — physical scope and conventions, the finite-temperature
-theory, the three-stage DFPT workflow, the NaNO2 worked example, and the API
-reference — is in [`docs/user_manual.pdf`](docs/user_manual.pdf), with the LaTeX
-source tracked beside it. Readers new to electronic-structure theory can start
-with the companion
+The full [user manual](docs/user_manual.pdf) starts with a beginner-friendly
+route from one structure to one NQR prediction, then builds toward static EFG
+convergence, finite-temperature DFPT, displacement and strain workflows, the
+NaNO2 worked example, and the API reference. A dedicated strategy chapter
+explains when to use efficient ABINIT PAW production calculations and when an
+Elk all-electron cross-check is worth the additional time. The LaTeX source is
+tracked beside the PDF. Use the companion
 [`docs/DFT_for_Spin_Dynamics_Beginners_Guide.pdf`](docs/DFT_for_Spin_Dynamics_Beginners_Guide.pdf)
-(the SCF loop, k-points, basis sets, PAW versus all-electron treatments, and
-phonons — from a spin-dynamics standpoint). This README is a quick entry point.
+for deeper explanations of the SCF loop, k-points, basis sets, PAW versus
+all-electron treatments, phonons, and parallel execution. You can follow the
+manual first and consult the Guide only when those concepts arise.
 
 ## Installation
 
@@ -58,7 +61,7 @@ from quadrupolar_dft import EFGTensor, coupling_constant_hz, nqr_frequencies_hz
 efg = EFGTensor.from_components([
     [-0.236543, 0.864057, 0.0],
     [0.864057, -0.236543, 0.0],
-    [0.0, 0.0, 0.473085],
+    [0.0, 0.0, 0.473086],
 ])
 
 vzz_si = efg.principal_components_si[2]

@@ -53,6 +53,7 @@ def _has_scipy() -> bool:
     return True
 
 
+# Keep CLI choices together so scientific defaults are easy to find and override.
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
@@ -137,6 +138,7 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+# Run the numerical experiment without plotting so its outputs remain reusable.
 def _simulate(args: argparse.Namespace, *, nonnegative: bool) -> RexsySimulation:
     from spin_dynamics.analysis import invert_t2_t2
     from spin_dynamics.exchange import simulate_relaxation_exchange_2d, two_site_exchange
@@ -197,6 +199,7 @@ def _simulate(args: argparse.Namespace, *, nonnegative: bool) -> RexsySimulation
     )
 
 
+# Keep visualization separate from simulation for headless runs and reuse.
 def _plot_results(plt, sim: RexsySimulation):
     fig, axes = plt.subplots(1, 2, figsize=(10.6, 4.4))
 
@@ -249,6 +252,7 @@ def _plot_results(plt, sim: RexsySimulation):
     return fig
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     args = _parse_args()
     nonnegative = not args.unconstrained

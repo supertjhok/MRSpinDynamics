@@ -1,4 +1,9 @@
-"""Run a finite untuned-probe CPMG echo-train example using the Python port."""
+"""Run a finite untuned-probe CPMG echo-train example using the Python port.
+
+Use the printed or plotted signal to connect pulse timing, probe choice, and
+relaxation to the resulting acquisition. Run ``python
+examples/untuned_cpmg_train.py --help`` to see the adjustable inputs.
+"""
 
 from __future__ import annotations
 
@@ -14,6 +19,7 @@ add_src_to_path()
 from spin_dynamics.workflows import run_untuned_cpmg_train
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--numpts", type=int, default=101, help="Number of offset points.")

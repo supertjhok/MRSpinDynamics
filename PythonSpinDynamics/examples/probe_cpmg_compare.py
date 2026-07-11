@@ -1,4 +1,9 @@
-"""Compare ideal, tuned-probe, untuned-probe, and matched-probe CPMG spectra."""
+"""Compare ideal, tuned-probe, untuned-probe, and matched-probe CPMG spectra.
+
+Use the printed or plotted signal to connect pulse timing, probe choice, and
+relaxation to the resulting acquisition. Run ``python
+examples/probe_cpmg_compare.py --help`` to see the adjustable inputs.
+"""
 
 from __future__ import annotations
 
@@ -34,6 +39,7 @@ def _print_result(result: CPMGResult) -> None:
         print(f"{result.probe} SNR: {result.snr:.12g}")
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--numpts", type=int, default=101, help="Number of offset points.")

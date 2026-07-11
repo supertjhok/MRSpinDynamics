@@ -1,4 +1,9 @@
-"""Plot radiation-damping FID envelopes for several flip angles."""
+"""Plot radiation-damping FID envelopes for several flip angles.
+
+Read the setup, simulation, and reporting stages in order; each stage is kept
+explicit so the example can be adapted without hidden state. Run ``python
+examples/plot_radiation_damping.py --help`` to see the adjustable inputs.
+"""
 
 from __future__ import annotations
 
@@ -16,6 +21,7 @@ from spin_dynamics.workflows import run_radiation_damping_fid
 
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--fill-factor", type=float, default=0.7)

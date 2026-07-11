@@ -48,6 +48,7 @@ DFT_SOURCE_NOTE = (
 )
 
 
+# Keep CLI choices together so scientific defaults are easy to find and override.
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--database", type=Path, default=DEFAULT_DB)
@@ -89,6 +90,7 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     args = _parse_args()
     if args.points < 2:
@@ -201,6 +203,7 @@ def print_result_table(results) -> None:
         )
 
 
+# Keep visualization separate from simulation for headless runs and reuse.
 def plot_sweep(plt, voltages, sweep):
     fig, axes = plt.subplots(2, 2, figsize=(11.0, 7.5), constrained_layout=True)
     colors = {"x": "tab:blue", "y": "tab:orange", "z": "tab:green"}

@@ -42,6 +42,7 @@ add_src_to_path()
 GAMMA = 2.675e8  # rad/(s*T), proton gyromagnetic ratio
 
 
+# Keep CLI choices together so scientific defaults are easy to find and override.
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
@@ -134,6 +135,7 @@ def _sweep_powder(args, reflector, pore, psi: np.ndarray) -> np.ndarray:
     return out
 
 
+# Keep visualization separate from simulation for headless runs and reuse.
 def _plot(plt, args, *, psi, ell_pore, ell_single, circ_single,
           ell_powder, circ_powder):
     fig, axes = plt.subplots(1, 3, figsize=(15.0, 4.4))
@@ -209,6 +211,7 @@ def _plot(plt, args, *, psi, ell_pore, ell_single, circ_single,
     return fig
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     args = _parse_args()
     plt = load_matplotlib(headless=bool(args.output))

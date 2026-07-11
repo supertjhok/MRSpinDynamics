@@ -14,6 +14,37 @@ from typing import Any, Mapping
 import numpy as np
 
 
+HARDWARE_EFFECT_MODES = ("ignore", "apply")
+
+
+@dataclass(frozen=True)
+class HardwareEffectsPolicy:
+    """Declare whether execution must realize transmit and receive hardware.
+
+    The sequence waveforms remain nominal in either mode. ``"ignore"`` asks a
+    backend to use the nominal RF waveform or ideal receive signal directly;
+    ``"apply"`` requires it to pass transmit RF or acquired samples through a
+    separately supplied probe/hardware model. Keeping the policy separate from
+    event samples prevents double-filtering and lets one IR support ideal and
+    probe-aware comparisons.
+
+    Compilation preserves this policy but does not itself implement a hardware
+    transfer function. A backend must reject ``"apply"`` when it cannot honor
+    the requested path rather than silently falling back to ideal behavior.
+    """
+
+    transmit: str = "ignore"
+    receive: str = "ignore"
+
+    def __post_init__(self) -> None:
+        for name in ("transmit", "receive"):
+            value = getattr(self, name)
+            if value not in HARDWARE_EFFECT_MODES:
+                raise ValueError(
+                    f"{name} must be one of {HARDWARE_EFFECT_MODES}, got {value!r}"
+                )
+
+
 def _finite_1d(values: Any, name: str, *, complex_values: bool = False) -> np.ndarray:
     dtype = np.complex128 if complex_values else np.float64
     array = np.asarray(values, dtype=dtype)
@@ -73,6 +104,11 @@ class RFPulse:
     def end_seconds(self) -> float:
         return float(self.delay_seconds) + self.duration_seconds
 
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, RFPulse):
+            return NotImplemented
+        return _dataclass_values_equal(self, other)
+
 
 @dataclass(frozen=True)
 class GradientWaveform:
@@ -101,6 +137,11 @@ class GradientWaveform:
     @property
     def end_seconds(self) -> float:
         return float(self.delay_seconds) + self.duration_seconds
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, GradientWaveform):
+            return NotImplemented
+        return _dataclass_values_equal(self, other)
 
 
 @dataclass(frozen=True)
@@ -149,6 +190,11 @@ class ADCEvent:
             np.arange(self.num_samples, dtype=np.float64) + 0.5
         )
 
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, ADCEvent):
+            return NotImplemented
+        return _dataclass_values_equal(self, other)
+
 
 @dataclass(frozen=True)
 class SequenceBlock:
@@ -170,6 +216,8 @@ class SequenceBlock:
             raise ValueError("duration_seconds must be finite and non-negative")
         if len(self.gradients) != 3:
             raise ValueError("gradients must contain the x, y, and z channels")
+        object.__setattr__(self, "gradients", tuple(self.gradients))
+        object.__setattr__(self, "extensions", tuple(self.extensions))
         events = [self.rf, *self.gradients, self.adc]
         for event in events:
             if event is not None and event.end_seconds > self.duration_seconds + 1e-12:
@@ -184,16 +232,26 @@ class SequenceIR:
     definitions: Mapping[str, Any] = field(default_factory=dict)
     source_format: str = "native"
     source_version: tuple[int, int, int] | None = None
+    hardware_effects: HardwareEffectsPolicy = field(
+        default_factory=HardwareEffectsPolicy
+    )
 
     def __post_init__(self) -> None:
         if not self.blocks:
             raise ValueError("a sequence must contain at least one block")
+        if not isinstance(self.hardware_effects, HardwareEffectsPolicy):
+            raise TypeError("hardware_effects must be a HardwareEffectsPolicy")
         object.__setattr__(self, "blocks", tuple(self.blocks))
         object.__setattr__(self, "definitions", dict(self.definitions))
 
     @property
     def duration_seconds(self) -> float:
         return float(sum(block.duration_seconds for block in self.blocks))
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, SequenceIR):
+            return NotImplemented
+        return _dataclass_values_equal(self, other)
 
     def plot(self, **kwargs):
         """Plot aligned RF, gradient, and ADC lanes.
@@ -214,9 +272,40 @@ def _validate_timing(dwell_seconds: float, delay_seconds: float) -> None:
         raise ValueError("delay_seconds must be finite and non-negative")
 
 
+def _dataclass_values_equal(left: Any, right: Any) -> bool:
+    """Compare frozen IR records without NumPy's ambiguous array truth value."""
+
+    for name in left.__dataclass_fields__:
+        left_value = getattr(left, name)
+        right_value = getattr(right, name)
+        if isinstance(left_value, np.ndarray) or isinstance(right_value, np.ndarray):
+            if not np.array_equal(left_value, right_value):
+                return False
+        elif isinstance(left_value, Mapping) and isinstance(right_value, Mapping):
+            if left_value.keys() != right_value.keys() or any(
+                not _values_equal(left_value[key], right_value[key])
+                for key in left_value
+            ):
+                return False
+        elif not _values_equal(left_value, right_value):
+            return False
+    return True
+
+
+def _values_equal(left: Any, right: Any) -> bool:
+    if isinstance(left, np.ndarray) or isinstance(right, np.ndarray):
+        return bool(np.array_equal(left, right))
+    if isinstance(left, (tuple, list)) and isinstance(right, (tuple, list)):
+        return len(left) == len(right) and all(
+            _values_equal(a, b) for a, b in zip(left, right)
+        )
+    return bool(left == right)
+
+
 __all__ = [
     "ADCEvent",
     "GradientWaveform",
+    "HardwareEffectsPolicy",
     "RFPulse",
     "SequenceBlock",
     "SequenceIR",

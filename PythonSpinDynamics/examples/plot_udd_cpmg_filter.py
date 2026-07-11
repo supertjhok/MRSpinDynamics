@@ -1,4 +1,9 @@
-"""Compare UDD and CPMG rejection of low-frequency detuning noise."""
+"""Compare UDD and CPMG rejection of low-frequency detuning noise.
+
+Use the printed or plotted signal to connect pulse timing, probe choice, and
+relaxation to the resulting acquisition. Run ``python
+examples/plot_udd_cpmg_filter.py --help`` to see the adjustable inputs.
+"""
 
 from __future__ import annotations
 
@@ -27,6 +32,7 @@ def _cumulative_trapezoid(y: np.ndarray, x: np.ndarray) -> np.ndarray:
     return cumulative
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(

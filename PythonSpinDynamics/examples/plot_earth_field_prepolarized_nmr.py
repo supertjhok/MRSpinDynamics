@@ -1,4 +1,9 @@
-"""Plot Earth's-field NMR after electromagnet prepolarization."""
+"""Plot Earth's-field NMR after electromagnet prepolarization.
+
+Trace the coordinate and field conventions from model construction to the image or
+field diagnostic before changing the geometry. Run ``python
+examples/plot_earth_field_prepolarized_nmr.py --help`` to see the adjustable
+inputs."""
 
 from __future__ import annotations
 
@@ -153,6 +158,7 @@ def build_earth_field_case(args: argparse.Namespace) -> EarthFieldNMRCase:
     )
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--earth-field-ut", type=float, default=50.0)

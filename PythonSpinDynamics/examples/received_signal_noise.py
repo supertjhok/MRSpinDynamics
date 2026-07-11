@@ -1,4 +1,9 @@
-"""Demonstrate opt-in received-signal noise models."""
+"""Demonstrate opt-in received-signal noise models.
+
+Read the setup, simulation, and reporting stages in order; each stage is kept
+explicit so the example can be adapted without hidden state. Run ``python
+examples/received_signal_noise.py --help`` to see the adjustable inputs.
+"""
 
 from __future__ import annotations
 
@@ -29,6 +34,7 @@ def _noise_rms(noisy: np.ndarray, clean: np.ndarray) -> float:
     return _rms(np.asarray(noisy) - np.asarray(clean))
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--numpts", type=int, default=51, help="Number of CPMG offsets.")

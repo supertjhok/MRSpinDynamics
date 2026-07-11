@@ -1,7 +1,10 @@
 # Tests
 
-Tests should compare Python outputs against small MATLAB reference cases before
-the Python API is treated as stable.
+Tests protect numerical behavior and APIs; validation additionally requires an
+explicit analytical, reference-code, independent-tool, literature, or
+experimental comparison. Capability-level claims and exact reproducers are
+tracked in `validation/evidence.json` and published in
+`docs/validation_matrix.md`.
 
 Initial validation targets:
 
@@ -45,6 +48,7 @@ validation:
 ```powershell
 python -m pip install -e ".[dev,opt,plot,perf,bench]"
 python -m ruff check src tests examples
+python docs\generate_validation_matrix.py --check
 ```
 
 The smoke tier intentionally samples representative fixture, workflow, pulse,

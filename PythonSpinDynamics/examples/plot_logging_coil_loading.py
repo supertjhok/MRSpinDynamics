@@ -37,6 +37,7 @@ def _skin_depth(sigma, freq):
     return np.sqrt(2.0 / (MU0 * sigma * 2.0 * np.pi * freq))
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--coil-radius-mm", type=float, default=45.0)

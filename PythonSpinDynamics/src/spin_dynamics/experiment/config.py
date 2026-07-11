@@ -36,7 +36,7 @@ from typing import Any
 
 import numpy as np
 
-from spin_dynamics.esr import ESRSpinSystem
+from spin_dynamics.esr import ESRSpinSystem, HyperfineCoupling
 from spin_dynamics.experiment.hardware import (
     ImagingPlane,
     PlanarSpiralCoil,
@@ -46,44 +46,38 @@ from spin_dynamics.experiment.hardware import (
     UniformB0,
 )
 from spin_dynamics.experiment.specs import (
-    CPMG,
     Acquisition,
-    CPMGImaging,
-    CPMGIRTrain,
-    CPMGTrain,
-    ESRFID,
-    ESRHahnEcho,
+    DEERDistribution,
     Experiment,
     Hardware,
-    NQRSLSE,
-    NQRSORC,
-    PGSE,
-    PGSEWalkers,
     Phantom,
     Sample,
+    SEQUENCE_TYPES,
+    SequenceDomain,
     TransportDomain2D,
     UniformFlow2D,
 )
 from spin_dynamics.noise import NoiseSpec
 from spin_dynamics.nqr import QuadrupolarSite
+from spin_dynamics.sequences import (
+    ADCEvent,
+    GradientWaveform,
+    HardwareEffectsPolicy,
+    RFPulse,
+    SequenceBlock,
+    SequenceIR,
+)
 
 _SPEC_CLASSES: tuple[type, ...] = (
     Sample,
     Hardware,
     Acquisition,
     Phantom,
-    CPMG,
-    CPMGTrain,
-    CPMGIRTrain,
-    CPMGImaging,
-    NQRSLSE,
-    NQRSORC,
-    PGSE,
-    PGSEWalkers,
     TransportDomain2D,
     UniformFlow2D,
-    ESRFID,
-    ESRHahnEcho,
+    DEERDistribution,
+    SequenceDomain,
+    *SEQUENCE_TYPES,
     SolenoidCoil,
     PlanarSpiralCoil,
     TxCoil,
@@ -92,7 +86,14 @@ _SPEC_CLASSES: tuple[type, ...] = (
     ImagingPlane,
     QuadrupolarSite,
     ESRSpinSystem,
+    HyperfineCoupling,
     NoiseSpec,
+    HardwareEffectsPolicy,
+    RFPulse,
+    GradientWaveform,
+    ADCEvent,
+    SequenceBlock,
+    SequenceIR,
 )
 _REGISTRY: dict[str, type] = {cls.__name__: cls for cls in _SPEC_CLASSES}
 _SECTION_CLASSES: dict[str, type] = {

@@ -1,4 +1,9 @@
-"""Plot a tuned or matched CPMG probe-parameter sweep."""
+"""Plot a tuned or matched CPMG probe-parameter sweep.
+
+Use the printed or plotted signal to connect pulse timing, probe choice, and
+relaxation to the resulting acquisition. Run ``python
+examples/plot_probe_parameter_sweep.py --help`` to see the adjustable inputs.
+"""
 
 from __future__ import annotations
 
@@ -70,6 +75,7 @@ def _run_sweep(args: argparse.Namespace) -> CPMGParameterSweepResult:
     )
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--probe", choices=["tuned", "matched"], default="tuned")

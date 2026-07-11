@@ -1,4 +1,9 @@
-"""Plot ideal TANGO-B J-filter selectivity."""
+"""Plot ideal TANGO-B J-filter selectivity.
+
+Read the setup, simulation, and reporting stages in order; each stage is kept
+explicit so the example can be adapted without hidden state. Run ``python
+examples/plot_tango_filter.py --help`` to see the adjustable inputs.
+"""
 
 from __future__ import annotations
 
@@ -14,6 +19,7 @@ add_src_to_path()
 from spin_dynamics.coupling import tango_b_filter  # noqa: E402
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--target", type=float, default=160.0, help="Target J coupling in Hz.")

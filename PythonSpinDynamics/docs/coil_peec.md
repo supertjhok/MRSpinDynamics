@@ -1,6 +1,10 @@
 # PEEC Coil Solver: Arbitrary-Geometry L, R, C, Q, and Self-Resonance
 
-Design/progress note for `spin_dynamics.fields.coil_peec`, the field-based coil-property
+> **Status (audited 2026-07-11): implemented and stabilized.** The arbitrary
+> wire-path PEEC solver, terminal reduction, RF resistance, capacitance, and
+> validation examples are available. This page explains method and limits.
+
+Design and validation note for `spin_dynamics.fields.coil_peec`, the field-based coil-property
 solver for arbitrary wire geometries.
 
 ## Motivation

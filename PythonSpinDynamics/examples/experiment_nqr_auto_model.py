@@ -35,6 +35,7 @@ def describe(name: str, site: QuadrupolarSite, sequence: NQRSLSE) -> None:
     print(f"echo magnitudes: {np.array2string(echoes, precision=5, separator=', ')}\n")
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--num-echoes", type=int, default=4, help="SLSE echoes.")

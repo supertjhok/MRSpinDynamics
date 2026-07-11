@@ -28,6 +28,7 @@ from spin_dynamics.optimization import (
 
 
 
+# Keep visualization separate from simulation for headless runs and reuse.
 def _plot_history(ax, result, *, label: str, color: str | None = None) -> None:
     scores = np.asarray(result.history_scores, dtype=np.float64)
     ax.plot(
@@ -48,6 +49,7 @@ def _step_edges(values: np.ndarray, heights: np.ndarray) -> tuple[np.ndarray, np
     return edges, np.concatenate([heights, [0.0]])
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--numpts", type=int, default=11, help="Offset grid size.")

@@ -2,53 +2,56 @@
 
 ## 2026-07 Capability Audit
 
-PythonSpinDynamics now has about 53,000 source lines in 184 Python modules,
-more than 20,000 test lines, and 163 example scripts. Its breadth has moved the
+PythonSpinDynamics now has about 65,000 source lines in 191 Python modules,
+25,000 test lines, and 165 example scripts. Its breadth has moved the
 main architectural risk from missing individual models to disconnected feature
 islands. The next stabilization phase should emphasize composition,
 validation, reproducibility, and API maturity.
 
 The highest-leverage gaps identified in the July 2026 audit are:
 
-1. **General sequence composition.** Most `run_*` workflows still assemble
-   procedural, engine-specific timelines. A backend-neutral sequence IR and
-   compiler is now under development in `spin_dynamics.sequences`, using the
-   open Pulseq `.seq` format as the first interchange standard. The initial
-   slice supports sequential blocks with concurrent RF, three-axis gradient,
-   and ADC events; Pulseq 1.4/1.5 core text import and raster-validated Pulseq
-   1.5.0 export; compilation to a piecewise-constant timeline; and an adapter
-   to the moving-isochromat engine.
-   It does not yet replace the validated workflows.
+1. **General sequence composition.** The backend-neutral `SequenceIR`, Pulseq
+   1.4/1.5 import/export, compiler, plotting layer, motion adapter, and facade
+   execution route are implemented. Specialized `run_*` workflows deliberately
+   remain the clearest entry points for experiments with domain-specific
+   preparation, detection, or analysis. The remaining composition work is
+   probe-aware general execution and adapters for physics engines beyond moving
+   isochromats.
 2. **Facade coverage.** The recommended `spin_dynamics.experiment` facade has
-   21 registered routes, ten with runtime/memory cost models. Deterministic and
-   explicit random-walker PGSE diffusion are now covered with planning, config,
-   provenance, seeded reproducibility, 2-D transport domains, and uniform flow.
-   General motion sequences, nonuniform/pipe flow, thermal, most imaging,
-   detection, exchange, optimal control, advanced ESR/NQR, and field/circuit
-   workflows still use direct APIs.
+   31 registered routes spanning CPMG/IR, imaging, deterministic and walker
+   PGSE, general sequence IR, NQR, ESR, ESEEM, HYSCORE, and ENDOR. Planning,
+   config round trips, provenance, and seeded reproducibility are shared.
+   Nonuniform/pipe flow, thermal, non-inductive detection, exchange, optimal
+   control, and field/circuit design still use direct APIs.
 3. **Validation depth.** MATLAB fixtures strongly anchor the original
    CPMG/probe workflows, while many newer modules rely on analytic limiting
    cases, cross-backend parity, or synthetic data. Capabilities should carry a
    documented validation level: measured benchmark, literature reproduction,
    independent solver parity, analytic/convergence validation, or internal
    consistency only.
-4. **Reproducible results.** Experiment provenance records the workflow,
-   Python/package/NumPy versions, host, timestamp, and elapsed time, but not yet
-   RNG state, JAX/Numba/SciPy and device information, BLAS settings, source
-   revision/dirty state, input hashes, solver tolerances, or convergence
-   diagnostics. NPZ saving can omit non-serializable result fields.
+4. **Reproducible results.** Saved experiments now carry canonical experiment
+   and result hashes, callable/module/package-tree identities, Git revision and
+   dirty state, numerical build/thread environment, input identities,
+   seeded/unseeded randomness classification, archive-integrity checks, and an
+   exact rerun verifier. Remaining depth is backend device metadata, solver
+   tolerances/convergence diagnostics, and serialization for result fields that
+   are still intentionally omitted.
 5. **Backend coverage and numerical scaling.** Numba/JAX acceleration exists
    for selected kernels, but motion/walkers, powder averaging, large coupled
    systems, field solves, and large inverse problems remain uneven. Sparse
    Krylov propagation, matrix-free 2-D inversion, adaptive high-Q transients,
    and out-of-core result handling remain important options.
 6. **Distribution and API maturity.** CI covers Linux/Windows and Python
-   3.10--3.12, but lacks coverage thresholds, static type checks, optional
-   Numba/JAX lanes, wheel/sdist installation tests, benchmark regression gates,
-   an installed console entry point, and an explicit deprecation policy.
-7. **Discoverability.** The 163 examples are a major asset but are still mostly
-   presented as a flat catalog. A registry-generated capability matrix and a
-   smaller set of end-to-end journeys would make the package easier to learn.
+   3.10--3.12; wheel/sdist installation, the installed console entry point,
+   an initial typed surface, branch-coverage threshold, and deprecation policy
+   are now gated. Remaining maturity work is expanding static typing and the
+   coverage floor, adding optional Numba/JAX lanes, publishing artifacts to a
+   package index, and introducing benchmark regression gates.
+7. **Discoverability.** The 165 examples are a major asset and the catalog is
+   grouped by capability, but many scripts still assume readers already know
+   the physics and package conventions. The current documentation overhaul is
+   adding stronger introductions, decision-point comments, and beginner-first
+   journeys; a registry-generated capability matrix remains useful follow-on.
 
 Longer-term scientific opportunities include a sparse general coupled-spin
 engine, solid-state/MAS interactions, non-Cartesian and parallel MRI,

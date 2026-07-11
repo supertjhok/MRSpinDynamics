@@ -1,6 +1,12 @@
-# NQR Module Plan
+# NQR Module Implementation Record
 
-This note tracks the planned `spin_dynamics.nqr` extension for pulsed nuclear
+> **Status (audited 2026-07-11): core plan complete.** Arbitrary-spin operators,
+> reduced and full pulsed models, spin-3/2 dynamics, weak-field spectra,
+> inhomogeneity, relaxation, polarization enhancement, RFI workflows, examples,
+> facade routes, and user-manual coverage are implemented. The unchecked items
+> below are optional integrations, not blockers for supported NQR use.
+
+This note records the design of the `spin_dynamics.nqr` extension for pulsed nuclear
 quadrupole resonance. It is based on the local references in `../References`,
 especially the 2D NQR population-transfer paper and the pulsed nitrogen-14 NQR
 fundamentals chapter.
@@ -72,7 +78,7 @@ scoped to small scalar-coupled spin-1/2 systems.
 - [ ] Add probe/circuit integration where useful.
 - [x] Add initial documentation and generated API inventory.
 - [x] Add diagnostic plotting examples.
-- [ ] Add broader user-manual coverage.
+- [x] Add broader user-manual coverage.
 
 ## Validation Targets
 
@@ -90,8 +96,8 @@ scoped to small scalar-coupled spin-1/2 systems.
   distribution width.
 - Spin-3/2 transition metadata reports the chlorine-style
   `nu_Q * sqrt(1 + eta^2 / 3)` zero-field line and excludes zero-frequency
-  Kramers-doublet transitions; current pulsed workflows raise a clear error
-  until the degenerate-manifold RF model is implemented.
+  Kramers-doublet transitions; the full density-matrix RF path handles the
+  degenerate manifold directly.
 - Weak-static-B0 spectra work for spin-1 and spin-3/2, report the perturbation
   ratio, and warn or raise when the Zeeman frequency is no longer small
   compared with the selected NQR line.

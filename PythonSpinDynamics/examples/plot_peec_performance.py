@@ -57,6 +57,7 @@ def _square_bar(grading=1.0, n=8):
                      cross_section="rect", width=SIDE, height=SIDE, n_width=n, n_height=n, grading=grading)
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--save", type=str, default=None)

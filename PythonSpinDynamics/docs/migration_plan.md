@@ -1,4 +1,9 @@
-# MATLAB-to-Python Migration Status and Plan
+# MATLAB-to-Python Migration Record
+
+> **Status (audited 2026-07-11): migration complete for the active Version 3
+> workflow set.** This document records what was ported and how parity was
+> established. New work should be tracked as validation, performance, or new
+> physics rather than as migration.
 
 ## Reference Policy
 
@@ -8,15 +13,16 @@
 
 ## Current Assessment
 
-As of the WURST-flow port, the major MATLAB-to-Python migration phase is mostly
-closed for the active Version 3 workflow set. The Python package now covers the
+The major MATLAB-to-Python migration is closed for the active Version 3
+workflow set. The Python package now covers the
 core spin kernels, ideal/tuned/untuned/matched CPMG paths, finite trains,
 CPMG-IR, probe sweeps, diffusion, imaging including T1 preparation, noise,
 inverse Laplace analysis, moving-isochromat sequence primitives, optimization
-scaffolds, and the WURST inversion/CPMG flow. Remaining work is better treated
-as stabilization: broader validation, specialized helper variants, performance
-backends, packaging, and exact historical `.mat`/`fmincon` parity where those
-artifacts are still useful references.
+scaffolds, and the WURST inversion/CPMG flow. Compiled backends, packaging,
+coverage gates, a console entry point, and explicit API lifecycle rules have
+also landed. Remaining differences are specialized historical variants or
+`.mat`/`fmincon` artifacts that are useful only when a concrete validation case
+requires them.
 
 ## Completed Phase 1: Baseline and Fixtures
 
@@ -25,9 +31,9 @@ artifacts are still useful references.
 - The same script can be run from MATLAB or Octave.
 - MATLAB-generated fixtures are used for matched-probe cases that require
   optimization toolbox behavior not available in a stock Octave install.
-- The current Python test suite contains 184 checks against fixtures, public
-  workflow result shapes, compatibility helpers, optional SciPy-backed result
-  loaders, imaging modes, and example smoke paths.
+- The full validation suite contains more than 1,000 checks across fixtures,
+  public workflow shapes, compatibility helpers, optional SciPy-backed result
+  loaders, imaging modes, examples, and newer analytic validation chains.
 
 ## Completed Phase 2: Low-Level Numerical Helpers
 

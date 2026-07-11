@@ -1,4 +1,9 @@
-"""Run a compact pumped NMR maser example."""
+"""Run a compact pumped NMR maser example.
+
+Read the setup, simulation, and reporting stages in order; each stage is kept
+explicit so the example can be adapted without hidden state. Run ``python
+examples/nmr_maser.py --help`` to see the adjustable inputs.
+"""
 
 from __future__ import annotations
 
@@ -43,6 +48,7 @@ def _build_probe(
     )
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--probe", choices=["tuned", "matched"], default="matched")

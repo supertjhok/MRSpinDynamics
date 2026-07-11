@@ -1,4 +1,9 @@
-"""Plot spin-1 NQR SLSE response versus RF irradiation offset."""
+"""Plot spin-1 NQR SLSE response versus RF irradiation offset.
+
+Follow how the quadrupolar site, pulse/acquisition settings, and orientation model
+lead to the reported NQR response. Run ``python examples/plot_nqr_slse_offset.py
+--help`` to see the adjustable inputs.
+"""
 
 from __future__ import annotations
 
@@ -43,6 +48,7 @@ def _draw_period_markers(
         axis.axvline(marker, color="0.75", linewidth=0.8, zorder=0)
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=__doc__,

@@ -23,6 +23,7 @@ from typing import Any, Iterable, Mapping
 import numpy as np
 
 from spin_dynamics.experiment.serialization import decode, encode, register_serializable
+from spin_dynamics.sequences import SequenceIR
 
 PROBE_NAMES = ("ideal", "tuned", "untuned", "matched")
 
@@ -136,6 +137,131 @@ class UniformFlow2D:
 
 @register_serializable
 @dataclass(frozen=True, eq=False)
+class DEERDistribution:
+    """Distance grid and non-negative weights for a DEER experiment."""
+
+    distances_nm: np.ndarray
+    weights: np.ndarray
+
+    def __post_init__(self) -> None:
+        distances = np.asarray(self.distances_nm, dtype=np.float64).reshape(-1)
+        weights = np.asarray(self.weights, dtype=np.float64).reshape(-1)
+        if distances.size < 2 or distances.size != weights.size:
+            raise ValueError("DEER distances and weights must have the same size >= 2")
+        if not np.all(np.isfinite(distances)) or np.any(distances <= 0.0):
+            raise ValueError("DEER distances must be finite and positive")
+        if np.any(np.diff(distances) <= 0.0):
+            raise ValueError("DEER distances must be strictly increasing")
+        if not np.all(np.isfinite(weights)) or np.any(weights < 0.0):
+            raise ValueError("DEER weights must be finite and non-negative")
+        if not np.any(weights > 0.0):
+            raise ValueError("DEER weights must contain positive mass")
+        object.__setattr__(self, "distances_nm", distances.copy())
+        object.__setattr__(self, "weights", weights.copy())
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, DEERDistribution):
+            return NotImplemented
+        return bool(
+            np.array_equal(self.distances_nm, other.distances_nm)
+            and np.array_equal(self.weights, other.weights)
+        )
+
+
+@register_serializable
+@dataclass(frozen=True, eq=False)
+class SequenceDomain:
+    """Spatial sample and field maps for general SequenceIR execution.
+
+    ``axes`` contains one to three physical coordinate axes in meters and
+    ``density`` has their Cartesian-product shape. ``b0_map_rad_s`` is angular
+    off-resonance; transmit/receive B1 maps are relative sensitivities.
+    ``gradient_channels`` maps domain axes to physical Pulseq x/y/z channels.
+    """
+
+    axes: tuple[np.ndarray, ...]
+    density: np.ndarray
+    b0_map_rad_s: np.ndarray | None = None
+    b1_tx_map: np.ndarray | None = None
+    b1_rx_map: np.ndarray | None = None
+    velocity_m_per_s: tuple[float, ...] | None = None
+    gradient_channels: tuple[str, ...] | None = None
+
+    def __post_init__(self) -> None:
+        axes = tuple(np.asarray(axis, dtype=np.float64).reshape(-1) for axis in self.axes)
+        if not 1 <= len(axes) <= 3:
+            raise ValueError("SequenceDomain supports one to three axes")
+        for index, axis in enumerate(axes):
+            if axis.size < 2 or not np.all(np.isfinite(axis)):
+                raise ValueError(f"axis {index} must contain at least two finite values")
+            if np.any(np.diff(axis) <= 0.0):
+                raise ValueError(f"axis {index} must be strictly increasing")
+        shape = tuple(axis.size for axis in axes)
+        density = np.asarray(self.density, dtype=np.float64)
+        if density.shape != shape or not np.all(np.isfinite(density)):
+            raise ValueError("density must be finite and match the domain axes")
+        if np.any(density < 0.0) or not np.any(density > 0.0):
+            raise ValueError("density must be non-negative and contain mass")
+
+        maps: dict[str, np.ndarray | None] = {}
+        for name in ("b0_map_rad_s", "b1_tx_map", "b1_rx_map"):
+            value = getattr(self, name)
+            array = None if value is None else np.asarray(value, dtype=np.float64)
+            if array is not None and (
+                array.shape != shape or not np.all(np.isfinite(array))
+            ):
+                raise ValueError(f"{name} must be finite and match the domain axes")
+            if name.startswith("b1") and array is not None and np.any(array < 0.0):
+                raise ValueError(f"{name} must be non-negative")
+            maps[name] = None if array is None else array.copy()
+
+        velocity = self.velocity_m_per_s
+        if velocity is not None:
+            velocity = tuple(float(value) for value in velocity)
+            if len(velocity) != len(axes) or not np.all(np.isfinite(velocity)):
+                raise ValueError("velocity_m_per_s must match the spatial dimension")
+
+        channels = self.gradient_channels
+        if channels is None:
+            channels = {1: ("x",), 2: ("x", "z"), 3: ("x", "y", "z")}[len(axes)]
+        channels = tuple(str(channel).lower() for channel in channels)
+        if len(channels) != len(axes) or any(
+            channel not in ("x", "y", "z") for channel in channels
+        ):
+            raise ValueError("gradient_channels must map every axis to x, y, or z")
+        if len(set(channels)) != len(channels):
+            raise ValueError("gradient_channels must not contain duplicates")
+
+        object.__setattr__(self, "axes", tuple(axis.copy() for axis in axes))
+        object.__setattr__(self, "density", density.copy())
+        for name, value in maps.items():
+            object.__setattr__(self, name, value)
+        object.__setattr__(self, "velocity_m_per_s", velocity)
+        object.__setattr__(self, "gradient_channels", channels)
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, SequenceDomain):
+            return NotImplemented
+
+        def same(left: np.ndarray | None, right: np.ndarray | None) -> bool:
+            if left is None or right is None:
+                return left is None and right is None
+            return bool(np.array_equal(left, right))
+
+        return bool(
+            len(self.axes) == len(other.axes)
+            and all(np.array_equal(a, b) for a, b in zip(self.axes, other.axes))
+            and np.array_equal(self.density, other.density)
+            and same(self.b0_map_rad_s, other.b0_map_rad_s)
+            and same(self.b1_tx_map, other.b1_tx_map)
+            and same(self.b1_rx_map, other.b1_rx_map)
+            and self.velocity_m_per_s == other.velocity_m_per_s
+            and self.gradient_channels == other.gradient_channels
+        )
+
+
+@register_serializable
+@dataclass(frozen=True, eq=False)
 class SampledB0:
     """A spatially-varying static field sampled on the imaging plane.
 
@@ -228,6 +354,12 @@ class Sample:
     """Quadrupolar site (``spin_dynamics.nqr.QuadrupolarSite``) for NQR sequences."""
     esr_system: Any | None = None
     """Electron spin system (``spin_dynamics.esr.ESRSpinSystem``) for ESR sequences."""
+    deer_distribution: DEERDistribution | None = None
+    """Distance distribution used by :class:`ESRDEER`."""
+    hyperfine_coupling: Any | None = None
+    """Electron-nuclear coupling used by ESEEM, HYSCORE, and ENDOR specs."""
+    sequence_domain: SequenceDomain | None = None
+    """Explicit spatial sample/field domain for :class:`SequenceIRExecution`."""
     label: str = ""
 
 
@@ -439,6 +571,67 @@ class NQRSORC:
 
 @register_serializable
 @dataclass(frozen=True)
+class NQRFID:
+    """Single-pulse NQR FID using the full density-matrix engine.
+
+    Unlike the selective reduced-model specs, ``nutation_hz`` is the bare
+    ``gamma * B1 / (2*pi)`` rate used by the full-model pulse Hamiltonian.
+    """
+
+    nutation_hz: float
+    pulse_duration_seconds: float
+    acquisition_seconds: float
+    num_points: int = 512
+    rf_frequency_hz: float | None = None
+    phase: float = 0.0
+    b0_tesla: float = 0.0
+
+    def __post_init__(self) -> None:
+        if self.nutation_hz <= 0 or self.pulse_duration_seconds <= 0:
+            raise ValueError("nutation_hz and pulse_duration_seconds must be positive")
+        if self.acquisition_seconds <= 0 or self.num_points <= 1:
+            raise ValueError("acquisition_seconds must be positive, num_points > 1")
+
+
+@register_serializable
+@dataclass(frozen=True)
+class NQRPopulationTransfer:
+    """Selective perturbation followed by reduced spin-1 SLSE detection."""
+
+    perturbation_duration_seconds: float
+    perturbation_nutation_hz: float
+    detection_duration_seconds: float
+    detection_nutation_hz: float
+    echo_spacing_seconds: float
+    num_echoes: int
+    perturbation_transition: str = "auto"
+    detection_transition: str = "auto"
+    perturbation_phase: float = 0.0
+    detection_phase: float = 0.0
+    perturbation_frequency_hz: float | None = None
+    detection_frequency_hz: float | None = None
+    orientations: str = "powder"
+    b0_tesla: float = 0.0
+    t2e_seconds: float | None = None
+
+    def __post_init__(self) -> None:
+        durations = (
+            self.perturbation_duration_seconds,
+            self.detection_duration_seconds,
+        )
+        rates = (self.perturbation_nutation_hz, self.detection_nutation_hz)
+        if any(value <= 0 for value in durations + rates):
+            raise ValueError("pulse durations and nutation rates must be positive")
+        if self.echo_spacing_seconds < 0 or self.num_echoes <= 0:
+            raise ValueError("echo spacing must be non-negative and num_echoes positive")
+        if self.orientations not in ("powder", "single"):
+            raise ValueError("orientations must be 'powder' or 'single'")
+        if self.t2e_seconds is not None and self.t2e_seconds <= 0:
+            raise ValueError("t2e_seconds must be positive when set")
+
+
+@register_serializable
+@dataclass(frozen=True)
 class ESRFID:
     """Pulsed ESR free-induction decay (rotating frame, single isochromat).
 
@@ -504,6 +697,196 @@ class ESRHahnEcho:
             raise ValueError("t2_seconds must be positive when set")
 
 
+@register_serializable
+@dataclass(frozen=True)
+class ESRCWSweep:
+    """Continuous-wave ESR field sweep at fixed microwave frequency."""
+
+    microwave_frequency_hz: float
+    orientations: str = "single"
+    broadening_tesla: float = 1.0e-4
+    num_points: int = 1024
+    span_tesla: float | None = None
+    lineshape: str = "gaussian"
+    detection_mode: str = "absorption"
+
+    def __post_init__(self) -> None:
+        if self.microwave_frequency_hz <= 0 or self.broadening_tesla <= 0:
+            raise ValueError("microwave frequency and broadening must be positive")
+        if self.num_points <= 1:
+            raise ValueError("num_points must be greater than 1")
+        if self.span_tesla is not None and self.span_tesla <= 0:
+            raise ValueError("span_tesla must be positive when set")
+        if self.orientations not in ("powder", "single"):
+            raise ValueError("orientations must be 'powder' or 'single'")
+        if self.lineshape not in ("gaussian", "lorentzian"):
+            raise ValueError("lineshape must be 'gaussian' or 'lorentzian'")
+        if self.detection_mode not in ("absorption", "derivative"):
+            raise ValueError("unsupported detection_mode")
+
+
+@register_serializable
+@dataclass(frozen=True)
+class ESRDEER:
+    """DEER form factor calculated from ``Sample.deer_distribution``."""
+
+    acquisition_seconds: float
+    num_points: int = 512
+    lambda_depth: float = 1.0
+    n_theta: int = 2001
+    g_a: float = 2.00231930436256
+    g_b: float = 2.00231930436256
+
+    def __post_init__(self) -> None:
+        if self.acquisition_seconds <= 0 or self.num_points <= 1:
+            raise ValueError("acquisition_seconds must be positive, num_points > 1")
+        if not 0.0 <= self.lambda_depth <= 1.0:
+            raise ValueError("lambda_depth must be between zero and one")
+        if self.n_theta < 2:
+            raise ValueError("n_theta must be at least 2")
+        if self.g_a <= 0 or self.g_b <= 0:
+            raise ValueError("g values must be positive")
+
+
+def _validate_eseem(spec: Any) -> None:
+    if spec.acquisition_seconds <= 0 or spec.num_points <= 1:
+        raise ValueError("acquisition_seconds must be positive, num_points > 1")
+    if spec.model not in ("auto", "analytic", "quantum"):
+        raise ValueError("model must be 'auto', 'analytic', or 'quantum'")
+    if spec.zero_fill < 1:
+        raise ValueError("zero_fill must be at least 1")
+
+
+@register_serializable
+@dataclass(frozen=True)
+class ESRTwoPulseESEEM:
+    """Two-pulse ESEEM trace and frequency spectrum."""
+
+    acquisition_seconds: float
+    num_points: int = 512
+    model: str = "auto"
+    electron_offset_hz: float = 0.0
+    zero_fill: int = 4
+
+    def __post_init__(self) -> None:
+        _validate_eseem(self)
+
+
+@register_serializable
+@dataclass(frozen=True)
+class ESRThreePulseESEEM:
+    """Three-pulse stimulated-echo ESEEM trace and spectrum."""
+
+    acquisition_seconds: float
+    tau_seconds: float
+    num_points: int = 512
+    model: str = "auto"
+    zero_fill: int = 4
+
+    def __post_init__(self) -> None:
+        _validate_eseem(self)
+        if self.tau_seconds < 0:
+            raise ValueError("tau_seconds must be non-negative")
+
+
+@register_serializable
+@dataclass(frozen=True)
+class ESRHYSCORE:
+    """Two-dimensional HYSCORE time grid and spectrum."""
+
+    evolution1_seconds: float
+    evolution2_seconds: float
+    tau_seconds: float
+    num_points1: int = 128
+    num_points2: int = 128
+    zero_fill: int = 2
+
+    def __post_init__(self) -> None:
+        if self.evolution1_seconds <= 0 or self.evolution2_seconds <= 0:
+            raise ValueError("HYSCORE evolution windows must be positive")
+        if self.tau_seconds < 0:
+            raise ValueError("tau_seconds must be non-negative")
+        if self.num_points1 <= 1 or self.num_points2 <= 1:
+            raise ValueError("HYSCORE axes must each contain at least two points")
+        if self.zero_fill < 1:
+            raise ValueError("zero_fill must be at least 1")
+
+
+def _validate_endor(spec: Any) -> None:
+    if spec.num_points <= 1 or spec.linewidth_hz <= 0:
+        raise ValueError("num_points must be > 1 and linewidth_hz positive")
+    if (
+        spec.frequency_min_hz is not None
+        and spec.frequency_max_hz is not None
+        and spec.frequency_max_hz <= spec.frequency_min_hz
+    ):
+        raise ValueError("frequency_max_hz must exceed frequency_min_hz")
+
+
+@register_serializable
+@dataclass(frozen=True)
+class ESRDaviesENDOR:
+    """One-dimensional Davies ENDOR radiofrequency sweep."""
+
+    num_points: int = 1024
+    linewidth_hz: float = 1.0e5
+    frequency_min_hz: float | None = None
+    frequency_max_hz: float | None = None
+
+    def __post_init__(self) -> None:
+        _validate_endor(self)
+
+
+@register_serializable
+@dataclass(frozen=True)
+class ESRMimsENDOR:
+    """One-dimensional Mims ENDOR sweep with blind-spot weighting."""
+
+    tau_seconds: float
+    num_points: int = 1024
+    linewidth_hz: float = 1.0e5
+    frequency_min_hz: float | None = None
+    frequency_max_hz: float | None = None
+
+    def __post_init__(self) -> None:
+        _validate_endor(self)
+        if self.tau_seconds <= 0:
+            raise ValueError("tau_seconds must be positive")
+
+
+@register_serializable
+@dataclass(frozen=True)
+class SequenceIRExecution:
+    """Execute a backend-neutral :class:`SequenceIR` through the facade."""
+
+    ir: SequenceIR
+    system_frequency_hz: float | None = None
+    walkers_per_cell: int = 1
+    seed: int | None = 0
+    jitter: bool = False
+    boundary: str = "reflect"
+    default_substeps: int = 1
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.ir, SequenceIR):
+            raise TypeError("ir must be a spin_dynamics.sequences.SequenceIR")
+        if self.system_frequency_hz is not None and (
+            not np.isfinite(self.system_frequency_hz)
+            or self.system_frequency_hz <= 0.0
+        ):
+            raise ValueError("system_frequency_hz must be finite and positive when set")
+        if not isinstance(self.walkers_per_cell, int) or self.walkers_per_cell <= 0:
+            raise ValueError("walkers_per_cell must be a positive integer")
+        if self.seed is not None and (
+            not isinstance(self.seed, int) or self.seed < 0
+        ):
+            raise ValueError("seed must be a non-negative integer when set")
+        if self.boundary not in ("reflect", "periodic", "clip"):
+            raise ValueError("boundary must be 'reflect', 'periodic', or 'clip'")
+        if not isinstance(self.default_substeps, int) or self.default_substeps <= 0:
+            raise ValueError("default_substeps must be a positive integer")
+
+
 SEQUENCE_TYPES: tuple[type, ...] = (
     CPMG,
     CPMGTrain,
@@ -513,8 +896,18 @@ SEQUENCE_TYPES: tuple[type, ...] = (
     PGSEWalkers,
     NQRSLSE,
     NQRSORC,
+    NQRFID,
+    NQRPopulationTransfer,
     ESRFID,
     ESRHahnEcho,
+    ESRCWSweep,
+    ESRDEER,
+    ESRTwoPulseESEEM,
+    ESRThreePulseESEEM,
+    ESRHYSCORE,
+    ESRDaviesENDOR,
+    ESRMimsENDOR,
+    SequenceIRExecution,
 )
 
 

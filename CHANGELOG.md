@@ -13,6 +13,11 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
 
 ### PythonSpinDynamics
 
+- Added the installed `spin-dynamics` experiment CLI, typed-wheel marker,
+  isolated wheel/sdist installation checks, scoped MyPy and branch-coverage CI
+  gates, and an explicit two-minor-release deprecation policy with reusable
+  warning utilities.
+
 - Suppressed spurious floating-point warnings from the unused laminar-washout
   tail branch at zero time and added an extreme-residence-time regression test.
 - Began the backend-neutral sequence IR and compiler: sequential blocks with
@@ -37,6 +42,27 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
 - Added finite-pulse walker-to-q-space acquisition with arbitrary in-plane PGSE
   gradient directions, zero-q normalization, elliptical-pore reconstruction
   validation, and a runnable walker-to-pore-imaging example.
+- Completed q-space imaging robustness studies for ellipse, slit, and connected
+  pores across finite intensity SNR, radial q-window truncation, and random
+  missing samples; added mask-aware phase retrieval, explicit noise-floor
+  gating, ambiguity-invariant shape metrics, and committed trial-level results.
+
+### Integration
+
+- Added a structure-to-validation target survey that joins the DFT structure
+  inventory, curated EFG summaries, and measured NQR lines; automatically runs
+  all comparison-ready summaries; and exposes the next five material DFT
+  targets plus missing database metadata.
+- Added correlated `(C_Q, eta)` uncertainty propagation through both independent
+  Hamiltonian implementations, producing per-line prediction intervals and
+  measured-line coverage reports.
+
+### QuadrupolarDFT
+
+- Rewrote the user manual around a beginner-first path from crystal structure
+  to a validated NQR prediction, with explicit checkpoints, clearer links to
+  the companion Beginner's Guide, and a two-tier ABINIT/Elk strategy explaining
+  the accuracy-versus-compute-time tradeoff.
 
 ## [0.2.0] - 2026-07-05
 

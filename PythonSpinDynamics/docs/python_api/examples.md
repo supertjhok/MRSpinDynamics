@@ -32,13 +32,20 @@ Reduced-vs-full NQR engine selection from the physics:
 python examples\experiment_nqr_auto_model.py --num-echoes 4
 ```
 
+General native/Pulseq sequence execution, using the same IR for the timeline,
+simulation, result archive, and reproducibility metadata:
+
+```powershell
+python examples\experiment_sequence_ir.py experiment.seq --system-frequency-hz 42580000 --timeline-output results\experiment.png --output results\experiment_run.npz
+```
+
 Config-driven run from a TOML file via the facade CLI
 (`examples\experiment_config_cpmg.toml`):
 
 ```powershell
-python -m spin_dynamics.experiment plan examples\experiment_config_cpmg.toml
-python -m spin_dynamics.experiment run examples\experiment_config_cpmg.toml --output results\config_run.npz
-python -m spin_dynamics.experiment show results\config_run.npz
+spin-dynamics plan examples\experiment_config_cpmg.toml
+spin-dynamics run examples\experiment_config_cpmg.toml --output results\config_run.npz
+spin-dynamics show results\config_run.npz
 ```
 
 ## Sequence Timeline Visualizer
@@ -472,6 +479,28 @@ python examples\plot_pgse_qspace_pore_imaging.py --output results\qspace_pore_im
 Use `--snr`, `--support-factor`, `--iterations`, and `--seed` to explore noise
 sensitivity and the magnitude-only phase-retrieval ambiguity. Only NumPy and
 Matplotlib are needed.
+
+## q-Space Imaging Robustness
+
+The robustness study broadens the inverse problem from a circular pore to an
+ellipse, a narrow slit, and a connected domain. It repeats phase retrieval
+across independent seeds while separating finite intensity SNR, radial q-window
+truncation, and random missing samples. Reconstruction scores account for the
+translation/reflection ambiguity of magnitude-only data.
+
+```powershell
+python examples\plot_pgse_qspace_robustness.py `
+    --output results\qspace_imaging_robustness.png `
+    --csv results\qspace_imaging_robustness_trials.csv
+```
+
+Use `--snr`, `--qmax-fraction`, `--missing-fraction`, `--threshold-sigma`, and
+`--trials` to change the acquisition envelope. The default reference study
+shows why unmeasured points need an explicit sampling mask and why a known
+intensity-noise-floor gate is more important than extending the q window for
+these compact pore shapes. See
+[`../qspace_imaging_robustness.md`](../qspace_imaging_robustness.md) for the
+trial-level results and interpretation.
 
 ## PGSTE Stimulated-Echo Diffusion
 

@@ -16,6 +16,7 @@ from spin_dynamics.sequences.compiler import (
 from spin_dynamics.sequences.ir import (
     ADCEvent,
     GradientWaveform,
+    HardwareEffectsPolicy,
     RFPulse,
     SequenceBlock,
     SequenceIR,
@@ -47,6 +48,7 @@ __all__ = [
     "CompiledADC",
     "CompiledSequence",
     "GradientWaveform",
+    "HardwareEffectsPolicy",
     "MotionSequenceResult",
     "MotionSequenceStep",
     "PulseqFormatError",

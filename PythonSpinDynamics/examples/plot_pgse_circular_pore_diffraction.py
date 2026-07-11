@@ -60,6 +60,7 @@ D_FREE = 2.3e-9  # m^2/s, bulk water at room temperature
 J1_ZEROS = np.array([3.8317, 7.0156, 10.1735])
 
 
+# Keep CLI choices together so scientific defaults are easy to find and override.
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
@@ -292,6 +293,7 @@ def _propagator_sweep(args: argparse.Namespace):
     return q_ang, attenuation, positions, weights
 
 
+# Keep visualization separate from simulation for headless runs and reuse.
 def _plot_results(
     plt,
     *,
@@ -361,6 +363,7 @@ def _plot_results(
     return fig
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     args = _parse_args()
     plt = load_matplotlib(headless=bool(args.output))

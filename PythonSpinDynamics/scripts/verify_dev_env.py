@@ -29,6 +29,10 @@ CHECKS = (
     PackageCheck("jax", "jax", "JAX CPU/GPU acceleration"),
     PackageCheck("jaxlib", "jaxlib", "JAX compiled runtime"),
     PackageCheck("ruff", "ruff", "lint checks"),
+    PackageCheck("mypy", "mypy", "static type checks"),
+    PackageCheck("coverage", "coverage", "coverage measurement"),
+    PackageCheck("build", "build", "wheel and source-distribution builds"),
+    PackageCheck("twine", "twine", "distribution metadata checks"),
     PackageCheck("pytest", "pytest", "benchmark/test tooling"),
     PackageCheck("pytest_benchmark", "pytest-benchmark", "benchmark tooling"),
 )

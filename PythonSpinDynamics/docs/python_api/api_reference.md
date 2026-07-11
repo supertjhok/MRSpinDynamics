@@ -270,6 +270,15 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | --- | --- | --- |
 | class | `SQUIDMagnetometer` | Untuned SQUID magnetometer: flat field-noise floor with a ``1/f`` knee. |
 
+## `spin_dynamics.deprecation`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `SpinDynamicsDeprecationWarning` | Visible warning for a PythonSpinDynamics API scheduled for removal. |
+| class | `DeprecationInfo` | Machine-readable lifecycle information attached to deprecated callables. |
+| function | `warn_deprecated(name: str, *, since: str, removal: str, alternative: str, stacklevel: int = 2) -> None` | Emit the standard visible warning for a deprecated public API. |
+| function | `deprecated(*, since: str, removal: str, alternative: str) -> Callable[[Callable[P, R]], Callable[P, R]]` | Mark a callable deprecated while preserving its signature and metadata. |
+
 ## `spin_dynamics.esr.deer`
 
 | Kind | Name | Summary |
@@ -475,10 +484,14 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 
 | Kind | Name | Summary |
 | --- | --- | --- |
+| class | `ESRDEERResult` | DEER time-domain form factor and its source distance distribution. |
 | function | `require_system(experiment: Any) -> ESRSpinSystem` |  |
 | function | `require_b0_vector(experiment: Any) -> tuple[float, float, float]` |  |
 | function | `fid_kwargs(experiment: Any) -> dict[str, Any]` |  |
 | function | `hahn_kwargs(experiment: Any) -> dict[str, Any]` |  |
+| function | `cw_sweep_kwargs(experiment: Any) -> dict[str, Any]` |  |
+| function | `deer_kwargs(experiment: Any) -> dict[str, Any]` |  |
+| function | `run_deer(**kwargs) -> ESRDEERResult` | Adapt the array-returning DEER engine to a persistable facade result. |
 
 ## `spin_dynamics.experiment.estimate`
 
@@ -509,6 +522,7 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | --- | --- | --- |
 | function | `register_result_type(cls: type) -> type` | Register a workflow result dataclass for load-time reconstruction. |
 | function | `save_run(record: RunRecord, path: str) -> None` |  |
+| class | `ReproductionReport` | Comparison between a saved run and a fresh execution of its spec. |
 | class | `LoadedRun` | A run loaded from disk: spec, raw arrays, and best-effort result. |
 | function | `load_run(path: str) -> LoadedRun` |  |
 
@@ -524,6 +538,8 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `resolve_slse_func(experiment: Any) -> Callable[..., Any]` |  |
 | function | `slse_kwargs(experiment: Any) -> dict[str, Any]` |  |
 | function | `sorc_kwargs(experiment: Any) -> dict[str, Any]` |  |
+| function | `fid_kwargs(experiment: Any) -> dict[str, Any]` |  |
+| function | `population_transfer_kwargs(experiment: Any) -> dict[str, Any]` |  |
 
 ## `spin_dynamics.experiment.plan`
 
@@ -551,7 +567,9 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `noise_spec_rule(experiment: Experiment, entry: WorkflowEntry) -> list[RuleFinding]` | Validate the acquisition noise spec at plan time. |
 | function | `hardware_wiring_rule(experiment: Experiment, entry: WorkflowEntry) -> list[RuleFinding]` | Solve requested coil fields at plan time and surface wiring problems. |
 | function | `nqr_model_rule(experiment: Experiment, entry: WorkflowEntry) -> list[RuleFinding]` | Run ``select_nqr_model`` at plan time and check the engine dispatch. |
+| function | `spectroscopy_inputs_rule(experiment: Experiment, entry: WorkflowEntry) -> list[RuleFinding]` | Resolve spectroscopy sample objects and transition labels at plan time. |
 | function | `transport_rule(experiment: Experiment, entry: WorkflowEntry) -> list[RuleFinding]` | Report uniform-flow scale and flag closed reflecting transport. |
+| function | `sequence_ir_rule(experiment: Experiment, entry: WorkflowEntry) -> list[RuleFinding]` | Compile general IR at plan time and reject unsupported backend policy. |
 | function | `run_rules(experiment: Experiment, entry: WorkflowEntry, rules: Iterable[Rule] = DEFAULT_RULES) -> list[RuleFinding]` |  |
 
 ## `spin_dynamics.experiment.runner`
@@ -579,6 +597,8 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `Phantom` | Spatial sample description for imaging: density plus optional maps. |
 | class | `TransportDomain2D` | Density and physical axes for 2-D random-walker transport. |
 | class | `UniformFlow2D` | Uniform ``(vx, vz)`` transport velocity in meters per second. |
+| class | `DEERDistribution` | Distance grid and non-negative weights for a DEER experiment. |
+| class | `SequenceDomain` | Spatial sample and field maps for general SequenceIR execution. |
 | class | `SampledB0` | A spatially-varying static field sampled on the imaging plane. |
 | class | `Sample` | Sample description. |
 | class | `Hardware` | Transmit/receive hardware description. |
@@ -591,8 +611,18 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `PGSEWalkers` | Explicit random-walker PGSE with diffusion and optional uniform flow. |
 | class | `NQRSLSE` | Spin-lock spin-echo NQR detection train. |
 | class | `NQRSORC` | Strong off-resonance comb NQR train (reduced spin-1 engine only). |
+| class | `NQRFID` | Single-pulse NQR FID using the full density-matrix engine. |
+| class | `NQRPopulationTransfer` | Selective perturbation followed by reduced spin-1 SLSE detection. |
 | class | `ESRFID` | Pulsed ESR free-induction decay (rotating frame, single isochromat). |
 | class | `ESRHahnEcho` | Two-pulse ESR Hahn echo (single isochromat). |
+| class | `ESRCWSweep` | Continuous-wave ESR field sweep at fixed microwave frequency. |
+| class | `ESRDEER` | DEER form factor calculated from ``Sample.deer_distribution``. |
+| class | `ESRTwoPulseESEEM` | Two-pulse ESEEM trace and frequency spectrum. |
+| class | `ESRThreePulseESEEM` | Three-pulse stimulated-echo ESEEM trace and spectrum. |
+| class | `ESRHYSCORE` | Two-dimensional HYSCORE time grid and spectrum. |
+| class | `ESRDaviesENDOR` | One-dimensional Davies ENDOR radiofrequency sweep. |
+| class | `ESRMimsENDOR` | One-dimensional Mims ENDOR sweep with blind-spot weighting. |
+| class | `SequenceIRExecution` | Execute a backend-neutral :class:`SequenceIR` through the facade. |
 | class | `Experiment` | A complete declarative experiment description. |
 | function | `non_default_fields(experiment: Experiment) -> dict[str, Any]` | Return dotted spec-field names whose values differ from the defaults. |
 
@@ -1449,12 +1479,13 @@ No public classes or functions found.
 | class | `CompiledADC` | Receive samples on the absolute sequence timeline. |
 | class | `CompiledSequence` | Piecewise-constant RF/gradient timeline plus exact ADC sample times. |
 | function | `compile_sequence(sequence: SequenceIR, *, system_frequency_hz: float | None = None) -> CompiledSequence` | Compile an IR into piecewise-constant intervals. |
-| function | `compiled_to_motion_steps(compiled: CompiledSequence, *, spatial_dimensions: int = 2)` | Adapt compiled intervals to the existing moving-isochromat engine. |
+| function | `compiled_to_motion_steps(compiled: CompiledSequence, *, spatial_dimensions: int = 2, gradient_axes: tuple[int, ...] | None = None)` | Adapt compiled intervals to the existing moving-isochromat engine. |
 
 ## `spin_dynamics.sequences.ir`
 
 | Kind | Name | Summary |
 | --- | --- | --- |
+| class | `HardwareEffectsPolicy` | Declare whether execution must realize transmit and receive hardware. |
 | class | `RFPulse` | Sampled complex RF envelope in hertz. |
 | class | `GradientWaveform` | Sampled gradient waveform in hertz per meter. |
 | class | `ADCEvent` | Uniform receive-sampling event. |
@@ -1652,13 +1683,18 @@ No public classes or functions found.
 | --- | --- | --- |
 | class | `QSpaceReconstructionResult` | Image-domain result reconstructed from a centered q-space grid. |
 | class | `QSpacePhaseRetrievalResult` | Constrained pore-shape estimate from magnitude-only q-space samples. |
+| class | `QSpaceShapeMetrics` | Shift/reflection-invariant quality metrics for a reconstructed pore. |
 | class | `PGSEQSpaceWalkerResult` | Finite-pulse PGSE response sampled on a centered two-dimensional q grid. |
 | function | `acquire_pgse_qspace_walkers(rho: np.ndarray, x_axis: np.ndarray, z_axis: np.ndarray, qx_axis: np.ndarray, qz_axis: np.ndarray, *, gradient_duration: float = 0.0005, diffusion_time: float = 0.02, diffusion_coefficient: float = 2.3e-09, gamma: float = 267500000.0, walkers_per_cell: int = 32, seed: int | None = None, jitter: bool = True, excitation_duration: float = 0.0001, refocusing_duration: float = 0.0002, t1_seconds: float = np.inf, t2_seconds: float = np.inf, velocity: Velocity = None, fields: MotionFieldMaps2D | None = None, boundary: Boundary = 'reflect', substeps_per_interval: int = 8) -> PGSEQSpaceWalkerResult` | Acquire a finite-pulse restricted-diffusion response on a q-space grid. |
 | function | `qspace_axes_from_real_space(x_axis: np.ndarray, z_axis: np.ndarray) -> tuple[np.ndarray, np.ndarray]` | Return centered angular q axes compatible with a real-space grid. |
 | function | `real_space_axes_from_qspace(qx_axis: np.ndarray, qz_axis: np.ndarray) -> tuple[np.ndarray, np.ndarray]` | Return centered real-space axes for a uniformly sampled q-space grid. |
 | function | `pore_form_factor_from_density(density: np.ndarray, *, normalize: bool = True) -> np.ndarray` | Return the centered complex pore form factor of a 2D density map. |
+| function | `qspace_sampling_mask(qx_axis: np.ndarray, qz_axis: np.ndarray, *, qmax_fraction: float = 1.0, missing_fraction: float = 0.0, seed: int | None = None) -> np.ndarray` | Build a reproducible radial-window and random-dropout sampling mask. |
+| function | `add_qspace_intensity_noise(intensity: np.ndarray, *, snr: float, seed: int | None = None, sample_mask: np.ndarray | None = None) -> tuple[np.ndarray, float]` | Add Gaussian intensity noise and return the clipped data and sigma. |
+| function | `threshold_qspace_intensity(intensity: np.ndarray, *, noise_sigma: float, threshold_sigma: float = 2.0, sample_mask: np.ndarray | None = None) -> np.ndarray` | Suppress a known additive intensity-noise floor before phase retrieval. |
+| function | `qspace_shape_metrics(estimate: np.ndarray, reference: np.ndarray, *, threshold: float = 0.2) -> QSpaceShapeMetrics` | Compare pore shapes modulo translation and axis reflections. |
 | function | `reconstruct_qspace_image(response: np.ndarray, qx_axis: np.ndarray, qz_axis: np.ndarray, *, data_kind: QSpaceDataKind = 'complex', clip_negative: bool = False, normalize: bool = True) -> QSpaceReconstructionResult` | Reconstruct an image or autocorrelation from centered q-space samples. |
-| function | `phase_retrieve_qspace_magnitude(magnitude: np.ndarray, qx_axis: np.ndarray, qz_axis: np.ndarray, *, support: np.ndarray | None = None, iterations: int = 300, beta: float = 0.8, seed: int | None = None, input_is_intensity: bool = False, er_iterations: int = 40) -> QSpacePhaseRetrievalResult` | Estimate a non-negative pore image from magnitude-only q-space data. |
+| function | `phase_retrieve_qspace_magnitude(magnitude: np.ndarray, qx_axis: np.ndarray, qz_axis: np.ndarray, *, support: np.ndarray | None = None, iterations: int = 300, beta: float = 0.8, seed: int | None = None, input_is_intensity: bool = False, er_iterations: int = 40, sample_mask: np.ndarray | None = None) -> QSpacePhaseRetrievalResult` | Estimate a non-negative pore image from magnitude-only q-space data. |
 
 ## `spin_dynamics.workflows.single_sided`
 

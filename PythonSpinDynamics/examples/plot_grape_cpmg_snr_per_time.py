@@ -85,6 +85,7 @@ PSI_UP = np.array([1.0, 0.0], dtype=np.complex128)
 PSI_X = np.array([1.0, 1.0], dtype=np.complex128) / np.sqrt(2.0)
 
 
+# Keep CLI choices together so scientific defaults are easy to find and override.
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--nutation-hz", type=float, default=5000.0, help="Peak B1, shared by every pulse compared.")
@@ -218,6 +219,7 @@ class DurationResult:
         return self.echo_spacing_s / snr**2
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     args = _parse_args()
 
@@ -229,12 +231,16 @@ def main() -> None:
         )
         return
 
+    # Convert timing inputs to seconds at the boundary and retain the requested
+    # nutation rate as the common hardware constraint for every candidate pulse.
     w1_hz = float(args.nutation_hz)
     dt_seg = float(args.segment_us) * 1e-6
     t_free = float(args.free_precession_us) * 1e-6
     n_exc = int(args.exc_segments)
     dt_exc = jnp.full(n_exc, dt_seg)
 
+    # Optimize on a compact offset ensemble, then score on a denser held-out grid
+    # so a pulse cannot look good merely by interpolating the training points.
     train_offsets = np.linspace(-args.train_maxoffs_hz, args.train_maxoffs_hz, int(args.train_offsets))
     eval_offsets = np.linspace(-args.train_maxoffs_hz, args.train_maxoffs_hz, int(args.eval_points))
 
@@ -249,6 +255,8 @@ def main() -> None:
     print()
 
     duration_results: list[DurationResult] = []
+    # Repeat the full optimization at each duration. This makes the final
+    # SNR-per-time comparison fair: shorter dead time can outweigh pulse fidelity.
     for n_ref in args.ref_segments:
         n_ref = int(n_ref)
         dt_ref = jnp.full(n_ref, dt_seg)
@@ -320,7 +328,8 @@ def main() -> None:
         print(f"   GRAPE ref + AMEX exc (sequential)      : SNR {snr_grape_amex:.4f}  fom_time {result.fom_time(snr_grape_amex):.3e} s")
         print(f"   joint (ref + exc optimized together)   : SNR {snr_joint:.4f}  fom_time {result.fom_time(snr_joint):.3e} s")
 
-    # Winning combination: best fom_time for the sequential GRAPE+AMEX method.
+    # Select by the headline time-normalized metric, not by single-echo fidelity.
+    # The rectangular reference uses the same winning duration for a fair baseline.
     best_result = min(duration_results, key=lambda r: r.fom_time(r.snr_grape_amex))
     print()
     print(f"Best SNR/time (GRAPE ref + AMEX exc): {best_result.n_ref} segments "

@@ -59,6 +59,7 @@ def probe_with_trd(trd_target: float, *, q: float = 50.0, fill: float = 0.5) -> 
     )
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--seed", type=int, default=42)

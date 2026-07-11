@@ -18,6 +18,8 @@ from spin_dynamics.experiment import (
     PGSEWalkers,
     Phantom,
     Sample,
+    SequenceDomain,
+    SequenceIRExecution,
     SolenoidCoil,
     TxCoil,
     TransportDomain2D,
@@ -32,6 +34,7 @@ from spin_dynamics.experiment import cli
 from spin_dynamics.experiment.config import ConfigError, dumps_toml
 from spin_dynamics.esr import ESRSpinSystem
 from spin_dynamics.nqr import QuadrupolarSite
+from spin_dynamics.sequences import ADCEvent, SequenceBlock, SequenceIR
 
 _DISC = ((np.linspace(-1, 1, 6)[:, None] ** 2 + np.linspace(-1, 1, 6)[None, :] ** 2) < 0.7).astype(
     float
@@ -115,6 +118,31 @@ def test_config_file_round_trip(name: str, suffix: str, tmp_path) -> None:
 
 
 @pytest.mark.smoke
+def test_sequence_ir_friendly_json_config_round_trip(tmp_path) -> None:
+    experiment = Experiment(
+        sequence=SequenceIRExecution(
+            ir=SequenceIR(
+                blocks=(
+                    SequenceBlock(
+                        duration_seconds=1e-3,
+                        adc=ADCEvent(1, dwell_seconds=1e-3),
+                    ),
+                )
+            )
+        ),
+        sample=Sample(
+            sequence_domain=SequenceDomain(
+                axes=(np.array([-1e-3, 1e-3]),),
+                density=np.ones(2),
+            )
+        ),
+    )
+    path = tmp_path / "sequence-ir.json"
+    save_config(experiment, str(path))
+    assert load_config(str(path)) == experiment
+
+
+@pytest.mark.smoke
 def test_minimal_config_is_readable() -> None:
     text = dumps_toml(experiment_to_config(_EXPERIMENTS["minimal"]))
     assert text.strip() == '[sequence]\ntype = "CPMGTrain"'
@@ -185,6 +213,12 @@ def test_cli_run_and_show(tmp_path, capsys) -> None:
     shown = capsys.readouterr().out
     assert "run_tuned_cpmg_train" in shown
     assert "package_version" in shown
+
+    code = cli.main(["verify", str(out)])
+    assert code == 0
+    verified = capsys.readouterr().out
+    assert "reproduced: yes" in verified
+    assert "implementation identity: match" in verified
 
 
 @pytest.mark.smoke

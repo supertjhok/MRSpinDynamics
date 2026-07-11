@@ -61,7 +61,8 @@ extensions.
   experiment reproduces the direct call exactly, and adds compatibility
   checking, runtime/memory estimation, automatic coil-geometry-to-B1 field
   wiring for imaging, reduced-vs-full NQR engine dispatch, NPZ/JSON save-load,
-  and a config-driven CLI (`python -m spin_dynamics.experiment`) across the
+  and a config-driven CLI (`spin-dynamics`, with
+  `python -m spin_dynamics.experiment` as the equivalent module form) across the
   NMR, imaging, NQR, and ESR engines. See
   [`docs/python_api/experiment_workflow.md`](docs/python_api/experiment_workflow.md).
 - `spin_dynamics.workflows` contains the high-level NMR workflows the facade
@@ -70,11 +71,15 @@ extensions.
   time-varying-field examples, WURST pulses, radiation damping, motion, and
   prepolarization.
 - `spin_dynamics.sequences` contains timing helpers plus a backend-neutral
-  block/event sequence IR. It can import core Pulseq 1.4/1.5 text `.seq` files,
+  block/event sequence IR. An explicit transmit/receive hardware-effects policy
+  lets a backend distinguish ideal execution from required probe realization
+  without baking filtered waveforms into the sequence. It can import core
+  Pulseq 1.4/1.5 text `.seq` files,
   export raster-validated Pulseq 1.5.0 sequences,
   compile concurrent RF/gradient/ADC events to a piecewise-constant timeline,
   visualize aligned RF/gradient/ADC lanes, and adapt that timeline to the
-  moving-isochromat engine. See
+  moving-isochromat engine. General native or Pulseq-imported IR can be planned,
+  executed, archived, and reproduced through `spin_dynamics.experiment`. See
   [`docs/python_api/sequence_ir.md`](docs/python_api/sequence_ir.md).
 - `spin_dynamics.core`, `fields`, `probes`, `sequences`, and `parameters`
   provide lower-level numerical pieces used by the workflows. `fields` also
@@ -199,19 +204,30 @@ record = study.run()             # delegates to run_tuned_cpmg_train
 record.save("run1.npz")          # arrays + JSON provenance + spec round-trip
 ```
 
+Saved runs carry canonical SHA-256 identities for the complete experiment and
+native result, callable/module/package-tree hashes, Git revision/dirty state,
+NumPy/SciPy/build/thread environment, and seeded/unseeded randomness status.
+`load_run("run1.npz").verify_reproduction()` reruns the stored experiment and
+reports whether the exact result identity was reproduced; the CLI equivalent is
+`spin-dynamics verify run1.npz`.
+
 The same interface drives imaging (with automatic transmit-coil B1 solving),
-pulsed NQR (`NQRSLSE` / `NQRSORC`, with reduced-vs-full engine selection), and
-pulsed ESR (`ESRFID` / `ESRHahnEcho`). See
+NQR (`NQRFID`, `NQRPopulationTransfer`, `NQRSLSE`, and `NQRSORC`) and ESR
+(`ESRCWSweep`, `ESRDEER`, pulsed FID/Hahn, ESEEM, 2-D HYSCORE, and
+Davies/Mims ENDOR). See
 [`docs/python_api/experiment_workflow.md`](docs/python_api/experiment_workflow.md)
 for the full guide.
 
 You can also drive it from a TOML or JSON config file with the CLI:
 
 ```powershell
-python -m spin_dynamics.experiment plan examples\experiment_config_cpmg.toml
-python -m spin_dynamics.experiment run  examples\experiment_config_cpmg.toml -o run.npz
-python -m spin_dynamics.experiment show run.npz
+spin-dynamics plan examples\experiment_config_cpmg.toml
+spin-dynamics run  examples\experiment_config_cpmg.toml -o run.npz
+spin-dynamics show run.npz
 ```
+
+The console command is installed by the package; `python -m
+spin_dynamics.experiment` remains equivalent.
 
 The subcommands are `plan` (resolve and validate; non-zero exit on plan
 errors), `run` (plan then run, refusing an erroring plan, with an optional
@@ -326,6 +342,7 @@ python examples\plot_nqr_powder_nutation.py --output results\nqr_powder_nutation
 python examples\plot_nqr_population_transfer.py --output results\nqr_population_transfer.png
 python examples\plot_esr_powder_spectrum.py --output results\esr_powder_spectrum.png
 python examples\plot_esr_pulsed_echo.py --output results\esr_pulsed_echo.png
+python examples\experiment_sequence_ir.py --timeline-output results\sequence_ir.png --output results\sequence_ir.npz
 python examples\plot_shim_a_ring_magnet.py --output results\shim_a_ring.png
 python examples\plot_logging_ferrite_b1_focusing.py --output results\logging_ferrite_b1.png
 python examples\plot_zulf_quadrupolar_jcoupling.py --output results\zulf_jcoupling.png
@@ -344,12 +361,15 @@ The full example catalog is documented in `docs/python_api/examples.md`.
   unified experiment facade (the recommended entry point) and its CLI.
 - `docs/python_api/api_reference.md` is generated from public functions,
   classes, and docstrings.
+- `docs/validation_matrix.md` is generated from
+  `validation/evidence.json` and records claim-level evidence, ranges,
+  tolerances, reproducers, and limitations.
 - `docs/python_api/concepts.md` describes units and conventions.
 - `docs/python_api/workflows.md`, `nqr.md`, `esr.md`, `j_coupling.md`,
   `exchange.md`, and `internal_gradients.md` describe major feature areas.
 - `docs/matlab_mapping.md`, `docs/migration_plan.md`, and
-  `docs/validation_results.md` document the MATLAB-to-Python port and fixture
-  parity checks.
+  `docs/validation_results.md` document the MATLAB-to-Python port, fixture
+  parity checks, and historical run log.
 
 Build the manual from this directory with:
 
@@ -362,6 +382,7 @@ classes, or docstrings:
 
 ```powershell
 python docs\generate_api_reference.py
+python docs\generate_validation_matrix.py
 ```
 
 ## Tests And Validation
@@ -385,6 +406,7 @@ changes:
 ```powershell
 python -m unittest discover -s tests
 python -m ruff check src tests examples
+python docs\generate_validation_matrix.py --check
 ```
 
 Fixture generation scripts are in `validation/octave/`. MATLAB is required for

@@ -62,6 +62,7 @@ def _has_scipy() -> bool:
     return True
 
 
+# Keep CLI choices together so scientific defaults are easy to find and override.
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
@@ -362,6 +363,7 @@ def _run_sequence_signal(
     return complex(sequence.signal[-1])
 
 
+# Run the numerical experiment without plotting so its outputs remain reusable.
 def _simulate_data(args: argparse.Namespace) -> tuple[np.ndarray, np.ndarray]:
     b_values, gradients = _b_values_and_gradients(args.b_points, args.b_max)
     data = np.zeros((b_values.size, b_values.size), dtype=np.float64)
@@ -466,6 +468,7 @@ def _invert_dd(
     )
 
 
+# Run the numerical experiment without plotting so its outputs remain reusable.
 def _simulate(args: argparse.Namespace, *, nonnegative: bool) -> DexsySimulation:
     data, b_values = _simulate_data(args)
     diffusion_axis = np.linspace(0.05e-9, 2.6e-9, int(args.d_points))
@@ -492,6 +495,7 @@ def _simulate(args: argparse.Namespace, *, nonnegative: bool) -> DexsySimulation
     )
 
 
+# Keep visualization separate from simulation for headless runs and reuse.
 def _plot_results(plt, sim: DexsySimulation):
     fig, axes = plt.subplots(1, 3, figsize=(14.0, 4.1))
 
@@ -564,8 +568,12 @@ def _plot_results(plt, sim: DexsySimulation):
     return fig
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     args = _parse_args()
+    # Non-negative least squares gives the physically natural diffusion map.
+    # The unconstrained fallback keeps the forward simulation usable with NumPy
+    # alone, but its inverse may contain negative ringing.
     nonnegative = not args.unconstrained
     if nonnegative and not _has_scipy():
         print(
@@ -575,8 +583,14 @@ def main() -> None:
         nonnegative = False
 
     plt = load_matplotlib(headless=bool(args.output))
+    # One finite-pulse walker simulation supplies both the exchange diagnostics
+    # and the 2D inverse-Laplace reconstruction; no synthetic inverse-only data
+    # are substituted at this stage.
     sim = _simulate(args, nonnegative=nonnegative)
 
+    # Report acquisition coverage, the known microscopic input, exchange during
+    # mixing, and inverse residual in that order—the same order used to judge a
+    # DEXSY reconstruction experimentally.
     print(f"b range: {sim.b_values[0]:.3e} to {sim.b_values[-1]:.3e} s/m^2")
     print(f"microscopic D: {DIFFUSION:.2e} m^2/s")
     print(

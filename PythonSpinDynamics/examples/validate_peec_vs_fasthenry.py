@@ -89,6 +89,7 @@ def _print_table(freqs, peec, fh_L_nH, fh_R_mO):
         print("  %8.0e %10.3f %10.3f %7.1f   %10.4f %10.4f %7.1f" % (f, lf, lp, dl, rf, rp, dr))
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--turns", type=int, default=6)

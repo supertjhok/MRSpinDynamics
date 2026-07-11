@@ -52,6 +52,7 @@ class BipolarSimulation:
     walker_background: float
 
 
+# Keep CLI choices together so scientific defaults are easy to find and override.
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
@@ -212,6 +213,7 @@ def _walker_sweep(args, timing, *, background: float) -> tuple[np.ndarray, np.nd
     return np.array(b_values), np.array(attenuation)
 
 
+# Run the numerical experiment without plotting so its outputs remain reusable.
 def _simulate(args: argparse.Namespace) -> BipolarSimulation:
     from spin_dynamics.workflows.bipolar import (
         cotts_thirteen_interval_intervals,
@@ -275,6 +277,7 @@ def _simulate(args: argparse.Namespace) -> BipolarSimulation:
     )
 
 
+# Keep visualization separate from simulation for headless runs and reuse.
 def _plot_results(plt, sim: BipolarSimulation):
     fig, axes = plt.subplots(1, 3, figsize=(16.2, 4.4))
 
@@ -357,6 +360,7 @@ def _plot_results(plt, sim: BipolarSimulation):
     return fig
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     args = _parse_args()
     if args.gradient_points < 2 or args.background_points < 1:

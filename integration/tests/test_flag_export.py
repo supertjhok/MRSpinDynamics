@@ -31,7 +31,8 @@ class FlagExportTests(unittest.TestCase):
         self.assertGreater(summary.flagged, 0)
         self.assertTrue(jsonl.exists())
         self.assertEqual(
-            summary.sites_written, sum(1 for _ in jsonl.open(encoding="utf-8"))
+            summary.sites_written,
+            len(jsonl.read_text(encoding="utf-8").splitlines()),
         )
 
     def test_table_rows_match_summary(self) -> None:

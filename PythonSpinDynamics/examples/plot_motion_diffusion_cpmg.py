@@ -1,4 +1,9 @@
-"""Plot Brownian diffusion during a simple CPMG train in a static gradient."""
+"""Plot Brownian diffusion during a simple CPMG train in a static gradient.
+
+Follow the timing and transport assumptions carefully, then inspect how they
+change attenuation, phase, or the echo train. Run ``python
+examples/plot_motion_diffusion_cpmg.py --help`` to see the adjustable inputs.
+"""
 
 from __future__ import annotations
 
@@ -20,6 +25,7 @@ from spin_dynamics.sequences.motion import run_motion_cpmg_sequence
 
 
 
+# Keep CLI choices together so scientific defaults are easy to find and override.
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--num-particles", type=int, default=900, help="Walker count.")
@@ -135,6 +141,7 @@ def _run_case(args: argparse.Namespace, diffusion: float, fields, case_index: in
     }
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     args = _parse_args()
     if args.num_echoes <= 0 or args.echo_spacing <= 0.0:

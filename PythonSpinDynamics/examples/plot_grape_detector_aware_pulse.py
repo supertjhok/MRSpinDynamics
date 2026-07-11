@@ -249,6 +249,7 @@ def make_figure(plt, out):
     return fig
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--segments", type=int, default=16, help="pulse segments")

@@ -76,6 +76,9 @@ errors; warnings are surfaced but do not block. Current rules:
   recommendation with its reasons.
 - **transport** — reports uniform-flow speed and axis crossing times, and warns
   when reflecting boundaries turn nominal flow into a closed bouncing ensemble.
+- **sequence_ir** — compiles native/Pulseq blocks, reports interval, ADC, and
+  particle counts, and rejects unsupported extensions, probe effects, or noise
+  before dynamics begin.
 
 Set fields the resolved workflow does not consume and `plan()` warns that they
 will be ignored, so mismatched specs never fail silently.
@@ -168,6 +171,43 @@ unsaved fields; the stored experiment and seed regenerate them exactly. A
 runnable configuration is provided as
 [`examples/experiment_config_pgse_walkers_flow.toml`](../../examples/experiment_config_pgse_walkers_flow.toml).
 
+## General SequenceIR and Pulseq execution
+
+Specialized sequence specs remain the shortest route for established
+workflows, but arbitrary native or Pulseq-imported timelines can now use the
+facade through `SequenceIRExecution`. `SequenceDomain` explicitly supplies the
+spatial axes, density, optional B0/B1 maps and velocity, and physical gradient
+channel mapping. Planning compiles the IR and checks backend policy before any
+walkers are initialized; execution returns demodulated ADC samples and the final
+ensemble, with normal archive provenance and rerun verification.
+
+```python
+import numpy as np
+from spin_dynamics.experiment import (
+    Experiment, Sample, SequenceDomain, SequenceIRExecution,
+)
+from spin_dynamics.sequences import read_pulseq
+
+ir = read_pulseq("experiment.seq")
+x = np.linspace(-5e-3, 5e-3, 51)
+study = Experiment(
+    sequence=SequenceIRExecution(ir=ir, seed=17),
+    sample=Sample(
+        t2_seconds=0.1,
+        sequence_domain=SequenceDomain(
+            axes=(x,), density=np.ones_like(x), gradient_channels=("x",),
+        ),
+    ),
+)
+record = study.run()
+```
+
+The runnable [`experiment_sequence_ir.py`](../../examples/experiment_sequence_ir.py)
+uses the same built-in spin echo as the timeline visualizer, or accepts a
+Pulseq file, and can save both its timeline and a provenance-bearing result.
+The current backend is ideal hardware only and supports white receive noise;
+an IR requiring transmit/receive probe realization fails at plan time.
+
 ## Other engines
 
 The same interface drives the NQR and ESR engines. For NQR, `plan()` picks the
@@ -191,16 +231,37 @@ convention; the adapter converts to the bare `gamma*B1/(2*pi)` the full engine
 needs. Runnable version:
 [`examples/experiment_nqr_auto_model.py`](../../examples/experiment_nqr_auto_model.py).
 
+The facade also exposes full-model `NQRFID` and reduced spin-1
+`NQRPopulationTransfer`. The former uses the full engine's bare
+`gamma*B1/(2*pi)` nutation convention; the latter describes perturbation and
+SLSE detection pulses independently.
+
 For pulsed ESR, set `Sample.esr_system` (an `ESRSpinSystem`) and a
 `Hardware.b0 = UniformB0(field_tesla=...)` so the electron Larmor frequency is
-fixed, then use an `ESRFID` or `ESRHahnEcho` sequence.
+fixed, then use `ESRFID` or `ESRHahnEcho`. `ESRCWSweep` needs the spin system
+but supplies its own field axis, so it does not require fixed B0. `ESRDEER`
+instead consumes `Sample.deer_distribution = DEERDistribution(...)` and
+returns a persistable form-factor result.
+
+Electron-nuclear correlation experiments use a shared
+`Sample.hyperfine_coupling = HyperfineCoupling(...)`. The facade provides
+`ESRTwoPulseESEEM` and `ESRThreePulseESEEM` (automatic analytic spin-1/2 or
+density-matrix selection), `ESRHYSCORE` (persisted 2-D time and frequency
+planes plus predicted cross-peaks), and `ESRDaviesENDOR` / `ESRMimsENDOR`.
+The existing `plot_esr_eseem_hyscore.py` example now exercises these facade
+routes directly, so its plots also test the same planning and serialization
+surface used by configuration-driven runs.
 
 ## Saving and reloading
 
 `record.save(path)` writes an NPZ archive holding every array field of the
-native result plus a JSON document with the full experiment spec, provenance
-(package/NumPy/Python versions, platform, timestamp, elapsed time), and scalar
-result fields. `load_run(path)` returns a `LoadedRun` exposing the raw arrays,
+native result plus a JSON document with the full experiment spec, versioned
+provenance, and scalar result fields. Provenance includes canonical SHA-256
+identities for the experiment and native result; resolved callable, module,
+and complete package-source hashes; package and Git revision/dirty state; Python, NumPy, SciPy,
+NumPy-build, platform, and thread settings; and explicit deterministic,
+seeded, or unseeded randomness classification. `load_run(path)` returns a
+`LoadedRun` exposing the raw arrays,
 the reconstructed native result, and — via `loaded.experiment` — the original
 spec, so a saved run can be re-run or tweaked:
 
@@ -209,7 +270,17 @@ from spin_dynamics.experiment import load_run
 
 loaded = load_run("run1.npz")
 loaded.experiment.run()          # reproduce
+report = loaded.verify_reproduction()
+report.require_match()           # exact saved/rerun result identity
 ```
+
+`loaded.specification_matches` and `loaded.result_matches` check archive
+content against its recorded identities without rerunning (the latter is
+`None` when a native result had deliberately unsaved fields). Reproduction is
+an exact bitwise numerical claim; a changed environment or implementation is
+reported separately so small cross-platform differences are not mislabeled as
+the same result. Version-1 archives remain readable but cannot make a result
+identity claim retroactively.
 
 Specs are JSON-serializable directly, too (`Experiment.to_json()` /
 `Experiment.from_json(...)`).
@@ -245,6 +316,7 @@ drives the same plan/run/save flow:
 python -m spin_dynamics.experiment plan examples\experiment_config_cpmg.toml
 python -m spin_dynamics.experiment run  examples\experiment_config_cpmg.toml -o run.npz
 python -m spin_dynamics.experiment show run.npz
+python -m spin_dynamics.experiment verify run.npz
 python -m spin_dynamics.experiment convert config.toml config.json
 ```
 
@@ -255,13 +327,15 @@ A diffusion example is provided as
 one. In Python, `save_config` / `load_config` and `experiment_to_config` /
 `experiment_from_config` expose the same round-trip. This friendly form covers
 the spec fields with scalar or array values (including phantoms and coil
-geometry); a fully general result archive still uses the NPZ/JSON form above.
+geometry). Nested SequenceIR blocks round-trip through JSON; TOML is
+intentionally reserved for the flatter human-authored specs. A fully general
+result archive uses the NPZ/JSON form above.
 
 ## Scope
 
 The facade currently wraps deterministic and random-walker PGSE diffusion with
-uniform 2-D flow, the CPMG family (asymptotic, finite train, and
-inversion-recovery train for ideal/tuned/untuned/matched probes), phase-encoded
-CPMG imaging, pulsed NQR (SLSE and SORC), and pulsed ESR (FID and Hahn echo).
+uniform 2-D flow, the CPMG family, phase-encoded CPMG imaging, the principal
+one- and multidimensional NQR/ESR measurements, and general SequenceIR/Pulseq
+execution on the ideal moving-isochromat backend.
 Design notes and the milestone roadmap are in
 [`../unified_workflow_plan.md`](../unified_workflow_plan.md).

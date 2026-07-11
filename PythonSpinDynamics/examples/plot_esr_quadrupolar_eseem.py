@@ -32,6 +32,7 @@ from spin_dynamics.esr import (  # noqa: E402
 )
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--nuclear-spin", type=float, default=1.0, help="1 or 1.5.")

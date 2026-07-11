@@ -42,6 +42,7 @@ from spin_dynamics.fields.coil_properties import (
 from spin_dynamics.fields.quasistatic import coil_inductance, coil_loading
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--diameter-mm", type=float, default=20.0, help="Mean coil diameter.")

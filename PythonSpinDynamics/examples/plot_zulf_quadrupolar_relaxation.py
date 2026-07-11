@@ -99,6 +99,7 @@ def build_data(args: argparse.Namespace) -> dict:
     }
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=__doc__,

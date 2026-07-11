@@ -63,6 +63,7 @@ def _fit_t2(times: np.ndarray, magnitudes: np.ndarray) -> float:
     return float(-1.0 / slope) if slope < 0 else float("inf")
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)

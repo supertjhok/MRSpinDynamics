@@ -34,6 +34,7 @@ from _source_path import add_src_to_path, load_matplotlib
 add_src_to_path()
 
 
+# Keep CLI choices together so scientific defaults are easy to find and override.
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
@@ -137,6 +138,7 @@ def _field_distribution(args: argparse.Namespace) -> tuple[np.ndarray, np.ndarra
     return offsets_hz, 2.0 * np.pi * offsets_hz, weights
 
 
+# Run the numerical experiment without plotting so its outputs remain reusable.
 def _simulate_branch(
     *,
     pulse_phases: tuple[float, float, float],
@@ -368,6 +370,7 @@ def _run_example(args: argparse.Namespace):
     }
 
 
+# Keep visualization separate from simulation for headless runs and reuse.
 def _plot(plt, args: argparse.Namespace, results: dict[str, np.ndarray]):
     times_ms = results["times_s"] * 1.0e3
     tau_ms = float(args.tau_ms)
@@ -457,6 +460,7 @@ def _plot(plt, args: argparse.Namespace, results: dict[str, np.ndarray]):
     return fig
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     args = _parse_args()
     plt = load_matplotlib(headless=bool(args.output))

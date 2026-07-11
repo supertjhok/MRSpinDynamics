@@ -1,12 +1,17 @@
-# MRSpinDynamics — Performance Acceleration Plan (JAX / Numba)
+# MRSpinDynamics Performance Backends: Design, Results, and Limits
 
-_Last updated: 2026-06-28_
+_Last updated: 2026-07-11_
 
-This document maps the current computational situation in the workspace and lays
-out a phased plan for a compiled / autodiff acceleration backend. It expands on
-opportunity #3 of the [repository roadmap](roadmap.md) ("JAX/Numba isochromat
-backend") and the "compiled or GPU acceleration backends" item in
-`PythonSpinDynamics/docs/python_api/known_gaps.md`.
+> **Status.** Phases 0--4 described below are implemented and validated. This
+> document is now an engineering record and performance guide, not an open
+> implementation plan. For setup commands and current user-facing backend
+> choices, start with `PythonSpinDynamics/docs/development_environment.md` and
+> `PythonSpinDynamics/docs/python_api/performance.md`.
+
+This document records why the compiled/autodiff backends were introduced, how
+they were validated, the measured results, and the cases where plain NumPy is
+still faster. It preserves the original phase structure because that history
+explains the design, but completed phases are labeled as such.
 
 The engineering payoff is twofold and the two halves should not be conflated:
 
@@ -29,7 +34,7 @@ isochromats**.
 | Per-isochromat eig | `core/kernels.py` → `_matrix_elements_power` | `for idx in range(numpts)`: a 3×3 `np.linalg.eig` + `inv` **per isochromat** | Pathological scaling; radiation-damping path only, but the worst Python-level offender. |
 | Dense diagonalization | `nqr/hamiltonians.py` → `diagonalize_site`; ESR Zeeman | small dense `eigh` (dim 3–4) | Cheap per call, but multiplied across powder-orientation and site scans. |
 
-### Current acceleration (NumPy + threads only)
+### Baseline before the compiled backends
 
 The package requires only `numpy>=1.24`; `scipy` is an optional extra. Two
 threading layers exist today:
@@ -359,9 +364,14 @@ object construction) dominates; vectorizing that — or working directly on the
 batched eigenarrays instead of per-orientation `NQRTransition` objects — is the
 next refinement.
 
-## 5. Sequencing recommendation
+## 5. What to optimize next
 
-Do **Phase 0 → 1 (Numba)** first for an immediate, safe CPU win, then
-**Phase 2 → 3 (JAX)** for the autodiff optimizer payoff — the larger strategic
-prize and the direct answer to "make optimizations much faster." Phase 4 follows
-opportunistically alongside the higher-spin NQR work.
+The original Phase 0 -> 4 sequence is complete. New backend work should now be
+driven by profiling rather than by adding another framework-wide backend:
+
+1. vectorize surrounding workflow assembly when small-grid dispatch dominates;
+2. port a probe-aware objective only when a real optimization study needs it;
+3. use batched NumPy for tiny dense eigensystems and reserve GPU dispatch for
+   large batches or larger Hilbert spaces;
+4. keep every accelerated path paired with a NumPy parity test and a benchmark
+   that includes compilation and transfer costs.
