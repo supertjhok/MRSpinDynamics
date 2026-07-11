@@ -1197,8 +1197,10 @@ No public classes or functions found.
 
 | Kind | Name | Summary |
 | --- | --- | --- |
+| class | `PhaseCycledSequenceBranch` | One phase-programmed :class:`~spin_dynamics.sequences.SequenceIR` branch. |
 | class | `PhaseStep` | One scan branch in a phase cycle. |
 | class | `PhaseCycle` | A reusable phase-cycle scan table. |
+| function | `phase_cycle_sequence_ir(sequence: Any, phase_cycle: PhaseCycle, *, pulse_blocks: Mapping[str, int | str | Sequence[int | str]] | None = None) -> tuple[PhaseCycledSequenceBranch, ...]` | Create one independently executable ``SequenceIR`` per phase-cycle step. |
 | function | `cpmg_two_step_phase_cycle(*, excitation_name: str = 'excitation', excitation_phase_rad: float = np.pi / 2.0) -> PhaseCycle` | Return the default two-step CPMG/PAP excitation phase cycle. |
 | function | `pgste_stimulated_echo_phase_cycle() -> PhaseCycle` | Return the selected-pathway PGSTE stimulated-echo phase table. |
 | function | `eseem_stimulated_echo_phase_cycle(n_phase: int = 4) -> PhaseCycle` | Return the phase cycle selecting the three-pulse ESEEM stimulated echo. |
@@ -1318,6 +1320,8 @@ No public classes or functions found.
 
 | Kind | Name | Summary |
 | --- | --- | --- |
+| class | `InverseExcitationValidation` | Quantitative cancellation evidence for one excitation/inverse pair. |
+| function | `validate_inverse_excitation_pair(target_mrx: np.ndarray, inverse_mrx: np.ndarray, del_w: np.ndarray, *, target_snr: float | None = None, inverse_snr: float | None = None) -> InverseExcitationValidation` | Measure broadband cancellation, peak residual, phase, and SNR balance. |
 | class | `TunedExcitationInversePipelineResult` | Selected-refocusing to excitation/inverse-excitation pipeline result. |
 | function | `run_tuned_excitation_inverse_pipeline(refocusing: Any, *, pulse_number: int | None = None, excitation_segments: int = 3, excitation_starts: int = 4, inverse_starts: int = 4, seed: int | None = None, numpts: int = 21, maxoffs: float = 10.0, result_times_are_t180: bool = True, random_fraction: float = 0.3, excitation_kwargs: dict[str, Any] | None = None, inverse_kwargs: dict[str, Any] | None = None) -> TunedExcitationInversePipelineResult` | Run excitation and inverse-excitation searches from a refocusing result. |
 

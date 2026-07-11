@@ -212,10 +212,10 @@ Remaining gaps:
 - newer matched-probe helper variants outside the original/reference and JMR
   rectangular-pulse paths;
 - probe-shaped T1-prepared imaging for tuned or matched inversion pulses;
-- general phase cycling is only partially first-class. The new
-  `spin_dynamics.phase_cycling` table owns the default CPMG two-step branch
-  combination and records PGSTE selected-pathway metadata, but arbitrary
-  cycle-table support is not yet wired through all workflows, and NQR/ESR
+- general phase cycling now supports arbitrary labeled `SequenceIR` programs:
+  `PhaseCycle.apply_to_sequence()` produces independently executable branches
+  with receiver weights, including repeated logical pulse roles. Direct
+  workflow helpers do not all expose a `phase_cycle=` argument, and NQR/ESR
   pathway selection remains workflow-specific. See
   [Phase Cycling Findings](phase_cycling.md);
 - broad diffusion sweeps, Q>2000 matched-diffusion validation, trapezoidal
@@ -228,10 +228,13 @@ Remaining gaps:
 - exact MATLAB WURST fixture parity beyond finite-output and physical sanity
   tests, because the MATLAB WURST scripts are exploratory and include
   placeholder or plotting-oriented branches;
-- full historical MATLAB `.mat` result-file parity, broad `fmincon` parity
-  validation, and strong inverse excitation cancellation parity;
+- full historical MATLAB `.mat` result-file parity and broad `fmincon` parity
+  validation. Inverse-excitation workflows now report integrated and peak
+  residual ratios, inverse coherence, and optional SNR balance, but strong
+  cancellation parity still requires broader authoritative result archives;
 - broader compiled/GPU backend coverage beyond the current selected Numba/JAX
-  kernels, plus CI validation of those optional backends;
+  kernels. Dedicated CI jobs now install both optional extras and compare the
+  supported CPU paths with NumPy; GPU runners remain unavailable;
 - received-signal noise-model validation: the probe-noise variance carries a
   `/ dx**2` rescaling onto a user-supplied `sample_axis` (a no-op for the
   default unit grid) whose convention is not independently validated for

@@ -352,6 +352,37 @@
       "limitations": ["Exact computational reproduction does not validate the physical model; unseeded legacy runs cannot be made reproducible after the fact."]
     },
     {
+      "id": "arbitrary_sequence_phase_cycles",
+      "component": "Arbitrary SequenceIR phase cycling",
+      "claim": "Named RF roles in a backend-neutral sequence are programmed branch-by-branch and receiver-combined according to an arbitrary phase table.",
+      "evidence_types": ["A", "R"],
+      "basis": "Discrete Fourier pathway-selection identities plus direct checks of compiled complex RF phases and receiver weights.",
+      "parameter_range": "One or more labeled RF blocks selected by labels, indices, or repeated logical roles; complex receiver weights.",
+      "metric": "Compiled RF phase and receiver-combined pathway amplitude",
+      "tolerance": "1e-13 or tighter for analytical pathway identities and compiled complex samples.",
+      "status": "validated",
+      "reproducers": [
+        "tests/test_phase_cycling.py::test_arbitrary_sequence_ir_cycle_programs_named_pulses",
+        "tests/test_phase_cycling.py::test_four_step_cyclops_cycle_rejects_mirror_coherence_artifact"
+      ],
+      "references": ["Standard coherence-pathway phase cycling and discrete Fourier selection"],
+      "limitations": ["Specialized direct workflows do not all expose phase-cycle arguments; this claim covers general SequenceIR branch construction and generic signal combination."]
+    },
+    {
+      "id": "inverse_excitation_diagnostics",
+      "component": "Inverse-excitation cancellation diagnostics",
+      "claim": "Excitation/inverse spectrum pairs report broadband and peak residuals, inverse coherence, and SNR mismatch with correct analytical limiting behavior.",
+      "evidence_types": ["A", "R"],
+      "basis": "Exact negative-spectrum cancellation and controlled complex amplitude/phase perturbations.",
+      "parameter_range": "Complex spectra on strictly increasing offset grids, with optional finite SNR values.",
+      "metric": "Integrated residual ratio, peak residual ratio, normalized inverse coherence, and relative SNR error",
+      "tolerance": "Floating-point precision for exact cancellation; analytical equality for controlled perturbations.",
+      "status": "validated",
+      "reproducers": ["tests/test_workflow_validation.py"],
+      "references": ["Triangle residual of target plus inverse complex spectra"],
+      "limitations": ["These diagnostics validate calculation and limiting behavior, not strong cancellation against a broad historical MATLAB or measured dataset."]
+    },
+    {
       "id": "acceleration_backends",
       "component": "Numba and JAX acceleration",
       "claim": "Accelerated kernels reproduce the NumPy reference for supported batched rotations, propagation, and optimization primitives.",
@@ -363,7 +394,7 @@
       "status": "validated",
       "reproducers": ["tests/test_numba_backend.py", "tests/test_jax_backend.py", "tests/test_jax_optimizer.py"],
       "references": ["NumPy reference backend"],
-      "limitations": ["Backend parity does not independently validate physics and does not cover every package workflow."]
+      "limitations": ["Backend parity does not independently validate physics and does not cover every package workflow. CI exercises CPU backends; GPU-specific execution still requires external runners."]
     },
     {
       "id": "rfi_rejection",

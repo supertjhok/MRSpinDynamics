@@ -20,8 +20,8 @@ what supports the underlying scientific or numerical claim.
 
 ## Coverage Summary
 
-- 21 capability-level claims
-- 10 validated
+- 23 capability-level claims
+- 12 validated
 - 6 partially validated
 - 5 regression-only
 
@@ -46,6 +46,8 @@ what supports the underlying scientific or numerical claim.
 | Optimal-control propagation and gradients | NumPy/JAX propagators, control gradients, hardware-response primitives, and bounded objectives agree across implementations and with finite-difference limits. | **C**, **R**, **B** | partially validated |
 | Unified experiment facade | Facade routes reproduce their direct workflow calls and preserve specifications, configs, arrays, and provenance through round trips. | **R** | regression only |
 | Reproducible results and provenance | Facade archives identify experiment inputs, implementation, numerical environment, randomness, and result content and can verify an exact rerun while remaining backward-compatible with version-1 archives. | **R** | regression only |
+| Arbitrary SequenceIR phase cycling | Named RF roles in a backend-neutral sequence are programmed branch-by-branch and receiver-combined according to an arbitrary phase table. | **A**, **R** | validated |
+| Inverse-excitation cancellation diagnostics | Excitation/inverse spectrum pairs report broadband and peak residuals, inverse coherence, and SNR mismatch with correct analytical limiting behavior. | **A**, **R** | validated |
 | Numba and JAX acceleration | Accelerated kernels reproduce the NumPy reference for supported batched rotations, propagation, and optimization primitives. | **C**, **R** | validated |
 | RFI synthesis and rejection | Reference-channel cancellers preserve protected acquisition windows and suppress known synthetic coherent, colored, and impulsive interference. | **R** | regression only |
 
@@ -279,6 +281,30 @@ what supports the underlying scientific or numerical claim.
 - **Reproduce:** [`tests/test_experiment.py::test_provenance_fingerprints_are_stable_and_specific`](../tests/test_experiment.py#L151); [`tests/test_experiment.py::test_provenance_classifies_seeded_and_unseeded_randomness`](../tests/test_experiment.py#L186); [`tests/test_experiment.py::test_version_one_run_archive_remains_readable`](../tests/test_experiment.py#L203); [`tests/test_experiment.py::test_archive_fingerprints_detect_spec_and_result_tampering`](../tests/test_experiment.py#L237); [`tests/test_experiment_cli.py::test_cli_run_and_show`](../tests/test_experiment_cli.py#L203)
 - **Limitations:** Exact computational reproduction does not validate the physical model; unseeded legacy runs cannot be made reproducible after the fact.
 
+### Arbitrary SequenceIR phase cycling
+
+- **Claim:** Named RF roles in a backend-neutral sequence are programmed branch-by-branch and receiver-combined according to an arbitrary phase table.
+- **Evidence:** A, R (validated)
+- **Basis:** Discrete Fourier pathway-selection identities plus direct checks of compiled complex RF phases and receiver weights.
+- **Tested range:** One or more labeled RF blocks selected by labels, indices, or repeated logical roles; complex receiver weights.
+- **Metric:** Compiled RF phase and receiver-combined pathway amplitude
+- **Tolerance:** 1e-13 or tighter for analytical pathway identities and compiled complex samples.
+- **References:** Standard coherence-pathway phase cycling and discrete Fourier selection
+- **Reproduce:** [`tests/test_phase_cycling.py::test_arbitrary_sequence_ir_cycle_programs_named_pulses`](../tests/test_phase_cycling.py#L22); [`tests/test_phase_cycling.py::test_four_step_cyclops_cycle_rejects_mirror_coherence_artifact`](../tests/test_phase_cycling.py#L127)
+- **Limitations:** Specialized direct workflows do not all expose phase-cycle arguments; this claim covers general SequenceIR branch construction and generic signal combination.
+
+### Inverse-excitation cancellation diagnostics
+
+- **Claim:** Excitation/inverse spectrum pairs report broadband and peak residuals, inverse coherence, and SNR mismatch with correct analytical limiting behavior.
+- **Evidence:** A, R (validated)
+- **Basis:** Exact negative-spectrum cancellation and controlled complex amplitude/phase perturbations.
+- **Tested range:** Complex spectra on strictly increasing offset grids, with optional finite SNR values.
+- **Metric:** Integrated residual ratio, peak residual ratio, normalized inverse coherence, and relative SNR error
+- **Tolerance:** Floating-point precision for exact cancellation; analytical equality for controlled perturbations.
+- **References:** Triangle residual of target plus inverse complex spectra
+- **Reproduce:** [`tests/test_workflow_validation.py`](../tests/test_workflow_validation.py)
+- **Limitations:** These diagnostics validate calculation and limiting behavior, not strong cancellation against a broad historical MATLAB or measured dataset.
+
 ### Numba and JAX acceleration
 
 - **Claim:** Accelerated kernels reproduce the NumPy reference for supported batched rotations, propagation, and optimization primitives.
@@ -289,7 +315,7 @@ what supports the underlying scientific or numerical claim.
 - **Tolerance:** Backend/precision-specific numpy.testing tolerances.
 - **References:** NumPy reference backend
 - **Reproduce:** [`tests/test_numba_backend.py`](../tests/test_numba_backend.py); [`tests/test_jax_backend.py`](../tests/test_jax_backend.py); [`tests/test_jax_optimizer.py`](../tests/test_jax_optimizer.py)
-- **Limitations:** Backend parity does not independently validate physics and does not cover every package workflow.
+- **Limitations:** Backend parity does not independently validate physics and does not cover every package workflow. CI exercises CPU backends; GPU-specific execution still requires external runners.
 
 ### RFI synthesis and rejection
 

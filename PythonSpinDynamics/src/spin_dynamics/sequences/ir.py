@@ -264,6 +264,13 @@ class SequenceIR:
 
         return plot_sequence(self, **kwargs)
 
+    def phase_cycle(self, cycle, *, pulse_blocks=None):
+        """Return independently executable branches for an arbitrary phase cycle."""
+
+        from spin_dynamics.phase_cycling import phase_cycle_sequence_ir
+
+        return phase_cycle_sequence_ir(self, cycle, pulse_blocks=pulse_blocks)
+
 
 def _validate_timing(dwell_seconds: float, delay_seconds: float) -> None:
     if not np.isfinite(dwell_seconds) or dwell_seconds <= 0.0:

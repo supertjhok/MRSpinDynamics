@@ -22,8 +22,10 @@ from spin_dynamics.optimization.excitation import (
     optimize_tuned_inverse_excitation_phases,
 )
 from spin_dynamics.optimization.pipeline import (
+    InverseExcitationValidation,
     TunedExcitationInversePipelineResult,
     run_tuned_excitation_inverse_pipeline,
+    validate_inverse_excitation_pair,
 )
 from spin_dynamics.optimization.refocusing import (
     IdealTimeVaryingRefocusingEvaluation,
@@ -88,6 +90,7 @@ __all__ = [
     "ExcitationOptimizationResult",
     "IdealTimeVaryingRefocusingEvaluation",
     "IdealV0CritRefocusingEvaluation",
+    "InverseExcitationValidation",
     "MatchedRefocusingEvaluation",
     "MatlabResultLayout",
     "MatlabResultSummary",
@@ -156,4 +159,5 @@ __all__ = [
     "summarize_spa_refocusing",
     "summarize_tuned_spa_refocusing",
     "summarize_untuned_spa_refocusing",
+    "validate_inverse_excitation_pair",
 ]

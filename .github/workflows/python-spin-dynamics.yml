@@ -68,6 +68,52 @@ jobs:
       - name: Enforce coverage floor
         run: python -m coverage report
 
+  optional-numba:
+    name: Optional Numba backend parity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: PythonSpinDynamics/pyproject.toml
+      - name: Install Numba extra
+        run: python -m pip install -e ".[dev,opt,numba]"
+      - name: Numba parity tests
+        run: python -m pytest tests/test_numba_backend.py tests/test_interference.py -q
+
+  optional-jax:
+    name: Optional JAX CPU backend parity
+    runs-on: ubuntu-latest
+    env:
+      JAX_PLATFORM_NAME: cpu
+      JAX_ENABLE_X64: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: PythonSpinDynamics/pyproject.toml
+      - name: Install JAX extra
+        run: python -m pip install -e ".[dev,opt,jax]"
+      - name: JAX parity tests
+        run: >-
+          python -m pytest
+          tests/test_jax_backend.py
+          tests/test_jax_optimizer.py
+          tests/test_batched_sweep.py
+          tests/test_batched_nqr.py
+          tests/test_grape_solver.py
+          tests/test_optimal_control_detection.py
+          tests/test_optimal_control_nqr.py
+          tests/test_optimal_control_objectives.py
+          tests/test_optimal_control_pgse.py
+          tests/test_optimal_control_propagation.py
+          tests/test_optimal_control_response.py
+          -q
+
   distribution:
     name: Build and install wheel/sdist
     runs-on: ubuntu-latest

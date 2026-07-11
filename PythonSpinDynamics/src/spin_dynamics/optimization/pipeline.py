@@ -18,6 +18,74 @@ from spin_dynamics.optimization.results import (
 
 
 @dataclass(frozen=True)
+class InverseExcitationValidation:
+    """Quantitative cancellation evidence for one excitation/inverse pair."""
+
+    target_integral: float
+    residual_integral: float
+    residual_ratio: float
+    peak_residual_ratio: float
+    inverse_coherence: float
+    snr_relative_error: float | None
+
+
+def validate_inverse_excitation_pair(
+    target_mrx: np.ndarray,
+    inverse_mrx: np.ndarray,
+    del_w: np.ndarray,
+    *,
+    target_snr: float | None = None,
+    inverse_snr: float | None = None,
+) -> InverseExcitationValidation:
+    """Measure broadband cancellation, peak residual, phase, and SNR balance.
+
+    ``inverse_coherence`` is one for a spectrum proportional to ``-target`` and
+    zero for an orthogonal spectrum. This is analytical/internal validation;
+    callers should attach external fixture provenance separately when available.
+    """
+
+    target = np.asarray(target_mrx, dtype=np.complex128).reshape(-1)
+    inverse = np.asarray(inverse_mrx, dtype=np.complex128).reshape(-1)
+    offsets = np.asarray(del_w, dtype=np.float64).reshape(-1)
+    if target.shape != inverse.shape or target.shape != offsets.shape:
+        raise ValueError("target_mrx, inverse_mrx, and del_w must have matching shapes")
+    if target.size < 2 or not np.all(np.diff(offsets) > 0.0):
+        raise ValueError("del_w must be strictly increasing with at least two points")
+    target_integral = float(trapezoid(np.abs(target), offsets))
+    if target_integral <= 0.0:
+        raise ValueError("target_mrx must have non-zero integrated magnitude")
+    residual = target + inverse
+    residual_integral = float(trapezoid(np.abs(residual), offsets))
+    target_peak = float(np.max(np.abs(target)))
+    target_norm = float(np.linalg.norm(target))
+    inverse_norm = float(np.linalg.norm(inverse))
+    coherence = (
+        0.0
+        if inverse_norm == 0.0
+        else float(np.real(np.vdot(-target, inverse)) / (target_norm * inverse_norm))
+    )
+    snr_error = None
+    if target_snr is not None or inverse_snr is not None:
+        if target_snr is None or inverse_snr is None:
+            raise ValueError("target_snr and inverse_snr must be supplied together")
+        target_snr_value = float(target_snr)
+        inverse_snr_value = float(inverse_snr)
+        if not np.isfinite(target_snr_value) or not np.isfinite(inverse_snr_value):
+            raise ValueError("SNR values must be finite")
+        snr_error = abs(inverse_snr_value - target_snr_value) / max(
+            abs(target_snr_value), np.finfo(float).tiny
+        )
+    return InverseExcitationValidation(
+        target_integral=target_integral,
+        residual_integral=residual_integral,
+        residual_ratio=residual_integral / target_integral,
+        peak_residual_ratio=float(np.max(np.abs(residual))) / target_peak,
+        inverse_coherence=coherence,
+        snr_relative_error=snr_error,
+    )
+
+
+@dataclass(frozen=True)
 class TunedExcitationInversePipelineResult:
     """Selected-refocusing to excitation/inverse-excitation pipeline result."""
 
@@ -26,6 +94,7 @@ class TunedExcitationInversePipelineResult:
     selected_refocusing: SelectedOptimizationProgram | None
     excitation: drivers.MultiStartOptimizationResult
     inverse: drivers.MultiStartOptimizationResult
+    inverse_validations: tuple[InverseExcitationValidation, ...]
     inverse_residual_ratios: np.ndarray
     residual_best_index: int
 
@@ -139,15 +208,16 @@ def _resolve_refocusing_axis(
     return del_w, neff, selected
 
 
-def _residual_ratio(target: Any, inverse_result: Any) -> float:
+def _validate_pipeline_pair(target: Any, inverse_result: Any) -> InverseExcitationValidation:
     inverse_eval = inverse_result.best_evaluation.excitation
-    target_mrx = np.asarray(target.mrx, dtype=np.complex128)
-    inverse_mrx = np.asarray(inverse_eval.mrx, dtype=np.complex128)
-    del_w = np.asarray(target.del_w, dtype=np.float64)
-    target_norm = trapezoid(np.abs(target_mrx), del_w)
-    if target_norm == 0:
-        return np.inf
-    return float(trapezoid(np.abs(target_mrx + inverse_mrx), del_w) / target_norm)
+    has_snr = hasattr(target, "snr") and hasattr(inverse_eval, "snr")
+    return validate_inverse_excitation_pair(
+        target.mrx,
+        inverse_eval.mrx,
+        target.del_w,
+        target_snr=target.snr if has_snr else None,
+        inverse_snr=inverse_eval.snr if has_snr else None,
+    )
 
 
 def run_tuned_excitation_inverse_pipeline(
@@ -205,9 +275,11 @@ def run_tuned_excitation_inverse_pipeline(
         numpts=actual_numpts,
         **inverse_options,
     )
+    validations = tuple(
+        _validate_pipeline_pair(target, result) for result in inverse.results
+    )
     residual_ratios = np.asarray(
-        [_residual_ratio(target, result) for result in inverse.results],
-        dtype=np.float64,
+        [validation.residual_ratio for validation in validations], dtype=np.float64
     )
     residual_best_index = int(np.nanargmin(residual_ratios))
     return TunedExcitationInversePipelineResult(
@@ -216,6 +288,7 @@ def run_tuned_excitation_inverse_pipeline(
         selected_refocusing=selected,
         excitation=excitation,
         inverse=inverse,
+        inverse_validations=validations,
         inverse_residual_ratios=residual_ratios,
         residual_best_index=residual_best_index,
     )

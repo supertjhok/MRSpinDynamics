@@ -3,9 +3,24 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from typing import TYPE_CHECKING
 
 import numpy as np
+
+if TYPE_CHECKING:
+    from spin_dynamics.sequences.ir import SequenceIR
+
+
+@dataclass(frozen=True)
+class PhaseCycledSequenceBranch:
+    """One phase-programmed :class:`~spin_dynamics.sequences.SequenceIR` branch."""
+
+    index: int
+    sequence: SequenceIR
+    step: "PhaseStep"
+    receiver_weight: complex
+    label: str
 
 @dataclass(frozen=True)
 class PhaseStep:
@@ -167,6 +182,118 @@ class PhaseCycle:
             combined = contribution if combined is None else combined + contribution
         return np.asarray(combined)
 
+    def apply_to_sequence(
+        self,
+        sequence: SequenceIR,
+        *,
+        pulse_blocks: Mapping[str, int | str | Sequence[int | str]] | None = None,
+    ) -> tuple[PhaseCycledSequenceBranch, ...]:
+        """Apply this cycle to arbitrary labeled ``SequenceIR`` RF blocks.
+
+        By default each logical pulse name selects every block with the same
+        label. ``pulse_blocks`` can instead map a logical name to block indices,
+        labels, or a sequence of either. Receiver phases remain branch metadata
+        and are applied exactly once by :meth:`combine`.
+        """
+
+        return phase_cycle_sequence_ir(sequence, self, pulse_blocks=pulse_blocks)
+
+
+def _selectors(value: int | str | Sequence[int | str]) -> tuple[int | str, ...]:
+    if isinstance(value, (int, str)):
+        return (value,)
+    return tuple(value)
+
+
+def _resolve_pulse_blocks(
+    sequence: SequenceIR,
+    phase_cycle: PhaseCycle,
+    pulse_blocks: Mapping[str, int | str | Sequence[int | str]] | None,
+) -> dict[str, tuple[int, ...]]:
+    blocks = tuple(sequence.blocks)
+    mapping = {} if pulse_blocks is None else dict(pulse_blocks)
+    unknown = set(mapping) - set(phase_cycle.pulse_names)
+    if unknown:
+        raise ValueError(f"pulse_blocks contains unknown pulse names: {sorted(unknown)}")
+    resolved: dict[str, tuple[int, ...]] = {}
+    occupied: dict[int, str] = {}
+    for pulse_name in phase_cycle.pulse_names:
+        selectors = _selectors(mapping.get(pulse_name, pulse_name))
+        indices: list[int] = []
+        for selector in selectors:
+            if isinstance(selector, int):
+                index = int(selector)
+                if index < 0 or index >= len(blocks):
+                    raise ValueError(f"block index {index} for pulse {pulse_name!r} is invalid")
+                matches = (index,)
+            else:
+                matches = tuple(
+                    index for index, block in enumerate(blocks) if block.label == selector
+                )
+                if not matches:
+                    raise ValueError(
+                        f"no sequence block has label {selector!r} for pulse {pulse_name!r}"
+                    )
+            for index in matches:
+                if blocks[index].rf is None:
+                    raise ValueError(
+                        f"block {index} selected for pulse {pulse_name!r} has no RF event"
+                    )
+                previous = occupied.get(index)
+                if previous is not None and previous != pulse_name:
+                    raise ValueError(
+                        f"block {index} is selected by both {previous!r} and {pulse_name!r}"
+                    )
+                occupied[index] = pulse_name
+                if index not in indices:
+                    indices.append(index)
+        if not indices:
+            raise ValueError(f"pulse {pulse_name!r} does not select any sequence blocks")
+        resolved[pulse_name] = tuple(indices)
+    return resolved
+
+
+def phase_cycle_sequence_ir(
+    sequence: SequenceIR,
+    phase_cycle: PhaseCycle,
+    *,
+    pulse_blocks: Mapping[str, int | str | Sequence[int | str]] | None = None,
+) -> tuple[PhaseCycledSequenceBranch, ...]:
+    """Create one independently executable ``SequenceIR`` per phase-cycle step."""
+
+    from spin_dynamics.sequences.ir import SequenceIR
+
+    if not isinstance(sequence, SequenceIR):
+        raise TypeError("sequence must be a SequenceIR")
+    if not isinstance(phase_cycle, PhaseCycle):
+        raise TypeError("phase_cycle must be a PhaseCycle")
+    resolved = _resolve_pulse_blocks(sequence, phase_cycle, pulse_blocks)
+    branches: list[PhaseCycledSequenceBranch] = []
+    for branch_index, step in enumerate(phase_cycle.steps):
+        blocks = list(sequence.blocks)
+        for pulse_name, indices in resolved.items():
+            phase = step.pulse_phase(pulse_name)
+            for index in indices:
+                block = blocks[index]
+                assert block.rf is not None
+                rf = replace(
+                    block.rf,
+                    phase_offset_rad=float(block.rf.phase_offset_rad) + phase,
+                )
+                blocks[index] = replace(block, rf=rf)
+        branch_sequence = replace(sequence, blocks=tuple(blocks))
+        label = step.label or f"{phase_cycle.name}_{branch_index:02d}"
+        branches.append(
+            PhaseCycledSequenceBranch(
+                index=branch_index,
+                sequence=branch_sequence,
+                step=step,
+                receiver_weight=complex(phase_cycle.branch_weights[branch_index]),
+                label=label,
+            )
+        )
+    return tuple(branches)
+
 
 def cpmg_two_step_phase_cycle(
     *,
@@ -306,9 +433,11 @@ def diff_stebp_phase_cycle() -> PhaseCycle:
 
 __all__ = [
     "PhaseCycle",
+    "PhaseCycledSequenceBranch",
     "PhaseStep",
     "cpmg_two_step_phase_cycle",
     "diff_stebp_phase_cycle",
     "eseem_stimulated_echo_phase_cycle",
     "pgste_stimulated_echo_phase_cycle",
+    "phase_cycle_sequence_ir",
 ]

@@ -13,6 +13,11 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
 
 ### PythonSpinDynamics
 
+- Made arbitrary phase cycles first-class for labeled `SequenceIR` programs,
+  including reusable branch generation, receiver weights, repeated logical RF
+  roles, and compile-level validation. Added quantitative inverse-excitation
+  cancellation diagnostics and dedicated Numba/JAX CPU parity jobs in CI.
+
 - Added `spin_dynamics.composition`, a typed interchange layer for named SI
   spatial grids, absolute time axes, field solutions, thermal states, flow
   fields, hardware responses, and compiled sequence timelines. The adapters

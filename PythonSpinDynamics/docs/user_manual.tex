@@ -5393,6 +5393,18 @@ train = run_ideal_cpmg_train(num_echoes=8, numpts=51)
 train.phase_cycle.name   # "cpmg_two_step"
 \end{lstlisting}
 
+The same table can program any labeled backend-neutral sequence. Each logical
+pulse name selects RF blocks with the matching label by default; an explicit
+\code{pulse\_blocks} mapping can select indices, alternate labels, or repeated
+RF roles. Receiver phase is retained as branch metadata and applied once during
+combination.
+
+\begin{lstlisting}[language=Python]
+branches = sequence.phase_cycle(cycle)
+results = [execute(branch.sequence) for branch in branches]
+combined = cycle.combine([result.signal for result in results])
+\end{lstlisting}
+
 The phase-cycle columns are not the set of unique RF phase values. They are the
 named pulse roles whose phase can vary from one scan branch to the next. This
 keeps the table aligned with sequence events and leaves room for receiver phase

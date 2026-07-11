@@ -12,11 +12,67 @@ from spin_dynamics.phase_cycling import (
     diff_stebp_phase_cycle,
     eseem_stimulated_echo_phase_cycle,
     pgste_stimulated_echo_phase_cycle,
+    phase_cycle_sequence_ir,
 )
+from spin_dynamics.sequences import ADCEvent, RFPulse, SequenceBlock, SequenceIR, compile_sequence
 from spin_dynamics.workflows import run_ideal_cpmg_train, run_pgste_walkers
 
 
 class PhaseCyclingTests(unittest.TestCase):
+    def test_arbitrary_sequence_ir_cycle_programs_named_pulses(self) -> None:
+        sequence = SequenceIR(
+            blocks=(
+                SequenceBlock(
+                    duration_seconds=1e-3,
+                    rf=RFPulse([100.0], dwell_seconds=1e-3, phase_offset_rad=0.2),
+                    label="excitation",
+                ),
+                SequenceBlock(
+                    duration_seconds=1e-3,
+                    adc=ADCEvent(1, dwell_seconds=1e-3),
+                    label="acquire",
+                ),
+            )
+        )
+        cycle = cpmg_two_step_phase_cycle(excitation_phase_rad=0.0)
+
+        branches = sequence.phase_cycle(cycle)
+
+        self.assertEqual(len(branches), 2)
+        self.assertEqual([branch.label for branch in branches], ["excitation_plus", "excitation_minus"])
+        np.testing.assert_allclose(
+            [branch.sequence.blocks[0].rf.phase_offset_rad for branch in branches],
+            [0.2, 0.2 + np.pi],
+        )
+        np.testing.assert_allclose(
+            [compile_sequence(branch.sequence).rf_hz[0] for branch in branches],
+            100.0 * np.exp(1j * np.array([0.2, 0.2 + np.pi])),
+        )
+        np.testing.assert_allclose([branch.receiver_weight for branch in branches], [0.5, -0.5])
+
+    def test_sequence_cycle_supports_indices_and_repeated_logical_pulses(self) -> None:
+        rf = RFPulse([1.0], dwell_seconds=1e-3)
+        sequence = SequenceIR(
+            blocks=(
+                SequenceBlock(1e-3, rf=rf, label="first"),
+                SequenceBlock(1e-3, rf=rf, label="second"),
+            )
+        )
+        cycle = PhaseCycle((PhaseStep({"refocus": np.pi / 3.0}),), ("refocus",))
+
+        branch = phase_cycle_sequence_ir(
+            sequence, cycle, pulse_blocks={"refocus": (0, "second")}
+        )[0]
+
+        np.testing.assert_allclose(
+            [block.rf.phase_offset_rad for block in branch.sequence.blocks],
+            [np.pi / 3.0, np.pi / 3.0],
+        )
+
+    def test_sequence_cycle_rejects_missing_or_non_rf_blocks(self) -> None:
+        sequence = SequenceIR((SequenceBlock(1e-3, label="excitation"),))
+        with self.assertRaisesRegex(ValueError, "no RF event"):
+            cpmg_two_step_phase_cycle().apply_to_sequence(sequence)
     def test_eseem_stimulated_echo_cycle_structure_and_receiver_phases(self) -> None:
         cycle = eseem_stimulated_echo_phase_cycle(n_phase=4)
 

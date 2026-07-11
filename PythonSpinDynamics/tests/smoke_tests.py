@@ -17,7 +17,11 @@ from tests.test_composition import (
     test_flow_field_interpolates_space_and_time_in_si_units,
 )
 from tests.test_examples import ExampleSmokeTests
+from tests.test_phase_cycling import PhaseCyclingTests
 from tests.test_sequence_ir import PulseqImportTests, SequenceIRTests
+from tests.test_workflow_validation import (
+    test_inverse_excitation_validation_recognizes_exact_broadband_cancellation,
+)
 
 
 FAST_FIXTURE_TESTS = [
@@ -64,6 +68,10 @@ FAST_SEQUENCE_TESTS = [
     (SequenceIRTests, "test_plot_data_uses_shared_time_axis_and_block_metadata"),
     (PulseqImportTests, "test_imports_pulseq_15_rf_adc_and_compiles"),
     (PulseqImportTests, "test_decompresses_run_length_encoded_shape"),
+    (
+        PhaseCyclingTests,
+        "test_arbitrary_sequence_ir_cycle_programs_named_pulses",
+    ),
 ]
 
 
@@ -87,6 +95,11 @@ def load_tests(
     suite.addTest(
         unittest.FunctionTestCase(
             test_compiled_timeline_aligns_channels_and_applies_typed_hardware
+        )
+    )
+    suite.addTest(
+        unittest.FunctionTestCase(
+            test_inverse_excitation_validation_recognizes_exact_broadband_cancellation
         )
     )
     return suite
