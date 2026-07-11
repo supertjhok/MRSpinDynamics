@@ -34,6 +34,9 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
 - Added a seeded random-walker PGSE facade route with explicit 2-D transport
   domains, boundary policies, uniform flow/advection, stochastic cost estimates,
   friendly configs, and exact direct-workflow parity.
+- Added finite-pulse walker-to-q-space acquisition with arbitrary in-plane PGSE
+  gradient directions, zero-q normalization, elliptical-pore reconstruction
+  validation, and a runnable walker-to-pore-imaging example.
 
 ## [0.2.0] - 2026-07-05
 
