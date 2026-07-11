@@ -7566,10 +7566,12 @@ specific extensions that remain future work.}
   exchange, prepolarization, thermal, RFI, optimization, and coupled-spin
   workflows still use their direct APIs. They should be added only when their
   planning rules and provenance fields are meaningful, not as thin name aliases.
-  \item[Composition and adapters.] Field solutions, thermal states, flow fields,
-  hardware responses, and sequence timelines need more shared typed adapters.
-  Today several end-to-end studies still require users to align grids, axes,
-  units, and time bases manually.
+  \item[Composition and adapters.] The shared \code{spin\_dynamics.composition}
+  layer now adapts field solutions, thermal states, flow fields, hardware
+  responses, and compiled sequence timelines onto named SI spatial grids and
+  explicit absolute time axes. It validates channel units and performs spatial
+  and time resampling. Backend-specific execution adapters and richer two-way
+  feedback loops remain future work.
   \item[Validation evidence.] Broader high-Q matched-probe fixtures, historical
   MATLAB \code{.mat} parity, optimization comparisons, paper-level
   scalar-coupling checks, and experimental NQR/ESR fixtures remain valuable.

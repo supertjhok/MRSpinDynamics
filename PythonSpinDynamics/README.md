@@ -53,6 +53,12 @@ extensions.
 
 ## Main Areas
 
+- `spin_dynamics.composition` provides typed boundaries between advanced
+  component APIs: named spatial grids in metres, absolute time axes in seconds,
+  explicit channel units, spatial/time resampling, and adapters for field
+  solutions, thermal states, flow fields, hardware responses, and compiled
+  sequence timelines. See
+  [`docs/python_api/composition.md`](docs/python_api/composition.md).
 - `spin_dynamics.experiment` is the unified, declarative facade and the
   recommended entry point for new code. You describe an experiment with
   frozen-dataclass specs (sample, hardware, sequence, acquisition), front-load

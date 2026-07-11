@@ -12,6 +12,10 @@ from __future__ import annotations
 import unittest
 
 from tests.test_basic_octave_fixtures import OctaveFixtureTests
+from tests.test_composition import (
+    test_compiled_timeline_aligns_channels_and_applies_typed_hardware,
+    test_flow_field_interpolates_space_and_time_in_si_units,
+)
 from tests.test_examples import ExampleSmokeTests
 from tests.test_sequence_ir import PulseqImportTests, SequenceIRTests
 
@@ -75,6 +79,16 @@ def load_tests(
         suite.addTest(ExampleSmokeTests(name))
     for case, name in FAST_SEQUENCE_TESTS:
         suite.addTest(case(name))
+    suite.addTest(
+        unittest.FunctionTestCase(
+            test_flow_field_interpolates_space_and_time_in_si_units
+        )
+    )
+    suite.addTest(
+        unittest.FunctionTestCase(
+            test_compiled_timeline_aligns_channels_and_applies_typed_hardware
+        )
+    )
     return suite
 
 

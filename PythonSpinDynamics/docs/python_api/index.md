@@ -13,6 +13,7 @@ physics rather than baseline MATLAB parity.
 - [Deprecation Policy](deprecation_policy.md)
 - [Development Environment](../development_environment.md)
 - [Concepts and Units](concepts.md)
+- [Cross-Component Composition](composition.md)
 - [Unified Experiment Workflow](experiment_workflow.md) — recommended entry point
 - [Examples](examples.md)
 - [Parameters](parameters.md)

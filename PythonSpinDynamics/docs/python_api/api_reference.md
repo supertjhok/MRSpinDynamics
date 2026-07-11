@@ -170,6 +170,19 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `simulate_zulf_fid(system: MultinuclearSpinSystem, *, r1_per_second: float | Sequence[float] | np.ndarray, r2_per_second: float | Sequence[float] | np.ndarray, dwell_seconds: float, n_points: int, excite_indices: Iterable[int] | None = None, detect_indices: Iterable[int] | None = None, flip_rad: float = np.pi / 2.0, phase_rad: float = 0.0, gamma_weighted: bool = True, coupling: str = 'isotropic') -> tuple[np.ndarray, np.ndarray]` | Return ``(times, fid)`` for a ZULF ``pi/2``-acquire experiment. |
 | function | `simulate_zulf_spectrum(system: MultinuclearSpinSystem, *, r1_per_second: float | Sequence[float] | np.ndarray, r2_per_second: float | Sequence[float] | np.ndarray, dwell_seconds: float, n_points: int, excite_indices: Iterable[int] | None = None, detect_indices: Iterable[int] | None = None, flip_rad: float = np.pi / 2.0, phase_rad: float = 0.0, gamma_weighted: bool = True, apodization_hz: float = 0.0, coupling: str = 'isotropic') -> ZulfSpectrum` | Return the J-coupled spectrum of a ZULF ``pi/2``-acquire experiment. |
 
+## `spin_dynamics.composition`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `convert_units(values: Any, source_unit: str, target_unit: str) -> np.ndarray` | Convert values between units used at package component boundaries. |
+| class | `SpatialGrid` | Named rectilinear spatial axes in metres. |
+| class | `TimeAxis` | A strictly increasing absolute time axis in seconds. |
+| class | `FieldSolutionAdapter` | Named field channels sampled on a shared spatial grid. |
+| class | `ThermalStateAdapter` | Temperature channels in kelvin on an explicit time base. |
+| class | `FlowFieldAdapter` | Eulerian velocity in m/s, optionally varying over an absolute time axis. |
+| class | `HardwareResponseAdapter` | Typed bridge from a uniformly sampled channel to an LTI response. |
+| class | `SequenceTimelineAdapter` | Sequence channels on one absolute, interval-centered time axis. |
+
 ## `spin_dynamics.core.echo`
 
 | Kind | Name | Summary |

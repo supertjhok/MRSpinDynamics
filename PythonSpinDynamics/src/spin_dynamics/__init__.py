@@ -4,6 +4,7 @@ __all__ = [
     "absolute_phase",
     "analysis",
     "coupling",
+    "composition",
     "core",
     "deprecation",
     "detection",

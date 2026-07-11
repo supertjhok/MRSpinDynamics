@@ -26,6 +26,7 @@ MODULES = [
     "coupling.slic",
     "coupling.systems",
     "coupling.zulf",
+    "composition",
     "core.echo",
     "core.isochromats",
     "core.kernels",

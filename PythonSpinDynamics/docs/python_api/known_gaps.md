@@ -8,7 +8,12 @@ main architectural risk from missing individual models to disconnected feature
 islands. The next stabilization phase should emphasize composition,
 validation, reproducibility, and API maturity.
 
-The highest-leverage gaps identified in the July 2026 audit are:
+The highest-leverage gaps identified in the July 2026 audit are listed below.
+The first composition milestone is now complete: `spin_dynamics.composition`
+provides shared typed adapters for spatial fields, thermal states, flow fields,
+hardware responses, and sequence timelines, including explicit SI boundaries
+and spatial/time resampling. Backend-specific execution adapters remain in the
+items below.
 
 1. **General sequence composition.** The backend-neutral `SequenceIR`, Pulseq
    1.4/1.5 import/export, compiler, plotting layer, motion adapter, and facade

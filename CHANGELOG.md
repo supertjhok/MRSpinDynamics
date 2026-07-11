@@ -13,6 +13,12 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
 
 ### PythonSpinDynamics
 
+- Added `spin_dynamics.composition`, a typed interchange layer for named SI
+  spatial grids, absolute time axes, field solutions, thermal states, flow
+  fields, hardware responses, and compiled sequence timelines. The adapters
+  validate units and axes, perform spatial/time resampling, and bridge existing
+  magnetostatic, thermal, flow, optimal-control, and sequence result types.
+
 - Added the installed `spin-dynamics` experiment CLI, typed-wheel marker,
   isolated wheel/sdist installation checks, scoped MyPy and branch-coverage CI
   gates, and an explicit two-minor-release deprecation policy with reusable
