@@ -26,6 +26,8 @@ field-independent (T1-limited) rate.
 from __future__ import annotations
 
 import argparse
+import csv
+import json
 from pathlib import Path
 
 import numpy as np
@@ -34,18 +36,36 @@ from _source_path import add_src_to_path, load_matplotlib
 
 add_src_to_path()
 
-from spin_dynamics.nqr import QuadrupolarSite, simulate_weak_b0_spectrum  # noqa: E402
+from spin_dynamics.nqr import (  # noqa: E402
+    QuadrupolarSite,
+    fit_spectral_overlap_relaxation,
+    simulate_weak_b0_spectrum,
+    spectral_overlap_factors,
+    transition_rms_linewidth_hz,
+)
 from spin_dynamics.nqr.orientations import b0_b1_powder_average_grid  # noqa: E402
 
+
+ROOT = Path(__file__).resolve().parents[1]
+DATA_ROOT = ROOT / "validation" / "experimental"
+DATA_CSV = DATA_ROOT / "chen2020_naclo3_slse.csv"
+DATA_METADATA = DATA_ROOT / "chen2020_naclo3_slse.json"
 
 # NaClO3 35Cl: nu_Q ~ 30.656 MHz, axial EFG (eta ~ 0), gamma = 4.1717 MHz/T.
 SITE = QuadrupolarSite(spin=1.5, isotope="35Cl", quadrupole_frequency_hz=30.656e6,
                        eta=0.0, gamma_hz_per_t=4.1717e6)
 
-# Table 1 (room temperature), B0 in gauss -> T2,SLSE in ms.
-B0_TABLE_G = np.array([0.0, 8.0, 16.8, 25.0, 33.0, 41.0])
-T2_TABLE_MS = np.array([1.4, 12.0, 17.0, 21.3, 24.9, 28.0])
-T2STAR0_S = 373e-6  # measured B0=0 SLSE T2* -> intrinsic linewidth
+
+def load_validation_data() -> tuple[np.ndarray, np.ndarray, float]:
+    """Load the transcribed measurements and zero-field linewidth metadata."""
+
+    with DATA_CSV.open(newline="", encoding="utf-8") as stream:
+        rows = list(csv.DictReader(stream))
+    with DATA_METADATA.open(encoding="utf-8") as stream:
+        metadata = json.load(stream)
+    fields_gauss = np.array([float(row["b0_gauss"]) for row in rows])
+    t2_seconds = np.array([float(row["value_seconds"]) for row in rows])
+    return fields_gauss, t2_seconds, float(metadata["t2_star_zero_field_seconds"])
 
 
 def zeeman_linewidth_hz(b0_gauss: float, grid, sigma0_hz: float) -> float:
@@ -56,13 +76,16 @@ def zeeman_linewidth_hz(b0_gauss: float, grid, sigma0_hz: float) -> float:
         SITE, b0_gauss * 1e-4, orientations=grid, broadening_hz=10.0,
         points=16, weak_ratio_action="ignore",
     )
-    centers = np.array([t.frequency_hz - result.reference_frequency_hz
-                        for t in result.transitions])
-    weights = np.array([t.intensity for t in result.transitions])
-    weights = weights / weights.sum()
-    mean = float((weights * centers).sum())
-    variance = float((weights * (centers - mean) ** 2).sum())
-    return float(np.sqrt(variance + sigma0_hz ** 2))
+    centers = np.array([
+        transition.frequency_hz - result.reference_frequency_hz
+        for transition in result.transitions
+    ])
+    weights = np.array([transition.intensity for transition in result.transitions])
+    return transition_rms_linewidth_hz(
+        centers,
+        weights,
+        intrinsic_sigma_hz=sigma0_hz,
+    )
 
 
 # Follow the user workflow: parse inputs, build the model, run, then report.
@@ -76,42 +99,50 @@ def main() -> None:
     args = parser.parse_args()
 
     plt = load_matplotlib(headless=args.output is not None)
+    b0_table_g, t2_table_s, t2star0_s = load_validation_data()
 
     # B0=0 Gaussian sigma from the measured SLSE T2* (FWHM = 1/(pi T2*)).
-    sigma0 = 1.0 / (np.pi * T2STAR0_S) / (2 * np.sqrt(2 * np.log(2)))
+    sigma0 = 1.0 / (np.pi * t2star0_s) / (2 * np.sqrt(2 * np.log(2)))
     grid = b0_b1_powder_average_grid(args.n_theta, args.n_phi, n_chi=1,
                                      b1_b0_angle=0.0)
 
     # Field dependence from the package: S(B0) = Delta_f(0) / Delta_f(B0).
-    lw_table = np.array([zeeman_linewidth_hz(b, grid, sigma0) for b in B0_TABLE_G])
-    s_table = lw_table[0] / lw_table
+    lw_table = np.array([zeeman_linewidth_hz(b, grid, sigma0) for b in b0_table_g])
+    s_table = spectral_overlap_factors(lw_table)
 
-    # Two-parameter linear least-squares fit of 1/T2,SLSE = R_floor + R_x * S.
-    rate = 1.0 / (T2_TABLE_MS * 1e-3)
-    design = np.column_stack([np.ones_like(s_table), s_table])
-    (r_floor, r_x), *_ = np.linalg.lstsq(design, rate, rcond=None)
-    predicted_ms = 1e3 / (r_floor + r_x * s_table)
-    rms = float(np.sqrt(np.mean((rate - design @ [r_floor, r_x]) ** 2)))
+    # The two fitted nuisance parameters set the field-independent floor and
+    # absolute zero-field flip-flop rate; the field dependence comes from the
+    # Hamiltonian-derived powder linewidth above.
+    fit = fit_spectral_overlap_relaxation(t2_table_s, s_table)
+    r_floor = fit.floor_rate_per_second
+    r_x = fit.cross_relaxation_rate_per_second
+    predicted_ms = 1e3 * fit.predicted_t2_seconds
+    measured_ms = 1e3 * t2_table_s
+    rate = 1.0 / t2_table_s
 
     print(f"R_floor   = {r_floor:6.1f} s^-1  (T2 floor {1e3/r_floor:.0f} ms; "
           f"cf. measured T1 ~ 35-50 ms)")
     print(f"R_xrelax  = {r_x:6.1f} s^-1  (B0=0 flip-flop cross-relaxation rate)")
-    print(f"RMS resid = {rms:6.1f} s^-1  over a 714 -> 36 s^-1 range")
+    print(f"RMS resid = {fit.rms_residual_per_second:6.1f} s^-1  "
+          "over a 714 -> 36 s^-1 range")
     print(f"linewidth Delta_f: {lw_table[0]:.0f} Hz (0 G) -> {lw_table[-1]:.0f} Hz "
           f"(41 G); gamma*B0 at 41 G = {SITE.gamma_hz_per_t*41e-4:.0f} Hz")
     print(f"\n{'B0(G)':>6} {'T2 model(ms)':>13} {'T2 meas(ms)':>12} {'ratio':>6}")
-    for b, pm, mm in zip(B0_TABLE_G, predicted_ms, T2_TABLE_MS):
+    for b, pm, mm in zip(b0_table_g, predicted_ms, measured_ms):
         print(f"{b:>6} {pm:>13.1f} {mm:>12.1f} {pm/mm:>6.2f}")
 
     # Smooth model curve.
     fields = np.linspace(0.0, args.max_field_g, 46)
     lw_curve = np.array([zeeman_linewidth_hz(b, grid, sigma0) for b in fields])
-    t2_curve_ms = 1e3 / (r_floor + r_x * (lw_table[0] / lw_curve))
+    s_curve = spectral_overlap_factors(
+        np.concatenate(([lw_table[0]], lw_curve))
+    )[1:]
+    t2_curve_ms = 1e3 / (r_floor + r_x * s_curve)
 
     fig, axes = plt.subplots(1, 2, figsize=(12, 4.6), constrained_layout=True)
     axes[0].plot(fields, t2_curve_ms, "C0-",
                  label="model: R_floor + R_x * Delta_f(0)/Delta_f(B0)")
-    axes[0].plot(B0_TABLE_G, T2_TABLE_MS, "ko", label="Chen 2020, Table 1")
+    axes[0].plot(b0_table_g, measured_ms, "ko", label="Chen 2020, Table 1")
     axes[0].axhline(1e3 / r_floor, color="0.6", ls="--", lw=1,
                     label=f"floor {1e3/r_floor:.0f} ms ~ T1")
     axes[0].set_xlabel("static field B0 (G)")
@@ -122,11 +153,10 @@ def main() -> None:
     # Flip-flop survival S(B0): the dimensionless factor that quenches the
     # cross-relaxation. Compare the package model with the value implied by the
     # measured rates, S = (1/T2,meas - R_floor) / R_xrelax.
-    s_curve = lw_table[0] / lw_curve
     s_implied = (rate - r_floor) / r_x
     axes[1].semilogy(fields, s_curve, "C0-",
                      label="model S = Delta_f(0)/Delta_f(B0)")
-    axes[1].semilogy(B0_TABLE_G, s_implied, "ko",
+    axes[1].semilogy(b0_table_g, s_implied, "ko",
                      label="implied by Table 1 rates")
     axes[1].set_xlabel("static field B0 (G)")
     axes[1].set_ylabel("flip-flop survival S(B0)")

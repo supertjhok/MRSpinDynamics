@@ -13,6 +13,7 @@ from spin_dynamics.nqr import (  # noqa: E402
     OrientationSample,
     QuadrupolarSite,
     diagonalize_site,
+    nqr_hamiltonian,
     simulate_slse,
     slse_sequence,
 )
@@ -21,9 +22,12 @@ from spin_dynamics.relaxation import (  # noqa: E402
     IsotropicLiquidMotionalAveraging,
     PhenomenologicalRelaxationModel,
     RedfieldDipolarRelaxationModel,
+    RedfieldEFGRelaxationModel,
     RigidSolidMotionalAveraging,
+    VibrationalMotionalAveraging,
     dipolar_coupling_tensor,
     propagate_density_liouville,
+    quadrupolar_tesseral_operators,
 )
 
 
@@ -161,6 +165,45 @@ class RedfieldDipolarRelaxationTests(unittest.TestCase):
             abs(bare.echo_amplitudes[-1]),
         )
         self.assertIsNotNone(damped.local_effective_t2eff_seconds)
+
+    def test_vibrational_spectral_density_reduces_to_lorentzian(self) -> None:
+        tau = 3.0e-9
+        ordinary = RigidSolidMotionalAveraging(tau)
+        vibrational = VibrationalMotionalAveraging(tau, 0.0)
+
+        for omega in (0.0, 2.0e7, -7.0e8):
+            self.assertAlmostEqual(
+                vibrational.spectral_density(omega),
+                ordinary.spectral_density(omega),
+            )
+
+    def test_quadrupolar_tesseral_operators_are_hermitian(self) -> None:
+        operators = quadrupolar_tesseral_operators(4.5)
+
+        self.assertEqual(len(operators), 5)
+        for operator in operators:
+            np.testing.assert_allclose(operator, operator.conj().T, atol=1.0e-14)
+
+    def test_efg_redfield_superoperator_preserves_trace(self) -> None:
+        site = QuadrupolarSite(
+            spin=4.5,
+            quadrupole_frequency_hz=30.0e6,
+            eta=0.09,
+        )
+        hamiltonian = nqr_hamiltonian(site)
+        model = RedfieldEFGRelaxationModel(
+            spin=site.spin,
+            fluctuation_amplitude_hz=0.2e6,
+            motion=VibrationalMotionalAveraging(
+                7.0e-9,
+                2.0 * np.pi * 20.0e6,
+            ),
+        )
+        generator = model.superoperator(hamiltonian)
+        identity_vector = np.eye(site.dimension).reshape(-1, order="F")
+
+        np.testing.assert_allclose(identity_vector @ generator, 0.0, atol=1.0e-7)
+        self.assertTrue(np.all(np.real(np.linalg.eigvals(generator)) <= 1.0e-7))
 
 
 if __name__ == "__main__":

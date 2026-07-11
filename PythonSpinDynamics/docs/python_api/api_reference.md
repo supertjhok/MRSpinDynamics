@@ -1081,7 +1081,12 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 
 ## `spin_dynamics.nqr.relaxation`
 
-No public classes or functions found.
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `SpectralOverlapRelaxationFit` | Linear fit of a background rate plus spectral-overlap relaxation. |
+| function | `transition_rms_linewidth_hz(frequency_offsets_hz: Iterable[float] | np.ndarray, intensities: Iterable[float] | np.ndarray, *, intrinsic_sigma_hz: float = 0.0) -> float` | Return the intensity-weighted RMS transition width. |
+| function | `spectral_overlap_factors(linewidths_hz: Iterable[float] | np.ndarray, *, reference_index: int = 0, exponent: float = 1.0) -> np.ndarray` | Return normalized overlap factors from transition linewidths. |
+| function | `fit_spectral_overlap_relaxation(t2_seconds: Iterable[float] | np.ndarray, overlap_factors: Iterable[float] | np.ndarray, *, rate_standard_errors_per_second: Iterable[float] | np.ndarray | None = None) -> SpectralOverlapRelaxationFit` | Fit ``R2 = R_floor + R_cross * S`` by linear least squares. |
 
 ## `spin_dynamics.nqr.sequences`
 
@@ -1414,6 +1419,7 @@ No public classes or functions found.
 | class | `SingleSpinMatrices` | Dense angular-momentum matrices for one spin quantum number. |
 | function | `spin_dimension(spin: float) -> int` | Return the Hilbert-space dimension for one spin. |
 | function | `single_spin_matrices(spin: float) -> SingleSpinMatrices` | Return dense angular-momentum matrices for one spin. |
+| function | `quadrupolar_tesseral_operators(spin: float) -> tuple[np.ndarray, ...]` | Return five Hermitian rank-2 spin-tensor components. |
 | class | `BPPRelaxationRates` | Temperature-dependent BPP rates, times, and spectral densities. |
 | class | `BPPRelaxationModel` | Configurable BPP relaxation model with Arrhenius correlation time. |
 | class | `PhenomenologicalRelaxationModel` | Phenomenological relaxation model in the Hamiltonian energy basis. |
@@ -1422,6 +1428,8 @@ No public classes or functions found.
 | class | `DipolarRelaxationSource` | One fluctuating dipolar bath spin coupled to a target spin. |
 | class | `RigidSolidMotionalAveraging` | Rigid-lattice dipolar fluctuations for solid-state relaxation. |
 | class | `IsotropicLiquidMotionalAveraging` | Isotropic rotational averaging for liquid-state dipolar relaxation. |
+| class | `VibrationalMotionalAveraging` | Exponentially damped motion modulated by one vibrational frequency. |
+| class | `RedfieldEFGRelaxationModel` | Secular Redfield model for isotropic fluctuations of an EFG tensor. |
 | class | `RedfieldDipolarRelaxationModel` | Secular Redfield relaxation model from fluctuating dipolar couplings. |
 | class | `WallCollisionRelaxationModel` | Gas-wall collision relaxation from a stochastic spin map. |
 | function | `spectral_density_lorentzian(angular_frequency_rad_per_s: float | Iterable[float] | np.ndarray, correlation_time_seconds: float | Iterable[float] | np.ndarray) -> np.ndarray` | Return the isotropic rotational spectral density ``2 tau/(1+w^2 tau^2)``. |

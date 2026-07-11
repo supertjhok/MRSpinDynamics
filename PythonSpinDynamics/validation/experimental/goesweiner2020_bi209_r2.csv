@@ -1,0 +1,25 @@
+dataset_id,compound,temperature_k,qcc_mhz,eta,transition,frequency_mhz,r2_exp_per_s,r2_fa_per_s,r2_fva_per_s,source_location
+goesweiner2020_bi209_r2,triphenylbismuth,77,684.6,0.09,t1,30.64,9803.9,7322,9533,Table 1
+goesweiner2020_bi209_r2,triphenylbismuth,77,684.6,0.09,t2,56.45,2538.1,2317,2616,Table 1
+goesweiner2020_bi209_r2,triphenylbismuth,77,684.6,0.09,t3,85.45,1246.9,1584,1149,Table 1
+goesweiner2020_bi209_r2,triphenylbismuth,77,684.6,0.09,t4,114.03,1216.6,1564,1328,Table 1
+goesweiner2020_bi209_r2,triphenylbismuth,310,668.3,0.087,t1,29.72,11770.0,10560,11300,Table 1
+goesweiner2020_bi209_r2,triphenylbismuth,310,668.3,0.087,t2,55.14,3610.1,3415,3655,Table 1
+goesweiner2020_bi209_r2,triphenylbismuth,310,668.3,0.087,t3,83.42,2293.6,2413,2286,Table 1
+goesweiner2020_bi209_r2,triphenylbismuth,310,668.3,0.087,t4,111.32,2057.6,2346,2127,Table 1
+goesweiner2020_bi209_r2,triphenylbismuth_deuterated,77,685.6,0.095,t1,30.72,1612.9,1305,1620,Table 1
+goesweiner2020_bi209_r2,triphenylbismuth_deuterated,77,685.6,0.095,t2,56.52,508.7,424,498.9,Table 1
+goesweiner2020_bi209_r2,triphenylbismuth_deuterated,77,685.6,0.095,t3,85.56,231.6,293,239.2,Table 1
+goesweiner2020_bi209_r2,triphenylbismuth_deuterated,77,685.6,0.095,t4,114.19,215.3,278,211.9,Table 1
+goesweiner2020_bi209_r2,triphenylbismuth_deuterated,310,668.8,0.086,t1,29.78,3759.4,3623,3651,Table 1
+goesweiner2020_bi209_r2,triphenylbismuth_deuterated,310,668.8,0.086,t2,55.25,1610.3,1717,1719,Table 1
+goesweiner2020_bi209_r2,triphenylbismuth_deuterated,310,668.8,0.086,t3,83.49,1589.8,1695,1687,Table 1
+goesweiner2020_bi209_r2,triphenylbismuth_deuterated,310,668.8,0.086,t4,111.40,1404.5,1293,1288,Table 1
+goesweiner2020_bi209_r2,tris_4_fluorophenyl_bismuth,77,672.5,0.053,t1,28.65,20833.0,11370,17940,Table 1
+goesweiner2020_bi209_r2,tris_4_fluorophenyl_bismuth,77,672.5,0.053,t2,55.86,2222.2,3464,4869,Table 1
+goesweiner2020_bi209_r2,tris_4_fluorophenyl_bismuth,77,672.5,0.053,t3,84.02,1721.2,2293,1442,Table 1
+goesweiner2020_bi209_r2,tris_4_fluorophenyl_bismuth,77,672.5,0.053,t4,112.06,1831.5,2364,1540,Table 1
+goesweiner2020_bi209_r2,tris_4_fluorophenyl_bismuth,310,657.5,0.071,t1,28.35,19608.0,25210,19490,Table 1
+goesweiner2020_bi209_r2,tris_4_fluorophenyl_bismuth,310,657.5,0.071,t2,54.51,12346.0,12830,12170,Table 1
+goesweiner2020_bi209_r2,tris_4_fluorophenyl_bismuth,310,657.5,0.071,t3,82.11,15152.0,13520,15880,Table 1
+goesweiner2020_bi209_r2,tris_4_fluorophenyl_bismuth,310,657.5,0.071,t4,109.54,12048.0,10580,11750,Table 1

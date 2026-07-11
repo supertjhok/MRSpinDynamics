@@ -28,7 +28,10 @@ The highest-leverage gaps identified in the July 2026 audit are:
    cases, cross-backend parity, or synthetic data. Capabilities should carry a
    documented validation level: measured benchmark, literature reproduction,
    independent solver parity, analytic/convergence validation, or internal
-   consistency only.
+   consistency only. The measured-data program now begins with weak-field
+   sodium-chlorate relaxation, transition-resolved bismuth NQR, and joint
+   NMR/NQR RDX dynamics; see
+   [Microscopic Relaxation Validation](../relaxation_validation.md).
 4. **Reproducible results.** Saved experiments now carry canonical experiment
    and result hashes, callable/module/package-tree identities, Git revision and
    dirty state, numerical build/thread environment, input identities,

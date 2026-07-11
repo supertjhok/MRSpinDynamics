@@ -85,6 +85,26 @@ def single_spin_matrices(spin: float) -> SingleSpinMatrices:
     )
 
 
+@lru_cache(maxsize=None)
+def quadrupolar_tesseral_operators(spin: float) -> tuple[np.ndarray, ...]:
+    """Return five Hermitian rank-2 spin-tensor components.
+
+    The real tesseral basis is equivalent to the spherical ``T_2m`` basis and
+    is convenient for constructing an isotropic fluctuating-EFG bath without
+    complex covariance bookkeeping.
+    """
+
+    ops = single_spin_matrices(spin)
+    i_squared = float(spin) * (float(spin) + 1.0) * ops.identity
+    return (
+        (3.0 * (ops.iz @ ops.iz) - i_squared) / np.sqrt(6.0),
+        (ops.iz @ ops.ix + ops.ix @ ops.iz) / np.sqrt(2.0),
+        (ops.iz @ ops.iy + ops.iy @ ops.iz) / np.sqrt(2.0),
+        (ops.ix @ ops.ix - ops.iy @ ops.iy) / np.sqrt(2.0),
+        (ops.ix @ ops.iy + ops.iy @ ops.ix) / np.sqrt(2.0),
+    )
+
+
 @dataclass(frozen=True)
 class BPPRelaxationRates:
     """Temperature-dependent BPP rates, times, and spectral densities."""
@@ -333,6 +353,110 @@ class IsotropicLiquidMotionalAveraging:
                 self.correlation_time_seconds,
             )
         )
+
+
+@dataclass(frozen=True)
+class VibrationalMotionalAveraging:
+    """Exponentially damped motion modulated by one vibrational frequency.
+
+    This is the spectral density of ``exp(-|t|/tau_c) cos(omega_v t)``. It
+    consists of two Lorentzians centered at ``+omega_v`` and ``-omega_v`` and
+    reduces exactly to the ordinary Lorentzian when ``omega_v`` is zero.
+    """
+
+    correlation_time_seconds: float
+    vibrational_angular_frequency_rad_per_s: float
+    regime: str = "fluctuation_plus_vibration"
+
+    def __post_init__(self) -> None:
+        _require_positive(self.correlation_time_seconds, "correlation_time_seconds")
+        frequency = float(self.vibrational_angular_frequency_rad_per_s)
+        if not np.isfinite(frequency) or frequency < 0.0:
+            raise ValueError(
+                "vibrational_angular_frequency_rad_per_s must be non-negative"
+            )
+        object.__setattr__(self, "vibrational_angular_frequency_rad_per_s", frequency)
+
+    def covariance_from_source(self, source: DipolarRelaxationSource) -> np.ndarray:
+        """Return fixed-frame covariance when used with dipolar sources."""
+
+        return source.covariance_rad2_per_s2
+
+    def spectral_density(self, angular_frequency_rad_per_s: float) -> float:
+        """Return the symmetric pair of vibration-shifted Lorentzians."""
+
+        omega = float(angular_frequency_rad_per_s)
+        omega_v = self.vibrational_angular_frequency_rad_per_s
+        tau = self.correlation_time_seconds
+        return float(
+            0.5
+            * (
+                spectral_density_lorentzian(omega - omega_v, tau)
+                + spectral_density_lorentzian(omega + omega_v, tau)
+            )
+        )
+
+
+@dataclass(frozen=True)
+class RedfieldEFGRelaxationModel:
+    """Secular Redfield model for isotropic fluctuations of an EFG tensor.
+
+    Five equally weighted, Hermitian rank-2 tesseral spin operators represent
+    the laboratory-frame components of the fluctuating quadrupole interaction.
+    Degenerate Bohr-frequency components are grouped into common jump operators,
+    retaining their coherence-transfer terms instead of diagonalizing the
+    relaxation matrix element by element.
+
+    ``fluctuation_amplitude_hz`` sets an RMS interaction scale. Its convention
+    is explicit but remains model-dependent, so transition-rate ratios are the
+    preferred comparison when the amplitude has not been independently
+    measured.
+    """
+
+    spin: float
+    fluctuation_amplitude_hz: float
+    motion: MotionalAveragingModel
+    secular_tolerance_rad_per_s: float = 1.0e-3
+
+    def __post_init__(self) -> None:
+        spin = _validate_spin(self.spin)
+        amplitude = float(self.fluctuation_amplitude_hz)
+        if not np.isfinite(amplitude) or amplitude < 0.0:
+            raise ValueError("fluctuation_amplitude_hz must be non-negative")
+        if not hasattr(self.motion, "spectral_density"):
+            raise TypeError("motion must provide spectral_density")
+        tolerance = float(self.secular_tolerance_rad_per_s)
+        if not np.isfinite(tolerance) or tolerance < 0.0:
+            raise ValueError("secular_tolerance_rad_per_s must be non-negative")
+        object.__setattr__(self, "spin", spin)
+        object.__setattr__(self, "_dimension", spin_dimension(spin))
+        object.__setattr__(self, "fluctuation_amplitude_hz", amplitude)
+        object.__setattr__(self, "secular_tolerance_rad_per_s", tolerance)
+
+    def superoperator(self, hamiltonian: np.ndarray) -> np.ndarray:
+        """Return the trace-preserving fluctuating-EFG dissipator."""
+
+        hamiltonian = np.asarray(hamiltonian, dtype=np.complex128)
+        if hamiltonian.shape != (self._dimension, self._dimension):
+            raise ValueError("hamiltonian dimension does not match spin")
+        size = self._dimension**2
+        if self.fluctuation_amplitude_hz == 0.0:
+            return np.zeros((size, size), dtype=np.complex128)
+
+        energies, vectors = np.linalg.eigh(0.5 * (hamiltonian + hamiltonian.conj().T))
+        amplitude = TAU * self.fluctuation_amplitude_hz
+        out = np.zeros((size, size), dtype=np.complex128)
+        for operator in quadrupolar_tesseral_operators(self.spin):
+            energy_operator = vectors.conj().T @ (amplitude * operator) @ vectors
+            for omega, jump in _secular_components(
+                energy_operator,
+                energies,
+                self.secular_tolerance_rad_per_s,
+            ):
+                density = float(self.motion.spectral_density(omega))
+                if density > 0.0:
+                    out += _lindblad_superoperator(np.sqrt(density) * jump)
+        return out
 
 
 @dataclass(frozen=True)

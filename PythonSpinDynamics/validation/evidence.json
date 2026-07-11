@@ -242,16 +242,16 @@
     {
       "id": "relaxation_models",
       "component": "Phenomenological and Redfield relaxation",
-      "claim": "Relaxation propagators preserve required density-matrix invariants and reproduce exponential and limiting behavior.",
-      "evidence_types": ["A", "R"],
-      "basis": "Trace/Hermiticity preservation, equilibrium limits, exponential decay, and shared-model cross-namespace parity.",
-      "parameter_range": "Implemented Bloch, Liouville, BPP/Redfield, wall, and rotating-frame helper models.",
-      "metric": "Trace, Hermiticity, positivity diagnostics, and decay rates",
-      "tolerance": "Near floating-point precision for invariants; model-specific curve tolerances.",
+      "claim": "Relaxation propagators preserve required density-matrix invariants and limiting behavior, and the Hamiltonian-derived spectral-overlap model reproduces measured weak-field 35Cl SLSE relaxation in sodium chlorate.",
+      "evidence_types": ["A", "E", "R"],
+      "basis": "Trace/Hermiticity preservation, equilibrium limits, exponential decay, shared-model cross-namespace parity, and Chen et al. Table 1 measurements.",
+      "parameter_range": "Implemented Bloch, Liouville, BPP/Redfield, wall, and rotating-frame helper models; NaClO3 powder at room temperature from 0 to 41 G.",
+      "metric": "Trace, Hermiticity, positivity diagnostics, decay rates, and experimental RMS rate residual",
+      "tolerance": "Near floating-point precision for invariants; NaClO3 RMS rate residual <= 10 s^-1 and nonzero-field T2 within 15%.",
       "status": "partially_validated",
-      "reproducers": ["tests/test_relaxation.py", "tests/test_nqr_redfield_relaxation.py"],
-      "references": ["Bloch exponential relaxation", "BPP and Redfield limiting formulas"],
-      "limitations": ["Microscopic parameter predictions are not broadly compared with experimental relaxation datasets."]
+      "reproducers": ["tests/test_relaxation.py", "tests/test_nqr_redfield_relaxation.py", "tests/test_relaxation_validation.py::test_chen2020_naclo3_weak_field_validation", "examples/plot_chen2020_slse_relaxation.py"],
+      "references": ["Bloch exponential relaxation", "BPP and Redfield limiting formulas", "Chen et al., J. Magn. Reson. 311, 106660 (2020), doi:10.1016/j.jmr.2019.106660"],
+      "limitations": ["The NaClO3 field dependence is predicted from the Hamiltonian-derived powder linewidth, but its field-independent floor and absolute cross-relaxation strength are fitted nuisance parameters.", "Transition-resolved EFG-fluctuation and joint NMR/NQR temperature validations remain staged work."]
     },
     {
       "id": "inverse_laplace",

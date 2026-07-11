@@ -72,3 +72,7 @@ implementation. Octave fixture generation skips matched-probe files when
 See `docs/validation_results.md` for the historical run log. After changing
 validation claims, run `python docs/generate_validation_matrix.py` and commit
 both generated outputs; CI checks them with `--check`.
+
+For measured NMR and NQR relaxation datasets, model boundaries, ingestion
+requirements, and the staged experimental-validation program, see
+[Microscopic Relaxation Validation](../relaxation_validation.md).

@@ -40,7 +40,7 @@ what supports the underlying scientific or numerical claim.
 | NQR Hamiltonians and pulse models | Spin-1 and spin-3/2 transition conventions, powder weights, selective pulses, and SORC/SLSE limits reproduce analytical and published theory results. | **A**, **D** | partially validated |
 | ESR/EPR spectra and pulsed dynamics | Zeeman resonance, lineshape, hyperfine splitting, relaxation, and Hahn-echo behavior reproduce analytical spin-1/2 limits. | **A**, **D** | partially validated |
 | Small scalar-coupled spin systems | Dense spin operators, scalar-coupling Hamiltonians, and selected low-field editing models satisfy exact operator and spectral limits. | **A**, **R** | partially validated |
-| Phenomenological and Redfield relaxation | Relaxation propagators preserve required density-matrix invariants and reproduce exponential and limiting behavior. | **A**, **R** | partially validated |
+| Phenomenological and Redfield relaxation | Relaxation propagators preserve required density-matrix invariants and limiting behavior, and the Hamiltonian-derived spectral-overlap model reproduces measured weak-field 35Cl SLSE relaxation in sodium chlorate. | **A**, **E**, **R** | partially validated |
 | Inverse-Laplace analysis | The 1-D and compact 2-D solvers recover known synthetic peaks and obey kernel and non-negativity constraints. | **R**, **A** | regression only |
 | Spin noise and radiation damping | Equilibrium spin-noise spectra and stochastic dynamics reproduce fluctuation, radiation-damping, Ornstein-Uhlenbeck, and two-bath analytical identities. | **A**, **R** | validated |
 | Optimal-control propagation and gradients | NumPy/JAX propagators, control gradients, hardware-response primitives, and bounded objectives agree across implementations and with finite-difference limits. | **C**, **R**, **B** | partially validated |
@@ -209,15 +209,15 @@ what supports the underlying scientific or numerical claim.
 
 ### Phenomenological and Redfield relaxation
 
-- **Claim:** Relaxation propagators preserve required density-matrix invariants and reproduce exponential and limiting behavior.
-- **Evidence:** A, R (partially validated)
-- **Basis:** Trace/Hermiticity preservation, equilibrium limits, exponential decay, and shared-model cross-namespace parity.
-- **Tested range:** Implemented Bloch, Liouville, BPP/Redfield, wall, and rotating-frame helper models.
-- **Metric:** Trace, Hermiticity, positivity diagnostics, and decay rates
-- **Tolerance:** Near floating-point precision for invariants; model-specific curve tolerances.
-- **References:** Bloch exponential relaxation; BPP and Redfield limiting formulas
-- **Reproduce:** [`tests/test_relaxation.py`](../tests/test_relaxation.py); [`tests/test_nqr_redfield_relaxation.py`](../tests/test_nqr_redfield_relaxation.py)
-- **Limitations:** Microscopic parameter predictions are not broadly compared with experimental relaxation datasets.
+- **Claim:** Relaxation propagators preserve required density-matrix invariants and limiting behavior, and the Hamiltonian-derived spectral-overlap model reproduces measured weak-field 35Cl SLSE relaxation in sodium chlorate.
+- **Evidence:** A, E, R (partially validated)
+- **Basis:** Trace/Hermiticity preservation, equilibrium limits, exponential decay, shared-model cross-namespace parity, and Chen et al. Table 1 measurements.
+- **Tested range:** Implemented Bloch, Liouville, BPP/Redfield, wall, and rotating-frame helper models; NaClO3 powder at room temperature from 0 to 41 G.
+- **Metric:** Trace, Hermiticity, positivity diagnostics, decay rates, and experimental RMS rate residual
+- **Tolerance:** Near floating-point precision for invariants; NaClO3 RMS rate residual <= 10 s^-1 and nonzero-field T2 within 15%.
+- **References:** Bloch exponential relaxation; BPP and Redfield limiting formulas; Chen et al., J. Magn. Reson. 311, 106660 (2020), doi:10.1016/j.jmr.2019.106660
+- **Reproduce:** [`tests/test_relaxation.py`](../tests/test_relaxation.py); [`tests/test_nqr_redfield_relaxation.py`](../tests/test_nqr_redfield_relaxation.py); [`tests/test_relaxation_validation.py::test_chen2020_naclo3_weak_field_validation`](../tests/test_relaxation_validation.py#L112); [`examples/plot_chen2020_slse_relaxation.py`](../examples/plot_chen2020_slse_relaxation.py)
+- **Limitations:** The NaClO3 field dependence is predicted from the Hamiltonian-derived powder linewidth, but its field-independent floor and absolute cross-relaxation strength are fitted nuisance parameters. Transition-resolved EFG-fluctuation and joint NMR/NQR temperature validations remain staged work.
 
 ### Inverse-Laplace analysis
 

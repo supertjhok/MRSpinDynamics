@@ -1,0 +1,22 @@
+{
+  "dataset_id": "chen2020_naclo3_slse",
+  "title": "Weak-field SLSE relaxation of 35Cl in sodium chlorate",
+  "citation": "C. Chen et al., Journal of Magnetic Resonance 311, 106660 (2020)",
+  "doi": "10.1016/j.jmr.2019.106660",
+  "source_url": "https://doi.org/10.1016/j.jmr.2019.106660",
+  "source_location": "Table 1",
+  "transcription": "author-supplied table transcribed manually",
+  "sample": "NaClO3 powder",
+  "isotope": "35Cl",
+  "temperature_original": "room temperature",
+  "temperature_k": 293.15,
+  "temperature_note": "Nominal normalization value; the paper reports room temperature rather than an exact temperature for Table 1.",
+  "nqr_frequency_hz": 30656000.0,
+  "eta": 0.0,
+  "gamma_hz_per_t": 4171700.0,
+  "t2_star_zero_field_seconds": 0.000373,
+  "t2_star_source_location": "Table 1",
+  "observable_definition": "SLSE echo-envelope transverse lifetime",
+  "uncertainty_note": "Table 1 does not report pointwise standard uncertainties for T2_SLSE.",
+  "model_boundary": "Field-dependent spectral overlap is predicted from the quadrupolar plus Zeeman Hamiltonian. The field-independent rate and zero-field flip-flop strength are fitted nuisance parameters."
+}

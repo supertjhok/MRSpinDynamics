@@ -1,0 +1,19 @@
+{
+  "dataset_id": "goesweiner2020_bi209_r2",
+  "title": "Transition-resolved spin-spin relaxation of 209Bi NQR coherences",
+  "citation": "C. Goesweiner, P.-O. Westlund, and H. Scharfetter, Molecular Physics 118, e1743888 (2020)",
+  "doi": "10.1080/00268976.2020.1743888",
+  "source_url": "https://doi.org/10.1080/00268976.2020.1743888",
+  "source_location": "Table 1",
+  "transcription": "author-supplied table transcribed manually and visually checked against the open-access PDF",
+  "sample_form": "crystalline powder",
+  "isotope": "209Bi",
+  "spin": 4.5,
+  "observable": "R2 from mono-exponential variable-echo-time spin-echo measurements",
+  "uncertainty_note": "Pointwise uncertainties are discussed in the supplemental material but are not printed in Table 1.",
+  "published_models": {
+    "FA": "isotropic fluctuating-EFG model",
+    "FVA": "fluctuating-EFG model with a vibrational spectral-density mode"
+  },
+  "model_boundary": "The published R2_sim columns are comparison targets, not experimental observations and not package-generated expected values."
+}

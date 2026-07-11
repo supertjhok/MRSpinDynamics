@@ -1,0 +1,7 @@
+dataset_id,observation_id,compound,isotope,temperature_k,b0_gauss,observable,value_seconds,uncertainty_seconds,value_original,source_location
+chen2020_naclo3_slse,chen2020_naclo3_slse_0,NaClO3,35Cl,293.15,0.0,T2_SLSE,0.0014,,1.4 ms,Table 1
+chen2020_naclo3_slse,chen2020_naclo3_slse_8,NaClO3,35Cl,293.15,8.0,T2_SLSE,0.0120,,12.0 ms,Table 1
+chen2020_naclo3_slse,chen2020_naclo3_slse_16p8,NaClO3,35Cl,293.15,16.8,T2_SLSE,0.0170,,17.0 ms,Table 1
+chen2020_naclo3_slse,chen2020_naclo3_slse_25,NaClO3,35Cl,293.15,25.0,T2_SLSE,0.0213,,21.3 ms,Table 1
+chen2020_naclo3_slse,chen2020_naclo3_slse_33,NaClO3,35Cl,293.15,33.0,T2_SLSE,0.0249,,24.9 ms,Table 1
+chen2020_naclo3_slse,chen2020_naclo3_slse_41,NaClO3,35Cl,293.15,41.0,T2_SLSE,0.0280,,28.0 ms,Table 1
