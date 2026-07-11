@@ -32,7 +32,9 @@ from spin_dynamics.nqr import (
     SORCSequence,
     diagonalize_site,
     select_nqr_model,
+    simulate_full_fid,
     simulate_full_slse,
+    simulate_population_transfer,
     simulate_slse,
     simulate_sorc,
 )
@@ -199,9 +201,61 @@ def sorc_kwargs(experiment: Any) -> dict[str, Any]:
     }
 
 
+def fid_kwargs(experiment: Any) -> dict[str, Any]:
+    site = require_site(experiment)
+    sequence = experiment.sequence
+    kwargs: dict[str, Any] = {
+        "site": site,
+        "nutation_hz": sequence.nutation_hz,
+        "pulse_duration_seconds": sequence.pulse_duration_seconds,
+        "times_seconds": np.linspace(
+            0.0, sequence.acquisition_seconds, sequence.num_points
+        ),
+        "phase": sequence.phase,
+    }
+    if sequence.rf_frequency_hz is not None:
+        kwargs["rf_frequency_hz"] = sequence.rf_frequency_hz
+    if sequence.b0_tesla != 0.0:
+        kwargs["b0_vector_tesla_pas"] = (0.0, 0.0, sequence.b0_tesla)
+    return kwargs
+
+
+def population_transfer_kwargs(experiment: Any) -> dict[str, Any]:
+    site = require_site(experiment)
+    sequence = experiment.sequence
+    perturbation = target_transition(site, sequence.perturbation_transition)
+    detection = target_transition(site, sequence.detection_transition)
+    return {
+        "site": site,
+        "perturbation": SelectivePulse(
+            transition_label=perturbation.label,
+            duration_seconds=sequence.perturbation_duration_seconds,
+            nutation_hz=sequence.perturbation_nutation_hz,
+            phase=sequence.perturbation_phase,
+            rf_frequency_hz=sequence.perturbation_frequency_hz,
+        ),
+        "detection_sequence": SLSESequence(
+            detection=SelectivePulse(
+                transition_label=detection.label,
+                duration_seconds=sequence.detection_duration_seconds,
+                nutation_hz=sequence.detection_nutation_hz,
+                phase=sequence.detection_phase,
+                rf_frequency_hz=sequence.detection_frequency_hz,
+            ),
+            echo_spacing_seconds=sequence.echo_spacing_seconds,
+            num_echoes=sequence.num_echoes,
+        ),
+        "orientations": sequence.orientations,
+        "b0_tesla": sequence.b0_tesla,
+        "t2e_seconds": _t2e(sequence),
+    }
+
+
 __all__ = [
     "bare_nutation_hz",
+    "fid_kwargs",
     "model_selection",
+    "population_transfer_kwargs",
     "require_site",
     "resolve_slse_func",
     "resolved_slse_model",
@@ -210,5 +264,7 @@ __all__ = [
     "simulate_slse",
     "simulate_sorc",
     "simulate_full_slse",
+    "simulate_full_fid",
+    "simulate_population_transfer",
     "target_transition",
 ]

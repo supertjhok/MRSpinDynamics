@@ -21,9 +21,14 @@ from spin_dynamics.experiment.specs import (
     CPMGImaging,
     CPMGIRTrain,
     CPMGTrain,
+    DEERDistribution,
+    ESRCWSweep,
+    ESRDEER,
     ESRFID,
     ESRHahnEcho,
     Experiment,
+    NQRFID,
+    NQRPopulationTransfer,
     NQRSLSE,
     NQRSORC,
     PGSE,
@@ -155,23 +160,37 @@ def _spec_sanity_errors(experiment: Experiment) -> list[str]:
             errors.append("sequence.boundary must be 'reflect', 'periodic', or 'clip'")
         if sequence.substeps_per_interval <= 0:
             errors.append("sequence.substeps_per_interval must be positive")
-    if isinstance(sequence, (NQRSLSE, NQRSORC)) and sample.site is None:
+    if isinstance(
+        sequence, (NQRSLSE, NQRSORC, NQRFID, NQRPopulationTransfer)
+    ) and sample.site is None:
         errors.append(
             f"sequence {type(sequence).__name__} requires sample.site "
             "(a spin_dynamics.nqr.QuadrupolarSite)"
         )
-    if isinstance(sequence, (ESRFID, ESRHahnEcho)):
+    if isinstance(sequence, NQRPopulationTransfer) and sample.site is not None:
+        if getattr(sample.site, "spin", None) != 1.0:
+            errors.append("sequence NQRPopulationTransfer requires a spin-1 site")
+    if isinstance(sequence, (ESRFID, ESRHahnEcho, ESRCWSweep)):
         if sample.esr_system is None:
             errors.append(
                 f"sequence {type(sequence).__name__} requires sample.esr_system "
                 "(a spin_dynamics.esr.ESRSpinSystem)"
             )
         b0 = experiment.hardware.b0
-        if not isinstance(b0, UniformB0) or b0.field_tesla is None:
+        if isinstance(sequence, (ESRFID, ESRHahnEcho)) and (
+            not isinstance(b0, UniformB0) or b0.field_tesla is None
+        ):
             errors.append(
                 f"sequence {type(sequence).__name__} requires hardware.b0 = "
                 "UniformB0(field_tesla=...) to fix the electron Larmor frequency"
             )
+    if isinstance(sequence, ESRDEER) and not isinstance(
+        sample.deer_distribution, DEERDistribution
+    ):
+        errors.append(
+            "sequence ESRDEER requires sample.deer_distribution "
+            "(a DEERDistribution)"
+        )
     if isinstance(sequence, CPMGImaging):
         if sample.phantom is None:
             errors.append("sequence CPMGImaging requires sample.phantom")

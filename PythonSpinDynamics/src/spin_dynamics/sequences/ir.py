@@ -14,6 +14,37 @@ from typing import Any, Mapping
 import numpy as np
 
 
+HARDWARE_EFFECT_MODES = ("ignore", "apply")
+
+
+@dataclass(frozen=True)
+class HardwareEffectsPolicy:
+    """Declare whether execution must realize transmit and receive hardware.
+
+    The sequence waveforms remain nominal in either mode. ``"ignore"`` asks a
+    backend to use the nominal RF waveform or ideal receive signal directly;
+    ``"apply"`` requires it to pass transmit RF or acquired samples through a
+    separately supplied probe/hardware model. Keeping the policy separate from
+    event samples prevents double-filtering and lets one IR support ideal and
+    probe-aware comparisons.
+
+    Compilation preserves this policy but does not itself implement a hardware
+    transfer function. A backend must reject ``"apply"`` when it cannot honor
+    the requested path rather than silently falling back to ideal behavior.
+    """
+
+    transmit: str = "ignore"
+    receive: str = "ignore"
+
+    def __post_init__(self) -> None:
+        for name in ("transmit", "receive"):
+            value = getattr(self, name)
+            if value not in HARDWARE_EFFECT_MODES:
+                raise ValueError(
+                    f"{name} must be one of {HARDWARE_EFFECT_MODES}, got {value!r}"
+                )
+
+
 def _finite_1d(values: Any, name: str, *, complex_values: bool = False) -> np.ndarray:
     dtype = np.complex128 if complex_values else np.float64
     array = np.asarray(values, dtype=dtype)
@@ -184,10 +215,15 @@ class SequenceIR:
     definitions: Mapping[str, Any] = field(default_factory=dict)
     source_format: str = "native"
     source_version: tuple[int, int, int] | None = None
+    hardware_effects: HardwareEffectsPolicy = field(
+        default_factory=HardwareEffectsPolicy
+    )
 
     def __post_init__(self) -> None:
         if not self.blocks:
             raise ValueError("a sequence must contain at least one block")
+        if not isinstance(self.hardware_effects, HardwareEffectsPolicy):
+            raise TypeError("hardware_effects must be a HardwareEffectsPolicy")
         object.__setattr__(self, "blocks", tuple(self.blocks))
         object.__setattr__(self, "definitions", dict(self.definitions))
 
@@ -217,6 +253,7 @@ def _validate_timing(dwell_seconds: float, delay_seconds: float) -> None:
 __all__ = [
     "ADCEvent",
     "GradientWaveform",
+    "HardwareEffectsPolicy",
     "RFPulse",
     "SequenceBlock",
     "SequenceIR",

@@ -27,16 +27,21 @@ from spin_dynamics.experiment.specs import (
     CPMGTrain,
     ESRFID,
     ESRHahnEcho,
+    ESRCWSweep,
+    ESRDEER,
     Experiment,
     NQRSLSE,
     NQRSORC,
+    NQRFID,
+    NQRPopulationTransfer,
     PGSE,
     PGSEWalkers,
 )
 from spin_dynamics.experiment.wiring import solve_for_experiment
 from spin_dynamics.nqr import QuadrupolarSite
-from spin_dynamics.nqr.full_dynamics import FullNQRSLSEResult
-from spin_dynamics.nqr.simulation import SLSEResult, SORCResult
+from spin_dynamics.nqr.full_dynamics import FullNQRFIDResult, FullNQRSLSEResult
+from spin_dynamics.nqr.simulation import PopulationTransferResult, SLSEResult, SORCResult
+from spin_dynamics.esr.spectra import ESRFieldSweepResult
 from spin_dynamics.nqr.systems import NQREigensystem, NQRTransition
 from spin_dynamics.noise import NoiseMetadata, NoiseSpec
 from spin_dynamics.parameters import (
@@ -92,8 +97,12 @@ register_result_type(ProbeCPMGImagingResult)
 register_result_type(SLSEResult)
 register_result_type(SORCResult)
 register_result_type(FullNQRSLSEResult)
+register_result_type(FullNQRFIDResult)
+register_result_type(PopulationTransferResult)
 register_result_type(ESRFIDResult)
 register_result_type(ESRHahnEchoResult)
+register_result_type(ESRFieldSweepResult)
+register_result_type(esr_adapter.ESRDEERResult)
 register_result_type(PGSEMomentResult)
 register_result_type(PGSEWalkerResult)
 
@@ -512,6 +521,26 @@ register_workflow(
         honors=_NQR_HONORS,
     )
 )
+register_workflow(
+    WorkflowEntry(
+        name="simulate_full_fid",
+        sequence_type=NQRFID,
+        probe="ideal",
+        func=nqr_adapter.simulate_full_fid,
+        build_kwargs=nqr_adapter.fid_kwargs,
+        honors=_NQR_HONORS,
+    )
+)
+register_workflow(
+    WorkflowEntry(
+        name="simulate_population_transfer",
+        sequence_type=NQRPopulationTransfer,
+        probe="ideal",
+        func=nqr_adapter.simulate_population_transfer,
+        build_kwargs=nqr_adapter.population_transfer_kwargs,
+        honors=_NQR_HONORS,
+    )
+)
 
 # ESR entries: pulsed FID / Hahn echo on a single electron spin; no probe
 # circuit is modeled, so they register under the default "ideal" probe. The
@@ -535,6 +564,26 @@ register_workflow(
         func=esr_adapter.simulate_hahn_echo,
         build_kwargs=esr_adapter.hahn_kwargs,
         honors=_ESR_HONORS,
+    )
+)
+register_workflow(
+    WorkflowEntry(
+        name="simulate_field_sweep",
+        sequence_type=ESRCWSweep,
+        probe="ideal",
+        func=esr_adapter.simulate_field_sweep,
+        build_kwargs=esr_adapter.cw_sweep_kwargs,
+        honors=frozenset({"sample.esr_system"}),
+    )
+)
+register_workflow(
+    WorkflowEntry(
+        name="simulate_deer",
+        sequence_type=ESRDEER,
+        probe="ideal",
+        func=esr_adapter.run_deer,
+        build_kwargs=esr_adapter.deer_kwargs,
+        honors=frozenset({"sample.deer_distribution"}),
     )
 )
 

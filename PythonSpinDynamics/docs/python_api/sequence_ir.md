@@ -17,10 +17,21 @@ The IR deliberately preserves Pulseq's physical units:
 Backends own unit conversion. For example, `compiled_to_motion_steps` converts
 RF and gradient frequencies to angular units for the moving-isochromat engine.
 
+Probe realization is an execution policy, not a second waveform convention.
+`SequenceIR.hardware_effects` is a `HardwareEffectsPolicy` with independent
+`transmit` and `receive` modes (`"ignore"` or `"apply"`). The nominal RF and
+ADC events are unchanged in either mode. A probe-aware backend applies its
+separately supplied transfer model when requested; a backend that cannot do so
+must reject `"apply"` rather than silently simulate ideal hardware. This also
+makes ideal/probe-aware A/B comparisons reuse exactly the same IR.
+
 ## Initial API
 
 ```python
+import dataclasses
+
 from spin_dynamics.sequences import (
+    HardwareEffectsPolicy,
     compile_sequence,
     compiled_to_motion_steps,
     read_pulseq,
@@ -28,6 +39,10 @@ from spin_dynamics.sequences import (
 )
 
 sequence = read_pulseq("experiment.seq")
+sequence = dataclasses.replace(
+    sequence,
+    hardware_effects=HardwareEffectsPolicy(transmit="apply", receive="apply"),
+)
 compiled = compile_sequence(sequence, system_frequency_hz=2.0e6)
 motion_steps = compiled_to_motion_steps(compiled, spatial_dimensions=3)
 
@@ -37,6 +52,10 @@ figure, axes = sequence.plot(show_blocks=True)
 # Export a native or imported IR through the standard Pulseq 1.5.0 format.
 write_pulseq(sequence, "canonical.seq")
 ```
+
+The policy is MRSpinDynamics execution metadata and is not written as a
+non-standard Pulseq extension; reading a `.seq` file therefore defaults both
+paths to `"ignore"`. Attach the desired policy after import, as above.
 
 Native sequences can be constructed from `SequenceIR`, `SequenceBlock`,
 `RFPulse`, `GradientWaveform`, and `ADCEvent`. `compile_sequence` partitions

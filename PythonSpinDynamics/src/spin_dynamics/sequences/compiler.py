@@ -6,7 +6,12 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from spin_dynamics.sequences.ir import GradientWaveform, RFPulse, SequenceIR
+from spin_dynamics.sequences.ir import (
+    GradientWaveform,
+    HardwareEffectsPolicy,
+    RFPulse,
+    SequenceIR,
+)
 
 
 @dataclass(frozen=True)
@@ -34,6 +39,7 @@ class CompiledSequence:
     adc: CompiledADC
     source_format: str
     source_version: tuple[int, int, int] | None
+    hardware_effects: HardwareEffectsPolicy
 
     @property
     def duration_seconds(self) -> float:
@@ -132,6 +138,7 @@ def compile_sequence(
         ),
         source_format=sequence.source_format,
         source_version=sequence.source_version,
+        hardware_effects=sequence.hardware_effects,
     )
 
 
@@ -146,6 +153,18 @@ def compiled_to_motion_steps(
     motion engine currently accepts one receive sample at an interval end, so
     the compiler's ADC-centered boundaries map directly onto those samples.
     """
+
+    policy = compiled.hardware_effects
+    requested = [
+        name for name in ("transmit", "receive") if getattr(policy, name) == "apply"
+    ]
+    if requested:
+        raise NotImplementedError(
+            "the motion adapter cannot yet apply probe hardware effects for "
+            + " and ".join(requested)
+            + "; compile with HardwareEffectsPolicy(...='ignore') or use a "
+            "probe-aware backend"
+        )
 
     from spin_dynamics.sequences.motion import MotionSequenceStep
 

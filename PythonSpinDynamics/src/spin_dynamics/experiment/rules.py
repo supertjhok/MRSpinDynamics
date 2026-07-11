@@ -285,6 +285,41 @@ def nqr_model_rule(experiment: Experiment, entry: WorkflowEntry) -> list[RuleFin
     return findings
 
 
+def spectroscopy_inputs_rule(
+    experiment: Experiment, entry: WorkflowEntry
+) -> list[RuleFinding]:
+    """Resolve spectroscopy sample objects and transition labels at plan time."""
+
+    from spin_dynamics.experiment import esr_adapter, nqr_adapter
+    from spin_dynamics.experiment.specs import (
+        ESRCWSweep,
+        ESRFID,
+        ESRHahnEcho,
+        NQRFID,
+        NQRPopulationTransfer,
+    )
+
+    sequence = experiment.sequence
+    try:
+        if isinstance(sequence, NQRFID):
+            nqr_adapter.require_site(experiment)
+        elif isinstance(sequence, NQRPopulationTransfer):
+            site = nqr_adapter.require_site(experiment)
+            nqr_adapter.target_transition(site, sequence.perturbation_transition)
+            nqr_adapter.target_transition(site, sequence.detection_transition)
+        elif isinstance(sequence, (ESRFID, ESRHahnEcho, ESRCWSweep)):
+            esr_adapter.require_system(experiment)
+        else:
+            return []
+    except ValueError as exc:
+        return [
+            RuleFinding(
+                rule="spectroscopy_inputs", severity="error", message=str(exc)
+            )
+        ]
+    return []
+
+
 def transport_rule(experiment: Experiment, entry: WorkflowEntry) -> list[RuleFinding]:
     """Report uniform-flow scale and flag closed reflecting transport."""
 
@@ -341,6 +376,7 @@ DEFAULT_RULES: tuple[Rule, ...] = (
     noise_spec_rule,
     hardware_wiring_rule,
     nqr_model_rule,
+    spectroscopy_inputs_rule,
     transport_rule,
 )
 

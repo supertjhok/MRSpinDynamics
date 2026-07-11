@@ -95,7 +95,7 @@ what supports the underlying scientific or numerical claim.
 - **Metric:** Exact metadata/timing invariants and numerical waveform equality
 - **Tolerance:** Exact for discrete metadata; 1e-12 seconds or tighter for timing comparisons.
 - **References:** Pulseq specification 1.4.x and 1.5.0
-- **Reproduce:** [`tests/test_sequence_ir.py::test_imports_pulseq_15_rf_adc_and_compiles`](../tests/test_sequence_ir.py#L191); [`tests/test_sequence_ir.py::test_round_trip_preserves_core_events_and_metadata`](../tests/test_sequence_ir.py#L252); [`tests/test_sequence_ir.py::test_export_signature_covers_sequence_text`](../tests/test_sequence_ir.py#L318)
+- **Reproduce:** [`tests/test_sequence_ir.py::test_imports_pulseq_15_rf_adc_and_compiles`](../tests/test_sequence_ir.py#L215); [`tests/test_sequence_ir.py::test_round_trip_preserves_core_events_and_metadata`](../tests/test_sequence_ir.py#L276); [`tests/test_sequence_ir.py::test_export_signature_covers_sequence_text`](../tests/test_sequence_ir.py#L342)
 - **Limitations:** No independent scanner/vendor execution comparison yet. Optional extensions are retained but not executed.
 
 ### PGSE diffusion encoding
@@ -263,7 +263,7 @@ what supports the underlying scientific or numerical claim.
 - **Metric:** Native-result equality and serialization invariants
 - **Tolerance:** Exact for serialized metadata; workflow-specific numerical parity for arrays.
 - **References:** Direct public workflow implementations
-- **Reproduce:** [`tests/test_experiment.py::test_pgse_moment_parity_and_plan`](../tests/test_experiment.py#L632); [`tests/test_experiment.py::test_pgse_walkers_with_flow_matches_direct_workflow`](../tests/test_experiment.py#L701); [`tests/test_experiment.py::test_nqr_slse_reduced_parity`](../tests/test_experiment.py#L856); [`tests/test_experiment.py::test_esr_fid_parity`](../tests/test_experiment.py#L1006)
+- **Reproduce:** [`tests/test_experiment.py::test_pgse_moment_parity_and_plan`](../tests/test_experiment.py#L632); [`tests/test_experiment.py::test_pgse_walkers_with_flow_matches_direct_workflow`](../tests/test_experiment.py#L701); [`tests/test_experiment.py::test_nqr_slse_reduced_parity`](../tests/test_experiment.py#L863); [`tests/test_experiment.py::test_nqr_fid_parity`](../tests/test_experiment.py#L940); [`tests/test_experiment.py::test_nqr_population_transfer_parity_and_spin_guard`](../tests/test_experiment.py#L958); [`tests/test_experiment.py::test_esr_fid_parity`](../tests/test_experiment.py#L1070); [`tests/test_experiment.py::test_esr_cw_sweep_parity_without_fixed_b0`](../tests/test_experiment.py#L1115); [`tests/test_experiment.py::test_esr_deer_parity_and_round_trip`](../tests/test_experiment.py#L1129)
 - **Limitations:** Facade parity validates delegation, not the physical model underneath each route.
 
 ### Numba and JAX acceleration

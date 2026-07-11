@@ -70,7 +70,10 @@ extensions.
   time-varying-field examples, WURST pulses, radiation damping, motion, and
   prepolarization.
 - `spin_dynamics.sequences` contains timing helpers plus a backend-neutral
-  block/event sequence IR. It can import core Pulseq 1.4/1.5 text `.seq` files,
+  block/event sequence IR. An explicit transmit/receive hardware-effects policy
+  lets a backend distinguish ideal execution from required probe realization
+  without baking filtered waveforms into the sequence. It can import core
+  Pulseq 1.4/1.5 text `.seq` files,
   export raster-validated Pulseq 1.5.0 sequences,
   compile concurrent RF/gradient/ADC events to a piecewise-constant timeline,
   visualize aligned RF/gradient/ADC lanes, and adapt that timeline to the
@@ -200,8 +203,8 @@ record.save("run1.npz")          # arrays + JSON provenance + spec round-trip
 ```
 
 The same interface drives imaging (with automatic transmit-coil B1 solving),
-pulsed NQR (`NQRSLSE` / `NQRSORC`, with reduced-vs-full engine selection), and
-pulsed ESR (`ESRFID` / `ESRHahnEcho`). See
+NQR (`NQRFID`, `NQRPopulationTransfer`, `NQRSLSE`, and `NQRSORC`) and ESR
+(`ESRCWSweep`, `ESRDEER`, `ESRFID`, and `ESRHahnEcho`). See
 [`docs/python_api/experiment_workflow.md`](docs/python_api/experiment_workflow.md)
 for the full guide.
 

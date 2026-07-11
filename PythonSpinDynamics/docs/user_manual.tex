@@ -2745,7 +2745,7 @@ and optional per-sample phase. \\
 \code{SequenceBlock} & Concurrent events with an explicit duration, label, and
 retained extension metadata. \\
 \code{SequenceIR} & Ordered blocks, definitions, and source-format/version
-provenance. \\
+provenance, plus independent transmit/receive hardware-effects policy. \\
 \bottomrule
 \end{longtable}
 
@@ -2768,6 +2768,14 @@ sequence = SequenceIR(blocks=(
     ),
 ))
 \end{lstlisting}
+
+Probe effects are selected without modifying the nominal samples. A
+\code{HardwareEffectsPolicy} sets \code{transmit} and \code{receive}
+independently to \code{"ignore"} or \code{"apply"}. Compilation preserves the
+policy. A backend must reject an applied path it cannot implement rather than
+silently falling back to ideal execution. The policy is MRSpinDynamics
+execution metadata, not a non-standard Pulseq extension, so imported Pulseq
+files default to ignoring both paths and the policy is attached after import.
 
 \section{Pulseq Import and Export}
 
@@ -2916,9 +2924,10 @@ phantom and optional solved coil/field maps. \\
 and transverse relaxation. \\
 \code{PGSEWalkers} & ideal & Explicit seeded 2-D diffusion, restricted or
 periodic boundaries, and optional uniform flow. \\
-\code{NQRSLSE}, \code{NQRSORC} & ideal & Reduced/full-model SLSE selection and
-reduced SORC. \\
-\code{ESRFID}, \code{ESRHahnEcho} & ideal & Pulsed single-electron ESR. \\
+\code{NQRFID}, \code{NQRPopulationTransfer}, \code{NQRSLSE}, \code{NQRSORC} &
+ideal & Full FID, reduced spin-1 transfer, reduced/full SLSE, and reduced SORC. \\
+\code{ESRCWSweep}, \code{ESRDEER}, \code{ESRFID}, \code{ESRHahnEcho} & ideal &
+CW field sweep, distance-distribution DEER, and pulsed single-electron ESR. \\
 \bottomrule
 \end{longtable}
 
@@ -2995,7 +3004,11 @@ two-level Rabi convention and the adapter converts to the bare
 \(\gamma B_1 / 2\pi\) the full engine needs. For pulsed ESR, set
 \code{Sample.esr\_system} and a \code{Hardware.b0 = UniformB0(field\_tesla=...)}
 so the electron Larmor frequency is fixed, then use an \code{ESRFID} or
-\code{ESRHahnEcho} sequence.
+\code{ESRHahnEcho} sequence. \code{ESRCWSweep} constructs its field axis and
+does not require fixed B0. \code{ESRDEER} consumes a serialized
+\code{DEERDistribution}. NQR also exposes full-model \code{NQRFID} and reduced
+spin-1 \code{NQRPopulationTransfer}; the FID's nutation rate follows the full
+engine's bare \(\gamma B_1/2\pi\) convention.
 
 \section{Saving and Reloading}
 

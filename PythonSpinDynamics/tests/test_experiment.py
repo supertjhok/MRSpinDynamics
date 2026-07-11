@@ -809,7 +809,12 @@ def test_pgse_walkers_warns_when_flow_reflects() -> None:
     assert any("not through-flow" in warning for warning in plan.warnings)
 
 
-from spin_dynamics.experiment import NQRSLSE, NQRSORC  # noqa: E402
+from spin_dynamics.experiment import (  # noqa: E402
+    NQRFID,
+    NQRPopulationTransfer,
+    NQRSLSE,
+    NQRSORC,
+)
 from spin_dynamics.nqr import (  # noqa: E402
     QuadrupolarSite,
     SelectivePulse,
@@ -817,6 +822,8 @@ from spin_dynamics.nqr import (  # noqa: E402
     SORCSequence,
     diagonalize_site,
     simulate_full_slse,
+    simulate_full_fid,
+    simulate_population_transfer,
     simulate_slse,
     simulate_sorc,
 )
@@ -930,6 +937,50 @@ def test_nqr_sorc_parity() -> None:
 
 
 @pytest.mark.smoke
+def test_nqr_fid_parity() -> None:
+    spec = NQRFID(
+        nutation_hz=10e3,
+        pulse_duration_seconds=25e-6,
+        acquisition_seconds=100e-6,
+        num_points=32,
+    )
+    record = Experiment(sequence=spec, sample=Sample(site=_SPIN1)).run()
+    direct = simulate_full_fid(
+        _SPIN1,
+        nutation_hz=10e3,
+        pulse_duration_seconds=25e-6,
+        times_seconds=np.linspace(0.0, 100e-6, 32),
+    )
+    assert np.array_equal(record.result.signal, direct.signal)
+
+
+@pytest.mark.smoke
+def test_nqr_population_transfer_parity_and_spin_guard() -> None:
+    spec = NQRPopulationTransfer(
+        perturbation_duration_seconds=100e-6,
+        perturbation_nutation_hz=2.5e3,
+        detection_duration_seconds=100e-6,
+        detection_nutation_hz=2.5e3,
+        echo_spacing_seconds=1e-3,
+        num_echoes=3,
+        perturbation_transition="x",
+        detection_transition="y",
+        orientations="single",
+    )
+    record = Experiment(sequence=spec, sample=Sample(site=_SPIN1)).run()
+    direct = simulate_population_transfer(
+        _SPIN1,
+        SelectivePulse("x", 100e-6, 2.5e3),
+        SLSESequence(SelectivePulse("y", 100e-6, 2.5e3), 1e-3, 3),
+        orientations="single",
+    )
+    assert np.array_equal(record.result.normalized_difference, direct.normalized_difference)
+    plan = Experiment(sequence=spec, sample=Sample(site=_SPIN32)).plan()
+    assert not plan.ok
+    assert any("spin-1" in error for error in plan.errors)
+
+
+@pytest.mark.smoke
 def test_nqr_bare_nutation_conversion() -> None:
     from spin_dynamics.experiment import nqr_adapter
 
@@ -989,8 +1040,21 @@ def test_nqr_json_and_save_round_trip(tmp_path) -> None:
     )
 
 
-from spin_dynamics.esr import ESRSpinSystem, simulate_fid, simulate_hahn_echo  # noqa: E402
-from spin_dynamics.experiment import ESRFID, ESRHahnEcho, UniformB0  # noqa: E402
+from spin_dynamics.esr import (  # noqa: E402
+    ESRSpinSystem,
+    simulate_deer,
+    simulate_fid,
+    simulate_field_sweep,
+    simulate_hahn_echo,
+)
+from spin_dynamics.experiment import (  # noqa: E402
+    DEERDistribution,
+    ESRCWSweep,
+    ESRDEER,
+    ESRFID,
+    ESRHahnEcho,
+    UniformB0,
+)
 
 _ESR_SYSTEM = ESRSpinSystem()
 _ESR_HW = Hardware(b0=UniformB0(field_tesla=0.35))
@@ -1048,6 +1112,43 @@ def test_esr_hahn_echo_parity_with_defaults() -> None:
 
 
 @pytest.mark.smoke
+def test_esr_cw_sweep_parity_without_fixed_b0() -> None:
+    spec = ESRCWSweep(
+        microwave_frequency_hz=9.5e9,
+        orientations="single",
+        num_points=64,
+    )
+    record = Experiment(sequence=spec, sample=Sample(esr_system=_ESR_SYSTEM)).run()
+    direct = simulate_field_sweep(
+        _ESR_SYSTEM, 9.5e9, orientations="single", points=64
+    )
+    assert np.array_equal(record.result.spectrum, direct.spectrum)
+
+
+@pytest.mark.smoke
+def test_esr_deer_parity_and_round_trip(tmp_path) -> None:
+    distances = np.linspace(2.0, 4.0, 9)
+    weights = np.exp(-0.5 * ((distances - 3.0) / 0.25) ** 2)
+    sample = Sample(deer_distribution=DEERDistribution(distances, weights))
+    spec = ESRDEER(acquisition_seconds=2e-6, num_points=32, n_theta=101)
+    experiment = Experiment(sequence=spec, sample=sample)
+    assert Experiment.from_json(experiment.to_json()) == experiment
+    record = experiment.run()
+    direct = simulate_deer(
+        np.linspace(0.0, 2e-6, 32),
+        distances,
+        weights,
+        n_theta=101,
+    )
+    assert np.array_equal(record.result.form_factor, direct)
+    path = tmp_path / "deer.npz"
+    record.save(str(path))
+    loaded = load_run(str(path))
+    assert loaded.unsaved_result_fields == ()
+    assert loaded.experiment == experiment
+
+
+@pytest.mark.smoke
 def test_esr_requires_system_and_field() -> None:
     plan = Experiment(sequence=_ESR_FID, hardware=_ESR_HW).plan()
     assert not plan.ok
@@ -1093,11 +1194,15 @@ def test_registry_entries_point_at_public_workflows() -> None:
     import spin_dynamics.nqr as nqr
 
     entries = available_workflows()
-    assert len(entries) == 21
+    assert len(entries) == 25
     public = set(workflows.STABLE_WORKFLOW_API) | set(workflows.EXTENDED_WORKFLOW_API)
     for entry in entries:
         if getattr(nqr, entry.name, None) is not None:
             assert getattr(nqr, entry.name) is entry.func, entry.name
+        elif entry.sequence_type is ESRDEER:
+            from spin_dynamics.experiment import esr_adapter
+
+            assert entry.func is esr_adapter.run_deer
         elif getattr(esr, entry.name, None) is not None:
             assert getattr(esr, entry.name) is entry.func, entry.name
         else:

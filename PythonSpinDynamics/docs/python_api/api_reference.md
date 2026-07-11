@@ -475,10 +475,14 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 
 | Kind | Name | Summary |
 | --- | --- | --- |
+| class | `ESRDEERResult` | DEER time-domain form factor and its source distance distribution. |
 | function | `require_system(experiment: Any) -> ESRSpinSystem` |  |
 | function | `require_b0_vector(experiment: Any) -> tuple[float, float, float]` |  |
 | function | `fid_kwargs(experiment: Any) -> dict[str, Any]` |  |
 | function | `hahn_kwargs(experiment: Any) -> dict[str, Any]` |  |
+| function | `cw_sweep_kwargs(experiment: Any) -> dict[str, Any]` |  |
+| function | `deer_kwargs(experiment: Any) -> dict[str, Any]` |  |
+| function | `run_deer(**kwargs) -> ESRDEERResult` | Adapt the array-returning DEER engine to a persistable facade result. |
 
 ## `spin_dynamics.experiment.estimate`
 
@@ -524,6 +528,8 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `resolve_slse_func(experiment: Any) -> Callable[..., Any]` |  |
 | function | `slse_kwargs(experiment: Any) -> dict[str, Any]` |  |
 | function | `sorc_kwargs(experiment: Any) -> dict[str, Any]` |  |
+| function | `fid_kwargs(experiment: Any) -> dict[str, Any]` |  |
+| function | `population_transfer_kwargs(experiment: Any) -> dict[str, Any]` |  |
 
 ## `spin_dynamics.experiment.plan`
 
@@ -551,6 +557,7 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `noise_spec_rule(experiment: Experiment, entry: WorkflowEntry) -> list[RuleFinding]` | Validate the acquisition noise spec at plan time. |
 | function | `hardware_wiring_rule(experiment: Experiment, entry: WorkflowEntry) -> list[RuleFinding]` | Solve requested coil fields at plan time and surface wiring problems. |
 | function | `nqr_model_rule(experiment: Experiment, entry: WorkflowEntry) -> list[RuleFinding]` | Run ``select_nqr_model`` at plan time and check the engine dispatch. |
+| function | `spectroscopy_inputs_rule(experiment: Experiment, entry: WorkflowEntry) -> list[RuleFinding]` | Resolve spectroscopy sample objects and transition labels at plan time. |
 | function | `transport_rule(experiment: Experiment, entry: WorkflowEntry) -> list[RuleFinding]` | Report uniform-flow scale and flag closed reflecting transport. |
 | function | `run_rules(experiment: Experiment, entry: WorkflowEntry, rules: Iterable[Rule] = DEFAULT_RULES) -> list[RuleFinding]` |  |
 
@@ -579,6 +586,7 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `Phantom` | Spatial sample description for imaging: density plus optional maps. |
 | class | `TransportDomain2D` | Density and physical axes for 2-D random-walker transport. |
 | class | `UniformFlow2D` | Uniform ``(vx, vz)`` transport velocity in meters per second. |
+| class | `DEERDistribution` | Distance grid and non-negative weights for a DEER experiment. |
 | class | `SampledB0` | A spatially-varying static field sampled on the imaging plane. |
 | class | `Sample` | Sample description. |
 | class | `Hardware` | Transmit/receive hardware description. |
@@ -591,8 +599,12 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `PGSEWalkers` | Explicit random-walker PGSE with diffusion and optional uniform flow. |
 | class | `NQRSLSE` | Spin-lock spin-echo NQR detection train. |
 | class | `NQRSORC` | Strong off-resonance comb NQR train (reduced spin-1 engine only). |
+| class | `NQRFID` | Single-pulse NQR FID using the full density-matrix engine. |
+| class | `NQRPopulationTransfer` | Selective perturbation followed by reduced spin-1 SLSE detection. |
 | class | `ESRFID` | Pulsed ESR free-induction decay (rotating frame, single isochromat). |
 | class | `ESRHahnEcho` | Two-pulse ESR Hahn echo (single isochromat). |
+| class | `ESRCWSweep` | Continuous-wave ESR field sweep at fixed microwave frequency. |
+| class | `ESRDEER` | DEER form factor calculated from ``Sample.deer_distribution``. |
 | class | `Experiment` | A complete declarative experiment description. |
 | function | `non_default_fields(experiment: Experiment) -> dict[str, Any]` | Return dotted spec-field names whose values differ from the defaults. |
 
@@ -1455,6 +1467,7 @@ No public classes or functions found.
 
 | Kind | Name | Summary |
 | --- | --- | --- |
+| class | `HardwareEffectsPolicy` | Declare whether execution must realize transmit and receive hardware. |
 | class | `RFPulse` | Sampled complex RF envelope in hertz. |
 | class | `GradientWaveform` | Sampled gradient waveform in hertz per meter. |
 | class | `ADCEvent` | Uniform receive-sampling event. |

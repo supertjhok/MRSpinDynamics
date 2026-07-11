@@ -191,9 +191,17 @@ convention; the adapter converts to the bare `gamma*B1/(2*pi)` the full engine
 needs. Runnable version:
 [`examples/experiment_nqr_auto_model.py`](../../examples/experiment_nqr_auto_model.py).
 
+The facade also exposes full-model `NQRFID` and reduced spin-1
+`NQRPopulationTransfer`. The former uses the full engine's bare
+`gamma*B1/(2*pi)` nutation convention; the latter describes perturbation and
+SLSE detection pulses independently.
+
 For pulsed ESR, set `Sample.esr_system` (an `ESRSpinSystem`) and a
 `Hardware.b0 = UniformB0(field_tesla=...)` so the electron Larmor frequency is
-fixed, then use an `ESRFID` or `ESRHahnEcho` sequence.
+fixed, then use `ESRFID` or `ESRHahnEcho`. `ESRCWSweep` needs the spin system
+but supplies its own field axis, so it does not require fixed B0. `ESRDEER`
+instead consumes `Sample.deer_distribution = DEERDistribution(...)` and
+returns a persistable form-factor result.
 
 ## Saving and reloading
 
