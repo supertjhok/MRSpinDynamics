@@ -7,20 +7,117 @@
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21016177.svg)](https://doi.org/10.5281/zenodo.21016177)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 
-MRSpinDynamics is a research workspace for magnetic-resonance simulation,
-quadrupolar-parameter analysis, and NQR data curation.
+MRSpinDynamics is an open research workspace for magnetic-resonance simulation,
+instrument modeling, quadrupolar-parameter analysis, and NQR data curation. It
+connects experiment descriptions to spin dynamics, spatial fields, transport,
+receiver response, analysis, and reproducible result records instead of treating
+those pieces as unrelated scripts.
 
-The repository brings together several related projects:
+The Python package is the main development surface. The MATLAB implementation
+remains a numerical reference, while the DFT, database, and integration projects
+connect calculated electric-field gradients to predicted and measured NQR lines.
 
-- simulating nuclear magnetic resonance (NMR), nuclear quadrupole resonance
-  (NQR), and electron spin resonance/electron paramagnetic resonance (ESR/EPR)
-  experiments;
-- validating a Python spin-dynamics implementation against an older MATLAB
-  reference implementation;
-- computing electric-field-gradient and quadrupolar-coupling tensors from
-  first-principles electronic-structure outputs;
-- building a machine-readable NQR spectra database from archived web pages,
-  literature tables, and reviewed PDF extracts.
+## What You Can Model
+
+| Area | Current capabilities |
+| --- | --- |
+| NMR and imaging | CPMG and FID families; finite echo trains; inversion recovery; phase- and frequency-encoded imaging; field-map and moving-isochromat workflows |
+| Sequence design | Backend-neutral RF/gradient/ADC intermediate representation; Pulseq 1.4/1.5 import; signed Pulseq 1.5.0 export; compilation; aligned timeline plots |
+| Diffusion and flow | Deterministic PGSE attenuation; seeded 2-D random walkers; restricted boundaries; uniform advective flow; pipe washout and transit-time polarization |
+| NQR and ESR/EPR | Selective pulsed NQR, powder averaging, SLSE and population transfer; CW and pulsed ESR, strain, hyperfine, DEER, ESEEM, HYSCORE, and ENDOR models |
+| Coupled spins and relaxation | Small dense scalar-coupled systems; exchange; Redfield/dipolar relaxation; radiation damping; semiclassical spin noise |
+| Fields and hardware | Coil and magnetostatic fields; PEEC, eddy-current, probe, receiver-noise, RFI rejection, SQUID/OPM, thermal, and electro-thermal models |
+| Analysis and optimization | Inverse Laplace tools, parameter sweeps, pulse and gradient optimization, NumPy/Numba/JAX execution paths, and benchmark scaffolds |
+| Predict-to-measurement NQR | DFT EFG conversion, Hamiltonian cross-checks, curated spectra with provenance, and predicted-to-observed line matching |
+
+The models intentionally span several levels of description. Bloch isochromats
+are used for independent spin-1/2 ensembles, small dense Hamiltonians for
+explicit quantum effects, and specialized stochastic or continuum models where
+motion, relaxation, fields, or hardware must be represented. The
+[Python user manual](PythonSpinDynamics/docs/user_manual.pdf) documents the
+boundaries and assumptions for each layer.
+
+## Quick Start: Python Experiments
+
+Python 3.10 or newer is required. From the repository root:
+
+```bash
+cd PythonSpinDynamics
+python -m pip install -e ".[opt,plot]"
+```
+
+The unified experiment facade is the recommended starting point. Describe the
+experiment, inspect the resolved plan, then run and save it:
+
+```python
+from spin_dynamics.experiment import Experiment, PGSE, Sample
+
+study = Experiment(
+    sequence=PGSE(
+        gradient_amplitude=0.05,
+        gradient_duration=2e-3,
+        diffusion_time=20e-3,
+    ),
+    sample=Sample(diffusion_coefficient=2.1e-9, t2_seconds=0.25),
+)
+
+print(study.plan().report())
+record = study.run()
+record.save("results/pgse_run.npz")
+```
+
+TOML and JSON configurations use the same plan/run path:
+
+```bash
+python -m spin_dynamics.experiment plan examples/experiment_config_pgse.toml
+python -m spin_dynamics.experiment run examples/experiment_config_pgse.toml \
+  -o results/pgse_run.npz
+python -m spin_dynamics.experiment show results/pgse_run.npz
+```
+
+For explicit transport, start with
+`examples/experiment_config_pgse_walkers_flow.toml`. Its seeded random walkers
+combine diffusion with a uniform 2-D velocity and can be reproduced through the
+same CLI.
+
+## Sequence Interchange and Visualization
+
+The sequence layer uses the open [Pulseq](https://pulseq.github.io/) block model:
+RF, three gradient channels, and ADC may overlap inside sequential blocks.
+Imported sequences can be compiled into piecewise-constant backend inputs or
+plotted as aligned lanes with block boundaries and receive samples.
+
+```python
+from spin_dynamics.sequences import compile_sequence, read_pulseq
+
+sequence = read_pulseq("protocol.seq")
+compiled = compile_sequence(sequence, system_frequency_hz=42.58e6)
+figure, axes = compiled.plot(time_unit="ms")
+figure.savefig("results/protocol_timeline.png", dpi=150)
+```
+
+The bundled script makes timeline inspection a natural part of working with a
+sequence file:
+
+```bash
+# Plot a built-in spin echo and export it as signed Pulseq 1.5.0.
+python examples/plot_sequence_timeline.py \
+  --export-pulseq results/demo_spin_echo.seq \
+  --output results/demo_spin_echo.png
+
+# Inspect an existing .seq file.
+python examples/plot_sequence_timeline.py protocol.seq \
+  --system-frequency-hz 42580000 \
+  --output results/protocol_timeline.png
+```
+
+Pulseq core blocks, RF, arbitrary/default-raster gradients, trapezoids, ADC,
+and compressed shapes are supported. Required extensions and explicit
+non-default time shapes fail clearly; optional extensions are retained as
+metadata but are not yet executed. Export requires raster-aligned timing and
+does not silently round the sequence.
+
+## Repository Map
 
 ## Repository Map
 
@@ -29,13 +126,11 @@ The repository brings together several related projects:
   examples. Many core routines also run in GNU Octave; optimization, MATLAB
   Coder/MEX, `parfor`, and some graphics/toolbox workflows still require
   MATLAB or small script edits.
-- `PythonSpinDynamics/` is the Python package. It contains the port of the
-  MATLAB behavior, automated tests, examples, API documentation, and newer NQR
-  and ESR/EPR simulation features. Its recommended entry point is the unified
-  `spin_dynamics.experiment` facade: declarative experiment specs with a
-  `plan()`/`run()`/save flow, automatic coil-field wiring, engine selection
-  across the NMR/imaging/NQR/ESR simulators, and a config-driven CLI
-  (`python -m spin_dynamics.experiment`).
+- `PythonSpinDynamics/` is the Python package. It contains validated ports,
+  newer simulation engines, sequence interchange, automated tests, examples,
+  generated API documentation, and the unified `spin_dynamics.experiment`
+  facade. The facade currently resolves NMR, imaging, diffusion, random-walker
+  transport, NQR, and ESR specifications onto the underlying workflows.
 - `QuadrupolarDFT/` analyzes electric-field-gradient tensors from
   first-principles calculations. These tensors determine nuclear quadrupole
   coupling constants, which are central to NQR interpretation.
@@ -54,17 +149,37 @@ The repository brings together several related projects:
   of self-authored technical notes that are useful background for the public
   subprojects.
 
-Each subproject has its own README or documentation folder with setup and usage
-details. Start with `PythonSpinDynamics/` for simulation work, `QuadrupolarDFT/`
-for ab initio tensor analysis, and `NQRDatabase/` for spectra data.
+## Documentation and Development
 
-For PythonSpinDynamics development and benchmarking, use the persistent
-virtual-environment setup documented in
-[`PythonSpinDynamics/docs/development_environment.md`](PythonSpinDynamics/docs/development_environment.md).
-The package also provides `PythonSpinDynamics/scripts/setup_dev_env.ps1` and
-`PythonSpinDynamics/scripts/setup_dev_env_wsl.sh` so Windows and WSL runs use a
-repeatable dependency stack. The WSL setup script also supports CUDA-enabled
-JAX installation for GPU benchmarks with `JAX_CUDA=13`.
+- [Python user manual (PDF)](PythonSpinDynamics/docs/user_manual.pdf) and
+  [LaTeX source](PythonSpinDynamics/docs/user_manual.tex)
+- [Python package README](PythonSpinDynamics/README.md),
+  [generated API reference](PythonSpinDynamics/docs/python_api/api_reference.md),
+  and [validation status](PythonSpinDynamics/docs/validation_results.md)
+- [Workspace roadmap and capability gaps](docs/roadmap.md) and
+  [release process](docs/release_process.md)
+- [QuadrupolarDFT guide](QuadrupolarDFT/README.md),
+  [NQR database guide](NQRDatabase/README.md), and
+  [integration guide](integration/README.md)
+
+For PythonSpinDynamics development and benchmarking, use the repeatable setup in
+[`development_environment.md`](PythonSpinDynamics/docs/development_environment.md)
+or the `scripts/setup_dev_env.ps1` and `scripts/setup_dev_env_wsl.sh` helpers.
+The WSL helper can install CUDA-enabled JAX with `JAX_CUDA=13`.
+
+The local smoke gate mirrors the hosted job:
+
+```bash
+cd PythonSpinDynamics
+python -m ruff check src tests examples
+python docs/generate_api_reference.py
+git diff --exit-code docs/python_api/api_reference.md
+python -m unittest tests.smoke_tests
+```
+
+Run `python -m unittest discover -s tests` before merging numerical changes.
+MATLAB or Octave is only needed when regenerating reference fixtures; the Python
+package itself has no runtime dependency on either environment.
 
 ## NQR Database Sources
 
