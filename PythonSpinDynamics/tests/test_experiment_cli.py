@@ -186,6 +186,12 @@ def test_cli_run_and_show(tmp_path, capsys) -> None:
     assert "run_tuned_cpmg_train" in shown
     assert "package_version" in shown
 
+    code = cli.main(["verify", str(out)])
+    assert code == 0
+    verified = capsys.readouterr().out
+    assert "reproduced: yes" in verified
+    assert "implementation identity: match" in verified
+
 
 @pytest.mark.smoke
 def test_cli_run_refuses_bad_plan(tmp_path, capsys) -> None:

@@ -513,6 +513,7 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | --- | --- | --- |
 | function | `register_result_type(cls: type) -> type` | Register a workflow result dataclass for load-time reconstruction. |
 | function | `save_run(record: RunRecord, path: str) -> None` |  |
+| class | `ReproductionReport` | Comparison between a saved run and a fresh execution of its spec. |
 | class | `LoadedRun` | A run loaded from disk: spec, raw arrays, and best-effort result. |
 | function | `load_run(path: str) -> LoadedRun` |  |
 

@@ -5,6 +5,7 @@ Run with ``python -m spin_dynamics.experiment <command>``:
     plan   CONFIG            resolve + validate a config, print the plan
     run    CONFIG [-o NPZ]   plan then run, optionally saving the result
     show   RUN.npz           print a saved run's spec and provenance
+    verify RUN.npz           rerun and compare canonical result identity
     convert CONFIG OUT       rewrite a config between .toml and .json
 
 Configs are the human-friendly TOML/JSON form documented in
@@ -78,6 +79,25 @@ def _cmd_convert(args: argparse.Namespace) -> int:
     return 0
 
 
+def _match_label(value: bool | None) -> str:
+    if value is None:
+        return "unknown"
+    return "match" if value else "changed"
+
+
+def _cmd_verify(args: argparse.Namespace) -> int:
+    loaded = load_run(args.run)
+    report = loaded.verify_reproduction()
+    print(f"reproduced: {'yes' if report.matches else 'no'}")
+    print(f"randomness: {report.randomness_status}")
+    print(f"experiment identity: {'match' if report.experiment_matches else 'changed'}")
+    print(f"implementation identity: {_match_label(report.implementation_matches)}")
+    print(f"environment identity: {_match_label(report.environment_matches)}")
+    for note in report.notes:
+        print(f"note: {note}")
+    return 0 if report.matches else 1
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python -m spin_dynamics.experiment",
@@ -97,6 +117,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_show = sub.add_parser("show", help="print a saved run's spec and provenance")
     p_show.add_argument("run", help="path to a saved run .npz")
     p_show.set_defaults(func=_cmd_show)
+
+    p_verify = sub.add_parser("verify", help="rerun and verify a saved result")
+    p_verify.add_argument("run", help="path to a saved run .npz")
+    p_verify.set_defaults(func=_cmd_verify)
 
     p_convert = sub.add_parser("convert", help="rewrite a config between .toml/.json")
     p_convert.add_argument("config", help="input .toml or .json config")

@@ -2,17 +2,14 @@
 
 from __future__ import annotations
 
-import platform
-import sys
 import time
 import warnings as _warnings
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 
-import numpy as np
-
 from spin_dynamics.experiment.plan import ExperimentPlan, plan_experiment
+from spin_dynamics.experiment.provenance import build_provenance
 from spin_dynamics.experiment.registry import resolve
 from spin_dynamics.experiment.specs import Experiment
 
@@ -83,17 +80,16 @@ def run_experiment(experiment: Experiment, **execution: Any) -> RunRecord:
     result = func(**kwargs)
     elapsed = time.perf_counter() - start
 
-    provenance = {
-        "workflow": func.__name__,
-        "package_version": _package_version(),
-        "numpy_version": np.__version__,
-        "python_version": sys.version.split()[0],
-        "platform": platform.platform(),
-        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
-        "elapsed_seconds": elapsed,
-        "execution": dict(execution),
-        "plan_warnings": list(plan.warnings),
-    }
+    provenance = build_provenance(
+        experiment,
+        result,
+        func,
+        package_version=_package_version(),
+        elapsed_seconds=elapsed,
+        execution=execution,
+        plan_warnings=plan.warnings,
+        timestamp_utc=datetime.now(timezone.utc).isoformat(),
+    )
     return RunRecord(
         experiment=experiment, result=result, plan=plan, provenance=provenance
     )

@@ -230,6 +230,7 @@ set. A hand-built Qt/desktop GUI is not warranted.
 | 6 ✅ | Docs (Path A): getting-started guide (`docs/python_api/experiment_workflow.md`) + user-manual chapter "Unified Experiment Workflow" (both the 8-step narrative); docs index lists the facade as the recommended entry point; examples index leads with a facade section. Three flagship facade examples (`experiment_facade_quickstart.py`, `experiment_imaging_with_coil.py`, `experiment_nqr_auto_model.py`) in the example smoke tests | Path A folded in here |
 | 7 ✅ | CLI runner (`python -m spin_dynamics.experiment` with plan/run/show/convert) over a human-friendly `type`-tagged TOML/JSON config (`experiment/config.py` + `cli.py`, dependency-free TOML writer + `tomllib` reader); shipped `examples/experiment_config_cpmg.toml`. Round-trips every engine family incl. 2-D phantoms + nested coils | free by-product of the spec |
 | 8 (opt) | Notebook/web GUI prototype on the registry | only after 1–7 prove out |
+| 9 ✅ | Reproducible-result provenance: canonical experiment/result SHA-256 identities, resolved callable/module hashes, Git revision/dirty state, numerical environment/build/thread capture, randomness classification, archive integrity properties, and rerun verification in Python and the CLI; reads legacy v1 archives. | distinguishes reproducibility from physical validation |
 
 Each PR keeps the pre-submit gates (ruff + regenerated `api_reference.md`) and
 adds fixture-style tests asserting the facade reproduces the direct `run_*`

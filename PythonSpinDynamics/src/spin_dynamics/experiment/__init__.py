@@ -36,12 +36,21 @@ from spin_dynamics.experiment.hardware import (
     TxCoil,
     UniformB0,
 )
-from spin_dynamics.experiment.io import LoadedRun, load_run, register_result_type
+from spin_dynamics.experiment.io import (
+    LoadedRun,
+    ReproductionReport,
+    load_run,
+    register_result_type,
+)
 from spin_dynamics.experiment.plan import ExperimentPlan, plan_experiment
 from spin_dynamics.experiment.registry import (
     WorkflowEntry,
     available_workflows,
     register_workflow,
+)
+from spin_dynamics.experiment.provenance import (
+    experiment_fingerprint,
+    result_fingerprint,
 )
 from spin_dynamics.experiment.rules import (
     DEFAULT_RULES,
@@ -119,6 +128,7 @@ __all__ = [
     "Hardware",
     "ImagingPlane",
     "LoadedRun",
+    "ReproductionReport",
     "NQRSLSE",
     "NQRSORC",
     "NQRFID",
@@ -144,6 +154,7 @@ __all__ = [
     "available_workflows",
     "calibrate",
     "experiment_from_config",
+    "experiment_fingerprint",
     "experiment_to_config",
     "load_config",
     "load_run",
@@ -153,6 +164,7 @@ __all__ = [
     "register_result_type",
     "register_serializable",
     "register_workflow",
+    "result_fingerprint",
     "run_experiment",
     "run_rules",
     "solve_imaging_field_maps",

@@ -3026,8 +3026,12 @@ when explicit bounds are omitted.
 \section{Saving and Reloading}
 
 \code{record.save(path)} writes an NPZ archive holding every array field of the
-native result plus a JSON document with the full experiment spec, provenance,
-and scalar result fields. \code{load\_run(path)} returns a \code{LoadedRun}
+native result plus a JSON document with the full experiment spec, versioned
+provenance, and scalar result fields. Provenance records canonical SHA-256
+identities for the complete experiment and native result, resolved callable,
+module, and package-tree source hashes, Git revision and dirty state, the Python/NumPy/SciPy and
+NumPy-build environment, thread settings, and deterministic/seeded/unseeded
+randomness status. \code{load\_run(path)} returns a \code{LoadedRun}
 exposing the raw arrays, the reconstructed native result, and -- via
 \code{loaded.experiment} -- the original spec, so a saved run can be re-run or
 tweaked. Specs are JSON-serializable directly with
@@ -3039,6 +3043,15 @@ versions of the stages above are grouped in these examples:
   \item \code{examples/experiment\_imaging\_with\_coil.py}
   \item \code{examples/experiment\_nqr\_auto\_model.py}
 \end{itemize}
+
+\code{loaded.specification\_matches} and \code{loaded.result\_matches} check
+saved content against its identities. \code{loaded.verify\_reproduction()}
+reruns the stored spec with its execution options and returns a structured
+\code{ReproductionReport}; \code{report.require\_match()} makes an exact result
+identity a test assertion. Implementation and numerical-environment changes
+are reported separately, and unseeded stochastic inputs are called out rather
+than implying reproducibility. Legacy version-1 archives remain readable but
+cannot acquire a result identity retroactively.
 
 \section{Config-Driven Runs (CLI)}
 
@@ -3077,6 +3090,8 @@ non-zero if the plan has errors. \\
 \code{run CONFIG [-o NPZ]} & Plan, then run (refusing an erroring plan), and
 optionally save the result archive. \\
 \code{show RUN.npz} & Print a saved run's spec and provenance. \\
+\code{verify RUN.npz} & Rerun a saved experiment and compare canonical result,
+implementation, and environment identities. \\
 \code{convert CONFIG OUT} & Rewrite a config between \code{.toml} and
 \code{.json}. \\
 \bottomrule

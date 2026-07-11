@@ -20,10 +20,10 @@ what supports the underlying scientific or numerical claim.
 
 ## Coverage Summary
 
-- 20 capability-level claims
+- 21 capability-level claims
 - 10 validated
 - 6 partially validated
-- 4 regression-only
+- 5 regression-only
 
 | Component | Claim | Evidence | Status |
 | --- | --- | --- | --- |
@@ -45,6 +45,7 @@ what supports the underlying scientific or numerical claim.
 | Spin noise and radiation damping | Equilibrium spin-noise spectra and stochastic dynamics reproduce fluctuation, radiation-damping, Ornstein-Uhlenbeck, and two-bath analytical identities. | **A**, **R** | validated |
 | Optimal-control propagation and gradients | NumPy/JAX propagators, control gradients, hardware-response primitives, and bounded objectives agree across implementations and with finite-difference limits. | **C**, **R**, **B** | partially validated |
 | Unified experiment facade | Facade routes reproduce their direct workflow calls and preserve specifications, configs, arrays, and provenance through round trips. | **R** | regression only |
+| Reproducible results and provenance | Facade archives identify experiment inputs, implementation, numerical environment, randomness, and result content and can verify an exact rerun while remaining backward-compatible with version-1 archives. | **R** | regression only |
 | Numba and JAX acceleration | Accelerated kernels reproduce the NumPy reference for supported batched rotations, propagation, and optimization primitives. | **C**, **R** | validated |
 | RFI synthesis and rejection | Reference-channel cancellers preserve protected acquisition windows and suppress known synthetic coherent, colored, and impulsive interference. | **R** | regression only |
 
@@ -263,8 +264,20 @@ what supports the underlying scientific or numerical claim.
 - **Metric:** Native-result equality and serialization invariants
 - **Tolerance:** Exact for serialized metadata; workflow-specific numerical parity for arrays.
 - **References:** Direct public workflow implementations
-- **Reproduce:** [`tests/test_experiment.py::test_pgse_moment_parity_and_plan`](../tests/test_experiment.py#L632); [`tests/test_experiment.py::test_pgse_walkers_with_flow_matches_direct_workflow`](../tests/test_experiment.py#L701); [`tests/test_experiment.py::test_nqr_slse_reduced_parity`](../tests/test_experiment.py#L863); [`tests/test_experiment.py::test_nqr_fid_parity`](../tests/test_experiment.py#L940); [`tests/test_experiment.py::test_nqr_population_transfer_parity_and_spin_guard`](../tests/test_experiment.py#L958); [`tests/test_experiment.py::test_esr_fid_parity`](../tests/test_experiment.py#L1082); [`tests/test_experiment.py::test_esr_cw_sweep_parity_without_fixed_b0`](../tests/test_experiment.py#L1127); [`tests/test_experiment.py::test_esr_deer_parity_and_round_trip`](../tests/test_experiment.py#L1141); [`tests/test_experiment.py::test_esr_two_and_three_pulse_eseem_parity`](../tests/test_experiment.py#L1169); [`tests/test_experiment.py::test_esr_hyscore_parity_and_round_trip`](../tests/test_experiment.py#L1195); [`tests/test_experiment.py::test_esr_endor_parity_and_hyperfine_input_guard`](../tests/test_experiment.py#L1223)
+- **Reproduce:** [`tests/test_experiment.py::test_pgse_moment_parity_and_plan`](../tests/test_experiment.py#L753); [`tests/test_experiment.py::test_pgse_walkers_with_flow_matches_direct_workflow`](../tests/test_experiment.py#L822); [`tests/test_experiment.py::test_nqr_slse_reduced_parity`](../tests/test_experiment.py#L984); [`tests/test_experiment.py::test_nqr_fid_parity`](../tests/test_experiment.py#L1061); [`tests/test_experiment.py::test_nqr_population_transfer_parity_and_spin_guard`](../tests/test_experiment.py#L1079); [`tests/test_experiment.py::test_esr_fid_parity`](../tests/test_experiment.py#L1203); [`tests/test_experiment.py::test_esr_cw_sweep_parity_without_fixed_b0`](../tests/test_experiment.py#L1248); [`tests/test_experiment.py::test_esr_deer_parity_and_round_trip`](../tests/test_experiment.py#L1262); [`tests/test_experiment.py::test_esr_two_and_three_pulse_eseem_parity`](../tests/test_experiment.py#L1290); [`tests/test_experiment.py::test_esr_hyscore_parity_and_round_trip`](../tests/test_experiment.py#L1316); [`tests/test_experiment.py::test_esr_endor_parity_and_hyperfine_input_guard`](../tests/test_experiment.py#L1344)
 - **Limitations:** Facade parity validates delegation, not the physical model underneath each route.
+
+### Reproducible results and provenance
+
+- **Claim:** Facade archives identify experiment inputs, implementation, numerical environment, randomness, and result content and can verify an exact rerun while remaining backward-compatible with version-1 archives.
+- **Evidence:** R (regression only)
+- **Basis:** Canonical fingerprint invariance/change tests, archive integrity checks, seeded/unseeded classification, exact rerun comparison, CLI verification, and legacy archive loading.
+- **Tested range:** Deterministic and noisy facade runs, NPZ format versions 1 and 2.
+- **Metric:** SHA-256 identity equality and structured reproduction verdict
+- **Tolerance:** Exact canonical metadata and result bytes.
+- **References:** FAIR Guiding Principles for scientific data management
+- **Reproduce:** [`tests/test_experiment.py::test_provenance_fingerprints_are_stable_and_specific`](../tests/test_experiment.py#L131); [`tests/test_experiment.py::test_provenance_classifies_seeded_and_unseeded_randomness`](../tests/test_experiment.py#L166); [`tests/test_experiment.py::test_version_one_run_archive_remains_readable`](../tests/test_experiment.py#L183); [`tests/test_experiment.py::test_archive_fingerprints_detect_spec_and_result_tampering`](../tests/test_experiment.py#L217); [`tests/test_experiment_cli.py::test_cli_run_and_show`](../tests/test_experiment_cli.py#L175)
+- **Limitations:** Exact computational reproduction does not validate the physical model; unseeded legacy runs cannot be made reproducible after the fact.
 
 ### Numba and JAX acceleration
 

@@ -328,6 +328,26 @@
       "limitations": ["Facade parity validates delegation, not the physical model underneath each route."]
     },
     {
+      "id": "reproducible_provenance",
+      "component": "Reproducible results and provenance",
+      "claim": "Facade archives identify experiment inputs, implementation, numerical environment, randomness, and result content and can verify an exact rerun while remaining backward-compatible with version-1 archives.",
+      "evidence_types": ["R"],
+      "basis": "Canonical fingerprint invariance/change tests, archive integrity checks, seeded/unseeded classification, exact rerun comparison, CLI verification, and legacy archive loading.",
+      "parameter_range": "Deterministic and noisy facade runs, NPZ format versions 1 and 2.",
+      "metric": "SHA-256 identity equality and structured reproduction verdict",
+      "tolerance": "Exact canonical metadata and result bytes.",
+      "status": "regression_only",
+      "reproducers": [
+        "tests/test_experiment.py::test_provenance_fingerprints_are_stable_and_specific",
+        "tests/test_experiment.py::test_provenance_classifies_seeded_and_unseeded_randomness",
+        "tests/test_experiment.py::test_version_one_run_archive_remains_readable",
+        "tests/test_experiment.py::test_archive_fingerprints_detect_spec_and_result_tampering",
+        "tests/test_experiment_cli.py::test_cli_run_and_show"
+      ],
+      "references": ["FAIR Guiding Principles for scientific data management"],
+      "limitations": ["Exact computational reproduction does not validate the physical model; unseeded legacy runs cannot be made reproducible after the fact."]
+    },
+    {
       "id": "acceleration_backends",
       "component": "Numba and JAX acceleration",
       "claim": "Accelerated kernels reproduce the NumPy reference for supported batched rotations, propagation, and optimization primitives.",

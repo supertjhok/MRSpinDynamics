@@ -8,6 +8,7 @@ combination.
 from __future__ import annotations
 
 import dataclasses
+import json
 
 import numpy as np
 import pytest
@@ -33,7 +34,9 @@ from spin_dynamics.experiment import (
     TransportDomain2D,
     UniformFlow2D,
     available_workflows,
+    experiment_fingerprint,
     load_run,
+    result_fingerprint,
 )
 from spin_dynamics.noise import NoiseSpec
 
@@ -122,6 +125,124 @@ def test_noise_parity_with_seed() -> None:
     )
     direct = workflows.run_ideal_cpmg(numpts=31, maxoffs=8.0, noise=noise)
     _assert_results_equal(experiment.run().result, direct)
+
+
+@pytest.mark.smoke
+def test_provenance_fingerprints_are_stable_and_specific(tmp_path) -> None:
+    experiment = Experiment(
+        sequence=CPMG(), acquisition=Acquisition(numpts=31, maxoffs=8.0)
+    )
+    first = experiment.run()
+    second = experiment.run()
+    assert first.provenance["schema_version"] == 2
+    assert first.provenance["experiment_sha256"] == experiment_fingerprint(experiment)
+    assert first.provenance["result_sha256"] == second.provenance["result_sha256"]
+    assert first.provenance["result_sha256"] == result_fingerprint(first.result)
+    assert first.provenance["randomness"]["status"] == "deterministic"
+    assert first.provenance["implementation"]["module_sha256"]
+    assert first.provenance["environment"]["sha256"]
+    assert first.provenance["source"]["package_source_sha256"]
+    assert experiment_fingerprint(experiment) != experiment_fingerprint(
+        dataclasses.replace(
+            experiment, acquisition=Acquisition(numpts=33, maxoffs=8.0)
+        )
+    )
+
+    path = tmp_path / "reproducible.npz"
+    first.save(str(path))
+    loaded = load_run(str(path))
+    assert loaded.format_version == 2
+    assert loaded.specification_matches is True
+    assert loaded.result_matches is True
+    report = loaded.verify_reproduction()
+    assert report.matches
+    assert report.archive_result_matches is True
+    assert report.implementation_matches is True
+    assert report.environment_matches is True
+    report.require_match()
+
+
+@pytest.mark.smoke
+def test_provenance_classifies_seeded_and_unseeded_randomness() -> None:
+    seeded = Experiment(
+        sequence=CPMG(),
+        acquisition=Acquisition(
+            numpts=31, maxoffs=8.0, noise=NoiseSpec(sigma=0.01, seed=7)
+        ),
+    ).run()
+    assert seeded.provenance["randomness"]["status"] == "seeded"
+    assert seeded.provenance["randomness"]["sources"][0]["seed"] == 7
+
+    unseeded = Experiment(
+        sequence=CPMG(),
+        acquisition=Acquisition(numpts=31, maxoffs=8.0, noise=0.01),
+    ).run()
+    assert unseeded.provenance["randomness"]["status"] == "unseeded"
+
+
+def test_version_one_run_archive_remains_readable(tmp_path) -> None:
+    path = tmp_path / "current.npz"
+    Experiment(sequence=CPMG(), acquisition=Acquisition(numpts=15)).run().save(
+        str(path)
+    )
+    with np.load(path, allow_pickle=False) as archive:
+        meta = json.loads(str(archive["__meta__"]))
+        arrays = {
+            key: archive[key].copy()
+            for key in archive.files
+            if key != "__meta__"
+        }
+    meta["format_version"] = 1
+    for key in (
+        "schema_version",
+        "experiment_sha256",
+        "result_sha256",
+        "implementation",
+        "environment",
+        "source",
+        "randomness",
+    ):
+        meta["provenance"].pop(key, None)
+    legacy = tmp_path / "legacy.npz"
+    np.savez(legacy, __meta__=json.dumps(meta), **arrays)
+    loaded = load_run(str(legacy))
+    assert loaded.format_version == 1
+    assert loaded.specification_matches is None
+    assert loaded.result_matches is None
+    report = loaded.verify_reproduction()
+    assert not report.matches
+    assert "no result fingerprint" in report.notes[0]
+
+
+def test_archive_fingerprints_detect_spec_and_result_tampering(tmp_path) -> None:
+    original = tmp_path / "original.npz"
+    Experiment(sequence=CPMG(), acquisition=Acquisition(numpts=15)).run().save(
+        str(original)
+    )
+    with np.load(original, allow_pickle=False) as archive:
+        meta = json.loads(str(archive["__meta__"]))
+        arrays = {
+            key: archive[key].copy()
+            for key in archive.files
+            if key != "__meta__"
+        }
+
+    array_key = next(iter(arrays))
+    arrays[array_key].flat[0] += 1.0
+    changed_result = tmp_path / "changed-result.npz"
+    np.savez(changed_result, __meta__=json.dumps(meta), **arrays)
+    assert load_run(str(changed_result)).result_matches is False
+
+    with np.load(original, allow_pickle=False) as archive:
+        arrays = {
+            key: archive[key].copy()
+            for key in archive.files
+            if key != "__meta__"
+        }
+    meta["experiment"]["acquisition"]["numpts"] = 17
+    changed_spec = tmp_path / "changed-spec.npz"
+    np.savez(changed_spec, __meta__=json.dumps(meta), **arrays)
+    assert load_run(str(changed_spec)).specification_matches is False
 
 
 @pytest.mark.smoke

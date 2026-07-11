@@ -30,6 +30,7 @@ Inverse-Laplace analysis & R, A & regression only & The 1-D and compact 2-D solv
 Spin noise and radiation damping & A, R & validated & Equilibrium spin-noise spectra and stochastic dynamics reproduce fluctuation, radiation-damping, Ornstein-Uhlenbeck, and two-bath analytical identities. \\
 Optimal-control propagation and gradients & C, R, B & partial & NumPy/JAX propagators, control gradients, hardware-response primitives, and bounded objectives agree across implementations and with finite-difference limits. \\
 Unified experiment facade & R & regression only & Facade routes reproduce their direct workflow calls and preserve specifications, configs, arrays, and provenance through round trips. \\
+Reproducible results and provenance & R & regression only & Facade archives identify experiment inputs, implementation, numerical environment, randomness, and result content and can verify an exact rerun while remaining backward-compatible with version-1 archives. \\
 Numba and JAX acceleration & C, R & validated & Accelerated kernels reproduce the NumPy reference for supported batched rotations, propagation, and optimization primitives. \\
 RFI synthesis and rejection & R & regression only & Reference-channel cancellers preserve protected acquisition windows and suppress known synthetic coherent, colored, and impulsive interference. \\
 \bottomrule

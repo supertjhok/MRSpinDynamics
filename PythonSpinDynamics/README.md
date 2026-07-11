@@ -202,6 +202,13 @@ record = study.run()             # delegates to run_tuned_cpmg_train
 record.save("run1.npz")          # arrays + JSON provenance + spec round-trip
 ```
 
+Saved runs carry canonical SHA-256 identities for the complete experiment and
+native result, callable/module/package-tree hashes, Git revision/dirty state,
+NumPy/SciPy/build/thread environment, and seeded/unseeded randomness status.
+`load_run("run1.npz").verify_reproduction()` reruns the stored experiment and
+reports whether the exact result identity was reproduced; the CLI equivalent is
+`python -m spin_dynamics.experiment verify run1.npz`.
+
 The same interface drives imaging (with automatic transmit-coil B1 solving),
 NQR (`NQRFID`, `NQRPopulationTransfer`, `NQRSLSE`, and `NQRSORC`) and ESR
 (`ESRCWSweep`, `ESRDEER`, pulsed FID/Hahn, ESEEM, 2-D HYSCORE, and

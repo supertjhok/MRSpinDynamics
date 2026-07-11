@@ -215,9 +215,13 @@ surface used by configuration-driven runs.
 ## Saving and reloading
 
 `record.save(path)` writes an NPZ archive holding every array field of the
-native result plus a JSON document with the full experiment spec, provenance
-(package/NumPy/Python versions, platform, timestamp, elapsed time), and scalar
-result fields. `load_run(path)` returns a `LoadedRun` exposing the raw arrays,
+native result plus a JSON document with the full experiment spec, versioned
+provenance, and scalar result fields. Provenance includes canonical SHA-256
+identities for the experiment and native result; resolved callable, module,
+and complete package-source hashes; package and Git revision/dirty state; Python, NumPy, SciPy,
+NumPy-build, platform, and thread settings; and explicit deterministic,
+seeded, or unseeded randomness classification. `load_run(path)` returns a
+`LoadedRun` exposing the raw arrays,
 the reconstructed native result, and — via `loaded.experiment` — the original
 spec, so a saved run can be re-run or tweaked:
 
@@ -226,7 +230,17 @@ from spin_dynamics.experiment import load_run
 
 loaded = load_run("run1.npz")
 loaded.experiment.run()          # reproduce
+report = loaded.verify_reproduction()
+report.require_match()           # exact saved/rerun result identity
 ```
+
+`loaded.specification_matches` and `loaded.result_matches` check archive
+content against its recorded identities without rerunning (the latter is
+`None` when a native result had deliberately unsaved fields). Reproduction is
+an exact bitwise numerical claim; a changed environment or implementation is
+reported separately so small cross-platform differences are not mislabeled as
+the same result. Version-1 archives remain readable but cannot make a result
+identity claim retroactively.
 
 Specs are JSON-serializable directly, too (`Experiment.to_json()` /
 `Experiment.from_json(...)`).
@@ -262,6 +276,7 @@ drives the same plan/run/save flow:
 python -m spin_dynamics.experiment plan examples\experiment_config_cpmg.toml
 python -m spin_dynamics.experiment run  examples\experiment_config_cpmg.toml -o run.npz
 python -m spin_dynamics.experiment show run.npz
+python -m spin_dynamics.experiment verify run.npz
 python -m spin_dynamics.experiment convert config.toml config.json
 ```
 
