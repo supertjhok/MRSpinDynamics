@@ -19,13 +19,24 @@
 \definecolor{Accent}{HTML}{0077B6}
 \definecolor{AccentTwo}{HTML}{D95F02}
 \definecolor{Soft}{HTML}{F5F7FA}
+\definecolor{SoftBlue}{HTML}{EAF5FB}
+\definecolor{SoftOrange}{HTML}{FFF2E8}
 
 \renewcommand{\familydefault}{\sfdefault}
 \setlength{\parindent}{0pt}
 \setlength{\parskip}{6pt}
+\setlength{\emergencystretch}{4em}
 \setlist{itemsep=2pt,topsep=4pt}
 
-\hypersetup{colorlinks=true,linkcolor=Accent,urlcolor=Accent,citecolor=Accent}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=Accent,
+  urlcolor=Accent,
+  citecolor=Accent,
+  pdftitle={QuadrupolarDFT User Manual},
+  pdfauthor={MRSpinDynamics project},
+  pdfsubject={Beginner-friendly EFG and NQR calculation workflows with ABINIT and Elk}
+}
 
 \lstdefinestyle{shellstyle}{
   basicstyle=\ttfamily\small,
@@ -41,13 +52,23 @@
   showstringspaces=false
 }
 \lstset{style=shellstyle}
-\newcommand{\code}[1]{\texttt{\small #1}}
+\newcommand{\code}[1]{{\small\nolinkurl{#1}}}
+\newcommand{\cmd}[1]{\texttt{\small #1}}
+\newcommand{\guidebox}[2]{%
+  \begin{center}
+  \setlength{\fboxsep}{9pt}%
+  \fcolorbox{#1}{Soft}{\begin{minipage}{0.91\linewidth}#2\end{minipage}}
+  \end{center}}
+\newcommand{\chapterpath}[1]{%
+  \guidebox{Accent}{\textbf{In this chapter.} #1}}
 
 \titleformat{\chapter}[block]
   {\huge\bfseries\color{Ink}}{\color{Accent}\thechapter}{0.75em}{}
 \titlespacing*{\chapter}{0pt}{-0.15in}{1.1em}
 \titleformat{\section}{\Large\bfseries\color{Ink}}{\thesection}{0.6em}{}
 \titleformat{\subsection}{\large\bfseries\color{Ink}}{\thesubsection}{0.6em}{}
+\titleformat{\part}[display]
+  {\centering\Huge\bfseries\color{Ink}}{\color{Accent}\Large PART \thepart}{0.5em}{}
 
 \pagestyle{fancy}
 \fancyhf{}
@@ -69,21 +90,21 @@
 \vspace{0.25in}
 {\Large User Manual\par}
 \vspace{0.12in}
-{\large Ab initio electric-field gradients and finite-temperature NQR parameters\par}
+{\large A practical route from crystal structure to NQR parameters\par}
 \vspace{0.45in}
 {\color{Accent}\rule{0.82\linewidth}{3pt}\par}
 \vspace{0.35in}
 \begin{minipage}{0.80\linewidth}
 \large
-QuadrupolarDFT is the electric-field-gradient (EFG) workspace within the
-MRSpinDynamics repository. It converts first-principles EFG tensors into nuclear
-quadrupolar coupling constants, asymmetry parameters, and zero-field NQR
-transition frequencies, and corrects those 0\,K static quantities to a finite
-temperature through harmonic vibrational averaging driven by a finite-displacement
-ABINIT DFPT workflow.
+This manual leads you from a crystal structure to electric-field-gradient (EFG)
+tensors, quadrupolar coupling constants, and zero-field NQR transition
+frequencies. It begins with a first static calculation, then builds toward
+finite-temperature, displacement, and strain workflows. ABINIT provides the
+efficient production path; Elk provides an all-electron accuracy check when the
+near-nucleus EFG needs closer scrutiny.
 \end{minipage}
 \vfill
-{\large MRSpinDynamics project \textbullet{} June 2026\par}
+{\large MRSpinDynamics project \textbullet{} July 2026\par}
 \end{titlepage}
 \nopagecolor
 \clearpage
@@ -92,8 +113,288 @@ ABINIT DFPT workflow.
 \clearpage
 \pagenumbering{arabic}
 
+\part{Getting Started}
+
+% =====================================================================
+\chapter{Start Here: From a Structure to One NQR Prediction}
+\label{ch:start}
+
+\chapterpath{You will learn what the workspace does, which result to calculate
+first, and how to check that a result is ready for scientific use. No prior DFT
+workflow experience is assumed.}
+
+The shortest useful QuadrupolarDFT workflow has three steps:
+\begin{enumerate}
+  \item start from a crystal structure whose origin and temperature are known;
+  \item calculate an EFG tensor with ABINIT; and
+  \item convert that tensor into $\Cq$, $\eta$, and NQR transition frequencies.
+\end{enumerate}
+That first static prediction is the foundation for every later calculation in
+this manual. Do it before attempting phonons, temperature corrections, or strain
+derivatives.
+
+\section{This manual and the Beginner's Guide}
+
+This is a \emph{task-oriented} manual. It tells you which files to prepare,
+which commands to run, what the output means, and where to stop and check your
+work. The companion
+\code{docs/DFT\_for\_Spin\_Dynamics\_Beginners\_Guide.pdf} explains the ideas
+behind those tasks: self-consistent fields, $k$-point meshes, basis sets,
+pseudopotentials, all-electron methods, phonons, and parallel execution.
+
+You do not need to read the whole Beginner's Guide first. Follow this manual and
+use the Guide when a concept is unfamiliar. In particular:
+\begin{itemize}
+  \item read its introductory DFT and SCF sections before editing an ABINIT
+    input for the first time;
+  \item read its convergence discussion before trusting a reported EFG;
+  \item read its PAW-versus-all-electron discussion before comparing ABINIT and
+    Elk; and
+  \item read its phonon and ABINIT DDB/ANADDB sections before Chapter
+    \ref{ch:dfpt}.
+\end{itemize}
+
+\section{The four objects you will work with}
+
+Keeping four objects separate makes the workflow much easier to reason about:
+\begin{description}[style=nextline]
+  \item[Structure]
+  Lattice vectors, atomic coordinates, species, and the experimental or
+  relaxed geometry from which they came.
+  \item[Electronic-structure calculation]
+  The ABINIT or Elk input, pseudopotentials or all-electron basis controls,
+  exchange--correlation functional, $k$-point mesh, and convergence thresholds.
+  \item[EFG tensor]
+  A symmetric $3\times3$ tensor at a particular nucleus. This is the direct DFT
+  result and should be retained, not only its principal value.
+  \item[Magnetic-resonance observables]
+  $\Cq$, $\eta$, principal axes, and transition frequencies derived using an
+  isotope's spin and quadrupole moment.
+\end{description}
+If a prediction is surprising, this separation tells you where to look:
+structure, electronic structure, tensor interpretation, or nuclear data.
+
+\section{Install and run a tensor-only first example}
+
+From the \code{QuadrupolarDFT} directory, create and activate a virtual
+environment, then install the workspace:
+\begin{lstlisting}
+python -m venv .venv
+# Linux/macOS:
+. .venv/bin/activate
+# Windows PowerShell:
+# .venv\Scripts\Activate.ps1
+python -m pip install -e .
+\end{lstlisting}
+The package can analyze a tensor without ABINIT or Elk. Save the following as
+\code{quick\_start.py}; it is a useful installation check:
+\begin{lstlisting}
+from quadrupolar_dft import (
+    EFGTensor, coupling_constant_hz, nqr_frequencies_hz
+)
+
+efg = EFGTensor.from_components([
+    [-0.236543, 0.864057, 0.0],
+    [0.864057, -0.236543, 0.0],
+    [0.0, 0.0, 0.473086],
+])
+cq = coupling_constant_hz(
+    efg.vzz_si, quadrupole_moment_barns=-0.02558
+)
+print("eta =", efg.eta)
+print("Cq (MHz) =", cq / 1e6)
+print("lines (Hz) =", nqr_frequencies_hz(
+    spin=2.5, cq_hz=cq, eta=efg.eta
+))
+\end{lstlisting}
+Run it with \cmd{python quick\_start.py}. The tensor is interpreted in ABINIT
+atomic units by default; this convention is explained in Chapter
+\ref{ch:install}.
+For the complete worked calculation, use the provided NaNO$_2$ input in
+\code{examples/abinit/}; Chapter \ref{ch:nano2} walks through the files and the
+expected checks.
+
+\guidebox{AccentTwo}{\textbf{What this command does not prove.} A successful
+Python example checks parsing and tensor-to-NQR conversion. It does not show
+that a DFT basis, $k$-point mesh, structure, or pseudopotential is accurate.
+Those are physical convergence questions, not software installation tests.}
+
+\section{Choose the smallest workflow that answers your question}
+
+\begin{center}
+\begin{tabular}{>{\raggedright\arraybackslash}p{0.25\linewidth}
+                >{\raggedright\arraybackslash}p{0.30\linewidth}
+                >{\raggedright\arraybackslash}p{0.34\linewidth}}
+\toprule
+Question & Start with & Add only when needed \\
+\midrule
+What lines should this structure produce? & Static ABINIT EFG & Elk cross-check
+or finite-temperature correction \\
+Why does calculation disagree with experiment? & Structure audit and ABINIT
+convergence & Elk on the same geometry and functional \\
+How do lines change with temperature? & Converged static reference & ABINIT
+DFPT and finite displacements \\
+How does strain drive or shift a transition? & Converged static reference &
+Thirteen-job finite-strain set \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{A result is ready only after four checks}
+
+Before quoting a frequency, confirm:
+\begin{enumerate}
+  \item \textbf{Identity:} the reported tensor belongs to the intended atom and
+  isotope.
+  \item \textbf{Numerics:} total energy and EFG components are stable to tighter
+  cutoffs, denser $k$-point sampling, and stricter SCF convergence.
+  \item \textbf{Conventions:} principal values are ordered by magnitude and the
+  sign and units of $Q$, $\Vzz$, and $\Cq$ are recorded.
+  \item \textbf{Provenance:} structure, code version, functional,
+  pseudopotential or all-electron settings, and input/output files are saved.
+\end{enumerate}
+The remaining chapters turn those checks into repeatable workflows.
+
+% =====================================================================
+\chapter{Choosing a Calculation Strategy: Accuracy, Time, and Evidence}
+\label{ch:strategy}
+
+\chapterpath{You will decide when fast PAW calculations are sufficient, when an
+all-electron check is worth its cost, and how to interpret disagreement between
+ABINIT, Elk, and experiment.}
+
+EFGs are unusually sensitive to the electron density close to a nucleus. That
+makes the choice between a PAW calculation and an all-electron calculation more
+important here than it may be for total energies or relaxed lattice constants.
+In this repository, ABINIT and Elk therefore have complementary roles.
+
+\section{ABINIT and Elk are different tools, not rival answers}
+
+\begin{center}
+\small
+\begin{tabular}{>{\raggedright\arraybackslash}p{0.16\linewidth}
+                >{\raggedright\arraybackslash}p{0.35\linewidth}
+                >{\raggedright\arraybackslash}p{0.35\linewidth}}
+\toprule
+ & ABINIT PAW & Elk LAPW all-electron \\
+\midrule
+Best role & Production calculations, convergence surveys, relaxation, DFPT,
+temperature ensembles, and strain derivatives & High-fidelity static
+reference for selected structures and diagnosis of PAW/core sensitivity \\
+Why it is faster & Smooth pseudo-wavefunctions and efficient $k$-point
+parallelism & --- \\
+Main accuracy risk & The PAW dataset may reconstruct the near-nucleus density
+poorly for the EFG & Basis, muffin-tin radii, local orbitals, and $k$ points
+must still be converged \\
+Main time cost & Many moderate-cost solves in advanced workflows & Dense
+generalized eigenproblems whose cost rises steeply with the LAPW basis \\
+Repository support & Complete static, relaxation, phonon, displacement, and
+strain path & Static reference and convergence examples \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The label \emph{all-electron} does not mean \emph{automatically exact}. Elk
+still depends on the crystal structure, functional, $k$-point mesh, LAPW
+cutoff, muffin-tin radii, local orbitals, and SCF tolerance. Its value is that it
+removes the PAW dataset as one major source of uncertainty.
+
+\section{Budget the workflow in solves, not a universal wall time}
+
+A statement such as \emph{Elk is ten times slower} would be misleading: timing
+depends strongly on structure, hardware, linear-algebra libraries, parallel
+layout, and convergence settings. A more portable estimate counts independent
+electronic-structure solves:
+\begin{itemize}
+  \item a static prediction needs roughly one converged solve, plus cutoff and
+    $k$-point checks;
+  \item a convergence survey needs a baseline and every off-baseline point;
+  \item a finite-displacement temperature calculation needs the phonon work,
+    one equilibrium EFG, and two EFG calculations for each retained mode;
+  \item the six-component central finite-strain workflow needs thirteen EFG
+    calculations: one equilibrium and positive/negative strain for each
+    component; and
+  \item an Elk check should normally cover a few representative structures,
+    with its own \code{rgkmax} and $k$-point checks.
+\end{itemize}
+This arithmetic explains the repository strategy: use ABINIT for broad or
+derivative-heavy work, and spend the more expensive all-electron calculation
+where it changes the strength of the scientific conclusion.
+
+\section{A practical two-tier protocol}
+
+\begin{enumerate}
+  \item \textbf{Audit the structure.} Record its source, temperature,
+  occupancy, symmetry choices, and whether it is experimental or relaxed.
+  \item \textbf{Converge the ABINIT EFG.} Vary cutoff and $k$-point density,
+  monitoring the full tensor and $\eta$, not only total energy.
+  \item \textbf{Compare with the available evidence.} Consider experimental
+  uncertainty, temperature, polymorph, isotope, and line assignment.
+  \item \textbf{Run Elk on the same geometry and functional} when the result is
+  publication-critical, unexpectedly discrepant, or sensitive to a small
+  difference between transverse EFG components.
+  \item \textbf{Escalate selectively.} Use the diagnosis below to decide
+  whether to improve the PAW dataset, structure, functional, or thermal model.
+\end{enumerate}
+
+\section{What the NaNO\texorpdfstring{$_2$}{2} comparison teaches}
+
+The repository's NaNO$_2$ example holds the PBE functional and ICSD 82857
+geometry fixed. The measured and calculated nitrogen results are:
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+Source & $\eta$ & $|\Cq|$ (MHz) \\
+\midrule
+Experiment & approximately 0.38 & 5.49 \\
+ABINIT PAW & 0.112 & 5.03 \\
+Elk LAPW, all-electron & approximately 0.333 & approximately 5.94 \\
+\bottomrule
+\end{tabular}
+\end{center}
+Elk's much better asymmetry on the same structure and functional points to the
+selected nitrogen PAW dataset's reconstruction of the transverse,
+near-nucleus EFG as the main limitation. It does \emph{not} prove that Elk will
+always be closer to experiment, nor that thermal and structural effects are
+unimportant in other systems.
+
+The Elk convergence example is also a time warning. Results were already
+stable between \code{rgkmax=7} and 8 and between the tested $k$ meshes, while a
+larger automatic basis became both much more expensive and numerically
+problematic after muffin-tin radii changed. Use optimized BLAS and no more MPI
+ranks than useful irreducible $k$ points; consult the Beginner's Guide for why
+that parallel layout matters.
+
+\section{Diagnose disagreement before doing more computation}
+
+\begin{description}[style=nextline]
+  \item[ABINIT and Elk disagree on the same geometry and functional.]
+  Suspect PAW reconstruction or incomplete convergence first. Converge both
+  representations and, if possible, test an alternative PAW dataset.
+  \item[ABINIT and Elk agree, but both disagree with experiment.]
+  Look next at structure, polymorph, temperature, disorder, exchange--correlation
+  functional, nuclear quadrupole moment, and spectral assignment.
+  \item[$|\Cq|$ is stable but $\eta$ is not.]
+  Inspect the tensor components directly. When $V_{xx}$ and $V_{yy}$ are close,
+  a small absolute error can cause a large relative change in $\eta$.
+  \item[Only the sign disagrees.]
+  NQR transition frequencies often do not determine the sign of $\Cq$. Check
+  tensor and nuclear-moment conventions before treating it as a physical
+  discrepancy.
+\end{description}
+
+\guidebox{Accent}{\textbf{Decision rule.} Use ABINIT by default. Add Elk when a
+near-nucleus accuracy question could change the interpretation, and compare on
+the same structure and functional. The useful result is not which code wins,
+but which source of uncertainty the comparison isolates.}
+
 % =====================================================================
 \chapter{Scope and Physical Background}
+\label{ch:scope}
+
+\chapterpath{You will connect the calculated EFG tensor to quadrupolar
+Hamiltonians and see why a static 0\,K result may need a temperature
+correction.}
 
 QuadrupolarDFT addresses one link in the magnetic-resonance modelling chain: it
 turns an \emph{ab initio} electronic-structure result into the parameters that
@@ -160,6 +461,10 @@ treatment of the vibrational term (Chapters~\ref{ch:finiteT}--\ref{ch:workflow})
 
 % =====================================================================
 \chapter{Installation and Conventions}
+\label{ch:install}
+
+\chapterpath{You will install the Python helpers and fix the tensor, unit, and
+nuclear-data conventions that every later result depends on.}
 
 \section{Installation}
 
@@ -202,9 +507,14 @@ with $d = 3$ for spin~1 and $d = 6$ for spin~3/2. The cross-project
 \code{mr\_integration} layer uses this mapping to feed DFT parameters into the
 simulator and to compare predictions against the measured NQR database.
 
+\part{Core Calculations}
+
 % =====================================================================
 \chapter{Static EFG Workflow}
 \label{ch:static}
+
+\chapterpath{You will prepare a production ABINIT EFG calculation, parse its
+tensor, convert it to NQR parameters, and test numerical convergence.}
 
 The static path produces $\Cq$, $\eta$ and the NQR lines from an ABINIT EFG
 calculation.
@@ -227,9 +537,22 @@ calculation.
 components, not the total energy, must be converged against \code{ecut},
 \code{pawecutdg} and the $k$-point mesh.
 
+\guidebox{Accent}{\textbf{Static-workflow checkpoint.} Save the complete tensor,
+atom index, isotope and quadrupole moment, ABINIT input/output, PAW dataset
+identifiers, code version, structure source, and a convergence table. A single
+printed $\Cq$ is not a reproducible DFT result.}
+
 % =====================================================================
 \chapter{Finite-Temperature EFG}
 \label{ch:finiteT}
+
+\chapterpath{You will see how phonon motion changes a static EFG and how the
+package converts mode curvatures into temperature-dependent NQR lines.}
+
+This chapter explains the model and its outputs. If you only need to understand
+a supplied set of mode curvatures, read it straight through. If you need to
+calculate those curvatures, continue to the staged workflow in Chapter
+\ref{ch:dfpt}. The Beginner's Guide gives the more detailed phonon background.
 
 \section{Harmonic vibrational averaging}
 
@@ -279,9 +602,20 @@ data with a NumPy-only routine: for a fixed $\omega$ the model is linear in
 $\nu_0$ and $\nu_0 a$, so a grid scan over $\omega$ with a linear least-squares
 solve at each point suffices.
 
+\guidebox{AccentTwo}{\textbf{Interpretation limit.} A good Bayer fit shows that a
+line series has the expected thermal form. It does not identify a unique phonon
+mode or replace a converged first-principles vibrational calculation.}
+
+\part{Advanced Workflows}
+
 % =====================================================================
 \chapter{The DFPT Finite-Displacement Workflow}
 \label{ch:workflow}
+\label{ch:dfpt}
+
+\chapterpath{You will run the staged ABINIT phonon and displacement workflow,
+collect its EFG tensors, and validate the numerical derivatives before using
+them for temperature prediction.}
 
 The mode curvatures $\partial^2 V_{ij}/\partial Q_k^2$ in Eq.~\eqref{eq:avg} come
 from displacing the structure along each phonon mode and recomputing the EFG.
@@ -290,6 +624,24 @@ separates into three stages with a calculation between each, preceded by an
 optional structure-relaxation stage (Stage~0) that puts the geometry at an energy
 minimum first. The CLI \code{examples/abinit/efg\_temperature.py} drives all of
 them.
+
+\begin{center}
+\begin{tabular}{cll}
+\toprule
+Stage & Python action & Expensive external calculation \\
+\midrule
+0 (optional) & write/collect relaxation & ABINIT relaxation \\
+1 & write phonon inputs & ABINIT DFPT, then ANADDB \\
+2 & write displaced inputs & one ABINIT EFG per job \\
+3 & collect and average & none \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\guidebox{Accent}{\textbf{Before Stage 1.} Finish the static convergence study
+first. Phonons and displacements multiply the cost of every weak choice in the
+base input. Copy the converged input into a new run directory and preserve it
+unchanged as the workflow reference.}
 
 \section{Normal-coordinate convention}
 \label{sec:fd}
@@ -313,13 +665,15 @@ Cartesian displacement (default $0.05$\,\AA).
 \section{Stage 0 --- structure relaxation (optional)}
 \label{sec:relax}
 
-A static EFG is only physical at an energy minimum. On an unrelaxed geometry the
-residual forces appear as imaginary modes at $\Gamma$ and bias the equilibrium
-$\eta$, so relaxing first is the single largest source of quantitative error in
-the chain. \code{efg\_temperature.py relax} strips the EFG keywords from a
-converged static input and prepends a BFGS ionic-relaxation block
-(\code{ionmov 2}, \code{optcell 0}, \code{tolmxf}); \code{run\_relax\_wsl.sh} runs
-ABINIT. \code{efg\_temperature.py relax-collect} then reads the relaxed geometry
+The harmonic phonon model is meaningful around a mechanically stable reference.
+If the chosen structure has substantial residual forces, imaginary
+$\Gamma$-point modes and biased equilibrium parameters can follow. An
+experimental structure may still be the right static comparison, so retain it
+and document any relaxed structure as a distinct model rather than silently
+replacing one with the other. \cmd{efg\_temperature.py relax} strips the EFG
+keywords from a converged static input and prepends a BFGS ionic-relaxation block
+(\cmd{ionmov 2}, \cmd{optcell 0}, \code{tolmxf}); \code{run\_relax\_wsl.sh} runs
+ABINIT. \cmd{efg\_temperature.py relax-collect} then reads the relaxed geometry
 from the output footer (\code{-outvars: echo values of variables after
 computation}, the same block abipy reads) and writes a relaxed static EFG input.
 
@@ -335,14 +689,15 @@ python3 examples/abinit/efg_temperature.py relax-collect \
 The product, \code{relaxed.abi}, is an ordinary static EFG input (EFG keywords
 intact) at the relaxed geometry; pass it as \code{--base} to Stages~1--2 in place
 of the hand-written input. The relaxation is internal-coordinates-only: the cell
-is held at the input value (\code{optcell 0}). For molecular crystals this is
+is held at the input value (\cmd{optcell 0}). For molecular crystals this is
 usually preferable to a full cell relaxation, which under GGA tends to over-expand
-the lattice and can worsen the EFG relative to the measured geometry; full cell
-relaxation (the quasi-harmonic thermal-expansion path) is a planned extension.
+the lattice and can worsen the EFG relative to the measured geometry.
+Temperature-dependent cell expansion is not included in the present harmonic
+finite-displacement workflow; treat it as a separate structural contribution.
 
 \section{Stage 1 --- phonons}
 
-\code{efg\_temperature.py phonon} writes a two-dataset ABINIT input (ground state
+\cmd{efg\_temperature.py phonon} writes a two-dataset ABINIT input (ground state
 plus a $\Gamma$-point DFPT response) and the matching anaddb input, derived from a
 converged static EFG input. \code{run\_phonon\_wsl.sh} runs ABINIT, selects the
 DFPT derivative database (the largest \code{*\_DDB}), and runs anaddb to produce
@@ -355,14 +710,14 @@ bash examples/abinit/run_phonon_wsl.sh runs/nano2_ph
 \end{lstlisting}
 
 The generated DFPT input is a starting template. Two settings are required for
-PAW~+~GGA phonons and are emitted automatically: \code{iscf2 7} (the response
-driver requires \code{iscf}~$\leq 9$) and \code{pawxcdev 0} (the GGA exchange
+PAW~+~GGA phonons and are emitted automatically: \cmd{iscf2 7} (the response
+driver requires \code{iscf}~$\leq 9$) and \cmd{pawxcdev 0} (the GGA exchange
 correlation kernel is not implemented in the development scheme). Converge the
 tolerances and $k$-mesh for production use.
 
 \section{Stage 2 --- displaced EFG runs}
 
-\code{efg\_temperature.py displace} parses the anaddb eigenvectors
+\cmd{efg\_temperature.py displace} parses the anaddb eigenvectors
 (\code{parse\_anaddb\_modes}; acoustic and imaginary modes are dropped, and modes
 are paired with frequencies by mode number so that gaps in the eigenvector output
 do not misalign them), generates one displaced EFG input per $\pm$ mode plus a
@@ -379,12 +734,12 @@ bash examples/abinit/run_finite_displacement_wsl.sh runs/nano2_disp
 \code{--target} is the $0$-based index of the resonant nucleus; \code{--max-modes}
 restricts the calculation to the lowest-frequency librations, which dominate the
 temperature dependence. If the anaddb eigenvector layout differs from the parser's
-expectation, \code{--modes modes.json} supplies frequencies and eigenvectors
+expectation, \cmd{--modes modes.json} supplies frequencies and eigenvectors
 directly.
 
 \section{Stage 3 --- collect}
 
-\code{efg\_temperature.py collect} parses the displaced EFG outputs, central
+\cmd{efg\_temperature.py collect} parses the displaced EFG outputs, central
 differences the mode curvatures, runs the temperature sweep, and reports
 $\Cq(T)$, $\eta(T)$, the lines, and $\mathrm d\nu/\mathrm dT$.
 
@@ -392,6 +747,12 @@ $\Cq(T)$, $\eta(T)$, the lines, and $\mathrm d\nu/\mathrm dT$.
 python3 examples/abinit/efg_temperature.py collect \
     --workdir runs/nano2_disp --temperatures 0,77,150,300 --quadmom 0.02044
 \end{lstlisting}
+
+\guidebox{AccentTwo}{\textbf{Do not skip the derivative check.} Repeat selected
+modes with a smaller and larger displacement. The resulting curvature should
+be stable: too small a step amplifies SCF noise, while too large a step samples
+anharmonic response. Inspect plus/minus tensor changes, imaginary modes, and
+the residual trace before interpreting a temperature slope.}
 
 \section{Running ABINIT in parallel}
 \label{sec:parallel}
@@ -403,27 +764,27 @@ small shared helper, \code{examples/abinit/abinit\_parallel.sh}, and honor the
 
 \begin{itemize}
   \item \code{ABINIT\_NP} unset (or \code{1}) --- serial.
-  \item \code{ABINIT\_NP=}$N$ --- launch \code{mpirun -np $N$ abinit}.
+  \item \code{ABINIT\_NP=}$N$ --- launch \cmd{mpirun -np $N$ abinit}.
   \item \code{ABINIT\_NP=auto} --- choose $N$ automatically (see below) and fall
     back to serial if no MPI runtime is found.
 \end{itemize}
 
-With the default $k$-point parallelism (\code{paral\_kgb 0}), efficiency is good
+With the default $k$-point parallelism (\cmd{paral\_kgb 0}), efficiency is good
 when the number of processes divides the number of $k$-points in the IBZ. The
 helper function \code{abinit\_optimal\_np} encodes this: it returns the largest
 divisor of $n_{\mathrm{kpt}}$ that is $\le$ the core count. For the NaNO$_2$ cell
 ($n_{\mathrm{kpt}}=36$) on a 20-core machine that is $N=18$ (two $k$-points per
 process), which scales near-ideally ($\sim 18\times$). \code{auto} detects
-$n_{\mathrm{kpt}}$ from an existing \code{.abo} or a quick \code{abinit --dry-run},
+$n_{\mathrm{kpt}}$ from an existing \code{.abo} or a quick \cmd{abinit --dry-run},
 and the core count from \code{nproc}. Override the launcher with
-\code{ABINIT\_MPIRUN} (e.g.\ \code{mpiexec}, or \code{mpirun --oversubscribe}).
+\code{ABINIT\_MPIRUN} (e.g.\ \code{mpiexec}, or \cmd{mpirun --oversubscribe}).
 The driver \code{nano2\_relaxation\_study.sh} uses \code{auto} by default; pass
-\code{--np}~$N$ to pin a value or \code{--np 1} to force serial.
+\code{--np}~$N$ to pin a value or \cmd{--np 1} to force serial.
 
 Parallelization changes only how ABINIT is launched, not the inputs, so it leaves
 all computed quantities (and any relaxed-vs-unrelaxed comparison) unchanged.
 
-\section{Convergence of $\eta$ and the asymmetry gap}
+\section{Convergence of \texorpdfstring{$\eta$}{eta} and the asymmetry gap}
 \label{sec:convergence}
 
 The coupling $\Cq \propto \Vzz$ tracks the largest EFG eigenvalue and converges
@@ -461,7 +822,7 @@ that no \code{.abo} ever appears.
 is flat to $\sim 10^{-4}$ across \code{pawecutdg} ($50\!\to\!100$~Ha) and
 \code{ngkpt} ($4^3\!\to\!8^3$, $n_{\mathrm{kpt}}$ up to $260$), while \code{ecut}
 moves it only slightly and \emph{away} from experiment (knee near $30$~Ha).
-Convergence --- and, because the inputs run with \code{nsym 1}, symmetry pinning
+Convergence --- and, because the inputs run with \cmd{nsym 1}, symmetry pinning
 --- is therefore ruled out as the cause of the low $\eta$. The geometry is the
 dominant lever instead:
 
@@ -481,7 +842,7 @@ The experimental cell raises $\eta$ by $\sim 2.6\times$ over the starter geometr
 but still under-predicts the measured value. The cause of that residual was
 pinned down with an all-electron cross-check.
 
-\paragraph{All-electron cross-check (Elk): the gap is a PAW artifact.} The
+\paragraph{All-electron cross-check (Elk): the gap is PAW-sensitive.} The
 transverse EFG components that set $\eta$ are a near-nucleus quantity, so they are
 sensitive to how the pseudopotential reconstructs the core region. Repeating the
 calculation with the \emph{same} PBE functional and the \emph{same} ICSD geometry
@@ -503,20 +864,25 @@ Elk --- all-electron LAPW & $\approx 0.333$ & 5.9 \\
 All-electron PBE recovers $\eta \approx 0.333$ (converged over \code{rgkmax}
 $7\!\to\!8$ and the $k$-mesh, $18\!\to\!48$ points), next to the measured $0.38$,
 whereas the PAW value sits $\sim 3\times$ lower. Same functional, same geometry:
-the long-standing $\eta$ under-prediction is a \textbf{PAW/pseudopotential
-artifact} --- the Pseudodojo PBE nitrogen dataset under-represents the
-near-nucleus transverse EFG --- \emph{not} a functional or dynamics deficiency.
+the comparison isolates a strong \textbf{PAW/pseudopotential sensitivity}. The
+selected Pseudodojo PBE nitrogen dataset under-represents the near-nucleus
+transverse EFG in this case; geometry and functional do not explain the
+ABINIT--Elk difference.
 (Harmonic vibrational averaging, the finite-temperature workflow above, in fact
 \emph{lowers} $\eta$, so dynamics does not close the gap upward.) The ABINIT-side
-fix is a harder / EFG-tuned nitrogen PAW dataset; a meta-GGA or hybrid functional
-is not needed. The Elk cross-check workflow --- input, an \code{EFG.OUT} parser,
+An ABINIT-side next test is therefore a harder or EFG-tuned nitrogen PAW dataset
+before changing the functional. The Elk cross-check workflow --- input, an \code{EFG.OUT} parser,
 and an MPI-parallel runner with a convergence watchdog --- is in
-\code{examples/elk/} (see its \code{README.md}); the original ranked plan is in
-\code{docs/eta\_accuracy\_improvement.md}.
+\code{examples/elk/}; its \code{README.md} records the inputs, convergence
+results, performance observations, and interpretation.
 
 % =====================================================================
 \chapter{Finite-Strain EFG Drive Couplings}
 \label{ch:strain}
+
+\chapterpath{You will generate, collect, and validate the thirteen calculations
+needed for central finite-strain EFG derivatives and transition-drive
+couplings.}
 
 Piezoelectric NQR drive needs a different DFT derivative from the
 finite-temperature workflow.  Instead of displacing atoms along optical phonon
@@ -536,7 +902,7 @@ drive/detection model in PythonSpinDynamics.
 
 \section{Glycine polymorph guard}
 
-The bundled glycine structure is CCDC~189379, space group \code{P 21}.  This
+The bundled glycine structure is CCDC~189379, space group \cmd{P 21}.  This
 non-centrosymmetric polymorph is symmetry-allowed to be piezoelectric, whereas
 centrosymmetric glycine polymorphs are not useful for an electric-field-driven
 piezoelectric transducer.  The CLI therefore performs a CIF metadata check
@@ -555,7 +921,7 @@ sites.  The zero-based target indices printed by \code{prepare-base} are
 The strain workflow begins by preparing a static EFG input directly from the CIF.
 On Ubuntu's packaged ABINIT~9.10.4 PAW set, the glycine H/C/N/O XML files are in
 \code{Pseudodojo\_paw\_pw\_standard}.  Those PAW spheres overlap on short X--H
-bonds, so the exploratory run used \code{pawovlp 25}; production calculations
+bonds, so the exploratory run used \cmd{pawovlp 25}; production calculations
 should replace this with smaller-radius PAW datasets or a validated
 pseudopotential choice.
 
@@ -634,19 +1000,35 @@ $0\to2$ coefficient ($2.189$\,MHz/strain).  This keeps the detection model tied
 to measured frequencies while using DFT-scale electric-field-gradient
 derivatives.
 
-\textbf{Reliability checklist.} Before using these couplings as design numbers,
-repeat the workflow with converged \code{ecut}, \code{pawecutdg}, and
-\code{ngkpt}; relax at least the hydrogen positions or use a neutron-quality
-structure; verify the symmetry-related nitrogen index~\code{11}; and remove or
-quantify the effect of \code{pawovlp 25}.
+\guidebox{AccentTwo}{\textbf{Reliability checkpoint.} These are exploratory
+couplings, not design numbers. Before using them quantitatively, repeat the
+workflow with converged \code{ecut}, \code{pawecutdg}, and \code{ngkpt}; relax
+at least the hydrogen positions or use a neutron-quality structure; verify the
+symmetry-related nitrogen index~\code{11}; test strain-step linearity; and
+remove or quantify the effect of \cmd{pawovlp 25}.}
 
 % =====================================================================
-\chapter{Worked Example: NaNO$_2$ $^{14}$N}
+\chapter{Worked Example: \texorpdfstring{NaNO$_2$ $^{14}$N}{NaNO2 nitrogen-14}}
+\label{ch:nano2}
+
+\chapterpath{You will follow the repository's reference system from its source
+structure through static and finite-temperature results, including the checks
+that limit what may be concluded.}
 
 Sodium nitrite is the reference case for the workspace: its $^{14}$N parameters
 appear in the DFT runs, the spin-dynamics simulator, and the measured NQR
 database. A six-mode finite-displacement calculation on the starter geometry
 produces the temperature dependence in Table~\ref{tab:nano2}.
+
+There are two useful ways to follow this example:
+\begin{enumerate}
+  \item use the small starter calculation to learn the mechanics of the staged
+    workflow and recognize its failure checks; then
+  \item use the ICSD 82857 structure, converged ABINIT calculation, and Elk
+    comparison for the stronger accuracy argument.
+\end{enumerate}
+Do not combine the first track's convenient teaching numbers with the second
+track's scientific conclusions.
 
 \begin{table}[h]
 \centering
@@ -674,15 +1056,16 @@ temperature. The slope, $\sim -1.0$\,kHz/K, has the correct sign and order of
 magnitude relative to the measured coefficients of $-1.3$\,kHz/K ($\nu_-$) and
 $-2.2$\,kHz/K ($\nu_+$).
 
-\textbf{Caveat.} The numbers above are for the \emph{unrelaxed} starter geometry:
+\textbf{Why this is a teaching result, not a prediction.} The numbers above are
+for the \emph{unrelaxed} starter geometry:
 its static $\eta = 0.04$ disagrees with the experimental $0.38$, the two strong
 lines come out near-degenerate ($\sim 3.7$\,MHz) rather than well split
 ($3.60$/$4.64$\,MHz), and the phonon spectrum contains imaginary modes. The
-pipeline is therefore validated as physically sensible, but quantitative
-agreement requires relaxing the structure to an energy minimum first --- run
-Stage~0 (\S\ref{sec:relax}) and pass the resulting \code{relaxed.abi} as the base
-input to remove the imaginary modes and correct $\eta$ before interpreting the
-absolute numbers.
+temperature trend is physically sensible, but the reference is not mechanically
+stable. Run Stage~0 (\S\ref{sec:relax}) and pass \code{relaxed.abi} as the base
+input to remove that particular defect. Relaxation alone does not make the
+absolute EFG accurate; the later structure and Elk comparisons test the
+remaining sources of error.
 
 \textbf{Runnable comparison.} \code{examples/abinit/nano2\_relaxation\_study.sh}
 automates exactly this check: it runs the full temperature workflow on both the
@@ -693,18 +1076,19 @@ the prerequisites and the one-command invocation.
 
 \textbf{Relaxation outcome.} Running this on the starter geometry confirms the
 pipeline behaves correctly and is qualitatively improved by relaxation, but also
-exposes its current limit. Relaxing the internal coordinates removes all imaginary
+exposes the starter model's limit. Relaxing the internal coordinates removes all imaginary
 modes (the spectrum becomes dynamically stable, lowest libration $\sim 44$\,cm$^{-1}$)
 and fixes the sign of every $\mathrm d\nu/\mathrm dT$, and it moves the asymmetry
 and the line splitting toward experiment --- but only about a third of the way
 ($\eta: 0.04 \to 0.14$ against the measured $0.38$; strong-line splitting
 $0.11 \to 0.37$\,MHz against $\sim 1.04$\,MHz). Because the cell was held fixed at
-the hand-entered starter (\code{optcell 0}, unconverged \code{ecut}/\code{pawecutdg}/
-\code{ngkpt}), the residual error sits in the \emph{equilibrium} geometry, not the
-vibrational average. Quantitative agreement therefore needs a converged calculation
+the hand-entered starter (\cmd{optcell 0}, unconverged \code{ecut}/\code{pawecutdg}/
+\code{ngkpt}), this run cannot isolate the residual error. Quantitative work
+therefore starts with a converged calculation
 on an experimental structure (e.g.\ the ICSD~82857 input under
-\code{structures/NaNO2/generated/}), and, for the full slope magnitude, anharmonic
-(AIMD/PIMD) averaging near the ferroelectric transition.
+\code{structures/NaNO2/generated/}), followed by the ABINIT--Elk comparison in
+Chapter~\ref{ch:strategy}. For the full slope magnitude, anharmonic (AIMD/PIMD)
+averaging may also be needed near the ferroelectric transition.
 
 \textbf{CIF validation outcome.} The bundled NaNO$_2$ CIFs now have a two-stage
 check. \nolinkurl{examples/check_nano2_cifs.py} first ranks the available
@@ -718,20 +1102,34 @@ agreement came from ICSD~15400, but the full-occupancy ferroelectric structures
 all gave the same qualitative answer: $|\Cq|$ was close, while $\eta$ remained
 too small ($\eta \simeq 0.11$--$0.12$ versus the measured $0.38$).
 
-\textbf{Interpretation.} The NaNO$_2$ asymmetry error is therefore not fixed by
-choosing a different bundled CIF. The dominant missing ingredient is more likely
-the local equilibrium tensor itself: convergence of the EFG tensor components,
-cell/internal-coordinate relaxation against the chosen functional and PAW data,
-possible functional or PAW-dataset dependence, and eventually anharmonic or
-snapshot averaging close to the ferroelectric transition. High-temperature
-\code{I m m m} CIFs should also be treated carefully: the available entries are
+\textbf{Interpretation.} The NaNO$_2$ asymmetry error is not fixed by choosing a
+different bundled CIF. The converged same-geometry, same-functional Elk
+comparison then isolates the selected nitrogen PAW dataset as the dominant
+source of the static ABINIT--Elk asymmetry gap. Thermal expansion, anharmonicity,
+and structural disorder remain separate questions when comparing either static
+calculation with finite-temperature experiment. High-temperature
+\cmd{I m m m} CIFs should also be treated carefully: the available entries are
 partial-occupancy/disordered models, and a literal static expansion can place
 split sites nearly on top of each other, causing ABINIT PAW sphere-overlap
 aborts. Use those only after constructing an ordered approximant, not as ordinary
 static EFG inputs.
 
+\guidebox{Accent}{\textbf{What the example establishes.} The software path
+preserves tensor conventions and produces the expected thermal sign; relaxation
+removes the starter structure's imaginary modes; structure screening does not
+resolve the asymmetry; and the controlled Elk comparison reveals PAW
+sensitivity. Each statement comes from a different check, and none should be
+claimed from the temperature table alone.}
+
+\part{Evidence and Reference}
+
 % =====================================================================
 \chapter{Validation Against the Measured Database}
+\label{ch:validation}
+
+\chapterpath{You will compare calculated static parameters and temperature
+coefficients with measured records through the cross-project integration
+layer.}
 
 The cross-project \code{mr\_integration} layer closes the loop against the
 NQRDatabase. \code{measured\_temperature\_coefficients} reads the stored
@@ -744,8 +1142,25 @@ dependence can be checked against experiment. The same layer also validates the
 static $(\Cq,\eta)$ against measured line positions and supplies the
 $\Cq \leftrightarrow \nu_{\mathrm Q}$ conversion used by the simulator.
 
+Use that comparison in the following order:
+\begin{enumerate}
+  \item select the compound, isotope, phase, and measurement temperature;
+  \item compare static $\Cq$, $\eta$, and line ordering before comparing slopes;
+  \item match calculated and measured lines by frequency, then inspect whether
+    that assignment remains stable across temperature; and
+  \item report residuals together with the DFT convergence and structural
+    provenance, rather than treating the database value as an exact target.
+\end{enumerate}
+Agreement with experiment tests the complete model, not only the Python
+conversion. Disagreement can originate in the measured assignment, structure,
+nuclear data, electronic-structure approximation, or temperature model.
+
 % =====================================================================
 \chapter{Public API Reference}
+\label{ch:api}
+
+\chapterpath{Use this chapter after the narrative workflows when you need to
+find the Python object or function that implements a particular step.}
 
 \section{quadrupolar\_dft.tensors / quadrupolar / abinit}
 \begin{itemize}
@@ -805,9 +1220,15 @@ $\Cq \leftrightarrow \nu_{\mathrm Q}$ conversion used by the simulator.
 \end{itemize}
 
 % =====================================================================
-\chapter{Limitations and Roadmap}
+\chapter{Limits of the Current Workflow}
+\label{ch:limits}
 
-\textbf{Current limitations.}
+\chapterpath{You will distinguish implemented, validated capabilities from
+known model limitations and choose an appropriate next validation step.}
+
+The repository automates a substantial calculation chain, but it does not
+automate scientific judgment. The following boundaries should appear in any
+report that relies on the workflow:
 \begin{itemize}
   \item The $\Cq \leftrightarrow \nu_{\mathrm Q}$ scale and several helpers are
     calibrated for spin~1 and spin~3/2; higher half-integer spins are not yet
@@ -817,16 +1238,26 @@ $\Cq \leftrightarrow \nu_{\mathrm Q}$ conversion used by the simulator.
   \item The anaddb eigenvector parser targets ABINIT~9.x text output; a
     \code{--modes} JSON escape hatch covers other layouts.
   \item Finite-difference curvatures use the printed EFG precision; large
-    displacement amplitudes or extra output digits improve the second derivative.
+    displacement amplitudes or extra output digits may improve the second
+    derivative, but step-size stability must still be demonstrated.
+  \item The harmonic finite-temperature calculation does not include
+    quasi-harmonic cell expansion or anharmonic sampling.
+  \item Elk support is a static reference workflow, not a replacement backend
+    for the ABINIT DFPT, displacement, and strain automation.
 \end{itemize}
 
-\textbf{Roadmap.}
-\begin{itemize}
-  \item Full cell relaxation (\code{optcell}) and a quasi-harmonic
-    thermal-expansion path, building on the internal-coordinate relaxation stage
-    (\S\ref{sec:relax}); plus AIMD/PIMD snapshot averaging for strongly anharmonic
-    systems such as NaNO$_2$ near its ferroelectric transition.
-  \item A netCDF / phonopy phonon reader to complement the anaddb text parser.
-\end{itemize}
+\section*{Choosing a method beyond these limits}
+
+Use temperature-dependent experimental structures or a quasi-harmonic treatment
+when cell expansion is important. Use AIMD/PIMD snapshot averaging when
+anharmonicity or disorder invalidates the normal-mode picture. Convert other
+phonon formats explicitly when the ANADDB text parser is unsuitable. In each
+case, keep the downstream tensor conventions unchanged: average full tensors in
+a common frame, then diagonalize and calculate the NQR observables.
+
+\guidebox{Accent}{\textbf{A good stopping point.} A calculation is complete when
+it answers the stated scientific question with documented numerical,
+structural, and model uncertainty. Adding a more expensive method is useful
+only when it tests an uncertainty that matters to that answer.}
 
 \end{document}

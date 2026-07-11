@@ -53,6 +53,13 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
   Hamiltonian implementations, producing per-line prediction intervals and
   measured-line coverage reports.
 
+### QuadrupolarDFT
+
+- Rewrote the user manual around a beginner-first path from crystal structure
+  to a validated NQR prediction, with explicit checkpoints, clearer links to
+  the companion Beginner's Guide, and a two-tier ABINIT/Elk strategy explaining
+  the accuracy-versus-compute-time tradeoff.
+
 ## [0.2.0] - 2026-07-05
 
 A large feature release built on the v0.1.0 foundation. The headline addition is
