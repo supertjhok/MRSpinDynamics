@@ -1200,7 +1200,7 @@ No public classes or functions found.
 | class | `PhaseCycledSequenceBranch` | One phase-programmed :class:`~spin_dynamics.sequences.SequenceIR` branch. |
 | class | `PhaseStep` | One scan branch in a phase cycle. |
 | class | `PhaseCycle` | A reusable phase-cycle scan table. |
-| function | `phase_cycle_sequence_ir(sequence: Any, phase_cycle: PhaseCycle, *, pulse_blocks: Mapping[str, int | str | Sequence[int | str]] | None = None) -> tuple[PhaseCycledSequenceBranch, ...]` | Create one independently executable ``SequenceIR`` per phase-cycle step. |
+| function | `phase_cycle_sequence_ir(sequence: SequenceIR, phase_cycle: PhaseCycle, *, pulse_blocks: Mapping[str, int | str | Sequence[int | str]] | None = None) -> tuple[PhaseCycledSequenceBranch, ...]` | Create one independently executable ``SequenceIR`` per phase-cycle step. |
 | function | `cpmg_two_step_phase_cycle(*, excitation_name: str = 'excitation', excitation_phase_rad: float = np.pi / 2.0) -> PhaseCycle` | Return the default two-step CPMG/PAP excitation phase cycle. |
 | function | `pgste_stimulated_echo_phase_cycle() -> PhaseCycle` | Return the selected-pathway PGSTE stimulated-echo phase table. |
 | function | `eseem_stimulated_echo_phase_cycle(n_phase: int = 4) -> PhaseCycle` | Return the phase cycle selecting the three-pulse ESEEM stimulated echo. |
