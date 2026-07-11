@@ -43,9 +43,11 @@ The highest-leverage gaps identified in the July 2026 audit are:
    Krylov propagation, matrix-free 2-D inversion, adaptive high-Q transients,
    and out-of-core result handling remain important options.
 6. **Distribution and API maturity.** CI covers Linux/Windows and Python
-   3.10--3.12, but lacks coverage thresholds, static type checks, optional
-   Numba/JAX lanes, wheel/sdist installation tests, benchmark regression gates,
-   an installed console entry point, and an explicit deprecation policy.
+   3.10--3.12; wheel/sdist installation, the installed console entry point,
+   an initial typed surface, branch-coverage threshold, and deprecation policy
+   are now gated. Remaining maturity work is expanding static typing and the
+   coverage floor, adding optional Numba/JAX lanes, publishing artifacts to a
+   package index, and introducing benchmark regression gates.
 7. **Discoverability.** The 163 examples are a major asset but are still mostly
    presented as a flat catalog. A registry-generated capability matrix and a
    smaller set of end-to-end journeys would make the package easier to learn.

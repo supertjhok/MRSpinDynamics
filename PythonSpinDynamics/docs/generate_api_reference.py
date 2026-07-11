@@ -37,6 +37,7 @@ MODULES = [
     "detection.opm",
     "detection.spatial",
     "detection.squid",
+    "deprecation",
     "esr.deer",
     "esr.dipolar",
     "esr.distributions",

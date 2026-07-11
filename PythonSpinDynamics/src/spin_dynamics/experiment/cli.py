@@ -1,6 +1,8 @@
 """Command-line runner for config-driven experiments.
 
-Run with ``python -m spin_dynamics.experiment <command>``:
+Run with ``spin-dynamics <command>`` after installation, or equivalently with
+``python -m spin_dynamics.experiment <command>`` from any environment that can
+import the package:
 
     plan   CONFIG            resolve + validate a config, print the plan
     run    CONFIG [-o NPZ]   plan then run, optionally saving the result
@@ -16,7 +18,8 @@ from __future__ import annotations
 
 import argparse
 import sys
-from typing import Sequence
+from collections.abc import Callable, Sequence
+from typing import cast
 
 from spin_dynamics.experiment.config import (
     ConfigError,
@@ -100,7 +103,7 @@ def _cmd_verify(args: argparse.Namespace) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="python -m spin_dynamics.experiment",
+        prog="spin-dynamics",
         description="Config-driven runner for the experiment facade.",
     )
     sub = parser.add_subparsers(dest="command", required=True)
@@ -133,7 +136,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
-        return args.func(args)
+        command = cast(Callable[[argparse.Namespace], int], args.func)
+        return command(args)
     except (ConfigError, FileNotFoundError, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2

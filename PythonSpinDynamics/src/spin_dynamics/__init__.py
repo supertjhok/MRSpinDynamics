@@ -5,6 +5,7 @@ __all__ = [
     "analysis",
     "coupling",
     "core",
+    "deprecation",
     "detection",
     "esr",
     "exchange",

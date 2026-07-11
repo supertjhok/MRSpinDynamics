@@ -14,6 +14,7 @@ PythonSpinDynamics/.venv/
 PythonSpinDynamics/.venv-*/
 PythonSpinDynamics/.tmp/
 PythonSpinDynamics/.pytest_cache/
+PythonSpinDynamics/.coverage*
 PythonSpinDynamics/.mypy_cache/
 PythonSpinDynamics/.ruff_cache/
 PythonSpinDynamics/results/

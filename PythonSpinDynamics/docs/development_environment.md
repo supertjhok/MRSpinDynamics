@@ -143,10 +143,20 @@ the GitHub smoke job:
 ```powershell
 python -m unittest tests.smoke_tests
 python -m ruff check src tests examples
+python -m mypy
+python -m coverage run -m unittest discover -s tests
+python -m coverage report
 python docs\generate_api_reference.py
 python docs\generate_validation_matrix.py --check
 git diff --exit-code docs\python_api\api_reference.md
 ```
+
+The coverage command enforces the floor configured in `pyproject.toml`. The
+initial MyPy gate covers the typed deprecation API and installed CLI boundary;
+expand that file list as additional modules become annotation-clean. CI also
+builds both wheel and source distributions, checks their metadata, installs
+each into a fresh environment, and executes the installed `spin-dynamics`
+entry point.
 
 Use focused tests during edit loops:
 

@@ -9,6 +9,7 @@ variants, packaging, and performance.
 ## Start Here
 
 - [Installation](installation.md)
+- [Deprecation Policy](deprecation_policy.md)
 - [Development Environment](../development_environment.md)
 - [Concepts and Units](concepts.md)
 - [Unified Experiment Workflow](experiment_workflow.md) — recommended entry point

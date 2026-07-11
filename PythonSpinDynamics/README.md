@@ -208,7 +208,7 @@ native result, callable/module/package-tree hashes, Git revision/dirty state,
 NumPy/SciPy/build/thread environment, and seeded/unseeded randomness status.
 `load_run("run1.npz").verify_reproduction()` reruns the stored experiment and
 reports whether the exact result identity was reproduced; the CLI equivalent is
-`python -m spin_dynamics.experiment verify run1.npz`.
+`spin-dynamics verify run1.npz`.
 
 The same interface drives imaging (with automatic transmit-coil B1 solving),
 NQR (`NQRFID`, `NQRPopulationTransfer`, `NQRSLSE`, and `NQRSORC`) and ESR
@@ -220,10 +220,13 @@ for the full guide.
 You can also drive it from a TOML or JSON config file with the CLI:
 
 ```powershell
-python -m spin_dynamics.experiment plan examples\experiment_config_cpmg.toml
-python -m spin_dynamics.experiment run  examples\experiment_config_cpmg.toml -o run.npz
-python -m spin_dynamics.experiment show run.npz
+spin-dynamics plan examples\experiment_config_cpmg.toml
+spin-dynamics run  examples\experiment_config_cpmg.toml -o run.npz
+spin-dynamics show run.npz
 ```
+
+The console command is installed by the package; `python -m
+spin_dynamics.experiment` remains equivalent.
 
 The subcommands are `plan` (resolve and validate; non-zero exit on plan
 errors), `run` (plan then run, refusing an erroring plan, with an optional

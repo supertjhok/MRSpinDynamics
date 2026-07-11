@@ -270,6 +270,15 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | --- | --- | --- |
 | class | `SQUIDMagnetometer` | Untuned SQUID magnetometer: flat field-noise floor with a ``1/f`` knee. |
 
+## `spin_dynamics.deprecation`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `SpinDynamicsDeprecationWarning` | Visible warning for a PythonSpinDynamics API scheduled for removal. |
+| class | `DeprecationInfo` | Machine-readable lifecycle information attached to deprecated callables. |
+| function | `warn_deprecated(name: str, *, since: str, removal: str, alternative: str, stacklevel: int = 2) -> None` | Emit the standard visible warning for a deprecated public API. |
+| function | `deprecated(*, since: str, removal: str, alternative: str) -> Callable[[Callable[P, R]], Callable[P, R]]` | Mark a callable deprecated while preserving its signature and metadata. |
+
 ## `spin_dynamics.esr.deer`
 
 | Kind | Name | Summary |

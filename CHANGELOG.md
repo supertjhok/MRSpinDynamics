@@ -13,6 +13,11 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
 
 ### PythonSpinDynamics
 
+- Added the installed `spin-dynamics` experiment CLI, typed-wheel marker,
+  isolated wheel/sdist installation checks, scoped MyPy and branch-coverage CI
+  gates, and an explicit two-minor-release deprecation policy with reusable
+  warning utilities.
+
 - Suppressed spurious floating-point warnings from the unused laminar-washout
   tail branch at zero time and added an extreme-residence-time regression test.
 - Began the backend-neutral sequence IR and compiler: sequential blocks with
