@@ -62,6 +62,54 @@ Native sequences can be constructed from `SequenceIR`, `SequenceBlock`,
 blocks at event raster edges and ADC sample centers, then produces a
 piecewise-constant RF/gradient timeline with exact receive-sample metadata.
 
+## Execute Through the Experiment Facade
+
+`SequenceIRExecution` makes the compiled moving-isochromat target available
+through the same `Experiment.plan()` / `run()` / provenance workflow as the
+specialized sequences. The spatial model is explicit: `SequenceDomain` carries
+one to three physical axes, spin density, optional B0/B1 maps, constant
+velocity, and the mapping from its dimensions to physical gradient channels.
+
+```python
+import numpy as np
+from spin_dynamics.experiment import (
+    Experiment, Sample, SequenceDomain, SequenceIRExecution,
+)
+from spin_dynamics.sequences import read_pulseq
+
+sequence = read_pulseq("protocol.seq")
+x = np.linspace(-10e-3, 10e-3, 65)
+study = Experiment(
+    sequence=SequenceIRExecution(
+        ir=sequence, system_frequency_hz=42.58e6, seed=17,
+    ),
+    sample=Sample(
+        t1_seconds=1.0,
+        t2_seconds=0.1,
+        diffusion_coefficient=1.5e-9,
+        sequence_domain=SequenceDomain(
+            axes=(x,), density=np.ones(x.size), gradient_channels=("x",),
+        ),
+    ),
+)
+print(study.plan().report())
+record = study.run()
+record.save("protocol_run.npz")
+```
+
+The result contains clean and noisy complex ADC samples, compiled receiver
+offset/phase metadata, step timing, and the final weighted ensemble. ADC
+frequency and phase offsets, including per-sample Pulseq 1.5 phase shapes, are
+applied during nominal receiver demodulation. Seeded diffusion, initialization,
+and white acquisition noise reproduce through saved archives.
+
+The current target deliberately fails closed when
+`HardwareEffectsPolicy(transmit="apply")` or `receive="apply"` is requested:
+probe transfer functions need a future probe-aware compiler target. It also
+rejects probe-noise models; white receive noise is supported. Pulseq extensions
+are not executed. Embedded IR is supported in friendly JSON configs; use Python
+or JSON rather than TOML for nested block/event definitions.
+
 ## Timeline Visualizer
 
 `plot_sequence` presents five aligned lanes on one time axis: RF in-phase and
@@ -85,6 +133,10 @@ file or a built-in spin echo:
 ```powershell
 python examples\plot_sequence_timeline.py --output results\demo_sequence.png
 python examples\plot_sequence_timeline.py experiment.seq --output results\experiment.png
+python examples\experiment_sequence_ir.py experiment.seq `
+  --system-frequency-hz 42580000 `
+  --timeline-output results\experiment.png `
+  --output results\experiment_run.npz
 ```
 
 ## Pulseq Coverage

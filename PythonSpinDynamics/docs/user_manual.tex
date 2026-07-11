@@ -2819,6 +2819,60 @@ consume arbitrary Pulseq. RF use labels, extension semantics, scanner safety
 limits, and sequence-specific coherence pathways still require backend-aware
 interpretation.
 
+\section{General Execution Through the Facade}
+
+The same compiler target is available through the unified experiment facade.
+\code{SequenceIRExecution} owns the IR, system frequency, walker settings,
+random seed, boundary condition, and integration substeps. A required
+\code{SequenceDomain} on the sample supplies one to three physical axes, spin
+density, optional B0/B1 maps, constant velocity, and the mapping from simulated
+dimensions to physical gradient channels.
+
+\newpage
+\begin{lstlisting}[language=Python]
+import numpy as np
+from spin_dynamics.experiment import (
+    Experiment, Sample, SequenceDomain, SequenceIRExecution,
+)
+from spin_dynamics.sequences import read_pulseq
+
+ir = read_pulseq("protocol.seq")
+x = np.linspace(-10e-3, 10e-3, 65)
+study = Experiment(
+    sequence=SequenceIRExecution(
+        ir=ir, system_frequency_hz=42.58e6, seed=17,
+    ),
+    sample=Sample(
+        t1_seconds=1.0, t2_seconds=0.1,
+        diffusion_coefficient=1.5e-9,
+        sequence_domain=SequenceDomain(
+            axes=(x,), density=np.ones_like(x),
+            gradient_channels=("x",),
+        ),
+    ),
+)
+print(study.plan().report())
+record = study.run()
+record.save("results/protocol_run.npz")
+\end{lstlisting}
+
+Planning compiles the complete timeline without initializing a stochastic
+ensemble, checks the spatial/gradient mapping, reports interval, ADC, and
+particle counts, and rejects unsupported policies. Execution converts RF and
+gradients to the moving-isochromat convention, applies relaxation, diffusion,
+velocity and boundaries, samples with the receive B1 map, and demodulates each
+ADC sample by its Pulseq frequency and phase offset. The result retains both
+clean and noisy complex signals, ADC and step metadata, and the final weighted
+ensemble. Seeds and white receive-noise settings participate in the normal
+archive provenance and exact-rerun check.
+
+This target is intentionally ideal-hardware-only. An IR whose
+\code{HardwareEffectsPolicy} requests transmit or receive \code{"apply"} fails
+at plan time, as does probe noise; those requests need a future probe-aware
+compiler target and are never approximated silently. Pulseq extensions are not
+executed. Embedded block/event IR round-trips in JSON config; TOML remains for
+the flatter hand-authored experiment specs.
+
 \section{Timeline Visualization}
 
 Both \code{SequenceIR.plot()} and \code{CompiledSequence.plot()} draw aligned RF
@@ -7140,9 +7194,10 @@ those components compose predictably and make the evidence behind a result easy
 to inspect.
 
 \begin{description}
-  \item[Sequence execution.] The IR imports, exports, compiles, and visualizes
-  Pulseq core events, but arbitrary IR is only adapted to the moving-isochromat
-  engine. More facade and quantum backends need explicit compiler targets.
+  \item[Sequence execution.] The IR imports, exports, compiles, visualizes, and
+  executes Pulseq core events through the facade on the ideal
+  moving-isochromat engine. Probe-aware and quantum backends still need explicit
+  compiler targets.
   Pulseq extensions, explicit non-default time shapes, scanner safety limits,
   and vendor conversion remain outside the executable subset.
   \item[Facade breadth.] The facade covers the main CPMG, imaging, PGSE, NQR,

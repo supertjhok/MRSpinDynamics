@@ -77,7 +77,8 @@ extensions.
   export raster-validated Pulseq 1.5.0 sequences,
   compile concurrent RF/gradient/ADC events to a piecewise-constant timeline,
   visualize aligned RF/gradient/ADC lanes, and adapt that timeline to the
-  moving-isochromat engine. See
+  moving-isochromat engine. General native or Pulseq-imported IR can be planned,
+  executed, archived, and reproduced through `spin_dynamics.experiment`. See
   [`docs/python_api/sequence_ir.md`](docs/python_api/sequence_ir.md).
 - `spin_dynamics.core`, `fields`, `probes`, `sequences`, and `parameters`
   provide lower-level numerical pieces used by the workflows. `fields` also
@@ -337,6 +338,7 @@ python examples\plot_nqr_powder_nutation.py --output results\nqr_powder_nutation
 python examples\plot_nqr_population_transfer.py --output results\nqr_population_transfer.png
 python examples\plot_esr_powder_spectrum.py --output results\esr_powder_spectrum.png
 python examples\plot_esr_pulsed_echo.py --output results\esr_pulsed_echo.png
+python examples\experiment_sequence_ir.py --timeline-output results\sequence_ir.png --output results\sequence_ir.npz
 python examples\plot_shim_a_ring_magnet.py --output results\shim_a_ring.png
 python examples\plot_logging_ferrite_b1_focusing.py --output results\logging_ferrite_b1.png
 python examples\plot_zulf_quadrupolar_jcoupling.py --output results\zulf_jcoupling.png

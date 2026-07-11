@@ -93,6 +93,8 @@ from spin_dynamics.experiment.specs import (
     Phantom,
     Sample,
     SampledB0,
+    SequenceDomain,
+    SequenceIRExecution,
     TransportDomain2D,
     UniformFlow2D,
 )
@@ -143,6 +145,8 @@ __all__ = [
     "RxCoil",
     "Sample",
     "SampledB0",
+    "SequenceDomain",
+    "SequenceIRExecution",
     "TransportDomain2D",
     "UniformFlow2D",
     "sampled_b0_from_solution",

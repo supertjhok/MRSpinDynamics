@@ -23,6 +23,7 @@ from typing import Any, Iterable, Mapping
 import numpy as np
 
 from spin_dynamics.experiment.serialization import decode, encode, register_serializable
+from spin_dynamics.sequences import SequenceIR
 
 PROBE_NAMES = ("ideal", "tuned", "untuned", "matched")
 
@@ -169,6 +170,98 @@ class DEERDistribution:
 
 @register_serializable
 @dataclass(frozen=True, eq=False)
+class SequenceDomain:
+    """Spatial sample and field maps for general SequenceIR execution.
+
+    ``axes`` contains one to three physical coordinate axes in meters and
+    ``density`` has their Cartesian-product shape. ``b0_map_rad_s`` is angular
+    off-resonance; transmit/receive B1 maps are relative sensitivities.
+    ``gradient_channels`` maps domain axes to physical Pulseq x/y/z channels.
+    """
+
+    axes: tuple[np.ndarray, ...]
+    density: np.ndarray
+    b0_map_rad_s: np.ndarray | None = None
+    b1_tx_map: np.ndarray | None = None
+    b1_rx_map: np.ndarray | None = None
+    velocity_m_per_s: tuple[float, ...] | None = None
+    gradient_channels: tuple[str, ...] | None = None
+
+    def __post_init__(self) -> None:
+        axes = tuple(np.asarray(axis, dtype=np.float64).reshape(-1) for axis in self.axes)
+        if not 1 <= len(axes) <= 3:
+            raise ValueError("SequenceDomain supports one to three axes")
+        for index, axis in enumerate(axes):
+            if axis.size < 2 or not np.all(np.isfinite(axis)):
+                raise ValueError(f"axis {index} must contain at least two finite values")
+            if np.any(np.diff(axis) <= 0.0):
+                raise ValueError(f"axis {index} must be strictly increasing")
+        shape = tuple(axis.size for axis in axes)
+        density = np.asarray(self.density, dtype=np.float64)
+        if density.shape != shape or not np.all(np.isfinite(density)):
+            raise ValueError("density must be finite and match the domain axes")
+        if np.any(density < 0.0) or not np.any(density > 0.0):
+            raise ValueError("density must be non-negative and contain mass")
+
+        maps: dict[str, np.ndarray | None] = {}
+        for name in ("b0_map_rad_s", "b1_tx_map", "b1_rx_map"):
+            value = getattr(self, name)
+            array = None if value is None else np.asarray(value, dtype=np.float64)
+            if array is not None and (
+                array.shape != shape or not np.all(np.isfinite(array))
+            ):
+                raise ValueError(f"{name} must be finite and match the domain axes")
+            if name.startswith("b1") and array is not None and np.any(array < 0.0):
+                raise ValueError(f"{name} must be non-negative")
+            maps[name] = None if array is None else array.copy()
+
+        velocity = self.velocity_m_per_s
+        if velocity is not None:
+            velocity = tuple(float(value) for value in velocity)
+            if len(velocity) != len(axes) or not np.all(np.isfinite(velocity)):
+                raise ValueError("velocity_m_per_s must match the spatial dimension")
+
+        channels = self.gradient_channels
+        if channels is None:
+            channels = {1: ("x",), 2: ("x", "z"), 3: ("x", "y", "z")}[len(axes)]
+        channels = tuple(str(channel).lower() for channel in channels)
+        if len(channels) != len(axes) or any(
+            channel not in ("x", "y", "z") for channel in channels
+        ):
+            raise ValueError("gradient_channels must map every axis to x, y, or z")
+        if len(set(channels)) != len(channels):
+            raise ValueError("gradient_channels must not contain duplicates")
+
+        object.__setattr__(self, "axes", tuple(axis.copy() for axis in axes))
+        object.__setattr__(self, "density", density.copy())
+        for name, value in maps.items():
+            object.__setattr__(self, name, value)
+        object.__setattr__(self, "velocity_m_per_s", velocity)
+        object.__setattr__(self, "gradient_channels", channels)
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, SequenceDomain):
+            return NotImplemented
+
+        def same(left: np.ndarray | None, right: np.ndarray | None) -> bool:
+            if left is None or right is None:
+                return left is None and right is None
+            return bool(np.array_equal(left, right))
+
+        return bool(
+            len(self.axes) == len(other.axes)
+            and all(np.array_equal(a, b) for a, b in zip(self.axes, other.axes))
+            and np.array_equal(self.density, other.density)
+            and same(self.b0_map_rad_s, other.b0_map_rad_s)
+            and same(self.b1_tx_map, other.b1_tx_map)
+            and same(self.b1_rx_map, other.b1_rx_map)
+            and self.velocity_m_per_s == other.velocity_m_per_s
+            and self.gradient_channels == other.gradient_channels
+        )
+
+
+@register_serializable
+@dataclass(frozen=True, eq=False)
 class SampledB0:
     """A spatially-varying static field sampled on the imaging plane.
 
@@ -265,6 +358,8 @@ class Sample:
     """Distance distribution used by :class:`ESRDEER`."""
     hyperfine_coupling: Any | None = None
     """Electron-nuclear coupling used by ESEEM, HYSCORE, and ENDOR specs."""
+    sequence_domain: SequenceDomain | None = None
+    """Explicit spatial sample/field domain for :class:`SequenceIRExecution`."""
     label: str = ""
 
 
@@ -759,6 +854,39 @@ class ESRMimsENDOR:
             raise ValueError("tau_seconds must be positive")
 
 
+@register_serializable
+@dataclass(frozen=True)
+class SequenceIRExecution:
+    """Execute a backend-neutral :class:`SequenceIR` through the facade."""
+
+    ir: SequenceIR
+    system_frequency_hz: float | None = None
+    walkers_per_cell: int = 1
+    seed: int | None = 0
+    jitter: bool = False
+    boundary: str = "reflect"
+    default_substeps: int = 1
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.ir, SequenceIR):
+            raise TypeError("ir must be a spin_dynamics.sequences.SequenceIR")
+        if self.system_frequency_hz is not None and (
+            not np.isfinite(self.system_frequency_hz)
+            or self.system_frequency_hz <= 0.0
+        ):
+            raise ValueError("system_frequency_hz must be finite and positive when set")
+        if not isinstance(self.walkers_per_cell, int) or self.walkers_per_cell <= 0:
+            raise ValueError("walkers_per_cell must be a positive integer")
+        if self.seed is not None and (
+            not isinstance(self.seed, int) or self.seed < 0
+        ):
+            raise ValueError("seed must be a non-negative integer when set")
+        if self.boundary not in ("reflect", "periodic", "clip"):
+            raise ValueError("boundary must be 'reflect', 'periodic', or 'clip'")
+        if not isinstance(self.default_substeps, int) or self.default_substeps <= 0:
+            raise ValueError("default_substeps must be a positive integer")
+
+
 SEQUENCE_TYPES: tuple[type, ...] = (
     CPMG,
     CPMGTrain,
@@ -779,6 +907,7 @@ SEQUENCE_TYPES: tuple[type, ...] = (
     ESRHYSCORE,
     ESRDaviesENDOR,
     ESRMimsENDOR,
+    SequenceIRExecution,
 )
 
 

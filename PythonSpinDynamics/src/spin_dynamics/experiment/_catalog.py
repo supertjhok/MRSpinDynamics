@@ -19,7 +19,12 @@ from spin_dynamics.experiment.serialization import register_serializable
 from spin_dynamics.esr import ESRSpinSystem, ESRTransition
 from spin_dynamics.esr.pulsed import ESRFIDResult, ESRHahnEchoResult
 from spin_dynamics.esr.systems import ESREigensystem
-from spin_dynamics.experiment import esr_adapter, esr_multidim_adapter, nqr_adapter
+from spin_dynamics.experiment import (
+    esr_adapter,
+    esr_multidim_adapter,
+    nqr_adapter,
+    sequence_adapter,
+)
 from spin_dynamics.experiment.specs import (
     CPMG,
     CPMGImaging,
@@ -41,6 +46,7 @@ from spin_dynamics.experiment.specs import (
     NQRPopulationTransfer,
     PGSE,
     PGSEWalkers,
+    SequenceIRExecution,
 )
 from spin_dynamics.experiment.wiring import solve_for_experiment
 from spin_dynamics.nqr import QuadrupolarSite
@@ -51,6 +57,14 @@ from spin_dynamics.esr.eseem import HyperfineCoupling
 from spin_dynamics.esr.endor import EndorSpectrum
 from spin_dynamics.nqr.systems import NQREigensystem, NQRTransition
 from spin_dynamics.noise import NoiseMetadata, NoiseSpec
+from spin_dynamics.sequences import (
+    ADCEvent,
+    GradientWaveform,
+    HardwareEffectsPolicy,
+    RFPulse,
+    SequenceBlock,
+    SequenceIR,
+)
 from spin_dynamics.parameters import (
     set_params_ideal,
     set_params_matched_orig,
@@ -115,6 +129,7 @@ register_result_type(esr_multidim_adapter.ESRHYSCOREResult)
 register_result_type(EndorSpectrum)
 register_result_type(PGSEMomentResult)
 register_result_type(PGSEWalkerResult)
+register_result_type(sequence_adapter.SequenceIRResult)
 
 register_serializable(NoiseSpec)
 register_serializable(NoiseMetadata)
@@ -127,6 +142,12 @@ register_serializable(ESRSpinSystem)
 register_serializable(ESRTransition)
 register_serializable(ESREigensystem)
 register_serializable(HyperfineCoupling)
+register_serializable(HardwareEffectsPolicy)
+register_serializable(RFPulse)
+register_serializable(GradientWaveform)
+register_serializable(ADCEvent)
+register_serializable(SequenceBlock)
+register_serializable(SequenceIR)
 
 _ACQ_GRID = frozenset({"acquisition.numpts", "acquisition.maxoffs"})
 _ACQ_REPHASE = frozenset(
@@ -530,6 +551,42 @@ register_workflow(
         func=nqr_adapter.simulate_sorc,
         build_kwargs=nqr_adapter.sorc_kwargs,
         honors=_NQR_HONORS,
+    )
+)
+
+
+def _sequence_ir_cost(experiment: Experiment) -> CostModel:
+    compiled = sequence_adapter.compile_for_experiment(experiment)
+    sequence = experiment.sequence
+    domain = experiment.sample.sequence_domain
+    particles = int(np.count_nonzero(domain.density > 0.0)) * sequence.walkers_per_cell
+    intervals = max(1, compiled.durations_seconds.size)
+    units = float(particles * intervals * sequence.default_substeps)
+    memory = particles * 112 + intervals * 96 + compiled.adc.times_seconds.size * 64
+    return CostModel(
+        work_units=units,
+        memory_bytes=memory,
+        notes=("compiled SequenceIR on an explicit moving-isochromat domain",),
+    )
+
+
+register_workflow(
+    WorkflowEntry(
+        name="run_sequence_ir",
+        sequence_type=SequenceIRExecution,
+        probe="ideal",
+        func=sequence_adapter.run_sequence_ir,
+        build_kwargs=sequence_adapter.sequence_kwargs,
+        honors=frozenset(
+            {
+                "sample.t1_seconds",
+                "sample.t2_seconds",
+                "sample.diffusion_coefficient",
+                "sample.sequence_domain",
+                "acquisition.noise",
+            }
+        ),
+        cost=_sequence_ir_cost,
     )
 )
 register_workflow(

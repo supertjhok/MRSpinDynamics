@@ -28,6 +28,8 @@ from spin_dynamics.experiment import (
     PGSE,
     PGSEWalkers,
     Sample,
+    SequenceDomain,
+    SequenceIRExecution,
     SerializationError,
     SolenoidCoil,
     TxCoil,
@@ -39,6 +41,24 @@ from spin_dynamics.experiment import (
     result_fingerprint,
 )
 from spin_dynamics.noise import NoiseSpec
+from spin_dynamics.motion import (
+    initialize_ensemble_from_domain,
+    make_motion_field_maps,
+)
+from spin_dynamics.fields.domain import SpatialDomain
+from spin_dynamics.sequences import (
+    ADCEvent,
+    GradientWaveform,
+    HardwareEffectsPolicy,
+    RFPulse,
+    SequenceBlock,
+    SequenceIR,
+    compile_sequence,
+    compiled_to_motion_steps,
+    parse_pulseq,
+    run_motion_sequence,
+    serialize_pulseq,
+)
 
 PROBES = ("ideal", "tuned", "untuned", "matched")
 
@@ -1411,13 +1431,187 @@ def test_esr_json_and_save_round_trip(tmp_path) -> None:
     assert np.array_equal(rerun.result.signal, record.result.signal)
 
 
+def _general_ir(*, hardware_effects=None) -> SequenceIR:
+    return SequenceIR(
+        blocks=(
+            SequenceBlock(
+                duration_seconds=1e-3,
+                rf=RFPulse([250.0j], dwell_seconds=1e-3),
+                label="excitation",
+            ),
+            SequenceBlock(
+                duration_seconds=2e-3,
+                adc=ADCEvent(
+                    2,
+                    dwell_seconds=1e-3,
+                    phase_offset_rad=0.2,
+                    phase_offsets_rad=[0.0, np.pi / 2.0],
+                ),
+                label="readout",
+            ),
+        ),
+        hardware_effects=(
+            HardwareEffectsPolicy()
+            if hardware_effects is None
+            else hardware_effects
+        ),
+    )
+
+
+def _general_domain() -> SequenceDomain:
+    return SequenceDomain(
+        axes=(np.array([-1e-3, 1e-3]),),
+        density=np.array([0.4, 0.6]),
+    )
+
+
+@pytest.mark.smoke
+def test_sequence_ir_facade_matches_direct_motion_backend() -> None:
+    ir = _general_ir()
+    experiment = Experiment(
+        sequence=SequenceIRExecution(ir=ir),
+        sample=Sample(sequence_domain=_general_domain()),
+    )
+    plan = experiment.plan()
+    assert plan.ok
+    assert plan.workflow == "run_sequence_ir"
+    finding = next(item for item in plan.findings if item.rule == "sequence_ir")
+    assert finding.details["adc_samples"] == 2
+
+    record = experiment.run()
+    compiled = compile_sequence(ir)
+    domain = SpatialDomain(_general_domain().axes)
+    ensemble = initialize_ensemble_from_domain(
+        domain, _general_domain().density
+    )
+    fields = make_motion_field_maps(domain)
+    direct = run_motion_sequence(
+        ensemble,
+        fields,
+        compiled_to_motion_steps(compiled, spatial_dimensions=1),
+    )
+    expected = direct.signal * np.exp(-1j * compiled.adc.phase_offsets_rad)
+    assert np.array_equal(record.result.clean_signal, expected)
+    assert np.array_equal(record.result.signal, expected)
+    assert np.array_equal(
+        record.result.sample_times_seconds, compiled.adc.times_seconds
+    )
+    assert all(label.startswith("readout:") for label in record.result.sample_labels)
+
+
+@pytest.mark.smoke
+def test_sequence_ir_gradient_channel_mapping_and_adc_frequency_phase() -> None:
+    ir = SequenceIR(
+        blocks=(
+            SequenceBlock(
+                duration_seconds=1e-3,
+                gradients=(
+                    None,
+                    None,
+                    GradientWaveform([7.0], dwell_seconds=1e-3),
+                ),
+                adc=ADCEvent(
+                    1,
+                    dwell_seconds=1e-3,
+                    frequency_offset_hz=100.0,
+                    phase_offset_rad=0.2,
+                ),
+            ),
+        )
+    )
+    compiled = compile_sequence(ir)
+    steps = compiled_to_motion_steps(
+        compiled, spatial_dimensions=2, gradient_axes=(0, 2)
+    )
+    assert steps[0].gradient == pytest.approx((0.0, 2.0 * np.pi * 7.0))
+    assert compiled.adc.phase_offsets_rad[0] == pytest.approx(
+        0.2 + 2.0 * np.pi * 100.0 * 0.5e-3
+    )
+
+
+@pytest.mark.smoke
+def test_sequence_ir_facade_round_trip_noise_and_reproduction(tmp_path) -> None:
+    experiment = Experiment(
+        sequence=SequenceIRExecution(ir=_general_ir(), seed=19),
+        sample=Sample(sequence_domain=_general_domain()),
+        acquisition=Acquisition(noise=NoiseSpec(sigma=0.01, seed=23)),
+    )
+    assert Experiment.from_json(experiment.to_json()) == experiment
+    record = experiment.run()
+    assert not np.array_equal(record.result.signal, record.result.clean_signal)
+    path = tmp_path / "sequence-ir.npz"
+    record.save(str(path))
+    loaded = load_run(str(path))
+    assert loaded.unsaved_result_fields == ()
+    assert loaded.experiment == experiment
+    assert loaded.result_matches is True
+    assert loaded.verify_reproduction().matches
+
+
+@pytest.mark.smoke
+def test_sequence_ir_facade_executes_pulseq_round_trip() -> None:
+    native = SequenceIR(
+        blocks=(
+            SequenceBlock(
+                duration_seconds=1e-3,
+                rf=RFPulse([250.0j], dwell_seconds=1e-3),
+            ),
+            SequenceBlock(
+                duration_seconds=2e-3,
+                adc=ADCEvent(2, dwell_seconds=1e-3),
+            ),
+        ),
+        definitions={
+            "BlockDurationRaster": 1e-3,
+            "GradientRasterTime": 1e-3,
+            "RadiofrequencyRasterTime": 1e-3,
+        },
+    )
+    pulseq = parse_pulseq(serialize_pulseq(native))
+    experiment = Experiment(
+        sequence=SequenceIRExecution(ir=pulseq),
+        sample=Sample(sequence_domain=_general_domain()),
+    )
+    plan = experiment.plan()
+    finding = next(item for item in plan.findings if item.rule == "sequence_ir")
+    assert plan.ok
+    assert finding.details["source_format"] == "pulseq"
+    assert experiment.run().result.signal.size == 2
+
+
+@pytest.mark.smoke
+def test_sequence_ir_facade_rejects_missing_domain_and_probe_effects() -> None:
+    missing = Experiment(sequence=SequenceIRExecution(ir=_general_ir())).plan()
+    assert not missing.ok
+    assert any("sequence_domain" in error for error in missing.errors)
+
+    policy = HardwareEffectsPolicy(transmit="apply")
+    unsupported = Experiment(
+        sequence=SequenceIRExecution(ir=_general_ir(hardware_effects=policy)),
+        sample=Sample(sequence_domain=_general_domain()),
+    ).plan()
+    assert not unsupported.ok
+    assert any("probe hardware effects" in error for error in unsupported.errors)
+
+    extended = Experiment(
+        sequence=SequenceIRExecution(
+            ir=SequenceIR(
+                blocks=(SequenceBlock(1e-3, extensions=("custom",)),)
+            )
+        ),
+        sample=Sample(sequence_domain=_general_domain()),
+    ).plan()
+    assert not extended.ok
+    assert any("block extensions" in error for error in extended.errors)
+
+
 @pytest.mark.smoke
 def test_registry_entries_point_at_public_workflows() -> None:
     import spin_dynamics.esr as esr
     import spin_dynamics.nqr as nqr
 
     entries = available_workflows()
-    assert len(entries) == 30
+    assert len(entries) == 31
     public = set(workflows.STABLE_WORKFLOW_API) | set(workflows.EXTENDED_WORKFLOW_API)
     for entry in entries:
         if getattr(nqr, entry.name, None) is not None:
@@ -1434,6 +1628,10 @@ def test_registry_entries_point_at_public_workflows() -> None:
             from spin_dynamics.experiment import esr_multidim_adapter
 
             assert entry.func.__module__ == esr_multidim_adapter.__name__
+        elif entry.sequence_type is SequenceIRExecution:
+            from spin_dynamics.experiment import sequence_adapter
+
+            assert entry.func is sequence_adapter.run_sequence_ir
         elif getattr(esr, entry.name, None) is not None:
             assert getattr(esr, entry.name) is entry.func, entry.name
         else:

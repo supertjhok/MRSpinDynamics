@@ -101,6 +101,7 @@ def compile_sequence(
                     _combined_frequency_offset(block.adc, system_frequency_hz)
                 )
                 phase = _combined_phase_offset(block.adc, system_frequency_hz)
+                phase += 2.0 * np.pi * adc_frequencies[-1] * float(relative_time)
                 if phase_shape is not None:
                     phase += float(phase_shape[sample_index])
                 adc_phases.append(phase)
@@ -146,6 +147,7 @@ def compiled_to_motion_steps(
     compiled: CompiledSequence,
     *,
     spatial_dimensions: int = 2,
+    gradient_axes: tuple[int, ...] | None = None,
 ):
     """Adapt compiled intervals to the existing moving-isochromat engine.
 
@@ -170,24 +172,30 @@ def compiled_to_motion_steps(
 
     if spatial_dimensions not in (1, 2, 3):
         raise ValueError("spatial_dimensions must be 1, 2, or 3")
+    axes = tuple(range(spatial_dimensions)) if gradient_axes is None else gradient_axes
+    if len(axes) != spatial_dimensions or any(axis not in (0, 1, 2) for axis in axes):
+        raise ValueError("gradient_axes must select one physical channel per dimension")
+    if len(set(axes)) != len(axes):
+        raise ValueError("gradient_axes must not contain duplicates")
     adc_counts = _adc_counts_at_interval_ends(compiled)
     steps = []
     for index, duration in enumerate(compiled.durations_seconds):
         rf = complex(compiled.rf_hz[index])
         count = int(adc_counts[index])
+        block_label = compiled.block_labels[int(compiled.block_indices[index])]
         steps.append(
             MotionSequenceStep(
                 duration=float(duration),
                 gradient=tuple(
                     2.0
                     * np.pi
-                    * compiled.gradients_hz_per_m[index, :spatial_dimensions]
+                    * compiled.gradients_hz_per_m[index, list(axes)]
                 ),
                 rf_amplitude=2.0 * np.pi * abs(rf),
                 rf_phase=float(np.angle(rf)) if rf != 0.0 else 0.0,
                 acquire=count > 0,
                 num_samples=count,
-                label=f"compiled_{index}",
+                label=f"{block_label}:{index}",
             )
         )
     return tuple(steps)

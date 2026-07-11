@@ -30,7 +30,7 @@ what supports the underlying scientific or numerical claim.
 | Bloch rotations and acquisition kernels | Core rotations, echo conversion, acquisition, and arb10 propagation reproduce the established MATLAB/Octave implementation. | **B**, **A** | validated |
 | CPMG, FID, imaging, and probe workflows | Public ideal, tuned, untuned, and matched workflow assemblies preserve the reference signal and result conventions. | **B**, **R** | validated |
 | Probe pulse responses and phase programs | Rectangular tuned, untuned, and matched pulse responses and selected phase-program helpers match the MATLAB implementation. | **B** | validated |
-| Sequence IR, Pulseq interchange, and compiler | Core Pulseq 1.4/1.5 events retain timing and metadata through import, compilation, plotting data, and raster-aligned 1.5.0 round trips. | **R** | regression only |
+| Sequence IR, Pulseq interchange, and compiler | Core Pulseq 1.4/1.5 events retain timing and metadata through import, compilation, plotting data, facade execution, and raster-aligned 1.5.0 round trips. | **R** | regression only |
 | PGSE diffusion encoding | The deterministic moment backend follows the Stejskal-Tanner b-value and exp(-bD) attenuation, and free walkers converge toward that result. | **A**, **C** | validated |
 | Moving-isochromat diffusion and boundaries | Seeded particle motion has the expected diffusion statistics, boundary behavior, RF rotation, and static-gradient refocusing limits. | **A**, **R** | validated |
 | Flow washout and transit polarization | Plug and laminar pipe washout and flux-weighted transit polarization follow their analytical distributions and Monte Carlo estimates. | **A**, **C** | validated |
@@ -89,14 +89,14 @@ what supports the underlying scientific or numerical claim.
 
 ### Sequence IR, Pulseq interchange, and compiler
 
-- **Claim:** Core Pulseq 1.4/1.5 events retain timing and metadata through import, compilation, plotting data, and raster-aligned 1.5.0 round trips.
+- **Claim:** Core Pulseq 1.4/1.5 events retain timing and metadata through import, compilation, plotting data, facade execution, and raster-aligned 1.5.0 round trips.
 - **Evidence:** R (regression only)
-- **Basis:** Hand-audited Pulseq text fixtures, round-trip checks, exact timing assertions, and signature verification.
+- **Basis:** Hand-audited Pulseq text fixtures, round-trip checks, exact timing assertions, moving-isochromat facade parity, and signature verification.
 - **Tested range:** Core RF, arbitrary/trapezoid gradients, ADC, compressed shapes, offsets, and block timing.
 - **Metric:** Exact metadata/timing invariants and numerical waveform equality
 - **Tolerance:** Exact for discrete metadata; 1e-12 seconds or tighter for timing comparisons.
 - **References:** Pulseq specification 1.4.x and 1.5.0
-- **Reproduce:** [`tests/test_sequence_ir.py::test_imports_pulseq_15_rf_adc_and_compiles`](../tests/test_sequence_ir.py#L215); [`tests/test_sequence_ir.py::test_round_trip_preserves_core_events_and_metadata`](../tests/test_sequence_ir.py#L276); [`tests/test_sequence_ir.py::test_export_signature_covers_sequence_text`](../tests/test_sequence_ir.py#L342)
+- **Reproduce:** [`tests/test_sequence_ir.py::test_imports_pulseq_15_rf_adc_and_compiles`](../tests/test_sequence_ir.py#L215); [`tests/test_sequence_ir.py::test_round_trip_preserves_core_events_and_metadata`](../tests/test_sequence_ir.py#L276); [`tests/test_sequence_ir.py::test_export_signature_covers_sequence_text`](../tests/test_sequence_ir.py#L342); [`tests/test_experiment.py::test_sequence_ir_facade_matches_direct_motion_backend`](../tests/test_experiment.py#L1469); [`tests/test_experiment.py::test_sequence_ir_facade_executes_pulseq_round_trip`](../tests/test_experiment.py#L1552)
 - **Limitations:** No independent scanner/vendor execution comparison yet. Optional extensions are retained but not executed.
 
 ### PGSE diffusion encoding
@@ -260,11 +260,11 @@ what supports the underlying scientific or numerical claim.
 - **Claim:** Facade routes reproduce their direct workflow calls and preserve specifications, configs, arrays, and provenance through round trips.
 - **Evidence:** R (regression only)
 - **Basis:** Bitwise/numerical route parity, validation-rule tests, and JSON/TOML/NPZ round trips.
-- **Tested range:** Registered CPMG, imaging, deterministic/walker PGSE, NQR, and ESR routes.
+- **Tested range:** Registered CPMG, imaging, deterministic/walker PGSE, NQR, ESR, and general SequenceIR/Pulseq routes.
 - **Metric:** Native-result equality and serialization invariants
 - **Tolerance:** Exact for serialized metadata; workflow-specific numerical parity for arrays.
 - **References:** Direct public workflow implementations
-- **Reproduce:** [`tests/test_experiment.py::test_pgse_moment_parity_and_plan`](../tests/test_experiment.py#L753); [`tests/test_experiment.py::test_pgse_walkers_with_flow_matches_direct_workflow`](../tests/test_experiment.py#L822); [`tests/test_experiment.py::test_nqr_slse_reduced_parity`](../tests/test_experiment.py#L984); [`tests/test_experiment.py::test_nqr_fid_parity`](../tests/test_experiment.py#L1061); [`tests/test_experiment.py::test_nqr_population_transfer_parity_and_spin_guard`](../tests/test_experiment.py#L1079); [`tests/test_experiment.py::test_esr_fid_parity`](../tests/test_experiment.py#L1203); [`tests/test_experiment.py::test_esr_cw_sweep_parity_without_fixed_b0`](../tests/test_experiment.py#L1248); [`tests/test_experiment.py::test_esr_deer_parity_and_round_trip`](../tests/test_experiment.py#L1262); [`tests/test_experiment.py::test_esr_two_and_three_pulse_eseem_parity`](../tests/test_experiment.py#L1290); [`tests/test_experiment.py::test_esr_hyscore_parity_and_round_trip`](../tests/test_experiment.py#L1316); [`tests/test_experiment.py::test_esr_endor_parity_and_hyperfine_input_guard`](../tests/test_experiment.py#L1344)
+- **Reproduce:** [`tests/test_experiment.py::test_pgse_moment_parity_and_plan`](../tests/test_experiment.py#L773); [`tests/test_experiment.py::test_pgse_walkers_with_flow_matches_direct_workflow`](../tests/test_experiment.py#L842); [`tests/test_experiment.py::test_nqr_slse_reduced_parity`](../tests/test_experiment.py#L1004); [`tests/test_experiment.py::test_nqr_fid_parity`](../tests/test_experiment.py#L1081); [`tests/test_experiment.py::test_nqr_population_transfer_parity_and_spin_guard`](../tests/test_experiment.py#L1099); [`tests/test_experiment.py::test_esr_fid_parity`](../tests/test_experiment.py#L1223); [`tests/test_experiment.py::test_esr_cw_sweep_parity_without_fixed_b0`](../tests/test_experiment.py#L1268); [`tests/test_experiment.py::test_esr_deer_parity_and_round_trip`](../tests/test_experiment.py#L1282); [`tests/test_experiment.py::test_esr_two_and_three_pulse_eseem_parity`](../tests/test_experiment.py#L1310); [`tests/test_experiment.py::test_esr_hyscore_parity_and_round_trip`](../tests/test_experiment.py#L1336); [`tests/test_experiment.py::test_esr_endor_parity_and_hyperfine_input_guard`](../tests/test_experiment.py#L1364); [`tests/test_experiment.py::test_sequence_ir_facade_matches_direct_motion_backend`](../tests/test_experiment.py#L1469); [`tests/test_experiment.py::test_sequence_ir_facade_round_trip_noise_and_reproduction`](../tests/test_experiment.py#L1533)
 - **Limitations:** Facade parity validates delegation, not the physical model underneath each route.
 
 ### Reproducible results and provenance
@@ -276,7 +276,7 @@ what supports the underlying scientific or numerical claim.
 - **Metric:** SHA-256 identity equality and structured reproduction verdict
 - **Tolerance:** Exact canonical metadata and result bytes.
 - **References:** FAIR Guiding Principles for scientific data management
-- **Reproduce:** [`tests/test_experiment.py::test_provenance_fingerprints_are_stable_and_specific`](../tests/test_experiment.py#L131); [`tests/test_experiment.py::test_provenance_classifies_seeded_and_unseeded_randomness`](../tests/test_experiment.py#L166); [`tests/test_experiment.py::test_version_one_run_archive_remains_readable`](../tests/test_experiment.py#L183); [`tests/test_experiment.py::test_archive_fingerprints_detect_spec_and_result_tampering`](../tests/test_experiment.py#L217); [`tests/test_experiment_cli.py::test_cli_run_and_show`](../tests/test_experiment_cli.py#L175)
+- **Reproduce:** [`tests/test_experiment.py::test_provenance_fingerprints_are_stable_and_specific`](../tests/test_experiment.py#L151); [`tests/test_experiment.py::test_provenance_classifies_seeded_and_unseeded_randomness`](../tests/test_experiment.py#L186); [`tests/test_experiment.py::test_version_one_run_archive_remains_readable`](../tests/test_experiment.py#L203); [`tests/test_experiment.py::test_archive_fingerprints_detect_spec_and_result_tampering`](../tests/test_experiment.py#L237); [`tests/test_experiment_cli.py::test_cli_run_and_show`](../tests/test_experiment_cli.py#L203)
 - **Limitations:** Exact computational reproduction does not validate the physical model; unseeded legacy runs cannot be made reproducible after the fact.
 
 ### Numba and JAX acceleration

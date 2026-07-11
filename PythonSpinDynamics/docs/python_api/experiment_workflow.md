@@ -76,6 +76,9 @@ errors; warnings are surfaced but do not block. Current rules:
   recommendation with its reasons.
 - **transport** — reports uniform-flow speed and axis crossing times, and warns
   when reflecting boundaries turn nominal flow into a closed bouncing ensemble.
+- **sequence_ir** — compiles native/Pulseq blocks, reports interval, ADC, and
+  particle counts, and rejects unsupported extensions, probe effects, or noise
+  before dynamics begin.
 
 Set fields the resolved workflow does not consume and `plan()` warns that they
 will be ignored, so mismatched specs never fail silently.
@@ -167,6 +170,43 @@ primary signal/echo arrays and identify the large nested ensemble snapshots as
 unsaved fields; the stored experiment and seed regenerate them exactly. A
 runnable configuration is provided as
 [`examples/experiment_config_pgse_walkers_flow.toml`](../../examples/experiment_config_pgse_walkers_flow.toml).
+
+## General SequenceIR and Pulseq execution
+
+Specialized sequence specs remain the shortest route for established
+workflows, but arbitrary native or Pulseq-imported timelines can now use the
+facade through `SequenceIRExecution`. `SequenceDomain` explicitly supplies the
+spatial axes, density, optional B0/B1 maps and velocity, and physical gradient
+channel mapping. Planning compiles the IR and checks backend policy before any
+walkers are initialized; execution returns demodulated ADC samples and the final
+ensemble, with normal archive provenance and rerun verification.
+
+```python
+import numpy as np
+from spin_dynamics.experiment import (
+    Experiment, Sample, SequenceDomain, SequenceIRExecution,
+)
+from spin_dynamics.sequences import read_pulseq
+
+ir = read_pulseq("experiment.seq")
+x = np.linspace(-5e-3, 5e-3, 51)
+study = Experiment(
+    sequence=SequenceIRExecution(ir=ir, seed=17),
+    sample=Sample(
+        t2_seconds=0.1,
+        sequence_domain=SequenceDomain(
+            axes=(x,), density=np.ones_like(x), gradient_channels=("x",),
+        ),
+    ),
+)
+record = study.run()
+```
+
+The runnable [`experiment_sequence_ir.py`](../../examples/experiment_sequence_ir.py)
+uses the same built-in spin echo as the timeline visualizer, or accepts a
+Pulseq file, and can save both its timeline and a provenance-bearing result.
+The current backend is ideal hardware only and supports white receive noise;
+an IR requiring transmit/receive probe realization fails at plan time.
 
 ## Other engines
 
@@ -287,13 +327,15 @@ A diffusion example is provided as
 one. In Python, `save_config` / `load_config` and `experiment_to_config` /
 `experiment_from_config` expose the same round-trip. This friendly form covers
 the spec fields with scalar or array values (including phantoms and coil
-geometry); a fully general result archive still uses the NPZ/JSON form above.
+geometry). Nested SequenceIR blocks round-trip through JSON; TOML is
+intentionally reserved for the flatter human-authored specs. A fully general
+result archive uses the NPZ/JSON form above.
 
 ## Scope
 
 The facade currently wraps deterministic and random-walker PGSE diffusion with
-uniform 2-D flow, the CPMG family (asymptotic, finite train, and
-inversion-recovery train for ideal/tuned/untuned/matched probes), phase-encoded
-CPMG imaging, pulsed NQR (SLSE and SORC), and pulsed ESR (FID and Hahn echo).
+uniform 2-D flow, the CPMG family, phase-encoded CPMG imaging, the principal
+one- and multidimensional NQR/ESR measurements, and general SequenceIR/Pulseq
+execution on the ideal moving-isochromat backend.
 Design notes and the milestone roadmap are in
 [`../unified_workflow_plan.md`](../unified_workflow_plan.md).

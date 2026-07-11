@@ -695,6 +695,9 @@ class ExampleSmokeTests(unittest.TestCase):
         result = run_example("examples/plot_sequence_timeline.py", "--help")
         self.assertIn("--system-frequency-hz", result.stdout)
         self.assertIn("--hide-blocks", result.stdout)
+        result = run_example("examples/experiment_sequence_ir.py", "--help")
+        self.assertIn("--walkers-per-cell", result.stdout)
+        self.assertIn("--timeline-output", result.stdout)
 
 
 if __name__ == "__main__":

@@ -32,6 +32,13 @@ Reduced-vs-full NQR engine selection from the physics:
 python examples\experiment_nqr_auto_model.py --num-echoes 4
 ```
 
+General native/Pulseq sequence execution, using the same IR for the timeline,
+simulation, result archive, and reproducibility metadata:
+
+```powershell
+python examples\experiment_sequence_ir.py experiment.seq --system-frequency-hz 42580000 --timeline-output results\experiment.png --output results\experiment_run.npz
+```
+
 Config-driven run from a TOML file via the facade CLI
 (`examples\experiment_config_cpmg.toml`):
 

@@ -400,6 +400,42 @@ def transport_rule(experiment: Experiment, entry: WorkflowEntry) -> list[RuleFin
     ]
 
 
+def sequence_ir_rule(experiment: Experiment, entry: WorkflowEntry) -> list[RuleFinding]:
+    """Compile general IR at plan time and reject unsupported backend policy."""
+
+    from spin_dynamics.experiment import sequence_adapter
+    from spin_dynamics.experiment.specs import SequenceIRExecution
+
+    if not isinstance(experiment.sequence, SequenceIRExecution):
+        return []
+    try:
+        compiled, _steps = sequence_adapter.prepare_for_experiment(experiment)
+    except (TypeError, ValueError, NotImplementedError) as exc:
+        return [
+            RuleFinding(rule="sequence_ir", severity="error", message=str(exc))
+        ]
+    return [
+        RuleFinding(
+            rule="sequence_ir",
+            severity="ok",
+            message=(
+                f"compiled {compiled.durations_seconds.size} intervals and "
+                f"{compiled.adc.times_seconds.size} ADC samples for a "
+                f"{len(experiment.sample.sequence_domain.axes)}-D motion backend"
+            ),
+            details={
+                "intervals": int(compiled.durations_seconds.size),
+                "adc_samples": int(compiled.adc.times_seconds.size),
+                "particles": int(
+                    np.count_nonzero(experiment.sample.sequence_domain.density > 0.0)
+                    * experiment.sequence.walkers_per_cell
+                ),
+                "source_format": compiled.source_format,
+            },
+        )
+    ]
+
+
 DEFAULT_RULES: tuple[Rule, ...] = (
     rephasing_rule,
     noise_spec_rule,
@@ -407,6 +443,7 @@ DEFAULT_RULES: tuple[Rule, ...] = (
     nqr_model_rule,
     spectroscopy_inputs_rule,
     transport_rule,
+    sequence_ir_rule,
 )
 
 

@@ -15,7 +15,7 @@ Capability & Evidence & Status & Recorded claim \\
 Bloch rotations and acquisition kernels & B, A & validated & Core rotations, echo conversion, acquisition, and arb10 propagation reproduce the established MATLAB/Octave implementation. \\
 CPMG, FID, imaging, and probe workflows & B, R & validated & Public ideal, tuned, untuned, and matched workflow assemblies preserve the reference signal and result conventions. \\
 Probe pulse responses and phase programs & B & validated & Rectangular tuned, untuned, and matched pulse responses and selected phase-program helpers match the MATLAB implementation. \\
-Sequence IR, Pulseq interchange, and compiler & R & regression only & Core Pulseq 1.4/1.5 events retain timing and metadata through import, compilation, plotting data, and raster-aligned 1.5.0 round trips. \\
+Sequence IR, Pulseq interchange, and compiler & R & regression only & Core Pulseq 1.4/1.5 events retain timing and metadata through import, compilation, plotting data, facade execution, and raster-aligned 1.5.0 round trips. \\
 PGSE diffusion encoding & A, C & validated & The deterministic moment backend follows the Stejskal-Tanner b-value and exp(-bD) attenuation, and free walkers converge toward that result. \\
 Moving-isochromat diffusion and boundaries & A, R & validated & Seeded particle motion has the expected diffusion statistics, boundary behavior, RF rotation, and static-gradient refocusing limits. \\
 Flow washout and transit polarization & A, C & validated & Plug and laminar pipe washout and flux-weighted transit polarization follow their analytical distributions and Monte Carlo estimates. \\

@@ -104,6 +104,11 @@ class RFPulse:
     def end_seconds(self) -> float:
         return float(self.delay_seconds) + self.duration_seconds
 
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, RFPulse):
+            return NotImplemented
+        return _dataclass_values_equal(self, other)
+
 
 @dataclass(frozen=True)
 class GradientWaveform:
@@ -132,6 +137,11 @@ class GradientWaveform:
     @property
     def end_seconds(self) -> float:
         return float(self.delay_seconds) + self.duration_seconds
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, GradientWaveform):
+            return NotImplemented
+        return _dataclass_values_equal(self, other)
 
 
 @dataclass(frozen=True)
@@ -180,6 +190,11 @@ class ADCEvent:
             np.arange(self.num_samples, dtype=np.float64) + 0.5
         )
 
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, ADCEvent):
+            return NotImplemented
+        return _dataclass_values_equal(self, other)
+
 
 @dataclass(frozen=True)
 class SequenceBlock:
@@ -201,6 +216,8 @@ class SequenceBlock:
             raise ValueError("duration_seconds must be finite and non-negative")
         if len(self.gradients) != 3:
             raise ValueError("gradients must contain the x, y, and z channels")
+        object.__setattr__(self, "gradients", tuple(self.gradients))
+        object.__setattr__(self, "extensions", tuple(self.extensions))
         events = [self.rf, *self.gradients, self.adc]
         for event in events:
             if event is not None and event.end_seconds > self.duration_seconds + 1e-12:
@@ -231,6 +248,11 @@ class SequenceIR:
     def duration_seconds(self) -> float:
         return float(sum(block.duration_seconds for block in self.blocks))
 
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, SequenceIR):
+            return NotImplemented
+        return _dataclass_values_equal(self, other)
+
     def plot(self, **kwargs):
         """Plot aligned RF, gradient, and ADC lanes.
 
@@ -248,6 +270,36 @@ def _validate_timing(dwell_seconds: float, delay_seconds: float) -> None:
         raise ValueError("dwell_seconds must be finite and positive")
     if not np.isfinite(delay_seconds) or delay_seconds < 0.0:
         raise ValueError("delay_seconds must be finite and non-negative")
+
+
+def _dataclass_values_equal(left: Any, right: Any) -> bool:
+    """Compare frozen IR records without NumPy's ambiguous array truth value."""
+
+    for name in left.__dataclass_fields__:
+        left_value = getattr(left, name)
+        right_value = getattr(right, name)
+        if isinstance(left_value, np.ndarray) or isinstance(right_value, np.ndarray):
+            if not np.array_equal(left_value, right_value):
+                return False
+        elif isinstance(left_value, Mapping) and isinstance(right_value, Mapping):
+            if left_value.keys() != right_value.keys() or any(
+                not _values_equal(left_value[key], right_value[key])
+                for key in left_value
+            ):
+                return False
+        elif not _values_equal(left_value, right_value):
+            return False
+    return True
+
+
+def _values_equal(left: Any, right: Any) -> bool:
+    if isinstance(left, np.ndarray) or isinstance(right, np.ndarray):
+        return bool(np.array_equal(left, right))
+    if isinstance(left, (tuple, list)) and isinstance(right, (tuple, list)):
+        return len(left) == len(right) and all(
+            _values_equal(a, b) for a, b in zip(left, right)
+        )
+    return bool(left == right)
 
 
 __all__ = [

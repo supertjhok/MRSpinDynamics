@@ -38,6 +38,8 @@ from spin_dynamics.experiment.specs import (
     NQRSORC,
     PGSE,
     PGSEWalkers,
+    SequenceDomain,
+    SequenceIRExecution,
     TransportDomain2D,
     UniformFlow2D,
     non_default_fields,
@@ -195,6 +197,13 @@ def _spec_sanity_errors(experiment: Experiment) -> list[str]:
         errors.append(
             "sequence ESRDEER requires sample.deer_distribution "
             "(a DEERDistribution)"
+        )
+    if isinstance(sequence, SequenceIRExecution) and not isinstance(
+        sample.sequence_domain, SequenceDomain
+    ):
+        errors.append(
+            "sequence SequenceIRExecution requires sample.sequence_domain "
+            "(a SequenceDomain)"
         )
     if isinstance(
         sequence,

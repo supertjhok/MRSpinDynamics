@@ -560,6 +560,7 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `nqr_model_rule(experiment: Experiment, entry: WorkflowEntry) -> list[RuleFinding]` | Run ``select_nqr_model`` at plan time and check the engine dispatch. |
 | function | `spectroscopy_inputs_rule(experiment: Experiment, entry: WorkflowEntry) -> list[RuleFinding]` | Resolve spectroscopy sample objects and transition labels at plan time. |
 | function | `transport_rule(experiment: Experiment, entry: WorkflowEntry) -> list[RuleFinding]` | Report uniform-flow scale and flag closed reflecting transport. |
+| function | `sequence_ir_rule(experiment: Experiment, entry: WorkflowEntry) -> list[RuleFinding]` | Compile general IR at plan time and reject unsupported backend policy. |
 | function | `run_rules(experiment: Experiment, entry: WorkflowEntry, rules: Iterable[Rule] = DEFAULT_RULES) -> list[RuleFinding]` |  |
 
 ## `spin_dynamics.experiment.runner`
@@ -588,6 +589,7 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `TransportDomain2D` | Density and physical axes for 2-D random-walker transport. |
 | class | `UniformFlow2D` | Uniform ``(vx, vz)`` transport velocity in meters per second. |
 | class | `DEERDistribution` | Distance grid and non-negative weights for a DEER experiment. |
+| class | `SequenceDomain` | Spatial sample and field maps for general SequenceIR execution. |
 | class | `SampledB0` | A spatially-varying static field sampled on the imaging plane. |
 | class | `Sample` | Sample description. |
 | class | `Hardware` | Transmit/receive hardware description. |
@@ -611,6 +613,7 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `ESRHYSCORE` | Two-dimensional HYSCORE time grid and spectrum. |
 | class | `ESRDaviesENDOR` | One-dimensional Davies ENDOR radiofrequency sweep. |
 | class | `ESRMimsENDOR` | One-dimensional Mims ENDOR sweep with blind-spot weighting. |
+| class | `SequenceIRExecution` | Execute a backend-neutral :class:`SequenceIR` through the facade. |
 | class | `Experiment` | A complete declarative experiment description. |
 | function | `non_default_fields(experiment: Experiment) -> dict[str, Any]` | Return dotted spec-field names whose values differ from the defaults. |
 
@@ -1467,7 +1470,7 @@ No public classes or functions found.
 | class | `CompiledADC` | Receive samples on the absolute sequence timeline. |
 | class | `CompiledSequence` | Piecewise-constant RF/gradient timeline plus exact ADC sample times. |
 | function | `compile_sequence(sequence: SequenceIR, *, system_frequency_hz: float | None = None) -> CompiledSequence` | Compile an IR into piecewise-constant intervals. |
-| function | `compiled_to_motion_steps(compiled: CompiledSequence, *, spatial_dimensions: int = 2)` | Adapt compiled intervals to the existing moving-isochromat engine. |
+| function | `compiled_to_motion_steps(compiled: CompiledSequence, *, spatial_dimensions: int = 2, gradient_axes: tuple[int, ...] | None = None)` | Adapt compiled intervals to the existing moving-isochromat engine. |
 
 ## `spin_dynamics.sequences.ir`
 
