@@ -139,8 +139,10 @@ does not silently round the sequence.
   three subprojects into a single predict-simulate-validate loop: it converts
   ab initio EFG/`C_Q` values into spin-dynamics NQR sites, checks the two
   Hamiltonian implementations against each other, and compares predicted lines
-  against the measured database. See `docs/roadmap.md` for the workspace-level
-  survey and plan.
+  against the measured database. Its target survey ranks structure-backed
+  compounds by the next missing DFT or database input, while its uncertainty
+  layer propagates explicit `(C_Q, eta)` distributions into simulated line
+  intervals. See `docs/roadmap.md` for the workspace-level survey and plan.
 - `References/` is mostly a local, ignored source-material archive used during
   development. Published papers, books, copied reference documents, and large
   source captures should not be committed. The folder does track a small number

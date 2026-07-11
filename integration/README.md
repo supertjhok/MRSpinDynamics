@@ -41,6 +41,22 @@ otherwise-independent subprojects into a single
 - **End-to-end report** (`pipeline`): pairs predicted lines against measured
   lines and reports per-line and RMS differences.
 
+- **Integration target survey** (`coverage`): joins the complete
+  `QuadrupolarDFT/structures` inventory, curated DFT result summaries, and
+  measured database lines. It ranks each material by the next missing input,
+  loads completed DFT rows without hard-coded parameters, and executes every
+  comparison that has a calibrated spin and matching isotope-tagged
+  measurements. This turns the one-material demonstration into a maintained
+  expansion queue.
+
+- **Uncertainty propagation** (`uncertainty`): accepts a correlated distribution
+  over DFT `C_Q` and `eta`, propagates it through both independent Hamiltonian
+  implementations, and reports central prediction intervals for every NQR line.
+  Measured database lines can then be scored against those intervals rather than
+  only against a point prediction. The API deliberately requires uncertainty
+  widths to be supplied; it does not pretend that one DFT calculation determines
+  its own error bar.
+
 - **Database self-consistency validator** (`database_validation`): runs the
   *whole* database through the simulator. Each curated site stores both
   `(qcc, eta)` and its measured lines; those must agree. `validate_database()`
@@ -95,6 +111,31 @@ three sides. Feeding the **literature** `C_Q`/`eta` through the loop reproduces
 the measured 1.038 / 3.604 / 4.642 MHz lines to < 1 kHz; the **starter DFT
 geometry** lands ~600 kHz off because it underestimates `eta` (a known limit of
 that unrelaxed structure, documented in `QuadrupolarDFT`).
+
+Survey all structure-backed targets and execute every available comparison:
+
+```bash
+python integration/examples/integration_target_survey.py
+```
+
+The current survey finds two executable NaNO2 DFT-summary comparisons and five
+additional structure-backed compounds with isotope-tagged measurements ready
+for DFT: acetaminophen/paracetamol, famotidine, glycine, L-proline, and melamine.
+Benzocaine, caffeine, and nicotinamide have measured lines whose isotope metadata
+must be curated before a defensible simulation match; pure
+hexamethylenetetramine needs a measured record. The report is run in integration
+CI so new structures, results, or database metadata immediately change the
+visible queue.
+
+An uncertainty-aware sensitivity example is also available:
+
+```bash
+python integration/examples/nano2_uncertainty.py
+```
+
+Its parameter widths are explicitly illustrative. A quantitative use should
+derive them from basis/k-point convergence, structural ensembles, functional
+variation, or another documented uncertainty model.
 
 For the database-wide consistency scan:
 

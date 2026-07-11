@@ -41,7 +41,7 @@ class MeasuredLine:
     """One measured NQR line for a compound, with its site context."""
 
     compound: str
-    isotope: str
+    isotope: str | None
     site_label: str | None
     frequency_hz: float
     qcc_hz: float | None
@@ -81,7 +81,8 @@ def measured_lines(
     """
 
     query = """
-        SELECT s.isotope        AS isotope,
+        SELECT c.canonical_name AS canonical_name,
+               s.isotope        AS isotope,
                s.site_label      AS site_label,
                s.qcc_khz         AS qcc_khz,
                s.eta             AS eta,
@@ -108,14 +109,15 @@ def measured_lines(
         if row["frequency_khz"] is None:
             continue
         frequency_hz = float(row["frequency_khz"]) * 1.0e3
-        key = (row["isotope"], frequency_hz)
+        isotope_value = str(row["isotope"]) if row["isotope"] is not None else None
+        key = (isotope_value or "", frequency_hz)
         if key in seen:
             continue
         seen.add(key)
         results.append(
             MeasuredLine(
-                compound=compound,
-                isotope=row["isotope"],
+                compound=str(row["canonical_name"]),
+                isotope=isotope_value,
                 site_label=row["site_label"],
                 frequency_hz=frequency_hz,
                 qcc_hz=(

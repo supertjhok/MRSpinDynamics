@@ -25,6 +25,7 @@ class DatabasePipelineTests(unittest.TestCase):
     def test_match_by_formula(self) -> None:
         lines = measured_lines("NaNO2", isotope="14N")
         self.assertTrue(lines)
+        self.assertTrue(all(line.compound == "Sodium Nitrite" for line in lines))
 
     def test_literature_params_reproduce_measured_lines(self) -> None:
         # Feeding the literature C_Q/eta through the simulator should land

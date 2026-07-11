@@ -43,6 +43,16 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
   gradient directions, zero-q normalization, elliptical-pore reconstruction
   validation, and a runnable walker-to-pore-imaging example.
 
+### Integration
+
+- Added a structure-to-validation target survey that joins the DFT structure
+  inventory, curated EFG summaries, and measured NQR lines; automatically runs
+  all comparison-ready summaries; and exposes the next five material DFT
+  targets plus missing database metadata.
+- Added correlated `(C_Q, eta)` uncertainty propagation through both independent
+  Hamiltonian implementations, producing per-line prediction intervals and
+  measured-line coverage reports.
+
 ## [0.2.0] - 2026-07-05
 
 A large feature release built on the v0.1.0 foundation. The headline addition is

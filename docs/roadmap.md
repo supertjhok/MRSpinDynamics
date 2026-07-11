@@ -269,9 +269,28 @@ checked Landolt sets are flagged — e.g. a `QCC` OCR error (313 MHz for a line 
 ~2.7 MHz). Regenerate with
 `integration/scripts/write_landolt_review_flags.py`.
 
-Later increments: feed DFT η/C_Q distributions into the simulator's
-EFG-broadening models; widen DFT coverage so the predict-vs-measured loop runs
-over more than NaNO₂; extend Landolt checking beyond ¹⁴N once spin ≥ 5/2 lands.
+Fifth increment (done): **structure-to-validation target survey**. The
+`mr_integration.coverage` layer joins the `QuadrupolarDFT/structures` inventory,
+curated DFT summary rows, and isotope-tagged database measurements. It executes
+all comparison-ready summary records and classifies every structure-backed
+material by its next missing input. The current queue exposes five compounds
+ready for DFT (paracetamol, famotidine, glycine, L-proline, and melamine), three
+whose measured lines first need isotope metadata, and one without a pure-compound
+measurement. Run `integration/examples/integration_target_survey.py`; CI runs
+the same survey so coverage growth remains visible.
+
+Sixth increment (done): **uncertainty-aware line comparison**.
+`mr_integration.uncertainty` propagates a correlated distribution over DFT
+`(C_Q, eta)` through both Hamiltonian implementations, produces central
+prediction intervals for each transition, and scores measured lines for
+interval coverage. The API requires an explicit uncertainty model rather than
+manufacturing error bars from a point calculation; the NaNO2 example uses
+clearly labelled illustrative widths.
+
+Later increments: execute the new DFT queue; derive calibrated `(C_Q, eta)`
+uncertainties from convergence and structural/functional ensembles; feed full
+site distributions into the simulator's EFG-broadening models; extend Landolt
+checking beyond ¹⁴N once spin ≥ 5/2 lands.
 
 ## 7. Next scientific frontiers (creative roadmap)
 
