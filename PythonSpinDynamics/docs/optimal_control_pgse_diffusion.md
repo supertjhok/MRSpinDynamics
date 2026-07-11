@@ -1,6 +1,10 @@
 # PGSE Optimal Control: q-vector + detected-SNR objectives (Milestone 5)
 
-Design/progress note for the diffusion (PGSE) capstone of
+> **Status (audited 2026-07-11): implemented.** The q-vector, diffusion, and
+> detected-SNR objectives described here are available and exercised by the
+> PGSE optimal-control example. This page is an engineering record.
+
+Design and validation note for the diffusion (PGSE) capstone of
 `spin_dynamics.optimal_control`: co-optimize the RF pulses **and** the gradient
 waveform of a pulsed-gradient spin echo so that, on realistic hardware (a tuned
 RF probe on transmit *and* receive, a gradient driver with `L/R` slew + eddy

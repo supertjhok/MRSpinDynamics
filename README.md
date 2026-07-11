@@ -119,8 +119,6 @@ does not silently round the sequence.
 
 ## Repository Map
 
-## Repository Map
-
 - `MATLABSpinDynamics/` is the original MATLAB implementation. It remains the
   reference point for validated Bloch-equation NMR workflows and historical
   examples. Many core routines also run in GNU Octave; optimization, MATLAB
@@ -151,6 +149,7 @@ does not silently round the sequence.
 
 ## Documentation and Development
 
+- [Documentation guide and document-status map](docs/documentation_guide.md)
 - [Python user manual (PDF)](PythonSpinDynamics/docs/user_manual.pdf) and
   [LaTeX source](PythonSpinDynamics/docs/user_manual.tex)
 - [Python package README](PythonSpinDynamics/README.md),

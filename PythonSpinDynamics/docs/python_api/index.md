@@ -3,8 +3,9 @@
 This directory documents the Python port as it exists today. The MATLAB
 implementation under `../MATLABSpinDynamics/Version_3/code`
 remains the reference implementation, but the major Version 3 workflow port is
-now mostly complete; remaining work is mainly validation depth, specialized
-variants, packaging, and performance.
+now mostly complete. Current work emphasizes validation depth, coherent
+documentation, broader static typing, package-index publication, and new
+physics rather than baseline MATLAB parity.
 
 ## Start Here
 

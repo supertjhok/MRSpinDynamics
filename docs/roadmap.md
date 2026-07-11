@@ -1,6 +1,6 @@
 # MRSpinDynamics — Repository Survey and Roadmap
 
-_Last updated: 2026-07-01_
+_Last updated: 2026-07-11_
 
 This is a workspace-level survey and forward plan. Subproject-specific
 status lives in each subproject's own docs (e.g.
@@ -29,11 +29,12 @@ work is therefore still **structural and cross-cutting**: connect subprojects,
 validate new physics against measurements, and make the mature Python surface
 easier to install, cite, and use.
 
-## 2. The headline gap: the subprojects don't talk to each other
+## 2. The cross-project loop (first implementation complete)
 
 The repository contains the three pieces of a complete **predict → simulate →
-validate** loop, but (as of this survey) **zero cross-project imports** connect
-them:
+validate** loop. The first working bridge now lives in `integration/`; it
+connects all three components for NaNO2 and provides reusable conversion,
+cross-validation, database-query, and reporting helpers:
 
 - `QuadrupolarDFT` computes a *predicted* NQR frequency from first principles
   (EFG → C_Q, η → ν).
@@ -41,9 +42,9 @@ them:
   (C_Q, η, spin).
 - `NQRDatabase` holds the *measured* ν for 184 compounds, with citations.
 
-Closing this loop is the single highest-science-value, modest-code improvement
-available. A ready-made first case already exists on all three sides: **NaNO₂
-¹⁴N**.
+The seed case is **NaNO2 14N**. The next scientific step is breadth: more DFT
+systems, measured benchmarks, and uncertainty-aware comparison rather than a
+second one-off bridge.
 
 - DFT (ICSD 82857 run): C_Q ≈ −5.034 MHz, η ≈ 0.112 → lines 0.282, 3.635,
   3.916 MHz.
@@ -219,13 +220,13 @@ Next increments:
 - Add sampling-window and missing-k-space studies, since real q-space pore
   imaging is often limited more by q-coverage and SNR than by the ideal inverse.
 
-## 6. The `integration/` layer (in progress)
+## 6. The `integration/` layer (operational; expanding)
 
 A new top-level package, `mr_integration`, that depends on both
 `spin_dynamics` and `quadrupolar_dft` and reads the NQR SQLite export. It is the
 concrete realization of opportunity #1.
 
-Scope of the first increment:
+Implemented foundation:
 
 - `conversions` — validated C_Q ↔ ν_Q mapping and a `quadrupolar_site_from_cq`
   / `quadrupolar_site_from_efg_record` builder that returns a

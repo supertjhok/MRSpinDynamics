@@ -299,6 +299,7 @@ def _diagnostics(
     return diag
 
 
+# Keep CLI choices together so scientific defaults are easy to find and override.
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--sample-rate-khz", type=float, default=50.0)
@@ -338,6 +339,7 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     args = _parse_args()
     plt = load_matplotlib(headless=args.output is not None)
@@ -348,6 +350,7 @@ def main() -> None:
     _print_summary(diag, args)
 
 
+# Keep visualization separate from simulation for headless runs and reuse.
 def _plot(
     plt,
     record: dict[str, object],

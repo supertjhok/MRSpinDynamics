@@ -77,6 +77,7 @@ def maxwell_pair_path(radius, separation, n_per_turn):
     return np.vstack([top, bot[1:]])
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--diameter-mm", type=float, default=20.0)

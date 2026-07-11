@@ -1,4 +1,9 @@
-"""Plot pulsed ESR FID and Hahn-echo simulations for a spin-1/2 electron."""
+"""Plot pulsed ESR FID and Hahn-echo simulations for a spin-1/2 electron.
+
+Follow how the electron-spin model and field or pulse settings lead to the
+reported ESR response. Run ``python examples/plot_esr_pulsed_echo.py --help`` to
+see the adjustable inputs.
+"""
 
 from __future__ import annotations
 
@@ -26,6 +31,7 @@ def _normalized(values: np.ndarray) -> np.ndarray:
     return values / scale if scale > 0 else values
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--g", type=float, default=2.00231930436256)

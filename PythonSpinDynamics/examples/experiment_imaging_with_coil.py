@@ -37,6 +37,7 @@ def disc_phantom(n: int) -> np.ndarray:
     return ((x[:, None] ** 2 + x[None, :] ** 2) < 0.7).astype(float)
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--grid", type=int, default=8, help="Phantom grid size.")

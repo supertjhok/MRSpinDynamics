@@ -1,4 +1,9 @@
-"""Plot J-editing echo amplitudes under B0/B1 field spread."""
+"""Plot J-editing echo amplitudes under B0/B1 field spread.
+
+Trace the coordinate and field conventions from model construction to the image or
+field diagnostic before changing the geometry. Run ``python
+examples/plot_j_editing_field_spread.py --help`` to see the adjustable inputs.
+"""
 
 from __future__ import annotations
 
@@ -89,6 +94,7 @@ def _echo_curve(
     return np.asarray(values, dtype=np.float64)
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--j-hz", type=float, default=7.0, help="Two-spin J coupling in Hz.")

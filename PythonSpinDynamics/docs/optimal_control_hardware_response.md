@@ -1,6 +1,10 @@
 # Optimal-Control Hardware Response (GRAPE Milestone 4)
 
-This note is the design/progress document for folding **probe and driver
+> **Status (audited 2026-07-11): implemented.** Probe, gradient-driver,
+> eddy-current, and receiver-response models are integrated into the optimal
+> control layer. This is the milestone's design and validation record.
+
+This note records the design for folding **probe and driver
 dynamics** into the `spin_dynamics.optimal_control` GRAPE engine. It covers the
 RF probe (tuned / untuned / matched), a *new* gradient-driver model
 (RL time constant plus eddy-current terms), and a receiver transfer function

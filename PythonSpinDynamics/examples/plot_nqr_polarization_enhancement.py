@@ -47,6 +47,7 @@ class EnhancementSweep:
     coupling_hz: float
 
 
+# Keep CLI choices together so scientific defaults are easy to find and override.
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
@@ -260,6 +261,7 @@ def _resolve_coupling(args: argparse.Namespace):
     return 1000.0, None
 
 
+# Keep visualization separate from simulation for headless runs and reuse.
 def _plot(plt, sweep: EnhancementSweep, args: argparse.Namespace):
     ref = sweep.reference
     labels = ref.line_labels
@@ -358,6 +360,7 @@ def _plot(plt, sweep: EnhancementSweep, args: argparse.Namespace):
     return fig
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     args = _parse_args()
     if args.speed_points < 2:

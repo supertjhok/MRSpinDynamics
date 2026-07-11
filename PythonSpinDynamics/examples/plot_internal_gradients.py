@@ -59,6 +59,7 @@ class InternalGradientSimulation:
     b0_scaling_slope: float
 
 
+# Keep CLI choices together so scientific defaults are easy to find and override.
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
@@ -253,6 +254,7 @@ def _decay_rate(args, field, inclusions, half, radius) -> float:
     return float(-slope)
 
 
+# Run the numerical experiment without plotting so its outputs remain reusable.
 def _simulate(args: argparse.Namespace) -> InternalGradientSimulation:
     from spin_dynamics.susceptibility import internal_gradient_distribution
 
@@ -298,6 +300,7 @@ def _simulate(args: argparse.Namespace) -> InternalGradientSimulation:
     )
 
 
+# Keep visualization separate from simulation for headless runs and reuse.
 def _plot_results(plt, sim: InternalGradientSimulation):
     fig, axes = plt.subplots(1, 3, figsize=(15.0, 4.3))
 
@@ -366,6 +369,7 @@ def _plot_results(plt, sim: InternalGradientSimulation):
     return fig
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     args = _parse_args()
     if args.num_echoes <= 0:

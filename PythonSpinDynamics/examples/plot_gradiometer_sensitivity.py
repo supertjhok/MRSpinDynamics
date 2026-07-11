@@ -155,6 +155,7 @@ def make_figure(plt, pickups, *, radius_m, baseline_m):
     return fig
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--radius-mm", type=float, default=25.0, help="loop radius (mm)")

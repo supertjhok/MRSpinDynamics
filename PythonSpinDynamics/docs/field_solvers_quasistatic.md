@@ -1,6 +1,10 @@
 # Quasistatic E-field and Eddy-Current Solvers
 
-Design/progress note for adding induced-E-field and eddy-current solvers to the
+> **Status (audited 2026-07-11): implemented.** Induced E-fields, conductive
+> response, loss, secondary fields, eddy modes, and pre-emphasis helpers are in
+> the public fields layer. This page documents formulation and limits.
+
+Design and validation note for induced-E-field and eddy-current solvers in the
 `spin_dynamics.fields` package, alongside the existing magnetostatic (Biot-Savart)
 B0/B1 solvers.
 

@@ -39,6 +39,7 @@ from spin_dynamics.optimization.refocusing import (
 )
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--segments", type=int, default=10, help="Number of constant-amplitude phase segments.")

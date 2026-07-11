@@ -125,6 +125,7 @@ class MoleculeRelaxationResult:
     t1_minimum_temperature_kelvin: float | None
 
 
+# Keep CLI choices together so scientific defaults are easy to find and override.
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -184,6 +185,7 @@ def _coupling_scale(hh_distance_angstrom: float) -> float:
     return 0.3 * coupling_rad_per_s**2
 
 
+# Run the numerical experiment without plotting so its outputs remain reusable.
 def simulate_molecule(
     molecule: Molecule,
     args: argparse.Namespace,
@@ -252,6 +254,7 @@ def simulate_molecule(
     )
 
 
+# Keep visualization separate from simulation for headless runs and reuse.
 def _plot(plt, results: list[MoleculeRelaxationResult]):
     fig, axes = plt.subplots(1, 3, figsize=(13.2, 4.4), constrained_layout=True)
     larmor_hz = results[0].larmor_hz
@@ -347,6 +350,7 @@ def _report(result: MoleculeRelaxationResult) -> None:
         )
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     args = _parse_args()
     if args.points <= 1:

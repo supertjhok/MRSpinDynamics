@@ -165,6 +165,7 @@ def coil_to_ground_capacitance(coil, gp, eps_eff, potential):
     return c_gnd - c_free, c_gnd
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--turns", type=int, default=4)

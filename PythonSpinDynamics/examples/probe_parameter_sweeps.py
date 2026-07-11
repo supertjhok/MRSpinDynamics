@@ -1,4 +1,9 @@
-"""Run compact tuned and matched CPMG probe-parameter sweeps."""
+"""Run compact tuned and matched CPMG probe-parameter sweeps.
+
+Use the printed or plotted signal to connect pulse timing, probe choice, and
+relaxation to the resulting acquisition. Run ``python
+examples/probe_parameter_sweeps.py --help`` to see the adjustable inputs.
+"""
 
 from __future__ import annotations
 
@@ -42,6 +47,7 @@ def _z_summary(name: str, result) -> None:
     print(f"  max inversion depth: {depth[best]:.6g}")
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--numpts", type=int, default=101)

@@ -65,6 +65,7 @@ def zeeman_linewidth_hz(b0_gauss: float, grid, sigma0_hz: float) -> float:
     return float(np.sqrt(variance + sigma0_hz ** 2))
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--n-theta", type=int, default=18, help="Powder polar samples.")

@@ -46,6 +46,7 @@ SLAB_WIDTH = 2.0e-3
 EXCITATION_DURATION = 50.0e-6
 
 
+# Keep CLI choices together so scientific defaults are easy to find and override.
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
@@ -189,6 +190,7 @@ def _diffusion_time_sweep(args: argparse.Namespace):
     return diffusion_times, s_ste, s_pgse, te_pgse, ts_ste
 
 
+# Keep visualization separate from simulation for headless runs and reuse.
 def _plot_results(
     plt,
     *,
@@ -241,6 +243,7 @@ def _plot_results(
     return fig
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     args = _parse_args()
     plt = load_matplotlib(headless=bool(args.output))

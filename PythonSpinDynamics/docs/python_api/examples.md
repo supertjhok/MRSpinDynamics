@@ -43,9 +43,9 @@ Config-driven run from a TOML file via the facade CLI
 (`examples\experiment_config_cpmg.toml`):
 
 ```powershell
-python -m spin_dynamics.experiment plan examples\experiment_config_cpmg.toml
-python -m spin_dynamics.experiment run examples\experiment_config_cpmg.toml --output results\config_run.npz
-python -m spin_dynamics.experiment show results\config_run.npz
+spin-dynamics plan examples\experiment_config_cpmg.toml
+spin-dynamics run examples\experiment_config_cpmg.toml --output results\config_run.npz
+spin-dynamics show results\config_run.npz
 ```
 
 ## Sequence Timeline Visualizer

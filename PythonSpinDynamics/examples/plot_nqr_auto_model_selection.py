@@ -97,6 +97,7 @@ def run_auto(scenario: Scenario, *, offset_hz, t2_seconds, times):
     return choice, signal
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--offset-khz", type=float, default=8.0,

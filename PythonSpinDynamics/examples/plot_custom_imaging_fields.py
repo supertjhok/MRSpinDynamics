@@ -1,4 +1,9 @@
-"""Plot CPMG imaging with custom B0, transmit-B1, and receive-B1 maps."""
+"""Plot CPMG imaging with custom B0, transmit-B1, and receive-B1 maps.
+
+Trace the coordinate and field conventions from model construction to the image or
+field diagnostic before changing the geometry. Run ``python
+examples/plot_custom_imaging_fields.py --help`` to see the adjustable inputs.
+"""
 
 from __future__ import annotations
 
@@ -83,6 +88,7 @@ def _synthetic_maps(pixels: int):
     return rho, b0_map, b1_tx_map, b1_rx_map
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--pixels", type=int, default=8, help="Phantom width and height.")

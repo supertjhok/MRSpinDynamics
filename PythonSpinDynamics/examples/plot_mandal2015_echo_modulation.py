@@ -26,6 +26,7 @@ def _case_label(step_cycles: float) -> str:
     return f"{step_cycles:g} cycles/echo"
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--probe", choices=["tuned", "untuned", "matched"], default="tuned")

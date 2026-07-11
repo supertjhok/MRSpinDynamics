@@ -61,7 +61,8 @@ extensions.
   experiment reproduces the direct call exactly, and adds compatibility
   checking, runtime/memory estimation, automatic coil-geometry-to-B1 field
   wiring for imaging, reduced-vs-full NQR engine dispatch, NPZ/JSON save-load,
-  and a config-driven CLI (`python -m spin_dynamics.experiment`) across the
+  and a config-driven CLI (`spin-dynamics`, with
+  `python -m spin_dynamics.experiment` as the equivalent module form) across the
   NMR, imaging, NQR, and ESR engines. See
   [`docs/python_api/experiment_workflow.md`](docs/python_api/experiment_workflow.md).
 - `spin_dynamics.workflows` contains the high-level NMR workflows the facade

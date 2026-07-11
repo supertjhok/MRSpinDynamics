@@ -86,6 +86,7 @@ class SLSEComparison:
     neighbor_labels: tuple[str, ...]
 
 
+# Keep CLI choices together so scientific defaults are easy to find and override.
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--transition", choices=["x", "y", "z"], default="x")
@@ -293,6 +294,7 @@ def _run_sweep(
     )
 
 
+# Run the numerical experiment without plotting so its outputs remain reusable.
 def _simulate(args: argparse.Namespace) -> SLSEComparison:
     params = _load_nano2_parameters()
     site = QuadrupolarSite(
@@ -351,6 +353,7 @@ def _simulate(args: argparse.Namespace) -> SLSEComparison:
     )
 
 
+# Keep visualization separate from simulation for headless runs and reuse.
 def _plot_one_row(axes, sim: SLSEDecaySweep) -> None:
     spacing_us = sim.echo_spacing_seconds * 1.0e6
     detected_ms = np.where(
@@ -410,6 +413,7 @@ def _plot_one_row(axes, sim: SLSEDecaySweep) -> None:
     axes[2].legend(frameon=False, fontsize="small")
 
 
+# Keep visualization separate from simulation for headless runs and reuse.
 def _plot(plt, comparison: SLSEComparison):
     fig, axes = plt.subplots(2, 3, figsize=(13.2, 8.2), constrained_layout=True)
     _plot_one_row(axes[0], comparison.single)
@@ -431,6 +435,7 @@ def _print_t2e_range(label: str, kind: str, values: np.ndarray) -> None:
         )
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     args = _parse_args()
     if args.max_neighbors <= 0:

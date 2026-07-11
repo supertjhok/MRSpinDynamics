@@ -98,6 +98,7 @@ def solenoid_path(diameter, length, turns, n_per_turn):
     return np.column_stack([(diameter / 2) * np.cos(th), (diameter / 2) * np.sin(th), z])
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--id-inch", type=float, default=1.5, help="Coil inner diameter (inches).")

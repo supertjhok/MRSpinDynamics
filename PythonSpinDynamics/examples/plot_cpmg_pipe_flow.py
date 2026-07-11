@@ -63,6 +63,7 @@ class FlowCaseResult:
         return self.echo_magnitudes / denom
 
 
+# Keep CLI choices together so scientific defaults are easy to find and override.
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--pipe-radius-mm", type=float, default=2.0)
@@ -375,6 +376,7 @@ def _validate_args(args: argparse.Namespace) -> None:
         raise SystemExit("--echo-spacing-ms must be at least --refocusing-us")
 
 
+# Keep visualization separate from simulation for headless runs and reuse.
 def _plot_results(
     plt,
     args: argparse.Namespace,
@@ -507,11 +509,15 @@ def _plot_results(
         plt.show()
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     args = _parse_args()
     _validate_args(args)
     plt = load_matplotlib()
 
+    # Convert the CLI's laboratory-friendly units once, then keep the model in SI.
+    # Every velocity case below shares this field map, so differences come from
+    # transport rather than from a changed detector or polarizer geometry.
     radius = args.pipe_radius_mm * 1e-3
     polarizer_length = args.polarizer_length_mm * 1e-3
     fields = make_pipe_flow_fields(
@@ -526,6 +532,8 @@ def main() -> None:
         axial_gradient_hz_per_m=args.axial_gradient_hz_per_m,
         radial_spread_hz=args.radial_spread_hz,
     )
+    # Offset the seed deterministically for each velocity: cases are reproducible
+    # without accidentally reusing the same random walk realization.
     rows = [
         run_flow_case(
             fields=fields,
@@ -548,6 +556,8 @@ def main() -> None:
         for idx, velocity in enumerate(args.velocity)
     ]
 
+    # These four diagnostics expose the two competing effects: inflow
+    # polarization before the coil and washout across the echo train.
     print("Laminar pipe-flow CPMG")
     print("mean_velocity_cm_s  initial_Mz  first_echo  last_over_first")
     for row in rows:
@@ -558,6 +568,8 @@ def main() -> None:
             f"{row.normalized_decay[-1]:15.6g}"
         )
 
+    # The figure connects field geometry, flow profile, and measured decay so a
+    # surprising echo trend can be traced back to the physical model.
     _plot_results(plt, args, fields, rows)
 
 

@@ -1,4 +1,9 @@
-"""Plan, execute, visualize, and save a native or Pulseq SequenceIR."""
+"""Plan, execute, visualize, and save a native or Pulseq SequenceIR.
+
+Read the setup, simulation, and reporting stages in order; each stage is kept
+explicit so the example can be adapted without hidden state. Run ``python
+examples/experiment_sequence_ir.py --help`` to see the adjustable inputs.
+"""
 
 from __future__ import annotations
 
@@ -21,6 +26,7 @@ from spin_dynamics.experiment import (
 from spin_dynamics.sequences import read_pulseq
 
 
+# Keep CLI choices together so scientific defaults are easy to find and override.
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -50,6 +56,7 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     args = _parse_args()
     if args.points < 2:

@@ -1,4 +1,9 @@
-"""Plot powder ESR spectra for an anisotropic spin-1/2 g tensor."""
+"""Plot powder ESR spectra for an anisotropic spin-1/2 g tensor.
+
+Follow how the electron-spin model and field or pulse settings lead to the
+reported ESR response. Run ``python examples/plot_esr_powder_spectrum.py --help``
+to see the adjustable inputs.
+"""
 
 from __future__ import annotations
 
@@ -25,6 +30,7 @@ def _normalized(values: np.ndarray) -> np.ndarray:
     return values / scale if scale > 0 else values
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(

@@ -34,6 +34,7 @@ class SpinThreeHalfSLSE:
     quadrupole_frequency_hz: float
 
 
+# Keep CLI choices together so scientific defaults are easy to find and override.
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
@@ -122,6 +123,7 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+# Run the numerical experiment without plotting so its outputs remain reusable.
 def _simulate(args: argparse.Namespace) -> SpinThreeHalfSLSE:
     from spin_dynamics.nqr import (
         QuadrupolarSite,
@@ -168,6 +170,7 @@ def _simulate(args: argparse.Namespace) -> SpinThreeHalfSLSE:
     )
 
 
+# Keep visualization separate from simulation for headless runs and reuse.
 def _plot_results(plt, sim: SpinThreeHalfSLSE):
     fig, ax = plt.subplots(figsize=(7.6, 4.8), constrained_layout=True)
     for b0, train in zip(sim.b0_values_tesla, sim.echo_trains):
@@ -188,6 +191,7 @@ def _plot_results(plt, sim: SpinThreeHalfSLSE):
     return fig
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     args = _parse_args()
     if args.num_echoes <= 0:

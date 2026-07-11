@@ -1,4 +1,9 @@
-"""Plot a compact WURST inversion and matched-probe CPMG workflow."""
+"""Plot a compact WURST inversion and matched-probe CPMG workflow.
+
+Follow the timing and transport assumptions carefully, then inspect how they
+change attenuation, phase, or the echo train. Run ``python
+examples/plot_wurst_flow.py --help`` to see the adjustable inputs.
+"""
 
 from __future__ import annotations
 
@@ -20,6 +25,7 @@ from spin_dynamics.workflows import (
 
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--numpts", type=int, default=41, help="Offset grid size.")

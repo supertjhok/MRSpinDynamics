@@ -60,6 +60,7 @@ class PorousCore:
     pore_radii: np.ndarray
 
 
+# Keep CLI choices together so scientific defaults are easy to find and override.
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -732,6 +733,7 @@ def _time_backend(name: str, run) -> tuple[np.ndarray, float]:
     return signal, time.perf_counter() - start
 
 
+# Keep visualization separate from simulation for headless runs and reuse.
 def _plot_summary(
     output: Path,
     core: PorousCore,
@@ -802,6 +804,7 @@ def _plot_summary(
     plt.close(fig)
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(line_buffering=True)
@@ -813,6 +816,8 @@ def main() -> None:
     if args.micro_tortuosity <= 0.0:
         raise SystemExit("--micro-tortuosity must be positive")
 
+    # Geometry comes first; walkers are then seeded only in connected pore voxels
+    # and inherit local relaxation/diffusion properties from that same core.
     core = build_porous_core(args)
     ensemble, t1, t2 = seed_walkers(core, args.walkers_per_voxel, args.seed)
     updates, estimated_seconds = _workflow_size(args, ensemble.num_particles)
@@ -820,6 +825,8 @@ def main() -> None:
     dt = 0.5 * args.echo_spacing_ms * 1.0e-3 / max(1, int(args.substeps))
     rms_hop = float(np.sqrt(2.0 * np.mean(ensemble.diffusion_coefficient) * dt))
 
+    # Check cost and Brownian step size before launching the expensive trajectory
+    # propagation. An rms hop near a voxel width signals inadequate substepping.
     print("3D porous-rock CPMG walker feasibility")
     print(f"domain: {core.domain.shape} voxels, porosity {core.porosity:.3f}")
     print(
@@ -844,6 +851,8 @@ def main() -> None:
     print(f"numba walker backend available: {numba_available}")
     jax_devices = [] if not jax_available else jax_motion.devices()
     print(f"jax walker backend available: {jax_available} devices={jax_devices}")
+    # Estimates make --estimate-only a safe sizing tool for workstation or GPU
+    # runs without allocating the full trajectory history.
     estimates = _estimate_backend_seconds(updates, jax_devices=jax_devices)
     print(
         "rough backend estimates: "
@@ -852,6 +861,8 @@ def main() -> None:
     if args.estimate_only:
         return
 
+    # All backends receive the identical ensemble and sequence; only the walker
+    # propagation implementation changes.
     steps = make_motion_cpmg_sequence(
         int(args.num_echoes),
         args.echo_spacing_ms * 1.0e-3,
@@ -885,6 +896,8 @@ def main() -> None:
 
     timings: dict[str, float] = {}
     signals: dict[str, np.ndarray] = {}
+    # With precomputed random increments, compare trajectories directly. With
+    # backend-native PRNG, compare statistical behavior and timing instead.
     if args.benchmark_backends:
         for name, runner in runners.items():
             signals[name], timings[name] = _time_backend(name, runner)
@@ -911,6 +924,8 @@ def main() -> None:
     else:
         echo, elapsed = _time_backend(requested_backend, runners[requested_backend])
 
+    # Normalize to the first acquired echo so pore-scale attenuation is separated
+    # from the arbitrary total ensemble weight.
     magnitude = np.abs(echo)
     normalized = magnitude / max(float(magnitude[0]), np.finfo(float).eps)
     echo_times = args.echo_spacing_ms * 1.0e-3 * (

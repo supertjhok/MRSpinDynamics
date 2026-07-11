@@ -1,15 +1,17 @@
-# Unified Experiment Workflow — Architecture Analysis and Plan
+# Unified Experiment Workflow: Architecture Record
 
-Status: facade milestones 1--7 implemented; the backend-neutral sequence IR
-follow-on is underway. Companion planning docs: `nqr_module_plan.md`,
-`non_inductive_detection.md`, `optimal_control_hardware_response.md`.
+> **Status (audited 2026-07-11): implemented through milestone 10.** The facade,
+> CLI, reproducible-result provenance, broad NQR/ESR routes, and general
+> `SequenceIRExecution` target are operational. This file preserves the design
+> reasoning and milestone history; users should start with
+> `docs/python_api/experiment_workflow.md`.
 
 ## 1. Motivation
 
-PythonSpinDynamics has grown feature-first: each new capability (probes, NQR,
+PythonSpinDynamics grew feature-first: each new capability (probes, NQR,
 ESR, imaging, diffusion, GRAPE, field solvers, detectors, RFI cancellation)
-arrived as a well-tested vertical slice, but there is no horizontal layer that
-tells a user *how the pieces compose*. The proposed remedy is a default
+arrived as a well-tested vertical slice, but initially there was no horizontal
+layer that told a user *how the pieces compose*. The implemented remedy is a default
 workflow of the form:
 
 > define geometry → define transmitters/receivers → define sample → define
@@ -21,9 +23,9 @@ warns about incompatible combinations. This document analyzes the current
 architecture, refines that concept, and lays out feasible implementation
 paths.
 
-## 2. Architecture as it stands
+## 2. Architecture at the time of the design audit
 
-### 2.1 Six engine families, no apex abstractions
+### 2.1 Six engine families before the facade
 
 | Engine | Sample object | Entry points | Results |
 |---|---|---|---|
@@ -102,7 +104,7 @@ late error).
 
 ### 2.5 User surface
 
-- 163 example scripts, mostly following the same implicit workflow
+- 165 example scripts, mostly following the same implicit workflow
   (args → params → run → plot → optional `--save-npz`). No hierarchy.
 - Docs are feature-by-feature (`docs/python_api/*.md`, ~6.5k lines) plus a
   LaTeX user manual; no workflow-first narrative or tutorial.

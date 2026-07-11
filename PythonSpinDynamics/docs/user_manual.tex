@@ -64,6 +64,9 @@
     \end{minipage}}
   \par\smallskip
 }
+\newcommand{\chapterpath}[1]{%
+  \scopebox{Accent}{\textbf{In this chapter.} #1}
+}
 \input{../docs/assets/mr_spin_dynamics_logo_tikz.tex}
 
 \titleformat{\chapter}[block]
@@ -72,6 +75,11 @@
   {0.75em}
   {}
 \titlespacing*{\chapter}{0pt}{-0.15in}{1.1em}
+\titleformat{\part}[display]
+  {\centering\sffamily\Huge\bfseries\color{Ink}}
+  {\Large\color{Accent}\partname\ \thepart}
+  {0.8em}
+  {}
 \titleformat{\section}
   {\Large\bfseries\color{Ink}}
   {\thesection}
@@ -127,9 +135,144 @@ transport, fields, and instrument hardware.
 \clearpage
 \pagenumbering{arabic}
 
-\chapter{Physical Scope and Assumptions}
+\part{Getting Started}
 
-PythonSpinDynamics is not a single universal spin simulator. It is a set of
+\chapter{Start Here: Your First Experiment}
+\label{chap:start}
+
+This manual is written for two kinds of reader: someone who wants a reliable
+simulation running quickly, and someone who needs to understand or extend the
+physics underneath it. Both begin in the same place. Describe a small
+experiment, inspect what the package plans to run, execute it, and then follow
+the result down into the relevant model only when you need more detail.
+
+\chapterpath{Install the package, run a CPMG echo train, understand the returned
+objects, and choose a reading path through the rest of the manual.}
+
+\section{The Shortest Useful Path}
+
+Create and activate a Python 3.10 or newer environment. From the
+\code{PythonSpinDynamics} directory, install the package with plotting and
+SciPy-backed analysis support:
+
+\begin{lstlisting}[language=bash]
+python -m pip install -e ".[opt,plot]"
+python examples/experiment_facade_quickstart.py --num-echoes 8
+\end{lstlisting}
+
+The quickstart prints a plan before it runs. Read that plan as a preflight
+check: it names the resolved numerical workflow, reports compatibility warnings,
+and estimates cost. A plan with errors will not execute. This separation is
+useful when an experiment includes a large walker ensemble, a dense powder
+average, or hardware settings that would otherwise fail late.
+
+\section{The Same Experiment in Python}
+
+The recommended high-level interface is \code{Experiment}. Its specifications
+say what should be simulated; the workflow registry decides which validated
+runner should do the work.
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.experiment import (
+    Acquisition, CPMGTrain, Experiment, Hardware, Sample,
+)
+
+study = Experiment(
+    sequence=CPMGTrain(num_echoes=8),
+    sample=Sample(t1_seconds=2.0, t2_seconds=0.25),
+    hardware=Hardware(probe="ideal"),
+    acquisition=Acquisition(numpts=101, maxoffs=10.0),
+)
+
+plan = study.plan()
+print(plan.report())
+if not plan.ok:
+    raise RuntimeError("fix plan errors before running")
+
+record = study.run()
+print(record.result.echo.shape)
+record.save("results/first_cpmg.npz")
+\end{lstlisting}
+
+There are three objects to keep straight:
+
+\begin{description}
+  \item[\code{study}] is the immutable experiment description. It is safe to
+  serialize, compare, and reuse.
+  \item[\code{plan}] is the resolved workflow plus findings and a cost estimate.
+  Inspect it before an expensive run.
+  \item[\code{record}] contains the native scientific result, the plan, and
+  provenance such as package version, platform, workflow, and elapsed time.
+\end{description}
+
+If you already know the exact workflow you need, direct calls such as
+\code{run\_tuned\_cpmg(...)} remain public and fully supported. The facade adds
+planning, compatibility checks, configuration, and provenance; it does not
+replace the underlying dynamics.
+
+\section{Configuration and the Command Line}
+
+Experiments can also live in TOML or JSON. This is convenient for parameter
+studies, archived runs, and users who do not want to edit Python for every
+acquisition. The installed \code{spin-dynamics} command and the module form are
+equivalent:
+
+\begin{lstlisting}[language=bash]
+spin-dynamics plan examples/experiment_config_cpmg.toml
+spin-dynamics run examples/experiment_config_cpmg.toml -o results/cpmg.npz
+spin-dynamics show results/cpmg.npz
+spin-dynamics verify results/cpmg.npz
+\end{lstlisting}
+
+Use \code{plan} while editing a configuration, \code{run} when the plan is
+clean, \code{show} to inspect a saved run, and \code{verify} to rerun it and
+compare the result and its reproducibility metadata.
+
+\section{A Mental Map of the Package}
+
+Most tasks cross only three layers:
+
+\begin{longtable}{p{0.22\linewidth}p{0.34\linewidth}p{0.34\linewidth}}
+\toprule
+Layer & Start here & Use it when \tabularnewline
+\midrule
+Experiment & \code{spin\_dynamics.experiment} & You want one plan/run/save
+interface, configuration files, or provenance. \tabularnewline
+Workflow & \code{spin\_dynamics.workflows} & You know the experiment family and
+want direct control of its scientific inputs and outputs. \tabularnewline
+Model/kernel & Topic namespaces such as \code{nqr}, \code{esr},
+\code{coupling}, \code{motion}, and \code{fields} & You are building a new
+workflow, validating an equation, or need a specialized model directly.
+\tabularnewline
+\bottomrule
+\end{longtable}
+
+\section{Choose Your Reading Path}
+
+You do not need to read the manual linearly.
+
+\begin{itemize}
+  \item \textbf{New user:} read Chapters~\ref{chap:start}--\ref{chap:conventions}, then the unified
+  experiment workflow in Chapter~\ref{chap:experiment} and the relevant recipe
+  in Chapter~\ref{chap:workflows}.
+  \item \textbf{NQR, ESR, or coupled-spin user:} skim the physical scope and
+  conventions, then go directly to Chapter~\ref{chap:nqr}, \ref{chap:esr}, or
+  \ref{chap:jcoupling}.
+  \item \textbf{Sequence developer:} read Chapter~\ref{chap:sequence-ir}, then
+  the experiment facade and workflow guide.
+  \item \textbf{Reviewer or validator:} begin with the validation chapter and
+  follow each claim to its machine-readable evidence and reproducer.
+\end{itemize}
+
+Every chapter opens with an ``In this chapter'' box. The boxes are a fast route
+through the narrative; the API reference at the end is for lookup, not for
+first-time reading.
+
+\chapter{Physical Scope and Assumptions}
+\label{chap:scope}
+
+Before choosing an API, choose the physical description. PythonSpinDynamics is
+not a single universal spin simulator. It is a set of
 closely related models, each chosen because it gives a clean description of a
 common magnetic-resonance experiment. The central question throughout the
 manual is therefore: what is represented explicitly, and what is represented by
@@ -143,6 +286,9 @@ isochromat: a subensemble that shares an offset, RF sensitivity, relaxation
 constants, and probe response. Other namespaces add small quantum Hamiltonians,
 quadrupolar sites, ESR spectra, exchange, and microscopic relaxation where the
 physics requires those variables to be explicit.
+
+\chapterpath{Match an experiment to the appropriate model layer and understand
+which effects are explicit, effective, or outside the package's scope.}
 
 \scopebox{Accent}{
 \textbf{Modeled directly in the core Bloch workflows.} Independent spin-1/2
@@ -301,15 +447,20 @@ microscopic couplings are important but the bath itself is not being propagated.
 \end{itemize}
 
 \chapter{Overview}
+\label{chap:overview}
 
-PythonSpinDynamics is a Python port of the MATLAB spin-dynamics simulation
-package. The MATLAB tree under \code{../MATLABSpinDynamics/Version\_3/code}
-remains the reference for numerical behavior, while this workspace provides a
-typed, testable Python API for simulations, validation fixtures, examples, and
-new analysis workflows.
+PythonSpinDynamics began as a parity-focused Python port of the MATLAB
+spin-dynamics simulation package and has grown into a broader, typed Python
+workspace. The MATLAB V3 tree remains an important numerical reference for the
+ported kernels; new Python-native layers now add experiment planning, sequence
+interchange, validation evidence, transport, hardware, and specialized NQR and
+ESR workflows.
 
-Read the manual in layers. Chapters 1--4 define the model boundaries and shared
-conventions. Chapters~\ref{chap:jcoupling}, \ref{chap:esr}, and
+\chapterpath{See how the repository is organized and how the Bloch, quantum,
+sequence, experiment, and validation layers fit together.}
+
+Read the manual in layers. Chapters~\ref{chap:scope}--\ref{chap:conventions}
+define the model boundaries and shared conventions. Chapters~\ref{chap:jcoupling}, \ref{chap:esr}, and
 \ref{chap:nqr} introduce the explicitly quantum extensions. Chapter
 \ref{chap:sequence-ir} describes the backend-neutral sequence representation,
 Pulseq interchange, compiler, and timeline visualizer. Chapter
@@ -352,6 +503,14 @@ Path & Purpose \\
 \end{longtable}
 
 \chapter{Installation and Test Runs}
+\label{chap:installation}
+
+Installation has two goals: keep the numerical core lightweight, and let users
+opt into plotting, optimization, acceleration, or development tools only when
+they need them.
+
+\chapterpath{Choose an installation profile, verify the command-line entry
+point, and run the appropriate test tier for your work.}
 
 \section{Editable Install}
 
@@ -378,6 +537,12 @@ continuous optimizers, non-negative inverse-Laplace solves, and MATLAB
 \code{.mat} result import/export helpers. The \code{plot} extra enables the
 Matplotlib examples.
 
+Confirm that the console entry point is available:
+
+\begin{lstlisting}[language=bash]
+spin-dynamics --help
+\end{lstlisting}
+
 \section{Tests}
 
 Use the smoke tier during normal editing:
@@ -393,11 +558,15 @@ python -m unittest discover -s tests
 \end{lstlisting}
 
 \chapter{Model Conventions}
+\label{chap:conventions}
 
 This chapter collects conventions that appear across several workflows. The
 details are intentionally close to the equations, because most user mistakes in
 this package come from mixing coordinate conventions, timing conventions, or
 relaxation levels of description.
+
+\chapterpath{Learn the units, state ordering, coordinate systems, timing, phase,
+and relaxation conventions shared by otherwise different workflows.}
 
 \section{Coherence Ordering}
 
@@ -790,6 +959,8 @@ The finite-sequence implementation can add feedback during free-precession and
 acquisition windows, and can optionally apply an operator-split approximation
 during RF pulse matrices.
 
+\part{Physics Models}
+
 \chapter{Scalar J-Coupling Models}
 \label{chap:jcoupling}
 
@@ -800,6 +971,9 @@ spin-1/2 tools for these cases. It is separate from the MATLAB-compatible Bloch
 workflow layer: Bloch workflows propagate independent isochromats, while the
 coupling layer propagates small dense Hilbert-space systems or evaluates
 closed-form J-editing response curves.
+
+\chapterpath{Choose between analytical J-editing responses and dense
+Hamiltonian propagation, then build a small scalar-coupled spin system.}
 
 \scopebox{Accent}{
 \textbf{Use this layer for:} heteronuclear low-field J-editing curves,
@@ -1127,6 +1301,9 @@ uses dense matrices, explicit \(g\)-tensor axes, and small product Hilbert
 spaces for hyperfine examples. Hamiltonians are expressed in radians per
 second, while public resonance frequencies, linewidths, and hyperfine
 constants are expressed in hertz.
+
+\chapterpath{Build ESR resonance, lineshape, pulsed-echo, hyperfine, DEER, and
+electron--nuclear modulation models while keeping their dense-system limits clear.}
 
 \scopebox{Accent}{
 \textbf{Use this layer for:} single-electron ESR resonance calculations,
@@ -1492,6 +1669,9 @@ quadrupole moment and the local electric-field-gradient (EFG) tensor. The
 \code{spin\_dynamics.nqr} namespace adds a scoped quadrupolar extension for
 solid-state pulsed NQR experiments. It is intentionally separate from the
 spin-1/2 Bloch and scalar-coupling layers.
+
+\chapterpath{Select reduced or full quadrupolar dynamics, define a site and its
+orientations, and assemble FID, echo, SLSE, or population-transfer experiments.}
 
 \scopebox{Accent}{
 \textbf{Use this layer for:} reduced two-level (selective) pulsed NQR of spin-1
@@ -2712,6 +2892,8 @@ spin-1 \code{x}, \code{y}, and \code{z} transitions. Off-diagonal features
 indicate that perturbation and detection frequencies are connected through the
 same quadrupolar site.
 
+\part{Sequences and Experiments}
+
 \chapter{Sequence Interchange and Compilation}
 \label{chap:sequence-ir}
 
@@ -2721,6 +2903,9 @@ that representation as a small intermediate representation (IR) patterned after
 the open Pulseq block model. It separates sequence construction and file
 interchange from a particular simulator backend: import or build the timeline
 once, validate it, plot it, and then compile it into the arrays a backend needs.
+
+\chapterpath{Represent timing once, exchange Pulseq files, validate and plot the
+timeline, and compile it for a supported simulation backend.}
 
 \section{The Block Model and Units}
 
@@ -2917,7 +3102,10 @@ know which \code{run\_*} function you want, calling it directly (Chapter
 want that surrounding scaffolding or a single interface across the NMR, imaging,
 NQR, and ESR engines.
 
-The current catalog contains 21 registered sequence/probe routes across ten
+\chapterpath{Describe an experiment with immutable specifications, inspect a
+plan, run the resolved workflow, and save a provenance-rich result.}
+
+The current catalog contains 31 registered sequence/probe routes across ten
 sequence specifications. Each route delegates to an existing public workflow
 and declares exactly which sample, hardware, acquisition, and execution fields
 it consumes.
@@ -3164,6 +3352,8 @@ at:
   \item \code{examples/experiment\_config\_pgse\_walkers\_flow.toml}
 \end{itemize}
 
+\part{Practical Workflows}
+
 \chapter{Workflow Guides}
 \label{chap:workflows}
 
@@ -3171,6 +3361,9 @@ This chapter is the practical half of the manual. The earlier chapters define
 the model layers; the sections below show how those layers are assembled into
 experimental workflows. The order is roughly from the most common NMR building
 blocks to more specialized field, motion, exchange, and analysis tools.
+
+\chapterpath{Use task-oriented recipes for CPMG, FID, imaging, diffusion,
+motion, fields, exchange, analysis, hardware response, and optimization.}
 
 \section{CPMG}
 
@@ -5996,6 +6189,33 @@ these commands provide quick checks and reproducible figures. Start with the
 plain scripts when checking installation and with the plotting scripts when
 comparing physical effects.
 
+\chapterpath{Choose a runnable example by learning goal, then use its module
+introduction and inline signposts to connect code to the model described here.}
+
+\section{Recommended Learning Paths}
+
+The directory is broad, so begin with a short sequence rather than scanning the
+full command list.
+
+\begin{description}
+  \item[First simulation.] Run \code{experiment\_facade\_quickstart.py}, then
+  \code{ideal\_cpmg\_train.py}, and compare the high-level and direct workflows.
+  \item[Fields and imaging.] Continue with \code{plot\_ideal\_imaging.py},
+  \code{experiment\_imaging\_with\_coil.py}, and
+  \code{plot\_imaging\_inhomogeneity.py}.
+  \item[Diffusion and transport.] Start with \code{plot\_bipolar\_pgste.py},
+  then \code{plot\_pgse\_qspace\_walkers.py} and
+  \code{plot\_cpmg\_pipe\_flow.py}.
+  \item[NQR or ESR.] Use \code{experiment\_nqr\_auto\_model.py} or
+  \code{plot\_esr\_pulsed\_echo.py} before moving to the optimization and
+  statistical studies.
+\end{description}
+
+Each example begins by stating the scientific question, model boundary,
+important outputs, and a representative command. Comments at major boundaries
+explain the reasoning behind setup, simulation, diagnostics, and plotting; they
+are intended as reading guides rather than line-by-line narration.
+
 \begin{lstlisting}[language=bash]
 python examples\ideal_cpmg.py --numpts 101
 python examples\ideal_fid.py --numpts 101
@@ -6094,6 +6314,8 @@ python -m spin_dynamics.experiment plan examples\experiment_config_pgse.toml
 python -m spin_dynamics.experiment run examples\experiment_config_pgse_walkers_flow.toml -o results\pgse_walkers_flow.npz
 \end{lstlisting}
 
+\part{Evidence and Reference}
+
 \chapter{Validation}
 
 Simulation credibility is attached to a specific claim, parameter range, and
@@ -6110,6 +6332,9 @@ script, status, references, and limitations. The generator
 \code{docs/generate\_validation\_matrix.py} validates those records and produces
 both the detailed Markdown matrix and the compact table included below. CI fails
 if a reproducer disappears or either generated document becomes stale.
+
+\chapterpath{Interpret the evidence levels, locate a claim's exact reproducer,
+and distinguish physical validation from regression and API coverage.}
 
 \section{Evidence Levels}
 
@@ -6300,6 +6525,10 @@ spin_dynamics.prepolarization
 spin_dynamics.relaxation
 spin_dynamics.optimization
 \end{lstlisting}
+
+\chapterpath{Look up the stable public entry points after choosing a model or
+workflow in the narrative chapters; this chapter is organized for reference,
+not sequential reading.}
 
 Drop into lower-level modules only when a building block is needed directly.
 Use \code{spin\_dynamics.coupling} for the scoped dense scalar-coupled
@@ -7204,6 +7433,9 @@ The remaining work is now more architectural than a simple MATLAB-port backlog.
 The package has broad component coverage; the highest-value improvements make
 those components compose predictably and make the evidence behind a result easy
 to inspect.
+
+\chapterpath{Understand the present boundary of the public workflows and the
+specific extensions that remain future work.}
 
 \begin{description}
   \item[Sequence execution.] The IR imports, exports, compiles, visualizes, and

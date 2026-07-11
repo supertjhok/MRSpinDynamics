@@ -1,4 +1,9 @@
-"""Compare the currently validated ideal CPMG and FID workflows."""
+"""Compare the currently validated ideal CPMG and FID workflows.
+
+Use the printed or plotted signal to connect pulse timing, probe choice, and
+relaxation to the resulting acquisition. Run ``python examples/compare_cpmg_fid.py
+--help`` to see the adjustable inputs.
+"""
 
 from __future__ import annotations
 
@@ -17,6 +22,7 @@ from spin_dynamics.workflows.cpmg import calc_masy_ideal
 from spin_dynamics.workflows.fid import sim_fid_ideal
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--numpts", type=int, default=101, help="Number of offset points.")

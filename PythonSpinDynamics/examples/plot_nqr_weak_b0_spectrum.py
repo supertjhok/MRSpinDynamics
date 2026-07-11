@@ -1,4 +1,9 @@
-"""Plot static weak-B0 NQR spectra for any quadrupolar spin (>= 1)."""
+"""Plot static weak-B0 NQR spectra for any quadrupolar spin (>= 1).
+
+Follow how the quadrupolar site, pulse/acquisition settings, and orientation model
+lead to the reported NQR response. Run ``python
+examples/plot_nqr_weak_b0_spectrum.py --help`` to see the adjustable inputs.
+"""
 
 from __future__ import annotations
 
@@ -40,6 +45,7 @@ def _normalized(values: np.ndarray) -> np.ndarray:
     return values / scale if scale > 0 else values
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=__doc__,

@@ -1,4 +1,9 @@
-"""Run a radiation-damping FID example coupled to tuned/matched probes."""
+"""Run a radiation-damping FID example coupled to tuned/matched probes.
+
+Use the printed or plotted signal to connect pulse timing, probe choice, and
+relaxation to the resulting acquisition. Run ``python
+examples/radiation_damping_fid.py --help`` to see the adjustable inputs.
+"""
 
 from __future__ import annotations
 
@@ -14,6 +19,7 @@ add_src_to_path()
 from spin_dynamics.workflows import run_radiation_damping_fid
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--probe", choices=["tuned", "matched"], default="matched")

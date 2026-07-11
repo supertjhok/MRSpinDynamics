@@ -1,4 +1,9 @@
-"""Plot ideal CPMG sensitivity to time-varying B0 offsets."""
+"""Plot ideal CPMG sensitivity to time-varying B0 offsets.
+
+Read the setup, simulation, and reporting stages in order; each stage is kept
+explicit so the example can be adapted without hidden state. Run ``python
+examples/plot_time_varying_sweep.py --help`` to see the adjustable inputs.
+"""
 
 from __future__ import annotations
 
@@ -19,6 +24,7 @@ from spin_dynamics.workflows import (
 
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--numpts", type=int, default=51, help="Offset grid size.")

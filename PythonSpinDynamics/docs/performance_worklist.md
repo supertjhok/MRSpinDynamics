@@ -1,5 +1,10 @@
 # Performance Worklist
 
+> **Status (audited 2026-07-11): completed audit record.** Every numbered item
+> below is implemented and covered by focused parity tests. Keep this file for
+> the rationale and before/after findings; use `docs/performance.md` and the
+> benchmark README for current commands and measurements.
+
 This document captures the 2026-06 source-tree performance audit and tracks
 implementation work. The package currently favors MATLAB parity and readable
 NumPy implementations, so each item should be validated against the existing

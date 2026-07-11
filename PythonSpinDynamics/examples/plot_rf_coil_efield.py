@@ -38,6 +38,7 @@ def _slice_maps(segments, xs, zs, dIdt):
     return np.linalg.norm(b, axis=-1), np.linalg.norm(e, axis=-1)
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--extent-mm", type=float, default=40.0)

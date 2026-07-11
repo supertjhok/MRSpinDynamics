@@ -1,4 +1,9 @@
-"""Visualize a Pulseq file or a built-in spin-echo sequence timeline."""
+"""Visualize a Pulseq file or a built-in spin-echo sequence timeline.
+
+Read the setup, simulation, and reporting stages in order; each stage is kept
+explicit so the example can be adapted without hidden state. Run ``python
+examples/plot_sequence_timeline.py --help`` to see the adjustable inputs.
+"""
 
 from __future__ import annotations
 
@@ -22,6 +27,7 @@ from spin_dynamics.sequences import (
 )
 
 
+# Keep CLI choices together so scientific defaults are easy to find and override.
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -118,6 +124,7 @@ def make_demo_spin_echo() -> SequenceIR:
     )
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     args = _parse_args()
     load_matplotlib()

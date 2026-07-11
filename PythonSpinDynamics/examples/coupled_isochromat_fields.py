@@ -1,4 +1,9 @@
-"""Run a scalar-coupled sequence over inhomogeneous B0/B1 isochromats."""
+"""Run a scalar-coupled sequence over inhomogeneous B0/B1 isochromats.
+
+Trace the coordinate and field conventions from model construction to the image or
+field diagnostic before changing the geometry. Run ``python
+examples/coupled_isochromat_fields.py --help`` to see the adjustable inputs.
+"""
 
 from __future__ import annotations
 
@@ -19,6 +24,7 @@ from spin_dynamics.coupling import (  # noqa: E402
 )
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--points", type=int, default=21, help="Isochromat samples.")

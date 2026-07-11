@@ -1,8 +1,9 @@
-# PythonSpinDynamics Publishing Plan (deferred / future option)
+# PythonSpinDynamics Package-Index Publishing Plan (deferred option)
 
-_Last updated: 2026-06-28_
+_Last updated: 2026-07-11_
 
-> **Status: not the current release model.** MRSpinDynamics is released as a
+> **Status: artifact readiness is complete; public index publication remains
+> deferred.** MRSpinDynamics is released as a
 > single citable workspace unit (one repo version, one GitHub Release, one Zenodo
 > DOI) — see [`release_process.md`](release_process.md). This document describes a
 > **possible future** direction: publishing `PythonSpinDynamics` as an
@@ -12,37 +13,42 @@ _Last updated: 2026-06-28_
 > to be on PyPI before `quadrupolar-dft`, and both before `mr-integration` (which
 > imports them), so a standalone PyPI release of the whole stack is non-trivial.
 
-This plan turns roadmap item **Publish** into a repeatable release process for
-`PythonSpinDynamics`: beta versioning, PyPI/TestPyPI publication, MkDocs-hosted
-documentation, and a small checklist that can be run the same way for every
-release.
+PythonSpinDynamics now builds and clean-installs both a wheel and source
+distribution in CI, exposes the `spin-dynamics` console command, ships
+`py.typed`, checks metadata with Twine, gates MyPy, and enforces branch
+coverage. This document therefore starts at the remaining boundary:
+TestPyPI/PyPI publication, hosted documentation, and release operations.
 
 ## Goal
 
-Move `PythonSpinDynamics` from an internal source-tree package to a public beta
-release that users can install with `pip`, cite, and browse online.
+Publish the already-buildable package to a public index so users can install it
+without a checkout and browse version-matched hosted documentation.
 
-The first target should be a beta release such as:
+The package is currently versioned as 0.2.0 and remains classified Alpha. A
+future index publication should use the next workspace-approved pre-release or
+release version, for example:
 
 ```toml
-version = "0.1.0b1"
+version = "0.3.0b1"
 classifiers = [
   "Development Status :: 4 - Beta",
   ...
 ]
 ```
 
-Use the beta cycle to exercise packaging, documentation, and installation
-without pretending that every workflow is final. Promote to `0.1.0` only after
-one or two beta/TestPyPI cycles install cleanly and the known gaps remain
-clearly documented.
+Use the beta cycle to exercise publication and hosted documentation without
+pretending that every workflow is final. Promote only after one or two
+beta/TestPyPI cycles install cleanly and the known gaps remain clearly
+documented.
 
-## Beta Readiness Criteria
+## Publication Readiness Criteria
 
-Before publishing `0.1.0b1`, the package should satisfy:
+Before the first TestPyPI upload, confirm:
 
-- Fresh wheel install works in a clean Python environment.
-- CI smoke matrix is green across supported Python and OS combinations.
+- [x] Fresh wheel and sdist installs work in clean Python environments.
+- [x] CI smoke matrix covers supported Python and OS combinations.
+- [x] Installed console entry point and `py.typed` marker are verified.
+- [x] Static typing and a 70% branch-coverage floor are gated.
 - Full validation job is green on Ubuntu / Python 3.12.
 - `python -m ruff check src tests examples` passes from a clean checkout.
 - `python docs/generate_api_reference.py` leaves
@@ -56,7 +62,7 @@ Before publishing `0.1.0b1`, the package should satisfy:
 
 Update `PythonSpinDynamics/pyproject.toml`:
 
-- Set `version = "0.1.0b1"` for the first beta.
+- Set the agreed next beta version (for example `0.3.0b1`).
 - Change classifier from `Development Status :: 3 - Alpha` to
   `Development Status :: 4 - Beta`.
 - Add `license-files` or otherwise ensure the GPL license text is included in
@@ -143,7 +149,7 @@ Release workflow shape:
 Tag convention:
 
 ```text
-python-spin-dynamics-v0.1.0b1
+python-spin-dynamics-v0.3.0b1
 python-spin-dynamics-v0.1.0
 ```
 
@@ -182,8 +188,8 @@ For each release:
 7. Create and push the release tag:
 
    ```powershell
-   git tag python-spin-dynamics-v0.1.0b1
-   git push origin python-spin-dynamics-v0.1.0b1
+   git tag python-spin-dynamics-v0.3.0b1
+   git push origin python-spin-dynamics-v0.3.0b1
    ```
 
 8. Let the release workflow publish to TestPyPI.

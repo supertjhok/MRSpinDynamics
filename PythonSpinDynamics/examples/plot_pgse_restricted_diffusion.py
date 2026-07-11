@@ -53,6 +53,7 @@ PORE_COLORS = ["k", "#1f77b4", "#2ca02c", "#d62728"]
 FREE_INIT_WIDTH = 12.0e-6  # starting spread for the free control (result is invariant)
 
 
+# Keep CLI choices together so scientific defaults are easy to find and override.
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
@@ -234,6 +235,7 @@ def _displacement_histogram(args: argparse.Namespace):
     return samples
 
 
+# Keep visualization separate from simulation for headless runs and reuse.
 def _plot_results(
     plt,
     *,
@@ -310,6 +312,7 @@ def _plot_results(
     return fig
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     args = _parse_args()
     plt = load_matplotlib(headless=bool(args.output))

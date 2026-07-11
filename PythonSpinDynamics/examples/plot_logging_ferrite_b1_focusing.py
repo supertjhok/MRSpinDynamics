@@ -185,6 +185,7 @@ def build_data(args) -> dict:
                 concs_cm=concs, turn_snr=turn_snr, turn_homog=turn_homog)
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter

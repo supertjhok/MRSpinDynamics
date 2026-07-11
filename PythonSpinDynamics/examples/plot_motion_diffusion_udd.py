@@ -1,4 +1,9 @@
-"""Compare CPMG and UDD random-walker signals with relaxation and diffusion."""
+"""Compare CPMG and UDD random-walker signals with relaxation and diffusion.
+
+Follow the timing and transport assumptions carefully, then inspect how they
+change attenuation, phase, or the echo train. Run ``python
+examples/plot_motion_diffusion_udd.py --help`` to see the adjustable inputs.
+"""
 
 from __future__ import annotations
 
@@ -23,6 +28,7 @@ from spin_dynamics.sequences import (  # noqa: E402
 )
 
 
+# Keep CLI choices together so scientific defaults are easy to find and override.
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--num-particles", type=int, default=500, help="Walker count.")
@@ -227,6 +233,7 @@ def _validate_args(args: argparse.Namespace) -> None:
         raise SystemExit("--fluctuation-frequency must be non-negative")
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     args = _parse_args()
     _validate_args(args)

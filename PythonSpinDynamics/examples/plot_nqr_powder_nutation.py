@@ -1,4 +1,9 @@
-"""Plot a spin-1 powder NQR nutation curve using one SLSE pulse."""
+"""Plot a spin-1 powder NQR nutation curve using one SLSE pulse.
+
+Follow how the quadrupolar site, pulse/acquisition settings, and orientation model
+lead to the reported NQR response. Run ``python
+examples/plot_nqr_powder_nutation.py --help`` to see the adjustable inputs.
+"""
 
 from __future__ import annotations
 
@@ -31,6 +36,7 @@ def _spin_three_halves_bessel_curve(theta: np.ndarray) -> np.ndarray:
     return out
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=__doc__,

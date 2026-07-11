@@ -1,4 +1,9 @@
-"""Plot spin-1 NQR time-domain and spectral response from static EFG disorder."""
+"""Plot spin-1 NQR time-domain and spectral response from static EFG disorder.
+
+Follow how the quadrupolar site, pulse/acquisition settings, and orientation model
+lead to the reported NQR response. Run ``python
+examples/plot_nqr_efg_broadening.py --help`` to see the adjustable inputs.
+"""
 
 from __future__ import annotations
 
@@ -31,6 +36,7 @@ def _orientations(args):
     return powder_average_grid(args.n_theta, args.n_phi)
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=__doc__,

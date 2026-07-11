@@ -1,4 +1,9 @@
-"""Plot single-crystal ESR resonance shifts from an anisotropic g tensor."""
+"""Plot single-crystal ESR resonance shifts from an anisotropic g tensor.
+
+Follow how the electron-spin model and field or pulse settings lead to the
+reported ESR response. Run ``python examples/plot_esr_single_crystal.py --help``
+to see the adjustable inputs.
+"""
 
 from __future__ import annotations
 
@@ -20,6 +25,7 @@ from spin_dynamics.esr import (  # noqa: E402
 )
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(

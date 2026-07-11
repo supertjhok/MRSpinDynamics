@@ -48,6 +48,7 @@ def _gaussian_grid(half_width: float, sigma: float, points: int, center: float =
     return values, weights / weights.sum()
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--g", type=float, default=2.0023)

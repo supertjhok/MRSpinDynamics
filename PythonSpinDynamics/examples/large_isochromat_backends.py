@@ -50,6 +50,7 @@ def _time_run(run, repeats: int, warmups: int) -> float:
     return float(np.median(samples))
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--numpts", type=int, default=50001, help="Number of offset isochromats.")

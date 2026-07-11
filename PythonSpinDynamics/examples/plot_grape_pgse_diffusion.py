@@ -187,6 +187,7 @@ def _echo_amplitude_grid(amp_template_hz, phase, grad_cmd, dt, n, positions,
     return np.abs(coh.sum(axis=2))  # coherent sum over the position grid
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--segments", type=int, default=63)

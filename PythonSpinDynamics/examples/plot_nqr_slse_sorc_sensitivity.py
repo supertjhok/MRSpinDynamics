@@ -446,9 +446,13 @@ def _diagnostic_curves(site, eig, carrier, relax, nut, t1, crystal, slse_opt, so
             "offsets": offsets, "slse_off": slse_off, "sorc_off": sorc_off}
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main():
     args = _parse_args()
     plt = load_matplotlib(headless=args.output is not None)
+    # Build the NaNO2 material description once. Both pulse sequences must see
+    # the same quadrupolar site, dipolar bath, and carrier to make the sensitivity
+    # comparison meaningful.
     site, eig, carrier, sources = _build_material()
     nut = args.nutation_khz * 1e3
     crystal = single_crystal_orientation(alpha=0.3, beta=0.7)
@@ -457,6 +461,8 @@ def main():
     m2 = static_second_moment(sources)
     print(f"NaNO2 14N: transition x = {carrier/1e6:.4f} MHz, nutation {nut/1e3:.0f} kHz, "
           f"static T2* = {np.sqrt(2.0/m2)*1e6:.0f} us ({np.sqrt(m2)/(2*np.pi):.0f} Hz)")
+    # Re-optimize SLSE and SORC at every correlation time. Reusing one pulse set
+    # would confuse a sequence limitation with a changing relaxation regime.
     rows = _sweep(site, eig, carrier, sources, nut, [t * 1e-6 for t in args.tau_c_us], crystal, m2)
 
     # Reference tau_c: diagnostic curves, time-domain windows, powder point.
@@ -471,6 +477,8 @@ def main():
                                          flip=ref["sorc"]["flip"], offset=ref["sorc"]["offset"],
                                          tau=ref["sorc"]["tau"], orientations=crystal, m2=m2)
 
+    # Powder averaging is the expensive final check, so evaluate it only at the
+    # representative correlation time selected above.
     print("Powder at reference tau_c...")
     slse_p = slse_optimize(site, eig, carrier, relax, nut, ref["t1"], powder, m2,
                           flips=np.array([70.0, 90.0, 105.0, 120.0, 150.0]),
@@ -485,6 +493,7 @@ def main():
     _plot(plt, args, rows, ref, curves, slse_shape, slse_tw, sorc_shape, sorc_tw, slse_p, sorc_p)
 
 
+# Keep visualization separate from simulation for headless runs and reuse.
 def _plot(plt, args, rows, ref, curves, slse_shape, slse_tw, sorc_shape, sorc_tw, slse_p, sorc_p):
     tau_us = np.array([r["tau_c"] for r in rows]) * 1e6
     t1 = np.array([r["t1"] for r in rows])

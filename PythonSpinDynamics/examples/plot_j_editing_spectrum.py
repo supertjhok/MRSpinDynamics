@@ -1,4 +1,9 @@
-"""Plot low-field heteronuclear J-editing mixture models."""
+"""Plot low-field heteronuclear J-editing mixture models.
+
+Read the setup, simulation, and reporting stages in order; each stage is kept
+explicit so the example can be adapted without hidden state. Run ``python
+examples/plot_j_editing_spectrum.py --help`` to see the adjustable inputs.
+"""
 
 from __future__ import annotations
 
@@ -18,6 +23,7 @@ from spin_dynamics.coupling import (  # noqa: E402
 )
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--points", type=int, default=129, help="Encoding-time samples.")

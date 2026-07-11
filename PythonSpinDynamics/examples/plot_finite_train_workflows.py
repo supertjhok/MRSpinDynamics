@@ -1,4 +1,9 @@
-"""Plot finite CPMG echo-train workflows across probe models."""
+"""Plot finite CPMG echo-train workflows across probe models.
+
+Follow the timing and transport assumptions carefully, then inspect how they
+change attenuation, phase, or the echo train. Run ``python
+examples/plot_finite_train_workflows.py --help`` to see the adjustable inputs.
+"""
 
 from __future__ import annotations
 
@@ -50,6 +55,7 @@ def _run_train(
     raise ValueError("unknown probe")
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--numpts", type=int, default=17, help="Offset grid size.")

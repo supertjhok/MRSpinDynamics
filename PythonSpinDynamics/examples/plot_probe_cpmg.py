@@ -1,4 +1,9 @@
-"""Plot ideal, tuned, untuned, and matched CPMG workflow results."""
+"""Plot ideal, tuned, untuned, and matched CPMG workflow results.
+
+Use the printed or plotted signal to connect pulse timing, probe choice, and
+relaxation to the resulting acquisition. Run ``python examples/plot_probe_cpmg.py
+--help`` to see the adjustable inputs.
+"""
 
 from __future__ import annotations
 
@@ -47,6 +52,7 @@ def _masy_ylabel(component: str) -> str:
     return labels[component]
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--numpts", type=int, default=101, help="Number of offset points.")

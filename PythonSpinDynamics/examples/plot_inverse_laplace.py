@@ -1,4 +1,9 @@
-"""Plot synthetic 1D and 2D inverse Laplace transform recoveries."""
+"""Plot synthetic 1D and 2D inverse Laplace transform recoveries.
+
+Read the setup, simulation, and reporting stages in order; each stage is kept
+explicit so the example can be adapted without hidden state. Run ``python
+examples/plot_inverse_laplace.py --help`` to see the adjustable inputs.
+"""
 
 from __future__ import annotations
 
@@ -25,6 +30,7 @@ def _check_scipy() -> None:
         ) from exc
 
 
+# Keep CLI choices together so scientific defaults are easy to find and override.
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
@@ -143,6 +149,7 @@ def _sparse_2d(
     return distribution
 
 
+# Keep visualization separate from simulation for headless runs and reuse.
 def _plot_1d(
     ax,
     axis: np.ndarray,
@@ -165,6 +172,7 @@ def _plot_1d(
     ax.legend(loc="upper right", fontsize="small")
 
 
+# Keep visualization separate from simulation for headless runs and reuse.
 def _plot_2d(
     ax,
     x_axis: np.ndarray,
@@ -364,6 +372,7 @@ def _run_d_t2(snr: float, rng: np.random.Generator, args: argparse.Namespace):
     return diffusion_axis, t2_axis, components, result, args.regularization
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     args = _parse_args()
     _check_scipy()

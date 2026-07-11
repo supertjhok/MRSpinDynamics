@@ -144,6 +144,7 @@ def _print_backend_report(
     )
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--numpts", type=int, default=21, help="Offset grid size.")

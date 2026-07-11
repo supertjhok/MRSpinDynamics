@@ -61,6 +61,7 @@ def _powder_inversion_fidelity(control_batch, h_drift, phase, nutation_hz, dt, p
     return fids
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--isotope", type=str, default="35Cl", help="Quadrupolar isotope.")

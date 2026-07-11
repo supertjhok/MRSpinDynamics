@@ -1,4 +1,9 @@
-"""Run a compact matched-probe diffusion CPMG Q sweep."""
+"""Run a compact matched-probe diffusion CPMG Q sweep.
+
+Follow the timing and transport assumptions carefully, then inspect how they
+change attenuation, phase, or the echo train. Run ``python
+examples/matched_diffusion_cpmg.py --help`` to see the adjustable inputs.
+"""
 
 from __future__ import annotations
 
@@ -11,6 +16,7 @@ add_src_to_path()
 from spin_dynamics.workflows import run_matched_diffusion_q_sweep  # noqa: E402
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--numpts", type=int, default=21, help="Number of offset points.")

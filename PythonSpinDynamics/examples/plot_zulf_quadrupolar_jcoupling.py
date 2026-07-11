@@ -133,6 +133,7 @@ def _stack(ax, curves, labels, offsets_scale=1.15):
     ax.set_yticks([])
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=__doc__,

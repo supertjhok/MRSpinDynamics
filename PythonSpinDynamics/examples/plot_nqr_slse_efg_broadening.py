@@ -1,4 +1,9 @@
-"""Plot spin-1 SLSE echo trains from static EFG inhomogeneous broadening."""
+"""Plot spin-1 SLSE echo trains from static EFG inhomogeneous broadening.
+
+Follow how the quadrupolar site, pulse/acquisition settings, and orientation model
+lead to the reported NQR response. Run ``python
+examples/plot_nqr_slse_efg_broadening.py --help`` to see the adjustable inputs.
+"""
 
 from __future__ import annotations
 
@@ -44,6 +49,7 @@ def _normalized_real(values: np.ndarray) -> np.ndarray:
     return np.real(values) / scale if scale > 0 else np.real(values)
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=__doc__,

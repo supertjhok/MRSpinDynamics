@@ -66,6 +66,7 @@ def _inversion_fidelity(h_drift_list, h_x, h_y, phase, nutation_hz, dt, psi0, ta
     return fids
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--isotope", type=str, default="63Cu", help="Quadrupolar isotope.")

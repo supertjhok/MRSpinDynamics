@@ -38,6 +38,7 @@ def _ideal_refocusing_axis(numpts: int) -> tuple[np.ndarray, np.ndarray]:
     return del_w, neff
 
 
+# Keep visualization separate from simulation for headless runs and reuse.
 def _plot_history(ax, result, label: str) -> None:
     scores = np.asarray(result.history_scores, dtype=np.float64)
     ax.plot(np.arange(scores.size), scores, marker="o", label=label)
@@ -52,6 +53,7 @@ def _inverse_residual_ratio(target, inverse_result) -> float:
     return float(residual_norm / target_norm)
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--numpts", type=int, default=11, help="Offset grid size.")

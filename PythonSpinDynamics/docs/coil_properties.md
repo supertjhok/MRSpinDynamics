@@ -1,6 +1,10 @@
 # Coil-Property Extraction for Single-Layer RF Solenoids
 
-Design/progress note for `spin_dynamics.fields.coil_properties`, which turns a
+> **Status (audited 2026-07-11): implemented.** The QOIL-style solenoid model,
+> shielding/former corrections, network quantities, and independent checks are
+> available. Use this page to understand assumptions and applicability.
+
+Design and validation note for `spin_dynamics.fields.coil_properties`, which turns a
 single-layer solenoid's geometry into the lumped RF properties a probe designer needs.
 
 ## Motivation

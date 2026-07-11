@@ -117,6 +117,7 @@ def _curie_m0(n_density, gamma, spin_i, b0, temperature):
     return n_density * gamma**2 * HBAR**2 * spin_i * (spin_i + 1.0) * b0 / (3.0 * KB * temperature)
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--remanence", type=float, default=1.05, help="SmCo remanence (T).")

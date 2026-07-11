@@ -71,6 +71,7 @@ def apparent_t2(t, signal):
     return -1.0 / coeffs[0]
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=None)

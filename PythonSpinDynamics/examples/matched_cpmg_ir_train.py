@@ -1,4 +1,9 @@
-"""Run a compact CPMG-IR finite echo train."""
+"""Run a compact CPMG-IR finite echo train.
+
+Use the printed or plotted signal to connect pulse timing, probe choice, and
+relaxation to the resulting acquisition. Run ``python
+examples/matched_cpmg_ir_train.py --help`` to see the adjustable inputs.
+"""
 
 from __future__ import annotations
 
@@ -26,6 +31,7 @@ RUNNERS = {
 }
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--numpts", type=int, default=21, help="Number of offset points.")

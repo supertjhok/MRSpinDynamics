@@ -1,4 +1,9 @@
-"""Plot a two-spin SLIC spectrum around the J-coupling resonance."""
+"""Plot a two-spin SLIC spectrum around the J-coupling resonance.
+
+Read the setup, simulation, and reporting stages in order; each stage is kept
+explicit so the example can be adapted without hidden state. Run ``python
+examples/plot_slic_two_spin.py --help`` to see the adjustable inputs.
+"""
 
 from __future__ import annotations
 
@@ -18,6 +23,7 @@ from spin_dynamics.coupling import (  # noqa: E402
 )
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--j-hz", type=float, default=7.0, help="Two-spin J coupling in Hz.")

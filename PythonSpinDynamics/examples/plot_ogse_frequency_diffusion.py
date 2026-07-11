@@ -37,6 +37,7 @@ NUM_PERIODS = 2
 SAMPLES_PER_PERIOD = 12
 
 
+# Keep CLI choices together so scientific defaults are easy to find and override.
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
@@ -127,6 +128,7 @@ def _waveform(frequency: float, refocusing_duration: float = 80.0e-6):
     return t, g, lobe_t[-1], gap
 
 
+# Keep visualization separate from simulation for headless runs and reuse.
 def _plot(plt, args, *, frequencies, widths, d_app_free, d_app_slabs):
     fig, axes = plt.subplots(1, 2, figsize=(12.0, 4.4))
 
@@ -161,6 +163,7 @@ def _plot(plt, args, *, frequencies, widths, d_app_free, d_app_slabs):
     return fig
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     args = _parse_args()
     plt = load_matplotlib(headless=bool(args.output))

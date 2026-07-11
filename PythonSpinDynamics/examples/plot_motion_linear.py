@@ -1,4 +1,9 @@
-"""Plot linear motion of a spin packet through static B0/B1 maps."""
+"""Plot linear motion of a spin packet through static B0/B1 maps.
+
+Follow the timing and transport assumptions carefully, then inspect how they
+change attenuation, phase, or the echo train. Run ``python
+examples/plot_motion_linear.py --help`` to see the adjustable inputs.
+"""
 
 from __future__ import annotations
 
@@ -21,6 +26,7 @@ from spin_dynamics.motion import (
 
 
 
+# Keep CLI choices together so scientific defaults are easy to find and override.
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--nx", type=int, default=70, help="Number of x map samples.")
@@ -79,6 +85,7 @@ def _initialize_packet(x_axis: np.ndarray, z_axis: np.ndarray):
     return ensemble.with_updates(magnetization=magnetization)
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     args = _parse_args()
     if args.nx < 3 or args.nz < 3:

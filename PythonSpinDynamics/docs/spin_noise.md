@@ -1,7 +1,12 @@
 # Spin Noise
 
+> **Status (audited 2026-07-11): implemented.** Equilibrium variance,
+> radiation-damping coupling, stochastic Ornstein-Uhlenbeck dynamics, and
+> two-bath examples are available. This page is the physics and validation
+> rationale, not an open implementation plan.
+
 This page records the physics analysis behind the spin-noise models, the
-scrutiny of the previous ad-hoc approach, and the implementation plan. The
+scrutiny of the previous ad-hoc approach, and the implemented design. The
 primary sources are three papers kept local-only in the repository
 `References/` folder (gitignored):
 

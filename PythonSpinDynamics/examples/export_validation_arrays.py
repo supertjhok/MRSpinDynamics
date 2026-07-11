@@ -1,4 +1,9 @@
-"""Export compact arrays from the currently validated Python workflows."""
+"""Export compact arrays from the currently validated Python workflows.
+
+Read the setup, simulation, and reporting stages in order; each stage is kept
+explicit so the example can be adapted without hidden state. Run ``python
+examples/export_validation_arrays.py --help`` to see the adjustable inputs.
+"""
 
 from __future__ import annotations
 
@@ -17,6 +22,7 @@ from spin_dynamics.workflows.cpmg import calc_masy_ideal
 from spin_dynamics.workflows.fid import sim_fid_ideal
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("output", type=Path, help="Output .npz file.")

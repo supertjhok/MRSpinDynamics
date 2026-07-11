@@ -111,6 +111,7 @@ def build_size_dispersion(args: argparse.Namespace) -> dict[str, np.ndarray]:
     }
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=__doc__,

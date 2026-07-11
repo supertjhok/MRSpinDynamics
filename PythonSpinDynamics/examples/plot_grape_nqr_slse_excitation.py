@@ -58,6 +58,7 @@ from spin_dynamics.optimal_control._jax_propagation import JAX_AVAILABLE
 from spin_dynamics.optimal_control.hamiltonians import nqr_site_control_model
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--isotope", type=str, default="14N")

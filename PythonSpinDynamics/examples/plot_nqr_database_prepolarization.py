@@ -64,6 +64,7 @@ class DatabaseEnhancementResult:
     coupling_hz: float
 
 
+# Keep CLI choices together so scientific defaults are easy to find and override.
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
@@ -276,6 +277,7 @@ def resolve_coupling(args: argparse.Namespace) -> tuple[float, object | None]:
     return 1000.0, estimate
 
 
+# Run the numerical experiment without plotting so its outputs remain reusable.
 def run_simulation(args: argparse.Namespace) -> DatabaseEnhancementResult:
     from spin_dynamics.nqr import (
         CylindricalSampleGeometry,
@@ -390,6 +392,7 @@ def print_report(result: DatabaseEnhancementResult, args: argparse.Namespace) ->
         )
 
 
+# Keep visualization separate from simulation for headless runs and reuse.
 def plot_result(plt, result: DatabaseEnhancementResult):
     compound = result.compound
     transfer = result.transfer_result
@@ -456,6 +459,7 @@ def plot_result(plt, result: DatabaseEnhancementResult):
     return fig
 
 
+# Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     args = _parse_args()
     if args.path_points < 3:
