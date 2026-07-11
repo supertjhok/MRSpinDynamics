@@ -5989,18 +5989,158 @@ python -m spin_dynamics.experiment run examples\experiment_config_pgse_walkers_f
 
 \chapter{Validation}
 
-Validation fixtures live in \code{validation/fixtures}. The tests compare the
-Python implementation against compact MATLAB or Octave arrays for core
-rotations, echo conversion, FID, the \code{arb10} kernel, finite acquisition,
-probe response, imaging, pulse-shape helpers, optimization result handling, and
-public workflow result shapes.
+Simulation credibility is attached to a specific claim, parameter range, and
+comparison -- not to the package as a whole. A passing unit test may show that
+an API is stable without showing that its physical model is accurate. Conversely,
+one exact analytical limit may validate an important part of a model without
+covering every geometry or parameter regime. This chapter therefore separates
+\emph{validation evidence} from ordinary regression coverage.
 
-Use three complementary validation levels. Unit and smoke tests catch local API
-and numerical regressions; fixture comparisons pin MATLAB/Octave parity where a
-reference implementation exists; analytical limits and external solver or
-published-data comparisons validate newer models that have no MATLAB ancestor.
-The current evidence and tolerances are recorded in
-\code{docs/validation\_results.md} rather than inferred from test count alone.
+The authoritative, machine-readable claims live in
+\code{validation/evidence.json}. Each record states the component, claim,
+evidence type, comparison basis, tested range, metric, tolerance, exact test or
+script, status, references, and limitations. The generator
+\code{docs/generate\_validation\_matrix.py} validates those records and produces
+both the detailed Markdown matrix and the compact table included below. CI fails
+if a reproducer disappears or either generated document becomes stale.
+
+\section{Evidence Levels}
+
+Evidence letters describe what supports a claim. They are not scores: a level-B
+parity result and a level-A analytical result answer different questions and are
+often strongest in combination.
+
+\begin{longtable}{p{0.10\linewidth}p{0.80\linewidth}}
+\toprule
+Level & Meaning \\
+\midrule
+A & Analytical identity, exact solution, or limiting case. \\
+B & Parity with the MATLAB or Octave reference implementation. \\
+C & Comparison with an independent numerical tool or independently implemented
+model. \\
+D & Published benchmark, theory curve, or literature dataset. \\
+E & Comparison with experimental measurements. \\
+R & Regression, invariant, round-trip, or internal cross-backend check. \\
+\bottomrule
+\end{longtable}
+
+The current registry has no level-E claim. Making that absence visible is
+intentional: analytical, reference-code, and external-tool agreement are strong
+evidence, but they are not substitutes for comparison with measured data.
+
+Level R is deliberately explicit. It is valuable engineering evidence, but it
+does not independently establish physical correctness. For example, the
+experiment facade has strong direct-workflow parity and serialization tests;
+those validate delegation and reproducibility, while the physical credibility
+comes from the evidence attached to the delegated workflow.
+
+Statuses are similarly scoped. \emph{Validated} means the stated claim has
+appropriate evidence over the stated range. \emph{Partially validated} means
+useful independent or analytical evidence exists but important regimes remain.
+\emph{Regression only} means behavior is pinned down but lacks an independent
+physical or external comparison. None of these labels implies unrestricted
+accuracy outside the recorded range.
+
+\section{Representative Validation Chains}
+
+\subsection{Bloch Kernels and Historical Workflows}
+
+The core Python port uses level-B fixtures generated from the active MATLAB or
+Octave source tree. They cover rotations, echo conversion, finite acquisition,
+the \code{arb10} kernel, probe responses, CPMG/FID assemblies, imaging, and
+selected optimization results. Algebraic rotation and conservation identities
+provide complementary level-A evidence. This combination detects both porting
+errors and violations that could be shared by two implementations.
+
+Fixtures live in \code{validation/fixtures}; their generation scripts live in
+\code{validation/octave}. Matched-probe fixtures that depend on unavailable
+Octave optimization behavior are generated with MATLAB. The detailed historical
+inventory and run log remain in \code{docs/validation\_results.md}.
+
+\subsection{PGSE and Random-Walker Transport}
+
+For rectangular PGSE lobes, the deterministic backend is checked against the
+Stejskal--Tanner result
+\[
+  b = (\gamma G\delta)^2\left(\Delta-\frac{\delta}{3}\right),
+  \qquad \frac{S}{S_0}=\exp(-bD).
+\]
+Moment equality and the logarithmic diffusion slope are level-A evidence. The
+separately implemented particle engine is then checked for statistical
+convergence toward the same attenuation (level C), while zero-gradient,
+zero-diffusion, seed, and boundary checks supply regression evidence. The claim
+is intentionally limited to the recorded unrestricted/isotropic and ideal-lobe
+regimes; restricted geometries need their own references.
+
+The pipe-flow layer follows the same pattern. Closed-form plug and Poiseuille
+residence-time distributions are checked directly, then compared with independent
+Monte Carlo sampling. This validates prescribed-profile washout and
+flux-weighted polarization, not CFD or turbulent flow.
+
+\subsection{Fields, Circuits, and Thermal Models}
+
+Magnetostatic solvers are compared with loop-center Biot--Savart fields, symmetry
+planes, current scaling, and Halbach orientation limits (level A). PEEC models
+add selected QOIL regressions and optional FastHenry/FasterCap comparisons
+(level C); their status remains partial because live external tools are not part
+of ordinary CI and complex/high-frequency geometries are sparsely sampled.
+
+Thermal networks and conduction solvers are checked against RC exponentials,
+energy conservation, uniform-source slab/cylinder/sphere solutions, perfusion
+limits, and advection--diffusion solutions. FEMM scripts provide an independent
+cross-check for selected conduction/network cases. These results do not extend
+to general 3-D conjugate heat transfer or CFD.
+
+\subsection{NQR, ESR, and Quantum Models}
+
+NQR validation combines angular-momentum identities and closed-form spin-1 and
+spin-3/2 transition frequencies (level A) with Konnai SORC theory and a published
+Glickstein melamine enhancement example (level D). ESR checks use exact
+spin-1/2 resonance, hyperfine-doublet, lineshape, and Hahn-echo limits. These
+models are marked partial because experimental absolute-signal libraries and
+broad higher-spin/multi-electron comparisons remain limited.
+
+Small scalar-coupled systems, relaxation superoperators, spin noise, and optimal
+control use exact operator identities, known decay/statistical limits,
+finite-difference gradients, backend parity, and selected MATLAB fixtures. The
+matrix records which of those checks are independent and which are internal.
+
+\input{generated/validation_summary.tex}
+
+\section{Reading and Extending the Evidence}
+
+The generated \code{docs/validation\_matrix.md} is the detailed reference. For
+each capability it gives the precise tested range and tolerance, links to every
+reproducer, names external tools or literature results, and states what the
+claim does not cover. \code{docs/validation\_results.md} remains a historical
+fixture inventory and run log; it is not the current claim registry.
+
+When adding or changing a numerical model:
+
+\begin{enumerate}
+  \item State one falsifiable claim and the parameter range to which it applies.
+  \item Choose the strongest appropriate independent evidence; do not relabel a
+  regression test as physical validation.
+  \item Record the comparison metric, numerical/statistical tolerance, exact
+  reproducer, references, and limitations in \code{validation/evidence.json}.
+  \item Regenerate the Markdown and LaTeX summaries and commit them with the
+  model and tests.
+\end{enumerate}
+
+Run the registry validator directly with:
+
+\begin{lstlisting}[language=bash]
+python docs/generate_validation_matrix.py --check
+\end{lstlisting}
+
+Run without \code{--check} after editing the registry to regenerate two files:
+
+\begin{itemize}
+  \item \code{docs/validation\_matrix.md}
+  \item \code{docs/generated/}\code{validation\_summary.tex}
+\end{itemize}
+
+\section{Test and Fixture Execution}
 
 The hosted smoke gate can be reproduced locally:
 
@@ -6008,6 +6148,7 @@ The hosted smoke gate can be reproduced locally:
 python -m ruff check src tests examples
 python docs/generate_api_reference.py
 git diff --exit-code docs/python_api/api_reference.md
+python docs/generate_validation_matrix.py --check
 python -m unittest tests.smoke_tests
 \end{lstlisting}
 
@@ -6029,7 +6170,8 @@ matlab -batch "run('validation/octave/generate_pulse_fixtures.m')"
 
 Matched-probe fixtures require MATLAB toolboxes used by the reference
 implementation. Octave fixture generation skips matched-probe files when
-\code{fmincon} is unavailable.
+\code{fmincon} is unavailable. A successful fixture run establishes level-B
+parity only for the recorded arrays and parameter sets.
 
 \chapter{API Reference}
 

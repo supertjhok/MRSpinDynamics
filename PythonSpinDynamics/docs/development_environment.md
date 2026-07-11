@@ -144,6 +144,7 @@ the GitHub smoke job:
 python -m unittest tests.smoke_tests
 python -m ruff check src tests examples
 python docs\generate_api_reference.py
+python docs\generate_validation_matrix.py --check
 git diff --exit-code docs\python_api\api_reference.md
 ```
 

@@ -344,12 +344,15 @@ The full example catalog is documented in `docs/python_api/examples.md`.
   unified experiment facade (the recommended entry point) and its CLI.
 - `docs/python_api/api_reference.md` is generated from public functions,
   classes, and docstrings.
+- `docs/validation_matrix.md` is generated from
+  `validation/evidence.json` and records claim-level evidence, ranges,
+  tolerances, reproducers, and limitations.
 - `docs/python_api/concepts.md` describes units and conventions.
 - `docs/python_api/workflows.md`, `nqr.md`, `esr.md`, `j_coupling.md`,
   `exchange.md`, and `internal_gradients.md` describe major feature areas.
 - `docs/matlab_mapping.md`, `docs/migration_plan.md`, and
-  `docs/validation_results.md` document the MATLAB-to-Python port and fixture
-  parity checks.
+  `docs/validation_results.md` document the MATLAB-to-Python port, fixture
+  parity checks, and historical run log.
 
 Build the manual from this directory with:
 
@@ -362,6 +365,7 @@ classes, or docstrings:
 
 ```powershell
 python docs\generate_api_reference.py
+python docs\generate_validation_matrix.py
 ```
 
 ## Tests And Validation
@@ -385,6 +389,7 @@ changes:
 ```powershell
 python -m unittest discover -s tests
 python -m ruff check src tests examples
+python docs\generate_validation_matrix.py --check
 ```
 
 Fixture generation scripts are in `validation/octave/`. MATLAB is required for

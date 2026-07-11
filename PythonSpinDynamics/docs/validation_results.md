@@ -1,9 +1,16 @@
 # Validation Results
 
-This document records Python-vs-MATLAB/Octave checks against the active MATLAB
-source tree. Octave is useful for reproducible low-friction fixture generation;
-MATLAB is used for matched-probe fixtures that depend on toolbox behavior not
-available in a stock Octave install.
+This document is the historical run log and detailed Python-vs-MATLAB/Octave
+fixture inventory. For the current capability-level claims, evidence grades,
+tested ranges, tolerances, exact reproducers, and limitations, use the generated
+[Validation Evidence Matrix](validation_matrix.md). Its authoritative structured
+source is `validation/evidence.json`.
+
+Octave is useful for reproducible low-friction fixture generation; MATLAB is
+used for matched-probe fixtures that depend on toolbox behavior not available in
+a stock Octave install. Fixture parity is evidence level B in the current
+classification; ordinary regression or shape coverage is level R and should not
+be interpreted as independent physical validation.
 
 ## Environment
 

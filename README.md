@@ -155,7 +155,8 @@ does not silently round the sequence.
   [LaTeX source](PythonSpinDynamics/docs/user_manual.tex)
 - [Python package README](PythonSpinDynamics/README.md),
   [generated API reference](PythonSpinDynamics/docs/python_api/api_reference.md),
-  and [validation status](PythonSpinDynamics/docs/validation_results.md)
+  [validation evidence matrix](PythonSpinDynamics/docs/validation_matrix.md),
+  and [historical validation results](PythonSpinDynamics/docs/validation_results.md)
 - [Workspace roadmap and capability gaps](docs/roadmap.md) and
   [release process](docs/release_process.md)
 - [QuadrupolarDFT guide](QuadrupolarDFT/README.md),
@@ -174,6 +175,7 @@ cd PythonSpinDynamics
 python -m ruff check src tests examples
 python docs/generate_api_reference.py
 git diff --exit-code docs/python_api/api_reference.md
+python docs/generate_validation_matrix.py --check
 python -m unittest tests.smoke_tests
 ```
 
