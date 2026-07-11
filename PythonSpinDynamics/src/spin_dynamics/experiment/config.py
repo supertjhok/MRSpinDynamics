@@ -57,6 +57,7 @@ from spin_dynamics.experiment.specs import (
     Hardware,
     NQRSLSE,
     NQRSORC,
+    PGSE,
     Phantom,
     Sample,
 )
@@ -74,6 +75,7 @@ _SPEC_CLASSES: tuple[type, ...] = (
     CPMGImaging,
     NQRSLSE,
     NQRSORC,
+    PGSE,
     ESRFID,
     ESRHahnEcho,
     SolenoidCoil,

@@ -20,9 +20,11 @@ The highest-leverage gaps identified in the July 2026 audit are:
    to the moving-isochromat engine.
    It does not yet replace the validated workflows.
 2. **Facade coverage.** The recommended `spin_dynamics.experiment` facade has
-   19 registered routes, only eight with runtime/memory cost models. Diffusion,
-   motion, flow, thermal, most imaging, detection, exchange, optimal control,
-   advanced ESR/NQR, and field/circuit workflows still use direct APIs.
+   20 registered routes, nine with runtime/memory cost models. Deterministic
+   PGSE diffusion is now covered with planning, config, provenance, and result
+   persistence. Random-walker diffusion, motion, flow, thermal, most imaging,
+   detection, exchange, optimal control, advanced ESR/NQR, and field/circuit
+   workflows still use direct APIs.
 3. **Validation depth.** MATLAB fixtures strongly anchor the original
    CPMG/probe workflows, while many newer modules rely on analytic limiting
    cases, cross-backend parity, or synthetic data. Capabilities should carry a

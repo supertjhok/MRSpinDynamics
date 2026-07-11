@@ -584,6 +584,7 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `CPMGTrain` | Finite CPMG echo train with relaxation. |
 | class | `CPMGIRTrain` | Finite CPMG echo train preceded by an inversion-recovery delay sweep. |
 | class | `CPMGImaging` | Phase-encoded CPMG imaging (2-D spin-warp on a phantom). |
+| class | `PGSE` | Deterministic pulsed-gradient spin echo diffusion encoding. |
 | class | `NQRSLSE` | Spin-lock spin-echo NQR detection train. |
 | class | `NQRSORC` | Strong off-resonance comb NQR train (reduced spin-1 engine only). |
 | class | `ESRFID` | Pulsed ESR free-induction decay (rotating frame, single isochromat). |

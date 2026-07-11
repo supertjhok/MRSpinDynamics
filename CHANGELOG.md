@@ -28,6 +28,9 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
 - Added strict Pulseq 1.5.0 export with MD5 signatures, RF-center and gradient-
   boundary preservation, raster and gradient-continuity validation, PyPulseq
   interoperability checking, and export support in the timeline example.
+- Expanded the declarative experiment facade to deterministic PGSE diffusion,
+  including sample diffusion coefficients, plan-time timing validation, cost
+  estimates, config/JSON/NPZ round-trips, and direct-workflow parity tests.
 
 ## [0.2.0] - 2026-07-05
 

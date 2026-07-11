@@ -26,6 +26,7 @@ from spin_dynamics.experiment.specs import (
     Experiment,
     NQRSLSE,
     NQRSORC,
+    PGSE,
     non_default_fields,
 )
 
@@ -78,6 +79,8 @@ def _spec_sanity_errors(experiment: Experiment) -> list[str]:
         value = getattr(sample, name)
         if value is not None and value <= 0:
             errors.append(f"sample.{name} must be positive when set")
+    if sample.diffusion_coefficient is not None and sample.diffusion_coefficient < 0:
+        errors.append("sample.diffusion_coefficient must be non-negative when set")
     hardware = experiment.hardware
     if hardware.q_value is not None and hardware.q_value <= 0:
         errors.append("hardware.q_value must be positive when set")
@@ -92,6 +95,28 @@ def _spec_sanity_errors(experiment: Experiment) -> list[str]:
             errors.append("sequence.echo_spacing_seconds must be positive")
         if sequence.tauvect is not None and any(tau < 0 for tau in sequence.tauvect):
             errors.append("sequence.tauvect entries must be non-negative")
+    if isinstance(sequence, PGSE):
+        if sequence.num_echoes <= 0:
+            errors.append("sequence.num_echoes must be positive")
+        if sequence.gradient_duration < 0:
+            errors.append("sequence.gradient_duration must be non-negative")
+        if sequence.diffusion_time < sequence.gradient_duration:
+            errors.append(
+                "sequence.diffusion_time must be at least gradient_duration"
+            )
+        if (
+            sequence.first_echo_time_seconds is not None
+            and sequence.first_echo_time_seconds <= 0
+        ):
+            errors.append("sequence.first_echo_time_seconds must be positive when set")
+        if (
+            sequence.num_echoes > 1
+            and sequence.echo_spacing_seconds is not None
+            and sequence.echo_spacing_seconds <= 0
+        ):
+            errors.append("sequence.echo_spacing_seconds must be positive when set")
+        if sequence.gamma <= 0:
+            errors.append("sequence.gamma must be positive")
     if isinstance(sequence, (NQRSLSE, NQRSORC)) and sample.site is None:
         errors.append(
             f"sequence {type(sequence).__name__} requires sample.site "

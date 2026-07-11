@@ -30,6 +30,7 @@ from spin_dynamics.experiment.specs import (
     Experiment,
     NQRSLSE,
     NQRSORC,
+    PGSE,
 )
 from spin_dynamics.experiment.wiring import solve_for_experiment
 from spin_dynamics.nqr import QuadrupolarSite
@@ -53,6 +54,7 @@ from spin_dynamics.workflows import (
     run_matched_cpmg_imaging,
     run_matched_cpmg_ir_train,
     run_matched_cpmg_train,
+    run_pgse_moment,
     run_tuned_cpmg,
     run_tuned_cpmg_imaging,
     run_tuned_cpmg_ir_train,
@@ -77,6 +79,7 @@ from spin_dynamics.workflows.imaging_types import (
     IdealCPMGImagingResult,
     ProbeCPMGImagingResult,
 )
+from spin_dynamics.workflows.pgse import PGSEMomentResult
 
 register_result_type(CPMGResult)
 register_result_type(CPMGTrainResult)
@@ -89,6 +92,7 @@ register_result_type(SORCResult)
 register_result_type(FullNQRSLSEResult)
 register_result_type(ESRFIDResult)
 register_result_type(ESRHahnEchoResult)
+register_result_type(PGSEMomentResult)
 
 register_serializable(NoiseSpec)
 register_serializable(NoiseMetadata)
@@ -368,6 +372,47 @@ for _probe, _func in _IMAGING_FUNCS.items():
             execution_kwargs=frozenset({"num_workers", "phase_workers"}),
         )
     )
+
+
+def _pgse_kwargs(experiment: Experiment) -> dict[str, Any]:
+    sequence = experiment.sequence
+    sample = experiment.sample
+    kwargs: dict[str, Any] = {
+        "num_echoes": sequence.num_echoes,
+        "gradient_amplitude": sequence.gradient_amplitude,
+        "gradient_duration": sequence.gradient_duration,
+        "diffusion_time": sequence.diffusion_time,
+        "first_echo_time_seconds": sequence.first_echo_time_seconds,
+        "echo_spacing_seconds": sequence.echo_spacing_seconds,
+        "gamma": sequence.gamma,
+    }
+    if sample.diffusion_coefficient is not None:
+        kwargs["diffusion_coefficient"] = sample.diffusion_coefficient
+    if sample.t2_seconds is not None:
+        kwargs["t2_seconds"] = sample.t2_seconds
+    return kwargs
+
+
+def _pgse_cost(experiment: Experiment) -> CostModel:
+    num_echoes = experiment.sequence.num_echoes
+    return CostModel(
+        work_units=float(max(1, num_echoes)),
+        memory_bytes=256 + 32 * max(1, num_echoes),
+        notes=("closed-form moment backend; dispatch dominates small runs",),
+    )
+
+
+register_workflow(
+    WorkflowEntry(
+        name="run_pgse_moment",
+        sequence_type=PGSE,
+        probe="ideal",
+        func=run_pgse_moment,
+        build_kwargs=_pgse_kwargs,
+        honors=frozenset({"sample.diffusion_coefficient", "sample.t2_seconds"}),
+        cost=_pgse_cost,
+    )
+)
 
 # NQR entries: no probe circuit is modeled, so they register under the
 # default "ideal" probe only. SLSE dispatches reduced-vs-full per spec/site

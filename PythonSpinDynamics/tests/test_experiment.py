@@ -24,6 +24,7 @@ from spin_dynamics.experiment import (
     Hardware,
     ImagingPlane,
     Phantom,
+    PGSE,
     Sample,
     SerializationError,
     SolenoidCoil,
@@ -624,6 +625,67 @@ def test_imaging_execution_kwargs() -> None:
         experiment.run(tau_workers=2)
 
 
+@pytest.mark.smoke
+def test_pgse_moment_parity_and_plan() -> None:
+    spec = PGSE(
+        num_echoes=3,
+        gradient_amplitude=0.035,
+        gradient_duration=1.5e-3,
+        diffusion_time=18e-3,
+        first_echo_time_seconds=40e-3,
+        echo_spacing_seconds=12e-3,
+    )
+    sample = Sample(t2_seconds=0.12, diffusion_coefficient=1.4e-9)
+    experiment = Experiment(sequence=spec, sample=sample)
+
+    plan = experiment.plan()
+    assert plan.ok
+    assert plan.workflow == "run_pgse_moment"
+    assert plan.estimate is not None
+
+    record = experiment.run()
+    direct = workflows.run_pgse_moment(
+        num_echoes=3,
+        gradient_amplitude=0.035,
+        gradient_duration=1.5e-3,
+        diffusion_time=18e-3,
+        diffusion_coefficient=1.4e-9,
+        t2_seconds=0.12,
+        first_echo_time_seconds=40e-3,
+        echo_spacing_seconds=12e-3,
+    )
+    _assert_results_equal(record.result, direct)
+    assert record.provenance["workflow"] == "run_pgse_moment"
+
+
+@pytest.mark.smoke
+def test_pgse_json_config_and_result_round_trip(tmp_path) -> None:
+    experiment = Experiment(
+        sequence=PGSE(gradient_amplitude=0.02, diffusion_time=15e-3),
+        sample=Sample(diffusion_coefficient=2.0e-9, t2_seconds=0.08),
+    )
+    assert Experiment.from_json(experiment.to_json()) == experiment
+
+    record = experiment.run()
+    path = tmp_path / "pgse.npz"
+    record.save(str(path))
+    loaded = load_run(str(path))
+    assert loaded.experiment == experiment
+    _assert_results_equal(loaded.result, record.result)
+
+
+@pytest.mark.smoke
+def test_pgse_plan_rejects_invalid_diffusion_timing() -> None:
+    plan = Experiment(
+        sequence=PGSE(gradient_duration=3e-3, diffusion_time=2e-3),
+        sample=Sample(diffusion_coefficient=-1e-9),
+    ).plan()
+    assert not plan.ok
+    errors = "\n".join(plan.errors)
+    assert "diffusion_time" in errors
+    assert "diffusion_coefficient" in errors
+
+
 from spin_dynamics.experiment import NQRSLSE, NQRSORC  # noqa: E402
 from spin_dynamics.nqr import (  # noqa: E402
     QuadrupolarSite,
@@ -908,7 +970,7 @@ def test_registry_entries_point_at_public_workflows() -> None:
     import spin_dynamics.nqr as nqr
 
     entries = available_workflows()
-    assert len(entries) == 19
+    assert len(entries) == 20
     public = set(workflows.STABLE_WORKFLOW_API) | set(workflows.EXTENDED_WORKFLOW_API)
     for entry in entries:
         if getattr(nqr, entry.name, None) is not None:

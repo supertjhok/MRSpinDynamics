@@ -1,0 +1,12 @@
+[sequence]
+type = "PGSE"
+num_echoes = 4
+gradient_amplitude = 0.035
+gradient_duration = 0.0015
+diffusion_time = 0.018
+first_echo_time_seconds = 0.04
+echo_spacing_seconds = 0.012
+
+[sample]
+diffusion_coefficient = 1.4e-9
+t2_seconds = 0.12

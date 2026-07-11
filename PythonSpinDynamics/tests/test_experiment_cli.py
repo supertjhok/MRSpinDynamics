@@ -14,6 +14,7 @@ from spin_dynamics.experiment import (
     Hardware,
     ImagingPlane,
     NQRSLSE,
+    PGSE,
     Phantom,
     Sample,
     SolenoidCoil,
@@ -41,6 +42,14 @@ _EXPERIMENTS = {
         acquisition=Acquisition(numpts=405, rephase_action="ignore"),
     ),
     "minimal": Experiment(sequence=CPMGTrain()),
+    "pgse": Experiment(
+        sequence=PGSE(
+            num_echoes=2,
+            gradient_amplitude=0.03,
+            diffusion_time=16e-3,
+        ),
+        sample=Sample(diffusion_coefficient=1.8e-9, t2_seconds=0.1),
+    ),
     "nqr": Experiment(
         sequence=NQRSLSE(
             pulse_duration_seconds=100e-6,
@@ -197,3 +206,18 @@ def test_shipped_example_config_plans_cleanly(capsys) -> None:
     )
     assert cli.main(["plan", str(config)]) == 0
     assert "run_tuned_cpmg_train" in capsys.readouterr().out
+
+
+@pytest.mark.smoke
+def test_shipped_pgse_config_plans_cleanly(capsys) -> None:
+    from pathlib import Path
+
+    config = (
+        Path(__file__).resolve().parents[1]
+        / "examples"
+        / "experiment_config_pgse.toml"
+    )
+    assert cli.main(["plan", str(config)]) == 0
+    output = capsys.readouterr().out
+    assert "workflow: run_pgse_moment" in output
+    assert "estimate:" in output

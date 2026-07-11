@@ -148,9 +148,10 @@ class SampledB0:
 class Sample:
     """Sample description.
 
-    ``t1_seconds``/``t2_seconds`` left as ``None`` defer to the wrapped
-    workflow's defaults; asymptotic (steady-state) workflows do not consume
-    relaxation times at all, and ``plan()`` warns when they would be ignored.
+    ``t1_seconds``/``t2_seconds`` and ``diffusion_coefficient`` left as
+    ``None`` defer to the wrapped workflow's defaults; asymptotic
+    (steady-state) workflows do not consume relaxation or diffusion at all,
+    and ``plan()`` warns when they would be ignored.
     Imaging sequences additionally require a :class:`Phantom`; scalar
     relaxation times then broadcast to uniform maps unless the phantom
     carries its own.
@@ -158,6 +159,8 @@ class Sample:
 
     t1_seconds: float | None = None
     t2_seconds: float | None = None
+    diffusion_coefficient: float | None = None
+    """Isotropic diffusion coefficient in m^2/s for diffusion workflows."""
     phantom: Phantom | None = None
     site: Any | None = None
     """Quadrupolar site (``spin_dynamics.nqr.QuadrupolarSite``) for NQR sequences."""
@@ -255,6 +258,25 @@ class CPMGImaging:
         if len(fov) != 2:
             raise ValueError("fov must contain two values")
         object.__setattr__(self, "fov", fov)
+
+
+@register_serializable
+@dataclass(frozen=True)
+class PGSE:
+    """Deterministic pulsed-gradient spin echo diffusion encoding.
+
+    ``gradient_amplitude`` is in T/m; all timing fields are seconds and
+    ``gamma`` is in rad/s/T. The sample's ``diffusion_coefficient`` and
+    ``t2_seconds`` control diffusion and transverse-relaxation attenuation.
+    """
+
+    num_echoes: int = 1
+    gradient_amplitude: float = 0.05
+    gradient_duration: float = 2.0e-3
+    diffusion_time: float = 20.0e-3
+    first_echo_time_seconds: float | None = None
+    echo_spacing_seconds: float | None = None
+    gamma: float = 2.675e8
 
 
 def _validate_nqr_common(spec: Any) -> None:
@@ -404,6 +426,7 @@ SEQUENCE_TYPES: tuple[type, ...] = (
     CPMGTrain,
     CPMGIRTrain,
     CPMGImaging,
+    PGSE,
     NQRSLSE,
     NQRSORC,
     ESRFID,

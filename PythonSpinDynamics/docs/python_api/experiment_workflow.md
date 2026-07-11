@@ -12,7 +12,7 @@ serialization on top.
 If you already know which `run_*` function you want, calling it directly (see
 [Workflows](workflows.md)) remains fully supported. Reach for the facade when
 you want the surrounding scaffolding, a config-file-driven run, or a single
-interface across the NMR, imaging, NQR, and ESR engines.
+interface across the NMR, diffusion, imaging, NQR, and ESR engines.
 
 ## The eight-step workflow
 
@@ -109,6 +109,33 @@ sample and warns when most of it is parallel to B0 — an inefficiency the
 normalization would otherwise hide. Runnable version:
 [`examples/experiment_imaging_with_coil.py`](../../examples/experiment_imaging_with_coil.py).
 
+## Diffusion
+
+The deterministic PGSE moment backend is available through the same facade.
+Gradient timing belongs to the `PGSE` sequence while the isotropic diffusion
+coefficient and T2 belong to the sample:
+
+```python
+from spin_dynamics.experiment import Experiment, PGSE, Sample
+
+study = Experiment(
+    sequence=PGSE(
+        num_echoes=4,
+        gradient_amplitude=0.035,  # T/m
+        gradient_duration=1.5e-3,
+        diffusion_time=18e-3,
+    ),
+    sample=Sample(diffusion_coefficient=1.4e-9, t2_seconds=0.12),
+)
+study.plan()  # -> workflow: run_pgse_moment
+record = study.run()
+```
+
+Planning checks Stejskal-Tanner timing and sample diffusion values before
+execution. The result and complete spec round-trip through NPZ/JSON and the
+friendly config format. Explicit random-walker PGSE remains a direct workflow
+until motion geometry and boundary conditions have first-class facade specs.
+
 ## Other engines
 
 The same interface drives the NQR and ESR engines. For NQR, `plan()` picks the
@@ -189,6 +216,9 @@ python -m spin_dynamics.experiment show run.npz
 python -m spin_dynamics.experiment convert config.toml config.json
 ```
 
+A diffusion example is provided as
+[`examples/experiment_config_pgse.toml`](../../examples/experiment_config_pgse.toml).
+
 `plan` exits non-zero if the config has plan errors; `run` refuses to execute
 one. In Python, `save_config` / `load_config` and `experiment_to_config` /
 `experiment_from_config` expose the same round-trip. This friendly form covers
@@ -197,7 +227,7 @@ geometry); a fully general result archive still uses the NPZ/JSON form above.
 
 ## Scope
 
-The facade currently wraps the CPMG family (asymptotic, finite train, and
+The facade currently wraps deterministic PGSE diffusion, the CPMG family (asymptotic, finite train, and
 inversion-recovery train for ideal/tuned/untuned/matched probes), phase-encoded
 CPMG imaging, pulsed NQR (SLSE and SORC), and pulsed ESR (FID and Hahn echo).
 Design notes and the milestone roadmap are in
