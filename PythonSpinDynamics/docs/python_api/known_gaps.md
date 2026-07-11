@@ -53,8 +53,8 @@ items below.
    3.10--3.12; wheel/sdist installation, the installed console entry point,
    an initial typed surface, branch-coverage threshold, and deprecation policy
    are now gated. Remaining maturity work is expanding static typing and the
-   coverage floor, adding optional Numba/JAX lanes, publishing artifacts to a
-   package index, and introducing benchmark regression gates.
+   coverage floor and publishing artifacts to a package index. Optional
+   Numba/JAX lanes and host-normalized benchmark regression gates are now in CI.
 7. **Discoverability.** The 165 examples are a major asset and the catalog is
    grouped by capability, but many scripts still assume readers already know
    the physics and package conventions. The current documentation overhaul is

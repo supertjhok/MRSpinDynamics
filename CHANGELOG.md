@@ -13,6 +13,11 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
 
 ### PythonSpinDynamics
 
+- Added a host-normalized CI performance regression gate that benchmarks the
+  Git base and candidate commits on the same runner. Compact core, workflow,
+  compiler, and spatial-sampling workloads fail on large individual or broad
+  aggregate slowdowns, with JSON comparisons retained as workflow artifacts.
+
 - Made arbitrary phase cycles first-class for labeled `SequenceIR` programs,
   including reusable branch generation, receiver weights, repeated logical RF
   roles, and compile-level validation. Added quantitative inverse-excitation

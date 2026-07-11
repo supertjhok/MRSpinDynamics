@@ -34,6 +34,20 @@ python -B benchmarks\diffusion_high_q_validation.py --q-values 100,1000,2000,250
 python examples\porous_rock_cpmg_walkers.py --grid 24 --z-cells 32 --pores 90 --walkers-per-voxel 2 --num-echoes 6 --substeps 2 --benchmark-backends --plot-output .tmp\porous_dt2.png
 ```
 
+CI additionally runs a host-normalized regression gate:
+
+```bash
+python -B benchmarks/regression_gate.py --baseline-ref HEAD^
+```
+
+It executes the Git baseline and candidate source trees in fresh processes on
+the same runner, covering raw arb10 propagation, a public finite CPMG workflow,
+SequenceIR compilation, and 3-D spatial interpolation. The gate fails above a
+1.50x individual slowdown (with a 3 ms noise floor) or a 1.25x geometric-mean
+slowdown. GitHub retains the complete JSON comparison for 30 days. Historical
+CSV results remain report-only because absolute timings are not portable across
+hosts.
+
 Longer benchmark sweeps and historical results are documented in
 `benchmarks/README.md`.
 

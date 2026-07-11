@@ -65,6 +65,30 @@ command line. After the change, rerun the same command on the same machine.
 Prefer medians over single timings, and avoid comparing runs across different
 BLAS threading settings.
 
+## CI Regression Gate
+
+`regression_gate.py` is the required, host-normalized CI performance check. It
+runs four compact workloads (raw arb10, the public ideal CPMG workflow,
+SequenceIR compilation, and 3-D spatial sampling) from both the Git base commit
+and the candidate checkout in fresh processes on the same runner. The gate
+therefore compares ratios rather than treating workstation CSV timings as
+portable baselines.
+
+By default it fails when one workload is more than 1.50x slower with at least a
+3 ms absolute increase, or when the geometric-mean slowdown exceeds 1.25x.
+Each workload uses warmups and five median samples. The individual threshold is
+intentionally wider than the aggregate threshold because shared runners can
+produce isolated timing outliers.
+
+```bash
+python -B benchmarks/regression_gate.py --baseline-ref HEAD^
+```
+
+The GitHub Actions job compares a push with `github.event.before` and a pull
+request with its base SHA, then uploads the complete JSON comparison. Keep the
+gate workloads compact and deterministic; add large, GPU, multiprocessing, or
+solver-boundary studies to the report-only benchmark scripts below.
+
 Recommended quick checks:
 
 ```powershell
