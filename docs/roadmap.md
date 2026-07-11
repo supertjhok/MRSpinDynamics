@@ -156,9 +156,9 @@ AIMD/PIMD averaging for anharmonic cases like NaNO₂ near Tc.
 
 1. **Close the DFT → sim → DB loop.** Highest science value, modest code.
    Started here as the `integration/` package; NaNO₂ is the seed case.
-2. **q-space diffusion-diffraction** (roadmap #4) — first inverse-imaging
-   increment done; next value is finite-pulse/walker-to-image validation and
-   non-circular pore examples.
+2. **q-space diffusion-diffraction** (roadmap #4) — ideal inversion and the
+   finite-pulse walker-to-image validation are done; next value is broader pore
+   geometry, finite-SNR, and incomplete-q-coverage studies.
 3. **Validate and broaden microscopic relaxation.** The shared Redfield/dipolar
    model exists; next value is tying it to measured liquid NMR/NQR relaxation
    data, convergence checks, and clearer limits of validity.
@@ -182,7 +182,7 @@ AIMD/PIMD averaging for anharmonic cases like NaNO₂ near Tc.
 
 Opportunity #2 is now underway in `PythonSpinDynamics`.
 
-First increment (done):
+Completed increments:
 
 - `spin_dynamics.workflows.qspace` — ideal q-space analysis helpers:
   `qspace_axes_from_real_space`, `real_space_axes_from_qspace`,
@@ -199,14 +199,21 @@ First increment (done):
 - Tests validate exact complex inversion, intensity-to-autocorrelation behavior,
   magnitude-only phase retrieval up to shift/reflection ambiguity, and q-axis
   validation.
+- `acquire_pgse_qspace_walkers` converts each angular-q vector to its finite
+  rectangular PGSE gradient, reuses a seeded trajectory ensemble across the
+  grid, and normalizes the measured response by an explicit zero-q echo.
+- `examples/plot_pgse_qspace_walkers.py` carries a non-circular elliptical pore
+  from finite-pulse restricted-diffusion walkers through autocorrelation and
+  support-constrained pore-shape reconstruction.
+- The regression validation requires the walker reconstruction to correlate
+  with the ideal autocorrelation, preserve the ellipse anisotropy, and recover
+  the pore mask with intersection-over-union above 0.6.
 
 Next increments:
 
-- Feed finite-pulse walker/PGSE or PGSTE q-space grids into the inverse layer,
-  so the reconstruction accounts for realistic pulse blurring rather than only
-  ideal short-gradient-pulse form factors.
-- Add non-circular pore examples (ellipse, slit, connected domains) and compare
-  how much shape survives magnitude-only phase retrieval at finite SNR.
+- Extend finite-pulse validation from the ellipse to slit and connected-domain
+  pores, and compare how much shape survives magnitude-only phase retrieval at
+  finite SNR.
 - Add sampling-window and missing-k-space studies, since real q-space pore
   imaging is often limited more by q-coverage and SNR than by the ideal inverse.
 
