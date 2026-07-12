@@ -50,6 +50,14 @@ from spin_dynamics.nqr.floquet import (
     linear_rf_floquet_hamiltonian,
     simulate_floquet_rf,
 )
+from spin_dynamics.nqr.field_relaxation import (
+    FieldDependentDaviesRelaxationModel,
+    FieldDependentRelaxationModel,
+    FieldEquilibriumResult,
+    FieldRelaxationResult,
+    field_dependent_equilibrium,
+    simulate_field_relaxation,
+)
 from spin_dynamics.nqr.interference import (
     nqr_recording_from_samples,
     slse_acquisition_mask,
@@ -224,6 +232,10 @@ __all__ = [
     "FullNQRFIDResult",
     "FullNQRSLSEResult",
     "FloquetRFResult",
+    "FieldDependentRelaxationModel",
+    "FieldDependentDaviesRelaxationModel",
+    "FieldEquilibriumResult",
+    "FieldRelaxationResult",
     "NQREigensystem",
     "NQRFIDDistributionResult",
     "NQRModelSelection",
@@ -306,6 +318,7 @@ __all__ = [
     "estimate_proton_dipolar_couplings_from_cif",
     "fid_spectrum",
     "fit_spectral_overlap_relaxation",
+    "field_dependent_equilibrium",
     "gaussian_efg_distribution",
     "default_glycine_nqr_lines",
     "glycine_crystal_from_cif",
@@ -319,6 +332,7 @@ __all__ = [
     "simulate_full_fid",
     "simulate_full_slse",
     "simulate_floquet_rf",
+    "simulate_field_relaxation",
     "simulate_lab_frame_rf",
     "static_hamiltonian_rotating",
     "liouville_hamiltonian",

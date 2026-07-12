@@ -398,6 +398,83 @@ carrier, but it currently assumes one constant-amplitude periodic carrier.
 Shaped, chirped, or otherwise arbitrary waveforms should continue to use
 `simulate_lab_frame_rf`.
 
+## Field-dependent equilibrium and relaxation
+
+`field_dependent_equilibrium` returns the normalized Gibbs density of the full
+static `H_Q + H_Z`, expressed in both the PAS and instantaneous energy basis.
+It also reports the spin expectation vector. This is a physical trace-one
+state, distinct from the older `equilibrium_density(levels_hz)` helper, which
+returns a normalized trace-zero high-temperature deviation density for legacy
+pulse simulations.
+
+```python
+from spin_dynamics.nqr import field_dependent_equilibrium
+
+equilibrium = field_dependent_equilibrium(
+    site,
+    b0_vector_tesla_pas=(0.1, 0.05, 0.2),
+    temperature_kelvin=300.0,
+)
+print(equilibrium.populations, equilibrium.spin_expectation_pas)
+```
+
+Two complementary relaxation models use this equilibrium:
+
+- `FieldDependentRelaxationModel` is a completely-positive Gibbs-reset model
+  with optional dephasing between distinct energy manifolds. Its normalized
+  fixed point is unique, and its manifold projectors avoid assigning arbitrary
+  dephasing inside a Kramers degeneracy. It is the robust phenomenological
+  choice near crossings.
+- `FieldDependentDaviesRelaxationModel` derives field-dependent rates from
+  magnetic rank-1 and EFG rank-2 fluctuation operators in the instantaneous
+  eigenbasis. A Lorentzian correlation-time factor supplies spectral filtering,
+  upward/downward rates obey Boltzmann detailed balance, and equal Bohr
+  frequencies share a jump operator. Its rate amplitudes remain model-dependent
+  unless calibrated independently.
+
+```python
+from spin_dynamics.nqr import (
+    FieldDependentDaviesRelaxationModel,
+    FieldDependentRelaxationModel,
+    simulate_field_relaxation,
+)
+
+robust = FieldDependentRelaxationModel(
+    temperature_kelvin=300.0,
+    thermalization_time_seconds=0.2,
+    dephasing_time_seconds=20e-3,
+)
+trajectory = simulate_field_relaxation(
+    site,
+    (0.1, 0.05, 0.2),
+    times_seconds=[0.0, 0.01, 0.1, 0.5],
+    relaxation=robust,
+    initial_density=prepared_density,
+)
+
+microscopic = FieldDependentDaviesRelaxationModel(
+    spin=site.spin,
+    temperature_kelvin=300.0,
+    magnetic_rate_per_second=100.0,
+    efg_rate_per_second=30.0,
+    correlation_time_seconds=0.2e-6,
+)
+```
+
+The Davies model is secular: it is controlled when separations between
+distinct Bohr-frequency groups exceed the corresponding relaxation rates.
+Near avoided crossings or unresolved near-degeneracies, use the Gibbs-reset
+model until a nonsecular microscopic generator is available.
+
+`simulate_lab_frame_rf(..., relaxation=model)` evaluates the dissipator from
+the static `H_Q + H_Z` once and holds that thermal reference fixed while the RF
+waveform is applied. Do not pass these field-thermal models directly to the
+older rotating-frame full-pulse helpers: those helpers currently give a
+relaxation model the rotating-frame Hamiltonian, which is not the laboratory
+Gibbs reference. The example
+`examples/plot_nqr_field_equilibrium_relaxation.py` shows equilibrium
+polarization and Davies decay-rate changes across the crossover.
+
 ## Orientations
 
 Single-crystal simulations pass one fixed orientation:

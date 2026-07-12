@@ -391,9 +391,17 @@ Completed through the RF-validation increment:
   ratios, including nearest-line isolation diagnostics; and
 - finite-sideband Floquet propagation for monochromatic linear RF, validated
   against direct laboratory-frame propagation in the crossover regime.
+- exact trace-one Gibbs equilibrium from the complete field-dependent static
+  Hamiltonian;
+- a degeneracy-safe completely-positive Gibbs-reset/dephasing model for robust
+  relaxation through crossings; and
+- a finite-temperature Davies/Lindblad model with magnetic and EFG channels,
+  detailed balance, grouped degenerate Bohr frequencies, and explicitly
+  field-dependent Lorentzian spectral filtering.
 
-The next physics milestone is powder- and waveform-level benchmarking of the
-Floquet route, followed by nonsecular crossover relaxation and explicit field
-ramps. Arbitrary shaped RF remains available through the laboratory-frame
-reference; an efficient piecewise-Floquet envelope solver is a possible later
-optimization rather than a correctness prerequisite.
+The next physics milestone is a nonsecular microscopic generator near avoided
+crossings and explicit time-dependent field ramps. Powder- and waveform-level
+benchmarking of the Floquet route also remains. Arbitrary shaped RF is already
+available through the laboratory-frame reference; an efficient
+piecewise-Floquet envelope solver is a possible later optimization rather than
+a correctness prerequisite.

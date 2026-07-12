@@ -99,6 +99,7 @@ MODULES = [
     "nonresonant.sequences",
     "nqr.crossover",
     "nqr.floquet",
+    "nqr.field_relaxation",
     "nqr.full_dynamics",
     "nqr.hamiltonians",
     "nqr.inhomogeneity",

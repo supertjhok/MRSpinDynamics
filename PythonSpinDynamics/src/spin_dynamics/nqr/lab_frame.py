@@ -12,6 +12,11 @@ from spin_dynamics.nqr.crossover import boltzmann_populations
 from spin_dynamics.nqr.hamiltonians import TAU, nqr_hamiltonian, zeeman_hamiltonian
 from spin_dynamics.nqr.operators import spin_matrices
 from spin_dynamics.nqr.systems import QuadrupolarSite
+from spin_dynamics.relaxation import (
+    RelaxationSuperoperator,
+    liouville_hamiltonian,
+    matrix_exponential,
+)
 
 
 @dataclass(frozen=True)
@@ -25,6 +30,7 @@ class LabFrameRFResult:
     segment_durations_seconds: np.ndarray
     rf_fields_tesla_pas: np.ndarray
     receive_direction_pas: np.ndarray
+    relaxation_model: RelaxationSuperoperator | None
     site: QuadrupolarSite
 
 
@@ -82,6 +88,7 @@ def simulate_lab_frame_rf(
     initial_density: np.ndarray | None = None,
     temperature_kelvin: float = 300.0,
     receive_direction_pas: Sequence[complex] | np.ndarray = (1.0, 0.0, 0.0),
+    relaxation: RelaxationSuperoperator | None = None,
 ) -> LabFrameRFResult:
     """Propagate an arbitrary sampled RF waveform without an RWA.
 
@@ -131,9 +138,19 @@ def simulate_lab_frame_rf(
     signal = np.empty(durations.size + 1, dtype=np.complex128)
     densities[0] = density
     signal[0] = np.trace(density @ receive_operator)
+    relaxation_generator = (
+        None if relaxation is None else relaxation.superoperator(static_hamiltonian)
+    )
     for index, (segment_duration, rf_field) in enumerate(zip(durations, rf_fields)):
         hamiltonian = static_hamiltonian + zeeman_hamiltonian(site, rf_field)
-        density = evolve_density(density, hamiltonian, float(segment_duration))
+        if relaxation_generator is None:
+            density = evolve_density(density, hamiltonian, float(segment_duration))
+        else:
+            generator = liouville_hamiltonian(hamiltonian) + relaxation_generator
+            vector = matrix_exponential(generator, float(segment_duration)) @ (
+                density.reshape(-1, order="F")
+            )
+            density = vector.reshape(density.shape, order="F")
         densities[index + 1] = density
         signal[index + 1] = np.trace(density @ receive_operator)
 
@@ -146,5 +163,6 @@ def simulate_lab_frame_rf(
         segment_durations_seconds=durations,
         rf_fields_tesla_pas=rf_fields,
         receive_direction_pas=receive,
+        relaxation_model=relaxation,
         site=site,
     )

@@ -1019,6 +1019,17 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `linear_rf_floquet_hamiltonian(site: QuadrupolarSite, b0_vector_tesla_pas: Sequence[float] | np.ndarray, *, nutation_hz: float, rf_frequency_hz: float, phase_radians: float = 0.0, b1_direction_pas: Sequence[float] | np.ndarray = (1.0, 0.0, 0.0), sidebands: int = 3) -> np.ndarray` | Return the finite Sambe-space Hamiltonian for a linear cosine field. |
 | function | `simulate_floquet_rf(site: QuadrupolarSite, b0_vector_tesla_pas: Sequence[float] | np.ndarray, *, nutation_hz: float, rf_frequency_hz: float, pulse_duration_seconds: float, phase_radians: float = 0.0, b1_direction_pas: Sequence[float] | np.ndarray = (1.0, 0.0, 0.0), sidebands: int = 3, initial_density: np.ndarray | None = None, temperature_kelvin: float = 300.0) -> FloquetRFResult` | Propagate one constant-envelope linear RF pulse with Floquet sidebands. |
 
+## `spin_dynamics.nqr.field_relaxation`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `FieldEquilibriumResult` | Exact Gibbs state of one quadrupolar site at a specified static field. |
+| class | `FieldRelaxationResult` | Density and spin-expectation trajectories under a fixed static field. |
+| function | `field_dependent_equilibrium(site: QuadrupolarSite, b0_vector_tesla_pas: Sequence[float] | np.ndarray = (0.0, 0.0, 0.0), *, temperature_kelvin: float = 300.0) -> FieldEquilibriumResult` | Return the normalized Gibbs state of the complete ``H_Q + H_Z``. |
+| class | `FieldDependentRelaxationModel` | Completely-positive relaxation toward the Gibbs state of ``H_Q + H_Z``. |
+| class | `FieldDependentDaviesRelaxationModel` | Thermal secular relaxation with field-dependent transition rates. |
+| function | `simulate_field_relaxation(site: QuadrupolarSite, b0_vector_tesla_pas: Sequence[float] | np.ndarray, times_seconds: Sequence[float] | np.ndarray, *, relaxation: FieldDependentRelaxationModel | FieldDependentDaviesRelaxationModel, initial_density: np.ndarray | None = None) -> FieldRelaxationResult` | Propagate a density matrix while relaxing at one fixed static field. |
+
 ## `spin_dynamics.nqr.full_dynamics`
 
 | Kind | Name | Summary |
@@ -1089,7 +1100,7 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | --- | --- | --- |
 | class | `LabFrameRFResult` | Density trajectory and detected signal after each RF waveform segment. |
 | function | `sample_linear_rf_pulse(duration_seconds: float, time_step_seconds: float, amplitude_tesla: float, carrier_hz: float, *, phase_radians: float = 0.0, direction_pas: Sequence[float] | np.ndarray = (1.0, 0.0, 0.0)) -> tuple[np.ndarray, np.ndarray]` | Sample a linearly polarized cosine RF pulse at segment midpoints. |
-| function | `simulate_lab_frame_rf(site: QuadrupolarSite, b0_vector_tesla_pas: Sequence[float] | np.ndarray, segment_durations_seconds: Sequence[float] | np.ndarray, rf_fields_tesla_pas: Sequence[Sequence[float]] | np.ndarray, *, initial_density: np.ndarray | None = None, temperature_kelvin: float = 300.0, receive_direction_pas: Sequence[complex] | np.ndarray = (1.0, 0.0, 0.0)) -> LabFrameRFResult` | Propagate an arbitrary sampled RF waveform without an RWA. |
+| function | `simulate_lab_frame_rf(site: QuadrupolarSite, b0_vector_tesla_pas: Sequence[float] | np.ndarray, segment_durations_seconds: Sequence[float] | np.ndarray, rf_fields_tesla_pas: Sequence[Sequence[float]] | np.ndarray, *, initial_density: np.ndarray | None = None, temperature_kelvin: float = 300.0, receive_direction_pas: Sequence[complex] | np.ndarray = (1.0, 0.0, 0.0), relaxation: RelaxationSuperoperator | None = None) -> LabFrameRFResult` | Propagate an arbitrary sampled RF waveform without an RWA. |
 
 ## `spin_dynamics.nqr.model_selection`
 
