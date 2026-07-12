@@ -5,9 +5,11 @@ from spin_dynamics.nqr.crossover import (
     CrossoverOrientation,
     CrossoverSpectrumResult,
     CrossoverTransition,
+    PowderCrossoverSweepResult,
     boltzmann_populations,
     crossover_transitions_from_eigensystem,
     simulate_crossover_spectrum,
+    simulate_crossover_powder_sweep,
     track_crossover_field_sweep,
 )
 from spin_dynamics.nqr.hamiltonians import (
@@ -37,6 +39,11 @@ from spin_dynamics.nqr.inhomogeneity import (
     simulate_slse_acquisition_spectrum,
     simulate_slse_efg_distribution,
     temperature_efg_distribution,
+)
+from spin_dynamics.nqr.lab_frame import (
+    LabFrameRFResult,
+    sample_linear_rf_pulse,
+    simulate_lab_frame_rf,
 )
 from spin_dynamics.nqr.interference import (
     nqr_recording_from_samples,
@@ -198,6 +205,7 @@ __all__ = [
     "CrossoverOrientation",
     "CrossoverSpectrumResult",
     "CrossoverTransition",
+    "PowderCrossoverSweepResult",
     "EFGDistribution",
     "EFGIsochromat",
     "EFGRephasingAnalysis",
@@ -246,6 +254,7 @@ __all__ = [
     "HalbachPrepolarizationMagnet",
     "IsotropicLiquidMotionalAveraging",
     "LinearTransportMotion",
+    "LabFrameRFResult",
     "MotionalAveragingModel",
     "ProtonCouplingEstimate",
     "ProtonDipolarCoupling",
@@ -294,6 +303,7 @@ __all__ = [
     "simulate_full_echo",
     "simulate_full_fid",
     "simulate_full_slse",
+    "simulate_lab_frame_rf",
     "static_hamiltonian_rotating",
     "liouville_hamiltonian",
     "liouville_superoperator",
@@ -315,6 +325,7 @@ __all__ = [
     "simulate_fid_efg_distribution",
     "simulate_adiabatic_polarization_transfer",
     "simulate_crossover_spectrum",
+    "simulate_crossover_powder_sweep",
     "simulate_population_transfer",
     "simulate_piezoelectric_nqr_detection",
     "simulate_slse",
@@ -325,6 +336,7 @@ __all__ = [
     "simulate_sorc",
     "simulate_weak_b0_spectrum",
     "single_crystal_orientation",
+    "sample_linear_rf_pulse",
     "nqr_recording_from_samples",
     "slse_acquisition_mask",
     "slse_mask_from_metadata",

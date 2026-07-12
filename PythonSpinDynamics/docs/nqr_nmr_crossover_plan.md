@@ -383,7 +383,11 @@ Completed in the first two increments:
   symmetry, and circular-polarization selection tests;
 - a repository-parameterized NaNO2 `14N` / NaClO3 `35Cl` crossover plot; and
 - a change-aware test selector with a short constant-time smoke tier.
+- optional powder-averaged field-frequency maps with explicit SO(3) grid
+  convergence; and
+- an exact piecewise-constant laboratory-frame RF propagation reference with
+  no rotating-wave approximation.
 
-The next physics milestone is a laboratory-frame pulse reference across the
-crossover, followed by a benchmarked multiband rotating-frame or Floquet
-implementation.
+The next physics milestone is comparison of the laboratory-frame reference
+against the existing single-band RWA, followed by a benchmarked multiband
+rotating-frame or Floquet implementation.

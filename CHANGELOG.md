@@ -19,6 +19,9 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
   manifold intensities at exact degeneracies.
 - Added overlap-tracked NQR-to-NMR field sweeps and a repository-parameterized
   NaNO2 `14N` / NaClO3 `35Cl` energy-level and transition-intensity example.
+- Added optional powder-averaged crossover field-frequency maps and a general
+  piecewise-constant laboratory-frame RF reference with exact unitary
+  propagation and no rotating-wave approximation.
 - Added a declarative change-aware local test selector and restored the smoke
   tier to constant-time behavior by leaving catalog-wide example CLI checks in
   the example/full tiers.

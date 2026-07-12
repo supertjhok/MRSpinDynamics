@@ -1004,9 +1004,11 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `CrossoverTransition` | One observable transition between energy manifolds. |
 | class | `CrossoverSpectrumResult` | Exact equilibrium spectrum across the NQR-to-NMR crossover. |
 | class | `CrossoverFieldSweepResult` | Overlap-tracked eigenstates and transition responses over a B0 sweep. |
+| class | `PowderCrossoverSweepResult` | Powder-averaged spectra on one frequency axis over a B0 sweep. |
 | function | `boltzmann_populations(levels_hz: np.ndarray | Sequence[float], temperature_kelvin: float) -> np.ndarray` | Return normalized Boltzmann populations for energies supplied in Hz. |
 | function | `crossover_transitions_from_eigensystem(eigensystem: NQREigensystem, orientation: CrossoverOrientation, *, orientation_index: int = 0, temperature_kelvin: float = 300.0, degeneracy_tolerance_hz: float | None = None, coupling_tolerance: float = 1e-12) -> tuple[CrossoverTransition, ...]` | Return degeneracy-safe transition responses for one orientation. |
 | function | `track_crossover_field_sweep(site: QuadrupolarSite, b0_tesla: np.ndarray | Sequence[float], *, orientation: CrossoverOrientation | None = None, temperature_kelvin: float = 300.0, backend: str = 'numpy') -> CrossoverFieldSweepResult` | Track eigenstate character and all state-pair responses over increasing B0. |
+| function | `simulate_crossover_powder_sweep(site: QuadrupolarSite, b0_tesla: np.ndarray | Sequence[float], *, n_theta: int = 4, n_phi: int = 8, n_chi: int = 4, b1_b0_angle: float = np.pi / 2.0, temperature_kelvin: float = 300.0, broadening_hz: float = 1000.0, frequency_points: int = 512, frequency_range_hz: tuple[float, float] | None = None, lineshape: str = 'gaussian', normalize_each_field: bool = True, backend: str = 'numpy') -> PowderCrossoverSweepResult` | Return optional powder-averaged crossover spectra over several fields. |
 | function | `simulate_crossover_spectrum(site: QuadrupolarSite, b0_tesla: float, *, orientations: CrossoverOrientationInput = 'single', temperature_kelvin: float = 300.0, broadening_hz: float = 100.0, points: int = 2048, frequency_range_hz: tuple[float, float] | None = None, lineshape: str = 'gaussian', normalize: bool = False, degeneracy_tolerance_hz: float | None = None, coupling_tolerance: float = 1e-12, backend: str = 'numpy') -> CrossoverSpectrumResult` | Simulate every observable transition of ``H_Q + H_Z`` exactly. |
 
 ## `spin_dynamics.nqr.full_dynamics`
@@ -1072,6 +1074,14 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `slse_mask_from_metadata(num_samples: int, sample_rate_hz: float, *, echo_spacing_seconds: float, detection_duration_seconds: float, num_echoes: int, ringdown_seconds: float = 0.0, start_offset_seconds: float = 0.0, post_baseline_seconds: float = 0.0, baseline_intervals: Sequence[Interval] | None = None) -> AcquisitionMask` | Reconstruct an SLSE acquisition mask over a window of ``num_samples`` ADC samples. |
 | function | `sorc_mask_from_metadata(num_samples: int, sample_rate_hz: float, *, half_spacing_seconds: float, detection_duration_seconds: float, num_pulses: int, ringdown_seconds: float = 0.0, start_offset_seconds: float = 0.0, post_baseline_seconds: float = 0.0, baseline_intervals: Sequence[Interval] | None = None, initial_gap_is_baseline: bool = True) -> AcquisitionMask` | Reconstruct a SORC acquisition mask over a window of ``num_samples`` ADC samples. |
 | function | `nqr_recording_from_samples(primary: np.ndarray, references: np.ndarray | None, sample_rate_hz: float, *, sequence: str = 'slse', **timing) -> RFIRecording` | Pair measured ADC windows with a mask reconstructed from sequence timing. |
+
+## `spin_dynamics.nqr.lab_frame`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `LabFrameRFResult` | Density trajectory and detected signal after each RF waveform segment. |
+| function | `sample_linear_rf_pulse(duration_seconds: float, time_step_seconds: float, amplitude_tesla: float, carrier_hz: float, *, phase_radians: float = 0.0, direction_pas: Sequence[float] | np.ndarray = (1.0, 0.0, 0.0)) -> tuple[np.ndarray, np.ndarray]` | Sample a linearly polarized cosine RF pulse at segment midpoints. |
+| function | `simulate_lab_frame_rf(site: QuadrupolarSite, b0_vector_tesla_pas: Sequence[float] | np.ndarray, segment_durations_seconds: Sequence[float] | np.ndarray, rf_fields_tesla_pas: Sequence[Sequence[float]] | np.ndarray, *, initial_density: np.ndarray | None = None, temperature_kelvin: float = 300.0, receive_direction_pas: Sequence[complex] | np.ndarray = (1.0, 0.0, 0.0)) -> LabFrameRFResult` | Propagate an arbitrary sampled RF waveform without an RWA. |
 
 ## `spin_dynamics.nqr.model_selection`
 

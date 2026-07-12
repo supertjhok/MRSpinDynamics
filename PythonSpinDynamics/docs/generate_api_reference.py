@@ -102,6 +102,7 @@ MODULES = [
     "nqr.hamiltonians",
     "nqr.inhomogeneity",
     "nqr.interference",
+    "nqr.lab_frame",
     "nqr.model_selection",
     "nqr.operators",
     "nqr.orientations",

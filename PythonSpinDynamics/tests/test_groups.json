@@ -17,7 +17,8 @@
         "tests.test_nqr_higher_spin",
         "tests.test_nqr_model_selection",
         "tests.test_nqr_multi_axis",
-        "tests.test_batched_nqr"
+        "tests.test_batched_nqr",
+        "tests.test_nqr_lab_frame"
       ]
     },
     "relaxation": {

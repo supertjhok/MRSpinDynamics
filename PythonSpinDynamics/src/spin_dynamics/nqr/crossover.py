@@ -13,7 +13,11 @@ from dataclasses import dataclass, replace
 
 import numpy as np
 
-from spin_dynamics.nqr.hamiltonians import diagonalize_sites_over_b0
+from spin_dynamics.nqr.hamiltonians import (
+    TAU,
+    diagonalize_sites_over_b0,
+    quadrupole_hamiltonian,
+)
 from spin_dynamics.nqr.operators import spin_matrices
 from spin_dynamics.nqr.orientations import (
     OrientationSample,
@@ -149,6 +153,23 @@ class CrossoverFieldSweepResult:
     transition_amplitudes: np.ndarray
     transition_intensities: np.ndarray
     orientation: CrossoverOrientation
+    temperature_kelvin: float
+    site: QuadrupolarSite
+
+
+@dataclass(frozen=True)
+class PowderCrossoverSweepResult:
+    """Powder-averaged spectra on one frequency axis over a B0 sweep."""
+
+    b0_tesla: np.ndarray
+    zeeman_to_quadrupole_ratio: np.ndarray
+    frequencies_hz: np.ndarray
+    spectra: np.ndarray
+    integrated_intensity: np.ndarray
+    orientation_count: int
+    broadening_hz: float
+    lineshape: str
+    normalized_each_field: bool
     temperature_kelvin: float
     site: QuadrupolarSite
 
@@ -483,6 +504,108 @@ def track_crossover_field_sweep(
         transition_intensities=np.abs(amplitudes),
         orientation=sample,
         temperature_kelvin=temperature,
+        site=site,
+    )
+
+
+def simulate_crossover_powder_sweep(
+    site: QuadrupolarSite,
+    b0_tesla: np.ndarray | Sequence[float],
+    *,
+    n_theta: int = 4,
+    n_phi: int = 8,
+    n_chi: int = 4,
+    b1_b0_angle: float = np.pi / 2.0,
+    temperature_kelvin: float = 300.0,
+    broadening_hz: float = 1.0e3,
+    frequency_points: int = 512,
+    frequency_range_hz: tuple[float, float] | None = None,
+    lineshape: str = "gaussian",
+    normalize_each_field: bool = True,
+    backend: str = "numpy",
+) -> PowderCrossoverSweepResult:
+    """Return optional powder-averaged crossover spectra over several fields.
+
+    Each field is exactly diagonalized over a correlated lab ``B0``/``B1`` SO(3)
+    grid. Spectra share one absolute frequency axis, making the result suitable
+    for a field-frequency image. Powder averaging deliberately does not expose
+    globally tracked state labels because different crystallites do not share a
+    unique eigenstate branch ordering.
+    """
+
+    fields = np.asarray(b0_tesla, dtype=np.float64).reshape(-1)
+    if fields.size == 0 or not np.all(np.isfinite(fields)) or np.any(fields < 0.0):
+        raise ValueError("b0_tesla must contain finite non-negative values")
+    if np.any(np.diff(fields) <= 0.0):
+        raise ValueError("b0_tesla must be strictly increasing")
+    broadening = float(broadening_hz)
+    if not np.isfinite(broadening) or broadening <= 0.0:
+        raise ValueError("broadening_hz must be positive and finite")
+    frequency_points = int(frequency_points)
+    if frequency_points < 2:
+        raise ValueError("frequency_points must be at least two")
+
+    orientations = b0_b1_powder_average_grid(
+        n_theta=n_theta,
+        n_phi=n_phi,
+        n_chi=n_chi,
+        b1_b0_angle=b1_b0_angle,
+    )
+    if frequency_range_hz is None:
+        hq_levels = np.linalg.eigvalsh(quadrupole_hamiltonian(site)) / TAU
+        hq_span = float(np.ptp(hq_levels))
+        zeeman_span = 2.0 * site.spin * abs(site.gamma_hz_per_t) * float(
+            np.max(fields)
+        )
+        frequency_range = (0.0, 1.02 * (hq_span + zeeman_span))
+    else:
+        frequency_range = tuple(map(float, frequency_range_hz))
+        if (
+            len(frequency_range) != 2
+            or not np.all(np.isfinite(frequency_range))
+            or frequency_range[1] <= frequency_range[0]
+        ):
+            raise ValueError(
+                "frequency_range_hz must contain finite increasing bounds"
+            )
+
+    spectra = np.empty((fields.size, frequency_points), dtype=np.complex128)
+    integrated = np.empty(fields.size, dtype=np.float64)
+    frequencies: np.ndarray | None = None
+    for field_index, field in enumerate(fields):
+        result = simulate_crossover_spectrum(
+            site,
+            float(field),
+            orientations=orientations,
+            temperature_kelvin=temperature_kelvin,
+            broadening_hz=broadening,
+            points=frequency_points,
+            frequency_range_hz=frequency_range,
+            lineshape=lineshape,
+            normalize=False,
+            backend=backend,
+        )
+        frequencies = result.frequencies_hz
+        spectra[field_index] = result.spectrum
+        integrated[field_index] = sum(item.intensity for item in result.transitions)
+        if normalize_each_field:
+            scale = float(np.max(np.abs(spectra[field_index])))
+            if scale > 0.0:
+                spectra[field_index] /= scale
+
+    assert frequencies is not None
+    ratios = abs(site.gamma_hz_per_t) * fields / site.quadrupole_frequency_hz
+    return PowderCrossoverSweepResult(
+        b0_tesla=fields,
+        zeeman_to_quadrupole_ratio=ratios,
+        frequencies_hz=frequencies,
+        spectra=spectra,
+        integrated_intensity=integrated,
+        orientation_count=len(orientations),
+        broadening_hz=broadening,
+        lineshape=lineshape,
+        normalized_each_field=bool(normalize_each_field),
+        temperature_kelvin=float(temperature_kelvin),
         site=site,
     )
 

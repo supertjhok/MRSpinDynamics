@@ -23,6 +23,7 @@ add_src_to_path()
 from spin_dynamics.nqr import (  # noqa: E402
     CrossoverOrientation,
     QuadrupolarSite,
+    simulate_crossover_powder_sweep,
     track_crossover_field_sweep,
 )
 
@@ -85,6 +86,16 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--max-ratio", type=float, default=30.0)
     parser.add_argument("--points", type=int, default=180)
     parser.add_argument("--temperature-k", type=float, default=293.15)
+    parser.add_argument(
+        "--powder",
+        action="store_true",
+        help="Replace transition sticks with an optional powder-averaged spectrum map.",
+    )
+    parser.add_argument("--powder-n-theta", type=int, default=4)
+    parser.add_argument("--powder-n-phi", type=int, default=8)
+    parser.add_argument("--powder-n-chi", type=int, default=4)
+    parser.add_argument("--powder-frequency-points", type=int, default=384)
+    parser.add_argument("--powder-broadening-khz", type=float, default=20.0)
     parser.add_argument("--output", type=Path)
     return parser.parse_args()
 
@@ -99,7 +110,13 @@ def _shade_regimes(axis, minimum_ratio: float, maximum_ratio: float) -> None:
     axis.grid(alpha=0.18, which="both")
 
 
-def _plot_material(axes, material: MaterialSite, ratios: np.ndarray, temperature: float):
+def _plot_material(
+    axes,
+    material: MaterialSite,
+    ratios: np.ndarray,
+    temperature: float,
+    args: argparse.Namespace,
+):
     orientation = CrossoverOrientation(
         b0_direction_pas=(1.0, 1.0, 1.0),
         transmit_direction_pas=(1.0, -1.0, 0.0),
@@ -158,27 +175,49 @@ def _plot_material(axes, material: MaterialSite, ratios: np.ndarray, temperature
         va="bottom",
     )
 
-    intensities = sweep.transition_intensities
-    scale = float(np.max(intensities))
-    relative = intensities / scale if scale > 0.0 else intensities
-    x_values = np.repeat(ratios, len(sweep.state_pairs))
-    y_values = (
-        sweep.transition_frequencies_hz / material.site.quadrupole_frequency_hz
-    ).reshape(-1)
-    colors = np.log10(np.clip(relative.reshape(-1), 1.0e-7, 1.0))
-    sizes = 5.0 + 23.0 * np.sqrt(relative.reshape(-1))
-    visible = relative.reshape(-1) > 1.0e-7
-    scatter = axes[1].scatter(
-        x_values[visible],
-        y_values[visible],
-        c=colors[visible],
-        s=sizes[visible],
-        vmin=-7.0,
-        vmax=0.0,
-        cmap="viridis",
-        linewidths=0.0,
-        rasterized=True,
-    )
+    if args.powder:
+        powder = simulate_crossover_powder_sweep(
+            material.site,
+            fields,
+            n_theta=args.powder_n_theta,
+            n_phi=args.powder_n_phi,
+            n_chi=args.powder_n_chi,
+            temperature_kelvin=temperature,
+            broadening_hz=args.powder_broadening_khz * 1.0e3,
+            frequency_points=args.powder_frequency_points,
+        )
+        scatter = axes[1].pcolormesh(
+            ratios,
+            powder.frequencies_hz / material.site.quadrupole_frequency_hz,
+            np.abs(powder.spectra).T,
+            shading="auto",
+            vmin=0.0,
+            vmax=1.0,
+            cmap="magma",
+            rasterized=True,
+        )
+    else:
+        intensities = sweep.transition_intensities
+        scale = float(np.max(intensities))
+        relative = intensities / scale if scale > 0.0 else intensities
+        x_values = np.repeat(ratios, len(sweep.state_pairs))
+        y_values = (
+            sweep.transition_frequencies_hz / material.site.quadrupole_frequency_hz
+        ).reshape(-1)
+        colors = np.log10(np.clip(relative.reshape(-1), 1.0e-7, 1.0))
+        sizes = 5.0 + 23.0 * np.sqrt(relative.reshape(-1))
+        visible = relative.reshape(-1) > 1.0e-7
+        scatter = axes[1].scatter(
+            x_values[visible],
+            y_values[visible],
+            c=colors[visible],
+            s=sizes[visible],
+            vmin=-7.0,
+            vmax=0.0,
+            cmap="viridis",
+            linewidths=0.0,
+            rasterized=True,
+        )
     axes[1].set_xlabel(r"Interaction ratio $\nu_L/\nu_Q$")
     axes[1].set_ylabel(r"Transition frequency / $\nu_Q$")
     axes[1].set_ylim(bottom=0.0)
@@ -210,17 +249,26 @@ def main() -> None:
             material,
             ratios,
             args.temperature_k,
+            args,
         )
         sweeps.append(sweep)
 
     fig.suptitle(
         "Exact NQR → Zeeman-perturbed NQR → quadrupolar NMR crossover\n"
-        "Tilted single-crystal geometry; marker color and size encode intensity",
+        + (
+            "Tilted single-crystal levels; powder-averaged spectra"
+            if args.powder
+            else "Tilted single-crystal geometry; marker color and size encode intensity"
+        ),
         fontsize=13,
     )
     if scatter is not None:
         colorbar = fig.colorbar(scatter, ax=axes[1, :], shrink=0.88, pad=0.02)
-        colorbar.set_label(r"$\log_{10}$ relative equilibrium intensity")
+        colorbar.set_label(
+            "Normalized powder intensity"
+            if args.powder
+            else r"$\log_{10}$ relative equilibrium intensity"
+        )
 
     for material, sweep in zip(materials, sweeps):
         bq = material.site.quadrupole_frequency_hz / abs(

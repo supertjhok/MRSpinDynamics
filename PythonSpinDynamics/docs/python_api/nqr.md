@@ -290,6 +290,58 @@ NaNO2 `14N` (`I=1`) and NaClO3 `35Cl` (`I=3/2`) parameters:
 python examples\plot_nqr_nmr_crossover.py --output nqr_nmr_crossover.png
 ```
 
+Add `--powder` to replace the transition sticks with exact powder-averaged
+field-frequency maps. `simulate_crossover_powder_sweep` uses a configurable
+correlated `B0`/`B1` SO(3) grid and returns all fields on one absolute frequency
+axis. It intentionally does not claim common eigenstate branch labels across
+different crystallites:
+
+```python
+from spin_dynamics.nqr import simulate_crossover_powder_sweep
+
+powder = simulate_crossover_powder_sweep(
+    site,
+    fields,
+    n_theta=4,
+    n_phi=8,
+    n_chi=4,
+    broadening_hz=20e3,
+    frequency_points=384,
+)
+print(powder.spectra.shape, powder.orientation_count)
+```
+
+## Laboratory-frame RF reference
+
+`simulate_lab_frame_rf` propagates an arbitrary piecewise-constant
+instantaneous RF magnetic field without a rotating-frame transformation or
+RWA. It is the correctness reference for crossover pulses, including cases
+with multiple nearby transition bands or appreciable counter-rotating effects:
+
+```python
+from spin_dynamics.nqr import sample_linear_rf_pulse, simulate_lab_frame_rf
+
+durations, rf_fields = sample_linear_rf_pulse(
+    duration_seconds=50e-6,
+    time_step_seconds=20e-9,  # must resolve the carrier
+    amplitude_tesla=1e-3,
+    carrier_hz=site.quadrupole_frequency_hz,
+    direction_pas=(1, 0, 0),
+)
+lab = simulate_lab_frame_rf(
+    site,
+    b0_vector_tesla_pas=(0, 0, 0),
+    segment_durations_seconds=durations,
+    rf_fields_tesla_pas=rf_fields,
+)
+print(lab.times_seconds, lab.signal)
+```
+
+The default initial state is the Boltzmann equilibrium of the complete static
+`H_Q + H_Z` Hamiltonian. Each segment is propagated by exact dense unitary
+evolution. The sample interval is an explicit convergence parameter: it must
+resolve both carrier oscillation and envelope changes.
+
 ## Orientations
 
 Single-crystal simulations pass one fixed orientation:

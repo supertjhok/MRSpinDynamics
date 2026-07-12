@@ -18,6 +18,7 @@ from spin_dynamics.nqr import (  # noqa: E402
     crossover_transitions_from_eigensystem,
     diagonalize_site,
     simulate_crossover_spectrum,
+    simulate_crossover_powder_sweep,
     track_crossover_field_sweep,
 )
 
@@ -334,6 +335,68 @@ class NQRCrossoverTests(unittest.TestCase):
             np.sort(result.magnetic_quantum_expectation[-1]),
             [-1.5, -0.5, 0.5, 1.5],
             atol=1e-3,
+        )
+
+    def test_powder_sweep_returns_common_normalized_frequency_map(self) -> None:
+        site = QuadrupolarSite(
+            spin=1.5,
+            quadrupole_frequency_hz=1.0e6,
+            eta=0.2,
+            gamma_hz_per_t=4.0e6,
+        )
+
+        result = simulate_crossover_powder_sweep(
+            site,
+            [0.05, 0.25],
+            n_theta=3,
+            n_phi=6,
+            n_chi=3,
+            broadening_hz=20.0e3,
+            frequency_points=129,
+        )
+
+        self.assertEqual(result.orientation_count, 54)
+        self.assertEqual(result.spectra.shape, (2, 129))
+        np.testing.assert_allclose(np.max(np.abs(result.spectra), axis=1), 1.0)
+        np.testing.assert_allclose(result.spectra.imag, 0.0, atol=1e-15)
+        np.testing.assert_allclose(
+            result.zeeman_to_quadrupole_ratio,
+            [0.2, 1.0],
+        )
+
+    def test_powder_integrated_intensity_converges_with_grid(self) -> None:
+        site = QuadrupolarSite(
+            spin=1.5,
+            quadrupole_frequency_hz=1.0e6,
+            eta=0.2,
+            gamma_hz_per_t=4.0e6,
+        )
+        common = dict(
+            b0_tesla=[0.25],
+            broadening_hz=20.0e3,
+            frequency_points=65,
+            normalize_each_field=False,
+        )
+
+        medium = simulate_crossover_powder_sweep(
+            site,
+            n_theta=3,
+            n_phi=6,
+            n_chi=3,
+            **common,
+        )
+        fine = simulate_crossover_powder_sweep(
+            site,
+            n_theta=4,
+            n_phi=8,
+            n_chi=4,
+            **common,
+        )
+
+        self.assertAlmostEqual(
+            medium.integrated_intensity[0] / fine.integrated_intensity[0],
+            1.0,
+            delta=0.02,
         )
 
 
