@@ -9,14 +9,16 @@ independent validation target.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import numpy as np
 
 from spin_dynamics.analysis.compressed_sensing import (
     AdaptiveCSResult,
     adaptive_cs_reconstruction,
+    centered_ifft2,
     normalized_root_mean_square_error,
+    reconstruct_tv_pocs,
     variable_density_order,
 )
 from spin_dynamics.core.numerics import trapezoid
@@ -71,8 +73,10 @@ class PortableHalbachMRIConfig:
     adc_full_scale_v: float = 2.5
     adc_peak_fraction: float = 0.5
     ambient_temperature_k: float = 293.15
-    regularization: float = 5.0e-4
-    reconstruction_iterations: int = 45
+    regularization: float = 1.0e-6
+    reconstruction_iterations: int = 120
+    tv_regularization: float = 0.08
+    tv_iterations: int = 10
     batch_fraction: float = 0.04
     minimum_sampling_fraction: float = 0.32
     stopping_patience: int = 2
@@ -117,6 +121,7 @@ class PortableHalbachMRIResult:
     noise_standard_deviation: float
     adaptive: AdaptiveCSResult
     reference_nrmse: float
+    zero_fill_reference_nrmse: float
 
     @property
     def stopped_time_s(self) -> float:
@@ -679,10 +684,29 @@ def simulate_portable_halbach_mri(
         iterations=cfg.reconstruction_iterations,
         seed=cfg.seed,
     )
+    adaptive = replace(
+        adaptive,
+        image=reconstruct_tv_pocs(
+            measured,
+            adaptive.acquired_mask,
+            regularization=cfg.tv_regularization,
+            iterations=cfg.tv_iterations,
+            initial=adaptive.image,
+        ),
+    )
+    reference_magnitude = np.abs(spin_density)
     reconstructed_magnitude = np.abs(adaptive.image)
     display_scale = float(
-        np.sum(np.abs(spin_density) * reconstructed_magnitude)
+        np.sum(reference_magnitude * reconstructed_magnitude)
         / max(np.sum(reconstructed_magnitude**2), 1e-30)
+    )
+    zero_fill = centered_ifft2(
+        np.where(adaptive.acquired_mask, measured, 0.0)
+    )
+    zero_fill_magnitude = np.abs(zero_fill)
+    zero_fill_scale = float(
+        np.sum(reference_magnitude * zero_fill_magnitude)
+        / max(np.sum(zero_fill_magnitude**2), 1e-30)
     )
     return PortableHalbachMRIResult(
         config=cfg,
@@ -719,6 +743,9 @@ def simulate_portable_halbach_mri(
         adaptive=adaptive,
         reference_nrmse=normalized_root_mean_square_error(
             spin_density, display_scale * adaptive.image
+        ),
+        zero_fill_reference_nrmse=normalized_root_mean_square_error(
+            spin_density, zero_fill_scale * zero_fill
         ),
     )
 

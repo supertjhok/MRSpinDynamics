@@ -185,9 +185,20 @@ def main() -> None:
     gain_axis.set_ylabel("normalized gain")
 
     axes[1, 0].imshow(np.abs(zero_fill), cmap="gray", origin="lower", extent=extent)
-    axes[1, 0].set(title=f"Noisy zero-fill ({100 * adaptive.sampling_fractions[-1]:.0f}% acquired)", xlabel="z (mm)", ylabel="x (mm)")
+    axes[1, 0].set(
+        title=(
+            f"Noisy zero-fill ({100 * adaptive.sampling_fractions[-1]:.0f}%, "
+            f"NRMSE {result.zero_fill_reference_nrmse:.3f})"
+        ),
+        xlabel="z (mm)",
+        ylabel="x (mm)",
+    )
     axes[1, 1].imshow(np.abs(adaptive.image), cmap="gray", origin="lower", extent=extent)
-    axes[1, 1].set(title=f"L1-Haar CS (NRMSE {result.reference_nrmse:.3f})", xlabel="z (mm)", ylabel="x (mm)")
+    axes[1, 1].set(
+        title=f"Finite-difference TV-CS (NRMSE {result.reference_nrmse:.3f})",
+        xlabel="z (mm)",
+        ylabel="x (mm)",
+    )
 
     fraction = 100.0 * adaptive.sampling_fractions
     axes[1, 2].plot(fraction, adaptive.quality, "o-", label="held-out quality")

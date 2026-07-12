@@ -230,7 +230,7 @@ python examples\plot_multislice_halbach_imaging.py --pixels 16 --slices 5 --outp
 
 For an end-to-end capstone model of the book's low-cost C8 system—including finite
 Halbach fields, RF/gradient self-heating, ferrite Larmor drift, measured
-complex receiver noise, incomplete k-space, L1-Haar reconstruction, and a
+complex receiver noise, incomplete k-space, finite-difference TV reconstruction, and a
 held-out quality auto-stop, RF/gradient driver requirements, ADC gain, mass,
 active volume, and effective slice thickness—run:
 

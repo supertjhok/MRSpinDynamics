@@ -7,6 +7,7 @@ from spin_dynamics.analysis.compressed_sensing import (
     centered_ifft2,
     normalized_root_mean_square_error,
     reconstruct_wavelet_fista,
+    reconstruct_tv_pocs,
     variable_density_order,
 )
 
@@ -64,6 +65,7 @@ __all__ = [
     "laplace_kernel",
     "normalized_root_mean_square_error",
     "reconstruct_wavelet_fista",
+    "reconstruct_tv_pocs",
     "select_regularization_1d",
     "select_regularization_2d",
     "t1_kernel",

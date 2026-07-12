@@ -154,13 +154,106 @@ def reconstruct_wavelet_fista(
     return x
 
 
+def _tv_denoise_chambolle(
+    image: np.ndarray,
+    weight: float,
+    *,
+    iterations: int,
+) -> np.ndarray:
+    """Complex isotropic-TV proximal map using Chambolle's dual iteration."""
+
+    if weight <= 0.0:
+        return np.asarray(image, dtype=np.complex128).copy()
+    source = np.asarray(image, dtype=np.complex128)
+    px = np.zeros_like(source)
+    py = np.zeros_like(source)
+    estimate = source.copy()
+    step = 0.125
+    for _ in range(int(iterations)):
+        gx = np.zeros_like(estimate)
+        gy = np.zeros_like(estimate)
+        gx[:-1, :] = estimate[1:, :] - estimate[:-1, :]
+        gy[:, :-1] = estimate[:, 1:] - estimate[:, :-1]
+        magnitude = np.sqrt(np.abs(gx) ** 2 + np.abs(gy) ** 2)
+        px = (px + (step / weight) * gx) / (1.0 + (step / weight) * magnitude)
+        py = (py + (step / weight) * gy) / (1.0 + (step / weight) * magnitude)
+        divergence = np.zeros_like(source)
+        divergence[0, :] += px[0, :]
+        divergence[1:-1, :] += px[1:-1, :] - px[:-2, :]
+        divergence[-1, :] -= px[-2, :]
+        divergence[:, 0] += py[:, 0]
+        divergence[:, 1:-1] += py[:, 1:-1] - py[:, :-2]
+        divergence[:, -1] -= py[:, -2]
+        estimate = source + weight * divergence
+    return estimate
+
+
+def reconstruct_tv_pocs(
+    kspace: np.ndarray,
+    mask: np.ndarray,
+    *,
+    regularization: float = 0.08,
+    iterations: int = 10,
+    denoise_iterations: int = 25,
+    final_denoise_iterations: int = 100,
+    initial: np.ndarray | None = None,
+) -> np.ndarray:
+    """Reconstruct undersampled MRI with finite-difference TV and data consistency.
+
+    Alternating TV proximal and measured-k-space projection steps suppress
+    incoherent aliasing while repeatedly restoring every acquired coefficient.
+    A final TV proximal step is retained because noisy MRI uses a data-fidelity
+    penalty rather than exact interpolation. ``regularization`` is relative to
+    the peak magnitude of the zero-filled image, making it portable across
+    physical voltage scales.
+    """
+
+    data = np.asarray(kspace, dtype=np.complex128)
+    sampling = np.asarray(mask, dtype=bool)
+    if data.ndim != 2 or sampling.shape != data.shape:
+        raise ValueError("kspace and mask must be matching 2-D arrays")
+    if not np.any(sampling):
+        raise ValueError("mask must select at least one sample")
+    if regularization < 0.0 or not np.isfinite(regularization):
+        raise ValueError("regularization must be finite and non-negative")
+    if min(int(iterations), int(denoise_iterations), int(final_denoise_iterations)) < 1:
+        raise ValueError("iteration counts must be positive")
+    zero_fill = centered_ifft2(np.where(sampling, data, 0.0))
+    estimate = zero_fill if initial is None else np.asarray(initial, dtype=np.complex128).copy()
+    if estimate.shape != data.shape:
+        raise ValueError("initial must match the kspace shape")
+    weight = float(regularization) * max(float(np.max(np.abs(zero_fill))), 1e-30)
+    for _ in range(int(iterations)):
+        estimate = _tv_denoise_chambolle(
+            estimate,
+            weight,
+            iterations=int(denoise_iterations),
+        )
+        spectrum = centered_fft2(estimate)
+        spectrum[sampling] = data[sampling]
+        estimate = centered_ifft2(spectrum)
+    return _tv_denoise_chambolle(
+        estimate,
+        weight,
+        iterations=int(final_denoise_iterations),
+    )
+
+
 def variable_density_order(
     shape: tuple[int, int],
     *,
     seed: int = 0,
     density_power: float = 2.0,
 ) -> np.ndarray:
-    """Return center-out variable-density Cartesian sample coordinates."""
+    """Return an incoherent variable-density Cartesian acquisition order.
+
+    A small autocalibration core is acquired first. Remaining samples use a
+    weighted random permutation whose probability falls with radius, retaining
+    central-k-space SNR while scattering enough high-frequency samples for a
+    sparse reconstruction. A purely radial center-out order creates a compact
+    low-pass mask and gives compressed sensing little incoherent aliasing to
+    remove.
+    """
 
     if len(shape) != 2 or min(shape) < 2:
         raise ValueError("shape must contain two dimensions of at least 2")
@@ -170,8 +263,14 @@ def variable_density_order(
     cy, cx = (np.asarray(shape, dtype=np.float64) - 1.0) / 2.0
     radius = np.sqrt(((yy - cy) / max(cy, 1.0)) ** 2 + ((xx - cx) / max(cx, 1.0)) ** 2)
     rng = np.random.default_rng(seed)
-    score = radius**density_power * rng.uniform(0.65, 1.35, size=shape)
-    flat = np.argsort(score, axis=None, kind="stable")
+    weights = 0.05 + np.exp(-density_power * radius**2)
+    random_keys = -np.log(np.maximum(rng.random(shape), 1e-30)) / weights
+    random_order = np.argsort(random_keys, axis=None, kind="stable")
+    radius_flat = radius.ravel()
+    core = np.flatnonzero(radius_flat <= 0.12)
+    core = core[np.argsort(radius_flat[core], kind="stable")]
+    remaining = random_order[~np.isin(random_order, core)]
+    flat = np.concatenate([core, remaining])
     return np.column_stack(np.unravel_index(flat, shape)).astype(np.int64)
 
 
@@ -289,8 +388,19 @@ def adaptive_cs_reconstruction(
             break
 
     acquired = reconstruction_mask.reshape(data.shape) | validation_mask
+    # Validation samples are withheld only while making the stopping decision.
+    # Once acquisition ends they are measured data like every other point and
+    # must be folded into the delivered reconstruction. This also makes the CS
+    # and zero-filled images use exactly the same acquisition mask.
+    final_image = reconstruct_wavelet_fista(
+        data,
+        acquired,
+        regularization=regularization,
+        iterations=iterations,
+        initial=images[-1],
+    )
     return AdaptiveCSResult(
-        image=images[best_index],
+        image=final_image,
         acquired_mask=acquired,
         reconstruction_mask=reconstruction_mask.reshape(data.shape).copy(),
         validation_mask=validation_mask,
@@ -321,5 +431,6 @@ __all__ = [
     "centered_ifft2",
     "normalized_root_mean_square_error",
     "reconstruct_wavelet_fista",
+    "reconstruct_tv_pocs",
     "variable_density_order",
 ]

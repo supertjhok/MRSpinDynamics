@@ -68,7 +68,7 @@ new hardware specifications.
 | Gx/Gz coils | Two-turn four-wire saddles, radius 10.3 mm, length 83 mm | Book Table 4.4; Biot–Savart field |
 | Receiver | Active Q reduction to Q′≈20.8 (200 kHz), 18 µs acquisition window, 3 dB conservative noise figure | Book operating point plus explicit assumption |
 | Thermal plant | RF coil, ferrite magnet, and ambient lumped nodes | System-level RC approximation |
-| Reconstruction | Variable-density Cartesian sampling and L1-Haar FISTA | Dependency-free package implementation |
+| Reconstruction | Incoherent variable-density sampling; Haar checkpoints; final finite-difference TV-CS | Dependency-free package implementation |
 
 The measured 0.88 T/m diffusion-weighting gradient magnitude is retained as a
 sequence parameter but is not imposed as a signed linear ramp across the image.
@@ -230,10 +230,12 @@ At the default stop point:
 | RF coil temperature | 35.4 °C |
 | Ferrite temperature | 25.9 °C |
 | Larmor drift | −49.1 kHz |
-| CS reference NRMSE | 0.351 |
+| Zero-fill reference NRMSE | 0.396 |
+| TV-CS reference NRMSE | 0.258 |
 
-A fixed, distributed validation set is acquired but withheld from FISTA. After
-each batch, the reconstruction predicts those samples and reports
+A fixed, distributed validation set is acquired but withheld from the fast Haar
+checkpoint reconstruction. After each batch, that checkpoint predicts the
+validation samples and reports
 
 ```text
 quality = 1 / (1 + held-out k-space NRMSE).
@@ -242,8 +244,11 @@ quality = 1 / (1 + held-out k-space NRMSE).
 The score is available during a real scan and uses the same noisy, thermally
 detuned data as the reconstruction. Acquisition stops after quality fails to
 make a material improvement for the configured patience interval, subject to a
-minimum sampling fraction. Ground truth is used only after the simulation to
-report `reference_nrmse`.
+minimum sampling fraction. At that point, the validation samples are no longer
+withheld: all acquired points enter a finite-difference TV reconstruction. Thus
+the displayed zero-fill and CS images use exactly the same 32% mask. Ground
+truth is used only after the simulation to report NRMSE. The 64×64 regression
+test requires TV-CS to improve NRMSE by at least 15% over zero-fill.
 
 ## Programmatic use
 

@@ -60,13 +60,17 @@ class TestCompressedSensing(unittest.TestCase):
         self.assertIn("quality plateaued", result.stop_reason)
 
     def test_portable_workflow_includes_noise_and_thermal_drift(self):
-        config = PortableHalbachMRIConfig(matrix_size=32, reconstruction_iterations=20)
+        config = PortableHalbachMRIConfig(matrix_size=64)
         result = simulate_portable_halbach_mri(config)
         self.assertGreater(result.noise_standard_deviation, 0.0)
         self.assertLess(result.larmor_drift_hz[-1], 0.0)
         self.assertGreater(result.magnet_temperature_k[-1], config.ambient_temperature_k)
         self.assertTrue(result.adaptive.stopped_early)
         self.assertLess(result.reference_nrmse, 0.50)
+        self.assertLess(
+            result.reference_nrmse,
+            0.85 * result.zero_fill_reference_nrmse,
+        )
         self.assertGreater(result.predicted_single_scan_snr, 0.0)
         self.assertGreater(result.receive_coil_q_factor, 0.0)
         self.assertGreater(

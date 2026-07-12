@@ -17,7 +17,7 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
   finite-magnet and book-dimensioned RF/gradient-coil field maps, PEEC-predicted
   receive impedance and SNR, field-integrated ferrite RF loss, duty-cycled I2R
   heating, ferrite resonance drift,
-  tuned-receiver loss, predicted complex noise, L1-Haar
+  tuned-receiver loss, predicted complex noise, sparse/TV
   compressed sensing, and a held-out k-space quality metric that automatically
   stops acquisition when improvement plateaus.
 - Expanded the portable Halbach workflow into a designer-facing capstone with
@@ -28,6 +28,11 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
   with the scanner's actual inverse-PCMCD series-tuned Tx chain and actively
   feedback-damped parallel-tuned Rx chain, including finite envelope bandwidth,
   ring-up, echo filtering, and filtered receiver-noise bandwidth.
+- Corrected the capstone's compressed-sensing comparison by using an incoherent
+  variable-density mask, withholding validation data only during stopping,
+  folding all acquired data into the delivered image, and using finite-difference
+  TV for the final reconstruction. A regression gate now requires CS NRMSE to
+  beat zero-fill by at least 15% on the 64×64 capstone.
 
 - Added a host-normalized CI performance regression gate that benchmarks the
   Git base and candidate commits on the same runner. Compact core, workflow,
