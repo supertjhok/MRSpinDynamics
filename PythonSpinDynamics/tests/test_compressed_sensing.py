@@ -77,8 +77,28 @@ class TestCompressedSensing(unittest.TestCase):
             result.receive_coil_copper_q_factor, result.receive_coil_q_factor
         )
         self.assertAlmostEqual(result.receive_coil_q_factor, 128.0, delta=0.5)
+        self.assertAlmostEqual(result.receive_system_resistance_ohm, 0.96, delta=0.02)
+        self.assertLess(result.receive_system_q_factor, result.receive_coil_q_factor)
+        self.assertLess(
+            result.predicted_single_scan_snr,
+            config.book_theoretical_single_scan_snr,
+        )
+        self.assertAlmostEqual(
+            result.predicted_single_scan_snr,
+            config.measured_single_scan_snr,
+            delta=0.1 * config.measured_single_scan_snr,
+        )
         self.assertGreater(result.ferrite_rf_loss_resistance_ohm, 0.0)
         self.assertLess(result.gradient_coil_average_power_w, 0.1)
+        self.assertEqual(
+            result.b0_volume_t.shape,
+            (config.matrix_size, config.through_sample_points, config.matrix_size),
+        )
+        self.assertAlmostEqual(
+            result.static_signal_bandwidth_hz,
+            config.measured_signal_bandwidth_hz,
+            delta=0.15 * config.measured_signal_bandwidth_hz,
+        )
         axis = np.linspace(
             -0.5 * config.field_of_view_m,
             0.5 * config.field_of_view_m,
@@ -108,9 +128,21 @@ class TestCompressedSensing(unittest.TestCase):
             200.0 / config.pcmcd_short_pulse_efficiency,
         )
         self.assertAlmostEqual(sweep.predicted_snr[1], result.predicted_single_scan_snr)
-        self.assertLess(
-            float(np.max(sweep.predicted_snr) / np.min(sweep.predicted_snr)),
-            1.02,
+        echo = design.echo_window_sweep
+        self.assertTrue(np.all(np.isfinite(echo.predicted_snr)))
+        self.assertGreater(
+            float(np.max(echo.predicted_snr) / np.min(echo.predicted_snr)),
+            1.5,
+        )
+        reference_window = int(
+            np.argmin(np.abs(echo.acquisition_windows_s - config.acquisition_window_s))
+        )
+        self.assertAlmostEqual(
+            echo.predicted_snr[reference_window],
+            result.predicted_single_scan_snr,
+        )
+        self.assertGreater(
+            echo.predicted_snr[-2], echo.predicted_snr[-1]
         )
         self.assertAlmostEqual(
             design.rf_coils.transmit_loaded_probe_q_factor,
@@ -124,6 +156,15 @@ class TestCompressedSensing(unittest.TestCase):
             design.receiver.peak_probe_signal_v
             * design.receiver.required_voltage_gain,
             0.5 * config.adc_full_scale_v,
+        )
+        self.assertLess(abs(design.receiver.residual_noise_power_db), 1.0)
+        self.assertLess(
+            design.receiver.predicted_snr_range[0],
+            config.measured_single_scan_snr,
+        )
+        self.assertGreater(
+            design.receiver.predicted_snr_range[1],
+            config.measured_single_scan_snr,
         )
         self.assertLess(design.gradients.peak_current_a, config.gradient_current_limit_a)
         self.assertLess(design.gradients.peak_voltage_v, 5.0)

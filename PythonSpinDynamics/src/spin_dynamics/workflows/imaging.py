@@ -13,7 +13,7 @@ import numpy as np
 
 from spin_dynamics.core.numerics import trapezoid
 from spin_dynamics.core.rotations import calc_rotation_matrix
-from spin_dynamics.motion import transverse_b1_magnitude
+from spin_dynamics.motion import circular_b1_component_magnitude
 from spin_dynamics.noise import (
     NoiseMetadata,
     NoiseSpec,
@@ -100,9 +100,10 @@ def make_imaging_field_maps(
     `b0_map` is a normalized angular offset map. If omitted, zero additional
     off-resonance is used. If `b1_tx_map` is omitted, the same synthetic
     single-sided map used by the existing imaging examples is generated.
-    `b1_rx_map` defaults to `b1_tx_map`. If vector B1 maps are supplied, they
-    are projected perpendicular to the local `b0_vector_map` direction before
-    conversion to scalar transmit/receive sensitivity maps.
+    `b1_rx_map` defaults to `b1_tx_map`. If vector B1 maps are supplied, their
+    resonant circular components relative to the local `b0_vector_map` are used.
+    Thus a real linearly polarized vector map contributes half its transverse
+    magnitude, as required by the high-field NMR rotating-wave convention.
     """
 
     rho_arr = _as_map(rho, "rho")
@@ -130,11 +131,15 @@ def make_imaging_field_maps(
     if b1_tx_vector_map is not None:
         if b0_vector_map is None:
             raise ValueError("b1_tx_vector_map requires b0_vector_map")
-        b1_tx_arr = transverse_b1_magnitude(b0_vector_map, b1_tx_vector_map)
+        b1_tx_arr = circular_b1_component_magnitude(
+            b0_vector_map, b1_tx_vector_map
+        )
     if b1_rx_vector_map is not None:
         if b0_vector_map is None:
             raise ValueError("b1_rx_vector_map requires b0_vector_map")
-        b1_rx_arr = transverse_b1_magnitude(b0_vector_map, b1_rx_vector_map)
+        b1_rx_arr = circular_b1_component_magnitude(
+            b0_vector_map, b1_rx_vector_map
+        )
     else:
         b1_rx_arr = (
             b1_tx_arr.copy()

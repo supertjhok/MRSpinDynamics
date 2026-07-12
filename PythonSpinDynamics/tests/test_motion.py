@@ -14,6 +14,7 @@ from spin_dynamics.motion import (
     apply_free_precession,
     apply_rf_rotation,
     advect_diffuse_positions,
+    circular_b1_component_magnitude,
     free_precession_with_motion_step,
     initialize_ensemble_from_density,
     make_circular_reflector,
@@ -44,7 +45,7 @@ class MotionTests(unittest.TestCase):
         np.testing.assert_allclose(sampled["b1_tx"], [2.0, 2.0])
         np.testing.assert_allclose(sampled["b1_rx"], [2.0, 2.0])
 
-    def test_vector_b1_maps_are_projected_perpendicular_to_local_b0(self) -> None:
+    def test_vector_b1_maps_use_resonant_circular_component(self) -> None:
         b0_vector = np.array(
             [
                 [[0.0, 0.0, 1.0], [1.0, 0.0, 0.0]],
@@ -75,8 +76,24 @@ class MotionTests(unittest.TestCase):
                 [np.sqrt(5.0), np.sqrt(18.0)],
             ],
         )
-        np.testing.assert_allclose(fields.b1_tx_map, transverse)
-        np.testing.assert_allclose(fields.b1_rx_map, transverse)
+        np.testing.assert_allclose(fields.b1_tx_map, 0.5 * transverse)
+        np.testing.assert_allclose(fields.b1_rx_map, 0.5 * transverse)
+
+    def test_circular_b1_distinguishes_linear_and_quadrature_drive(self) -> None:
+        b0 = np.array([[[0.0, 0.0, 1.0]]])
+        linear = np.array([[[2.0, 0.0, 0.0]]])
+        co_rotating = np.array([[[2.0, -2.0j, 0.0]]])
+        counter_rotating = np.array([[[2.0, 2.0j, 0.0]]])
+
+        np.testing.assert_allclose(
+            circular_b1_component_magnitude(b0, linear), 1.0
+        )
+        np.testing.assert_allclose(
+            circular_b1_component_magnitude(b0, co_rotating), 2.0
+        )
+        np.testing.assert_allclose(
+            circular_b1_component_magnitude(b0, counter_rotating), 0.0
+        )
 
     def test_density_initialization_preserves_total_weight(self) -> None:
         rho = np.array([[1.0, 2.0], [0.0, 3.0]], dtype=np.float64)

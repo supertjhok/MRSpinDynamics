@@ -142,7 +142,8 @@ def main() -> None:
     x_axis = np.array([-1e-4, 0.0, 1e-4])  # 3 points so sample_magnet_field's gradient is defined
     fm = sample_magnet_field(x_axis, profile.depths, bars, yoke_y=yoke,
                              coil_segments=surface_coil)
-    sensitivity = fm.b0_magnitude[1] ** 2 * fm.b1_transverse[1] ** 2  # on-axis (x = 0)
+    b1_plus = 0.5 * fm.b1_transverse[1]
+    sensitivity = fm.b0_magnitude[1] ** 2 * b1_plus**2  # on-axis (x = 0)
     measured = profile.signal * sensitivity
 
     # ---- plots ----

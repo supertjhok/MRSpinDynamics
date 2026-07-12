@@ -205,6 +205,7 @@ from spin_dynamics.workflows.relaxation import (
     run_quadrupolar_relaxation,
 )
 from spin_dynamics.workflows.portable_halbach import (
+    EchoWindowSweep,
     GradientCoilDesignMetrics,
     PortableHalbachDesignSummary,
     PortableHalbachMRIConfig,
@@ -497,6 +498,7 @@ __all__ = [
     "PortableHalbachMRIConfig",
     "PortableHalbachDesignSummary",
     "PortableHalbachMRIResult",
+    "EchoWindowSweep",
     "GradientCoilDesignMetrics",
     "RFCoilDesignMetrics",
     "RFPulseLengthSweep",

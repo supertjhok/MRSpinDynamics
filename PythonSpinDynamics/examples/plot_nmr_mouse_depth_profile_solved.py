@@ -97,7 +97,7 @@ def build_data(args) -> dict:
     fm = field.plane_field_maps(np.array([0.0]), depths, coil_segments=coil,
                                 coil_current=1.0, gamma=GAMMA_PROTON)
     b0 = fm.b0_magnitude[0]
-    b1 = fm.b1_transverse[0]
+    b1 = 0.5 * fm.b1_transverse[0]  # resonant B1+ of the real linear coil field
     sensitivity = b0**2 * b1**2  # reciprocity + Curie (see module docstring)
     larmor = GAMMA_PROTON * b0 / (2.0 * np.pi)
 

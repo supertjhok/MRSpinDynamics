@@ -168,11 +168,11 @@ def make_motion_field_maps_2d(
     if b1_tx_vector_map is not None:
         if b0_vector_map is None:
             raise ValueError("b1_tx_vector_map requires b0_vector_map")
-        b1_tx = transverse_b1_magnitude(b0_vector_map, b1_tx_vector_map)
+        b1_tx = circular_b1_component_magnitude(b0_vector_map, b1_tx_vector_map)
     if b1_rx_vector_map is not None:
         if b0_vector_map is None:
             raise ValueError("b1_rx_vector_map requires b0_vector_map")
-        b1_rx = transverse_b1_magnitude(b0_vector_map, b1_rx_vector_map)
+        b1_rx = circular_b1_component_magnitude(b0_vector_map, b1_rx_vector_map)
     else:
         b1_rx = b1_tx.copy() if b1_rx_map is None else _map2d(b1_rx_map, "b1_rx_map")
     for name, arr in {
@@ -241,6 +241,49 @@ def transverse_b1_magnitude(
     parallel = np.sum(b1 * b0_hat, axis=-1)
     perpendicular = b1 - parallel[..., np.newaxis] * b0_hat
     return np.sqrt(np.sum(np.abs(perpendicular) ** 2, axis=-1)).astype(np.float64)
+
+
+def circular_b1_component_magnitude(
+    b0_vector_map: Iterable[float] | np.ndarray,
+    b1_vector_map: Iterable[float] | np.ndarray,
+    *,
+    handedness: int = 1,
+) -> np.ndarray:
+    """Return the resonant circular B1 component for high-field NMR/MRI.
+
+    The final axis contains Cartesian vector components. A real, linearly
+    polarized transverse field decomposes into equal counter-rotating parts, so
+    this function returns half its transverse magnitude. A complex quadrature
+    phasor with the selected handedness returns its full rotating amplitude.
+
+    This rotating-wave convention does not apply to zero-field NQR Hamiltonians,
+    where the laboratory RF field is intentionally treated as linearly polarized.
+    """
+
+    if handedness not in (-1, 1):
+        raise ValueError("handedness must be +1 or -1")
+    b0 = _vector_map(b0_vector_map, "b0_vector_map").astype(np.float64)
+    b1 = np.asarray(b1_vector_map)
+    if b1.shape != b0.shape:
+        raise ValueError("b1_vector_map must have the same shape as b0_vector_map")
+    if not np.all(np.isfinite(b1)):
+        raise ValueError("b1_vector_map must contain finite values")
+    b0_norm = np.linalg.norm(b0, axis=-1)
+    if np.any(b0_norm <= 0.0):
+        raise ValueError("b0_vector_map must not contain zero vectors")
+    b0_hat = b0 / b0_norm[..., np.newaxis]
+
+    reference = np.zeros_like(b0_hat)
+    reference[..., 0] = 1.0
+    use_y = np.abs(b0_hat[..., 0]) > 0.9
+    reference[use_y] = np.array([0.0, 1.0, 0.0])
+    e1 = reference - np.sum(reference * b0_hat, axis=-1, keepdims=True) * b0_hat
+    e1 /= np.linalg.norm(e1, axis=-1, keepdims=True)
+    e2 = np.cross(b0_hat, e1)
+    b1_e1 = np.sum(b1 * e1, axis=-1)
+    b1_e2 = np.sum(b1 * e2, axis=-1)
+    rotating = 0.5 * (b1_e1 + 1.0j * handedness * b1_e2)
+    return np.abs(rotating).astype(np.float64)
 
 
 def initialize_ensemble_from_density(

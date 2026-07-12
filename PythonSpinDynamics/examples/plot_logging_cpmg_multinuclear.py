@@ -42,6 +42,7 @@ add_src_to_path()
 from spin_dynamics.fields import coils
 from spin_dynamics.fields.magnetostatics import FiniteMagnetRod, biot_savart, finite_magnet_array_b0
 from spin_dynamics.fields.quasistatic import coil_inductance, coil_loading
+from spin_dynamics.motion import circular_b1_component_magnitude
 
 HBAR = 1.054571817e-34
 KB = 1.380649e-23
@@ -167,9 +168,7 @@ def main() -> None:
     coil_turns = 30
     coil = coils.solenoid(radius=coil_radius, length=min(0.30, gap * 0.85), turns=coil_turns, axis="z", n_segments=48)
     b1_vec = biot_savart(pts, coil, 1.0)
-    b0_hat = np.where(np.isfinite(b0_mag)[..., None], b0_vec / np.where(b0_mag[..., None] > 0, b0_mag[..., None], 1), 0.0)
-    b1_par = np.sum(b1_vec * b0_hat, axis=-1)[..., None] * b0_hat
-    b1_perp = np.linalg.norm(b1_vec - b1_par, axis=-1)   # T/A
+    b1_perp = circular_b1_component_magnitude(b0_vec, b1_vec)  # B1+ (T/A)
 
     # Fixed 1H pulse lengths (hardware spec); the peak coil current follows from
     # the B1 efficiency at the sweet spot.

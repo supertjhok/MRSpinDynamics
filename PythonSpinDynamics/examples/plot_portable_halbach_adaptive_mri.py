@@ -37,6 +37,11 @@ def _print_design_tables(design) -> None:
         f"{rf.receive_probe_bandwidth_hz / 1e3:8.0f}  "
         f"{rf.receive_b1_center_t_per_a * 1e3:9.3f}"
     )
+    print(
+        f"Rx leads/interconnect: {rf.receive_lead_resistance_ohm:.3f} ohm; "
+        f"system R={rf.receive_system_resistance_ohm:.3f} ohm, "
+        f"system Q={rf.receive_system_q_factor:.1f}"
+    )
     print("\nGradient and receiver requirements")
     print(f"Gx/Gz efficiency: {grad.gx_efficiency_t_per_m_per_a * 1e3:.2f} / "
           f"{grad.gz_efficiency_t_per_m_per_a * 1e3:.2f} mT/m/A")
@@ -44,8 +49,22 @@ def _print_design_tables(design) -> None:
           f"{grad.peak_voltage_v:.2f} V")
     print(f"Required receiver gain: {rx.required_gain_db:.1f} dB "
           f"for {rx.target_adc_peak_v:.2f} V ADC peak")
+    print(
+        f"Single-echo SNR: predicted {rx.predicted_single_scan_snr:.1f}, "
+        f"NF range {rx.predicted_snr_range[0]:.1f}-{rx.predicted_snr_range[1]:.1f}, "
+        f"book ideal {rx.book_theoretical_single_scan_snr:.0f}, "
+        f"measured {rx.measured_single_scan_snr:.0f}; remaining loss/noise "
+        f"{rx.residual_noise_power_db:.1f} dB"
+    )
     print(f"System mass: {weight.total_kg:.1f} kg "
           f"({weight.portable_without_baseplate_kg:.1f} kg without baseplate)")
+    echo = design.echo_window_sweep
+    best = int(np.argmax(echo.predicted_snr))
+    print(
+        f"Best modeled receive window: "
+        f"{echo.acquisition_windows_s[best] * 1e6:.0f} us "
+        f"(single-echo SNR {echo.predicted_snr[best]:.1f})"
+    )
 
 
 def _plot_design_dashboard(design, output: Path) -> None:
@@ -64,6 +83,21 @@ def _plot_design_dashboard(design, output: Path) -> None:
     axes[0, 1].set(title="Single-echo SNR", xlabel="90° pulse length (µs)", ylabel="SNR per scan")
     axes[0, 1].grid(alpha=0.25)
     axes[0, 1].legend(frameon=False)
+    echo = design.echo_window_sweep
+    inset = axes[0, 1].inset_axes([0.52, 0.12, 0.44, 0.34])
+    inset.plot(
+        echo.acquisition_windows_s * 1e6,
+        echo.predicted_snr,
+        "s-",
+        color="tab:orange",
+        markersize=3,
+    )
+    inset.set(title="receive window", xlabel="µs", ylabel="SNR")
+    inset.title.set_fontsize(9)
+    inset.xaxis.label.set_fontsize(8)
+    inset.yaxis.label.set_fontsize(8)
+    inset.tick_params(labelsize=7)
+    inset.grid(alpha=0.2)
 
     axes[0, 2].plot(pulse_us, sweep.active_sample_volume_m3 * 1e6, "o-", color="tab:green")
     slice_axis = axes[0, 2].twinx()
@@ -74,14 +108,21 @@ def _plot_design_dashboard(design, output: Path) -> None:
 
     rf = design.rf_coils
     axes[1, 0].bar(
-        ["Tx coil Q", "Tx PCMCD Q′", "Rx ferrite Q", "Rx feedback Q′"],
+        [
+            "Tx coil Q",
+            "Tx PCMCD Q′",
+            "Rx ferrite Q",
+            "Rx + leads Q",
+            "Rx feedback Q′",
+        ],
         [
             rf.transmit_q_factor,
             rf.transmit_loaded_probe_q_factor,
             rf.receive_loaded_q_factor,
+            rf.receive_system_q_factor,
             rf.receive_loaded_probe_q_factor,
         ],
-        color=["tab:orange", "tab:red", "tab:blue", "tab:cyan"],
+        color=["tab:orange", "tab:red", "tab:blue", "tab:purple", "tab:cyan"],
     )
     axes[1, 0].set(title="RF loss budget", ylabel="quality factor")
     axes[1, 0].tick_params(axis="x", rotation=15)
@@ -217,6 +258,15 @@ def main() -> None:
     args.output.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(args.output, dpi=180)
     print(f"saved {args.output}")
+    print(
+        f"3-D static-field signal span: {result.static_signal_bandwidth_hz / 1e3:.1f} kHz "
+        f"(measured reference {result.config.measured_signal_bandwidth_hz / 1e3:.0f} kHz)"
+    )
+    print(
+        f"Stopped at {100 * adaptive.sampling_fractions[-1]:.1f}%: "
+        f"zero-fill NRMSE={result.zero_fill_reference_nrmse:.3f}, "
+        f"TV-CS NRMSE={result.reference_nrmse:.3f}"
+    )
     _plot_design_dashboard(design, args.design_output)
     _print_design_tables(design)
     if args.data_output is not None:
@@ -240,6 +290,14 @@ def main() -> None:
                 design.pulse_sweep.peak_delivered_coil_current_a
             ),
             pulse_snr=design.pulse_sweep.predicted_snr,
+            echo_acquisition_windows_s=(
+                design.echo_window_sweep.acquisition_windows_s
+            ),
+            echo_relative_signal=design.echo_window_sweep.relative_signal,
+            echo_noise_rms_v=design.echo_window_sweep.noise_rms_v,
+            echo_snr=design.echo_window_sweep.predicted_snr,
+            reference_nrmse=result.reference_nrmse,
+            zero_fill_reference_nrmse=result.zero_fill_reference_nrmse,
             active_sample_volume_m3=design.pulse_sweep.active_sample_volume_m3,
             effective_slice_thickness_m=(
                 design.pulse_sweep.effective_slice_thickness_m

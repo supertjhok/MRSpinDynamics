@@ -114,8 +114,11 @@ def _solve(args, conc_cm: float, core_radius_cm: float | None, core_length_cm: f
 def _evaluate(args, ctx, prob, sol, core_mask):
     """Return efficiency, echo signal, loss breakdown, SNR, and homogeneity."""
 
-    b1 = np.abs(sol.sample_bz(ctx["grid_r"].ravel(), ctx["grid_z"].ravel())
-                ).reshape(ctx["grid_r"].shape)  # T per amp
+    # The axisymmetric solver returns the peak linear field. High-field NMR
+    # couples to one circular component, which is half that amplitude.
+    b1 = 0.5 * np.abs(
+        sol.sample_bz(ctx["grid_r"].ravel(), ctx["grid_z"].ravel())
+    ).reshape(ctx["grid_r"].shape)  # B1+ (T/A)
     eta_sweet = float(b1[ctx["i_sweet"], ctx["mid"]])
     coil_current = ctx["w1_cal"] / (GAMMA_H * eta_sweet)
 

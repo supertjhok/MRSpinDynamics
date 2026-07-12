@@ -804,7 +804,7 @@ class OctaveWorkflowFixtureTests(OctaveFixtureBase):
         self.assertAlmostEqual(float(np.sum(kernel["m0"])), 3.0 * float(np.sum(rho)))
         with self.assertRaises(ValueError):
             maps.kernel_maps(ny=3, maxoffs=2.0, density_normalization="bad")
-    def test_imaging_vector_b1_maps_are_projected_transverse_to_b0(self) -> None:
+    def test_imaging_vector_b1_maps_use_circular_component(self) -> None:
         rho = np.ones((2, 2), dtype=np.float64)
         b0_vector = np.array(
             [
@@ -833,8 +833,8 @@ class OctaveWorkflowFixtureTests(OctaveFixtureBase):
             [[5.0, 6.0], [np.sqrt(5.0), np.sqrt(18.0)]],
             dtype=np.float64,
         )
-        np.testing.assert_allclose(maps.b1_tx_map, expected)
-        np.testing.assert_allclose(maps.b1_rx_map, 2.0 * expected)
+        np.testing.assert_allclose(maps.b1_tx_map, 0.5 * expected)
+        np.testing.assert_allclose(maps.b1_rx_map, expected)
     def test_make_imaging_field_maps_rejects_invalid_maps(self) -> None:
         rho = np.ones((2, 2), dtype=np.float64)
         with self.assertRaises(ValueError):
@@ -894,8 +894,8 @@ class OctaveWorkflowFixtureTests(OctaveFixtureBase):
             )
             maps = load_imaging_field_maps_npz(path)
 
-        np.testing.assert_allclose(maps.b1_tx_map, [[5.0, 6.0]])
-        np.testing.assert_allclose(maps.b1_rx_map, [[5.0, 6.0]])
+        np.testing.assert_allclose(maps.b1_tx_map, [[2.5, 3.0]])
+        np.testing.assert_allclose(maps.b1_rx_map, [[2.5, 3.0]])
     def test_ideal_cpmg_imaging_accepts_custom_field_maps(self) -> None:
         rho = np.array([[1.0, 0.0], [0.5, 0.25]], dtype=np.float64)
         b0_map = np.array([[0.0, 0.1], [-0.1, 0.2]], dtype=np.float64)

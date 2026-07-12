@@ -314,8 +314,10 @@ their inputs and outputs are small, array-based, and close to NumPy's strengths.
   refocusing and diffusion-driven attenuation.
 - Scalar B1 maps are interpreted as already-transverse sensitivity maps.
   Imaging and motion map constructors can also accept B0/B1 vector maps and
-  convert B1 to the local component perpendicular to B0. Fixed-grid imaging
-  map conversion now exposes a density-preserving mode that divides voxel spin
+  convert them to the resonant circular NMR component (a real linear B1 field
+  contributes half its transverse magnitude); NQR Hamiltonians retain their
+  laboratory-frame linearly polarized convention. Fixed-grid imaging map
+  conversion now exposes a density-preserving mode that divides voxel spin
   density over auxiliary offset samples instead of duplicating it.
 - This lays the groundwork for physically correct diffusion/advection imaging:
   spins should move through the B0/B1 maps and sample fields at their current
