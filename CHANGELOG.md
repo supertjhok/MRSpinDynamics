@@ -7,9 +7,13 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
 
 ## [Unreleased]
 
-This section is the draft for the v0.3.0 workplace-readiness release. The
-release is intentionally feature-frozen while packaging, documentation,
-performance guardrails, and release automation are completed.
+No changes yet.
+
+## [0.3.0] - 2026-07-12
+
+This workplace-readiness release combines the scientific capabilities developed
+since v0.2.0 with hardened packaging, documentation, performance guardrails, and
+release automation.
 
 ### v0.3.0 highlights
 
@@ -352,6 +356,7 @@ uniform stability guarantee.
   [`docs/release_process.md`](docs/release_process.md) for GitHub-Release-driven
   Zenodo DOI minting.
 
-[Unreleased]: https://github.com/supertjhok/MRSpinDynamics/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/supertjhok/MRSpinDynamics/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/supertjhok/MRSpinDynamics/releases/tag/v0.3.0
 [0.2.0]: https://github.com/supertjhok/MRSpinDynamics/releases/tag/v0.2.0
 [0.1.0]: https://github.com/supertjhok/MRSpinDynamics/releases/tag/v0.1.0

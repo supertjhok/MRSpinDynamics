@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mr-integration"
-version = "0.2.0"
+version = "0.3.0"
 description = "Cross-project bridge: ab initio EFG, spin-dynamics simulation, and the measured NQR database."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -16,8 +16,8 @@ authors = [
 keywords = ["nqr", "efg", "dft", "spin dynamics", "validation"]
 dependencies = [
   "numpy>=1.24",
-  "python-spin-dynamics==0.2.0",
-  "quadrupolar-dft==0.2.0",
+  "python-spin-dynamics==0.3.0",
+  "quadrupolar-dft==0.3.0",
 ]
 classifiers = [
   "Development Status :: 3 - Alpha",

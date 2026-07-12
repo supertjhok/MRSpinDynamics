@@ -12,8 +12,8 @@ type: software
 authors:
   - family-names: Mandal
     given-names: Soumyajit
-version: 0.2.0
-date-released: 2026-07-05
+version: 0.3.0
+date-released: 2026-07-12
 license: GPL-3.0-or-later
 repository-code: "https://github.com/supertjhok/MRSpinDynamics"
 url: "https://github.com/supertjhok/MRSpinDynamics"
