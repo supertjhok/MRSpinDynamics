@@ -208,26 +208,38 @@ def _positive_frequency_components(
     operator: np.ndarray,
     levels_rad_per_second: np.ndarray,
     tolerance_rad_per_second: float,
+    cluster_width_rad_per_second: float | None = None,
 ) -> tuple[tuple[float, np.ndarray], ...]:
     gaps = levels_rad_per_second[:, None] - levels_rad_per_second[None, :]
     candidates = sorted(
-        float(gaps[row, column])
+        (float(gaps[row, column]), row, column)
         for row in range(gaps.shape[0])
         for column in range(gaps.shape[1])
         if gaps[row, column] > tolerance_rad_per_second
         and abs(operator[row, column]) > 0.0
     )
-    centers: list[float] = []
-    for gap in candidates:
-        if not centers or abs(gap - centers[-1]) > tolerance_rad_per_second:
-            centers.append(gap)
+    width = (
+        tolerance_rad_per_second
+        if cluster_width_rad_per_second is None
+        else float(cluster_width_rad_per_second)
+    )
+    clusters: list[list[tuple[float, int, int]]] = []
+    for candidate in candidates:
+        if not clusters or candidate[0] - clusters[-1][0][0] > width:
+            clusters.append([candidate])
+        else:
+            clusters[-1].append(candidate)
     components: list[tuple[float, np.ndarray]] = []
-    for center in centers:
-        mask = (gaps > tolerance_rad_per_second) & (
-            np.abs(gaps - center) <= tolerance_rad_per_second
-        )
+    for cluster in clusters:
         raising = np.zeros_like(operator, dtype=np.complex128)
-        raising[mask] = operator[mask]
+        weights = np.array(
+            [abs(operator[row, column]) ** 2 for _, row, column in cluster]
+        )
+        center = float(
+            np.average([gap for gap, _, _ in cluster], weights=weights)
+        )
+        for _, row, column in cluster:
+            raising[row, column] = operator[row, column]
         if np.any(np.abs(raising) > 0.0):
             components.append((center, raising))
     return tuple(components)
@@ -245,8 +257,10 @@ class FieldDependentDaviesRelaxationModel:
 
     This completely-positive secular model is appropriate when distinct Bohr
     frequency groups are resolved. Near crossings where their separation is
-    comparable to the relaxation rate, use :class:`FieldDependentRelaxationModel`
-    as the robust phenomenological fallback pending a nonsecular bath model.
+    comparable to the relaxation rate, use
+    :class:`FieldDependentNonsecularRelaxationModel` to retain unresolved
+    coherence-transfer terms, or :class:`FieldDependentRelaxationModel` as the
+    robust phenomenological fallback.
     """
 
     spin: float
@@ -319,6 +333,7 @@ class FieldDependentDaviesRelaxationModel:
                 operator,
                 levels_rad,
                 tolerance,
+                self._frequency_cluster_width_rad_per_second(),
             ):
                 spectral_factor = 1.0 / (
                     1.0 + (omega * self.correlation_time_seconds) ** 2
@@ -338,6 +353,9 @@ class FieldDependentDaviesRelaxationModel:
                     np.sqrt(downward_rate * boltzmann) * raising
                 )
         return out
+
+    def _frequency_cluster_width_rad_per_second(self) -> float:
+        return TAU * self.secular_tolerance_hz
 
     def superoperator(self, hamiltonian: np.ndarray) -> np.ndarray:
         """Return the thermal, trace-preserving field-dependent generator."""
@@ -360,6 +378,49 @@ class FieldDependentDaviesRelaxationModel:
             levels_rad,
             vectors,
         )
+
+    def gibbs_stationarity_error(self, hamiltonian: np.ndarray) -> float:
+        """Return ``||R rho_G||`` for the exact Gibbs state of ``hamiltonian``."""
+
+        equilibrium = self.equilibrium_density(hamiltonian)
+        derivative = self.superoperator(hamiltonian) @ equilibrium.reshape(
+            -1,
+            order="F",
+        )
+        return float(np.linalg.norm(derivative))
+
+
+@dataclass(frozen=True)
+class FieldDependentNonsecularRelaxationModel(
+    FieldDependentDaviesRelaxationModel
+):
+    """Unified-GKLS relaxation for clusters of unresolved Bohr frequencies.
+
+    Transitions separated by at most ``frequency_cluster_width_hz`` are placed
+    in a common jump operator, retaining their coherence-transfer cross terms.
+    This is completely positive and becomes the fully secular Davies model
+    when the cluster width equals ``secular_tolerance_hz``.
+
+    For a finite-width cluster the KMS factor is evaluated at its
+    matrix-element-weighted mean frequency. The exact Gibbs state is therefore
+    stationary for exactly degenerate clusters and only approximate otherwise;
+    :meth:`gibbs_stationarity_error` quantifies that controlled approximation.
+    """
+
+    frequency_cluster_width_hz: float = 1.0e3
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        width = float(self.frequency_cluster_width_hz)
+        if width < self.secular_tolerance_hz or not np.isfinite(width):
+            raise ValueError(
+                "frequency_cluster_width_hz must be finite and at least "
+                "secular_tolerance_hz"
+            )
+        object.__setattr__(self, "frequency_cluster_width_hz", width)
+
+    def _frequency_cluster_width_rad_per_second(self) -> float:
+        return TAU * self.frequency_cluster_width_hz
 
 
 def simulate_field_relaxation(

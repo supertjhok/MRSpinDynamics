@@ -398,10 +398,16 @@ Completed through the RF-validation increment:
 - a finite-temperature Davies/Lindblad model with magnetic and EFG channels,
   detailed balance, grouped degenerate Bohr frequencies, and explicitly
   field-dependent Lorentzian spectral filtering.
+- a completely-positive unified-GKLS extension that groups unresolved Bohr
+  frequencies and retains their nonsecular coherence-transfer terms, with an
+  explicit Gibbs-stationarity diagnostic; and
+- an exact-Floquet-pulse SLSE workflow with static-field dissipation, exercised
+  for NaNO2 in the zero-field, perturbed-NQR, crossover, and quadrupolar-NMR
+  regimes.
 
-The next physics milestone is a nonsecular microscopic generator near avoided
-crossings and explicit time-dependent field ramps. Powder- and waveform-level
-benchmarking of the Floquet route also remains. Arbitrary shaped RF is already
-available through the laboratory-frame reference; an efficient
-piecewise-Floquet envelope solver is a possible later optimization rather than
-a correctness prerequisite.
+The next physics milestone is explicit time-dependent field ramps, including
+the competition among adiabatic following, Landau-Zener transfer, and
+relaxation. Powder- and waveform-level benchmarking of the Floquet route also
+remains. Arbitrary shaped RF is already available through the laboratory-frame
+reference; an efficient piecewise-Floquet envelope solver is a possible later
+optimization rather than a correctness prerequisite.

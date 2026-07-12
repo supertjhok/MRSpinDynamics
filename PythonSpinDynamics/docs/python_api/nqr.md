@@ -418,7 +418,7 @@ equilibrium = field_dependent_equilibrium(
 print(equilibrium.populations, equilibrium.spin_expectation_pas)
 ```
 
-Two complementary relaxation models use this equilibrium:
+Three complementary relaxation models use this equilibrium:
 
 - `FieldDependentRelaxationModel` is a completely-positive Gibbs-reset model
   with optional dephasing between distinct energy manifolds. Its normalized
@@ -431,10 +431,18 @@ Two complementary relaxation models use this equilibrium:
   upward/downward rates obey Boltzmann detailed balance, and equal Bohr
   frequencies share a jump operator. Its rate amplitudes remain model-dependent
   unless calibrated independently.
+- `FieldDependentNonsecularRelaxationModel` implements the unified-GKLS
+  frequency-clustering construction for unresolved Bohr frequencies. Nearby
+  transitions share jump operators, retaining coherence-transfer cross terms
+  without losing complete positivity. It reduces exactly to the Davies model
+  when the cluster width equals the numerical secular tolerance. This follows
+  the controlled weak-coupling construction of
+  [Trushechkin, Phys. Rev. A 103, 062226 (2021)](https://doi.org/10.1103/PhysRevA.103.062226).
 
 ```python
 from spin_dynamics.nqr import (
     FieldDependentDaviesRelaxationModel,
+    FieldDependentNonsecularRelaxationModel,
     FieldDependentRelaxationModel,
     simulate_field_relaxation,
 )
@@ -459,12 +467,28 @@ microscopic = FieldDependentDaviesRelaxationModel(
     efg_rate_per_second=30.0,
     correlation_time_seconds=0.2e-6,
 )
+
+unresolved = FieldDependentNonsecularRelaxationModel(
+    spin=site.spin,
+    temperature_kelvin=300.0,
+    magnetic_rate_per_second=100.0,
+    efg_rate_per_second=30.0,
+    correlation_time_seconds=0.2e-6,
+    frequency_cluster_width_hz=20e3,
+)
+print(unresolved.gibbs_stationarity_error(static_hamiltonian))
 ```
 
 The Davies model is secular: it is controlled when separations between
 distinct Bohr-frequency groups exceed the corresponding relaxation rates.
-Near avoided crossings or unresolved near-degeneracies, use the Gibbs-reset
-model until a nonsecular microscopic generator is available.
+The unified model clusters frequencies that are experimentally unresolved.
+Its cluster width must be justified from the relaxation linewidth or an
+explicit coarse-graining scale; it is not a fitting knob to make a desired
+curve. A finite-width cluster uses one representative KMS frequency, so the
+exact Gibbs state is only approximately stationary unless the clustered
+frequencies are exactly degenerate. `gibbs_stationarity_error` reports the
+resulting residual. For very broad or ambiguous clusters, use the Gibbs-reset
+model as the conservative thermalizing fallback.
 
 `simulate_lab_frame_rf(..., relaxation=model)` evaluates the dissipator from
 the static `H_Q + H_Z` once and holds that thermal reference fixed while the RF
@@ -474,6 +498,37 @@ relaxation model the rotating-frame Hamiltonian, which is not the laboratory
 Gibbs reference. The example
 `examples/plot_nqr_field_equilibrium_relaxation.py` shows equilibrium
 polarization and Davies decay-rate changes across the crossover.
+
+### Exact-pulse crossover SLSE
+
+`simulate_crossover_slse` combines finite-sideband Floquet excitation and
+refocusing pulses with laboratory-frame free evolution under a static-field
+relaxation generator. The carrier can follow the strongest transition in the
+conventional NQR/NMR band independently at each field:
+
+```python
+from spin_dynamics.nqr import simulate_crossover_slse
+
+slse = simulate_crossover_slse(
+    site,
+    b0_vector_tesla_pas=(0.1, 0.1, 0.1),
+    nutation_hz=50e3,
+    excitation_duration_seconds=3e-6,
+    refocus_duration_seconds=6e-6,
+    echo_spacing_seconds=150e-6,
+    num_echoes=12,
+    relaxation=unresolved,
+    floquet_sidebands=5,
+)
+print(slse.rf_frequency_hz, slse.echo_amplitudes)
+```
+
+Relaxation is included during the free intervals; the Floquet pulses use a
+hard-pulse approximation relative to the relaxation timescale. The result
+reports each pulse's finite-sideband unitarity error so this approximation can
+be converged explicitly. `examples/plot_nano2_crossover_slse.py` applies the
+workflow to repository-backed NaNO2 `14N` at `nu_L/nu_Q = 0, 0.1, 1, 10` and
+compares unified-GKLS and fully secular echo trains.
 
 ## Orientations
 

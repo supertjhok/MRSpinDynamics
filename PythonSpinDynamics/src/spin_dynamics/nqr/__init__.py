@@ -12,6 +12,10 @@ from spin_dynamics.nqr.crossover import (
     simulate_crossover_powder_sweep,
     track_crossover_field_sweep,
 )
+from spin_dynamics.nqr.crossover_sequences import (
+    CrossoverSLSEResult,
+    simulate_crossover_slse,
+)
 from spin_dynamics.nqr.hamiltonians import (
     batched_nqr_hamiltonians,
     diagonalize_site,
@@ -52,6 +56,7 @@ from spin_dynamics.nqr.floquet import (
 )
 from spin_dynamics.nqr.field_relaxation import (
     FieldDependentDaviesRelaxationModel,
+    FieldDependentNonsecularRelaxationModel,
     FieldDependentRelaxationModel,
     FieldEquilibriumResult,
     FieldRelaxationResult,
@@ -224,6 +229,7 @@ __all__ = [
     "CrossoverOrientation",
     "CrossoverSpectrumResult",
     "CrossoverTransition",
+    "CrossoverSLSEResult",
     "PowderCrossoverSweepResult",
     "EFGDistribution",
     "EFGIsochromat",
@@ -234,6 +240,7 @@ __all__ = [
     "FloquetRFResult",
     "FieldDependentRelaxationModel",
     "FieldDependentDaviesRelaxationModel",
+    "FieldDependentNonsecularRelaxationModel",
     "FieldEquilibriumResult",
     "FieldRelaxationResult",
     "NQREigensystem",
@@ -356,6 +363,7 @@ __all__ = [
     "simulate_fid_efg_distribution",
     "simulate_adiabatic_polarization_transfer",
     "simulate_crossover_spectrum",
+    "simulate_crossover_slse",
     "simulate_crossover_powder_sweep",
     "simulate_population_transfer",
     "simulate_piezoelectric_nqr_detection",

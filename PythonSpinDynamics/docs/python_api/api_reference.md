@@ -1011,6 +1011,13 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `simulate_crossover_powder_sweep(site: QuadrupolarSite, b0_tesla: np.ndarray | Sequence[float], *, n_theta: int = 4, n_phi: int = 8, n_chi: int = 4, b1_b0_angle: float = np.pi / 2.0, temperature_kelvin: float = 300.0, broadening_hz: float = 1000.0, frequency_points: int = 512, frequency_range_hz: tuple[float, float] | None = None, lineshape: str = 'gaussian', normalize_each_field: bool = True, backend: str = 'numpy') -> PowderCrossoverSweepResult` | Return optional powder-averaged crossover spectra over several fields. |
 | function | `simulate_crossover_spectrum(site: QuadrupolarSite, b0_tesla: float, *, orientations: CrossoverOrientationInput = 'single', temperature_kelvin: float = 300.0, broadening_hz: float = 100.0, points: int = 2048, frequency_range_hz: tuple[float, float] | None = None, lineshape: str = 'gaussian', normalize: bool = False, degeneracy_tolerance_hz: float | None = None, coupling_tolerance: float = 1e-12, backend: str = 'numpy') -> CrossoverSpectrumResult` | Simulate every observable transition of ``H_Q + H_Z`` exactly. |
 
+## `spin_dynamics.nqr.crossover_sequences`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `CrossoverSLSEResult` | Single-crystal SLSE echo train across an arbitrary static-field regime. |
+| function | `simulate_crossover_slse(site: QuadrupolarSite, b0_vector_tesla_pas: Sequence[float] | np.ndarray, *, nutation_hz: float, excitation_duration_seconds: float, refocus_duration_seconds: float, echo_spacing_seconds: float, num_echoes: int, relaxation: RelaxationSuperoperator, rf_frequency_hz: float | None = None, excitation_phase_radians: float = 0.0, refocus_phase_radians: float = np.pi / 2.0, b1_direction_pas: Sequence[float] | np.ndarray = (1.0, 0.0, 0.0), receive_quadrature_direction_pas: Sequence[float] | np.ndarray | None = None, floquet_sidebands: int = 4, initial_density: np.ndarray | None = None) -> CrossoverSLSEResult` | Simulate an SLSE train with Floquet pulses and static-field dissipation. |
+
 ## `spin_dynamics.nqr.floquet`
 
 | Kind | Name | Summary |
@@ -1028,6 +1035,7 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `field_dependent_equilibrium(site: QuadrupolarSite, b0_vector_tesla_pas: Sequence[float] | np.ndarray = (0.0, 0.0, 0.0), *, temperature_kelvin: float = 300.0) -> FieldEquilibriumResult` | Return the normalized Gibbs state of the complete ``H_Q + H_Z``. |
 | class | `FieldDependentRelaxationModel` | Completely-positive relaxation toward the Gibbs state of ``H_Q + H_Z``. |
 | class | `FieldDependentDaviesRelaxationModel` | Thermal secular relaxation with field-dependent transition rates. |
+| class | `FieldDependentNonsecularRelaxationModel` | Unified-GKLS relaxation for clusters of unresolved Bohr frequencies. |
 | function | `simulate_field_relaxation(site: QuadrupolarSite, b0_vector_tesla_pas: Sequence[float] | np.ndarray, times_seconds: Sequence[float] | np.ndarray, *, relaxation: FieldDependentRelaxationModel | FieldDependentDaviesRelaxationModel, initial_density: np.ndarray | None = None) -> FieldRelaxationResult` | Propagate a density matrix while relaxing at one fixed static field. |
 
 ## `spin_dynamics.nqr.full_dynamics`

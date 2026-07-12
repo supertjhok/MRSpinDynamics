@@ -98,6 +98,7 @@ MODULES = [
     "nonresonant.field_reversal",
     "nonresonant.sequences",
     "nqr.crossover",
+    "nqr.crossover_sequences",
     "nqr.floquet",
     "nqr.field_relaxation",
     "nqr.full_dynamics",

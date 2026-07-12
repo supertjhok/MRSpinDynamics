@@ -13,12 +13,14 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from spin_dynamics.nqr import (  # noqa: E402
     FieldDependentDaviesRelaxationModel,
+    FieldDependentNonsecularRelaxationModel,
     FieldDependentRelaxationModel,
     QuadrupolarSite,
     field_dependent_equilibrium,
     nqr_hamiltonian,
     simulate_field_relaxation,
     simulate_lab_frame_rf,
+    simulate_crossover_slse,
 )
 
 
@@ -233,6 +235,123 @@ class FieldDependentDaviesTests(unittest.TestCase):
         self.assertLess(
             excited_state_decay(10.0),
             0.1 * excited_state_decay(0.01),
+        )
+
+
+class FieldDependentNonsecularTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.site = QuadrupolarSite(
+            spin=1.0,
+            quadrupole_frequency_hz=1.0e6,
+            eta=0.3,
+            gamma_hz_per_t=3.0766e6,
+        )
+        direction = np.array([1.0, 1.0, 1.0]) / np.sqrt(3.0)
+        self.b0 = (
+            self.site.quadrupole_frequency_hz
+            / self.site.gamma_hz_per_t
+            * direction
+        )
+        self.hamiltonian = nqr_hamiltonian(self.site, self.b0)
+        self.common = dict(
+            spin=self.site.spin,
+            temperature_kelvin=300.0,
+            magnetic_rate_per_second=100.0,
+            efg_rate_per_second=30.0,
+            correlation_time_seconds=2.0e-7,
+            secular_tolerance_hz=1.0e-3,
+        )
+
+    def test_zero_cluster_width_recovers_secular_davies_generator(self) -> None:
+        secular = FieldDependentDaviesRelaxationModel(**self.common)
+        unified = FieldDependentNonsecularRelaxationModel(
+            **self.common,
+            frequency_cluster_width_hz=self.common["secular_tolerance_hz"],
+        )
+        np.testing.assert_allclose(
+            unified.superoperator(self.hamiltonian),
+            secular.superoperator(self.hamiltonian),
+            atol=1.0e-12,
+        )
+
+    def test_unresolved_frequency_cluster_retains_cross_terms_and_is_cp(self) -> None:
+        secular = FieldDependentDaviesRelaxationModel(**self.common)
+        unified = FieldDependentNonsecularRelaxationModel(
+            **self.common,
+            frequency_cluster_width_hz=200.0e3,
+        )
+        secular_generator = secular.superoperator(self.hamiltonian)
+        unified_generator = unified.superoperator(self.hamiltonian)
+        self.assertGreater(
+            np.linalg.norm(unified_generator - secular_generator),
+            1.0,
+        )
+        self.assertLess(
+            float(np.max(np.real(np.linalg.eigvals(unified_generator)))),
+            1.0e-10,
+        )
+        relative_gibbs_residual = unified.gibbs_stationarity_error(
+            self.hamiltonian
+        ) / np.linalg.norm(unified_generator)
+        self.assertLess(relative_gibbs_residual, 1.0e-8)
+
+        initial = np.zeros((self.site.dimension, self.site.dimension))
+        initial[0, 0] = 1.0
+        result = simulate_field_relaxation(
+            self.site,
+            self.b0,
+            [0.0, 1.0e-3, 10.0e-3],
+            relaxation=unified,
+            initial_density=initial,
+        )
+        for density in result.density_matrices_pas:
+            self.assertGreaterEqual(float(np.min(np.linalg.eigvalsh(density))), -1e-11)
+
+    def test_exactly_degenerate_clusters_keep_the_low_temperature_gibbs_state(self) -> None:
+        site = QuadrupolarSite(
+            spin=1.5,
+            quadrupole_frequency_hz=1.0e6,
+            eta=0.0,
+            gamma_hz_per_t=4.17e6,
+        )
+        model = FieldDependentNonsecularRelaxationModel(
+            spin=site.spin,
+            temperature_kelvin=8.0e-5,
+            magnetic_rate_per_second=100.0,
+            efg_rate_per_second=30.0,
+            frequency_cluster_width_hz=100.0e3,
+        )
+        self.assertLess(
+            model.gibbs_stationarity_error(nqr_hamiltonian(site)),
+            1.0e-10,
+        )
+
+    def test_exact_pulse_slse_preserves_trace_with_nonsecular_free_decay(self) -> None:
+        model = FieldDependentNonsecularRelaxationModel(
+            **self.common,
+            frequency_cluster_width_hz=200.0e3,
+        )
+        nutation = 0.02 * self.site.quadrupole_frequency_hz
+        result = simulate_crossover_slse(
+            self.site,
+            (0.0, 0.0, 0.0),
+            nutation_hz=nutation,
+            excitation_duration_seconds=0.15 / nutation,
+            refocus_duration_seconds=0.30 / nutation,
+            echo_spacing_seconds=200.0e-6,
+            num_echoes=4,
+            relaxation=model,
+            b1_direction_pas=(1.0, -1.0, 0.0),
+            floquet_sidebands=5,
+        )
+        self.assertEqual(result.echo_amplitudes.shape, (4,))
+        self.assertTrue(np.all(np.isfinite(result.echo_amplitudes)))
+        self.assertLess(result.excitation_pulse_unitarity_error, 1.0e-6)
+        self.assertLess(result.refocus_pulse_unitarity_error, 1.0e-6)
+        np.testing.assert_allclose(
+            np.trace(result.density_matrices_pas, axis1=1, axis2=2),
+            1.0,
+            atol=2.0e-7,
         )
 
 
