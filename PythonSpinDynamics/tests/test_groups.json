@@ -1,0 +1,47 @@
+{
+  "always": [
+    "tests.smoke_tests"
+  ],
+  "groups": {
+    "nqr": {
+      "paths": [
+        "src/spin_dynamics/nqr/**",
+        "tests/test_nqr*.py",
+        "tests/test_batched_nqr.py",
+        "examples/*nqr*.py"
+      ],
+      "tests": [
+        "tests.test_nqr_crossover",
+        "tests.test_nqr",
+        "tests.test_nqr_full_dynamics",
+        "tests.test_nqr_higher_spin",
+        "tests.test_nqr_model_selection",
+        "tests.test_nqr_multi_axis",
+        "tests.test_batched_nqr"
+      ]
+    },
+    "relaxation": {
+      "paths": [
+        "src/spin_dynamics/relaxation.py",
+        "src/spin_dynamics/nqr/relaxation.py",
+        "tests/test_*relaxation*.py"
+      ],
+      "tests": [
+        "tests.test_relaxation",
+        "tests.test_relaxation_workflows",
+        "tests.test_relaxation_validation",
+        "tests.test_nqr_redfield_relaxation"
+      ]
+    },
+    "experiment": {
+      "paths": [
+        "src/spin_dynamics/experiment/**",
+        "tests/test_experiment*.py"
+      ],
+      "tests": [
+        "tests.test_experiment",
+        "tests.test_experiment_cli"
+      ]
+    }
+  }
+}

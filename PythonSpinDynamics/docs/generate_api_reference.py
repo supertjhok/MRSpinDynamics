@@ -97,6 +97,7 @@ MODULES = [
     "noise",
     "nonresonant.field_reversal",
     "nonresonant.sequences",
+    "nqr.crossover",
     "nqr.full_dynamics",
     "nqr.hamiltonians",
     "nqr.inhomogeneity",

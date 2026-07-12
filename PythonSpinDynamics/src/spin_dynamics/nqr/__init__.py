@@ -1,5 +1,15 @@
 """Pulsed NQR helpers for quadrupolar spin dynamics."""
 
+from spin_dynamics.nqr.crossover import (
+    CrossoverFieldSweepResult,
+    CrossoverOrientation,
+    CrossoverSpectrumResult,
+    CrossoverTransition,
+    boltzmann_populations,
+    crossover_transitions_from_eigensystem,
+    simulate_crossover_spectrum,
+    track_crossover_field_sweep,
+)
 from spin_dynamics.nqr.hamiltonians import (
     batched_nqr_hamiltonians,
     diagonalize_site,
@@ -184,6 +194,10 @@ from spin_dynamics.nqr.zeeman import (
 
 __all__ = [
     "CoilDrive",
+    "CrossoverFieldSweepResult",
+    "CrossoverOrientation",
+    "CrossoverSpectrumResult",
+    "CrossoverTransition",
     "EFGDistribution",
     "EFGIsochromat",
     "EFGRephasingAnalysis",
@@ -246,9 +260,11 @@ __all__ = [
     "analyze_efg_rephasing",
     "b0_b1_powder_average_grid",
     "b0_powder_average_grid",
+    "boltzmann_populations",
     "check_efg_rephasing",
     "circular_pulse_hamiltonian",
     "cycle_superoperator",
+    "crossover_transitions_from_eigensystem",
     "deconvolve_acquisition_window",
     "detection_operator",
     "multi_axis_pulse_hamiltonian",
@@ -298,6 +314,7 @@ __all__ = [
     "selective_pulse_hamiltonian",
     "simulate_fid_efg_distribution",
     "simulate_adiabatic_polarization_transfer",
+    "simulate_crossover_spectrum",
     "simulate_population_transfer",
     "simulate_piezoelectric_nqr_detection",
     "simulate_slse",
@@ -325,6 +342,7 @@ __all__ = [
     "transition_drive_scale",
     "transition_rms_linewidth_hz",
     "transition_signal",
+    "track_crossover_field_sweep",
     "weak_field_ratio",
     "zeeman_hamiltonian",
     "zeeman_frequency_hz",

@@ -394,6 +394,19 @@ python docs\generate_validation_matrix.py
 
 ## Tests And Validation
 
+Use the change-aware selector for normal edit loops. It combines the short
+smoke tier with test groups inferred from changed paths and checks only example
+scripts that changed:
+
+```powershell
+python scripts\run_impacted_tests.py
+python scripts\run_impacted_tests.py --list
+python scripts\run_impacted_tests.py --group nqr
+```
+
+See [`docs/testing_strategy.md`](docs/testing_strategy.md) for the tiering and
+impact-map maintenance policy.
+
 Run the fast smoke tier during normal edit loops:
 
 ```powershell

@@ -161,9 +161,15 @@ entry point.
 Use focused tests during edit loops:
 
 ```powershell
+python scripts\run_impacted_tests.py
 python -m unittest tests.test_motion tests.test_motion_sequence
 python -m unittest tests.example_tests
 ```
+
+`scripts/run_impacted_tests.py` reads `tests/test_groups.json`, adds directly
+changed test modules, and performs CLI checks only for changed examples. See
+[`testing_strategy.md`](testing_strategy.md) for the local, smoke, focused, and
+full-validation tiers.
 
 ## Benchmarking
 

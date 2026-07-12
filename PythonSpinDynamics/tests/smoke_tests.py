@@ -62,8 +62,11 @@ FAST_FIXTURE_TESTS = [
 
 FAST_EXAMPLE_TESTS = [
     "test_examples_run_from_examples_directory",
-    "test_plot_examples_expose_cli_without_matplotlib",
 ]
+
+# The exhaustive ``--help`` check launches every plotting script and therefore
+# grows with the example catalog. Keep it in ``tests.example_tests`` and the
+# full suite; the change-aware runner checks only examples modified in an edit.
 
 FAST_SEQUENCE_TESTS = [
     (SequenceIRTests, "test_compile_preserves_concurrent_rf_gradient_and_adc_timing"),

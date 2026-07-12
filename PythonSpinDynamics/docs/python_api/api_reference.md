@@ -996,6 +996,19 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `csar_supercycle_sequence(model: NonresonantFieldModel, *, echo_spacing_seconds: float, tau_rev_seconds: float = 0.0, senses: tuple[int, ...] = (1, 1, -1, -1), **kwargs) -> list[list[FieldSegment]]` | The Fig. 3C supercycle: 90-degree CSAR units with alternating rotation senses. |
 | function | `effective_rotation(ensemble: IsochromatEnsemble, unit, isochromat_index: int = 0) -> tuple[np.ndarray, float]` | Return the ``(axis, angle)`` of one isochromat's echo-to-echo net rotation. |
 
+## `spin_dynamics.nqr.crossover`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `CrossoverOrientation` | Static-field, transmit, and receive directions for one crystallite. |
+| class | `CrossoverTransition` | One observable transition between energy manifolds. |
+| class | `CrossoverSpectrumResult` | Exact equilibrium spectrum across the NQR-to-NMR crossover. |
+| class | `CrossoverFieldSweepResult` | Overlap-tracked eigenstates and transition responses over a B0 sweep. |
+| function | `boltzmann_populations(levels_hz: np.ndarray | Sequence[float], temperature_kelvin: float) -> np.ndarray` | Return normalized Boltzmann populations for energies supplied in Hz. |
+| function | `crossover_transitions_from_eigensystem(eigensystem: NQREigensystem, orientation: CrossoverOrientation, *, orientation_index: int = 0, temperature_kelvin: float = 300.0, degeneracy_tolerance_hz: float | None = None, coupling_tolerance: float = 1e-12) -> tuple[CrossoverTransition, ...]` | Return degeneracy-safe transition responses for one orientation. |
+| function | `track_crossover_field_sweep(site: QuadrupolarSite, b0_tesla: np.ndarray | Sequence[float], *, orientation: CrossoverOrientation | None = None, temperature_kelvin: float = 300.0, backend: str = 'numpy') -> CrossoverFieldSweepResult` | Track eigenstate character and all state-pair responses over increasing B0. |
+| function | `simulate_crossover_spectrum(site: QuadrupolarSite, b0_tesla: float, *, orientations: CrossoverOrientationInput = 'single', temperature_kelvin: float = 300.0, broadening_hz: float = 100.0, points: int = 2048, frequency_range_hz: tuple[float, float] | None = None, lineshape: str = 'gaussian', normalize: bool = False, degeneracy_tolerance_hz: float | None = None, coupling_tolerance: float = 1e-12, backend: str = 'numpy') -> CrossoverSpectrumResult` | Simulate every observable transition of ``H_Q + H_Z`` exactly. |
+
 ## `spin_dynamics.nqr.full_dynamics`
 
 | Kind | Name | Summary |

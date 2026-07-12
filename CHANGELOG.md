@@ -13,6 +13,15 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
 
 ### PythonSpinDynamics
 
+- Added a regime-independent exact static NQR-to-NMR crossover spectrum for
+  `H_Q + H_Z`, with Boltzmann population weighting, complex transmit/receive
+  polarization geometry, all-transition spectra, and basis-invariant Kramers
+  manifold intensities at exact degeneracies.
+- Added overlap-tracked NQR-to-NMR field sweeps and a repository-parameterized
+  NaNO2 `14N` / NaClO3 `35Cl` energy-level and transition-intensity example.
+- Added a declarative change-aware local test selector and restored the smoke
+  tier to constant-time behavior by leaving catalog-wide example CLI checks in
+  the example/full tiers.
 - Added complete dense two-spin SLIC long-lived-state preparation,
   phenomenological measured-`T_S` storage, symmetry purge, and readout, plus
   pairwise-yield-aware hydrogenative PHIP mapping, high-field PASADENA,

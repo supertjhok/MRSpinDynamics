@@ -196,6 +196,100 @@ lines (`nu_+`, `nu_-`, `nu_0`) and is not itself a physical transition. Pass an
 explicit `transition_label` for spin-1 so the offset axis is referenced to a
 real line.
 
+## Exact NQR-to-NMR Crossover Spectrum
+
+`simulate_crossover_spectrum` is the regime-independent static-spectrum path.
+It diagonalizes the complete `H_Q + H_Z` Hamiltonian, includes every transition
+allowed by the specified transmit/receive geometry, and does not select lines
+by proximity to a zero-field NQR frequency. The reported crossover parameter is
+
+```text
+r = nu_L / nu_Q = |gamma| B0 / quadrupole_frequency_hz
+```
+
+where `quadrupole_frequency_hz` retains the package's fundamental zero-field
+line convention. This ratio, rather than `B0/B1`, distinguishes
+Zeeman-perturbed NQR (`r << 1`), the non-perturbative crossover (`r ~ 1`), and
+quadrupole-perturbed NMR (`r >> 1`). `B1` remains the oscillating RF field.
+
+```python
+from spin_dynamics.nqr import (
+    CrossoverOrientation,
+    QuadrupolarSite,
+    simulate_crossover_spectrum,
+)
+
+site = QuadrupolarSite(
+    spin=1.5,
+    isotope="35Cl",
+    quadrupole_frequency_hz=1.0e6,
+    eta=0.3,
+    gamma_hz_per_t=4.0e6,
+)
+orientation = CrossoverOrientation(
+    b0_direction_pas=(1, 1, 1),
+    transmit_direction_pas=(1, -1, 0),
+    # receive_direction_pas defaults to the reciprocal transmit direction
+)
+result = simulate_crossover_spectrum(
+    site,
+    b0_tesla=0.25,             # nu_L / nu_Q = 1
+    orientations=[orientation],
+    temperature_kelvin=300.0,
+    broadening_hz=1.0e3,       # Gaussian sigma (Lorentzian HWHM if selected)
+    normalize=True,
+)
+
+for line in result.transitions:
+    print(line.frequency_hz, line.lower_levels, line.upper_levels, line.intensity)
+```
+
+Transition amplitudes contain the Boltzmann population difference and the
+transmit/receive matrix-element product. Transmit and receive directions may be
+complex vectors, so circular and elliptical polarization are supported. The
+returned spectrum is complex to preserve cross-coil phase; a reciprocal coil
+produces a real, non-negative absorption spectrum.
+
+At an exact degeneracy, a `CrossoverTransition` joins complete energy
+manifolds rather than arbitrary individual eigenvectors. For example, the
+zero-field spin-3/2 line connects `(0, 1)` to `(2, 3)`. The summed manifold
+response is invariant under unitary rotations inside either Kramers doublet.
+Once `B0` resolves the levels, the same machinery automatically returns
+ordinary one-level-to-one-level transitions.
+
+Pass `orientations="powder"` for the existing correlated laboratory
+`B0`/linear-`B1` powder geometry. For explicit single-crystal or specialized
+transmit/receive geometries, pass normalized `CrossoverOrientation` values.
+The current exact crossover model includes the nuclear Zeeman and quadrupolar
+interactions. Chemical-shielding tensors and field-history-dependent sweeps are
+planned extensions, not implicit parts of this static calculation.
+
+For a continuous field sweep, `track_crossover_field_sweep` assigns each new
+energy-ordered eigenbasis to the previous field point by maximizing total
+squared eigenvector overlap. It phase-aligns adjacent eigenvectors and returns
+tracked levels, state-pair frequencies and intensities, the minimum adjacent
+overlap, and the expectation value of spin along `B0`:
+
+```python
+import numpy as np
+from spin_dynamics.nqr import track_crossover_field_sweep
+
+ratios = np.logspace(-3, 1, 160)
+fields = ratios * site.quadrupole_frequency_hz / abs(site.gamma_hz_per_t)
+sweep = track_crossover_field_sweep(site, fields, orientation=orientation)
+print(sweep.levels_hz.shape, sweep.transition_frequencies_hz.shape)
+```
+
+Start at a small nonzero field when individual state identity is required:
+states inside an exact zero-field degeneracy form a physical manifold and do
+not possess unique individual labels. The example
+`examples/plot_nqr_nmr_crossover.py` applies the sweep to repository-backed
+NaNO2 `14N` (`I=1`) and NaClO3 `35Cl` (`I=3/2`) parameters:
+
+```powershell
+python examples\plot_nqr_nmr_crossover.py --output nqr_nmr_crossover.png
+```
+
 ## Orientations
 
 Single-crystal simulations pass one fixed orientation:
