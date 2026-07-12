@@ -228,10 +228,11 @@ B1 maps, and a 3D voxel rendering of the reconstructed volume.
 python examples\plot_multislice_halbach_imaging.py --pixels 16 --slices 5 --output results\multislice_halbach.png
 ```
 
-For an end-to-end model of the book's low-cost C8 system—including finite
+For an end-to-end capstone model of the book's low-cost C8 system—including finite
 Halbach fields, RF/gradient self-heating, ferrite Larmor drift, measured
 complex receiver noise, incomplete k-space, L1-Haar reconstruction, and a
-held-out quality auto-stop—run:
+held-out quality auto-stop, RF/gradient driver requirements, ADC gain, mass,
+active volume, and effective slice thickness—run:
 
 ```powershell
 python examples\plot_portable_halbach_adaptive_mri.py --output results\portable_halbach_adaptive_mri.png

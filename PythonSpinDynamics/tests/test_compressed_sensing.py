@@ -14,6 +14,7 @@ from spin_dynamics.workflows.portable_halbach import (
     PortableHalbachMRIConfig,
     portable_phantom,
     simulate_portable_halbach_mri,
+    summarize_portable_halbach_design,
 )
 
 
@@ -84,6 +85,25 @@ class TestCompressedSensing(unittest.TestCase):
         gz = np.gradient(result.gz_field_map_t_per_a, axis, axis)[1]
         self.assertAlmostEqual(gx[center, center], 15.0e-3, delta=0.5e-3)
         self.assertAlmostEqual(gz[center, center], 15.0e-3, delta=0.5e-3)
+
+    def test_capstone_design_metrics_close_the_power_and_adc_budgets(self):
+        config = PortableHalbachMRIConfig(matrix_size=32, reconstruction_iterations=15)
+        result = simulate_portable_halbach_mri(config)
+        design = summarize_portable_halbach_design(
+            result, pulse_lengths_s=np.array([4e-6, 5e-6, 8e-6])
+        )
+        sweep = design.pulse_sweep
+        self.assertTrue(np.all(np.diff(sweep.peak_forward_power_w) < 0.0))
+        self.assertGreater(sweep.active_sample_volume_m3[0], sweep.active_sample_volume_m3[-1])
+        self.assertAlmostEqual(sweep.predicted_snr[1], result.predicted_single_scan_snr)
+        self.assertAlmostEqual(
+            design.receiver.peak_probe_signal_v
+            * design.receiver.required_voltage_gain,
+            0.5 * config.adc_full_scale_v,
+        )
+        self.assertLess(design.gradients.peak_current_a, config.gradient_current_limit_a)
+        self.assertLess(design.gradients.peak_voltage_v, 5.0)
+        self.assertEqual(design.weight.total_kg, 4.8)
         self.assertGreater(
             np.linalg.norm(result.measured_kspace - result.ideal_kspace), 0.0
         )

@@ -205,10 +205,17 @@ from spin_dynamics.workflows.relaxation import (
     run_quadrupolar_relaxation,
 )
 from spin_dynamics.workflows.portable_halbach import (
+    GradientCoilDesignMetrics,
+    PortableHalbachDesignSummary,
     PortableHalbachMRIConfig,
     PortableHalbachMRIResult,
+    RFCoilDesignMetrics,
+    RFPulseLengthSweep,
+    ReceiverDesignMetrics,
+    SystemWeightMetrics,
     portable_phantom,
     simulate_portable_halbach_mri,
+    summarize_portable_halbach_design,
 )
 
 STABLE_WORKFLOW_API = (
@@ -488,7 +495,14 @@ __all__ = [
     "run_nmrd",
     "run_quadrupolar_relaxation",
     "PortableHalbachMRIConfig",
+    "PortableHalbachDesignSummary",
     "PortableHalbachMRIResult",
+    "GradientCoilDesignMetrics",
+    "RFCoilDesignMetrics",
+    "RFPulseLengthSweep",
+    "ReceiverDesignMetrics",
+    "SystemWeightMetrics",
     "portable_phantom",
     "simulate_portable_halbach_mri",
+    "summarize_portable_halbach_design",
 ]

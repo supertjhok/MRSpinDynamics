@@ -58,6 +58,13 @@ class PortableHalbachMRIConfig:
     ferrite_eddy_power_w: float = 0.0
     ferrite_imaginary_relative_permeability: float | None = None
     measured_receive_coil_q: float = 128.0
+    transmit_coil_inductance_h: float = 3.2e-6
+    measured_transmit_coil_q: float = 75.0
+    rf_source_impedance_ohm: float = 50.0
+    gradient_coil_inductance_h: float = 1.3e-6
+    gradient_rise_time_s: float = 100.0e-6
+    adc_full_scale_v: float = 2.5
+    adc_peak_fraction: float = 0.5
     ambient_temperature_k: float = 293.15
     regularization: float = 5.0e-4
     reconstruction_iterations: int = 45
@@ -92,6 +99,8 @@ class PortableHalbachMRIResult:
     ferrite_imaginary_relative_permeability: float
     predicted_single_scan_snr: float
     measured_reference_snr: float
+    water_signal_voltage_v: float
+    single_scan_noise_rms_v: float
     ideal_kspace: np.ndarray
     measured_kspace: np.ndarray
     acquisition_order: np.ndarray
@@ -110,6 +119,88 @@ class PortableHalbachMRIResult:
 
         fraction = float(self.adaptive.sampling_fractions[-1])
         return fraction * float(self.acquisition_times_s[-1])
+
+
+@dataclass(frozen=True)
+class RFPulseLengthSweep:
+    """RF power, sensitivity, and active-volume trade-off versus 90-degree pulse."""
+
+    pulse_lengths_s: np.ndarray
+    peak_current_a: np.ndarray
+    peak_forward_power_w: np.ndarray
+    peak_coil_loss_w: np.ndarray
+    predicted_snr: np.ndarray
+    active_sample_volume_m3: np.ndarray
+    effective_slice_thickness_m: np.ndarray
+
+
+@dataclass(frozen=True)
+class RFCoilDesignMetrics:
+    """Electrical and field metrics for the transmit and receive coils."""
+
+    transmit_inductance_h: float
+    transmit_ac_resistance_ohm: float
+    transmit_q_factor: float
+    transmit_b1_center_t_per_a: float
+    receive_inductance_h: float
+    receive_copper_resistance_ohm: float
+    receive_ferrite_loss_resistance_ohm: float
+    receive_loaded_resistance_ohm: float
+    receive_copper_q_factor: float
+    receive_loaded_q_factor: float
+    receive_b1_center_t_per_a: float
+
+
+@dataclass(frozen=True)
+class GradientCoilDesignMetrics:
+    """Gradient efficiency, electrical load, and peak driver requirements."""
+
+    gx_efficiency_t_per_m_per_a: float
+    gz_efficiency_t_per_m_per_a: float
+    inductance_h: float
+    resistance_ohm: float
+    peak_current_a: float
+    peak_voltage_v: float
+    peak_resistive_power_w: float
+    average_winding_power_w: float
+    rise_time_s: float
+
+
+@dataclass(frozen=True)
+class ReceiverDesignMetrics:
+    """Receiver signal/noise levels and required ADC gain."""
+
+    peak_probe_signal_v: float
+    single_scan_noise_rms_v: float
+    predicted_single_scan_snr: float
+    adc_full_scale_v: float
+    target_adc_peak_v: float
+    required_voltage_gain: float
+    required_gain_db: float
+
+
+@dataclass(frozen=True)
+class SystemWeightMetrics:
+    """Book Table 10.12 mass budget."""
+
+    magnet_kg: float
+    transmitter_kg: float
+    other_electronics_kg: float
+    batteries_kg: float
+    baseplate_kg: float
+    total_kg: float
+    portable_without_baseplate_kg: float
+
+
+@dataclass(frozen=True)
+class PortableHalbachDesignSummary:
+    """Designer-facing capstone metrics derived from one end-to-end run."""
+
+    rf_coils: RFCoilDesignMetrics
+    pulse_sweep: RFPulseLengthSweep
+    gradients: GradientCoilDesignMetrics
+    receiver: ReceiverDesignMetrics
+    weight: SystemWeightMetrics
 
 
 def portable_phantom(matrix_size: int = 64) -> np.ndarray:
@@ -562,6 +653,8 @@ def simulate_portable_halbach_mri(
         ferrite_imaginary_relative_permeability=ferrite_mu_double_prime,
         predicted_single_scan_snr=predicted_snr,
         measured_reference_snr=cfg.measured_single_scan_snr,
+        water_signal_voltage_v=water_signal_v,
+        single_scan_noise_rms_v=single_scan_noise_rms,
         ideal_kspace=ideal_kspace,
         measured_kspace=measured,
         acquisition_order=order,
@@ -578,9 +671,163 @@ def simulate_portable_halbach_mri(
     )
 
 
+def summarize_portable_halbach_design(
+    result: PortableHalbachMRIResult,
+    *,
+    pulse_lengths_s: np.ndarray | None = None,
+) -> PortableHalbachDesignSummary:
+    """Derive RF, gradient, ADC, mass, volume, and slice design metrics.
+
+    Pulse-length sweeps change the drive current so the center of the transmit
+    coil remains a 90-degree rotation. ``active_sample_volume_m3`` counts water
+    voxels whose combined transmit and off-resonance excitation is at least 50%.
+    The effective slice thickness is that active cross-sectional area divided by
+    the 9 mm sample diameter; it quantifies static-B0 selection along the
+    unencoded direction without pretending that a dedicated slice gradient exists.
+    """
+
+    cfg = result.config
+    pulses = (
+        np.linspace(3.0e-6, 12.0e-6, 19)
+        if pulse_lengths_s is None
+        else np.asarray(pulse_lengths_s, dtype=np.float64).reshape(-1)
+    )
+    if pulses.size == 0 or np.any(~np.isfinite(pulses)) or np.any(pulses <= 0.0):
+        raise ValueError("pulse_lengths_s must contain positive finite values")
+
+    n = cfg.matrix_size
+    center = n // 2
+    axis = np.linspace(-0.5 * cfg.field_of_view_m, 0.5 * cfg.field_of_view_m, n)
+    xx, zz = np.meshgrid(axis, axis, indexing="ij")
+    water_mask = xx**2 + zz**2 <= (4.5e-3) ** 2
+    offset_hz = (result.b0_map_t - cfg.nominal_b0_t) * (
+        cfg.resonance_frequency_hz / cfg.nominal_b0_t
+    )
+    b1_tx_center = float(result.b1_transmit_map_t_per_a[center, center])
+    b1_rx_center = float(result.b1_receive_map_t_per_a[center, center])
+    tx_normalized = result.b1_transmit_map_t_per_a / max(b1_tx_center, 1e-30)
+    gamma_rad = 2.0 * np.pi * cfg.resonance_frequency_hz / cfg.nominal_b0_t
+    omega = 2.0 * np.pi * cfg.resonance_frequency_hz
+    tx_resistance = (
+        omega * cfg.transmit_coil_inductance_h / cfg.measured_transmit_coil_q
+    )
+
+    currents = np.pi / (2.0 * gamma_rad * b1_tx_center * pulses)
+    forward_power = 0.5 * currents**2 * cfg.rf_source_impedance_ohm
+    coil_power = 0.5 * currents**2 * tx_resistance
+    signal_proxy = np.empty_like(pulses)
+    active_volume = np.empty_like(pulses)
+    slice_thickness = np.empty_like(pulses)
+    pixel_area = (cfg.field_of_view_m / n) ** 2
+    for index, pulse in enumerate(pulses):
+        excitation = np.abs(np.sinc(offset_hz * pulse)) * np.abs(tx_normalized)
+        signal_proxy[index] = np.sum(
+            water_mask * excitation * result.b1_receive_map_t_per_a
+        )
+        active = water_mask & (excitation >= 0.5)
+        active_area = float(np.count_nonzero(active) * pixel_area)
+        active_volume[index] = active_area * cfg.sample_depth_m
+        slice_thickness[index] = active_area / 9.0e-3
+    reference_excitation = np.abs(
+        np.sinc(offset_hz * cfg.rf_pulse_duration_s)
+    ) * np.abs(tx_normalized)
+    reference_proxy = float(
+        np.sum(water_mask * reference_excitation * result.b1_receive_map_t_per_a)
+    )
+    snr = result.predicted_single_scan_snr * signal_proxy / max(
+        reference_proxy, 1e-30
+    )
+
+    spacing = cfg.field_of_view_m / (n - 1)
+    gx = np.gradient(result.gx_field_map_t_per_a, spacing, axis=0)
+    gz = np.gradient(result.gz_field_map_t_per_a, spacing, axis=1)
+    gx_efficiency = float(gx[center, center])
+    gz_efficiency = float(gz[center, center])
+    peak_current = max(
+        float(np.max(np.abs(result.gx_current_a))),
+        float(np.max(np.abs(result.gz_current_a))),
+    )
+    peak_voltage = peak_current * cfg.gradient_coil_resistance_ohm + (
+        cfg.gradient_coil_inductance_h
+        * peak_current
+        / cfg.gradient_rise_time_s
+    )
+    peak_gradient_power = peak_current**2 * cfg.gradient_coil_resistance_ohm
+
+    target_adc_peak = cfg.adc_full_scale_v * cfg.adc_peak_fraction
+    required_gain = target_adc_peak / max(result.water_signal_voltage_v, 1e-30)
+    required_gain_db = 20.0 * np.log10(required_gain)
+
+    return PortableHalbachDesignSummary(
+        rf_coils=RFCoilDesignMetrics(
+            transmit_inductance_h=cfg.transmit_coil_inductance_h,
+            transmit_ac_resistance_ohm=float(tx_resistance),
+            transmit_q_factor=cfg.measured_transmit_coil_q,
+            transmit_b1_center_t_per_a=b1_tx_center,
+            receive_inductance_h=result.receive_coil_inductance_h,
+            receive_copper_resistance_ohm=(
+                result.receive_coil_resistance_ohm
+                - result.ferrite_rf_loss_resistance_ohm
+            ),
+            receive_ferrite_loss_resistance_ohm=(
+                result.ferrite_rf_loss_resistance_ohm
+            ),
+            receive_loaded_resistance_ohm=result.receive_coil_resistance_ohm,
+            receive_copper_q_factor=result.receive_coil_copper_q_factor,
+            receive_loaded_q_factor=result.receive_coil_q_factor,
+            receive_b1_center_t_per_a=b1_rx_center,
+        ),
+        pulse_sweep=RFPulseLengthSweep(
+            pulse_lengths_s=pulses,
+            peak_current_a=currents,
+            peak_forward_power_w=forward_power,
+            peak_coil_loss_w=coil_power,
+            predicted_snr=snr,
+            active_sample_volume_m3=active_volume,
+            effective_slice_thickness_m=slice_thickness,
+        ),
+        gradients=GradientCoilDesignMetrics(
+            gx_efficiency_t_per_m_per_a=gx_efficiency,
+            gz_efficiency_t_per_m_per_a=gz_efficiency,
+            inductance_h=cfg.gradient_coil_inductance_h,
+            resistance_ohm=cfg.gradient_coil_resistance_ohm,
+            peak_current_a=peak_current,
+            peak_voltage_v=float(peak_voltage),
+            peak_resistive_power_w=float(peak_gradient_power),
+            average_winding_power_w=result.gradient_coil_average_power_w,
+            rise_time_s=cfg.gradient_rise_time_s,
+        ),
+        receiver=ReceiverDesignMetrics(
+            peak_probe_signal_v=result.water_signal_voltage_v,
+            single_scan_noise_rms_v=result.single_scan_noise_rms_v,
+            predicted_single_scan_snr=result.predicted_single_scan_snr,
+            adc_full_scale_v=cfg.adc_full_scale_v,
+            target_adc_peak_v=target_adc_peak,
+            required_voltage_gain=float(required_gain),
+            required_gain_db=float(required_gain_db),
+        ),
+        weight=SystemWeightMetrics(
+            magnet_kg=0.6,
+            transmitter_kg=0.7,
+            other_electronics_kg=0.6,
+            batteries_kg=1.7,
+            baseplate_kg=1.2,
+            total_kg=4.8,
+            portable_without_baseplate_kg=3.6,
+        ),
+    )
+
+
 __all__ = [
+    "GradientCoilDesignMetrics",
     "PortableHalbachMRIConfig",
+    "PortableHalbachDesignSummary",
     "PortableHalbachMRIResult",
+    "RFCoilDesignMetrics",
+    "RFPulseLengthSweep",
+    "ReceiverDesignMetrics",
+    "SystemWeightMetrics",
     "portable_phantom",
     "simulate_portable_halbach_mri",
+    "summarize_portable_halbach_design",
 ]

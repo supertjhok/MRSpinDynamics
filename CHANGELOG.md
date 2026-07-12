@@ -20,6 +20,10 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
   tuned-receiver loss, predicted complex noise, L1-Haar
   compressed sensing, and a held-out k-space quality metric that automatically
   stops acquisition when improvement plateaus.
+- Expanded the portable Halbach workflow into a designer-facing capstone with
+  RF power/SNR/active-volume pulse sweeps, RF and gradient coil tables, peak
+  gradient current and voltage, ADC gain budgeting, effective slice thickness,
+  system mass accounting, and two generated user-manual figures.
 
 - Added a host-normalized CI performance regression gate that benchmarks the
   Git base and candidate commits on the same runner. Compact core, workflow,
