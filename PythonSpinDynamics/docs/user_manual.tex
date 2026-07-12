@@ -14,6 +14,7 @@
 \usepackage{listings}
 \usepackage{titlesec}
 \usepackage{fancyhdr}
+\usepackage{graphicx}
 \usepackage[protrusion=true,expansion=false]{microtype}
 
 \usetikzlibrary{arrows.meta,calc,decorations.pathmorphing,positioning}
@@ -3823,6 +3824,47 @@ B1, relaxation, and density---through the dimension-agnostic
 \code{SpatialFieldMaps}), so the 1D, 2D, and 3D paths share one field
 representation and one gradient-coupling rule.
 
+\subsection{Complete Portable Halbach MRI Capstone}
+
+The preceding imaging and field components are deliberately composable, but it
+is useful to see them closed into one complete design loop. The capstone example
+
+\begin{lstlisting}[language=bash]
+python examples\plot_portable_halbach_adaptive_mri.py --matrix-size 64 \
+  --output results\portable_halbach_adaptive_mri.png \
+  --design-output results\portable_halbach_design_dashboard.png \
+  --data-output results\portable_halbach_capstone.npz
+\end{lstlisting}
+
+starts from the eight finite C8 ferrite blocks with deterministic block-to-block
+remanence mismatch and solves three-dimensional B0, transmit-B1, receive-B1,
+and nonlinear gradient fields. It then connects the actual transmitter and
+receiver circuits, PEEC coil impedance, ferrite RF loss, lead/interconnect loss,
+finite probe bandwidth, circularly polarized NMR coupling, gradient-driver
+requirements, sample noise, and a thermal network. The same run generates noisy
+k-space, performs variable-density compressed sensing, and stops acquisition
+when held-out k-space quality ceases to improve.
+
+This is a complete workflow rather than a collection of isolated plots: the
+designer summary reports RF and gradient properties, peak RF/gradient drive,
+ADC gain, system mass, active volume, effective slice thickness, signal
+bandwidth, and SNR uncertainty. The default case predicts a 91.3~kHz signal
+span against the measured 100~kHz reference and a single-echo SNR of 84.1
+(measured 84; 70.8--95.5 over the measured receiver-noise range). It stops at
+32\% k-space and retains a visible compressed-sensing advantage over matched-mask
+zero-fill. The reference full-fidelity study completed in only 15--20 minutes;
+the optimized 64-by-64 teaching default is normally much faster.
+
+The detailed assumptions, book-calibrated quantities, result tables, and both
+generated dashboards are collected in
+\code{docs/portable\_halbach\_adaptive\_mri.md}. This is the recommended
+starting point when evaluating a hardware change because every downstream
+metric is regenerated from the same typed workflow result.
+
+\begin{center}
+\includegraphics[width=0.97\linewidth]{images/portable_halbach_capstone_imaging.png}
+\end{center}
+
 \section{Field Solvers}
 \label{sec:field-solvers}
 
@@ -5525,6 +5567,68 @@ segments.  It is intended as a debugging and teaching aid: the finite train
 examples use the same public diagnostics API, pulse-shape solvers, and
 discretized segments.
 
+\section{Multi-Frequency Bloch--Siegert Phase and the RWA Limit}
+
+Mandal et al., ``An ultra-broadband low-frequency magnetic resonance system,''
+\emph{J. Magn. Reson.} 242 (2014) 113--125, used rapid frequency switching in
+two related ways. Interleaved CPMG slices acquire unwanted Bloch--Siegert phase
+from the pulses on every other slice, while paired far-off-resonant pulses can
+measure that phase intentionally. For a co-rotating nutation frequency
+\(\omega_1\), pulse duration \(T_{BS}\), and offset \(\Delta\omega\), their
+paired-offset result is
+
+\[
+ \phi_{BS}(+\Delta\omega)-\phi_{BS}(-\Delta\omega)
+ \simeq T_{BS}\frac{\omega_1^2}{\Delta\omega}.
+\]
+
+The workflow \code{simulate\_bloch\_siegert\_phase\_sweep} propagates the real
+linearly polarized RF field in the laboratory frame, so it retains both circular
+components. At the paper's Fig.~15 operating point---\(f_0=1.48\)~MHz,
+\(\Delta f=25\)~kHz, and \(T_{90}=102\)~\(\mu\)s---the exact simulation reaches
+34.3 degrees at \(T_{BS}=400\)~\(\mu\)s and refits \(T_{90}=102.4\)~\(\mu\)s,
+reproducing the reported approximately 35-degree endpoint and 102~\(\mu\)s fit.
+\code{mandal\_multislice\_correction} separately implements Eqs.~14--16: for
+the Fig.~14 spacing of 20~kHz and \(T_{90}=140\)~\(\mu\)s, slice 2 acquires a
+-4.02 degree excitation-phase error, which the prescribed phase correction
+removes.
+
+The paired experiment also provides a clean teaching example for the limit of
+the rotating-wave approximation. To second order, a real RF field gives
+
+\[
+ \phi_{\mp} = \frac{T_{BS}\omega_1^2}{2}
+ \left(\pm\frac{1}{\Delta\omega}
+       +\frac{1}{2\omega_0\mp\Delta\omega}\right).
+\]
+
+The difference \(\phi_- - \phi_+\) is the usual B1-sensitive result above. The
+sum \(\phi_- + \phi_+\) cancels identically in the RWA and isolates the
+counter-rotating term. It grows at low \(\omega_0\), making it an observable for
+low-frequency B0 mapping. The inverse is exposed as
+\code{estimate\_larmor\_hz\_from\_counter\_rotating\_phase}; it should not be
+used near a pole, under strong drive, or when the common phase is comparable to
+the phase-noise floor without an exact-model fit.
+
+Run the complete literature reproduction and noisy mapping extension with:
+
+\begin{lstlisting}[language=bash]
+python examples\plot_bloch_siegert_multifrequency.py \
+  --output results\bloch_siegert_multifrequency.png \
+  --data-output results\bloch_siegert_multifrequency.npz
+\end{lstlisting}
+
+The default synthetic map adds 0.08 degrees RMS phase noise before inversion
+and recovers the 45--160~kHz B0 distribution with about 2.1\% relative RMSE.
+This result is intentionally distinct from NQR: the counter-rotating/RWA
+decomposition here assumes Zeeman-defined NMR coupling, whereas the
+NQR pulse Hamiltonians retain their linearly polarized laboratory-field
+convention.
+
+\begin{center}
+\includegraphics[width=0.97\linewidth]{images/mandal2014_bloch_siegert_multifrequency.png}
+\end{center}
+
 \section{Radiation Damping}
 
 \begin{lstlisting}[language=Python]
@@ -6321,7 +6425,8 @@ full command list.
   \code{ideal\_cpmg\_train.py}, and compare the high-level and direct workflows.
   \item[Fields and imaging.] Continue with \code{plot\_ideal\_imaging.py},
   \code{experiment\_imaging\_with\_coil.py}, and
-  \code{plot\_imaging\_inhomogeneity.py}.
+  \code{plot\_imaging\_inhomogeneity.py}. Then run the complete system study
+  \code{plot\_portable\_halbach\_adaptive\_mri.py}.
   \item[Diffusion and transport.] Start with \code{plot\_bipolar\_pgste.py},
   then \code{plot\_pgse\_qspace\_walkers.py} and
   \code{plot\_cpmg\_pipe\_flow.py}.
@@ -6391,6 +6496,7 @@ python examples\porous_rock_cpmg_walkers.py --backend jax --plot-output results\
 python examples\plot_radiation_damping.py --output results\radiation_damping.png
 python examples\plot_radiation_damping_detuning.py --output results\rd_detuning.png
 python examples\plot_radiation_damping_cpmg_train.py --output results\rd_cpmg.png
+python examples\plot_bloch_siegert_multifrequency.py --output results\bloch_siegert_multifrequency.png
 python examples\plot_mandal2015_phase_step_sweep.py --probe tuned --output results\mandal_phase_sweep.png
 python examples\plot_mandal2015_echo_modulation.py --probe tuned --output results\mandal_echo_modulation.png
 python examples\plot_mandal2015_pulse_shapes.py --probe tuned --output results\mandal_pulse_shapes.png

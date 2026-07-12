@@ -322,6 +322,7 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_radiation_damping.py",
             "examples/plot_radiation_damping_detuning.py",
             "examples/plot_radiation_damping_cpmg_train.py",
+            "examples/plot_bloch_siegert_multifrequency.py",
             "examples/plot_mandal2015_phase_step_sweep.py",
             "examples/plot_mandal2015_echo_modulation.py",
             "examples/plot_mandal2015_pulse_shapes.py",

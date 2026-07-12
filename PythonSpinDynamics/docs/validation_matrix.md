@@ -20,8 +20,8 @@ what supports the underlying scientific or numerical claim.
 
 ## Coverage Summary
 
-- 23 capability-level claims
-- 12 validated
+- 24 capability-level claims
+- 13 validated
 - 6 partially validated
 - 5 regression-only
 
@@ -46,6 +46,7 @@ what supports the underlying scientific or numerical claim.
 | Optimal-control propagation and gradients | NumPy/JAX propagators, control gradients, hardware-response primitives, and bounded objectives agree across implementations and with finite-difference limits. | **C**, **R**, **B** | partially validated |
 | Unified experiment facade | Facade routes reproduce their direct workflow calls and preserve specifications, configs, arrays, and provenance through round trips. | **R** | regression only |
 | Reproducible results and provenance | Facade archives identify experiment inputs, implementation, numerical environment, randomness, and result content and can verify an exact rerun while remaining backward-compatible with version-1 archives. | **R** | regression only |
+| Multi-frequency Bloch-Siegert phase and low-frequency RWA limits | Exact lab-frame paired-offset propagation reproduces the Mandal-2014 Bloch-Siegert phase slope and fitted 90-degree pulse length, while the second-order common phase isolates the counter-rotating contribution omitted by the RWA. | **D**, **A**, **C** | validated |
 | Arbitrary SequenceIR phase cycling | Named RF roles in a backend-neutral sequence are programmed branch-by-branch and receiver-combined according to an arbitrary phase table. | **A**, **R** | validated |
 | Inverse-excitation cancellation diagnostics | Excitation/inverse spectrum pairs report broadband and peak residuals, inverse coherence, and SNR mismatch with correct analytical limiting behavior. | **A**, **R** | validated |
 | Numba and JAX acceleration | Accelerated kernels reproduce the NumPy reference for supported batched rotations, propagation, and optimization primitives. | **C**, **R** | validated |
@@ -122,7 +123,7 @@ what supports the underlying scientific or numerical claim.
 - **Metric:** Moment statistics, signal limits, and deterministic seed equality
 - **Tolerance:** Analytical or sampling-error tolerance chosen per test.
 - **References:** Brownian diffusion and spin-echo refocusing identities
-- **Reproduce:** [`tests/test_motion.py::test_advection_diffusion_and_boundaries_are_seeded`](../tests/test_motion.py#L97); [`tests/test_motion_sequence.py::test_cpmg_sequence_refocuses_static_gradient_without_diffusion`](../tests/test_motion_sequence.py#L99)
+- **Reproduce:** [`tests/test_motion.py::test_advection_diffusion_and_boundaries_are_seeded`](../tests/test_motion.py#L114); [`tests/test_motion_sequence.py::test_cpmg_sequence_refocuses_static_gradient_without_diffusion`](../tests/test_motion_sequence.py#L99)
 - **Limitations:** Complex pore geometries have synthetic rather than experimental benchmarks.
 
 ### Flow washout and transit polarization
@@ -280,6 +281,18 @@ what supports the underlying scientific or numerical claim.
 - **References:** FAIR Guiding Principles for scientific data management
 - **Reproduce:** [`tests/test_experiment.py::test_provenance_fingerprints_are_stable_and_specific`](../tests/test_experiment.py#L151); [`tests/test_experiment.py::test_provenance_classifies_seeded_and_unseeded_randomness`](../tests/test_experiment.py#L186); [`tests/test_experiment.py::test_version_one_run_archive_remains_readable`](../tests/test_experiment.py#L203); [`tests/test_experiment.py::test_archive_fingerprints_detect_spec_and_result_tampering`](../tests/test_experiment.py#L237); [`tests/test_experiment_cli.py::test_cli_run_and_show`](../tests/test_experiment_cli.py#L203)
 - **Limitations:** Exact computational reproduction does not validate the physical model; unseeded legacy runs cannot be made reproducible after the fact.
+
+### Multi-frequency Bloch-Siegert phase and low-frequency RWA limits
+
+- **Claim:** Exact lab-frame paired-offset propagation reproduces the Mandal-2014 Bloch-Siegert phase slope and fitted 90-degree pulse length, while the second-order common phase isolates the counter-rotating contribution omitted by the RWA.
+- **Evidence:** D, A, C (validated)
+- **Basis:** Mandal et al. Eq. 17 and Fig. 15 operating point, analytical second-order co/counter-rotating decomposition, and an independently integrated real lab-frame Bloch equation.
+- **Tested range:** f0=1.48 MHz, paired offsets +/-25 kHz, T90=102 us, TBS=40-400 us for the published reproduction; 60 kHz-1.48 MHz for counter-rotating inversion identities.
+- **Metric:** Paired phase endpoint, inferred T90, RWA slope agreement, and B0 inversion error
+- **Tolerance:** Published endpoint within 1 degree, inferred T90 within 2 us, exact/RWA phase within 2.5%, and analytical B0 inversion at floating-point precision.
+- **References:** S. Mandal et al., Journal of Magnetic Resonance 242 (2014) 113-125, doi:10.1016/j.jmr.2014.02.019
+- **Reproduce:** [`tests/test_bloch_siegert.py::test_mandal_2014_phase_slope_and_t90_are_reproduced`](../tests/test_bloch_siegert.py#L17); [`tests/test_bloch_siegert.py::test_common_phase_is_counter_rotating_and_inverts_larmor`](../tests/test_bloch_siegert.py#L46); [`examples/plot_bloch_siegert_multifrequency.py`](../examples/plot_bloch_siegert_multifrequency.py)
+- **Limitations:** The published comparison uses the reported equation, fit, and plotted endpoint rather than digitized raw experimental points; second-order B0 inversion requires weak drive, paired offsets away from poles, and common phase above the noise floor.
 
 ### Arbitrary SequenceIR phase cycling
 

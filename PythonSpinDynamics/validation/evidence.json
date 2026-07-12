@@ -352,6 +352,24 @@
       "limitations": ["Exact computational reproduction does not validate the physical model; unseeded legacy runs cannot be made reproducible after the fact."]
     },
     {
+      "id": "mandal2014_bloch_siegert",
+      "component": "Multi-frequency Bloch-Siegert phase and low-frequency RWA limits",
+      "claim": "Exact lab-frame paired-offset propagation reproduces the Mandal-2014 Bloch-Siegert phase slope and fitted 90-degree pulse length, while the second-order common phase isolates the counter-rotating contribution omitted by the RWA.",
+      "evidence_types": ["D", "A", "C"],
+      "basis": "Mandal et al. Eq. 17 and Fig. 15 operating point, analytical second-order co/counter-rotating decomposition, and an independently integrated real lab-frame Bloch equation.",
+      "parameter_range": "f0=1.48 MHz, paired offsets +/-25 kHz, T90=102 us, TBS=40-400 us for the published reproduction; 60 kHz-1.48 MHz for counter-rotating inversion identities.",
+      "metric": "Paired phase endpoint, inferred T90, RWA slope agreement, and B0 inversion error",
+      "tolerance": "Published endpoint within 1 degree, inferred T90 within 2 us, exact/RWA phase within 2.5%, and analytical B0 inversion at floating-point precision.",
+      "status": "validated",
+      "reproducers": [
+        "tests/test_bloch_siegert.py::test_mandal_2014_phase_slope_and_t90_are_reproduced",
+        "tests/test_bloch_siegert.py::test_common_phase_is_counter_rotating_and_inverts_larmor",
+        "examples/plot_bloch_siegert_multifrequency.py"
+      ],
+      "references": ["S. Mandal et al., Journal of Magnetic Resonance 242 (2014) 113-125, doi:10.1016/j.jmr.2014.02.019"],
+      "limitations": ["The published comparison uses the reported equation, fit, and plotted endpoint rather than digitized raw experimental points; second-order B0 inversion requires weak drive, paired offsets away from poles, and common phase above the noise floor."]
+    },
+    {
       "id": "arbitrary_sequence_phase_cycles",
       "component": "Arbitrary SequenceIR phase cycling",
       "claim": "Named RF roles in a backend-neutral sequence are programmed branch-by-branch and receiver-combined according to an arbitrary phase table.",

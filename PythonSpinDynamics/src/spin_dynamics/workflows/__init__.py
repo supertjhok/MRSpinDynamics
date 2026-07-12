@@ -27,6 +27,16 @@ from spin_dynamics.workflows.batched_sweeps import (
     CPMGRelaxationSweepResult,
     run_ideal_cpmg_relaxation_sweep,
 )
+from spin_dynamics.workflows.bloch_siegert import (
+    BlochSiegertPhaseSweep,
+    MultisliceBlochSiegertCorrection,
+    bloch_siegert_pair_second_order,
+    counter_rotating_common_phase,
+    estimate_larmor_hz_from_counter_rotating_phase,
+    estimate_nutation_hz,
+    mandal_multislice_correction,
+    simulate_bloch_siegert_phase_sweep,
+)
 from spin_dynamics.workflows.cpmg_ir import (
     CPMGIRTrainResult,
     MatchedCPMGIRTrainResult,
@@ -241,6 +251,14 @@ STABLE_WORKFLOW_API = (
 )
 
 EXTENDED_WORKFLOW_API = (
+    "BlochSiegertPhaseSweep",
+    "MultisliceBlochSiegertCorrection",
+    "bloch_siegert_pair_second_order",
+    "counter_rotating_common_phase",
+    "estimate_larmor_hz_from_counter_rotating_phase",
+    "estimate_nutation_hz",
+    "mandal_multislice_correction",
+    "simulate_bloch_siegert_phase_sweep",
     "calc_macq_ideal_probe_relax4",
     "calc_macq_matched_probe_relax4",
     "calc_macq_tuned_probe_relax4",
@@ -351,6 +369,14 @@ __all__ = [
     "ProbeTimeVaryingSweepResult",
     "BipolarPGSTEResult",
     "BipolarPGSTEWalkerResult",
+    "BlochSiegertPhaseSweep",
+    "MultisliceBlochSiegertCorrection",
+    "bloch_siegert_pair_second_order",
+    "counter_rotating_common_phase",
+    "estimate_larmor_hz_from_counter_rotating_phase",
+    "estimate_nutation_hz",
+    "mandal_multislice_correction",
+    "simulate_bloch_siegert_phase_sweep",
     "DDEWalkerResult",
     "FrequencyEncodedImagingResult",
     "GradientMoments",

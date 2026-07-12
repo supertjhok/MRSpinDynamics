@@ -12,6 +12,7 @@ from __future__ import annotations
 import unittest
 
 from tests.test_basic_octave_fixtures import OctaveFixtureTests
+from tests.test_bloch_siegert import BlochSiegertWorkflowTests
 from tests.test_composition import (
     test_compiled_timeline_aligns_channels_and_applies_typed_hardware,
     test_flow_field_interpolates_space_and_time_in_si_units,
@@ -100,6 +101,11 @@ def load_tests(
     suite.addTest(
         unittest.FunctionTestCase(
             test_inverse_excitation_validation_recognizes_exact_broadband_cancellation
+        )
+    )
+    suite.addTest(
+        BlochSiegertWorkflowTests(
+            "test_common_phase_is_counter_rotating_and_inverts_larmor"
         )
     )
     return suite
