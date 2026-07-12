@@ -342,6 +342,62 @@ The default initial state is the Boltzmann equilibrium of the complete static
 evolution. The sample interval is an explicit convergence parameter: it must
 resolve both carrier oscillation and envelope changes.
 
+### Measuring the RWA boundary
+
+`compare_rwa_to_lab_frame` applies the same constant-envelope linear pulse to
+the existing single-band RWA and to the exact laboratory-frame solver. It
+returns absolute density-matrix errors and an error normalized by the RWA
+response. `scan_rwa_validity` follows the strongest transition in the
+conventional NQR/NMR band and maps those metrics over both relevant ratios:
+
+```python
+from spin_dynamics.nqr import scan_rwa_validity
+
+validity = scan_rwa_validity(
+    site,
+    interaction_ratios=[0.01, 0.1, 1.0, 10.0],  # nu_L / nu_Q
+    rf_strength_ratios=[0.001, 0.01, 0.1],       # gamma B1_peak / nu_Q
+    b0_direction_pas=(1, 1, 1),
+    b1_direction_pas=(1, -1, 0),
+)
+print(validity.relative_response_error)
+```
+
+The nearest distinct active-line spacing is returned alongside the error map.
+It is a diagnostic rather than a universal threshold: the numerical maps show
+that crossover error can remain finite as `B1` tends to zero because the
+single-band winding assignment itself omits relevant frequency components.
+`examples/plot_nqr_rwa_validity.py` visualizes this boundary for the NaNO2
+spin-1 and NaClO3 spin-3/2 examples.
+
+### Floquet RF propagation
+
+For a constant-envelope monochromatic linear pulse, `simulate_floquet_rf`
+provides a multiband alternative that retains co- and counter-rotating Fourier
+components. It diagonalizes a finite Sambe-space Hamiltonian and reconstructs
+the physical propagator:
+
+```python
+from spin_dynamics.nqr import simulate_floquet_rf
+
+floquet = simulate_floquet_rf(
+    site,
+    b0_vector_tesla_pas=(0.1, 0.1, 0.1),
+    nutation_hz=20e3,
+    rf_frequency_hz=site.quadrupole_frequency_hz,
+    pulse_duration_seconds=20e-6,
+    sidebands=4,
+)
+print(floquet.density_matrix, floquet.unitarity_error)
+```
+
+Increase `sidebands` until both the requested observable and
+`unitarity_error` converge. Unlike the sampled laboratory-frame reference,
+Floquet propagation does not require time steps fine enough to resolve the
+carrier, but it currently assumes one constant-amplitude periodic carrier.
+Shaped, chirped, or otherwise arbitrary waveforms should continue to use
+`simulate_lab_frame_rf`.
+
 ## Orientations
 
 Single-crystal simulations pass one fixed orientation:

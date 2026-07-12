@@ -1011,6 +1011,14 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `simulate_crossover_powder_sweep(site: QuadrupolarSite, b0_tesla: np.ndarray | Sequence[float], *, n_theta: int = 4, n_phi: int = 8, n_chi: int = 4, b1_b0_angle: float = np.pi / 2.0, temperature_kelvin: float = 300.0, broadening_hz: float = 1000.0, frequency_points: int = 512, frequency_range_hz: tuple[float, float] | None = None, lineshape: str = 'gaussian', normalize_each_field: bool = True, backend: str = 'numpy') -> PowderCrossoverSweepResult` | Return optional powder-averaged crossover spectra over several fields. |
 | function | `simulate_crossover_spectrum(site: QuadrupolarSite, b0_tesla: float, *, orientations: CrossoverOrientationInput = 'single', temperature_kelvin: float = 300.0, broadening_hz: float = 100.0, points: int = 2048, frequency_range_hz: tuple[float, float] | None = None, lineshape: str = 'gaussian', normalize: bool = False, degeneracy_tolerance_hz: float | None = None, coupling_tolerance: float = 1e-12, backend: str = 'numpy') -> CrossoverSpectrumResult` | Simulate every observable transition of ``H_Q + H_Z`` exactly. |
 
+## `spin_dynamics.nqr.floquet`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `FloquetRFResult` | Final state from a finite-sideband monochromatic Floquet calculation. |
+| function | `linear_rf_floquet_hamiltonian(site: QuadrupolarSite, b0_vector_tesla_pas: Sequence[float] | np.ndarray, *, nutation_hz: float, rf_frequency_hz: float, phase_radians: float = 0.0, b1_direction_pas: Sequence[float] | np.ndarray = (1.0, 0.0, 0.0), sidebands: int = 3) -> np.ndarray` | Return the finite Sambe-space Hamiltonian for a linear cosine field. |
+| function | `simulate_floquet_rf(site: QuadrupolarSite, b0_vector_tesla_pas: Sequence[float] | np.ndarray, *, nutation_hz: float, rf_frequency_hz: float, pulse_duration_seconds: float, phase_radians: float = 0.0, b1_direction_pas: Sequence[float] | np.ndarray = (1.0, 0.0, 0.0), sidebands: int = 3, initial_density: np.ndarray | None = None, temperature_kelvin: float = 300.0) -> FloquetRFResult` | Propagate one constant-envelope linear RF pulse with Floquet sidebands. |
+
 ## `spin_dynamics.nqr.full_dynamics`
 
 | Kind | Name | Summary |
@@ -1162,6 +1170,15 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `transition_rms_linewidth_hz(frequency_offsets_hz: Iterable[float] | np.ndarray, intensities: Iterable[float] | np.ndarray, *, intrinsic_sigma_hz: float = 0.0) -> float` | Return the intensity-weighted RMS transition width. |
 | function | `spectral_overlap_factors(linewidths_hz: Iterable[float] | np.ndarray, *, reference_index: int = 0, exponent: float = 1.0) -> np.ndarray` | Return normalized overlap factors from transition linewidths. |
 | function | `fit_spectral_overlap_relaxation(t2_seconds: Iterable[float] | np.ndarray, overlap_factors: Iterable[float] | np.ndarray, *, rate_standard_errors_per_second: Iterable[float] | np.ndarray | None = None) -> SpectralOverlapRelaxationFit` | Fit ``R2 = R_floor + R_cross * S`` by linear least squares. |
+
+## `spin_dynamics.nqr.rwa_validation`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `RWAComparisonResult` | One exact laboratory-frame versus single-band RWA pulse comparison. |
+| class | `RWAValidityMap` | RWA error over static-interaction and RF-strength ratios. |
+| function | `compare_rwa_to_lab_frame(site: QuadrupolarSite, b0_vector_tesla_pas: Sequence[float] | np.ndarray, *, nutation_hz: float, rf_frequency_hz: float, pulse_duration_seconds: float, phase_radians: float = 0.0, b1_direction_pas: Sequence[float] | np.ndarray = (1.0, 0.0, 0.0), temperature_kelvin: float = 300.0, samples_per_carrier_cycle: int = 80) -> RWAComparisonResult` | Compare identical linear RF pulses in the exact lab frame and RWA. |
+| function | `scan_rwa_validity(site: QuadrupolarSite, interaction_ratios: Sequence[float] | np.ndarray, rf_strength_ratios: Sequence[float] | np.ndarray, *, b0_direction_pas: Sequence[float] | np.ndarray = (0.0, 0.0, 1.0), b1_direction_pas: Sequence[float] | np.ndarray = (1.0, 0.0, 0.0), detuning_hz: float = 0.0, phase_radians: float = 0.0, duration_in_carrier_cycles: float = 5.0, temperature_kelvin: float = 300.0, samples_per_carrier_cycle: int = 60) -> RWAValidityMap` | Map RWA error while automatically following the strongest RF line. |
 
 ## `spin_dynamics.nqr.sequences`
 

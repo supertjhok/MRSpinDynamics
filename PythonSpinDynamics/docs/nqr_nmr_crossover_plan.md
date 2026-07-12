@@ -372,7 +372,7 @@ intermediate regime.
 
 ## Implementation status
 
-Completed in the first two increments:
+Completed through the RF-validation increment:
 
 - regime-independent static `H_Q + H_Z` spectra with Boltzmann weighting and
   complex transmit/receive geometry;
@@ -387,7 +387,13 @@ Completed in the first two increments:
   convergence; and
 - an exact piecewise-constant laboratory-frame RF propagation reference with
   no rotating-wave approximation.
+- quantitative single-band RWA error maps over static-interaction and RF-field
+  ratios, including nearest-line isolation diagnostics; and
+- finite-sideband Floquet propagation for monochromatic linear RF, validated
+  against direct laboratory-frame propagation in the crossover regime.
 
-The next physics milestone is comparison of the laboratory-frame reference
-against the existing single-band RWA, followed by a benchmarked multiband
-rotating-frame or Floquet implementation.
+The next physics milestone is powder- and waveform-level benchmarking of the
+Floquet route, followed by nonsecular crossover relaxation and explicit field
+ramps. Arbitrary shaped RF remains available through the laboratory-frame
+reference; an efficient piecewise-Floquet envelope solver is a possible later
+optimization rather than a correctness prerequisite.

@@ -18,7 +18,9 @@
         "tests.test_nqr_model_selection",
         "tests.test_nqr_multi_axis",
         "tests.test_batched_nqr",
-        "tests.test_nqr_lab_frame"
+        "tests.test_nqr_lab_frame",
+        "tests.test_nqr_rwa_validation",
+        "tests.test_nqr_floquet"
       ]
     },
     "relaxation": {

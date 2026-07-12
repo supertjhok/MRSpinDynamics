@@ -45,6 +45,11 @@ from spin_dynamics.nqr.lab_frame import (
     sample_linear_rf_pulse,
     simulate_lab_frame_rf,
 )
+from spin_dynamics.nqr.floquet import (
+    FloquetRFResult,
+    linear_rf_floquet_hamiltonian,
+    simulate_floquet_rf,
+)
 from spin_dynamics.nqr.interference import (
     nqr_recording_from_samples,
     slse_acquisition_mask,
@@ -145,6 +150,12 @@ from spin_dynamics.nqr.relaxation import (
     spectral_overlap_factors,
     transition_rms_linewidth_hz,
 )
+from spin_dynamics.nqr.rwa_validation import (
+    RWAComparisonResult,
+    RWAValidityMap,
+    compare_rwa_to_lab_frame,
+    scan_rwa_validity,
+)
 from spin_dynamics.nqr.sequences import (
     SLSESequence,
     SORCSequence,
@@ -212,6 +223,7 @@ __all__ = [
     "FullNQREchoResult",
     "FullNQRFIDResult",
     "FullNQRSLSEResult",
+    "FloquetRFResult",
     "NQREigensystem",
     "NQRFIDDistributionResult",
     "NQRModelSelection",
@@ -260,6 +272,8 @@ __all__ = [
     "ProtonDipolarCoupling",
     "RedfieldDipolarRelaxationModel",
     "RedfieldEFGRelaxationModel",
+    "RWAComparisonResult",
+    "RWAValidityMap",
     "RigidSolidMotionalAveraging",
     "VibrationalMotionalAveraging",
     "ZeroFieldRedfieldEFGModel",
@@ -271,6 +285,7 @@ __all__ = [
     "b0_powder_average_grid",
     "boltzmann_populations",
     "check_efg_rephasing",
+    "compare_rwa_to_lab_frame",
     "circular_pulse_hamiltonian",
     "cycle_superoperator",
     "crossover_transitions_from_eigensystem",
@@ -303,12 +318,14 @@ __all__ = [
     "simulate_full_echo",
     "simulate_full_fid",
     "simulate_full_slse",
+    "simulate_floquet_rf",
     "simulate_lab_frame_rf",
     "static_hamiltonian_rotating",
     "liouville_hamiltonian",
     "liouville_superoperator",
     "load_cif_structure",
     "load_glycine_nqr_lines_from_sqlite",
+    "linear_rf_floquet_hamiltonian",
     "matrix_exponential",
     "normalize_orientations",
     "nqr_hamiltonian",
@@ -337,6 +354,7 @@ __all__ = [
     "simulate_weak_b0_spectrum",
     "single_crystal_orientation",
     "sample_linear_rf_pulse",
+    "scan_rwa_validity",
     "nqr_recording_from_samples",
     "slse_acquisition_mask",
     "slse_mask_from_metadata",
