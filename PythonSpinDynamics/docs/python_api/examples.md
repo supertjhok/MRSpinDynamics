@@ -713,7 +713,13 @@ python examples\plot_j_editing_spectrum.py --output results\j_editing_spectrum.p
 python examples\plot_j_editing_field_spread.py --output results\j_editing_field_spread.png
 python examples\plot_tango_filter.py --target 160 --output results\tango_filter.png
 python examples\plot_slic_two_spin.py --j-hz 7 --delta-hz 0.7 --output results\slic_two_spin.png
+python examples\plot_lls_phip_workflows.py --output results\lls_phip_workflows.png
 ```
+
+`plot_lls_phip_workflows.py` follows singlet order through matched SLIC
+preparation, an empirical `T_S` storage interval, and SLIC readout. Its second
+panel compares pairwise-yield-aware PASADENA with an ALTADENA calculation whose
+low-to-high-field trajectory is explicit.
 
 ## BPP Relaxation vs Temperature
 

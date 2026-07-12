@@ -19,6 +19,7 @@ from tests.test_composition import (
 )
 from tests.test_examples import ExampleSmokeTests
 from tests.test_hyperpolarization_singlet import SingletStateTests
+from tests.test_hyperpolarization_workflows import LongLivedSingletWorkflowTests
 from tests.test_phase_cycling import PhaseCyclingTests
 from tests.test_sequence_ir import PulseqImportTests, SequenceIRTests
 from tests.test_workflow_validation import (
@@ -111,6 +112,9 @@ def load_tests(
     )
     suite.addTest(
         SingletStateTests("test_statistical_hydrogen_has_no_deviation_order")
+    )
+    suite.addTest(
+        LongLivedSingletWorkflowTests("test_slic_prepare_store_readout_follows_ts")
     )
     return suite
 

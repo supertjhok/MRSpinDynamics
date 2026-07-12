@@ -20,9 +20,9 @@ what supports the underlying scientific or numerical claim.
 
 ## Coverage Summary
 
-- 25 capability-level claims
+- 26 capability-level claims
 - 14 validated
-- 6 partially validated
+- 7 partially validated
 - 5 regression-only
 
 | Component | Claim | Evidence | Status |
@@ -41,6 +41,7 @@ what supports the underlying scientific or numerical claim.
 | ESR/EPR spectra and pulsed dynamics | Zeeman resonance, lineshape, hyperfine splitting, relaxation, and Hahn-echo behavior reproduce analytical spin-1/2 limits. | **A**, **D** | partially validated |
 | Small scalar-coupled spin systems | Dense spin operators, scalar-coupling Hamiltonians, and selected low-field editing models satisfy exact operator and spectral limits. | **A**, **R** | partially validated |
 | Singlet, triplet, and parahydrogen state primitives | Embedded spin-pair singlet/triplet projectors, swap symmetry, singlet-order observables, and para/ortho hydrogen mixtures satisfy exact spin-1/2 algebra and physical density-matrix limits. | **A**, **R** | validated |
+| Long-lived singlet and hydrogenative PHIP reference workflows | SLIC preparation/storage/readout obeys its analytical matching and exponential T_S limits, while hydrogenative product order is physical and linear in para excess and pairwise-addition fraction. | **A**, **R** | partially validated |
 | Phenomenological and Redfield relaxation | Relaxation propagators preserve required invariants and limiting behavior; measured weak-field 35Cl SLSE relaxation is reproduced; the non-diagonal zero-field Redfield model reproduces published transition-resolved 209Bi FVA rate shapes; and RDX NMR/NQR observations recover the published activated barrier and cross-relaxation assignments. | **A**, **D**, **E**, **R** | partially validated |
 | Inverse-Laplace analysis | The 1-D and compact 2-D solvers recover known synthetic peaks and obey kernel and non-negativity constraints. | **R**, **A** | regression only |
 | Spin noise and radiation damping | Equilibrium spin-noise spectra and stochastic dynamics reproduce fluctuation, radiation-damping, Ornstein-Uhlenbeck, and two-bath analytical identities. | **A**, **R** | validated |
@@ -221,7 +222,19 @@ what supports the underlying scientific or numerical claim.
 - **Tolerance:** Floating-point algebraic tolerance of 1e-10 or tighter.
 - **References:** Carravetta and Levitt, J. Am. Chem. Soc. 126 (2004) 6228-6229, doi:10.1021/ja0490931; DeVience, Walsworth, and Rosen, arXiv:1307.0832
 - **Reproduce:** [`tests/test_hyperpolarization_singlet.py`](../tests/test_hyperpolarization_singlet.py); [`tests/test_coupling.py::test_two_spin_slic_matching_and_transfer_roles_are_distinct`](../tests/test_coupling.py#L101); [`tests/test_coupling.py::test_exactly_equivalent_pair_has_no_slic_transfer`](../tests/test_coupling.py#L108); [`examples/singlet_parahydrogen_states.py`](../examples/singlet_parahydrogen_states.py)
-- **Limitations:** This record validates state algebra and ideal SLIC limits, not singlet relaxation, hydrogenation chemistry, PHIP transfer efficiency, or SABRE exchange.
+- **Limitations:** This record validates state algebra and ideal SLIC limits; workflow-level LLS and PHIP invariants are tracked separately.
+
+### Long-lived singlet and hydrogenative PHIP reference workflows
+
+- **Claim:** SLIC preparation/storage/readout obeys its analytical matching and exponential T_S limits, while hydrogenative product order is physical and linear in para excess and pairwise-addition fraction.
+- **Evidence:** A, R (partially validated)
+- **Basis:** Exact dense two-spin propagation, trace and positivity checks, analytical singlet-mode exponential decay, product-state normalization, and linear PHIP source-order scaling.
+- **Tested range:** Nearly equivalent two-proton SLIC pair; physical and deviation storage densities; two- and three-spin product mappings; para fractions from 0.25 to 1; pairwise fractions from 0 to 1; high-field PASADENA and explicit piecewise ALTADENA trajectories.
+- **Metric:** Prepared singlet amplitude, normalized readout decay, trace, minimum density eigenvalue, PHIP FID amplitude, and linear scaling residual
+- **Tolerance:** Floating-point invariant tolerance of 1e-10; ideal SLIC preparation amplitude within 0.002 of unity.
+- **References:** DeVience, Walsworth, and Rosen, arXiv:1307.0832; Cavallari et al., Frontiers in Oncology 11, 617307 (2021), doi:10.3389/fonc.2021.617307
+- **Reproduce:** [`tests/test_hyperpolarization_workflows.py`](../tests/test_hyperpolarization_workflows.py); [`examples/plot_lls_phip_workflows.py`](../examples/plot_lls_phip_workflows.py)
+- **Limitations:** T_S is a measured phenomenological input rather than a microscopic correlated-relaxation prediction. Pairwise hydrogenation yield, catalyst chemistry, reaction-time distributions, and scrambling are external inputs or not yet modeled. PASADENA and ALTADENA currently have algebraic and regression validation only; published spectral fixtures and PH-INEPT transfer remain to be added.
 
 ### Phenomenological and Redfield relaxation
 

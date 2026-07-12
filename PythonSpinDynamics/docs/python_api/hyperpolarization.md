@@ -1,10 +1,9 @@
-# Hyperpolarization and Singlet-State Primitives
+# Hyperpolarization and Long-Lived Singlet Workflows
 
 `spin_dynamics.hyperpolarization` provides the shared quantum-state foundation
-for long-lived singlet states, PHIP, and future SABRE workflows. The current
-surface is deliberately limited to rigorously normalized state and observable
-primitives; reaction and quantum-exchange workflows are documented as future
-work in [the implementation plan](../phip_sabre_singlet_states_plan.md).
+for long-lived singlet states, hydrogenative PHIP, and future SABRE workflows.
+It combines rigorously normalized state primitives with dense reference
+implementations of SLIC preparation/storage/readout and PASADENA/ALTADENA.
 
 ## Density conventions
 
@@ -68,6 +67,74 @@ near `|J|`, at the mean pair resonance. The chemical-shift difference mixes the
 singlet and triplet sectors and controls the transfer time. See
 [J-Coupling Models](j_coupling.md) for the simulator.
 
+## LLS preparation, storage, and readout
+
+`simulate_slic_lls` performs a complete two-spin reference workflow. It starts
+from transverse magnetization, applies the matched SLIC spin lock, optionally
+purges non-singlet deviation operators, stores the selected mode with a
+measured phenomenological `T_S`, and reconverts it with a second SLIC period:
+
+```python
+import numpy as np
+from spin_dynamics.coupling import coupled_spin_system
+from spin_dynamics.hyperpolarization import simulate_slic_lls
+
+pair = coupled_spin_system(
+    offsets_hz=[-0.35, 0.35],
+    couplings_hz=[[0.0, 7.0], [7.0, 0.0]],
+)
+result = simulate_slic_lls(
+    pair,
+    storage_times_seconds=np.linspace(0.0, 60.0, 61),
+    singlet_lifetime_seconds=18.0,
+)
+```
+
+The storage channel preserves trace and Hermiticity. For a physical singlet it
+relaxes the singlet population toward `1/4`; for a trace-zero prepared state it
+damps the retained singlet mode as `exp(-t/T_S)`. This is an empirical LLS
+lifetime model, not a prediction from independent-spin `T1` and `T2`.
+
+## Hydrogenative PHIP
+
+`hydrogenative_phip_state` maps a parahydrogen pair into explicitly selected
+product sites. The deviation density scales as
+
+```text
+pairwise_addition_fraction * (para_fraction - 1/4) * Q_S.
+```
+
+`simulate_hydrogenative_phip` then supplies two distinct protocols:
+
+- `pasadena` secularizes the newly formed state at high field, evolves it under
+  the weak-coupling product Hamiltonian, applies a hard pulse, and acquires an
+  antiphase FID;
+- `altadena` requires an explicit sequence of `PHIPFieldSegment` values, so
+  transport rate and field history are never silently assumed.
+
+```python
+from spin_dynamics.hyperpolarization import (
+    PHIPFieldSegment,
+    simulate_hydrogenative_phip,
+)
+
+ramp = [PHIPFieldSegment(scale, 1.5e-3) for scale in np.linspace(0.02, 1.0, 48)]
+altadena = simulate_hydrogenative_phip(
+    product_system,
+    times_seconds=np.arange(1024) * 2.5e-4,
+    protocol="altadena",
+    para_fraction=0.90,
+    pairwise_addition_fraction=0.72,
+    reaction_time_seconds=0.05,
+    field_trajectory=ramp,
+    t2_seconds=0.12,
+)
+```
+
+Hard pulses and detection can select arbitrary product indices. This supports
+heteronuclear product systems at the density-matrix level, but a validated
+PH-INEPT convenience sequence is still future work.
+
 ## Current boundary
 
 Implemented now:
@@ -76,11 +143,17 @@ Implemented now:
 - spin-pair swap symmetry;
 - physical singlet/triplet populations;
 - parahydrogen physical and deviation states; and
-- corrected analytical SLIC matching conventions.
+- corrected analytical SLIC matching conventions;
+- SLIC preparation, empirical `T_S` storage, purge, and readout;
+- pairwise-yield-aware hydrogenative product mapping;
+- high-field PASADENA with product-basis secularization; and
+- trajectory-defined ALTADENA transport, hard pulses, and selected-spin FIDs.
 
 Not implemented yet:
 
-- singlet-state relaxation and complete preparation/storage/readout workflows;
-- hydrogenation and PASADENA/ALTADENA;
 - PH-INEPT and other heteronuclear transfer workflows; or
 - quantum-manifold exchange and SABRE.
+
+Run `python examples/plot_lls_phip_workflows.py` for the complete reference
+workflow and [consult the implementation plan](../phip_sabre_singlet_states_plan.md)
+for the remaining physics and validation roadmap.

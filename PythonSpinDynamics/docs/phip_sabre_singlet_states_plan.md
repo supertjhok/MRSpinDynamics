@@ -172,7 +172,12 @@ normalization.
 1. Correct and strengthen the existing SLIC API and documentation.
 2. Add rigorous singlet/triplet and parahydrogen state primitives.
 3. Implement complete long-lived-state preparation, storage, and readout.
+   **Implemented:** matched two-spin SLIC conversion, optional symmetry purge,
+   phenomenological measured `T_S` storage, and SLIC reconversion.
 4. Add hydrogenative PHIP, PASADENA/ALTADENA, and heteronuclear transfer.
+   **Partially implemented:** pairwise product-state mapping, high-field
+   PASADENA, explicit-trajectory ALTADENA, hard pulses, and selected-spin
+   acquisition are present. A validated PH-INEPT convenience workflow remains.
 5. Add small-system quantum exchange and SABRE.
 6. Add event-based and scalable manifold-reduced backends only after the
    reference implementation is validated.

@@ -259,7 +259,31 @@
         "Carravetta and Levitt, J. Am. Chem. Soc. 126 (2004) 6228-6229, doi:10.1021/ja0490931",
         "DeVience, Walsworth, and Rosen, arXiv:1307.0832"
       ],
-      "limitations": ["This record validates state algebra and ideal SLIC limits, not singlet relaxation, hydrogenation chemistry, PHIP transfer efficiency, or SABRE exchange."]
+      "limitations": ["This record validates state algebra and ideal SLIC limits; workflow-level LLS and PHIP invariants are tracked separately."]
+    },
+    {
+      "id": "lls_hydrogenative_phip_workflows",
+      "component": "Long-lived singlet and hydrogenative PHIP reference workflows",
+      "claim": "SLIC preparation/storage/readout obeys its analytical matching and exponential T_S limits, while hydrogenative product order is physical and linear in para excess and pairwise-addition fraction.",
+      "evidence_types": ["A", "R"],
+      "basis": "Exact dense two-spin propagation, trace and positivity checks, analytical singlet-mode exponential decay, product-state normalization, and linear PHIP source-order scaling.",
+      "parameter_range": "Nearly equivalent two-proton SLIC pair; physical and deviation storage densities; two- and three-spin product mappings; para fractions from 0.25 to 1; pairwise fractions from 0 to 1; high-field PASADENA and explicit piecewise ALTADENA trajectories.",
+      "metric": "Prepared singlet amplitude, normalized readout decay, trace, minimum density eigenvalue, PHIP FID amplitude, and linear scaling residual",
+      "tolerance": "Floating-point invariant tolerance of 1e-10; ideal SLIC preparation amplitude within 0.002 of unity.",
+      "status": "partially_validated",
+      "reproducers": [
+        "tests/test_hyperpolarization_workflows.py",
+        "examples/plot_lls_phip_workflows.py"
+      ],
+      "references": [
+        "DeVience, Walsworth, and Rosen, arXiv:1307.0832",
+        "Cavallari et al., Frontiers in Oncology 11, 617307 (2021), doi:10.3389/fonc.2021.617307"
+      ],
+      "limitations": [
+        "T_S is a measured phenomenological input rather than a microscopic correlated-relaxation prediction.",
+        "Pairwise hydrogenation yield, catalyst chemistry, reaction-time distributions, and scrambling are external inputs or not yet modeled.",
+        "PASADENA and ALTADENA currently have algebraic and regression validation only; published spectral fixtures and PH-INEPT transfer remain to be added."
+      ]
     },
     {
       "id": "relaxation_models",

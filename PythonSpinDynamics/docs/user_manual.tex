@@ -1442,12 +1442,102 @@ The physical parahydrogen state is
 Thus 25\% para-H2 is the statistical identity mixture and carries zero
 deviation singlet order; usable order scales with para excess above 25\%.
 Physical and deviation densities are returned separately to keep this
-normalization explicit. Reaction mapping, long-lived storage/relaxation, and
-SABRE quantum exchange remain subsequent layers; their model boundaries and
-validation plan are recorded in
-\code{docs/phip\_sabre\_singlet\_states\_plan.md}.
-Run \code{python examples/singlet\_parahydrogen\_states.py} to print the
-physical populations and deviation-order amplitude versus para enrichment.
+normalization explicit. Their model boundaries and validation plan are recorded
+in the PHIP/SABRE implementation plan shipped in the documentation directory.
+The singlet/parahydrogen example prints physical populations and deviation
+order versus para enrichment.
+
+\section{Long-Lived Preparation, Storage, and Readout}
+
+The dense two-spin reference workflow \code{simulate\_slic\_lls} connects the
+pieces that the response scan leaves separate. It begins with transverse
+magnetization, prepares singlet order using a spin lock at
+\(\nu_1=\lvert J\rvert\), applies an optional symmetry-selection purge, stores
+the retained order, and reconverts it with a second SLIC period:
+
+\begin{lstlisting}[language=Python]
+import numpy as np
+from spin_dynamics.coupling import coupled_spin_system
+from spin_dynamics.hyperpolarization import simulate_slic_lls
+
+pair = coupled_spin_system(
+    offsets_hz=[-0.35, 0.35],
+    couplings_hz=[[0.0, 7.0], [7.0, 0.0]],
+)
+lls = simulate_slic_lls(
+    pair,
+    storage_times_seconds=np.linspace(0.0, 54.0, 81),
+    singlet_lifetime_seconds=18.0,
+)
+\end{lstlisting}
+
+Storage uses a measured phenomenological \(T_S\): the selected amplitude obeys
+\(q_S(t)=q_S(0)\exp(-t/T_S)\). The map preserves trace and Hermiticity and, for
+a physical singlet density, relaxes the singlet population toward the
+statistical value \(1/4\). This is intentionally not derived from independent
+spin \(T_1/T_2\), which would omit the correlated symmetry protection that
+makes the state long lived. Microscopic correlated-noise relaxation is a later
+layer.
+
+\section{Hydrogenative PHIP: PASADENA and ALTADENA}
+
+Hydrogenative PHIP is modeled as an explicit source-to-product quantum-state
+map. If \(y_p\) is the fraction of products receiving both hydrogen atoms from
+the same parahydrogen molecule, the usable product order is
+\[
+ \Delta\rho_{\mathrm{product}}
+ =y_p\left(f_p-\tfrac14\right)Q_S.
+\]
+The para fraction and pairwise-addition fraction are inputs: this reference
+model does not claim to predict catalyst chemistry, conversion, or scrambling.
+
+\code{simulate\_hydrogenative\_phip} treats the two canonical experiments
+separately. For PASADENA, formation occurs at the detection field. The mapped
+state is projected onto its high-field secular product-basis order before
+weak-coupling evolution, a hard pulse, and FID acquisition. This secularization
+is essential: a perfectly coherent singlet is invariant to a nonselective hard
+pulse and would remain silent. For ALTADENA, formation begins at low field and
+the caller must provide every \code{PHIPFieldSegment} in the field trajectory;
+the API therefore never invents a transport time or adiabaticity assumption.
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.hyperpolarization import (
+    PHIPFieldSegment,
+    simulate_hydrogenative_phip,
+)
+
+ramp = [
+    PHIPFieldSegment(scale, 1.5e-3)
+    for scale in np.linspace(0.02, 1.0, 48)
+]
+altadena = simulate_hydrogenative_phip(
+    product_system,
+    times_seconds=np.arange(1024) * 2.5e-4,
+    protocol="altadena",
+    para_fraction=0.90,
+    pairwise_addition_fraction=0.72,
+    reaction_time_seconds=0.05,
+    field_trajectory=ramp,
+    t2_seconds=0.12,
+)
+\end{lstlisting}
+
+Pulse and receiver spin indices may be selected independently, providing the
+low-level machinery needed for heteronuclear products. A first-class,
+literature-validated PH-INEPT sequence is not yet included, nor are catalyst
+kinetics, reaction-time distributions, or SABRE exchange.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.97\linewidth]{images/lls_phip_workflows.png}
+\caption{Complete dense reference workflows. Left: SLIC preparation, measured
+\(T_S\) storage, and reconversion. Right: PASADENA and explicit-trajectory
+ALTADENA spectra on a shared scale. These are algebraic/regression references,
+not fits to a particular catalyst or experiment.}
+\end{figure}
+
+Run \code{python examples/plot\_lls\_phip\_workflows.py} to reproduce the
+figure and vary \(T_S\), para enrichment, and pairwise yield.
 
 \chapter{Electron Spin Resonance Models}
 \label{chap:esr}

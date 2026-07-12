@@ -13,6 +13,11 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
 
 ### PythonSpinDynamics
 
+- Added complete dense two-spin SLIC long-lived-state preparation,
+  phenomenological measured-`T_S` storage, symmetry purge, and readout, plus
+  pairwise-yield-aware hydrogenative PHIP mapping, high-field PASADENA,
+  explicit-trajectory ALTADENA, selected-spin hard pulses/acquisition, tests,
+  examples, and user-manual coverage.
 - Added the first PHIP/long-lived-singlet foundation: exact embedded
   singlet/triplet projectors, pair-swap symmetry, normalized singlet-order
   observables, physical and deviation parahydrogen states versus para fraction,

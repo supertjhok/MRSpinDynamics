@@ -815,6 +815,28 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `ParahydrogenState` | Physical and deviation density matrices for a para/ortho H2 mixture. |
 | function | `parahydrogen_state(para_fraction: float) -> ParahydrogenState` | Return the two-proton state for a specified parahydrogen fraction. |
 
+## `spin_dynamics.hyperpolarization.lls`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `store_singlet_order(density: np.ndarray, duration_seconds: float, singlet_lifetime_seconds: float, *, pair: tuple[int, int] = (0, 1), purge_non_singlet: bool = True) -> np.ndarray` | Store a selected singlet-order mode for a finite duration. |
+| class | `SLICLongLivedStateResult` | Stage-resolved result of a two-spin SLIC/store/SLIC workflow. |
+| function | `simulate_slic_lls(system: CoupledSpinSystem, storage_times_seconds: Iterable[float] | np.ndarray, *, singlet_lifetime_seconds: float, preparation_time_seconds: float | None = None, readout_time_seconds: float | None = None, nutation_hz: float | None = None, purge_non_singlet: bool = True) -> SLICLongLivedStateResult` | Simulate two-spin SLIC preparation, storage, and reconversion. |
+
+## `spin_dynamics.hyperpolarization.phip`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `PHIPFieldSegment` | One constant-field segment used during PHIP product transport. |
+| class | `HydrogenativePHIPState` | Mapped product state following pairwise parahydrogen addition. |
+| class | `PHIPAcquisitionResult` | State and complex FID from a hydrogenative PHIP protocol. |
+| function | `hydrogenative_phip_state(product_nspin: int, *, para_fraction: float, pairwise_addition_fraction: float = 1.0, product_pair: tuple[int, int] = (0, 1)) -> HydrogenativePHIPState` | Map parahydrogen singlet order into specified product spin sites. |
+| function | `evolve_phip_field_trajectory(density: np.ndarray, system: CoupledSpinSystem, segments: Sequence[PHIPFieldSegment]) -> np.ndarray` | Evolve a PHIP product through a piecewise-constant field trajectory. |
+| function | `secularize_high_field_product(density: np.ndarray) -> np.ndarray` | Remove nonsecular product-basis coherences after high-field formation. |
+| function | `apply_hard_pulse(density: np.ndarray, system: CoupledSpinSystem, flip_angle_radians: float, *, phase_radians: float = 0.0, indices: Iterable[int] | None = None) -> np.ndarray` | Apply an ideal hard pulse to selected product spins. |
+| function | `acquire_phip_fid(density: np.ndarray, system: CoupledSpinSystem, times_seconds: Iterable[float] | np.ndarray, *, detect_indices: Iterable[int] | None = None, t2_seconds: float | None = None) -> np.ndarray` | Acquire a high-field weak-coupling PHIP FID from selected spins. |
+| function | `simulate_hydrogenative_phip(system: CoupledSpinSystem, times_seconds: Iterable[float] | np.ndarray, *, protocol: PHIPProtocol, para_fraction: float, pairwise_addition_fraction: float = 1.0, product_pair: tuple[int, int] = (0, 1), reaction_time_seconds: float = 0.0, field_trajectory: Sequence[PHIPFieldSegment] | None = None, pulse_flip_angle_radians: float = np.pi / 4.0, pulse_phase_radians: float = 0.0, pulse_indices: Iterable[int] | None = None, detect_indices: Iterable[int] | None = None, t2_seconds: float | None = None) -> PHIPAcquisitionResult` | Simulate hydrogenative PASADENA or trajectory-defined ALTADENA. |
+
 ## `spin_dynamics.interference.active`
 
 | Kind | Name | Summary |
