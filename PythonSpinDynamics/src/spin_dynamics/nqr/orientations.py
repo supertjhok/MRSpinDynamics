@@ -195,6 +195,60 @@ def b0_b1_powder_average_grid(
     return tuple(samples)
 
 
+def _radical_inverse(index: int, base: int) -> float:
+    value = 0.0
+    scale = 1.0 / base
+    while index:
+        index, digit = divmod(index, base)
+        value += digit * scale
+        scale /= base
+    return value
+
+
+def b0_b1_powder_average_halton(
+    num_samples: int,
+    *,
+    start_index: int = 1,
+    b1_b0_angle: float = np.pi / 2.0,
+) -> tuple[OrientationSample, ...]:
+    """Return a low-discrepancy SO(3) powder sequence for correlated B0/B1.
+
+    Halton coordinates in bases 2, 3, and 5 sample ``cos(theta)``, ``phi``,
+    and the in-plane frame angle ``chi``. Consecutive prefixes are nested, so
+    calculations with ``N`` and ``2N`` orientations provide a less aliased
+    convergence check than unrelated product grids.
+    """
+
+    count = int(num_samples)
+    first = int(start_index)
+    angle = float(b1_b0_angle)
+    if count <= 0:
+        raise ValueError("num_samples must be positive")
+    if first <= 0:
+        raise ValueError("start_index must be positive")
+    if not np.isfinite(angle):
+        raise ValueError("b1_b0_angle must be finite")
+    samples: list[OrientationSample] = []
+    for index in range(first, first + count):
+        mu = 2.0 * _radical_inverse(index, 2) - 1.0
+        phi = 2.0 * np.pi * _radical_inverse(index, 3)
+        chi = 2.0 * np.pi * _radical_inverse(index, 5)
+        b0_direction = spherical_direction(phi, float(np.arccos(mu)))
+        e1, e2 = _perpendicular_basis(b0_direction)
+        perpendicular = np.cos(chi) * e1 + np.sin(chi) * e2
+        b1_direction = (
+            np.cos(angle) * b0_direction + np.sin(angle) * perpendicular
+        )
+        samples.append(
+            OrientationSample(
+                b1_direction_pas=b1_direction,
+                b0_direction_pas=b0_direction,
+                weight=1.0 / count,
+            )
+        )
+    return tuple(samples)
+
+
 def powder_frame_grid(
     n_theta: int = 12, n_phi: int = 24, n_chi: int = 8
 ) -> tuple[OrientationFrame, ...]:

@@ -401,13 +401,51 @@ Completed through the RF-validation increment:
 - a completely-positive unified-GKLS extension that groups unresolved Bohr
   frequencies and retains their nonsecular coherence-transfer terms, with an
   explicit Gibbs-stationarity diagnostic; and
-- an exact-Floquet-pulse SLSE workflow with static-field dissipation, exercised
-  for NaNO2 in the zero-field, perturbed-NQR, crossover, and quadrupolar-NMR
-  regimes.
+- an exact-Floquet-pulse SLSE center-point workflow with static-field
+  dissipation; and
+- a waveform-level extension that samples each echo, coherently averages
+  crystallites before receiver processing, applies an explicit finite-bandwidth
+  receiver, and estimates the train by matched projection onto the first echo.
 
-The next physics milestone is explicit time-dependent field ramps, including
-the competition among adiabatic following, Landau-Zener transfer, and
-relaxation. Powder- and waveform-level benchmarking of the Floquet route also
-remains. Arbitrary shaped RF is already available through the laboratory-frame
-reference; an efficient piecewise-Floquet envelope solver is a possible later
-optimization rather than a correctness prerequisite.
+### Powder-waveform audit
+
+The echo-center observable is accepted only for the narrow zero-field line. It
+is not an experimental decay estimator once the static field broadens the
+powder spectrum. Nonzero-field calculations must instead converge the complete
+acquired waveform and its receiver-derived amplitude.
+
+The first waveform implementation established the following infrastructure:
+
+- nested low-discrepancy SO(3) orientation sequences;
+- a frequency-slice selector that reports the retained full-powder weight;
+- exact-Floquet and phase-consistent RWA pulse backends;
+- deterministic orientation-level parallel execution via `num_workers`; and
+- prefix reuse for convergence estimates, avoiding duplicate propagation.
+
+For production powder runs, a chunked process backend and reduce-only return
+mode avoid transferring per-orientation density-matrix diagnostics. On the
+small four-echo benchmark used during this audit, serial, four-thread, and
+four-process execution took 8.22 s, 7.55 s, and 4.28 s, respectively. The full
+30-echo 8192-candidate calculation fell from 334 s with retained threaded
+results to 82 s with four reduce-only processes.
+
+The first audit exposed severe aliasing when an 800 microsecond waveform was
+sampled at 65 points but paired with a nominal 200 kHz receiver. The receiver
+now rejects bandwidths above the acquisition sampling rate. The validated
+default is a 100 microsecond/129-point acquisition; doubling to 257 points
+changes the matched train by less than 3%. With a 200 kHz receiver, frequency-slice reporting,
+and nested active ensembles of 1024--2048 orientations, the 30-echo matched
+trains converge to 1.5% (perturbed NQR), 1.9% (intermediate), and 0.81%
+(quadrupolar NMR). The zero-field matched train fits 328 ms, consistent with the
+measured 332 +/- 23 ms lifetime. A resonance-manifold quadrature remains a
+valuable efficiency improvement, and independent sensitivity checks versus
+time step, receiver bandwidth, and selected spectral width remain required for
+quantitative experimental prediction.
+
+The next numerical milestone is the resonance-manifold efficiency improvement
+and receiver/spectral-width sensitivity audit described above. The next physics milestone remains explicit time-dependent
+field ramps, including the competition among adiabatic following,
+Landau-Zener transfer, and relaxation. Arbitrary shaped RF is already available
+through the laboratory-frame reference; an efficient piecewise-Floquet
+envelope solver is a possible later optimization rather than a correctness
+prerequisite.

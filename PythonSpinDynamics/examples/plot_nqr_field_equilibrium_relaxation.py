@@ -1,8 +1,9 @@
-"""Plot field-dependent Gibbs polarization and thermal relaxation rates.
+"""Plot room-temperature Gibbs polarization and calibrated relaxation trends.
 
-The NaNO2 and NaClO3 sites match the static crossover examples. A low spin
-temperature makes the equilibrium crossover visible; the rate panel uses the
-finite-temperature Davies model with magnetic and EFG fluctuation channels.
+NaNO2 and NaClO3 use the static crossover parameters. Davies-mode field
+dependence is normalized to each compound's measured zero-field SLSE lifetime;
+the absolute ordering therefore reflects experiment rather than shared,
+uncalibrated bath amplitudes.
 """
 
 from __future__ import annotations
@@ -27,6 +28,8 @@ from spin_dynamics.nqr import (  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 NANO2_SUMMARY = ROOT / "QuadrupolarDFT" / "results" / "nano2_efg_summary.csv"
+NANO2_SLSE_SECONDS = 0.332
+NACLO3_SLSE_SECONDS = 0.0014
 
 
 def _nano2_site() -> QuadrupolarSite:
@@ -58,7 +61,7 @@ def _naclo3_site() -> QuadrupolarSite:
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--points", type=int, default=100)
-    parser.add_argument("--temperature-mk", type=float, default=1.0)
+    parser.add_argument("--temperature-k", type=float, default=300.0)
     parser.add_argument("--correlation-time-us", type=float, default=0.2)
     parser.add_argument("--output", type=Path)
     return parser.parse_args()
@@ -74,7 +77,7 @@ def main() -> None:
     args = _parse_args()
     if args.points < 3:
         raise ValueError("points must be at least three")
-    temperature = args.temperature_mk * 1.0e-3
+    temperature = args.temperature_k
     correlation_time = args.correlation_time_us * 1.0e-6
     if temperature <= 0.0 or correlation_time < 0.0:
         raise ValueError("temperature must be positive and correlation time non-negative")
@@ -83,10 +86,16 @@ def main() -> None:
     direction = np.array([1.0, 1.0, 1.0]) / np.sqrt(3.0)
     sites = (_nano2_site(), _naclo3_site())
     labels = (r"NaNO$_2$ $^{14}$N ($I=1$)", r"NaClO$_3$ $^{35}$Cl ($I=3/2$)")
+    zero_field_slse = (NANO2_SLSE_SECONDS, NACLO3_SLSE_SECONDS)
     plt = load_matplotlib(headless=args.output is not None)
     fig, axes = plt.subplots(2, 1, figsize=(8.4, 7.3), sharex=True, constrained_layout=True)
 
-    for site, label in zip(sites, labels, strict=True):
+    for site, label, measured_lifetime in zip(
+        sites,
+        labels,
+        zero_field_slse,
+        strict=True,
+    ):
         model = FieldDependentDaviesRelaxationModel(
             spin=site.spin,
             temperature_kelvin=temperature,
@@ -110,8 +119,11 @@ def main() -> None:
             )
             hamiltonian = nqr_hamiltonian(site, b0)
             decay_rate[index] = _slowest_decay_rate(model.superoperator(hamiltonian))
-        axes[0].plot(ratios, polarization, linewidth=1.8, label=label)
-        axes[1].plot(ratios, decay_rate, linewidth=1.8, label=label)
+        zero_hamiltonian = nqr_hamiltonian(site, (0.0, 0.0, 0.0))
+        raw_zero_rate = _slowest_decay_rate(model.superoperator(zero_hamiltonian))
+        calibrated_rate = decay_rate / raw_zero_rate / measured_lifetime
+        axes[0].plot(ratios, 1.0e6 * polarization, linewidth=1.8, label=label)
+        axes[1].plot(ratios, calibrated_rate, linewidth=1.8, label=label)
 
     for axis in axes:
         axis.axvspan(0.1, 10.0, color="tab:orange", alpha=0.07)
@@ -119,12 +131,14 @@ def main() -> None:
         axis.set_xscale("log")
         axis.grid(alpha=0.2, which="both")
         axis.legend()
-    axes[0].set_ylabel(r"Equilibrium $\langle I_{B_0}\rangle/I$")
-    axes[1].set_ylabel(r"Slowest Davies decay rate (s$^{-1}$)")
+    axes[0].set_ylabel(r"Equilibrium $\langle I_{B_0}\rangle/I$ (ppm)")
+    axes[1].set_yscale("log")
+    axes[1].set_ylabel(r"Zero-field-calibrated Davies mode rate (s$^{-1}$)")
     axes[1].set_xlabel(r"Static interaction ratio $\nu_L/\nu_Q$")
     fig.suptitle(
-        "Field-dependent equilibrium and relaxation through the NQR–NMR crossover\n"
-        f"T = {args.temperature_mk:g} mK, correlation time = "
+        "Room-temperature equilibrium and calibrated relaxation trends\n"
+        f"T = {args.temperature_k:g} K; $T_{{2,SLSE}}(0)$ = 332 ms (NaNO$_2$), "
+        f"1.4 ms (NaClO$_3$); illustrative correlation time = "
         f"{args.correlation_time_us:g} µs"
     )
     if args.output is None:
