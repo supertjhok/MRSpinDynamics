@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 import importlib.metadata as metadata
-import tomllib
 import unittest
 from pathlib import Path
+
+try:
+    import tomllib
+except ModuleNotFoundError:  # pragma: no cover - exercised by Python 3.10 CI
+    import tomli as tomllib
 
 import spin_dynamics
 from spin_dynamics.experiment.cli import build_parser
