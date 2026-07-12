@@ -95,8 +95,10 @@ jobs:
         run: >-
           python -c
           "import matplotlib,numpy,scipy; print(numpy.__version__, scipy.__version__, matplotlib.__version__)"
-      - name: Minimum-version smoke and packaging tests
-        run: python -m unittest tests.smoke_tests tests.test_packaging
+      - name: Minimum-version smoke tests
+        run: python -m unittest tests.smoke_tests
+      - name: Minimum-version packaging tests
+        run: python -m unittest tests.test_packaging
 
   windows-full-validation:
     name: Full validation (windows-latest, py3.12)
