@@ -56,7 +56,7 @@ estimate: ~6 ms on 'numpy' backend (advisory); memory ~3 MB
 checks: ok
 ```
 
-Runnable version: [`examples/experiment_facade_quickstart.py`](../../examples/experiment_facade_quickstart.py).
+Runnable version: [`examples/experiment_facade_quickstart.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/examples/experiment_facade_quickstart.py).
 
 ## `plan()` before `run()`
 
@@ -112,7 +112,7 @@ The solve happens once at plan time (cached by a geometry hash and reused by
 `run()`). `plan()` reports the transverse fraction of the coil's B1 over the
 sample and warns when most of it is parallel to B0 — an inefficiency the
 normalization would otherwise hide. Runnable version:
-[`examples/experiment_imaging_with_coil.py`](../../examples/experiment_imaging_with_coil.py).
+[`examples/experiment_imaging_with_coil.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/examples/experiment_imaging_with_coil.py).
 
 ## Diffusion and flow
 
@@ -169,7 +169,7 @@ experiment, making stochastic runs reproducible. NPZ archives retain the
 primary signal/echo arrays and identify the large nested ensemble snapshots as
 unsaved fields; the stored experiment and seed regenerate them exactly. A
 runnable configuration is provided as
-[`examples/experiment_config_pgse_walkers_flow.toml`](../../examples/experiment_config_pgse_walkers_flow.toml).
+[`examples/experiment_config_pgse_walkers_flow.toml`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/examples/experiment_config_pgse_walkers_flow.toml).
 
 ## General SequenceIR and Pulseq execution
 
@@ -202,7 +202,7 @@ study = Experiment(
 record = study.run()
 ```
 
-The runnable [`experiment_sequence_ir.py`](../../examples/experiment_sequence_ir.py)
+The runnable [`experiment_sequence_ir.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/examples/experiment_sequence_ir.py)
 uses the same built-in spin echo as the timeline visualizer, or accepts a
 Pulseq file, and can save both its timeline and a provenance-bearing result.
 The current backend is ideal hardware only and supports white receive noise;
@@ -229,7 +229,7 @@ study.plan()   # → workflow: simulate_slse (reduced), with reasons
 `NQRSLSE.nutation_hz` uses the reduced engine's effective two-level Rabi
 convention; the adapter converts to the bare `gamma*B1/(2*pi)` the full engine
 needs. Runnable version:
-[`examples/experiment_nqr_auto_model.py`](../../examples/experiment_nqr_auto_model.py).
+[`examples/experiment_nqr_auto_model.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/examples/experiment_nqr_auto_model.py).
 
 The facade also exposes full-model `NQRFID` and reduced spin-1
 `NQRPopulationTransfer`. The former uses the full engine's bare
@@ -321,7 +321,7 @@ python -m spin_dynamics.experiment convert config.toml config.json
 ```
 
 A diffusion example is provided as
-[`examples/experiment_config_pgse.toml`](../../examples/experiment_config_pgse.toml).
+[`examples/experiment_config_pgse.toml`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/examples/experiment_config_pgse.toml).
 
 `plan` exits non-zero if the config has plan errors; `run` refuses to execute
 one. In Python, `save_config` / `load_config` and `experiment_to_config` /
@@ -338,4 +338,4 @@ uniform 2-D flow, the CPMG family, phase-encoded CPMG imaging, the principal
 one- and multidimensional NQR/ESR measurements, and general SequenceIR/Pulseq
 execution on the ideal moving-isochromat backend.
 Design notes and the milestone roadmap are in
-[`../unified_workflow_plan.md`](../unified_workflow_plan.md).
+[`docs/unified_workflow_plan.md`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/docs/unified_workflow_plan.md).

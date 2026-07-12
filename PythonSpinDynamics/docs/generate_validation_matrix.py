@@ -11,6 +11,9 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
+SOURCE_BROWSER = (
+    "https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics"
+)
 REGISTRY = ROOT / "validation" / "evidence.json"
 MARKDOWN_OUTPUT = ROOT / "docs" / "validation_matrix.md"
 LATEX_OUTPUT = ROOT / "docs" / "generated" / "validation_summary.tex"
@@ -123,7 +126,7 @@ def _md_link(reproducer: str) -> str:
             index for index, line in enumerate(lines, start=1) if symbol in line
         )
         anchor = f"#L{line_number}"
-    return f"[`{label}`](../{path_text}{anchor})"
+    return f"[`{label}`]({SOURCE_BROWSER}/{path_text}{anchor})"
 
 
 def render_markdown(data: dict[str, Any]) -> str:

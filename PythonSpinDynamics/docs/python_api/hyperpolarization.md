@@ -155,5 +155,5 @@ Not implemented yet:
 - quantum-manifold exchange and SABRE.
 
 Run `python examples/plot_lls_phip_workflows.py` for the complete reference
-workflow and [consult the implementation plan](../phip_sabre_singlet_states_plan.md)
+workflow and [consult the implementation plan](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/docs/phip_sabre_singlet_states_plan.md)
 for the remaining physics and validation roadmap.

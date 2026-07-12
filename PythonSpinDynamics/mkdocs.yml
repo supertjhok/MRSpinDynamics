@@ -1,0 +1,135 @@
+site_name: PythonSpinDynamics
+site_description: Searchable simulation, API, example, and validation documentation for PythonSpinDynamics.
+site_url: https://supertjhok.github.io/MRSpinDynamics/
+repo_url: https://github.com/supertjhok/MRSpinDynamics
+repo_name: supertjhok/MRSpinDynamics
+edit_uri: edit/main/PythonSpinDynamics/docs/
+docs_dir: docs
+site_dir: site
+use_directory_urls: true
+
+theme:
+  name: material
+  features:
+    - navigation.instant
+    - navigation.instant.progress
+    - navigation.sections
+    - navigation.tabs
+    - navigation.top
+    - search.highlight
+    - search.suggest
+    - content.code.copy
+    - toc.follow
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: deep purple
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: deep purple
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
+
+exclude_docs: |
+  generated/
+  assets/logo-options/
+  migration_plan.md
+  nqr_module_plan.md
+  nqr_nmr_crossover_plan.md
+  performance_worklist.md
+  phip_sabre_singlet_states_plan.md
+  unified_workflow_plan.md
+  **/*.aux
+  **/*.fdb_latexmk
+  **/*.fls
+  **/*.log
+  **/*.out
+  **/*.tex
+  **/*.toc
+
+nav:
+  - Home: index.md
+  - Start Here:
+      - Installation: python_api/installation.md
+      - Capability overview: python_api/index.md
+      - Concepts and units: python_api/concepts.md
+      - Unified experiment workflow: python_api/experiment_workflow.md
+      - Examples: python_api/examples.md
+      - Workflow catalog: python_api/workflows.md
+      - Print manual: python_api/manual.md
+  - API and Models:
+      - API reference: python_api/api_reference.md
+      - Core numerical functions: python_api/core.md
+      - Parameters: python_api/parameters.md
+      - Sequence IR and Pulseq: python_api/sequence_ir.md
+      - Phase cycling: python_api/phase_cycling.md
+      - Cross-component composition: python_api/composition.md
+      - Analysis: python_api/analysis.md
+  - Physics:
+      - NQR and quadrupolar NMR: python_api/nqr.md
+      - Powder relaxation methods: nqr_powder_relaxation_methods.md
+      - ESR and EPR: python_api/esr.md
+      - Chemical and site exchange: python_api/exchange.md
+      - J coupling: python_api/j_coupling.md
+      - Hyperpolarization and singlets: python_api/hyperpolarization.md
+      - Internal gradients: python_api/internal_gradients.md
+      - Bipolar PGSTE: python_api/bipolar_pgste.md
+      - Radiation damping: radiation_damping.md
+      - Relaxation validation: relaxation_validation.md
+  - Fields and Hardware:
+      - Quasistatic field solvers: field_solvers_quasistatic.md
+      - Reduced scalar potential 3-D: reduced_scalar_potential_3d.md
+      - Coil properties: coil_properties.md
+      - PEEC coil models: coil_peec.md
+      - Non-inductive detection: non_inductive_detection.md
+      - Spin noise: spin_noise.md
+      - Thermal modeling: thermal_modeling.md
+      - Flow modeling: flow_modeling.md
+  - Design and Imaging:
+      - Optimal-control hardware response: optimal_control_hardware_response.md
+      - PGSE diffusion optimal control: optimal_control_pgse_diffusion.md
+      - Portable Halbach MRI: portable_halbach_adaptive_mri.md
+      - Q-space imaging robustness: qspace_imaging_robustness.md
+  - Validation:
+      - Validation guide: python_api/validation.md
+      - Evidence matrix: validation_matrix.md
+      - Validation results: validation_results.md
+      - Known gaps: python_api/known_gaps.md
+      - Performance: python_api/performance.md
+      - Deprecation policy: python_api/deprecation_policy.md
+  - Development:
+      - Development environment: development_environment.md
+      - Testing strategy: testing_strategy.md
+      - MATLAB mapping: matlab_mapping.md
+
+copyright: Copyright &copy; 2026 MRSpinDynamics contributors

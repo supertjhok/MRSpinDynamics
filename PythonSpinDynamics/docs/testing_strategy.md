@@ -83,12 +83,14 @@ classes and pytest-style test functions execute. The intentionally tiny
 `tests.smoke_tests` module remains runnable directly with unittest for the
 fastest global sanity check.
 
-The dedicated full Windows lane uses four pytest-xdist worker processes with
+The branch-coverage and dedicated full Windows lanes use four pytest-xdist
+worker processes with
 `--dist loadscope`. BLAS/OpenMP threads remain fixed at one, preventing each
 pytest worker (and any powder-process child it starts) from multiplying native
-library threads. The branch-coverage lane stays serial because ordinary
-`coverage run` does not automatically combine xdist subprocess data. Impacted
-and smoke tests also stay serial because their startup cost is already small.
+library threads. The coverage lane uses pytest-cov, which combines coverage data
+from xdist workers before enforcing the existing branch-coverage floor.
+Impacted and smoke tests stay serial because their startup cost is already
+small.
 The FasterCap interoperability module is excluded from distributed collection
 and run once afterward because its optional availability probe initializes a
 Windows COM server during module collection.

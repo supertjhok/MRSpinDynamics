@@ -70,7 +70,9 @@ jobs:
       - name: Static type check
         run: python -m mypy
       - name: Full pytest validation with branch coverage
-        run: python -m coverage run -m pytest -q
+        run: >-
+          python -m pytest -q -n 4 --dist loadscope
+          --cov=spin_dynamics --cov-branch --cov-report=
       - name: Enforce coverage floor
         run: python -m coverage report
 

@@ -7,7 +7,14 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
 
 ## [Unreleased]
 
-No changes yet.
+### Changed
+
+- Parallelized the branch-coverage suite with pytest-xdist and pytest-cov while
+  preserving combined branch measurement and the existing coverage floor.
+- Added a strict MkDocs Material documentation build and GitHub Pages deployment
+  with client-side search across the web manual, generated API reference,
+  examples, model documentation, and validation evidence; the paginated PDF
+  remains available as the print edition.
 
 ## [0.3.0] - 2026-07-12
 

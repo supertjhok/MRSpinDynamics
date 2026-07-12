@@ -151,6 +151,7 @@ does not silently round the sequence.
 
 ## Documentation and Development
 
+- [Searchable PythonSpinDynamics documentation](https://supertjhok.github.io/MRSpinDynamics/)
 - [Documentation guide and document-status map](docs/documentation_guide.md)
 - [Python user manual (PDF)](PythonSpinDynamics/docs/user_manual.pdf) and
   [LaTeX source](PythonSpinDynamics/docs/user_manual.tex)

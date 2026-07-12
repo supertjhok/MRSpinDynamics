@@ -65,7 +65,7 @@ what supports the underlying scientific or numerical claim.
 - **Metric:** Elementwise numerical agreement
 - **Tolerance:** Per-test numpy.testing tolerances, normally 1e-10 to 1e-7 absolute/relative.
 - **References:** MATLABSpinDynamics/Version_3/code
-- **Reproduce:** [`tests/octave_fixtures/core.py::test_calc_rotation_matrix_matches_octave`](../tests/octave_fixtures/core.py#L572); [`validation/octave/generate_basic_fixtures.m`](../validation/octave/generate_basic_fixtures.m)
+- **Reproduce:** [`tests/octave_fixtures/core.py::test_calc_rotation_matrix_matches_octave`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/octave_fixtures/core.py#L572); [`validation/octave/generate_basic_fixtures.m`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/validation/octave/generate_basic_fixtures.m)
 - **Limitations:** Fixtures sample representative grids; they are not an exhaustive proof over all parameter combinations.
 
 ### CPMG, FID, imaging, and probe workflows
@@ -77,7 +77,7 @@ what supports the underlying scientific or numerical claim.
 - **Metric:** Array agreement and workflow invariants
 - **Tolerance:** Fixture-specific numerical tolerances; exact equality for deterministic serial/parallel paths.
 - **References:** MATLABSpinDynamics/Version_3/code
-- **Reproduce:** [`tests/octave_fixtures/workflows.py`](../tests/octave_fixtures/workflows.py); [`validation/octave/generate_imaging_fixtures.m`](../validation/octave/generate_imaging_fixtures.m)
+- **Reproduce:** [`tests/octave_fixtures/workflows.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/octave_fixtures/workflows.py); [`validation/octave/generate_imaging_fixtures.m`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/validation/octave/generate_imaging_fixtures.m)
 - **Limitations:** High-Q matched-probe coverage remains concentrated on compact fixtures.
 
 ### Probe pulse responses and phase programs
@@ -89,7 +89,7 @@ what supports the underlying scientific or numerical claim.
 - **Metric:** Complex waveform and scalar metric agreement
 - **Tolerance:** Per-fixture numerical tolerances, normally near floating-point precision.
 - **References:** MATLABSpinDynamics/Version_3/code/Pulse Shape
-- **Reproduce:** [`tests/octave_fixtures/optimization.py`](../tests/octave_fixtures/optimization.py); [`validation/octave/generate_pulse_fixtures.m`](../validation/octave/generate_pulse_fixtures.m)
+- **Reproduce:** [`tests/octave_fixtures/optimization.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/octave_fixtures/optimization.py); [`validation/octave/generate_pulse_fixtures.m`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/validation/octave/generate_pulse_fixtures.m)
 - **Limitations:** Arbitrary measured probe transfer functions are not covered by the historical fixtures.
 
 ### Sequence IR, Pulseq interchange, and compiler
@@ -101,7 +101,7 @@ what supports the underlying scientific or numerical claim.
 - **Metric:** Exact metadata/timing invariants and numerical waveform equality
 - **Tolerance:** Exact for discrete metadata; 1e-12 seconds or tighter for timing comparisons.
 - **References:** Pulseq specification 1.4.x and 1.5.0
-- **Reproduce:** [`tests/test_sequence_ir.py::test_imports_pulseq_15_rf_adc_and_compiles`](../tests/test_sequence_ir.py#L215); [`tests/test_sequence_ir.py::test_round_trip_preserves_core_events_and_metadata`](../tests/test_sequence_ir.py#L276); [`tests/test_sequence_ir.py::test_export_signature_covers_sequence_text`](../tests/test_sequence_ir.py#L342); [`tests/test_experiment.py::test_sequence_ir_facade_matches_direct_motion_backend`](../tests/test_experiment.py#L1473); [`tests/test_experiment.py::test_sequence_ir_facade_executes_pulseq_round_trip`](../tests/test_experiment.py#L1556)
+- **Reproduce:** [`tests/test_sequence_ir.py::test_imports_pulseq_15_rf_adc_and_compiles`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_sequence_ir.py#L215); [`tests/test_sequence_ir.py::test_round_trip_preserves_core_events_and_metadata`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_sequence_ir.py#L276); [`tests/test_sequence_ir.py::test_export_signature_covers_sequence_text`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_sequence_ir.py#L342); [`tests/test_experiment.py::test_sequence_ir_facade_matches_direct_motion_backend`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_experiment.py#L1473); [`tests/test_experiment.py::test_sequence_ir_facade_executes_pulseq_round_trip`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_experiment.py#L1556)
 - **Limitations:** No independent scanner/vendor execution comparison yet. Optional extensions are retained but not executed.
 
 ### PGSE diffusion encoding
@@ -113,7 +113,7 @@ what supports the underlying scientific or numerical claim.
 - **Metric:** b-value equality, log-signal slope, and walker confidence envelope
 - **Tolerance:** Machine precision for moments; statistical tolerance set from finite walker count for particle simulations.
 - **References:** Stejskal-Tanner pulsed-gradient spin-echo theory
-- **Reproduce:** [`tests/test_pgse.py::test_moment_b_value_matches_stejskal_tanner_formula`](../tests/test_pgse.py#L65); [`tests/test_pgse.py::test_moment_signal_has_expected_diffusion_slope`](../tests/test_pgse.py#L83); [`tests/test_pgse.py::test_walker_pgse_converges_toward_moment_attenuation`](../tests/test_pgse.py#L128)
+- **Reproduce:** [`tests/test_pgse.py::test_moment_b_value_matches_stejskal_tanner_formula`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_pgse.py#L65); [`tests/test_pgse.py::test_moment_signal_has_expected_diffusion_slope`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_pgse.py#L83); [`tests/test_pgse.py::test_walker_pgse_converges_toward_moment_attenuation`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_pgse.py#L128)
 - **Limitations:** The analytical comparison assumes unrestricted isotropic diffusion and ideal rectangular gradients.
 
 ### Moving-isochromat diffusion and boundaries
@@ -125,7 +125,7 @@ what supports the underlying scientific or numerical claim.
 - **Metric:** Moment statistics, signal limits, and deterministic seed equality
 - **Tolerance:** Analytical or sampling-error tolerance chosen per test.
 - **References:** Brownian diffusion and spin-echo refocusing identities
-- **Reproduce:** [`tests/test_motion.py::test_advection_diffusion_and_boundaries_are_seeded`](../tests/test_motion.py#L114); [`tests/test_motion_sequence.py::test_cpmg_sequence_refocuses_static_gradient_without_diffusion`](../tests/test_motion_sequence.py#L99)
+- **Reproduce:** [`tests/test_motion.py::test_advection_diffusion_and_boundaries_are_seeded`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_motion.py#L114); [`tests/test_motion_sequence.py::test_cpmg_sequence_refocuses_static_gradient_without_diffusion`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_motion_sequence.py#L99)
 - **Limitations:** Complex pore geometries have synthetic rather than experimental benchmarks.
 
 ### Flow washout and transit polarization
@@ -137,7 +137,7 @@ what supports the underlying scientific or numerical claim.
 - **Metric:** Survival fraction, density normalization, mean transit time, and polarization
 - **Tolerance:** Exact/near-machine precision for identities; finite-sample bounds for Monte Carlo checks.
 - **References:** Poiseuille flow and flux-weighted residence-time theory
-- **Reproduce:** [`tests/test_flow.py::test_laminar_matches_derived_piecewise`](../tests/test_flow.py#L60); [`tests/test_flow.py::test_monte_carlo_cross_check_laminar`](../tests/test_flow.py#L109); [`tests/test_flow.py::test_monte_carlo_flux_weighted_cross_check`](../tests/test_flow.py#L242)
+- **Reproduce:** [`tests/test_flow.py::test_laminar_matches_derived_piecewise`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_flow.py#L60); [`tests/test_flow.py::test_monte_carlo_cross_check_laminar`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_flow.py#L109); [`tests/test_flow.py::test_monte_carlo_flux_weighted_cross_check`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_flow.py#L242)
 - **Limitations:** No CFD or turbulent-flow comparison; velocity profiles are prescribed.
 
 ### Magnetostatic field solvers
@@ -149,7 +149,7 @@ what supports the underlying scientific or numerical claim.
 - **Metric:** Vector-field value, direction, symmetry, and scaling
 - **Tolerance:** Geometry/discretization-specific tolerances declared in tests.
 - **References:** Biot-Savart circular-loop solution; Ideal Halbach dipole symmetry
-- **Reproduce:** [`tests/test_magnetostatics.py::test_loop_center_matches_analytic`](../tests/test_magnetostatics.py#L27); [`tests/test_magnetostatics.py::test_field_scales_with_current`](../tests/test_magnetostatics.py#L36); [`tests/test_magnetostatics.py::test_four_rod_halbach_phasing_points_bore_field_along_x`](../tests/test_magnetostatics.py#L105)
+- **Reproduce:** [`tests/test_magnetostatics.py::test_loop_center_matches_analytic`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_magnetostatics.py#L27); [`tests/test_magnetostatics.py::test_field_scales_with_current`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_magnetostatics.py#L36); [`tests/test_magnetostatics.py::test_four_rod_halbach_phasing_points_bore_field_along_x`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_magnetostatics.py#L105)
 - **Limitations:** Nonlinear material models have analytical/synthetic checks but limited measured-magnet comparison.
 
 ### PEEC coil impedance and parasitics
@@ -161,7 +161,7 @@ what supports the underlying scientific or numerical claim.
 - **Metric:** Inductance, resistance, capacitance, and impedance deviation
 - **Tolerance:** Tool- and discretization-specific thresholds declared in PEEC tests.
 - **References:** QOIL; FastHenry; FasterCap
-- **Reproduce:** [`tests/test_coil_peec.py::test_coil_properties_peec_fields_and_helpers`](../tests/test_coil_peec.py#L616); [`tests/test_coil_peec_fasthenry.py`](../tests/test_coil_peec_fasthenry.py); [`tests/test_coil_peec_fastercap.py`](../tests/test_coil_peec_fastercap.py)
+- **Reproduce:** [`tests/test_coil_peec.py::test_coil_properties_peec_fields_and_helpers`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_coil_peec.py#L616); [`tests/test_coil_peec_fasthenry.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_coil_peec_fasthenry.py); [`tests/test_coil_peec_fastercap.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_coil_peec_fastercap.py)
 - **Limitations:** Live external-tool tests are optional and not run in ordinary CI. Validation is sparse for shields, complex windings, and high-frequency radiation.
 
 ### Thermal networks and conduction
@@ -173,7 +173,7 @@ what supports the underlying scientific or numerical claim.
 - **Metric:** Temperature, energy balance, steady-state rise, and transient time constant
 - **Tolerance:** Analytical solver/discretization tolerances declared per test and FEMM validation script.
 - **References:** FEMM; Classical heat-equation and Pennes limits
-- **Reproduce:** [`tests/test_thermal.py::test_single_node_exponential_transient`](../tests/test_thermal.py#L211); [`tests/test_thermal.py::test_slab_uniform_source_parabola`](../tests/test_thermal.py#L496); [`tests/test_thermal.py::test_advection_diffusion_matches_analytic`](../tests/test_thermal.py#L650); [`validation/femm/validate_conduction.py`](../validation/femm/validate_conduction.py)
+- **Reproduce:** [`tests/test_thermal.py::test_single_node_exponential_transient`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_thermal.py#L211); [`tests/test_thermal.py::test_slab_uniform_source_parabola`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_thermal.py#L496); [`tests/test_thermal.py::test_advection_diffusion_matches_analytic`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_thermal.py#L650); [`validation/femm/validate_conduction.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/validation/femm/validate_conduction.py)
 - **Limitations:** No general full-3D or CFD thermal validation.
 
 ### NQR Hamiltonians and pulse models
@@ -185,7 +185,7 @@ what supports the underlying scientific or numerical claim.
 - **Metric:** Frequency, population transfer, normalized powder signal, and operator identities
 - **Tolerance:** Analytical numerical tolerances declared per test; published-example agreement at reported precision.
 - **References:** Konnai SORC powder theory; Glickstein spin-1 polarization enhancement example
-- **Reproduce:** [`tests/test_nqr.py::test_spin_one_quadrupole_transitions_match_xyz_convention`](../tests/test_nqr.py#L227); [`tests/test_nqr.py::test_spin_three_halves_nqr_line_uses_chlorine_convention`](../tests/test_nqr.py#L253); [`tests/test_nqr.py::test_sorc_pathway_converges_to_konnai_powder_theory`](../tests/test_nqr.py#L402); [`tests/test_nqr.py::test_glickstein_spin_one_enhancement_matches_melamine_example`](../tests/test_nqr.py#L73)
+- **Reproduce:** [`tests/test_nqr.py::test_spin_one_quadrupole_transitions_match_xyz_convention`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_nqr.py#L227); [`tests/test_nqr.py::test_spin_three_halves_nqr_line_uses_chlorine_convention`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_nqr.py#L253); [`tests/test_nqr.py::test_sorc_pathway_converges_to_konnai_powder_theory`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_nqr.py#L402); [`tests/test_nqr.py::test_glickstein_spin_one_enhancement_matches_melamine_example`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_nqr.py#L73)
 - **Limitations:** Experimental waveform and absolute-signal comparisons remain limited. Higher-spin validation is primarily analytical rather than experimental.
 
 ### ESR/EPR spectra and pulsed dynamics
@@ -197,7 +197,7 @@ what supports the underlying scientific or numerical claim.
 - **Metric:** Resonance field/frequency, splitting, normalization, decay, and echo timing
 - **Tolerance:** Analytical numerical tolerances declared per test.
 - **References:** Standard spin-1/2 ESR resonance and hyperfine formulas
-- **Reproduce:** [`tests/test_esr.py::test_isotropic_resonance_frequency_uses_bohr_magneton_scale`](../tests/test_esr.py#L43); [`tests/test_esr.py::test_single_nucleus_hyperfine_doublet_splitting_matches_coupling`](../tests/test_esr.py#L297); [`tests/test_esr.py::test_detuned_isochromat_ensemble_rephases_at_hahn_echo_time`](../tests/test_esr.py#L345)
+- **Reproduce:** [`tests/test_esr.py::test_isotropic_resonance_frequency_uses_bohr_magneton_scale`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_esr.py#L43); [`tests/test_esr.py::test_single_nucleus_hyperfine_doublet_splitting_matches_coupling`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_esr.py#L297); [`tests/test_esr.py::test_detuned_isochromat_ensemble_rephases_at_hahn_echo_time`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_esr.py#L345)
 - **Limitations:** No broad experimental spectral library comparison. Multi-electron and general anisotropic hyperfine systems remain incomplete.
 
 ### Small scalar-coupled spin systems
@@ -209,7 +209,7 @@ what supports the underlying scientific or numerical claim.
 - **Metric:** Operator identities, eigenvalues, populations, and filter response
 - **Tolerance:** Near floating-point precision for algebraic identities.
 - **References:** Exact spin-1/2 angular-momentum and scalar-coupling solutions
-- **Reproduce:** [`tests/test_coupling.py`](../tests/test_coupling.py); [`tests/test_zulf_jcoupling.py`](../tests/test_zulf_jcoupling.py)
+- **Reproduce:** [`tests/test_coupling.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_coupling.py); [`tests/test_zulf_jcoupling.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_zulf_jcoupling.py)
 - **Limitations:** Paper-level fixtures and relaxation-aware general pulse-sequence comparisons are still sparse.
 
 ### Singlet, triplet, and parahydrogen state primitives
@@ -221,7 +221,7 @@ what supports the underlying scientific or numerical claim.
 - **Metric:** Hermiticity, idempotence, orthogonality, completeness, trace, eigenvalues, population, and singlet-order amplitude
 - **Tolerance:** Floating-point algebraic tolerance of 1e-10 or tighter.
 - **References:** Carravetta and Levitt, J. Am. Chem. Soc. 126 (2004) 6228-6229, doi:10.1021/ja0490931; DeVience, Walsworth, and Rosen, arXiv:1307.0832
-- **Reproduce:** [`tests/test_hyperpolarization_singlet.py`](../tests/test_hyperpolarization_singlet.py); [`tests/test_coupling.py::test_two_spin_slic_matching_and_transfer_roles_are_distinct`](../tests/test_coupling.py#L101); [`tests/test_coupling.py::test_exactly_equivalent_pair_has_no_slic_transfer`](../tests/test_coupling.py#L108); [`examples/singlet_parahydrogen_states.py`](../examples/singlet_parahydrogen_states.py)
+- **Reproduce:** [`tests/test_hyperpolarization_singlet.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_hyperpolarization_singlet.py); [`tests/test_coupling.py::test_two_spin_slic_matching_and_transfer_roles_are_distinct`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_coupling.py#L101); [`tests/test_coupling.py::test_exactly_equivalent_pair_has_no_slic_transfer`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_coupling.py#L108); [`examples/singlet_parahydrogen_states.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/examples/singlet_parahydrogen_states.py)
 - **Limitations:** This record validates state algebra and ideal SLIC limits; workflow-level LLS and PHIP invariants are tracked separately.
 
 ### Long-lived singlet and hydrogenative PHIP reference workflows
@@ -233,7 +233,7 @@ what supports the underlying scientific or numerical claim.
 - **Metric:** Prepared singlet amplitude, normalized readout decay, trace, minimum density eigenvalue, PHIP FID amplitude, and linear scaling residual
 - **Tolerance:** Floating-point invariant tolerance of 1e-10; ideal SLIC preparation amplitude within 0.002 of unity.
 - **References:** DeVience, Walsworth, and Rosen, arXiv:1307.0832; Cavallari et al., Frontiers in Oncology 11, 617307 (2021), doi:10.3389/fonc.2021.617307
-- **Reproduce:** [`tests/test_hyperpolarization_workflows.py`](../tests/test_hyperpolarization_workflows.py); [`examples/plot_lls_phip_workflows.py`](../examples/plot_lls_phip_workflows.py)
+- **Reproduce:** [`tests/test_hyperpolarization_workflows.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_hyperpolarization_workflows.py); [`examples/plot_lls_phip_workflows.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/examples/plot_lls_phip_workflows.py)
 - **Limitations:** T_S is a measured phenomenological input rather than a microscopic correlated-relaxation prediction. Pairwise hydrogenation yield, catalyst chemistry, reaction-time distributions, and scrambling are external inputs or not yet modeled. PASADENA and ALTADENA currently have algebraic and regression validation only; published spectral fixtures and PH-INEPT transfer remain to be added.
 
 ### Phenomenological and Redfield relaxation
@@ -245,7 +245,7 @@ what supports the underlying scientific or numerical claim.
 - **Metric:** Invariant diagnostics, experimental RMS rate residual, coupled/diagonal lowest-transition ratio, mean relative FVA rate-shape deviation, Arrhenius activation energy, and cross-relaxation resonance position
 - **Tolerance:** NaClO3 RMS residual <= 10 s^-1 and nonzero-field T2 within 15%; 209Bi mean relative deviation from published FVA rate shapes < 10% after one amplitude scale per sample/temperature group; RDX activation energy within 4 kJ/mol of 92 kJ/mol and resonance centers within 10 kHz.
 - **References:** Bloch exponential relaxation; BPP and Redfield limiting formulas; Chen et al., J. Magn. Reson. 311, 106660 (2020), doi:10.1016/j.jmr.2019.106660; Goesweiner et al., Molecular Physics 118, e1743888 (2020), doi:10.1080/00268976.2020.1743888; Smith et al., J. Magn. Reson. 213, 98-106 (2011), doi:10.1016/j.jmr.2011.09.011
-- **Reproduce:** [`tests/test_relaxation.py`](../tests/test_relaxation.py); [`tests/test_relaxation_workflows.py`](../tests/test_relaxation_workflows.py); [`tests/test_nqr_redfield_relaxation.py`](../tests/test_nqr_redfield_relaxation.py); [`tests/test_relaxation_validation.py`](../tests/test_relaxation_validation.py); [`tests/test_nqr_database_relaxation_audit.py`](../tests/test_nqr_database_relaxation_audit.py); [`validation/audit_nqr_relaxation.py`](../validation/audit_nqr_relaxation.py); [`examples/plot_chen2020_slse_relaxation.py`](../examples/plot_chen2020_slse_relaxation.py); [`examples/plot_quadrupolar_relaxation_workflow.py`](../examples/plot_quadrupolar_relaxation_workflow.py); [`examples/plot_field_cycling_nmrd.py`](../examples/plot_field_cycling_nmrd.py)
+- **Reproduce:** [`tests/test_relaxation.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_relaxation.py); [`tests/test_relaxation_workflows.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_relaxation_workflows.py); [`tests/test_nqr_redfield_relaxation.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_nqr_redfield_relaxation.py); [`tests/test_relaxation_validation.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_relaxation_validation.py); [`tests/test_nqr_database_relaxation_audit.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_nqr_database_relaxation_audit.py); [`validation/audit_nqr_relaxation.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/validation/audit_nqr_relaxation.py); [`examples/plot_chen2020_slse_relaxation.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/examples/plot_chen2020_slse_relaxation.py); [`examples/plot_quadrupolar_relaxation_workflow.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/examples/plot_quadrupolar_relaxation_workflow.py); [`examples/plot_field_cycling_nmrd.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/examples/plot_field_cycling_nmrd.py)
 - **Limitations:** The NaClO3 field-independent floor and absolute cross-relaxation strength are fitted nuisance parameters. The 209Bi validation fits one amplitude normalization per material/temperature group and is uneven for tris(4-fluorophenyl)bismuth at 77 K, where the published single-mode FVA model is also inaccurate. RDX values are figure-digitized; differing sample preparations preclude a joint absolute-amplitude fit, and the full heteronuclear dispersion model is not yet implemented. NQRDatabase has no immediately fit-eligible microscopic relaxation series and contains a factor-1000 sodium-nitrite source conflict.
 
 ### Inverse-Laplace analysis
@@ -257,7 +257,7 @@ what supports the underlying scientific or numerical claim.
 - **Metric:** Recovered peak location, residual, and non-negativity
 - **Tolerance:** Grid-resolution and SNR-dependent bounds declared in tests.
 - **References:** Synthetic forward models generated by the package
-- **Reproduce:** [`tests/test_analysis_ilt.py`](../tests/test_analysis_ilt.py); [`examples/plot_inverse_laplace.py`](../examples/plot_inverse_laplace.py)
+- **Reproduce:** [`tests/test_analysis_ilt.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_analysis_ilt.py); [`examples/plot_inverse_laplace.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/examples/plot_inverse_laplace.py)
 - **Limitations:** Ill-conditioned experimental inversions need independent datasets and uncertainty studies.
 
 ### Spin noise and radiation damping
@@ -269,7 +269,7 @@ what supports the underlying scientific or numerical claim.
 - **Metric:** Variance, autocorrelation, spectrum, line position, and deterministic limit
 - **Tolerance:** Analytical numerical or seeded sampling tolerances declared per test.
 - **References:** Ornstein-Uhlenbeck process; Radiation-damping circuit identity
-- **Reproduce:** [`tests/test_spin_noise.py::test_stationary_variance_matches_two_bath_balance`](../tests/test_spin_noise.py#L344); [`tests/test_spin_noise.py::test_autocorrelation_decays_at_total_rate`](../tests/test_spin_noise.py#L361); [`tests/test_spin_noise.py::test_zero_noise_recovers_deterministic_damping`](../tests/test_spin_noise.py#L466)
+- **Reproduce:** [`tests/test_spin_noise.py::test_stationary_variance_matches_two_bath_balance`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_spin_noise.py#L344); [`tests/test_spin_noise.py::test_autocorrelation_decays_at_total_rate`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_spin_noise.py#L361); [`tests/test_spin_noise.py::test_zero_noise_recovers_deterministic_damping`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_spin_noise.py#L466)
 - **Limitations:** The model is semiclassical and does not validate quantum measurement back-action.
 
 ### Optimal-control propagation and gradients
@@ -281,7 +281,7 @@ what supports the underlying scientific or numerical claim.
 - **Metric:** Propagator norm, objective value, gradient error, and fixture score
 - **Tolerance:** Backend- and differentiation-specific tolerances declared in tests.
 - **References:** Finite-difference gradient checks; MATLAB optimization result fixtures
-- **Reproduce:** [`tests/test_optimal_control_propagation.py::test_state_propagation_matches`](../tests/test_optimal_control_propagation.py#L128); [`tests/test_grape_solver.py`](../tests/test_grape_solver.py); [`tests/octave_fixtures/optimization.py`](../tests/octave_fixtures/optimization.py)
+- **Reproduce:** [`tests/test_optimal_control_propagation.py::test_state_propagation_matches`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_optimal_control_propagation.py#L128); [`tests/test_grape_solver.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_grape_solver.py); [`tests/octave_fixtures/optimization.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/octave_fixtures/optimization.py)
 - **Limitations:** Optimizer convergence is problem-dependent; a passing gradient check does not establish a global optimum.
 
 ### Unified experiment facade
@@ -293,7 +293,7 @@ what supports the underlying scientific or numerical claim.
 - **Metric:** Native-result equality and serialization invariants
 - **Tolerance:** Exact for serialized metadata; workflow-specific numerical parity for arrays.
 - **References:** Direct public workflow implementations
-- **Reproduce:** [`tests/test_experiment.py::test_pgse_moment_parity_and_plan`](../tests/test_experiment.py#L777); [`tests/test_experiment.py::test_pgse_walkers_with_flow_matches_direct_workflow`](../tests/test_experiment.py#L846); [`tests/test_experiment.py::test_nqr_slse_reduced_parity`](../tests/test_experiment.py#L1008); [`tests/test_experiment.py::test_nqr_fid_parity`](../tests/test_experiment.py#L1085); [`tests/test_experiment.py::test_nqr_population_transfer_parity_and_spin_guard`](../tests/test_experiment.py#L1103); [`tests/test_experiment.py::test_esr_fid_parity`](../tests/test_experiment.py#L1227); [`tests/test_experiment.py::test_esr_cw_sweep_parity_without_fixed_b0`](../tests/test_experiment.py#L1272); [`tests/test_experiment.py::test_esr_deer_parity_and_round_trip`](../tests/test_experiment.py#L1286); [`tests/test_experiment.py::test_esr_two_and_three_pulse_eseem_parity`](../tests/test_experiment.py#L1314); [`tests/test_experiment.py::test_esr_hyscore_parity_and_round_trip`](../tests/test_experiment.py#L1340); [`tests/test_experiment.py::test_esr_endor_parity_and_hyperfine_input_guard`](../tests/test_experiment.py#L1368); [`tests/test_experiment.py::test_sequence_ir_facade_matches_direct_motion_backend`](../tests/test_experiment.py#L1473); [`tests/test_experiment.py::test_sequence_ir_facade_round_trip_noise_and_reproduction`](../tests/test_experiment.py#L1537)
+- **Reproduce:** [`tests/test_experiment.py::test_pgse_moment_parity_and_plan`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_experiment.py#L777); [`tests/test_experiment.py::test_pgse_walkers_with_flow_matches_direct_workflow`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_experiment.py#L846); [`tests/test_experiment.py::test_nqr_slse_reduced_parity`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_experiment.py#L1008); [`tests/test_experiment.py::test_nqr_fid_parity`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_experiment.py#L1085); [`tests/test_experiment.py::test_nqr_population_transfer_parity_and_spin_guard`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_experiment.py#L1103); [`tests/test_experiment.py::test_esr_fid_parity`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_experiment.py#L1227); [`tests/test_experiment.py::test_esr_cw_sweep_parity_without_fixed_b0`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_experiment.py#L1272); [`tests/test_experiment.py::test_esr_deer_parity_and_round_trip`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_experiment.py#L1286); [`tests/test_experiment.py::test_esr_two_and_three_pulse_eseem_parity`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_experiment.py#L1314); [`tests/test_experiment.py::test_esr_hyscore_parity_and_round_trip`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_experiment.py#L1340); [`tests/test_experiment.py::test_esr_endor_parity_and_hyperfine_input_guard`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_experiment.py#L1368); [`tests/test_experiment.py::test_sequence_ir_facade_matches_direct_motion_backend`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_experiment.py#L1473); [`tests/test_experiment.py::test_sequence_ir_facade_round_trip_noise_and_reproduction`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_experiment.py#L1537)
 - **Limitations:** Facade parity validates delegation, not the physical model underneath each route.
 
 ### Reproducible results and provenance
@@ -305,7 +305,7 @@ what supports the underlying scientific or numerical claim.
 - **Metric:** SHA-256 identity equality and structured reproduction verdict
 - **Tolerance:** Exact canonical metadata and result bytes.
 - **References:** FAIR Guiding Principles for scientific data management
-- **Reproduce:** [`tests/test_experiment.py::test_provenance_fingerprints_are_stable_and_specific`](../tests/test_experiment.py#L151); [`tests/test_experiment.py::test_provenance_classifies_seeded_and_unseeded_randomness`](../tests/test_experiment.py#L190); [`tests/test_experiment.py::test_version_one_run_archive_remains_readable`](../tests/test_experiment.py#L207); [`tests/test_experiment.py::test_archive_fingerprints_detect_spec_and_result_tampering`](../tests/test_experiment.py#L241); [`tests/test_experiment_cli.py::test_cli_run_and_show`](../tests/test_experiment_cli.py#L212)
+- **Reproduce:** [`tests/test_experiment.py::test_provenance_fingerprints_are_stable_and_specific`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_experiment.py#L151); [`tests/test_experiment.py::test_provenance_classifies_seeded_and_unseeded_randomness`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_experiment.py#L190); [`tests/test_experiment.py::test_version_one_run_archive_remains_readable`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_experiment.py#L207); [`tests/test_experiment.py::test_archive_fingerprints_detect_spec_and_result_tampering`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_experiment.py#L241); [`tests/test_experiment_cli.py::test_cli_run_and_show`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_experiment_cli.py#L212)
 - **Limitations:** Exact computational reproduction does not validate the physical model; unseeded legacy runs cannot be made reproducible after the fact.
 
 ### Multi-frequency Bloch-Siegert phase and low-frequency RWA limits
@@ -317,7 +317,7 @@ what supports the underlying scientific or numerical claim.
 - **Metric:** Paired phase endpoint, inferred T90, RWA slope agreement, and B0 inversion error
 - **Tolerance:** Published endpoint within 1 degree, inferred T90 within 2 us, exact/RWA phase within 2.5%, and analytical B0 inversion at floating-point precision.
 - **References:** S. Mandal et al., Journal of Magnetic Resonance 242 (2014) 113-125, doi:10.1016/j.jmr.2014.02.019
-- **Reproduce:** [`tests/test_bloch_siegert.py::test_mandal_2014_phase_slope_and_t90_are_reproduced`](../tests/test_bloch_siegert.py#L17); [`tests/test_bloch_siegert.py::test_common_phase_is_counter_rotating_and_inverts_larmor`](../tests/test_bloch_siegert.py#L46); [`examples/plot_bloch_siegert_multifrequency.py`](../examples/plot_bloch_siegert_multifrequency.py)
+- **Reproduce:** [`tests/test_bloch_siegert.py::test_mandal_2014_phase_slope_and_t90_are_reproduced`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_bloch_siegert.py#L17); [`tests/test_bloch_siegert.py::test_common_phase_is_counter_rotating_and_inverts_larmor`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_bloch_siegert.py#L46); [`examples/plot_bloch_siegert_multifrequency.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/examples/plot_bloch_siegert_multifrequency.py)
 - **Limitations:** The published comparison uses the reported equation, fit, and plotted endpoint rather than digitized raw experimental points; second-order B0 inversion requires weak drive, paired offsets away from poles, and common phase above the noise floor.
 
 ### Arbitrary SequenceIR phase cycling
@@ -329,7 +329,7 @@ what supports the underlying scientific or numerical claim.
 - **Metric:** Compiled RF phase and receiver-combined pathway amplitude
 - **Tolerance:** 1e-13 or tighter for analytical pathway identities and compiled complex samples.
 - **References:** Standard coherence-pathway phase cycling and discrete Fourier selection
-- **Reproduce:** [`tests/test_phase_cycling.py::test_arbitrary_sequence_ir_cycle_programs_named_pulses`](../tests/test_phase_cycling.py#L22); [`tests/test_phase_cycling.py::test_four_step_cyclops_cycle_rejects_mirror_coherence_artifact`](../tests/test_phase_cycling.py#L127)
+- **Reproduce:** [`tests/test_phase_cycling.py::test_arbitrary_sequence_ir_cycle_programs_named_pulses`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_phase_cycling.py#L22); [`tests/test_phase_cycling.py::test_four_step_cyclops_cycle_rejects_mirror_coherence_artifact`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_phase_cycling.py#L127)
 - **Limitations:** Specialized direct workflows do not all expose phase-cycle arguments; this claim covers general SequenceIR branch construction and generic signal combination.
 
 ### Inverse-excitation cancellation diagnostics
@@ -341,7 +341,7 @@ what supports the underlying scientific or numerical claim.
 - **Metric:** Integrated residual ratio, peak residual ratio, normalized inverse coherence, and relative SNR error
 - **Tolerance:** Floating-point precision for exact cancellation; analytical equality for controlled perturbations.
 - **References:** Triangle residual of target plus inverse complex spectra
-- **Reproduce:** [`tests/test_workflow_validation.py`](../tests/test_workflow_validation.py)
+- **Reproduce:** [`tests/test_workflow_validation.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_workflow_validation.py)
 - **Limitations:** These diagnostics validate calculation and limiting behavior, not strong cancellation against a broad historical MATLAB or measured dataset.
 
 ### Numba and JAX acceleration
@@ -353,7 +353,7 @@ what supports the underlying scientific or numerical claim.
 - **Metric:** Array and objective agreement
 - **Tolerance:** Backend/precision-specific numpy.testing tolerances.
 - **References:** NumPy reference backend
-- **Reproduce:** [`tests/test_numba_backend.py`](../tests/test_numba_backend.py); [`tests/test_jax_backend.py`](../tests/test_jax_backend.py); [`tests/test_jax_optimizer.py`](../tests/test_jax_optimizer.py)
+- **Reproduce:** [`tests/test_numba_backend.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_numba_backend.py); [`tests/test_jax_backend.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_jax_backend.py); [`tests/test_jax_optimizer.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_jax_optimizer.py)
 - **Limitations:** Backend parity does not independently validate physics and does not cover every package workflow. CI exercises CPU backends; GPU-specific execution still requires external runners.
 
 ### RFI synthesis and rejection
@@ -365,5 +365,5 @@ what supports the underlying scientific or numerical claim.
 - **Metric:** Suppression, signal leakage, mask consistency, and reconstruction residual
 - **Tolerance:** Scenario-specific deterministic or seeded bounds declared in tests.
 - **References:** Synthetic clean/reference-channel mixtures
-- **Reproduce:** [`tests/test_interference.py::test_sparse_canceller_removes_coherent_rfi_and_impulses`](../tests/test_interference.py#L555); [`tests/test_interference.py::test_nqr_mask_accepts_absolute_baseline_windows`](../tests/test_interference.py#L1128)
+- **Reproduce:** [`tests/test_interference.py::test_sparse_canceller_removes_coherent_rfi_and_impulses`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_interference.py#L555); [`tests/test_interference.py::test_nqr_mask_accepts_absolute_baseline_windows`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_interference.py#L1128)
 - **Limitations:** Field recordings and hardware-loop comparisons are not yet a routine validation dataset.

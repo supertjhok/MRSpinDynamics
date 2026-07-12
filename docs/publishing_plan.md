@@ -2,8 +2,8 @@
 
 _Last updated: 2026-07-11_
 
-> **Status: artifact readiness is complete; public index publication remains
-> deferred.** MRSpinDynamics is released as a
+> **Status: artifact readiness and hosted documentation are complete; public
+> index publication remains deferred.** MRSpinDynamics is released as a
 > single citable workspace unit (one repo version, one GitHub Release, one Zenodo
 > DOI) — see [`release_process.md`](release_process.md). This document describes a
 > **possible future** direction: publishing `PythonSpinDynamics` as an
@@ -85,6 +85,13 @@ Update ignore rules:
 - Do not track generated packaging metadata.
 
 ## Documentation Site
+
+Implemented independently of public package-index publication. The searchable
+site is configured by `PythonSpinDynamics/mkdocs.yml`, built strictly in CI, and
+deployed from clean `main` commits to
+<https://supertjhok.github.io/MRSpinDynamics/>. Existing Markdown is the web
+manual, the generated API and validation matrix are checked before deployment,
+and `docs/user_manual.pdf` remains the downloadable print edition.
 
 Add `PythonSpinDynamics/mkdocs.yml` and use the existing Markdown docs as the
 first public site:

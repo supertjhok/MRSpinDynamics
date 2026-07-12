@@ -361,6 +361,10 @@ The full example catalog is documented in `docs/python_api/examples.md`.
 
 ## Documentation
 
+- The searchable documentation site is published at
+  <https://supertjhok.github.io/MRSpinDynamics/>. It includes the web manual,
+  generated API reference, examples guide, validation evidence, and a
+  downloadable PDF print edition.
 - `docs/user_manual.tex` is the LaTeX user manual with model equations,
   examples, validation notes, and an API reference.
 - `docs/python_api/index.md` is the Markdown documentation index.

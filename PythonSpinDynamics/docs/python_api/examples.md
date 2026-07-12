@@ -4,6 +4,8 @@ Examples live in `examples/`. They can be run from `PythonSpinDynamics` or from
 inside `PythonSpinDynamics/examples`; each script adds the local `src` directory
 to `sys.path` when the package has not been installed yet.
 
+[Browse all example source files on GitHub](https://github.com/supertjhok/MRSpinDynamics/tree/main/PythonSpinDynamics/examples){ .md-button }
+
 The rest of this page is a runnable index grouped loosely by the workflow stage
 it exercises — from the recommended facade on-ramp, through the individual
 building blocks (CPMG, FID, probes), to specialized field, motion, imaging,

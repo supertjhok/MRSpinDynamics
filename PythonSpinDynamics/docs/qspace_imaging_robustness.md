@@ -9,7 +9,7 @@ common acquisition limitations:
 - randomly missing samples inside that window.
 
 The reproducible driver is
-[`examples/plot_pgse_qspace_robustness.py`](../examples/plot_pgse_qspace_robustness.py).
+[`examples/plot_pgse_qspace_robustness.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/examples/plot_pgse_qspace_robustness.py).
 It evaluates an ellipse, a narrow slit, and a connected dumbbell domain over
 five independent phase-retrieval seeds. Quality is measured after optimizing
 over the unavoidable translation and reflection ambiguities. A trial is counted
