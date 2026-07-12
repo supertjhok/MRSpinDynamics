@@ -2243,6 +2243,96 @@ orientation of \(B_0\) in the EFG frame and the rotation angle of \(B_1\)
 around \(B_0\), preserving a chosen lab-frame angle between the two fields.
 For a conventional transverse coil one uses \(B_1\perp B_0\).
 
+\subsection{Realistic Relaxation in Crossover Powder Echo Trains}
+
+A realistic powder relaxation curve is a receiver calculation, not an average
+of local decay envelopes. For crystallite \(k\), let \(\rho_k(t)\) be the state,
+\(M_k\) the complex receive operator, and \(w_k\) its quadrature weight. The
+ideal coil voltage is
+\[
+  s(t)=\sum_k w_k\,\operatorname{Tr}\!\left[M_k\rho_k(t)\right].
+\]
+The complex sum must be formed before taking a magnitude. Averaging
+\(\lvert s_k\rvert\) or \(\lvert s_k\rvert^2\) removes physical phase
+cancellation and is not the voltage induced in one coil.
+
+At zero field only the RF direction relative to the EFG tensor is physical, so
+the spherical \code{powder\_average\_grid} is sufficient. At nonzero field the
+fixed laboratory relationship between \(B_0\) and \(B_1\) requires a full
+SO(3) average, including rotation of \(B_1\) about \(B_0\). The prefix-nested
+\code{b0\_b1\_powder\_average\_halton} sequence is preferred for expensive
+convergence studies.
+
+Each crystallite must use its own complete \(H_Q+H_Z\), Gibbs state, and
+field-dependent relaxation generator. A single experimental carrier is then
+held fixed across the ensemble. In a broad nonzero-field powder,
+\code{select\_powder\_frequency\_slice} can restrict propagation to
+RF-active crystallites near that carrier. It also returns the fraction of the
+full powder retained; multiply by this factor when an absolute full-powder
+amplitude is required.
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.nqr import (
+    FieldDependentNonsecularRelaxationModel,
+    b0_b1_powder_average_halton, powder_carrier_frequency_hz,
+    select_powder_frequency_slice, simulate_crossover_slse_powder,
+)
+
+candidates = b0_b1_powder_average_halton(8192)
+carrier = powder_carrier_frequency_hz(
+    site, b0_tesla, candidates, nutation_hz=100e3,
+)
+active, retained_weight = select_powder_frequency_slice(
+    site, b0_tesla, candidates,
+    carrier_frequency_hz=carrier,
+    half_width_hz=300e3,
+)
+relaxation = FieldDependentNonsecularRelaxationModel(
+    spin=site.spin, temperature_kelvin=300.0,
+    magnetic_rate_per_second=3.48,
+    efg_rate_per_second=0.87,
+    correlation_time_seconds=0.2e-6,
+    frequency_cluster_width_hz=20e3,
+)
+result = simulate_crossover_slse_powder(
+    site, b0_tesla,
+    nutation_hz=100e3,
+    excitation_duration_seconds=1.77e-6,
+    refocus_duration_seconds=3.54e-6,
+    echo_spacing_seconds=2e-3,
+    num_echoes=30,
+    relaxation=relaxation,
+    rf_frequency_hz=carrier,
+    orientations=active,
+    pulse_model="rwa",
+    acquisition_duration_seconds=100e-6,
+    acquisition_points=129,
+    receiver_bandwidth_hz=200e3,
+    num_workers=4,
+    parallel_backend="process",
+    retain_local_results=False,
+)
+measured_train = result.matched_echo_amplitudes
+absolute_scale = retained_weight
+\end{lstlisting}
+
+The simulator samples the complete complex waveform around every echo,
+coherently averages crystallites, applies the finite-bandwidth receiver, and
+projects the filtered echoes onto the first-echo template. Echo-center values
+alone are acceptable only after demonstrating that they reproduce this
+waveform-derived observable; they generally fail once \(B_0\) broadens the
+powder spectrum.
+
+Convergence must be demonstrated independently against nested orientation
+prefixes, acquisition point count and window, receiver bandwidth, spectral
+slice width, RF propagation model, and nonsecular frequency-cluster width.
+Check trace, Hermiticity, positivity, and Gibbs stationarity as well. The
+process backend parallelizes independent crystallites; setting
+\code{retain\_local\_results=False} avoids returning their complete density
+histories. The detailed rationale, failure modes, validation thresholds, and
+recommended build sequence are preserved in
+\code{docs/nqr\_powder\_relaxation\_methods.md}.
+
 \section{Weak Static B0 Spectra}
 
 Weak static magnetic fields are modeled by exact diagonalization of

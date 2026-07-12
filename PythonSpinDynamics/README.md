@@ -371,6 +371,9 @@ The full example catalog is documented in `docs/python_api/examples.md`.
 - `docs/validation_matrix.md` is generated from
   `validation/evidence.json` and records claim-level evidence, ranges,
   tolerances, reproducers, and limitations.
+- `docs/nqr_powder_relaxation_methods.md` records the averaging order, receiver
+  model, convergence checks, and parallel workflow required for realistic
+  NQR--NMR powder relaxation calculations.
 - `docs/python_api/concepts.md` describes units and conventions.
 - `docs/python_api/workflows.md`, `nqr.md`, `esr.md`, `j_coupling.md`,
   `exchange.md`, and `internal_gradients.md` describe major feature areas.
@@ -378,10 +381,12 @@ The full example catalog is documented in `docs/python_api/examples.md`.
   `docs/validation_results.md` document the MATLAB-to-Python port, fixture
   parity checks, and historical run log.
 
-Build the manual from this directory with:
+Build the manual from its documentation directory so relative asset paths
+resolve correctly:
 
 ```powershell
-pdflatex -interaction=nonstopmode -halt-on-error -output-directory docs docs\user_manual.tex
+cd docs
+pdflatex -interaction=nonstopmode -halt-on-error user_manual.tex
 ```
 
 Refresh the generated Markdown API inventory after changing public functions,

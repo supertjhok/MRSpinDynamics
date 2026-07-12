@@ -49,8 +49,9 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--points-per-leg", type=int, default=101)
     parser.add_argument("--minimum-ratio", type=float, default=0.02)
     parser.add_argument("--maximum-ratio", type=float, default=3.0)
-    parser.add_argument("--fast-duration-ms", type=float, default=0.2)
-    parser.add_argument("--slow-duration-ms", type=float, default=100.0)
+    parser.add_argument("--nonadiabatic-duration-us", type=float, default=0.2)
+    parser.add_argument("--adiabatic-duration-ms", type=float, default=0.2)
+    parser.add_argument("--relaxing-duration-ms", type=float, default=100.0)
     parser.add_argument("--thermalization-ms", type=float, default=20.0)
     parser.add_argument("--dephasing-ms", type=float, default=2.0)
     parser.add_argument("--substeps", type=int, default=16)
@@ -71,8 +72,9 @@ def main() -> None:
     if not 0.0 < args.minimum_ratio < args.maximum_ratio:
         raise ValueError("ratios must satisfy 0 < minimum < maximum")
     if min(
-        args.fast_duration_ms,
-        args.slow_duration_ms,
+        args.nonadiabatic_duration_us,
+        args.adiabatic_duration_ms,
+        args.relaxing_duration_ms,
         args.thermalization_ms,
         args.dephasing_ms,
     ) <= 0.0:
@@ -91,18 +93,20 @@ def main() -> None:
         dephasing_time_seconds=args.dephasing_ms * 1.0e-3,
     )
 
-    def run(duration_ms: float):
+    def run(duration_seconds: float, relaxation_model=None):
         return simulate_field_sweep_history(
             site,
-            np.linspace(0.0, duration_ms * 1.0e-3, ratios.size),
+            np.linspace(0.0, duration_seconds, ratios.size),
             fields,
-            relaxation=relaxation,
+            relaxation=relaxation_model,
+            temperature_kelvin=relaxation.temperature_kelvin,
             initial_density=initial,
             substeps_per_interval=args.substeps,
         )
 
-    fast = run(args.fast_duration_ms)
-    slow = run(args.slow_duration_ms)
+    nonadiabatic = run(args.nonadiabatic_duration_us * 1.0e-6)
+    adiabatic = run(args.adiabatic_duration_ms * 1.0e-3)
+    relaxing = run(args.relaxing_duration_ms * 1.0e-3, relaxation)
     turn = args.points_per_leg - 1
 
     plt = load_matplotlib(headless=args.output is not None)
@@ -115,21 +119,27 @@ def main() -> None:
     axes[0, 0].set_title("Applied triangular field history")
 
     for result, label, color in (
-        (fast, f"fast ({args.fast_duration_ms:g} ms)", "tab:blue"),
-        (slow, f"slow ({args.slow_duration_ms:g} ms)", "tab:orange"),
+        (
+            nonadiabatic,
+            f"nonadiabatic coherent ({args.nonadiabatic_duration_us:g} us)",
+            "tab:purple",
+        ),
+        (
+            adiabatic,
+            f"adiabatic coherent ({args.adiabatic_duration_ms:g} ms)",
+            "tab:blue",
+        ),
+        (
+            relaxing,
+            f"adiabatic + relaxation ({args.relaxing_duration_ms:g} ms)",
+            "tab:orange",
+        ),
     ):
         axes[0, 1].plot(
-            ratios[: turn + 1],
-            result.equilibrium_deviation_norm[: turn + 1],
+            normalized_time,
+            result.equilibrium_deviation_norm,
             color=color,
-            label=f"{label}, up",
-        )
-        axes[0, 1].plot(
-            ratios[turn:],
-            result.equilibrium_deviation_norm[turn:],
-            color=color,
-            linestyle="--",
-            label=f"{label}, down",
+            label=label,
         )
         axes[1, 0].plot(
             ratios,
@@ -140,9 +150,9 @@ def main() -> None:
         spin_along_field = result.spin_expectation_pas @ direction
         axes[1, 1].plot(normalized_time, spin_along_field, color=color, label=label)
 
-    axes[0, 1].set_xlabel(r"$\nu_L/\nu_Q$")
+    axes[0, 1].set_xlabel("Normalized sweep time")
     axes[0, 1].set_ylabel(r"$\|\rho-\rho_{eq}\|_F$")
-    axes[0, 1].set_title("History-dependent lag and hysteresis")
+    axes[0, 1].set_title("Relaxation toward the room-temperature Gibbs state")
     axes[0, 1].legend(fontsize=8)
     axes[1, 0].set_xlabel(r"$\nu_L/\nu_Q$")
     axes[1, 0].set_ylabel("Instantaneous ground-state population")
@@ -150,7 +160,7 @@ def main() -> None:
     axes[1, 0].legend(fontsize=8)
     axes[1, 1].set_xlabel("Normalized sweep time")
     axes[1, 1].set_ylabel(r"$\langle I_{B_0}\rangle$")
-    axes[1, 1].set_title("Spin polarization retains sweep history")
+    axes[1, 1].set_title("Hamiltonian-adiabatic passage drags the prepared state")
     axes[1, 1].legend(fontsize=8)
     for axis in axes.flat:
         axis.grid(alpha=0.2)
@@ -169,8 +179,9 @@ def main() -> None:
         print(f"saved {args.output}")
         print(
             "final equilibrium deviation: "
-            f"fast={fast.equilibrium_deviation_norm[-1]:.6g}, "
-            f"slow={slow.equilibrium_deviation_norm[-1]:.6g}"
+            f"nonadiabatic={nonadiabatic.equilibrium_deviation_norm[-1]:.6g}, "
+            f"adiabatic={adiabatic.equilibrium_deviation_norm[-1]:.6g}, "
+            f"relaxing={relaxing.equilibrium_deviation_norm[-1]:.6g}"
         )
 
 

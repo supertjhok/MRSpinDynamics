@@ -835,6 +835,38 @@ class FieldSweepHistoryTests(unittest.TestCase):
             atol=8.0e-4,
         )
 
+    def test_hamiltonian_adiabatic_ramp_follows_ground_state(self) -> None:
+        ratios = np.linspace(0.02, 3.0, 41)
+        fields = (
+            ratios[:, np.newaxis]
+            * self.site.quadrupole_frequency_hz
+            / abs(self.site.gamma_hz_per_t)
+            * self.direction[np.newaxis, :]
+        )
+        _, vectors = np.linalg.eigh(nqr_hamiltonian(self.site, fields[0]))
+        ground = vectors[:, 0]
+        initial = np.outer(ground, ground.conj())
+        sudden = simulate_field_sweep_history(
+            self.site,
+            np.linspace(0.0, 0.1e-6, ratios.size),
+            fields,
+            initial_density=initial,
+            substeps_per_interval=8,
+        )
+        adiabatic = simulate_field_sweep_history(
+            self.site,
+            np.linspace(0.0, 0.2e-3, ratios.size),
+            fields,
+            initial_density=initial,
+            substeps_per_interval=8,
+        )
+        self.assertGreater(adiabatic.instantaneous_populations[-1, 0], 0.995)
+        self.assertLess(sudden.instantaneous_populations[-1, 0], 0.75)
+        self.assertLess(
+            adiabatic.instantaneous_coherence_norm[-1],
+            0.1 * sudden.instantaneous_coherence_norm[-1],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

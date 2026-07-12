@@ -465,9 +465,12 @@ with the existing fixed-field propagator, a slow relaxing ramp approaches the
 instantaneous Gibbs state more closely than a fast ramp, and coherent rotating
 vector-field ramps converge as midpoint substeps are doubled. The NaNO2 example
 uses an up-and-down sweep from `nu_L/nu_Q = 0.02` to 3 at 300 K, starting from a
-prepared quadrupolar ground state, to display relaxation-dependent lag and
-hysteresis. Its default 16-substep integration was checked against 32 substeps:
-the maximum fast-trajectory density difference was 0.37%, while the slow case
+prepared quadrupolar ground state. It now separates three timescales: a 0.2 us
+coherent nonadiabatic passage, a 0.2 ms coherent Hamiltonian-adiabatic passage
+that drags the prepared polarization, and a 100 ms adiabatic passage with
+relaxation that instead follows the nearly unpolarized room-temperature Gibbs
+state. Its default 16-substep integration was checked against 32 substeps: the
+maximum 0.2 ms trajectory density difference was 0.37%, while the 100 ms case
 was 1.1% (the final slow-state difference was below 0.01%). These parameters
 describe a phenomenological demonstration, not fitted NaNO2 field-cycling
 kinetics.
