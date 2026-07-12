@@ -64,6 +64,18 @@ def test_comparison_rejects_case_set_or_invalid_timings():
         gate.compare_results({"a": 0.0}, {"a": 1.0}, gate.RegressionPolicy())
 
 
+def test_alignment_allows_new_cases_but_rejects_removed_cases():
+    baseline, candidate, added = gate.align_case_sets(
+        {"stable": 1.0},
+        {"stable": 1.1, "new": 0.2},
+    )
+    assert baseline == {"stable": 1.0}
+    assert candidate == {"stable": 1.1}
+    assert added == ("new",)
+    with pytest.raises(ValueError, match="removed benchmark"):
+        gate.align_case_sets({"removed": 1.0}, {"other": 1.0})
+
+
 def test_empty_or_zero_push_baseline_falls_back_to_parent():
     assert gate._normalize_baseline_ref("") == "HEAD^"
     assert gate._normalize_baseline_ref("000000") == "HEAD^"

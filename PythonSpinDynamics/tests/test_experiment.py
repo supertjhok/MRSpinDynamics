@@ -161,6 +161,10 @@ def test_provenance_fingerprints_are_stable_and_specific(tmp_path) -> None:
     assert first.provenance["randomness"]["status"] == "deterministic"
     assert first.provenance["implementation"]["module_sha256"]
     assert first.provenance["environment"]["sha256"]
+    assert (
+        first.provenance["environment"]["packages"]["python-spin-dynamics"]
+        == first.provenance["package_version"]
+    )
     assert first.provenance["source"]["package_source_sha256"]
     assert experiment_fingerprint(experiment) != experiment_fingerprint(
         dataclasses.replace(

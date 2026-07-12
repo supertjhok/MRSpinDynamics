@@ -17,6 +17,7 @@ from typing import Any, Callable, Mapping
 
 import numpy as np
 
+from spin_dynamics import __version__
 from spin_dynamics.experiment.serialization import encode
 
 PROVENANCE_SCHEMA_VERSION = 2
@@ -126,7 +127,10 @@ def callable_identity(func: Callable[..., Any]) -> dict[str, Any]:
 def environment_identity() -> dict[str, Any]:
     """Return numerical-runtime versions and their canonical fingerprint."""
 
-    packages: dict[str, str] = {"numpy": np.__version__}
+    packages: dict[str, str] = {
+        "python-spin-dynamics": __version__,
+        "numpy": np.__version__,
+    }
     try:
         import scipy
 

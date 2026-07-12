@@ -14,6 +14,7 @@ from run_impacted_tests import (  # noqa: E402
     changed_examples,
     select_groups,
     select_test_modules,
+    module_paths,
 )
 
 
@@ -53,6 +54,12 @@ class TestSelectorTests(unittest.TestCase):
         self.assertEqual(
             [item.name for item in examples],
             ["plot_nqr_nmr_crossover.py", "plot_cpmg.py"],
+        )
+
+    def test_module_names_are_converted_to_pytest_paths(self) -> None:
+        self.assertEqual(
+            module_paths(("tests.smoke_tests", "tests.test_experiment")),
+            ("tests/smoke_tests.py", "tests/test_experiment.py"),
         )
 
 

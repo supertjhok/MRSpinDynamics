@@ -9,6 +9,7 @@ description = "Ab initio EFG and quadrupolar-coupling workflow helpers."
 readme = "README.md"
 requires-python = ">=3.10"
 license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
 authors = [
   { name = "Soumyajit Mandal" }
 ]
@@ -36,6 +37,13 @@ classifiers = [
 dev = [
   "ruff>=0.4"
 ]
+
+[project.urls]
+Homepage = "https://github.com/supertjhok/MRSpinDynamics"
+Documentation = "https://github.com/supertjhok/MRSpinDynamics/tree/main/QuadrupolarDFT/docs"
+Source = "https://github.com/supertjhok/MRSpinDynamics"
+Issues = "https://github.com/supertjhok/MRSpinDynamics/issues"
+Changelog = "https://github.com/supertjhok/MRSpinDynamics/blob/main/CHANGELOG.md"
 
 [tool.setuptools.packages.find]
 where = ["src"]

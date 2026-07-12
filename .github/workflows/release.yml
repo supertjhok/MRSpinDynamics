@@ -40,6 +40,40 @@ jobs:
             echo "Tag/input ${{ steps.version.outputs.value }} != declared $declared" >&2
             exit 1
           fi
+          python scripts/release_preflight.py \
+            --expected-version "${{ steps.version.outputs.value }}" \
+            --require-clean
+      - name: Build workspace distributions
+        run: |
+          python -m pip install build twine
+          mkdir release-artifacts
+          python -m build --outdir release-artifacts PythonSpinDynamics
+          python -m build --outdir release-artifacts QuadrupolarDFT
+          python -m build --outdir release-artifacts integration
+          python -m twine check release-artifacts/*
+      - name: Test workspace artifact installation
+        run: |
+          python -m venv .release-test
+          .release-test/bin/python -m pip install \
+            --find-links release-artifacts \
+            "mr-integration==${{ steps.version.outputs.value }}"
+          .release-test/bin/spin-dynamics --version
+          .release-test/bin/spin-dynamics --help
+          .release-test/bin/python PythonSpinDynamics/scripts/verify_installed_distribution.py
+          .release-test/bin/python -c "import quadrupolar_dft, mr_integration"
+      - name: Add manuals and verify release contents
+        run: |
+          cp PythonSpinDynamics/docs/user_manual.pdf \
+            release-artifacts/python_spin_dynamics_user_manual.pdf
+          cp QuadrupolarDFT/docs/user_manual.pdf \
+            release-artifacts/quadrupolar_dft_user_manual.pdf
+          cp MATLABSpinDynamics/docs/user_manual.pdf \
+            release-artifacts/matlab_spin_dynamics_user_manual.pdf
+          python scripts/release_preflight.py \
+            --expected-version "${{ steps.version.outputs.value }}" \
+            --artifacts-dir release-artifacts \
+            --check-generated
+          python scripts/write_sha256s.py release-artifacts
       - name: Build release notes from CHANGELOG
         run: python scripts/extract_changelog.py "${{ steps.version.outputs.value }}" > release_notes.md
       - name: Create GitHub Release
@@ -48,3 +82,4 @@ jobs:
           tag_name: v${{ steps.version.outputs.value }}
           name: v${{ steps.version.outputs.value }}
           body_path: release_notes.md
+          files: release-artifacts/*

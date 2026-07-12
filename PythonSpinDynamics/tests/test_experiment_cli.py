@@ -30,6 +30,7 @@ from spin_dynamics.experiment import (
     load_config,
     save_config,
 )
+from spin_dynamics import __version__
 from spin_dynamics.experiment import cli
 from spin_dynamics.experiment.config import ConfigError, dumps_toml
 from spin_dynamics.esr import ESRSpinSystem
@@ -184,6 +185,14 @@ def test_cli_plan_ok(tmp_path, capsys) -> None:
     code = cli.main(["plan", _write(tmp_path, "cpmg_train")])
     assert code == 0
     assert "workflow: run_tuned_cpmg_train" in capsys.readouterr().out
+
+
+@pytest.mark.smoke
+def test_cli_version(capsys) -> None:
+    with pytest.raises(SystemExit) as exc_info:
+        cli.main(["--version"])
+    assert exc_info.value.code == 0
+    assert capsys.readouterr().out.strip() == f"spin-dynamics {__version__}"
 
 
 @pytest.mark.smoke

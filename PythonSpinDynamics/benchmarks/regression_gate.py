@@ -88,6 +88,31 @@ def compare_results(
     return tuple(comparisons), geomean, failed
 
 
+def align_case_sets(
+    baseline: dict[str, float],
+    candidate: dict[str, float],
+) -> tuple[dict[str, float], dict[str, float], tuple[str, ...]]:
+    """Align evolving benchmark schemas without hiding removed coverage.
+
+    Candidate-only cases are new coverage and cannot yet have a ratio. A case
+    present in the baseline but absent from the candidate is an error because
+    silently removing a benchmark would weaken the gate.
+    """
+
+    removed = sorted(set(baseline) - set(candidate))
+    if removed:
+        raise ValueError(f"candidate removed benchmark cases: {removed}")
+    added = tuple(sorted(set(candidate) - set(baseline)))
+    common = tuple(sorted(set(baseline) & set(candidate)))
+    if not common:
+        raise ValueError("baseline and candidate have no common benchmark cases")
+    return (
+        {name: baseline[name] for name in common},
+        {name: candidate[name] for name in common},
+        added,
+    )
+
+
 def _median_seconds(
     operation: Callable[[], Any], *, iterations: int, repeats: int, warmups: int
 ) -> float:
@@ -224,6 +249,60 @@ def _spatial_sampling_case() -> Callable[[], Any]:
     return run
 
 
+def _powder_waveform_case() -> Callable[[], Any]:
+    from spin_dynamics.nqr import (
+        FieldDependentRelaxationModel,
+        QuadrupolarSite,
+        b0_b1_powder_average_halton,
+        powder_carrier_frequency_hz,
+        simulate_crossover_slse_powder,
+    )
+
+    site = QuadrupolarSite(
+        spin=1.0,
+        isotope="14N",
+        quadrupole_frequency_hz=1.0e6,
+        eta=0.2,
+        gamma_hz_per_t=3.0766e6,
+    )
+    field = site.quadrupole_frequency_hz / abs(site.gamma_hz_per_t)
+    orientations = b0_b1_powder_average_halton(12)
+    nutation_hz = 25.0e3
+    carrier = powder_carrier_frequency_hz(
+        site,
+        field,
+        orientations,
+        nutation_hz=nutation_hz,
+    )
+    relaxation = FieldDependentRelaxationModel(
+        temperature_kelvin=300.0,
+        thermalization_time_seconds=0.1,
+        dephasing_time_seconds=0.02,
+    )
+
+    def run() -> Any:
+        return simulate_crossover_slse_powder(
+            site,
+            field,
+            nutation_hz=nutation_hz,
+            excitation_duration_seconds=10.0e-6,
+            refocus_duration_seconds=20.0e-6,
+            echo_spacing_seconds=200.0e-6,
+            num_echoes=2,
+            relaxation=relaxation,
+            rf_frequency_hz=carrier,
+            orientations=orientations,
+            pulse_model="rwa",
+            acquisition_duration_seconds=50.0e-6,
+            acquisition_points=17,
+            receiver_bandwidth_hz=100.0e3,
+            num_workers=1,
+            retain_local_results=False,
+        )
+
+    return run
+
+
 def run_worker(source_root: Path, *, repeats: int, warmups: int) -> dict[str, float]:
     """Run the compact gate workloads against one package source tree."""
 
@@ -232,12 +311,21 @@ def run_worker(source_root: Path, *, repeats: int, warmups: int) -> dict[str, fl
     os.environ["OMP_NUM_THREADS"] = "1"
     os.environ["OPENBLAS_NUM_THREADS"] = "1"
     os.environ["MKL_NUM_THREADS"] = "1"
-    cases = {
-        "raw_arb10": (_raw_kernel_case(), 2),
-        "ideal_cpmg_workflow": (_workflow_case(), 2),
-        "sequence_compile": (_sequence_compile_case(), 2),
-        "spatial_sampling": (_spatial_sampling_case(), 3),
+    builders = {
+        "raw_arb10": (_raw_kernel_case, 2),
+        "ideal_cpmg_workflow": (_workflow_case, 2),
+        "sequence_compile": (_sequence_compile_case, 2),
+        "spatial_sampling": (_spatial_sampling_case, 3),
+        "nqr_powder_waveform": (_powder_waveform_case, 1),
     }
+    cases: dict[str, tuple[Callable[[], Any], int]] = {}
+    for name, (builder, iterations) in builders.items():
+        try:
+            cases[name] = (builder(), iterations)
+        except (AttributeError, ImportError):
+            # A candidate may add a benchmark for an API absent in an older
+            # Git baseline. The orchestrator ratio-gates only the common set.
+            continue
     return {
         name: _median_seconds(
             operation, iterations=iterations, repeats=repeats, warmups=warmups
@@ -292,7 +380,10 @@ def _normalize_baseline_ref(value: str) -> str:
 
 
 def _report(
-    comparisons: tuple[CaseComparison, ...], geomean: float, policy: RegressionPolicy
+    comparisons: tuple[CaseComparison, ...],
+    geomean: float,
+    policy: RegressionPolicy,
+    added_cases: tuple[str, ...] = (),
 ) -> str:
     lines = [
         "Performance regression gate (candidate / Git baseline)",
@@ -311,6 +402,11 @@ def _report(
         f">{policy.min_case_delta_seconds:.3f}s delta; "
         f"geometric mean>{policy.max_geomean_ratio:.2f}x"
     )
+    if added_cases:
+        lines.append(
+            "new candidate cases (timed, not ratio-gated yet): "
+            + ", ".join(added_cases)
+        )
     return "\n".join(lines)
 
 
@@ -344,14 +440,24 @@ def main() -> None:
         baseline_root = _archive_source(baseline_ref, Path(temp))
         baseline = _worker_process(baseline_root, args.repeats, args.warmups)
         candidate = _worker_process(ROOT / "src", args.repeats, args.warmups)
-    comparisons, geomean, failed = compare_results(baseline, candidate, policy)
-    print(_report(comparisons, geomean, policy))
+    aligned_baseline, aligned_candidate, added_cases = align_case_sets(
+        baseline,
+        candidate,
+    )
+    comparisons, geomean, failed = compare_results(
+        aligned_baseline,
+        aligned_candidate,
+        policy,
+    )
+    print(_report(comparisons, geomean, policy, added_cases))
     if args.output is not None:
         payload = {
             "baseline_ref": baseline_ref,
             "policy": asdict(policy),
             "baseline": baseline,
             "candidate": candidate,
+            "ratio_gated_cases": sorted(aligned_baseline),
+            "new_candidate_cases": list(added_cases),
             "comparisons": [asdict(case) for case in comparisons],
             "geomean_ratio": geomean,
             "failed": failed,

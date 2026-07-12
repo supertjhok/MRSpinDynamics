@@ -101,7 +101,7 @@ def select_test_modules(
     *,
     include_smoke: bool = True,
 ) -> tuple[str, ...]:
-    """Return de-duplicated unittest modules for paths and impact groups."""
+    """Return de-duplicated test modules for paths and impact groups."""
 
     modules: list[str] = []
     if include_smoke:
@@ -114,6 +114,12 @@ def select_test_modules(
         if path.startswith("tests/test_") and path.endswith(".py"):
             modules.append(path[:-3].replace("/", "."))
     return tuple(dict.fromkeys(modules))
+
+
+def module_paths(modules: tuple[str, ...] | list[str]) -> tuple[str, ...]:
+    """Convert dotted test-module names to pytest file targets."""
+
+    return tuple(module.replace(".", "/") + ".py" for module in modules)
 
 
 def changed_examples(paths: tuple[str, ...] | list[str]) -> tuple[Path, ...]:
@@ -146,7 +152,7 @@ def _parse_args() -> argparse.Namespace:
 def main() -> None:
     args = _parse_args()
     if args.full:
-        _run([sys.executable, "-m", "unittest", "discover", "-s", "tests"])
+        _run([sys.executable, "-m", "pytest", "-q"])
         return
 
     config = _load_config()
@@ -172,7 +178,7 @@ def main() -> None:
         return
 
     if modules:
-        _run([sys.executable, "-m", "unittest", *modules])
+        _run([sys.executable, "-m", "pytest", "-q", *module_paths(modules)])
     for example in examples:
         _run([sys.executable, str(example), "--help"])
 

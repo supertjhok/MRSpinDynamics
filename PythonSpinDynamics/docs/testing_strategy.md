@@ -78,6 +78,21 @@ python docs\generate_api_reference.py
 python docs\generate_validation_matrix.py --check
 ```
 
+The selector and CI use pytest for impacted and full runs so both unittest
+classes and pytest-style test functions execute. The intentionally tiny
+`tests.smoke_tests` module remains runnable directly with unittest for the
+fastest global sanity check.
+
+The dedicated full Windows lane uses four pytest-xdist worker processes with
+`--dist loadscope`. BLAS/OpenMP threads remain fixed at one, preventing each
+pytest worker (and any powder-process child it starts) from multiplying native
+library threads. The branch-coverage lane stays serial because ordinary
+`coverage run` does not automatically combine xdist subprocess data. Impacted
+and smoke tests also stay serial because their startup cost is already small.
+The FasterCap interoperability module is excluded from distributed collection
+and run once afterward because its optional availability probe initializes a
+Windows COM server during module collection.
+
 CI additionally runs branch coverage, optional-backend parity, distribution
 installation, and performance-regression jobs. Change-aware selection shortens
 local iteration; it does not replace full validation before publishing.

@@ -8,6 +8,9 @@ References/*
 !References/nqr_rfi_rejection_technical_note.pdf
 !References/nqr_rfi_rejection_technical_note.tex
 .tmp/
+/tmp/
+.claude/settings.local.json
+/scripts/__pycache__/
 
 PythonSpinDynamics/.conda-env/
 PythonSpinDynamics/.venv/

@@ -1,15 +1,56 @@
 # Changelog
 
-- Stabilize PEEC parallel-terminal reductions by validating the direct complex solve and
-  falling back to an SVD least-squares solve when a numerical backend returns non-finite
-  currents.
-
 All notable changes to the **MRSpinDynamics** workspace are recorded here. The
 repository is released as a single citable unit (see [`CITATION.cff`](CITATION.cff)
 and [`docs/release_process.md`](docs/release_process.md)); one version covers all
 subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
+
+This section is the draft for the v0.3.0 workplace-readiness release. The
+release is intentionally feature-frozen while packaging, documentation,
+performance guardrails, and release automation are completed.
+
+### v0.3.0 highlights
+
+- Completed a regime-independent NQR-to-quadrupolar-NMR workflow spanning exact
+  static spectra, laboratory/Floquet RF references, field-dependent equilibrium
+  and secular/nonsecular relaxation, receiver-correct powder echo trains,
+  parallel powder execution, and history-dependent field sweeps.
+- Added a backend-neutral Pulseq-capable sequence IR, arbitrary phase-cycle
+  branches, general facade execution, deterministic saved-result provenance,
+  and typed cross-component adapters for fields, thermal states, flow,
+  hardware responses, and compiled timelines.
+- Added validated 3-D scalar-potential magnetostatics, arbitrary-geometry PEEC
+  coil impedance/capacitance/loss models, physical spin-noise sources, coupled
+  thermal modeling, and flowing-sample transport workflows.
+- Delivered a book-calibrated portable Halbach MRI design workflow and robust
+  finite-pulse q-space imaging studies with committed validation evidence.
+- Expanded measured-data relaxation validation, PHIP/long-lived-singlet
+  workflows, Bloch-Siegert modeling, the experiment facade, cross-project
+  uncertainty propagation, and beginner-oriented documentation.
+- Added change-aware tests, isolated wheel/sdist checks, optional-backend parity,
+  branch coverage, scoped typing, reproducible-result verification, and a
+  host-normalized performance-regression gate.
+- Hardened release packaging with license-bearing distributions, public package
+  and CLI version reporting, checked project metadata, a shared release
+  preflight, checksummed workspace artifacts, and workplace installation notes.
+- Corrected the authoritative full and impacted test paths to use pytest so both
+  unittest classes and pytest-style functions execute; added deterministic BLAS
+  thread limits, minimum-dependency coverage, and a full Windows lane.
+- Extended the performance gate with a compact powder-waveform workload and
+  forward-compatible benchmark schemas that preserve old coverage while new
+  cases establish a baseline.
+
+### Compatibility
+
+- No intentional public API removals are planned for v0.3.0. Newly deprecated
+  APIs follow the documented two-minor-release compatibility window.
+- Python 3.10--3.12 remains the supported CI range. Core PythonSpinDynamics
+  continues to require only NumPy; SciPy, plotting, JAX, Numba, and benchmark
+  dependencies remain optional extras.
+- The release remains one versioned workspace and is not a public PyPI release.
+  Install from the workspace or the checked GitHub Release artifacts.
 
 ### PythonSpinDynamics
 
@@ -22,9 +63,49 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
 - Added optional powder-averaged crossover field-frequency maps and a general
   piecewise-constant laboratory-frame RF reference with exact unitary
   propagation and no rotating-wave approximation.
+- Added quantitative single-band RWA validity maps and finite-sideband Floquet
+  RF propagation, checked against direct laboratory-frame dynamics throughout
+  the crossover.
+- Added exact field-dependent Gibbs equilibrium, a degeneracy-safe
+  Gibbs-reset/dephasing model, thermal Davies magnetic/EFG relaxation, and a
+  completely positive unified-GKLS model retaining unresolved nonsecular
+  coherence-transfer terms.
+- Added SLSE dynamics across zero field, Zeeman-perturbed NQR, the intermediate
+  regime, and quadrupolar NMR using one complete `H_Q + H_Z` description.
+- Corrected nonzero-field powder relaxation observables by acquiring complete
+  complex echo waveforms, coherently averaging crystallites before receiver
+  filtering, and estimating the echo train with a matched receiver instead of
+  averaging local magnitudes or sampling only echo centers.
+- Added nested low-discrepancy SO(3) convergence, reported frequency-slice
+  weights, finite-bandwidth receiver checks, and deterministic thread/process
+  powder execution with a reduce-only production mode.
+- Added piecewise-linear vector-field histories, including reversals and
+  rotations, with coherent or relaxing propagation and diagnostics for
+  populations, coherences, polarization, energy, Gibbs deviation, and density
+  positivity.
+- Documented the full physical and numerical procedure for realistic powder
+  relaxation so averaging order, receiver sampling, slicing, convergence, and
+  parallelization are not reinvented in later work.
 - Added a declarative change-aware local test selector and restored the smoke
   tier to constant-time behavior by leaving catalog-wide example CLI checks in
   the example/full tiers.
+- Added a 3-D reduced-scalar-potential magnetostatic solver with sparse
+  direct/AMG backends and integrated it into single-sided NMR-MOUSE field,
+  sensitivity, and imaging workflows.
+- Added arbitrary-geometry PEEC coil extraction with filament mutual
+  inductance, proximity/surface loss, capacitance and grounded-shield models,
+  radiation resistance, differential/ground-mode analysis, and independent
+  FastHenry/FasterCap comparisons. Stabilized parallel-terminal reduction by
+  validating the direct complex solve and falling back to SVD least squares
+  when a numerical backend returns non-finite currents.
+- Added physical sample-impedance and stochastic spin-noise models rather than
+  treating all receiver noise as an externally supplied scalar.
+- Added coupled thermal materials, duty-cycled sources, lumped RC networks,
+  quasi-static electro-thermal iteration, 1-D/axisymmetric conduction with
+  perfusion, and NMR-MOUSE thermal examples.
+- Added pipe-flow kinematics, velocity-profile washout, transit-time inflow
+  polarization, and thermal advection workflows, including a fix for spurious
+  unused-tail overflow warnings at zero time.
 - Added complete dense two-spin SLIC long-lived-state preparation,
   phenomenological measured-`T_S` storage, symmetry purge, and readout, plus
   pairwise-yield-aware hydrogenative PHIP mapping, high-field PASADENA,
@@ -271,5 +352,6 @@ uniform stability guarantee.
   [`docs/release_process.md`](docs/release_process.md) for GitHub-Release-driven
   Zenodo DOI minting.
 
-[Unreleased]: https://github.com/supertjhok/MRSpinDynamics/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/supertjhok/MRSpinDynamics/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/supertjhok/MRSpinDynamics/releases/tag/v0.2.0
 [0.1.0]: https://github.com/supertjhok/MRSpinDynamics/releases/tag/v0.1.0

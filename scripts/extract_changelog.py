@@ -14,6 +14,14 @@ from pathlib import Path
 CHANGELOG = Path(__file__).resolve().parent.parent / "CHANGELOG.md"
 
 
+def _configure_utf8_stdout() -> None:
+    """Make isotope symbols safe when release notes are redirected on Windows."""
+
+    reconfigure = getattr(sys.stdout, "reconfigure", None)
+    if reconfigure is not None:
+        reconfigure(encoding="utf-8")
+
+
 def extract(version: str) -> str:
     lines = CHANGELOG.read_text(encoding="utf-8").splitlines()
     # Match "## [0.1.0]" optionally followed by " - date".
@@ -36,6 +44,7 @@ def extract(version: str) -> str:
 
 
 if __name__ == "__main__":
+    _configure_utf8_stdout()
     if len(sys.argv) != 2:
         raise SystemExit("usage: extract_changelog.py <version>")
     print(extract(sys.argv[1]))

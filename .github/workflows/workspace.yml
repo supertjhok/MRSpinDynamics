@@ -32,3 +32,7 @@ jobs:
           version=$(python scripts/check_versions.py | awk '/workspace version is/ {print $NF}')
           python scripts/extract_changelog.py "$version" > /dev/null
           echo "CHANGELOG has a section for $version"
+      - name: Release metadata preflight
+        run: |
+          version=$(python scripts/check_versions.py | awk '/workspace version is/ {print $NF}')
+          python scripts/release_preflight.py --expected-version "$version"

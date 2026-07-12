@@ -48,6 +48,14 @@ def bump_citation(path: Path, version: str, date: str | None) -> None:
 def bump_pyproject(path: Path, version: str) -> None:
     text = path.read_text(encoding="utf-8")
     text = _sub_once(text, r'^version\s*=\s*".*"$', f'version = "{version}"', path)
+    if path == PYPROJECTS[-1]:
+        for dependency in ("python-spin-dynamics", "quadrupolar-dft"):
+            text = _sub_once(
+                text,
+                rf'^(\s*)"{dependency}(?:==[^"]+)?",$',
+                rf'\1"{dependency}=={version}",',
+                path,
+            )
     path.write_text(text, encoding="utf-8")
 
 

@@ -1,6 +1,6 @@
 # Release Process
 
-_Last updated: 2026-06-28_
+_Last updated: 2026-07-12_
 
 MRSpinDynamics is released as a **single citable unit**: the whole repository is
 versioned together, tagged once, published as one GitHub Release, and archived on
@@ -49,7 +49,7 @@ Zenodo issues a *concept DOI* (always resolves to the latest version) plus a
    - [`.zenodo.json`](../.zenodo.json) (no version field; review metadata)
    - `PythonSpinDynamics/pyproject.toml`, `QuadrupolarDFT/pyproject.toml`,
      `integration/pyproject.toml`
-   - the `scripts/bump_version.py` helper does this in one step (see below).
+   - `scripts/bump_version.py` does this in one step.
 3. Move the `Unreleased` section of [`CHANGELOG.md`](../CHANGELOG.md) to the new
    version with today's date, and add a fresh `Unreleased` header.
 4. Regenerate any committed generated artifacts and confirm no drift, e.g.:
@@ -60,18 +60,45 @@ Zenodo issues a *concept DOI* (always resolves to the latest version) plus a
    git diff --exit-code docs\python_api\api_reference.md
    ```
 
-5. Commit the version bump and changelog.
-6. Tag and push:
+5. Commit the version bump, changelog, and generated files.
+6. From the clean repository root, run the same preflight and artifact build
+   used by the tag workflow:
 
    ```powershell
-   git tag v0.1.0
-   git push origin v0.1.0
+   python scripts\release_preflight.py --expected-version 0.3.0 --require-clean
+   python -m pip install build twine
+   python -m build --outdir release-artifacts PythonSpinDynamics
+   python -m build --outdir release-artifacts QuadrupolarDFT
+   python -m build --outdir release-artifacts integration
+   python -m twine check release-artifacts\*
+   Copy-Item PythonSpinDynamics\docs\user_manual.pdf release-artifacts\python_spin_dynamics_user_manual.pdf
+   Copy-Item QuadrupolarDFT\docs\user_manual.pdf release-artifacts\quadrupolar_dft_user_manual.pdf
+   Copy-Item MATLABSpinDynamics\docs\user_manual.pdf release-artifacts\matlab_spin_dynamics_user_manual.pdf
+   python scripts\release_preflight.py --expected-version 0.3.0 --artifacts-dir release-artifacts --check-generated
+   python scripts\write_sha256s.py release-artifacts
    ```
 
-7. The [release workflow](../.github/workflows/release.yml) creates a GitHub
-   Release from the tag using the changelog section as the body. (Or create the
-   Release manually with `gh release create v0.1.0 --notes-file <section>`.)
-8. Zenodo archives the Release and mints the DOI. Add the DOI to
+   The first preflight proves that neither tracked nor untracked release inputs
+   are present before building. The artifact preflight checks version and
+   changelog agreement, manuals, generated documentation, license inclusion,
+   wheel metadata, `py.typed`, exact workspace dependency pins, and the complete
+   artifact set.
+7. Tag and push:
+
+   ```powershell
+   git tag v0.3.0
+   git push origin v0.3.0
+   ```
+
+8. The [release workflow](../.github/workflows/release.yml) independently builds
+   and verifies all three wheel/sdist pairs, tests installation from those local
+   artifacts, and creates a GitHub Release containing the distributions, three
+   manuals, and `SHA256SUMS`. Its body is extracted from the matching changelog
+   section.
+9. Download the published bundle and verify it on a clean workplace machine
+   before announcing the release. Confirm `sha256sum -c SHA256SUMS`,
+   `spin-dynamics --version`, and `spin-dynamics --help`.
+10. Zenodo archives the Release and mints the DOI. Add the DOI to
    [`CITATION.cff`](../CITATION.cff) and the README badge in a follow-up commit.
 
 ## Consistency check
@@ -79,3 +106,7 @@ Zenodo issues a *concept DOI* (always resolves to the latest version) plus a
 `scripts/check_versions.py` fails if the versions in `CITATION.cff` and the three
 `pyproject.toml` files disagree. It runs in CI so a release can never ship with a
 split version.
+
+`scripts/release_preflight.py` is the broader release-candidate check. Its
+artifact checks deliberately complement, rather than replace, Twine and the
+isolated installation test in the release workflow.

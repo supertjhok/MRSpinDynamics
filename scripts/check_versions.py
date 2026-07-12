@@ -37,6 +37,20 @@ def pyproject_version(path: Path) -> str:
     return data["project"]["version"]
 
 
+def integration_dependency_versions(path: Path) -> dict[str, str | None]:
+    """Return exact workspace dependency pins from the integration metadata."""
+
+    data = tomllib.loads(path.read_text(encoding="utf-8"))
+    result: dict[str, str | None] = {}
+    for dependency in data["project"]["dependencies"]:
+        for name in ("python-spin-dynamics", "quadrupolar-dft"):
+            if dependency == name:
+                result[name] = None
+            elif dependency.startswith(name + "=="):
+                result[name] = dependency.split("==", 1)[1]
+    return result
+
+
 def main() -> int:
     versions: dict[str, str] = {}
     try:
@@ -60,7 +74,25 @@ def main() -> int:
         )
         return 1
 
-    print(f"\nOK: workspace version is {distinct.pop()}")
+    version = distinct.pop()
+    try:
+        pins = integration_dependency_versions(PYPROJECTS[-1])
+    except (OSError, KeyError, ValueError) as exc:
+        print(f"error reading integration dependency pins: {exc}", file=sys.stderr)
+        return 2
+    expected_pins = {
+        "python-spin-dynamics": version,
+        "quadrupolar-dft": version,
+    }
+    if pins != expected_pins:
+        print(
+            f"\nFAIL: integration workspace dependency pins disagree: {pins}",
+            file=sys.stderr,
+        )
+        return 1
+
+    print(f"\nOK: workspace version is {version}")
+    print(f"OK: integration dependency pins match {version}")
     return 0
 
 

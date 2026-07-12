@@ -67,6 +67,33 @@ python -m twine check dist\*
 python -m pip install dist\python_spin_dynamics-*.whl
 ```
 
+## Workplace Release Bundle
+
+The GitHub Release is the supported workplace distribution route while the
+workspace is not published to a public package index. Download the wheel files
+and `SHA256SUMS` into one directory, verify the checksums, and install the
+integration distribution. Pip will select both workspace dependencies from the
+same directory:
+
+```powershell
+Get-FileHash -Algorithm SHA256 *.whl,*.tar.gz,*.pdf
+python -m pip install --find-links . "mr-integration==0.3.0"
+spin-dynamics --version
+spin-dynamics --help
+```
+
+On Linux, `sha256sum -c SHA256SUMS` verifies the complete published bundle.
+`--find-links` makes the three MRSpinDynamics distributions local, but their
+third-party dependencies (notably NumPy) must already be installed or available
+from an approved workplace package index/cache. For a fully disconnected
+installation, mirror those dependencies into the directory first and add
+`--no-index` only after confirming that the directory is complete.
+
+The integration wheel depends on the exact matching versions of
+`python-spin-dynamics` and `quadrupolar-dft`; do not mix artifacts from different
+workspace releases. Each installed run records the PythonSpinDynamics version
+in its provenance metadata.
+
 The scripts in `examples/` also add `../src` to `sys.path` automatically, so
 simple examples can run from either `PythonSpinDynamics` or
 `PythonSpinDynamics/examples` while developing:
@@ -99,8 +126,8 @@ python -m pip install -e ".[opt,plot]"
 ```
 
 The package metadata is in `pyproject.toml`. Wheels include the `py.typed`
-marker for downstream static type checkers. The project is not yet published
-to a public package index or conda channel.
+marker and GPL license text. The project is not yet published to a public
+package index or conda channel.
 
 ## NumPy Compatibility
 

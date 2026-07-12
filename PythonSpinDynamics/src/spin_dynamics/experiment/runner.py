@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 
+from spin_dynamics import __version__
 from spin_dynamics.experiment.plan import ExperimentPlan, plan_experiment
 from spin_dynamics.experiment.provenance import build_provenance
 from spin_dynamics.experiment.registry import resolve
@@ -31,15 +32,6 @@ class RunRecord:
         from spin_dynamics.experiment.io import save_run
 
         save_run(self, path)
-
-
-def _package_version() -> str:
-    try:
-        from importlib.metadata import version
-
-        return version("python-spin-dynamics")
-    except Exception:
-        return "unknown"
 
 
 def run_experiment(experiment: Experiment, **execution: Any) -> RunRecord:
@@ -84,7 +76,7 @@ def run_experiment(experiment: Experiment, **execution: Any) -> RunRecord:
         experiment,
         result,
         func,
-        package_version=_package_version(),
+        package_version=__version__,
         elapsed_seconds=elapsed,
         execution=execution,
         plan_warnings=plan.warnings,

@@ -1,6 +1,15 @@
 """Python port of the MATLABSpinDynamics simulation package."""
 
+from importlib.metadata import PackageNotFoundError, version
+
+
+try:
+    __version__ = version("python-spin-dynamics")
+except PackageNotFoundError:  # pragma: no cover - source tree without metadata
+    __version__ = "0+unknown"
+
 __all__ = [
+    "__version__",
     "absolute_phase",
     "analysis",
     "coupling",

@@ -21,6 +21,7 @@ import sys
 from collections.abc import Callable, Sequence
 from typing import cast
 
+from spin_dynamics import __version__
 from spin_dynamics.experiment.config import (
     ConfigError,
     dumps_toml,
@@ -105,6 +106,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="spin-dynamics",
         description="Config-driven runner for the experiment facade.",
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s {__version__}",
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
