@@ -20,8 +20,8 @@ what supports the underlying scientific or numerical claim.
 
 ## Coverage Summary
 
-- 24 capability-level claims
-- 13 validated
+- 25 capability-level claims
+- 14 validated
 - 6 partially validated
 - 5 regression-only
 
@@ -40,6 +40,7 @@ what supports the underlying scientific or numerical claim.
 | NQR Hamiltonians and pulse models | Spin-1 and spin-3/2 transition conventions, powder weights, selective pulses, and SORC/SLSE limits reproduce analytical and published theory results. | **A**, **D** | partially validated |
 | ESR/EPR spectra and pulsed dynamics | Zeeman resonance, lineshape, hyperfine splitting, relaxation, and Hahn-echo behavior reproduce analytical spin-1/2 limits. | **A**, **D** | partially validated |
 | Small scalar-coupled spin systems | Dense spin operators, scalar-coupling Hamiltonians, and selected low-field editing models satisfy exact operator and spectral limits. | **A**, **R** | partially validated |
+| Singlet, triplet, and parahydrogen state primitives | Embedded spin-pair singlet/triplet projectors, swap symmetry, singlet-order observables, and para/ortho hydrogen mixtures satisfy exact spin-1/2 algebra and physical density-matrix limits. | **A**, **R** | validated |
 | Phenomenological and Redfield relaxation | Relaxation propagators preserve required invariants and limiting behavior; measured weak-field 35Cl SLSE relaxation is reproduced; the non-diagonal zero-field Redfield model reproduces published transition-resolved 209Bi FVA rate shapes; and RDX NMR/NQR observations recover the published activated barrier and cross-relaxation assignments. | **A**, **D**, **E**, **R** | partially validated |
 | Inverse-Laplace analysis | The 1-D and compact 2-D solvers recover known synthetic peaks and obey kernel and non-negativity constraints. | **R**, **A** | regression only |
 | Spin noise and radiation damping | Equilibrium spin-noise spectra and stochastic dynamics reproduce fluctuation, radiation-damping, Ornstein-Uhlenbeck, and two-bath analytical identities. | **A**, **R** | validated |
@@ -209,6 +210,18 @@ what supports the underlying scientific or numerical claim.
 - **References:** Exact spin-1/2 angular-momentum and scalar-coupling solutions
 - **Reproduce:** [`tests/test_coupling.py`](../tests/test_coupling.py); [`tests/test_zulf_jcoupling.py`](../tests/test_zulf_jcoupling.py)
 - **Limitations:** Paper-level fixtures and relaxation-aware general pulse-sequence comparisons are still sparse.
+
+### Singlet, triplet, and parahydrogen state primitives
+
+- **Claim:** Embedded spin-pair singlet/triplet projectors, swap symmetry, singlet-order observables, and para/ortho hydrogen mixtures satisfy exact spin-1/2 algebra and physical density-matrix limits.
+- **Evidence:** A, R (validated)
+- **Basis:** Exact singlet/triplet projector identities, pair-permutation eigenvalues, trace and positivity constraints, and the para-H2 statistical-mixture identity rho=I/4+(f_p-1/4)Q_S.
+- **Tested range:** Spin-1/2 pairs embedded in two- and three-spin systems; para fractions from 0 to 1.
+- **Metric:** Hermiticity, idempotence, orthogonality, completeness, trace, eigenvalues, population, and singlet-order amplitude
+- **Tolerance:** Floating-point algebraic tolerance of 1e-10 or tighter.
+- **References:** Carravetta and Levitt, J. Am. Chem. Soc. 126 (2004) 6228-6229, doi:10.1021/ja0490931; DeVience, Walsworth, and Rosen, arXiv:1307.0832
+- **Reproduce:** [`tests/test_hyperpolarization_singlet.py`](../tests/test_hyperpolarization_singlet.py); [`tests/test_coupling.py::test_two_spin_slic_matching_and_transfer_roles_are_distinct`](../tests/test_coupling.py#L101); [`tests/test_coupling.py::test_exactly_equivalent_pair_has_no_slic_transfer`](../tests/test_coupling.py#L108); [`examples/singlet_parahydrogen_states.py`](../examples/singlet_parahydrogen_states.py)
+- **Limitations:** This record validates state algebra and ideal SLIC limits, not singlet relaxation, hydrogenation chemistry, PHIP transfer efficiency, or SABRE exchange.
 
 ### Phenomenological and Redfield relaxation
 

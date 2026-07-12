@@ -127,17 +127,17 @@ result = simulate_slic_spectrum(
 )
 ```
 
-The SLIC matching condition is that the spin-lock nutation frequency `omega_1`
-equals the resonance-offset (chemical-shift) difference `Delta nu` between the
-two spins, not the J-coupling frequency: at `omega_1 ~ Delta nu` the spin-lock
-brings the singlet `(|ab> - |ba>)/sqrt(2)` and a triplet level into a near
-crossing, and J sets the width of the resonance and the transfer rate. So for a
-nearly equivalent two-spin system (small `Delta nu`) the deepest dip simply
-falls at a small nutation frequency because `Delta nu` is small, not because it
-coincides with J. The companion `two_spin_slic_transfer_time` returns the
-ideal maximum-transfer time `1 / (sqrt(2) Delta nu)`, again set by the offset
-difference. This dense simulator is intended for small systems only; larger
-homonuclear networks will need sparse or specialized methods.
+For a nearly equivalent two-spin system, the SLIC matching condition is that
+the spin-lock nutation frequency equals the magnitude of the scalar coupling:
+`omega_1 / (2 pi) = |J|`. The RF carrier lies at the mean resonance of the pair.
+The resonance-offset (chemical-shift) difference `Delta nu` breaks the exchange
+symmetry and mixes the singlet `(|ab> - |ba>)/sqrt(2)` with a triplet level, so
+it controls the transfer rate. Exact equivalence gives no transfer under an
+ideal nonselective spin lock. `two_spin_slic_matching_nutation_hz` returns the
+crossing amplitude, while `two_spin_slic_transfer_time` returns the ideal
+maximum-transfer time `1 / (sqrt(2) |Delta nu|)`. This dense simulator is
+intended for small systems only; larger homonuclear networks will need sparse
+or specialized methods.
 
 ## Current Limits
 

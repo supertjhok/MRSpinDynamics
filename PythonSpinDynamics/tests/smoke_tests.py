@@ -18,6 +18,7 @@ from tests.test_composition import (
     test_flow_field_interpolates_space_and_time_in_si_units,
 )
 from tests.test_examples import ExampleSmokeTests
+from tests.test_hyperpolarization_singlet import SingletStateTests
 from tests.test_phase_cycling import PhaseCyclingTests
 from tests.test_sequence_ir import PulseqImportTests, SequenceIRTests
 from tests.test_workflow_validation import (
@@ -107,6 +108,9 @@ def load_tests(
         BlochSiegertWorkflowTests(
             "test_common_phase_is_counter_rotating_and_inverts_larmor"
         )
+    )
+    suite.addTest(
+        SingletStateTests("test_statistical_hydrogen_has_no_deviation_order")
     )
     return suite
 

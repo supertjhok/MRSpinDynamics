@@ -82,6 +82,7 @@ MODULES = [
     "fields.positions",
     "fields.quasistatic",
     "fields.scalar_potential_3d",
+    "hyperpolarization.singlet",
     "interference.active",
     "interference.cancellers",
     "interference.coils",

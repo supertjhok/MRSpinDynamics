@@ -24,6 +24,7 @@ physics rather than baseline MATLAB parity.
 - [Internal / Susceptibility Gradients](internal_gradients.md)
 - [Bipolar 13-Interval PGSTE](bipolar_pgste.md)
 - [J-Coupling Models](j_coupling.md)
+- [Hyperpolarization and Singlet States](hyperpolarization.md)
 - [NQR Models](nqr.md)
 - [ESR Models](esr.md)
 - [Phase Cycling Findings](phase_cycling.md)

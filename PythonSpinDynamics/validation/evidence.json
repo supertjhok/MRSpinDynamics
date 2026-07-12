@@ -240,6 +240,28 @@
       "limitations": ["Paper-level fixtures and relaxation-aware general pulse-sequence comparisons are still sparse."]
     },
     {
+      "id": "singlet_parahydrogen_states",
+      "component": "Singlet, triplet, and parahydrogen state primitives",
+      "claim": "Embedded spin-pair singlet/triplet projectors, swap symmetry, singlet-order observables, and para/ortho hydrogen mixtures satisfy exact spin-1/2 algebra and physical density-matrix limits.",
+      "evidence_types": ["A", "R"],
+      "basis": "Exact singlet/triplet projector identities, pair-permutation eigenvalues, trace and positivity constraints, and the para-H2 statistical-mixture identity rho=I/4+(f_p-1/4)Q_S.",
+      "parameter_range": "Spin-1/2 pairs embedded in two- and three-spin systems; para fractions from 0 to 1.",
+      "metric": "Hermiticity, idempotence, orthogonality, completeness, trace, eigenvalues, population, and singlet-order amplitude",
+      "tolerance": "Floating-point algebraic tolerance of 1e-10 or tighter.",
+      "status": "validated",
+      "reproducers": [
+        "tests/test_hyperpolarization_singlet.py",
+        "tests/test_coupling.py::test_two_spin_slic_matching_and_transfer_roles_are_distinct",
+        "tests/test_coupling.py::test_exactly_equivalent_pair_has_no_slic_transfer",
+        "examples/singlet_parahydrogen_states.py"
+      ],
+      "references": [
+        "Carravetta and Levitt, J. Am. Chem. Soc. 126 (2004) 6228-6229, doi:10.1021/ja0490931",
+        "DeVience, Walsworth, and Rosen, arXiv:1307.0832"
+      ],
+      "limitations": ["This record validates state algebra and ideal SLIC limits, not singlet relaxation, hydrogenation chemistry, PHIP transfer efficiency, or SABRE exchange."]
+    },
+    {
       "id": "relaxation_models",
       "component": "Phenomenological and Redfield relaxation",
       "claim": "Relaxation propagators preserve required invariants and limiting behavior; measured weak-field 35Cl SLSE relaxation is reproduced; the non-diagonal zero-field Redfield model reproduces published transition-resolved 209Bi FVA rate shapes; and RDX NMR/NQR observations recover the published activated barrier and cross-relaxation assignments.",

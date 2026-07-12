@@ -58,6 +58,7 @@ from spin_dynamics.coupling.operators import (
 from spin_dynamics.coupling.slic import (
     SLICSpectrumResult,
     simulate_slic_spectrum,
+    two_spin_slic_matching_nutation_hz,
     two_spin_slic_transfer_time,
 )
 from spin_dynamics.coupling.systems import (
@@ -118,6 +119,7 @@ __all__ = [
     "spin_operator",
     "tango_b_filter",
     "total_operator",
+    "two_spin_slic_matching_nutation_hz",
     "two_spin_slic_transfer_time",
     "zeeman_hamiltonian",
 ]

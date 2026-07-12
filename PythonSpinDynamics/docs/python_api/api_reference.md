@@ -151,7 +151,8 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | Kind | Name | Summary |
 | --- | --- | --- |
 | class | `SLICSpectrumResult` | Simulated SLIC response as a function of spin-lock nutation frequency. |
-| function | `two_spin_slic_transfer_time(offset_difference_hz: float) -> float` | Return the ideal two-spin SLIC maximum-transfer time. |
+| function | `two_spin_slic_matching_nutation_hz(coupling_hz: float) -> float` | Return the ideal two-spin SLIC matching nutation frequency. |
+| function | `two_spin_slic_transfer_time(offset_difference_hz: float) -> float` | Return the ideal maximum-transfer time at the SLIC crossing. |
 | function | `simulate_slic_spectrum(system: CoupledSpinSystem, nutation_frequencies_hz: Iterable[float] | np.ndarray, *, spin_lock_time: float, initial_axis: str = 'x', detect_axis: str = 'x') -> SLICSpectrumResult` | Simulate remaining transverse magnetization after a spin-lock pulse. |
 
 ## `spin_dynamics.coupling.systems`
@@ -799,6 +800,20 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | --- | --- | --- |
 | class | `ScalarPotentialSolution` | Result of a 3D reduced-scalar-potential magnetostatic solve. |
 | class | `ReducedScalarPotential3D` | 3D nonlinear magnetostatics via the reduced scalar potential ``psi``. |
+
+## `spin_dynamics.hyperpolarization.singlet`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `singlet_projector(nspin: int = 2, pair: tuple[int, int] = (0, 1)) -> np.ndarray` | Return the selected pair's singlet projector embedded in ``nspin`` spins. |
+| function | `triplet_projector(nspin: int = 2, pair: tuple[int, int] = (0, 1)) -> np.ndarray` | Return the selected pair's total-triplet projector. |
+| function | `singlet_order_operator(nspin: int = 2, pair: tuple[int, int] = (0, 1)) -> np.ndarray` | Return trace-zero pair singlet order ``P_S - P_T / 3``. |
+| function | `spin_pair_swap_operator(nspin: int = 2, pair: tuple[int, int] = (0, 1)) -> np.ndarray` | Return the unitary operator that swaps the selected spin-1/2 sites. |
+| function | `singlet_population(density: np.ndarray, *, pair: tuple[int, int] = (0, 1)) -> float` | Return the selected pair's singlet population from a physical density. |
+| function | `triplet_population(density: np.ndarray, *, pair: tuple[int, int] = (0, 1)) -> float` | Return the selected pair's total triplet population. |
+| function | `singlet_order_amplitude(density: np.ndarray, *, pair: tuple[int, int] = (0, 1)) -> float` | Project a physical or deviation density onto normalized singlet order. |
+| class | `ParahydrogenState` | Physical and deviation density matrices for a para/ortho H2 mixture. |
+| function | `parahydrogen_state(para_fraction: float) -> ParahydrogenState` | Return the two-proton state for a specified parahydrogen fraction. |
 
 ## `spin_dynamics.interference.active`
 

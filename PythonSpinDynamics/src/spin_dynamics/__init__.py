@@ -12,6 +12,7 @@ __all__ = [
     "exchange",
     "experiment",
     "flow",
+    "hyperpolarization",
     "interference",
     "motion",
     "noise",

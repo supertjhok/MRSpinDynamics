@@ -12,6 +12,11 @@ The separate `spin_dynamics.coupling` namespace adds scoped scalar-coupled
 spin-1/2 utilities for low-field J-editing, TANGO-B filtering, dense
 Hamiltonian propagation, and initial SLIC models.
 
+The separate `spin_dynamics.hyperpolarization` namespace adds unit-trace
+singlet/triplet and parahydrogen states plus trace-zero singlet-order
+observables. Long-lived-state, PHIP reaction, and SABRE exchange workflows are
+being built on that density-matrix foundation.
+
 The separate `spin_dynamics.nqr` namespace adds early quadrupolar-spin helpers
 for pulsed NQR. Its initial workflows use dense single-site Hamiltonians and
 selective embedded two-level pulses, which is the usual narrowband-pulse limit

@@ -13,6 +13,12 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
 
 ### PythonSpinDynamics
 
+- Added the first PHIP/long-lived-singlet foundation: exact embedded
+  singlet/triplet projectors, pair-swap symmetry, normalized singlet-order
+  observables, physical and deviation parahydrogen states versus para fraction,
+  and a compact enrichment example. Corrected the SLIC convention so the
+  spin-lock amplitude matches `|J|` while chemical-shift inequivalence controls
+  the transfer time, and documented the staged PHIP/SABRE implementation plan.
 - Added a book-calibrated end-to-end portable Halbach MRI workflow coupling
   finite-magnet and book-dimensioned RF/gradient-coil field maps, PEEC-predicted
   receive impedance and SNR, field-integrated ferrite RF loss, duty-cycled I2R

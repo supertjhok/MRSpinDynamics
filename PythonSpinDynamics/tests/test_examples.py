@@ -243,6 +243,7 @@ class ExampleSmokeTests(unittest.TestCase):
             ("examples/heteronuclear_j_editing.py", "--points", "17"),
             ("examples/coupled_isochromat_fields.py", "--points", "9"),
             ("examples/received_signal_noise.py", "--numpts", "21"),
+            ("examples/singlet_parahydrogen_states.py",),
             ("examples/probe_parameter_sweeps.py", "--numpts", "9"),
             (
                 "examples/diagnose_optimization_backends.py",

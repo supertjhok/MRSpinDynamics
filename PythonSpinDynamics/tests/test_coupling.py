@@ -22,6 +22,7 @@ from spin_dynamics.coupling import (  # noqa: E402
     simulate_slic_spectrum,
     spin_operator,
     tango_b_filter,
+    two_spin_slic_matching_nutation_hz,
     two_spin_slic_transfer_time,
 )
 
@@ -96,6 +97,26 @@ class CoupledSpinTests(unittest.TestCase):
         self.assertAlmostEqual(result.strongest_dip_frequency_hz, coupling_hz, delta=0.1)
         self.assertGreater(result.dip.max(), 0.45)
         self.assertLess(result.dip[0], 0.02)
+
+    def test_two_spin_slic_matching_and_transfer_roles_are_distinct(self) -> None:
+        self.assertAlmostEqual(two_spin_slic_matching_nutation_hz(-7.0), 7.0)
+        self.assertAlmostEqual(
+            two_spin_slic_transfer_time(0.7),
+            1.0 / (np.sqrt(2.0) * 0.7),
+        )
+
+    def test_exactly_equivalent_pair_has_no_slic_transfer(self) -> None:
+        system = coupled_spin_system(
+            [0.0, 0.0],
+            [[0.0, 7.0], [7.0, 0.0]],
+        )
+        result = simulate_slic_spectrum(
+            system,
+            [6.0, 7.0, 8.0],
+            spin_lock_time=1.0,
+        )
+
+        np.testing.assert_allclose(result.dip, 0.0, atol=1e-12)
 
     def test_coupled_isochromat_b1_scales_rf_angle(self) -> None:
         system = coupled_spin_system([0.0], [[0.0]])
