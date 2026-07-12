@@ -65,8 +65,10 @@ from spin_dynamics.nqr.field_relaxation import (
     FieldDependentRelaxationModel,
     FieldEquilibriumResult,
     FieldRelaxationResult,
+    FieldSweepHistoryResult,
     field_dependent_equilibrium,
     simulate_field_relaxation,
+    simulate_field_sweep_history,
 )
 from spin_dynamics.nqr.interference import (
     nqr_recording_from_samples,
@@ -250,6 +252,7 @@ __all__ = [
     "FieldDependentNonsecularRelaxationModel",
     "FieldEquilibriumResult",
     "FieldRelaxationResult",
+    "FieldSweepHistoryResult",
     "NQREigensystem",
     "NQRFIDDistributionResult",
     "NQRModelSelection",
@@ -348,6 +351,7 @@ __all__ = [
     "simulate_full_slse",
     "simulate_floquet_rf",
     "simulate_field_relaxation",
+    "simulate_field_sweep_history",
     "simulate_lab_frame_rf",
     "static_hamiltonian_rotating",
     "liouville_hamiltonian",

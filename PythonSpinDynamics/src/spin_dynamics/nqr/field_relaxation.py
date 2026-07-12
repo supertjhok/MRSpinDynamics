@@ -11,7 +11,11 @@ from spin_dynamics.nqr.crossover import boltzmann_populations
 from spin_dynamics.nqr.hamiltonians import TAU, nqr_hamiltonian
 from spin_dynamics.nqr.operators import spin_matrices
 from spin_dynamics.nqr.systems import QuadrupolarSite
-from spin_dynamics.relaxation import liouville_hamiltonian, matrix_exponential
+from spin_dynamics.relaxation import (
+    RelaxationSuperoperator,
+    liouville_hamiltonian,
+    matrix_exponential,
+)
 from spin_dynamics.relaxation import quadrupolar_tesseral_operators
 
 
@@ -43,6 +47,25 @@ class FieldRelaxationResult:
     spin_expectation_pas: np.ndarray
     equilibrium: FieldEquilibriumResult
     hamiltonian: np.ndarray
+    site: QuadrupolarSite
+
+
+@dataclass(frozen=True)
+class FieldSweepHistoryResult:
+    """History-dependent density trajectory through a vector static-field ramp."""
+
+    times_seconds: np.ndarray
+    b0_vectors_tesla_pas: np.ndarray
+    density_matrices_pas: np.ndarray
+    equilibrium_density_matrices_pas: np.ndarray
+    spin_expectation_pas: np.ndarray
+    instantaneous_populations: np.ndarray
+    instantaneous_coherence_norm: np.ndarray
+    equilibrium_deviation_norm: np.ndarray
+    energy_expectation_hz: np.ndarray
+    minimum_density_eigenvalue: np.ndarray
+    temperature_kelvin: float
+    substeps_per_interval: int
     site: QuadrupolarSite
 
 
@@ -478,5 +501,132 @@ def simulate_field_relaxation(
         spin_expectation_pas=expectation,
         equilibrium=equilibrium,
         hamiltonian=hamiltonian,
+        site=site,
+    )
+
+
+def simulate_field_sweep_history(
+    site: QuadrupolarSite,
+    times_seconds: Sequence[float] | np.ndarray,
+    b0_vectors_tesla_pas: Sequence[Sequence[float]] | np.ndarray,
+    *,
+    relaxation: RelaxationSuperoperator | None = None,
+    temperature_kelvin: float | None = None,
+    initial_density: np.ndarray | None = None,
+    substeps_per_interval: int = 1,
+) -> FieldSweepHistoryResult:
+    """Carry one density matrix through a piecewise-linear vector-field history.
+
+    The field is linearly interpolated between supplied nodes. Each interval is
+    split into equal midpoint substeps, and the complete ``H_Q + H_Z``
+    Liouvillian is exponentiated at the midpoint field. Supplying a relaxation
+    model adds its instantaneous field-dependent generator; ``None`` gives
+    coherent unitary passage. The workflow permits increasing, decreasing, and
+    rotating fields and therefore retains hysteresis and state-preparation
+    history that independent equilibrium spectra cannot represent.
+    """
+
+    times = np.asarray(times_seconds, dtype=np.float64).reshape(-1)
+    fields = np.asarray(b0_vectors_tesla_pas, dtype=np.float64)
+    if times.size < 2 or not np.all(np.isfinite(times)):
+        raise ValueError("times_seconds must contain at least two finite values")
+    if np.any(np.diff(times) <= 0.0):
+        raise ValueError("times_seconds must be strictly increasing")
+    if fields.shape != (times.size, 3) or not np.all(np.isfinite(fields)):
+        raise ValueError("b0_vectors_tesla_pas must have finite shape (times, 3)")
+    substeps = int(substeps_per_interval)
+    if substeps <= 0:
+        raise ValueError("substeps_per_interval must be positive")
+    if temperature_kelvin is None:
+        temperature = float(getattr(relaxation, "temperature_kelvin", 300.0))
+    else:
+        temperature = float(temperature_kelvin)
+    if temperature <= 0.0 or not np.isfinite(temperature):
+        raise ValueError("temperature_kelvin must be positive and finite")
+
+    first_equilibrium = field_dependent_equilibrium(
+        site,
+        fields[0],
+        temperature_kelvin=temperature,
+    )
+    if initial_density is None:
+        density = first_equilibrium.density_matrix_pas.copy()
+    else:
+        density = np.asarray(initial_density, dtype=np.complex128).copy()
+        if density.shape != (site.dimension, site.dimension):
+            raise ValueError("initial_density has the wrong shape")
+        if not np.allclose(density, density.conj().T):
+            raise ValueError("initial_density must be Hermitian")
+        trace = complex(np.trace(density))
+        if not np.isclose(trace, 1.0, atol=1.0e-10):
+            raise ValueError("initial_density must have unit trace")
+        if float(np.min(np.linalg.eigvalsh(density))) < -1.0e-10:
+            raise ValueError("initial_density must be positive semidefinite")
+
+    densities = np.empty(
+        (times.size, site.dimension, site.dimension), dtype=np.complex128
+    )
+    densities[0] = density
+    vector = density.reshape(-1, order="F")
+    for interval in range(times.size - 1):
+        duration = float(times[interval + 1] - times[interval])
+        step_duration = duration / substeps
+        field_start = fields[interval]
+        field_change = fields[interval + 1] - field_start
+        for step in range(substeps):
+            fraction = (step + 0.5) / substeps
+            midpoint_field = field_start + fraction * field_change
+            hamiltonian = nqr_hamiltonian(site, midpoint_field)
+            generator = liouville_hamiltonian(hamiltonian)
+            if relaxation is not None:
+                generator = generator + relaxation.superoperator(hamiltonian)
+            vector = matrix_exponential(generator, step_duration) @ vector
+        density = vector.reshape((site.dimension, site.dimension), order="F")
+        density = 0.5 * (density + density.conj().T)
+        density = density / np.trace(density)
+        vector = density.reshape(-1, order="F")
+        densities[interval + 1] = density
+
+    equilibrium_densities = np.empty_like(densities)
+    spin_expectation = np.empty((times.size, 3), dtype=np.float64)
+    populations = np.empty((times.size, site.dimension), dtype=np.float64)
+    coherence_norm = np.empty(times.size, dtype=np.float64)
+    deviation_norm = np.empty(times.size, dtype=np.float64)
+    energy_hz = np.empty(times.size, dtype=np.float64)
+    minimum_eigenvalue = np.empty(times.size, dtype=np.float64)
+    ops = spin_matrices(site.spin)
+    for index, (field, state) in enumerate(zip(fields, densities, strict=True)):
+        hamiltonian = nqr_hamiltonian(site, field)
+        levels, vectors = np.linalg.eigh(hamiltonian)
+        state_eigen = vectors.conj().T @ state @ vectors
+        populations[index] = np.real(np.diag(state_eigen))
+        off_diagonal = state_eigen - np.diag(np.diag(state_eigen))
+        coherence_norm[index] = float(np.linalg.norm(off_diagonal))
+        equilibrium = field_dependent_equilibrium(
+            site,
+            field,
+            temperature_kelvin=temperature,
+        ).density_matrix_pas
+        equilibrium_densities[index] = equilibrium
+        deviation_norm[index] = float(np.linalg.norm(state - equilibrium))
+        spin_expectation[index] = [
+            np.trace(state @ operator).real for operator in (ops.ix, ops.iy, ops.iz)
+        ]
+        energy_hz[index] = float(np.trace(state @ hamiltonian).real / TAU)
+        minimum_eigenvalue[index] = float(np.min(np.linalg.eigvalsh(state)))
+
+    return FieldSweepHistoryResult(
+        times_seconds=times,
+        b0_vectors_tesla_pas=fields,
+        density_matrices_pas=densities,
+        equilibrium_density_matrices_pas=equilibrium_densities,
+        spin_expectation_pas=spin_expectation,
+        instantaneous_populations=populations,
+        instantaneous_coherence_norm=coherence_norm,
+        equilibrium_deviation_norm=deviation_norm,
+        energy_expectation_hz=energy_hz,
+        minimum_density_eigenvalue=minimum_eigenvalue,
+        temperature_kelvin=temperature,
+        substeps_per_interval=substeps,
         site=site,
     )

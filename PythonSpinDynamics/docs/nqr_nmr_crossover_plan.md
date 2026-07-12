@@ -443,9 +443,31 @@ time step, receiver bandwidth, and selected spectral width remain required for
 quantitative experimental prediction.
 
 The next numerical milestone is the resonance-manifold efficiency improvement
-and receiver/spectral-width sensitivity audit described above. The next physics milestone remains explicit time-dependent
-field ramps, including the competition among adiabatic following,
-Landau-Zener transfer, and relaxation. Arbitrary shaped RF is already available
-through the laboratory-frame reference; an efficient piecewise-Floquet
-envelope solver is a possible later optimization rather than a correctness
-prerequisite.
+and receiver/spectral-width sensitivity audit described above. Arbitrary shaped
+RF is already available through the laboratory-frame reference; an efficient
+piecewise-Floquet envelope solver is a possible later optimization rather than
+a correctness prerequisite.
+
+### Field-sweep histories
+
+The history-dependent physics milestone now has a separate
+`simulate_field_sweep_history` API. It carries a single density matrix through
+an arbitrary piecewise-linear vector-field path, including decreasing fields,
+reversals, and rotations. Each interval uses midpoint propagation of the full
+`H_Q + H_Z` Liouvillian and can include any instantaneous field-dependent
+relaxation generator. The returned trajectory includes the density matrix,
+instantaneous-eigenbasis populations and coherence norm, spin expectation,
+energy expectation, Gibbs-state deviation, and a positivity diagnostic at every
+user-supplied field node.
+
+Validation covers three independent limits: a constant-field history agrees
+with the existing fixed-field propagator, a slow relaxing ramp approaches the
+instantaneous Gibbs state more closely than a fast ramp, and coherent rotating
+vector-field ramps converge as midpoint substeps are doubled. The NaNO2 example
+uses an up-and-down sweep from `nu_L/nu_Q = 0.02` to 3 at 300 K, starting from a
+prepared quadrupolar ground state, to display relaxation-dependent lag and
+hysteresis. Its default 16-substep integration was checked against 32 substeps:
+the maximum fast-trajectory density difference was 0.37%, while the slow case
+was 1.1% (the final slow-state difference was below 0.01%). These parameters
+describe a phenomenological demonstration, not fitted NaNO2 field-cycling
+kinetics.

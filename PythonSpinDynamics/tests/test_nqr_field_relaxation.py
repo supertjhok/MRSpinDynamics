@@ -26,6 +26,7 @@ from spin_dynamics.nqr import (  # noqa: E402
     powder_average_grid,
     select_powder_frequency_slice,
     simulate_field_relaxation,
+    simulate_field_sweep_history,
     simulate_lab_frame_rf,
     simulate_crossover_slse,
     simulate_crossover_slse_powder,
@@ -716,6 +717,123 @@ class FieldDependentNonsecularTests(unittest.TestCase):
         residual = log_signal - (slope * times + intercept)
         self.assertLess(float(np.sqrt(np.mean(residual**2))), 3.0e-2)
         self.assertLess(slope, 0.0)
+
+
+class FieldSweepHistoryTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.site = QuadrupolarSite(
+            spin=1.0,
+            isotope="14N",
+            quadrupole_frequency_hz=1.0e6,
+            eta=0.2,
+            gamma_hz_per_t=3.0766e6,
+        )
+        self.direction = np.array([1.0, 1.0, 0.5])
+        self.direction /= np.linalg.norm(self.direction)
+
+    def test_constant_field_history_matches_fixed_field_propagation(self) -> None:
+        field = 0.2 * self.direction
+        times = np.array([0.0, 0.4e-3, 1.1e-3, 2.0e-3])
+        model = FieldDependentRelaxationModel(
+            temperature_kelvin=300.0,
+            thermalization_time_seconds=4.0e-3,
+            dephasing_time_seconds=2.0e-3,
+        )
+        initial = np.zeros((self.site.dimension, self.site.dimension), dtype=complex)
+        initial[0, 0] = 1.0
+        fixed = simulate_field_relaxation(
+            self.site,
+            field,
+            times,
+            relaxation=model,
+            initial_density=initial,
+        )
+        history = simulate_field_sweep_history(
+            self.site,
+            times,
+            np.tile(field, (times.size, 1)),
+            relaxation=model,
+            initial_density=initial,
+        )
+        np.testing.assert_allclose(
+            history.density_matrices_pas,
+            fixed.density_matrices_pas,
+            atol=2.0e-12,
+        )
+
+    def test_slow_relaxing_ramp_tracks_equilibrium_better_than_fast_ramp(self) -> None:
+        points = 41
+        maximum_field = (
+            2.0
+            * self.site.quadrupole_frequency_hz
+            / abs(self.site.gamma_hz_per_t)
+        )
+        fields = (
+            np.linspace(0.0, maximum_field, points)[:, np.newaxis]
+            * self.direction[np.newaxis, :]
+        )
+        model = FieldDependentRelaxationModel(
+            temperature_kelvin=1.0e-3,
+            thermalization_time_seconds=5.0e-3,
+            dephasing_time_seconds=2.0e-3,
+        )
+        fast = simulate_field_sweep_history(
+            self.site,
+            np.linspace(0.0, 0.5e-3, points),
+            fields,
+            relaxation=model,
+            substeps_per_interval=2,
+        )
+        slow = simulate_field_sweep_history(
+            self.site,
+            np.linspace(0.0, 50.0e-3, points),
+            fields,
+            relaxation=model,
+            substeps_per_interval=2,
+        )
+        self.assertLess(
+            slow.equilibrium_deviation_norm[-1],
+            0.25 * fast.equilibrium_deviation_norm[-1],
+        )
+        np.testing.assert_allclose(
+            np.trace(slow.density_matrices_pas, axis1=1, axis2=2),
+            1.0,
+            atol=2.0e-12,
+        )
+        self.assertGreaterEqual(float(np.min(slow.minimum_density_eigenvalue)), -1e-10)
+
+    def test_coherent_vector_ramp_converges_with_midpoint_substeps(self) -> None:
+        times = np.linspace(0.0, 2.0e-6, 9)
+        magnitudes = np.linspace(0.01, 0.4, times.size)
+        rotating_directions = np.column_stack(
+            [
+                np.sin(np.linspace(0.2, 1.0, times.size)),
+                np.zeros(times.size),
+                np.cos(np.linspace(0.2, 1.0, times.size)),
+            ]
+        )
+        fields = magnitudes[:, np.newaxis] * rotating_directions
+        initial = np.zeros((self.site.dimension, self.site.dimension), dtype=complex)
+        initial[0, 0] = 1.0
+        coarse = simulate_field_sweep_history(
+            self.site,
+            times,
+            fields,
+            initial_density=initial,
+            substeps_per_interval=4,
+        )
+        fine = simulate_field_sweep_history(
+            self.site,
+            times,
+            fields,
+            initial_density=initial,
+            substeps_per_interval=8,
+        )
+        np.testing.assert_allclose(
+            coarse.density_matrices_pas[-1],
+            fine.density_matrices_pas[-1],
+            atol=8.0e-4,
+        )
 
 
 if __name__ == "__main__":

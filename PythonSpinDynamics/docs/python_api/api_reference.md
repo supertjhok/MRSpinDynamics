@@ -1037,11 +1037,13 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | --- | --- | --- |
 | class | `FieldEquilibriumResult` | Exact Gibbs state of one quadrupolar site at a specified static field. |
 | class | `FieldRelaxationResult` | Density and spin-expectation trajectories under a fixed static field. |
+| class | `FieldSweepHistoryResult` | History-dependent density trajectory through a vector static-field ramp. |
 | function | `field_dependent_equilibrium(site: QuadrupolarSite, b0_vector_tesla_pas: Sequence[float] | np.ndarray = (0.0, 0.0, 0.0), *, temperature_kelvin: float = 300.0) -> FieldEquilibriumResult` | Return the normalized Gibbs state of the complete ``H_Q + H_Z``. |
 | class | `FieldDependentRelaxationModel` | Completely-positive relaxation toward the Gibbs state of ``H_Q + H_Z``. |
 | class | `FieldDependentDaviesRelaxationModel` | Thermal secular relaxation with field-dependent transition rates. |
 | class | `FieldDependentNonsecularRelaxationModel` | Unified-GKLS relaxation for clusters of unresolved Bohr frequencies. |
 | function | `simulate_field_relaxation(site: QuadrupolarSite, b0_vector_tesla_pas: Sequence[float] | np.ndarray, times_seconds: Sequence[float] | np.ndarray, *, relaxation: FieldDependentRelaxationModel | FieldDependentDaviesRelaxationModel, initial_density: np.ndarray | None = None) -> FieldRelaxationResult` | Propagate a density matrix while relaxing at one fixed static field. |
+| function | `simulate_field_sweep_history(site: QuadrupolarSite, times_seconds: Sequence[float] | np.ndarray, b0_vectors_tesla_pas: Sequence[Sequence[float]] | np.ndarray, *, relaxation: RelaxationSuperoperator | None = None, temperature_kelvin: float | None = None, initial_density: np.ndarray | None = None, substeps_per_interval: int = 1) -> FieldSweepHistoryResult` | Carry one density matrix through a piecewise-linear vector-field history. |
 
 ## `spin_dynamics.nqr.full_dynamics`
 
