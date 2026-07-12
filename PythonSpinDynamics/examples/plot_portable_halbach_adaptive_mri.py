@@ -22,16 +22,20 @@ def _print_design_tables(design) -> None:
     rx = design.receiver
     weight = design.weight
     print("\nRF coils")
-    print("coil  L (uH)  R (ohm)  Q       B1 center (mT/A)")
+    print("coil  L (uH)  R (ohm)  coil Q  effective Q  BW (kHz)  B1 (mT/A)")
     print(
         f"Tx    {rf.transmit_inductance_h * 1e6:6.2f}  "
         f"{rf.transmit_ac_resistance_ohm:7.3f}  "
-        f"{rf.transmit_q_factor:6.1f}  {rf.transmit_b1_center_t_per_a * 1e3:9.3f}"
+        f"{rf.transmit_q_factor:6.1f}  {rf.transmit_loaded_probe_q_factor:11.1f}  "
+        f"{rf.transmit_probe_bandwidth_hz / 1e3:8.0f}  "
+        f"{rf.transmit_b1_center_t_per_a * 1e3:9.3f}"
     )
     print(
         f"Rx    {rf.receive_inductance_h * 1e6:6.2f}  "
         f"{rf.receive_loaded_resistance_ohm:7.3f}  "
-        f"{rf.receive_loaded_q_factor:6.1f}  {rf.receive_b1_center_t_per_a * 1e3:9.3f}"
+        f"{rf.receive_loaded_q_factor:6.1f}  {rf.receive_loaded_probe_q_factor:11.1f}  "
+        f"{rf.receive_probe_bandwidth_hz / 1e3:8.0f}  "
+        f"{rf.receive_b1_center_t_per_a * 1e3:9.3f}"
     )
     print("\nGradient and receiver requirements")
     print(f"Gx/Gz efficiency: {grad.gx_efficiency_t_per_m_per_a * 1e3:.2f} / "
@@ -70,9 +74,14 @@ def _plot_design_dashboard(design, output: Path) -> None:
 
     rf = design.rf_coils
     axes[1, 0].bar(
-        ["Tx Q", "Rx copper Q", "Rx loaded Q"],
-        [rf.transmit_q_factor, rf.receive_copper_q_factor, rf.receive_loaded_q_factor],
-        color=["tab:orange", "tab:blue", "tab:cyan"],
+        ["Tx coil Q", "Tx PCMCD Q′", "Rx ferrite Q", "Rx feedback Q′"],
+        [
+            rf.transmit_q_factor,
+            rf.transmit_loaded_probe_q_factor,
+            rf.receive_loaded_q_factor,
+            rf.receive_loaded_probe_q_factor,
+        ],
+        color=["tab:orange", "tab:red", "tab:blue", "tab:cyan"],
     )
     axes[1, 0].set(title="RF loss budget", ylabel="quality factor")
     axes[1, 0].tick_params(axis="x", rotation=15)
@@ -190,7 +199,8 @@ def main() -> None:
     fig.suptitle(
         f"Low-cost Halbach MRI: loaded SNR={result.predicted_single_scan_snr:.0f} "
         f"(measured {result.measured_reference_snr:g}), "
-        f"Q={result.receive_coil_q_factor:.0f}, "
+        f"Rx coil Q={result.receive_coil_q_factor:.0f}, "
+        f"active Q′={design.rf_coils.receive_loaded_probe_q_factor:.1f}, "
         f"stopped after {stop_minutes:.1f} min ({result.adaptive.stop_reason})"
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
@@ -213,6 +223,11 @@ def main() -> None:
             magnet_temperature_k=result.magnet_temperature_k,
             pulse_lengths_s=design.pulse_sweep.pulse_lengths_s,
             peak_rf_power_w=design.pulse_sweep.peak_forward_power_w,
+            peak_rf_dc_input_power_w=design.pulse_sweep.peak_dc_input_power_w,
+            peak_rf_command_current_a=design.pulse_sweep.peak_current_a,
+            peak_rf_delivered_current_a=(
+                design.pulse_sweep.peak_delivered_coil_current_a
+            ),
             pulse_snr=design.pulse_sweep.predicted_snr,
             active_sample_volume_m3=design.pulse_sweep.active_sample_volume_m3,
             effective_slice_thickness_m=(

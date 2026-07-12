@@ -24,6 +24,10 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
   RF power/SNR/active-volume pulse sweeps, RF and gradient coil tables, peak
   gradient current and voltage, ADC gain budgeting, effective slice thickness,
   system mass accounting, and two generated user-manual figures.
+- Replaced ideal rectangular-current and scalar-Q shortcuts in the capstone
+  with the scanner's actual inverse-PCMCD series-tuned Tx chain and actively
+  feedback-damped parallel-tuned Rx chain, including finite envelope bandwidth,
+  ring-up, echo filtering, and filtered receiver-noise bandwidth.
 
 - Added a host-normalized CI performance regression gate that benchmarks the
   Git base and candidate commits on the same runner. Compact core, workflow,

@@ -39,9 +39,10 @@ reported NRMSE, never for the stopping decision.*
 
 ![RF, SNR, active-volume, gradient, receiver, and mass dashboard](images/portable_halbach_capstone_design.png)
 
-*Figure 2. Designer dashboard generated from the same run. The 5–6 µs region
-is close to the 200 W transmitter limit while retaining substantially more
-active sample volume than longer, narrower-band pulses.*
+*Figure 2. Designer dashboard generated from the same run. The 5 µs point uses
+the measured 200 W PCMCD operating point. Once finite Tx and Rx response is
+included, shorter pulses consume sharply more power without materially changing
+detected volume or SNR.*
 
 ## Model boundary and coordinates
 
@@ -62,15 +63,18 @@ new hardware specifications.
 | Subsystem | Model | Source |
 |---|---|---|
 | C8 Halbach | Eight 10×10×100 mm ferrite blocks, radius 21.7 mm, Br=385 mT | Book Table 3.2 |
-| Receive coil | 30-turn AWG-24 solenoid, radius 6.3 mm, length 24 mm | Book Table 4.4; PEEC solve |
-| Transmit coil | Four-turn, 120° saddle pair, radius 7.7 mm, length 50 mm | Book Table 4.4; Biot–Savart field |
+| Receive chain | 30-turn AWG-24 parallel-tuned solenoid, high-Z differential JFET preamplifier, noiseless capacitive feedback damping | Book Table 4.4 and Fig. 6.1–6.3; PEEC plus probe response |
+| Transmit chain | Inverse PCMCD current source, series-tuned four-turn 120° saddle pair, parallel resonant harmonic filter | Book Fig. 5.3 and Sect. 10.4; Biot–Savart plus measured envelope response |
 | Gx/Gz coils | Two-turn four-wire saddles, radius 10.3 mm, length 83 mm | Book Table 4.4; Biot–Savart field |
-| Receiver | 200 kHz tuned response, 18 µs acquisition window, 3 dB noise figure | Book operating point plus explicit assumption |
+| Receiver | Active Q reduction to Q′≈20.8 (200 kHz), 18 µs acquisition window, 3 dB conservative noise figure | Book operating point plus explicit assumption |
 | Thermal plant | RF coil, ferrite magnet, and ambient lumped nodes | System-level RC approximation |
 | Reconstruction | Variable-density Cartesian sampling and L1-Haar FISTA | Dependency-free package implementation |
 
-The measured 0.88 T/m construction gradient is superposed on the ideal C8
-field. It is distinct from the actively driven 15 mT/m/A phase-encoding coils.
+The measured 0.88 T/m diffusion-weighting gradient magnitude is retained as a
+sequence parameter but is not imposed as a signed linear ramp across the image.
+Imaging offsets come from the eight-block B0 solution itself. This avoids
+confusing local static-gradient strength with the actively driven 15 mT/m/A
+phase-encoding coils.
 
 ## RF coil and SNR results
 
@@ -87,19 +91,29 @@ the result is reported rather than hidden. Set
 `ferrite_imaginary_relative_permeability` to measured material data to make
 this step fully predictive.
 
-| Property | Transmit | Receive copper-only | Receive ferrite-loaded |
+| Property | Transmit PCMCD chain | Receive copper-only | Receive ferrite-loaded/active |
 |---|---:|---:|---:|
 | Inductance | 3.20 µH | 2.99 µH | 2.99 µH |
 | Series resistance | 1.115 Ω | 0.361 Ω | 0.610 Ω |
-| Q at 4.158 MHz | 75 | 217 | 128 |
+| Undriven coil Q | 75 | 217 | 128 |
+| Effective operating Q′ | 20.8 | — | 20.8 |
+| Whole-chain bandwidth | 200 kHz | — | 200 kHz |
 | Center B1/I | 0.374 mT/A | 1.355 mT/A | 1.355 mT/A |
 
 The transmit L and Q are book-calibrated; its resistance follows `R=omega L/Q`.
 Receive L and copper resistance are PEEC predictions. The ferrite contribution
 is 0.250 Ω for the default inferred `mu_r''≈0.32`.
 
-The predicted water echo at the tuned-probe output is 402 µV peak. The predicted
-single-scan noise is 3.00 µV RMS, giving SNR≈134 for the 5 µs capstone run. The
+The undriven coil Q is not used as a bandwidth shortcut. During transmission,
+the inverse PCMCD directly controls current in the series-tuned coil and its
+measured whole-chain envelope is represented by the package's tuned-probe
+response at 200 kHz. During reception, capacitive feedback reduces Q=128 to
+Q′≈20.8 without adding resistor noise. The same response filters the echo
+spectrum and the acquisition-window noise integral.
+
+The predicted water echo at the actively damped probe output is 85.8 µV peak.
+The predicted single-scan noise is 0.462 µV RMS, giving SNR≈186 for the 5 µs
+capstone run. The
 measured reference is 84. That remaining factor is useful: it quantifies the
 combined construction, receiver, transmit-noise coupling, and unmodeled loss
 budget instead of silently forcing the simulation to match the experiment.
@@ -107,27 +121,38 @@ budget instead of silently forcing the simulation to match the experiment.
 ## Pulse-length design sweep
 
 The drive current is changed at every point so the center of the transmit coil
-receives a 90° rotation. Peak forward power uses the 50 Ω source convention
+receives a 90° rotation. This is an inverse PCMCD current-source transmitter,
+not a 50 Ω matched amplifier. Peak output power is anchored to the assembled
+scanner's measured 200 W at 5 µs and scales with command-current squared:
 
 ```text
-I_peak = pi / (2 gamma B1_per_amp t90)
-P_forward = I_peak^2 Z0 / 2.
+I_command = pi / (2 gamma B1_per_amp t90)
+P_peak = 200 W * (5 us / t90)^2.
 ```
 
-| 90° pulse | Peak current | Peak forward power | Predicted SNR | Active volume | Effective slice |
-|---:|---:|---:|---:|---:|---:|
-| 3 µs | 5.24 A | 685 W | 160 | 0.613 mL | 6.81 mm |
-| 4 µs | 3.93 A | 386 W | 148 | 0.581 mL | 6.46 mm |
-| 5 µs | 3.14 A | 247 W | 134 | 0.513 mL | 5.70 mm |
-| 6 µs | 2.62 A | 171 W | 119 | 0.440 mL | 4.89 mm |
-| 8 µs | 1.96 A | 96 W | 96 | 0.337 mL | 3.75 mm |
-| 10 µs | 1.57 A | 62 W | 84 | 0.279 mL | 3.10 mm |
-| 12 µs | 1.31 A | 43 W | 74 | 0.230 mL | 2.56 mm |
+The delivered coil-current peak is separately computed from PCMCD envelope
+ring-up. Off-resonance excitation is the rectangular-pulse spectrum multiplied
+by the measured 200 kHz Tx response. The Rx response and 18 µs window are then
+applied before SNR is evaluated. At the measured 27% short-pulse efficiency,
+the 5 µs operating point requires about 741 W peak DC input while producing
+200 W RF output; duty cycling reduces this to the 18.5 W average thermal load
+used by the system model.
 
-This makes the hardware trade-off unusually clear: shortening the pulse excites
-more of the inhomogeneous sample and increases SNR, but power rises as `1/t90²`.
-A nominal 5–6 µs pulse is consistent with the reported 200 W-class transmitter;
-3–4 µs operation would require a substantially larger peak-power stage.
+| 90° pulse | Command / delivered peak | Peak PCMCD output | Predicted SNR | Active volume | Effective slice |
+|---:|---:|---:|---:|---:|---:|
+| 3 µs | 5.24 / 4.44 A | 556 W | 185.8 | 0.613 mL | 6.81 mm |
+| 4 µs | 3.93 / 3.61 A | 313 W | 185.8 | 0.613 mL | 6.81 mm |
+| 5 µs | 3.14 / 3.01 A | 200 W | 185.7 | 0.613 mL | 6.81 mm |
+| 6 µs | 2.62 / 2.56 A | 139 W | 185.7 | 0.613 mL | 6.81 mm |
+| 8 µs | 1.96 / 1.95 A | 78 W | 185.6 | 0.613 mL | 6.81 mm |
+| 10 µs | 1.57 / 1.57 A | 50 W | 185.4 | 0.613 mL | 6.81 mm |
+| 12 µs | 1.31 / 1.31 A | 35 W | 185.3 | 0.613 mL | 6.81 mm |
+
+This is the teaching result: once the actual Tx and Rx circuits are included,
+shortening an already broadband pulse no longer buys meaningful active volume or
+SNR. The 200 kHz probe chains, not the ideal rectangular pulse alone, set the
+usable spectral aperture. Power still rises as `1/t90²`, so 3–4 µs operation is
+mostly an expensive way to create nearly the same detected sample volume.
 
 ## Gradient coil and driver results
 
@@ -165,14 +190,19 @@ or 1.25 V, leaving headroom for drift, sample variation, and transients.
 
 | Receiver quantity | Value |
 |---|---:|
-| Predicted probe peak | 402 µV |
+| Predicted probe peak | 85.8 µV |
 | ADC target peak | 1.25 V |
-| Required voltage gain | 3,110× |
-| Required gain | 69.9 dB |
+| Required voltage gain | 14,565× |
+| Required gain | 83.3 dB |
+| Book receiver gain | approximately 75 dB |
+| Predicted ADC peak at 75 dB | approximately 0.48 V |
 
 The calculation is `20 log10(V_target/V_probe)`. It is an amplitude budget, not
 an automatic recommendation for one high-gain stage. A practical receiver
 should distribute the gain around filtering, blanking, and overload recovery.
+The implemented approximately 75 dB chain would use about 19% of a 2.5 V
+full-scale ADC for this reference echo, leaving more headroom than the 50%
+design target.
 
 ## Mass budget
 
@@ -200,7 +230,7 @@ At the default stop point:
 | RF coil temperature | 35.4 °C |
 | Ferrite temperature | 25.9 °C |
 | Larmor drift | −49.1 kHz |
-| CS reference NRMSE | 0.355 |
+| CS reference NRMSE | 0.351 |
 
 A fixed, distributed validation set is acquired but withheld from FISTA. After
 each batch, the reconstruction predicts those samples and reports
@@ -237,7 +267,9 @@ print(design.pulse_sweep.peak_forward_power_w)
 ## Limitations and next measurements
 
 - Transmit L and Q and gradient L/R are book-calibrated inputs; receive copper
-  impedance is PEEC-predicted.
+  impedance is PEEC-predicted. PCMCD and active-feedback bandwidths use the
+  measured assembled-system envelope rather than a transistor-level switching
+  simulation.
 - Default ferrite `mu_r''` is inferred from loaded Q because complex-permeability
   data are unavailable. A measured C8 coupon sweep would remove that inference.
 - The thermal RC network is system-level, not a fit to logged coil and magnet

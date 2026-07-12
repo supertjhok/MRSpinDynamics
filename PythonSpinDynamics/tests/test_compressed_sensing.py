@@ -94,8 +94,28 @@ class TestCompressedSensing(unittest.TestCase):
         )
         sweep = design.pulse_sweep
         self.assertTrue(np.all(np.diff(sweep.peak_forward_power_w) < 0.0))
-        self.assertGreater(sweep.active_sample_volume_m3[0], sweep.active_sample_volume_m3[-1])
+        self.assertTrue(np.all(np.diff(sweep.active_sample_volume_m3) <= 0.0))
+        self.assertTrue(
+            np.all(sweep.peak_delivered_coil_current_a < sweep.peak_current_a)
+        )
+        self.assertAlmostEqual(sweep.peak_forward_power_w[1], 200.0)
+        self.assertAlmostEqual(
+            sweep.peak_dc_input_power_w[1],
+            200.0 / config.pcmcd_short_pulse_efficiency,
+        )
         self.assertAlmostEqual(sweep.predicted_snr[1], result.predicted_single_scan_snr)
+        self.assertLess(
+            float(np.max(sweep.predicted_snr) / np.min(sweep.predicted_snr)),
+            1.02,
+        )
+        self.assertAlmostEqual(
+            design.rf_coils.transmit_loaded_probe_q_factor,
+            config.resonance_frequency_hz / config.transmit_probe_bandwidth_hz,
+        )
+        self.assertAlmostEqual(
+            design.rf_coils.receive_loaded_probe_q_factor,
+            config.resonance_frequency_hz / config.receiver_bandwidth_hz,
+        )
         self.assertAlmostEqual(
             design.receiver.peak_probe_signal_v
             * design.receiver.required_voltage_gain,

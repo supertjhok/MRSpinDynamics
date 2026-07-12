@@ -19,6 +19,7 @@ from spin_dynamics.analysis.compressed_sensing import (
     normalized_root_mean_square_error,
     variable_density_order,
 )
+from spin_dynamics.core.numerics import trapezoid
 from spin_dynamics.fields.coil_peec import coil_properties_peec, helical_solenoid
 from spin_dynamics.fields.magnetostatics import (
     MU0,
@@ -27,6 +28,7 @@ from spin_dynamics.fields.magnetostatics import (
     circular_loop,
     sample_halbach_dipole_field,
 )
+from spin_dynamics.optimal_control import TunedProbeResponse
 from spin_dynamics.thermal import ThermalLink, ThermalNetwork, ThermalNode
 
 
@@ -49,6 +51,7 @@ class PortableHalbachMRIConfig:
     gradient_current_limit_a: float = 5.0
     ferrite_temperature_coefficient_per_k: float = -2.0e-3
     receiver_bandwidth_hz: float = 200.0e3
+    transmit_probe_bandwidth_hz: float = 200.0e3
     measured_single_scan_snr: float = 84.0
     acquisition_window_s: float = 18.0e-6
     receiver_noise_figure_db: float = 3.0
@@ -60,7 +63,9 @@ class PortableHalbachMRIConfig:
     measured_receive_coil_q: float = 128.0
     transmit_coil_inductance_h: float = 3.2e-6
     measured_transmit_coil_q: float = 75.0
-    rf_source_impedance_ohm: float = 50.0
+    pcmcd_reference_peak_power_w: float = 200.0
+    pcmcd_reference_pulse_s: float = 5.0e-6
+    pcmcd_short_pulse_efficiency: float = 0.27
     gradient_coil_inductance_h: float = 1.3e-6
     gradient_rise_time_s: float = 100.0e-6
     adc_full_scale_v: float = 2.5
@@ -127,7 +132,9 @@ class RFPulseLengthSweep:
 
     pulse_lengths_s: np.ndarray
     peak_current_a: np.ndarray
+    peak_delivered_coil_current_a: np.ndarray
     peak_forward_power_w: np.ndarray
+    peak_dc_input_power_w: np.ndarray
     peak_coil_loss_w: np.ndarray
     predicted_snr: np.ndarray
     active_sample_volume_m3: np.ndarray
@@ -141,6 +148,8 @@ class RFCoilDesignMetrics:
     transmit_inductance_h: float
     transmit_ac_resistance_ohm: float
     transmit_q_factor: float
+    transmit_loaded_probe_q_factor: float
+    transmit_probe_bandwidth_hz: float
     transmit_b1_center_t_per_a: float
     receive_inductance_h: float
     receive_copper_resistance_ohm: float
@@ -148,6 +157,8 @@ class RFCoilDesignMetrics:
     receive_loaded_resistance_ohm: float
     receive_copper_q_factor: float
     receive_loaded_q_factor: float
+    receive_loaded_probe_q_factor: float
+    receive_probe_bandwidth_hz: float
     receive_b1_center_t_per_a: float
 
 
@@ -344,10 +355,11 @@ def _field_maps(
     )
     raw = maps.b0_magnitude[:, :, 0]
     raw = raw * (config.nominal_b0_t / float(np.mean(raw)))
-    # The compact four-rod model supplies finite-length curvature; the measured
-    # first-order C8 gradient calibrates the otherwise construction-specific term.
-    xx, _ = np.meshgrid(axis, axis, indexing="ij")
-    b0 = raw + config.intrinsic_gradient_t_per_m * xx
+    # The measured 0.88 T/m value is a diffusion-weighting gradient magnitude,
+    # not a signed linear imaging gradient across the full bore. Keep it as a
+    # sequence/diffusion parameter; the imaging offsets come from the actual
+    # eight-block field map so the probe sees the reported few-thousand-ppm span.
+    b0 = raw
 
     points = np.stack(np.meshgrid(axis, axis, indexing="ij"), axis=-1)
     points3 = np.zeros((n, n, 3), dtype=np.float64)
@@ -468,8 +480,26 @@ def simulate_portable_halbach_mri(
     offset_hz = (b0 - cfg.nominal_b0_t) * (
         cfg.resonance_frequency_hz / cfg.nominal_b0_t
     )
-    excitation = np.abs(np.sinc(offset_hz * cfg.rf_pulse_duration_s))
-    spin_density = phantom * b1**2 * excitation
+    transmit_probe_q = (
+        cfg.resonance_frequency_hz / cfg.transmit_probe_bandwidth_hz
+    )
+    receive_probe_q = cfg.resonance_frequency_hz / cfg.receiver_bandwidth_hz
+    transmit_response = TunedProbeResponse.from_quality_factor(
+        f0_hz=cfg.resonance_frequency_hz,
+        quality_factor=transmit_probe_q,
+    )
+    receive_response = TunedProbeResponse.from_quality_factor(
+        f0_hz=cfg.resonance_frequency_hz,
+        quality_factor=receive_probe_q,
+    )
+    transmit_filter = transmit_response.transfer(offset_hz)
+    receive_filter = receive_response.transfer(offset_hz)
+    acquisition_window = np.sinc(offset_hz * cfg.acquisition_window_s)
+    excitation = (
+        np.sinc(offset_hz * cfg.rf_pulse_duration_s) * transmit_filter
+    )
+    receive_profile = acquisition_window * receive_filter
+    spin_density = phantom * b1**2 * excitation * receive_profile
     axis = np.linspace(-0.5 * cfg.field_of_view_m, 0.5 * cfg.field_of_view_m, n)
     center = n // 2
     gx_gradient = np.gradient(gx_field, axis, axis)[0]
@@ -542,15 +572,31 @@ def simulate_portable_halbach_mri(
     transmit_normalized = b1_tx / max(float(np.max(b1_tx)), 1e-30)
     voxel_volume = (cfg.field_of_view_m / n) ** 2 * cfg.sample_depth_m
     omega = 2.0 * np.pi * cfg.resonance_frequency_hz
-    water_flux = float(
+    water_flux = abs(
         magnetization
         * voxel_volume
-        * np.sum(water_mask * excitation * transmit_normalized * b1_rx)
+        * np.sum(
+            water_mask
+            * excitation
+            * transmit_normalized
+            * b1_rx
+            * receive_profile
+        )
     )
-    water_signal_v = omega * water_flux * q_receive
-    noise_bandwidth = 1.0 / (2.0 * cfg.acquisition_window_s)
+    water_signal_v = omega * water_flux * receive_probe_q
+    noise_frequencies = np.linspace(
+        -0.5 * cfg.receiver_bandwidth_hz,
+        0.5 * cfg.receiver_bandwidth_hz,
+        4097,
+    )
+    noise_filter = receive_response.transfer(noise_frequencies) * np.sinc(
+        noise_frequencies * cfg.acquisition_window_s
+    )
+    noise_bandwidth = 0.5 * float(
+        trapezoid(np.abs(noise_filter) ** 2, noise_frequencies)
+    )
     noise_factor = 10.0 ** (cfg.receiver_noise_figure_db / 10.0)
-    output_noise_density = q_receive * np.sqrt(
+    output_noise_density = receive_probe_q * np.sqrt(
         4.0
         * boltzmann
         * cfg.sample_temperature_k
@@ -560,12 +606,18 @@ def simulate_portable_halbach_mri(
     single_scan_noise_rms = float(output_noise_density * np.sqrt(noise_bandwidth))
     predicted_snr = float(water_signal_v / single_scan_noise_rms)
 
-    phantom_flux = float(
+    phantom_flux = abs(
         magnetization
         * voxel_volume
-        * np.sum(phantom * excitation * transmit_normalized * b1_rx)
+        * np.sum(
+            phantom
+            * excitation
+            * transmit_normalized
+            * b1_rx
+            * receive_profile
+        )
     )
-    phantom_signal_v = omega * phantom_flux * q_receive
+    phantom_signal_v = omega * phantom_flux * receive_probe_q
     dc = ideal_kspace[n // 2, n // 2]
     if abs(dc) > 0.0:
         ideal_kspace *= phantom_signal_v / abs(dc)
@@ -629,7 +681,7 @@ def simulate_portable_halbach_mri(
     )
     reconstructed_magnitude = np.abs(adaptive.image)
     display_scale = float(
-        np.sum(spin_density * reconstructed_magnitude)
+        np.sum(np.abs(spin_density) * reconstructed_magnitude)
         / max(np.sum(reconstructed_magnitude**2), 1e-30)
     )
     return PortableHalbachMRIResult(
@@ -711,28 +763,71 @@ def summarize_portable_halbach_design(
     tx_resistance = (
         omega * cfg.transmit_coil_inductance_h / cfg.measured_transmit_coil_q
     )
+    transmit_probe_q = (
+        cfg.resonance_frequency_hz / cfg.transmit_probe_bandwidth_hz
+    )
+    receive_probe_q = cfg.resonance_frequency_hz / cfg.receiver_bandwidth_hz
+    transmit_response = TunedProbeResponse.from_quality_factor(
+        f0_hz=cfg.resonance_frequency_hz,
+        quality_factor=transmit_probe_q,
+    )
+    receive_response = TunedProbeResponse.from_quality_factor(
+        f0_hz=cfg.resonance_frequency_hz,
+        quality_factor=receive_probe_q,
+    )
+    receive_profile = receive_response.transfer(offset_hz) * np.sinc(
+        offset_hz * cfg.acquisition_window_s
+    )
 
     currents = np.pi / (2.0 * gamma_rad * b1_tx_center * pulses)
-    forward_power = 0.5 * currents**2 * cfg.rf_source_impedance_ohm
-    coil_power = 0.5 * currents**2 * tx_resistance
+    reference_current = np.pi / (
+        2.0
+        * gamma_rad
+        * b1_tx_center
+        * cfg.pcmcd_reference_pulse_s
+    )
+    forward_power = cfg.pcmcd_reference_peak_power_w * (
+        currents / reference_current
+    ) ** 2
+    dc_input_power = forward_power / cfg.pcmcd_short_pulse_efficiency
+    delivered_peak_current = currents * (
+        1.0 - np.exp(-pulses / transmit_response.tau)
+    )
+    coil_power = 0.5 * delivered_peak_current**2 * tx_resistance
     signal_proxy = np.empty_like(pulses)
     active_volume = np.empty_like(pulses)
     slice_thickness = np.empty_like(pulses)
     pixel_area = (cfg.field_of_view_m / n) ** 2
     for index, pulse in enumerate(pulses):
-        excitation = np.abs(np.sinc(offset_hz * pulse)) * np.abs(tx_normalized)
-        signal_proxy[index] = np.sum(
-            water_mask * excitation * result.b1_receive_map_t_per_a
+        transmit_profile = (
+            np.sinc(offset_hz * pulse)
+            * transmit_response.transfer(offset_hz)
+            * tx_normalized
         )
-        active = water_mask & (excitation >= 0.5)
+        signal_proxy[index] = abs(
+            np.sum(
+                water_mask
+                * transmit_profile
+                * result.b1_receive_map_t_per_a
+                * receive_profile
+            )
+        )
+        active = water_mask & (np.abs(transmit_profile) >= 0.5)
         active_area = float(np.count_nonzero(active) * pixel_area)
         active_volume[index] = active_area * cfg.sample_depth_m
         slice_thickness[index] = active_area / 9.0e-3
-    reference_excitation = np.abs(
+    reference_transmit = (
         np.sinc(offset_hz * cfg.rf_pulse_duration_s)
-    ) * np.abs(tx_normalized)
-    reference_proxy = float(
-        np.sum(water_mask * reference_excitation * result.b1_receive_map_t_per_a)
+        * transmit_response.transfer(offset_hz)
+        * tx_normalized
+    )
+    reference_proxy = abs(
+        np.sum(
+            water_mask
+            * reference_transmit
+            * result.b1_receive_map_t_per_a
+            * receive_profile
+        )
     )
     snr = result.predicted_single_scan_snr * signal_proxy / max(
         reference_proxy, 1e-30
@@ -763,6 +858,8 @@ def summarize_portable_halbach_design(
             transmit_inductance_h=cfg.transmit_coil_inductance_h,
             transmit_ac_resistance_ohm=float(tx_resistance),
             transmit_q_factor=cfg.measured_transmit_coil_q,
+            transmit_loaded_probe_q_factor=transmit_probe_q,
+            transmit_probe_bandwidth_hz=cfg.transmit_probe_bandwidth_hz,
             transmit_b1_center_t_per_a=b1_tx_center,
             receive_inductance_h=result.receive_coil_inductance_h,
             receive_copper_resistance_ohm=(
@@ -775,12 +872,16 @@ def summarize_portable_halbach_design(
             receive_loaded_resistance_ohm=result.receive_coil_resistance_ohm,
             receive_copper_q_factor=result.receive_coil_copper_q_factor,
             receive_loaded_q_factor=result.receive_coil_q_factor,
+            receive_loaded_probe_q_factor=receive_probe_q,
+            receive_probe_bandwidth_hz=cfg.receiver_bandwidth_hz,
             receive_b1_center_t_per_a=b1_rx_center,
         ),
         pulse_sweep=RFPulseLengthSweep(
             pulse_lengths_s=pulses,
             peak_current_a=currents,
+            peak_delivered_coil_current_a=delivered_peak_current,
             peak_forward_power_w=forward_power,
+            peak_dc_input_power_w=dc_input_power,
             peak_coil_loss_w=coil_power,
             predicted_snr=snr,
             active_sample_volume_m3=active_volume,
