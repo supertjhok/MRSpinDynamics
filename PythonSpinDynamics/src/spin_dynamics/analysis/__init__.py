@@ -1,5 +1,15 @@
 """Analysis helpers built on top of simulated or measured NMR signals."""
 
+from spin_dynamics.analysis.compressed_sensing import (
+    AdaptiveCSResult,
+    adaptive_cs_reconstruction,
+    centered_fft2,
+    centered_ifft2,
+    normalized_root_mean_square_error,
+    reconstruct_wavelet_fista,
+    variable_density_order,
+)
+
 from spin_dynamics.analysis.ilt import (
     ILTResult1D,
     ILTResult2D,
@@ -29,6 +39,10 @@ from spin_dynamics.analysis.regularization import (
 )
 
 __all__ = [
+    "AdaptiveCSResult",
+    "adaptive_cs_reconstruction",
+    "centered_fft2",
+    "centered_ifft2",
     "ILTResult1D",
     "ILTResult2D",
     "Regularization",
@@ -48,8 +62,11 @@ __all__ = [
     "invert_t2",
     "invert_t2_t2",
     "laplace_kernel",
+    "normalized_root_mean_square_error",
+    "reconstruct_wavelet_fista",
     "select_regularization_1d",
     "select_regularization_2d",
     "t1_kernel",
     "t2_kernel",
+    "variable_density_order",
 ]

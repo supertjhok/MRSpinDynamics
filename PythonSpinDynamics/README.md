@@ -354,6 +354,7 @@ python examples\plot_logging_ferrite_b1_focusing.py --output results\logging_fer
 python examples\plot_zulf_quadrupolar_jcoupling.py --output results\zulf_jcoupling.png
 python examples\plot_zulf_quadrupolar_relaxation.py --output results\zulf_quadrupolar_relaxation.png
 python examples\plot_t1rho_prepolarized_dispersion.py --output results\t1rho_dispersion.png
+python examples\plot_portable_halbach_adaptive_mri.py --output results\portable_halbach_adaptive_mri.png
 ```
 
 The full example catalog is documented in `docs/python_api/examples.md`.

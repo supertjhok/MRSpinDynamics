@@ -228,6 +228,18 @@ B1 maps, and a 3D voxel rendering of the reconstructed volume.
 python examples\plot_multislice_halbach_imaging.py --pixels 16 --slices 5 --output results\multislice_halbach.png
 ```
 
+For an end-to-end model of the book's low-cost C8 system—including finite
+Halbach fields, RF/gradient self-heating, ferrite Larmor drift, measured
+complex receiver noise, incomplete k-space, L1-Haar reconstruction, and a
+held-out quality auto-stop—run:
+
+```powershell
+python examples\plot_portable_halbach_adaptive_mri.py --output results\portable_halbach_adaptive_mri.png
+```
+
+See [`../portable_halbach_adaptive_mri.md`](../portable_halbach_adaptive_mri.md)
+for the calibration values and stopping-rule assumptions.
+
 Use `--b0-inhomogeneity-hz` and `--b1-inhomogeneity` to set the field
 variation, and `--slice-thickness-voxels` to set the slice gradient. The engine
 path costs roughly `slices x pixels` full-ensemble sequence runs, so keep the

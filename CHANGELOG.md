@@ -13,6 +13,14 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
 
 ### PythonSpinDynamics
 
+- Added a book-calibrated end-to-end portable Halbach MRI workflow coupling
+  finite-magnet and book-dimensioned RF/gradient-coil field maps, PEEC-predicted
+  receive impedance and SNR, field-integrated ferrite RF loss, duty-cycled I2R
+  heating, ferrite resonance drift,
+  tuned-receiver loss, predicted complex noise, L1-Haar
+  compressed sensing, and a held-out k-space quality metric that automatically
+  stops acquisition when improvement plateaus.
+
 - Added a host-normalized CI performance regression gate that benchmarks the
   Git base and candidate commits on the same runner. Compact core, workflow,
   compiler, and spatial-sampling workloads fail on large individual or broad

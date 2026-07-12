@@ -204,6 +204,12 @@ from spin_dynamics.workflows.relaxation import (
     run_nmrd,
     run_quadrupolar_relaxation,
 )
+from spin_dynamics.workflows.portable_halbach import (
+    PortableHalbachMRIConfig,
+    PortableHalbachMRIResult,
+    portable_phantom,
+    simulate_portable_halbach_mri,
+)
 
 STABLE_WORKFLOW_API = (
     "CPMGResult",
@@ -481,4 +487,8 @@ __all__ = [
     "run_field_cycling_nmrd",
     "run_nmrd",
     "run_quadrupolar_relaxation",
+    "PortableHalbachMRIConfig",
+    "PortableHalbachMRIResult",
+    "portable_phantom",
+    "simulate_portable_halbach_mri",
 ]
