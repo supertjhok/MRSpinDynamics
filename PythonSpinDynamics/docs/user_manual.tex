@@ -773,6 +773,23 @@ prepared = prepolarized_state(
 )
 \end{lstlisting}
 
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.98\linewidth]{images/example_bpp_water_t1t2_temperature.png}
+\caption{From molecular motion to relaxation. The Stokes--Einstein--Debye
+correlation time (left) feeds the BPP spectral density and produces the
+temperature-dependent $T_1$ and $T_2$ curves (center). The motional-regime
+panel (right) makes clear that both liquids remain deep in extreme narrowing at
+20~MHz over this temperature range.}
+\label{fig:bpp-temperature-example}
+\end{figure}
+
+Reproduce Figure~\ref{fig:bpp-temperature-example} with:
+
+\begin{lstlisting}[language=bash]
+python examples/plot_bpp_water_t1t2_temperature.py --output bpp.png
+\end{lstlisting}
+
 \subsection{Field-Cycling and NMRD Workflows}
 
 An NMRD experiment asks how relaxation changes as the observation frequency
@@ -1656,6 +1673,20 @@ strained = simulate_field_sweep_distribution(
 )
 \end{lstlisting}
 
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.96\linewidth]{images/example_esr_powder_spectrum.png}
+\caption{The same anisotropic $g$-tensor powder represented as a 9.5~GHz
+field sweep (left) and a 340~mT frequency sweep (right). The lower panels expose
+the weighted orientation-resolved resonance positions whose broadened sum gives
+the spectra above.}
+\label{fig:esr-powder-example}
+\end{figure}
+
+Run \code{python examples/plot\_esr\_powder\_spectrum.py --output esr.png} to
+reproduce Figure~\ref{fig:esr-powder-example} and change the $g$-strain or
+field-disorder sampling.
+
 \section{Pulsed ESR}
 
 The pulsed ESR helpers use a single rotating frame and a rotating-wave
@@ -2217,6 +2248,20 @@ spin-3/2 line can return reduced as a verified special case; and a polarization
 that makes neighboring lines RF-dark keeps a crowded spectrum reducible. The
 check is currently advisory---the reduced workflows do not yet invoke it
 automatically.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.98\linewidth]{images/example_nqr_nmr_crossover.png}
+\caption{Exact energy levels (top) and observable transition frequencies
+(bottom) across the NQR, crossover, and quadrupolar-NMR regimes. Marker color
+and size encode equilibrium transition intensity. The spin-1 \(^{14}\)N
+NaNO\(_2\) and spin-3/2 \(^{35}\)Cl NaClO\(_3\) panels show why the intermediate
+regime requires exact diagonalization and state tracking.}
+\label{fig:nqr-nmr-crossover-example}
+\end{figure}
+
+Reproduce Figure~\ref{fig:nqr-nmr-crossover-example} with
+\code{python examples/plot\_nqr\_nmr\_crossover.py --output crossover.png}.
 
 \section{Orientations and Powder Averages}
 
@@ -3419,6 +3464,15 @@ python examples/plot_sequence_timeline.py \
   --output results/demo_spin_echo.png
 \end{lstlisting}
 
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.98\linewidth]{images/example_sequence_timeline.png}
+\caption{Built-in spin-echo \code{SequenceIR} rendered as synchronized RF,
+gradient, and ADC channels. Block boundaries and labels make overlap, dead
+time, gradient polarity, and receive timing inspectable before compilation.}
+\label{fig:sequence-timeline-example}
+\end{figure}
+
 This visualization is deliberately part of the normal import/compile workflow,
 not a separate plotting data format: it consumes the same object that is passed
 to the compiler.
@@ -3733,6 +3787,20 @@ python examples/plot_redfield_water_cpmg.py \
     --correlation-time-seconds 2.5e-12 \
     --output water_redfield_cpmg.png
 \end{lstlisting}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.98\linewidth]{images/example_probe_cpmg.png}
+\caption{Ideal, tuned, untuned, and impedance-matched CPMG workflows. The
+normalized magnetization profiles remain similar, while the received spectrum
+and absolute echo amplitude expose the probe transfer function and noise
+penalty. Normalizing the echo (lower right) separates bandwidth distortion from
+overall sensitivity.}
+\label{fig:probe-cpmg-example}
+\end{figure}
+
+Run \code{python examples/plot\_probe\_cpmg.py --output probe\_cpmg.png} to
+reproduce Figure~\ref{fig:probe-cpmg-example} with different probe choices.
 
 The older unit-suffixed plotting conveniences, \code{--echo-spacing-ms} and
 \code{--tau-c-ps}, remain aliases, but new examples should prefer the seconds
@@ -4312,6 +4380,19 @@ The example \code{plot\_solenoid\_coil\_properties.py} sweeps \(L_{\text{eff}}\)
 \code{coil\_loading} for the loaded \(Q\) and noise penalty against a conductive sample.
 The field-based generalization to arbitrary geometry is the PEEC solver in the next
 subsection. Design note: \code{docs/coil\_properties.md}.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.98\linewidth]{images/example_solenoid_coil_properties.png}
+\caption{A single-layer solenoid carried from geometry to RF design metrics.
+The panels compare quasistatic and RF inductance, show skin/proximity resistance
+and unloaded $Q$ versus frequency, and reveal the form-factor optimum at the
+chosen operating frequency.}
+\label{fig:solenoid-properties-example}
+\end{figure}
+
+Reproduce Figure~\ref{fig:solenoid-properties-example} with
+\code{python examples/plot\_solenoid\_coil\_properties.py --save solenoid.png}.
 
 \subsection{Arbitrary-geometry coil solver (PEEC): multi-layer, saddle, and gradient coils}
 \label{sec:fields-coil-peec}
@@ -5168,6 +5249,31 @@ the spins can no longer fully dephase, and the apparent diffusion coefficient
 time grows. The example
 \code{plot\_pgse\_restricted\_diffusion.py} sweeps several pore widths and
 diffusion times to show both signatures.
+
+In the long-mixing, narrow-gradient-pulse limit, the signal can become
+non-monotonic rather than merely bending away from free diffusion. The pore
+form factor produces diffraction minima whose reciprocal-space positions encode
+the confining length scale.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.98\linewidth]{images/example_pgse_circular_pore_diffraction.png}
+\caption{Restricted random walkers in a 5~\(\mu\)m circular pore (left) and the
+resulting PGSE q-space diffraction pattern (right). The propagated echo follows
+the squared disc form factor through the first minimum; free diffusion would
+instead decay monotonically toward zero.}
+\label{fig:pore-diffraction-example}
+\end{figure}
+
+Reproduce Figure~\ref{fig:pore-diffraction-example} quickly with:
+
+\begin{lstlisting}[language=bash]
+python examples/plot_pgse_circular_pore_diffraction.py \
+  --method sgp-propagator --output pore.png
+\end{lstlisting}
+
+Use \code{walker-sweep} to include finite-pulse effects at higher computational
+cost.
 
 \subsection{Large 3D Porous-Rock Walker Challenge}
 

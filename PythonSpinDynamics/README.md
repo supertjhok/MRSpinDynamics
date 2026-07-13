@@ -393,6 +393,15 @@ cd docs
 pdflatex -interaction=nonstopmode -halt-on-error user_manual.tex
 ```
 
+The example-result figures embedded in the manual are reproducible from the
+same plotting scripts documented in their captions. Regenerate all of them, or
+one named figure, with:
+
+```powershell
+python docs\generate_manual_figures.py
+python docs\generate_manual_figures.py nqr-nmr-crossover
+```
+
 Refresh the generated Markdown API inventory after changing public functions,
 classes, or docstrings:
 
