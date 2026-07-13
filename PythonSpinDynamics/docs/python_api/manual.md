@@ -28,6 +28,14 @@ Exact diagonalization reveals how energy levels, transition frequencies, and
 intensities evolve through the difficult intermediate regime. Reproduce it with
 `python examples/plot_nqr_nmr_crossover.py --output crossover.png`.
 
+### Multinuclear ZULF coupling
+
+![Earth-field proton and fluorine spectra coupled through quadrupolar nitrogen](../images/example_zulf_quadrupolar_jcoupling.png)
+
+The full multinuclear Hamiltonian shows resolved coupling, relaxation-driven
+coalescence, and quadrupolar self-decoupling without imposing a high-field
+secular approximation.
+
 ### Probe response in CPMG
 
 ![Ideal and finite-probe CPMG magnetization, spectra, and echoes](../images/example_probe_cpmg.png)
@@ -57,12 +65,27 @@ orientations, making the source of the broadened spectrum explicit.
 The sequence timeline exposes overlaps, delays, gradient polarity, and the ADC
 window before simulation or hardware compilation.
 
+### Balanced SSFP field sensitivity
+
+![Balanced SSFP response, B0 banding, B1 shading, and phase-cycled correction](../images/example_bssfp_field_inhomogeneity.png)
+
+The example connects the steady-state frequency and flip-angle responses to
+B0 banding and B1 shading in images, then shows the phase-cycled correction.
+
 ### Coil geometry to RF performance
 
 ![Solenoid inductance, resistance, quality factor, and form-factor sweep](../images/example_solenoid_coil_properties.png)
 
 The solenoid example closes the loop from geometry to inductance, AC loss,
 quality factor, self-resonance, and probe loading.
+
+### Single-sided NMR fields
+
+![NMR-MOUSE B0, gradient, B1, and frequency-selected sensitive slices](../images/example_nmr_mouse_fields.png)
+
+The NMR-MOUSE example carries permanent-magnet and surface-coil fields into a
+depth-resolved sensitive slice, exposing the field and gradient tradeoffs with
+distance from the sensor.
 
 ### Restricted-diffusion diffraction
 
@@ -71,6 +94,27 @@ quality factor, self-resonance, and probe loading.
 Confinement produces q-space minima instead of the monotonic attenuation of
 free diffusion. The fast reproducer uses `--method sgp-propagator`; the
 `walker-sweep` mode adds finite-pulse effects.
+
+### Radiation damping
+
+![Radiation-damping FID envelopes and longitudinal back-action for several flip angles](../images/example_radiation_damping.png)
+
+The nonlinear probe feedback changes both the transverse envelope and
+longitudinal recovery on the radiation-damping time scale.
+
+### Relaxation exchange spectroscopy
+
+![REXSY signal and recovered non-negative T2-T2 exchange map](../images/example_t2_t2_exchange.png)
+
+The forward signal and inverse-Laplace map distinguish diagonal population from
+off-diagonal exchange during the mixing interval.
+
+### SQUID detection at ultra-low field
+
+![SQUID and Faraday noise, SNR scaling, advantage, and linewidth across ultra-low fields](../images/example_squid_ulf_crossover.png)
+
+A common field-referred noise model reveals why SQUID detection gains relative
+to a Faraday coil as the precession field falls and the line narrows.
 
 ## Other useful entry points
 

@@ -9,11 +9,13 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
 
 ### Changed
 
-- Expanded the PythonSpinDynamics user manual with seven reproducible
-  example-result figures covering CPMG probe response, BPP relaxation, ESR
-  powders, the NQR--NMR crossover, sequence timing, solenoid design, and
-  restricted-diffusion diffraction. Added `docs/generate_manual_figures.py` to
-  regenerate the assets.
+- Expanded the PythonSpinDynamics user manual with thirteen reproducible
+  example-result figures spanning CPMG probe response, BPP relaxation, ESR
+  powders, the NQR--NMR crossover, multinuclear ZULF coupling, sequence timing,
+  bSSFP imaging, solenoid and single-sided magnet design, restricted diffusion,
+  radiation damping, exchange inversion, and SQUID detection. Figures now
+  default to top-of-page placement in the print edition, and
+  `docs/generate_manual_figures.py` regenerates the assets.
 - Parallelized the branch-coverage suite with pytest-xdist and pytest-cov while
   preserving combined branch measurement and the existing coverage floor.
 - Added a strict MkDocs Material documentation build and GitHub Pages deployment

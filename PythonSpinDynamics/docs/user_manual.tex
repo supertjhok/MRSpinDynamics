@@ -773,7 +773,7 @@ prepared = prepolarized_state(
 )
 \end{lstlisting}
 
-\begin{figure}[htbp]
+\begin{figure}[t]
 \centering
 \includegraphics[width=0.98\linewidth]{images/example_bpp_water_t1t2_temperature.png}
 \caption{From molecular motion to relaxation. The Stokes--Einstein--Debye
@@ -1382,6 +1382,21 @@ The examples \code{plot\_zulf\_quadrupolar\_jcoupling.py} (sweeping
 from \(C_Q\) and \(\tau_c\)) reproduce the coalescence and self-decoupling
 behaviour.
 
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.98\linewidth]{images/example_zulf_quadrupolar_jcoupling.png}
+\caption{Earth-field \(^{1}\)H/\(^{19}\)F spectra coupled through quadrupolar
+\(^{14}\)N. Increasing the \(^{14}\)N relaxation rate first broadens and
+suppresses the multiplet, then restores a narrow heteronuclear doublet through
+quadrupolar self-decoupling; the lower-left panel separates homonuclear
+\(J\)-structure.}
+\label{fig:zulf-quadrupolar-jcoupling-example}
+\end{figure}
+
+Run \code{python examples/plot\_zulf\_quadrupolar\_jcoupling.py --output
+zulf\_jcoupling.png} to reproduce
+Figure~\ref{fig:zulf-quadrupolar-jcoupling-example}.
+
 \section{SLIC Response}
 
 Spin-lock induced crossing (SLIC) is modeled by adding an RF spin-lock
@@ -1544,7 +1559,7 @@ low-level machinery needed for heteronuclear products. A first-class,
 literature-validated PH-INEPT sequence is not yet included, nor are catalyst
 kinetics, reaction-time distributions, or SABRE exchange.
 
-\begin{figure}[htbp]
+\begin{figure}[t]
 \centering
 \includegraphics[width=0.97\linewidth]{images/lls_phip_workflows.png}
 \caption{Complete dense reference workflows. Left: SLIC preparation, measured
@@ -1673,7 +1688,7 @@ strained = simulate_field_sweep_distribution(
 )
 \end{lstlisting}
 
-\begin{figure}[htbp]
+\begin{figure}[t]
 \centering
 \includegraphics[width=0.96\linewidth]{images/example_esr_powder_spectrum.png}
 \caption{The same anisotropic $g$-tensor powder represented as a 9.5~GHz
@@ -2249,7 +2264,7 @@ that makes neighboring lines RF-dark keeps a crowded spectrum reducible. The
 check is currently advisory---the reduced workflows do not yet invoke it
 automatically.
 
-\begin{figure}[htbp]
+\begin{figure}[t]
 \centering
 \includegraphics[width=0.98\linewidth]{images/example_nqr_nmr_crossover.png}
 \caption{Exact energy levels (top) and observable transition frequencies
@@ -3464,7 +3479,7 @@ python examples/plot_sequence_timeline.py \
   --output results/demo_spin_echo.png
 \end{lstlisting}
 
-\begin{figure}[htbp]
+\begin{figure}[t]
 \centering
 \includegraphics[width=0.98\linewidth]{images/example_sequence_timeline.png}
 \caption{Built-in spin-echo \code{SequenceIR} rendered as synchronized RF,
@@ -3788,7 +3803,7 @@ python examples/plot_redfield_water_cpmg.py \
     --output water_redfield_cpmg.png
 \end{lstlisting}
 
-\begin{figure}[htbp]
+\begin{figure}[t]
 \centering
 \includegraphics[width=0.98\linewidth]{images/example_probe_cpmg.png}
 \caption{Ideal, tuned, untuned, and impedance-matched CPMG workflows. The
@@ -4056,6 +4071,20 @@ transmit-B1 gradient that shades the image, and a \emph{phase-cycled} pair
 combined by maximum, the standard fix that fills the bands back in at twice the
 scan time.
 
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.98\linewidth]{images/example_bssfp_field_inhomogeneity.png}
+\caption{Balanced SSFP connects its periodic off-resonance response and
+flip-angle optimum to image artifacts. B0 variation generates dark bands, B1
+variation produces shading, and a complementary phase-cycled pair removes the
+bands at twice the acquisition time.}
+\label{fig:bssfp-field-inhomogeneity-example}
+\end{figure}
+
+Run \code{python examples/plot\_bssfp\_field\_inhomogeneity.py --output
+bssfp\_fields.png} to reproduce
+Figure~\ref{fig:bssfp-field-inhomogeneity-example}.
+
 Two practical points fall out of running bSSFP honestly. First, the steady state
 must be established: \code{num\_dummy\_tr} balanced dummy TRs (with an optional
 \(\alpha/2\) ``catalyzation'' that lands the magnetization near the steady-state
@@ -4212,6 +4241,19 @@ device's hallmarks: \(|B_0|\sim 0.25\text{--}0.54\,\)T over the gap, a proton
 Larmor frequency of \(\sim 5\text{--}23\,\)MHz, and a strong static gradient
 \(G\sim 7\text{--}28\,\)T/m. The example \code{plot\_nmr\_mouse\_fields.py} shows
 the field, the gradient, the coil B1, and the depth-resolved sensitive slice.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.98\linewidth]{images/example_nmr_mouse_fields.png}
+\caption{A single-sided NMR-MOUSE field model carried from permanent-magnet B0
+and its static gradient through the surface-coil B1 map to frequency-selected,
+depth-resolved sensitive slices. The on-axis profile makes the simultaneous
+loss of field and gradient with depth explicit.}
+\label{fig:nmr-mouse-fields-example}
+\end{figure}
+
+Run \code{python examples/plot\_nmr\_mouse\_fields.py --output
+nmr\_mouse\_fields.png} to reproduce Figure~\ref{fig:nmr-mouse-fields-example}.
 
 \begin{lstlisting}[language=Python]
 from spin_dynamics.fields.magnetostatics import sample_halbach_dipole_field
@@ -4381,7 +4423,7 @@ The example \code{plot\_solenoid\_coil\_properties.py} sweeps \(L_{\text{eff}}\)
 The field-based generalization to arbitrary geometry is the PEEC solver in the next
 subsection. Design note: \code{docs/coil\_properties.md}.
 
-\begin{figure}[htbp]
+\begin{figure}[t]
 \centering
 \includegraphics[width=0.98\linewidth]{images/example_solenoid_coil_properties.png}
 \caption{A single-layer solenoid carried from geometry to RF design metrics.
@@ -5057,6 +5099,19 @@ the SQUID wins, and with a prepolarized sample (moment set by \(B_p\), not
 crossover, the prepolarized SNR-vs-\(B_0\) scalings, and the \(B_0\)-proportional
 line narrowing.
 
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.98\linewidth]{images/example_squid_ulf_crossover.png}
+\caption{SQUID and ideal Faraday detection on a common field-referred scale.
+The frequency-independent SQUID noise floor wins below the detector crossover;
+for a prepolarized sample its relative advantage grows as B0 falls while the
+homogeneous line narrows.}
+\label{fig:squid-ulf-crossover-example}
+\end{figure}
+
+Run \code{python examples/plot\_squid\_ulf\_crossover.py --save
+squid\_ulf.png} to reproduce Figure~\ref{fig:squid-ulf-crossover-example}.
+
 Optically pumped (atomic) magnetometers (\code{OPMMagnetometer}) are field
 sensors like SQUIDs but reach sub-fT/\(\sqrt{\mathrm{Hz}}\) sensitivity without
 cryogenics, at the cost of a finite atomic-response bandwidth. The vapour-cell
@@ -5255,7 +5310,7 @@ non-monotonic rather than merely bending away from free diffusion. The pore
 form factor produces diffraction minima whose reciprocal-space positions encode
 the confining length scale.
 
-\begin{figure}[htbp]
+\begin{figure}[t]
 \centering
 \includegraphics[width=0.98\linewidth]{images/example_pgse_circular_pore_diffraction.png}
 \caption{Restricted random walkers in a 5~\(\mu\)m circular pore (left) and the
@@ -6004,6 +6059,19 @@ inside the finite acquisition model. For strongly inverted samples,
 longitudinal magnetization; it is intended as an idealized threshold and
 saturation diagnostic rather than a full spectrometer-control model.
 
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.96\linewidth]{images/example_radiation_damping.png}
+\caption{Radiation-damping back-action for four initial flip angles, with time
+scaled by the matched probe's \(T_{\mathrm{rd}}\). The feedback drives the
+transverse FID envelope nonlinearly and returns longitudinal magnetization
+toward the positive equilibrium direction.}
+\label{fig:radiation-damping-example}
+\end{figure}
+
+Run \code{python examples/plot\_radiation\_damping.py --output
+radiation\_damping.png} to reproduce Figure~\ref{fig:radiation-damping-example}.
+
 \section{Inverse Laplace Analysis}
 
 \begin{lstlisting}[language=Python]
@@ -6093,6 +6161,19 @@ The \code{plot\_t2\_t2\_exchange.py} example runs this end to end. The REXSY
 forward model assumes refocused encode/detect trains and exchange confined to
 the longitudinal mixing interval; use the transverse engine directly when offset
 evolution during encoding matters.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.98\linewidth]{images/example_t2_t2_exchange.png}
+\caption{A two-site REXSY forward signal and its non-negative inverse-Laplace
+\(T_2\)--\(T_2\) map. Diagonal peaks retain each site's relaxation component,
+while the symmetric off-diagonal peaks report exchange during the mixing
+interval.}
+\label{fig:t2-t2-exchange-example}
+\end{figure}
+
+Run \code{python examples/plot\_t2\_t2\_exchange.py --output
+t2\_t2\_exchange.png} to reproduce Figure~\ref{fig:t2-t2-exchange-example}.
 
 \section{Internal and Susceptibility Gradients}
 \label{sec:internal-gradients}

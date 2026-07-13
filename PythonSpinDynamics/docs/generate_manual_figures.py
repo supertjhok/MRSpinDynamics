@@ -52,6 +52,36 @@ FIGURES: dict[str, tuple[str, ...]] = {
         "--output",
         "example_pgse_circular_pore_diffraction.png",
     ),
+    "zulf-quadrupolar-jcoupling": (
+        "plot_zulf_quadrupolar_jcoupling.py",
+        "--output",
+        "example_zulf_quadrupolar_jcoupling.png",
+    ),
+    "bssfp-field-inhomogeneity": (
+        "plot_bssfp_field_inhomogeneity.py",
+        "--output",
+        "example_bssfp_field_inhomogeneity.png",
+    ),
+    "radiation-damping": (
+        "plot_radiation_damping.py",
+        "--output",
+        "example_radiation_damping.png",
+    ),
+    "t2-t2-exchange": (
+        "plot_t2_t2_exchange.py",
+        "--output",
+        "example_t2_t2_exchange.png",
+    ),
+    "nmr-mouse-fields": (
+        "plot_nmr_mouse_fields.py",
+        "--output",
+        "example_nmr_mouse_fields.png",
+    ),
+    "squid-ulf-crossover": (
+        "plot_squid_ulf_crossover.py",
+        "--save",
+        "example_squid_ulf_crossover.png",
+    ),
 }
 
 
