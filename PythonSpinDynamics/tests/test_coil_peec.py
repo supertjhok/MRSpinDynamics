@@ -57,6 +57,54 @@ class TerminalReductionTests(unittest.TestCase):
         self.assertAlmostEqual(actual.real, expected.real, places=12)
         self.assertAlmostEqual(actual.imag, expected.imag, places=12)
 
+    def test_nonfinite_direct_solve_retries_equilibrated_system(self) -> None:
+        z = np.array([[3.0e-6 + 2.0e4j, 0.25j], [0.25j, 4.0e-6 + 1.5e4j]])
+        ones = np.ones(2)
+        direct_solve = np.linalg.solve
+        expected = 1.0 / (ones @ direct_solve(z, ones))
+        calls = 0
+
+        def transient_failure(matrix, rhs):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                return np.full(rhs.shape, np.nan + 1j * np.nan)
+            return direct_solve(matrix, rhs)
+
+        with (
+            patch(
+                "spin_dynamics.fields.coil_peec.np.linalg.solve",
+                side_effect=transient_failure,
+            ),
+            patch("spin_dynamics.fields.coil_peec.np.linalg.lstsq") as least_squares,
+        ):
+            actual = _parallel_terminal_impedance(z)
+
+        self.assertEqual(calls, 2)
+        least_squares.assert_not_called()
+        self.assertAlmostEqual(actual.real, expected.real, places=12)
+        self.assertAlmostEqual(actual.imag, expected.imag, places=12)
+
+    def test_lapack_failures_use_gaussian_fallback(self) -> None:
+        z = np.array([[3.0 + 2.0j, 0.25j], [0.25j, 4.0 + 1.5j]])
+        ones = np.ones(2)
+        expected = 1.0 / (ones @ np.linalg.solve(z, ones))
+
+        with (
+            patch(
+                "spin_dynamics.fields.coil_peec.np.linalg.solve",
+                side_effect=np.linalg.LinAlgError("transient direct-solve failure"),
+            ),
+            patch(
+                "spin_dynamics.fields.coil_peec.np.linalg.lstsq",
+                side_effect=np.linalg.LinAlgError("SVD did not converge"),
+            ),
+        ):
+            actual = _parallel_terminal_impedance(z)
+
+        self.assertAlmostEqual(actual.real, expected.real, places=12)
+        self.assertAlmostEqual(actual.imag, expected.imag, places=12)
+
 
 def _kelvin_rac_over_rdc(a: float, delta: float) -> float:
     q = np.sqrt(2.0) * a / delta

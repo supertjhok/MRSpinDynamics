@@ -7,6 +7,13 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
 
 ## [Unreleased]
 
+### Fixed
+
+- Hardened the PEEC parallel-terminal reduction against transient
+  LAPACK/OpenBLAS inconsistencies by retrying an equilibrated system and using
+  partial-pivoted Gaussian elimination if both direct and SVD-based NumPy
+  solvers fail.
+
 ### Changed
 
 - Expanded the PythonSpinDynamics user manual with thirteen reproducible

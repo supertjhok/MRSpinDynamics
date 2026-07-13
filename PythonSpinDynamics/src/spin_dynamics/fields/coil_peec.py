@@ -564,15 +564,20 @@ def _chain_inductance_matrix(
 
 
 def _parallel_terminal_impedance(z: np.ndarray) -> complex:
-    """Reduce parallel branches, retrying a numerically invalid direct solve.
+    """Reduce parallel branches, retrying a numerically invalid LAPACK solve.
 
     Some LAPACK/OpenBLAS combinations have very occasionally returned non-finite values
     from ``solve`` for otherwise modest, well-conditioned complex PEEC matrices.  Check the
     solution and its residual rather than allowing that backend failure to become a silent
-    ``nan`` terminal impedance.  SVD least squares is an independent, stable fallback.
+    ``nan`` terminal impedance.  Retry an equilibrated system before SVD least squares; if
+    both LAPACK paths fail, partial-pivoted Gaussian elimination provides a rare, small-matrix
+    fallback that does not call ``numpy.linalg``.
     """
 
-    ones = np.ones(z.shape[0])
+    z = np.asarray(z, dtype=complex)
+    if z.ndim != 2 or z.shape[0] != z.shape[1] or not np.isfinite(z).all():
+        raise np.linalg.LinAlgError("PEEC impedance matrix must be finite and square")
+    ones = np.ones(z.shape[0], dtype=complex)
 
     def valid(currents: np.ndarray) -> bool:
         if not np.isfinite(currents).all():
@@ -581,12 +586,53 @@ def _parallel_terminal_impedance(z: np.ndarray) -> complex:
         scale = np.linalg.norm(z) * np.linalg.norm(currents) + np.linalg.norm(ones)
         return bool(np.isfinite(residual) and residual <= 1e-10 * scale)
 
-    try:
-        currents = np.linalg.solve(z, ones)
-    except np.linalg.LinAlgError:
-        currents = np.full(z.shape[0], np.nan, dtype=complex)
+    def try_solve(matrix: np.ndarray, rhs: np.ndarray) -> np.ndarray:
+        try:
+            return np.linalg.solve(matrix, rhs)
+        except np.linalg.LinAlgError:
+            return np.full(rhs.shape, np.nan, dtype=complex)
+
+    def gaussian_solve(matrix: np.ndarray, rhs: np.ndarray) -> np.ndarray:
+        """Partial-pivoted fallback independent of the platform LAPACK backend."""
+
+        a = np.array(matrix, dtype=complex, copy=True)
+        b = np.array(rhs, dtype=complex, copy=True)
+        n = b.size
+        for column in range(n):
+            pivot = column + int(np.argmax(np.abs(a[column:, column])))
+            pivot_value = abs(a[pivot, column])
+            column_scale = float(np.max(np.abs(a[column:, column:])))
+            if not np.isfinite(pivot_value) or pivot_value <= np.finfo(float).eps * column_scale:
+                return np.full(rhs.shape, np.nan, dtype=complex)
+            if pivot != column:
+                a[[column, pivot]] = a[[pivot, column]]
+                b[[column, pivot]] = b[[pivot, column]]
+            factors = a[column + 1 :, column] / a[column, column]
+            a[column + 1 :, column:] -= factors[:, None] * a[column, column:]
+            b[column + 1 :] -= factors * b[column]
+
+        solution = np.empty(n, dtype=complex)
+        for row in range(n - 1, -1, -1):
+            solution[row] = (
+                b[row] - a[row, row + 1 :] @ solution[row + 1 :]
+            ) / a[row, row]
+        return solution
+
+    currents = try_solve(z, ones)
+    row_scale = np.max(np.abs(z), axis=1)
+    if np.any(row_scale <= np.finfo(float).tiny):
+        raise np.linalg.LinAlgError("PEEC impedance matrix contains a zero row")
+    equilibrated = z / row_scale[:, None]
+    equilibrated_rhs = ones / row_scale
     if not valid(currents):
-        currents = np.linalg.lstsq(z, ones, rcond=None)[0]
+        currents = try_solve(equilibrated, equilibrated_rhs)
+    if not valid(currents):
+        try:
+            currents = np.linalg.lstsq(equilibrated, equilibrated_rhs, rcond=None)[0]
+        except np.linalg.LinAlgError:
+            currents = np.full(z.shape[0], np.nan, dtype=complex)
+    if not valid(currents):
+        currents = gaussian_solve(equilibrated, equilibrated_rhs)
     if not valid(currents):
         raise np.linalg.LinAlgError("PEEC terminal-current solve did not converge")
 
