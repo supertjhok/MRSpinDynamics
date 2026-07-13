@@ -161,7 +161,7 @@ what supports the underlying scientific or numerical claim.
 - **Metric:** Inductance, resistance, capacitance, and impedance deviation
 - **Tolerance:** Tool- and discretization-specific thresholds declared in PEEC tests.
 - **References:** QOIL; FastHenry; FasterCap
-- **Reproduce:** [`tests/test_coil_peec.py::test_coil_properties_peec_fields_and_helpers`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_coil_peec.py#L664); [`tests/test_coil_peec_fasthenry.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_coil_peec_fasthenry.py); [`tests/test_coil_peec_fastercap.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_coil_peec_fastercap.py)
+- **Reproduce:** [`tests/test_coil_peec.py::test_coil_properties_peec_fields_and_helpers`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_coil_peec.py#L684); [`tests/test_coil_peec_fasthenry.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_coil_peec_fasthenry.py); [`tests/test_coil_peec_fastercap.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_coil_peec_fastercap.py)
 - **Limitations:** Live external-tool tests are optional and not run in ordinary CI. Validation is sparse for shields, complex windings, and high-frequency radiation.
 
 ### Thermal networks and conduction

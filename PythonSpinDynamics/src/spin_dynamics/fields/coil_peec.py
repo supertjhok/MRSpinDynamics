@@ -392,6 +392,49 @@ def _atanh_clip(x: np.ndarray) -> np.ndarray:
     return np.arctanh(np.clip(x, -1.0 + 1e-15, 1.0 - 1e-15))
 
 
+def _mutualfil_quadrature_pair(
+    start1: np.ndarray, end1: np.ndarray, start2: np.ndarray, end2: np.ndarray
+) -> float:
+    """Stable line integration for a filament pair whose closed form became non-finite."""
+
+    # Fixed Gauss-Legendre data avoids invoking another platform linear-algebra routine in the
+    # numerical-recovery path. Eight points per segment are ample here: the fallback is used
+    # only for separated pairs, where the 1/r kernel is smooth.
+    nodes = np.array(
+        [
+            0.0198550717512319,
+            0.101666761293187,
+            0.237233795041836,
+            0.408282678752175,
+            0.591717321247825,
+            0.762766204958164,
+            0.898333238706813,
+            0.980144928248768,
+        ]
+    )
+    weights = np.array(
+        [
+            0.0506142681451881,
+            0.111190517226687,
+            0.156853322938944,
+            0.181341891689181,
+            0.181341891689181,
+            0.156853322938944,
+            0.111190517226687,
+            0.0506142681451881,
+        ]
+    )
+    vector1 = end1 - start1
+    vector2 = end2 - start2
+    points1 = start1 + nodes[:, None] * vector1
+    points2 = start2 + nodes[:, None] * vector2
+    separation = points1[:, None, :] - points2[None, :, :]
+    distance = np.sqrt(np.sum(separation * separation, axis=-1))
+    with np.errstate(divide="ignore", invalid="ignore"):
+        integral = np.sum(weights[:, None] * weights[None, :] / distance)
+    return float(MUOVER4PI * np.dot(vector1, vector2) * integral)
+
+
 def _mutualfil_matrix(
     s1: np.ndarray, e1: np.ndarray, s2: np.ndarray, e2: np.ndarray
 ) -> np.ndarray:
@@ -500,6 +543,12 @@ def _mutualfil_matrix(
         out = np.where(parallel, np.where(collinear, m_col, m_par), m_gen)
         out = np.where(np.abs(realcos) < _FIL_EPS, 0.0, out)
         out = np.where(touching, m_touch, out)
+    # The exact expressions subtract nearly equal distance terms for remote, almost-parallel
+    # pairs. At extreme separation, a last-bit change in the vectorized arithmetic can turn
+    # that cancellation into NaN on some NumPy/OpenBLAS builds. Preserve the fast analytic
+    # result normally and repair only affected entries with direct smooth-kernel integration.
+    for i, j in np.argwhere(~np.isfinite(out)):
+        out[i, j] = _mutualfil_quadrature_pair(s1[i], e1[i], s2[j], e2[j])
     return out
 
 

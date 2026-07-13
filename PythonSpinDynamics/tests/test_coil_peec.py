@@ -638,6 +638,26 @@ class GroundPlaneAndDriveModeTests(unittest.TestCase):
         self.assertLess(l_near, 0.97 * l_free)          # box lowers L (~10%)
         self.assertLess(abs(l_far - l_free) / l_free, 0.01)  # distant box -> free space
 
+    def test_nonfinite_closed_form_mutual_uses_quadrature(self) -> None:
+        from unittest.mock import patch
+
+        from spin_dynamics.fields.coil_peec import _mutualfil_matrix
+
+        start1 = np.array([[0.0, 0.0, 0.0]])
+        end1 = np.array([[0.1, 0.0, 0.0]])
+        start2 = np.array([[1.0, 0.4, 0.2]])
+        end2 = np.array([[1.08, 0.45, 0.22]])
+        expected = _mutualfil_matrix(start1, end1, start2, end2)[0, 0]
+
+        def nonfinite_atanh(values: np.ndarray) -> np.ndarray:
+            return np.full_like(values, np.nan)
+
+        with patch("spin_dynamics.fields.coil_peec._atanh_clip", side_effect=nonfinite_atanh):
+            recovered = _mutualfil_matrix(start1, end1, start2, end2)[0, 0]
+
+        self.assertTrue(np.isfinite(recovered))
+        self.assertAlmostEqual(recovered, expected, delta=abs(expected) * 1e-9)
+
     def test_box_magnetic_image_has_six_wall_reflections(self) -> None:
         from spin_dynamics.fields.coil_peec import GroundedBox, GroundPlane
 

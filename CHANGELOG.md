@@ -9,10 +9,11 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
 
 ### Fixed
 
-- Hardened the PEEC parallel-terminal reduction against transient
-  LAPACK/OpenBLAS inconsistencies by retrying an equilibrated system and using
-  partial-pivoted Gaussian elimination if both direct and SVD-based NumPy
-  solvers fail.
+- Hardened PEEC impedance extraction against platform-dependent numerical
+  failures: unstable distant-filament closed forms are repaired by fixed
+  Gauss-Legendre integration, while terminal reduction retries an equilibrated
+  system and can fall back to partial-pivoted Gaussian elimination if NumPy's
+  direct and SVD-based solvers both fail.
 
 ### Changed
 
