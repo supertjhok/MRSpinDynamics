@@ -18,6 +18,7 @@ from tests.test_composition import (
     test_flow_field_interpolates_space_and_time_in_si_units,
 )
 from tests.test_examples import ExampleSmokeTests
+from tests.test_gradient_coils import CylindricalGradientDesignTests
 from tests.test_hyperpolarization_singlet import SingletStateTests
 from tests.test_hyperpolarization_workflows import LongLivedSingletWorkflowTests
 from tests.test_phase_cycling import PhaseCyclingTests
@@ -106,6 +107,11 @@ def load_tests(
     suite.addTest(
         unittest.FunctionTestCase(
             test_inverse_excitation_validation_recognizes_exact_broadband_cancellation
+        )
+    )
+    suite.addTest(
+        CylindricalGradientDesignTests(
+            "test_numpy_solve_enforces_kcl_and_fits_linear_target"
         )
     )
     suite.addTest(

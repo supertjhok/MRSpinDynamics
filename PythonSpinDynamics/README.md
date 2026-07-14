@@ -42,6 +42,9 @@ Use PythonSpinDynamics when you want to:
   doublets, and pulsed FID/Hahn-echo responses;
 - design radio-frequency and gradient pulses with gradient-ascent optimal
   control (GRAPE), including robust/ensemble and NQR/quadrupolar targets;
+- design cylindrical MRI gradient-coil current distributions and stream
+  functions with a KCL-constrained, Tikhonov-regularized Biot-Savart inverse
+  solve;
 - model radio-frequency interference (RFI) pickup and cancellation for
   low-field NQR detection.
 
@@ -90,7 +93,8 @@ extensions.
 - `spin_dynamics.core`, `fields`, `probes`, `sequences`, and `parameters`
   provide lower-level numerical pieces used by the workflows. `fields` also
   includes magnetostatic, quasistatic eddy-current, and induced-electric-field
-  solvers for coils and gradient drivers, plus a nonlinear magnetostatic solver
+  solvers for coils and gradient drivers, cylindrical stream-function gradient
+  coil design, plus a nonlinear magnetostatic solver
   (`nonlinear_magnetostatics`) for flux-shaping materials -- high-permeability RF
   ferrites and saturable iron -- in planar and axisymmetric geometries, and a 3D
   reduced-scalar-potential solver (`scalar_potential_3d`) for asymmetric magnet

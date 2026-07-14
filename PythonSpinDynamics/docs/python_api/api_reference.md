@@ -724,6 +724,19 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `EddyModeSpectrum` | Eddy-mode decomposition of a gradient's residual field at the sample. |
 | class | `EddyModes` | Coaxial-ring eddy model of a conducting structure. |
 
+## `spin_dynamics.fields.gradient_coils`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `CylindricalWindingSurface` | Regular z-axis cylindrical winding surface. |
+| class | `CylindricalGradientSystem` | A cylindrical source mesh and its field sensitivity matrix. |
+| class | `GradientCoilDesignResult` | Constrained current solution, stream function, and fit diagnostics. |
+| function | `spherical_target_points(radius: float, *, points_per_axis: int = 9, center: Sequence[float] = (0.0, 0.0, 0.0)) -> np.ndarray` | Return a Cartesian point grid clipped to a spherical target volume. |
+| function | `linear_gradient_target(points: np.ndarray, gradient: Sequence[float], *, center: Sequence[float] = (0.0, 0.0, 0.0), offset_t: float = 0.0) -> np.ndarray` | Return ``offset + gradient dot (position - center)`` in tesla. |
+| function | `build_cylindrical_gradient_system(surface: CylindricalWindingSurface, target_points: np.ndarray, *, field_direction: Sequence[float] = (0.0, 0.0, 1.0), chunk_size: int = 128) -> CylindricalGradientSystem` | Build the projected field-per-ampere matrix for a cylindrical mesh. |
+| function | `solve_gradient_coil(system: CylindricalGradientSystem, target_field_t: np.ndarray, *, regularization: float = 0.0, field_weights: np.ndarray | None = None, solver: SolverName = 'auto', atol: float = 1e-10, btol: float = 1e-10, max_iterations: int | None = None) -> GradientCoilDesignResult` | Solve the KCL-constrained, Tikhonov-regularized coil design. |
+| function | `design_cylindrical_gradient_coil(surface: CylindricalWindingSurface, target_points: np.ndarray, target_field_t: np.ndarray, *, field_direction: Sequence[float] = (0.0, 0.0, 1.0), regularization: float = 0.0, field_weights: np.ndarray | None = None, chunk_size: int = 128, solver: SolverName = 'auto', atol: float = 1e-10, btol: float = 1e-10, max_iterations: int | None = None) -> GradientCoilDesignResult` | Build and solve a cylindrical gradient-coil problem in one call. |
+
 ## `spin_dynamics.fields.interpolate`
 
 | Kind | Name | Summary |
@@ -742,6 +755,7 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `halbach_dipole_magnets(*, center_radius: float = 0.03, length: float = 0.08, remanence: float = 1.3, rod_shape: Literal['cylinder', 'square'] = 'cylinder', rod_radius: float | None = 0.008, rod_width: float | None = None, field_angle: float = 0.0) -> tuple[FiniteMagnetRod, ...]` | Return four rods for the lowest-order finite Halbach dipole. |
 | function | `sample_halbach_dipole_field(x_axis: np.ndarray, y_axis: np.ndarray, z_axis: np.ndarray, *, rods: Sequence[FiniteMagnetRod] | None = None, center_radius: float = 0.03, length: float = 0.08, remanence: float = 1.3, rod_shape: Literal['cylinder', 'square'] = 'cylinder', rod_radius: float | None = 0.008, rod_width: float | None = None, field_angle: float = 0.0, n_cross: int = 5, n_length: int = 21, chunk_size: int = 4096, gamma: float = GAMMA_PROTON) -> HalbachDipoleFieldMaps` | Sample a finite four-rod Halbach dipole onto a 3-D grid. |
 | function | `biot_savart(points: np.ndarray, segments: Sequence[tuple[Sequence[float], Sequence[float]]], current: float) -> np.ndarray` | Biot-Savart B field (T) of straight current segments at ``points``. |
+| function | `segment_field_sensitivity(points: np.ndarray, segments: Sequence[tuple[Sequence[float], Sequence[float]]], *, direction: Sequence[float] = (0.0, 0.0, 1.0), chunk_size: int = 128) -> np.ndarray` | Return projected field per ampere for every straight source segment. |
 | function | `circular_loop(center: Sequence[float], radius: float, *, axis: str = 'y', n_segments: int = 72) -> list[tuple[np.ndarray, np.ndarray]]` | Return straight-segment endpoints approximating a circular current loop. |
 | class | `MagnetFieldMaps` | Sampled B0/B1 of a magnet+coil assembly on a 2-D ``(x, y)`` grid. |
 | function | `sample_magnet_field(x_axis: np.ndarray, y_axis: np.ndarray, bars: Sequence[BarMagnet], *, yoke_y: float | None = None, coil_segments: Sequence[tuple[Sequence[float], Sequence[float]]] | None = None, coil_current: float = 1.0, gamma: float = GAMMA_PROTON) -> MagnetFieldMaps` | Sample a permanent-magnet + RF-coil assembly onto a 2-D grid. |

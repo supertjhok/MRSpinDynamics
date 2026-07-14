@@ -54,6 +54,16 @@ from spin_dynamics.fields.coil_peec import (
 )
 from spin_dynamics.fields.domain import SpatialDomain
 from spin_dynamics.fields.eddy_modes import EddyModes, EddyModeSpectrum
+from spin_dynamics.fields.gradient_coils import (
+    CylindricalGradientSystem,
+    CylindricalWindingSurface,
+    GradientCoilDesignResult,
+    build_cylindrical_gradient_system,
+    design_cylindrical_gradient_coil,
+    linear_gradient_target,
+    solve_gradient_coil,
+    spherical_target_points,
+)
 from spin_dynamics.fields.interpolate import dlinear_sample
 from spin_dynamics.fields.magnetostatics import (
     GAMMA_PROTON,
@@ -69,6 +79,7 @@ from spin_dynamics.fields.magnetostatics import (
     nmr_mouse_magnets,
     sample_halbach_dipole_field,
     sample_magnet_field,
+    segment_field_sensitivity,
 )
 from spin_dynamics.fields.maps import SpatialFieldMaps
 from spin_dynamics.fields.nonlinear_magnetostatics import (
@@ -128,12 +139,22 @@ __all__ = [
     "nmr_mouse_magnets",
     "sample_halbach_dipole_field",
     "sample_magnet_field",
+    "segment_field_sensitivity",
     # coils
     "solenoid",
     "planar_spiral",
     "maxwell_pair",
     "conducting_ring",
     "cylindrical_shield",
+    # stream-function gradient-coil design
+    "CylindricalWindingSurface",
+    "CylindricalGradientSystem",
+    "GradientCoilDesignResult",
+    "spherical_target_points",
+    "linear_gradient_target",
+    "build_cylindrical_gradient_system",
+    "solve_gradient_coil",
+    "design_cylindrical_gradient_coil",
     # coil properties (single-layer solenoid RF extraction)
     "ConductorMaterial",
     "ANNEALED_COPPER",

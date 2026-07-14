@@ -452,6 +452,89 @@ def biot_savart(
     return total
 
 
+def segment_field_sensitivity(
+    points: np.ndarray,
+    segments: Sequence[tuple[Sequence[float], Sequence[float]]],
+    *,
+    direction: Sequence[float] = (0.0, 0.0, 1.0),
+    chunk_size: int = 128,
+) -> np.ndarray:
+    """Return projected field per ampere for every straight source segment.
+
+    ``points`` has shape ``(..., 3)`` and the returned array has shape
+    ``(..., n_segments)`` in T/A. ``direction`` is normalized before use, so
+    each output column is the component of the finite-segment Biot-Savart field
+    along that direction. Segment chunks limit the largest temporary array to
+    approximately ``points.size * chunk_size`` field vectors.
+
+    This matrix is useful for linear inverse coil-design problems where each
+    segment has an independent trial current. Summing its columns after
+    multiplying by segment currents is equivalent to evaluating those segments
+    individually with :func:`biot_savart`.
+    """
+
+    pts = np.asarray(points, dtype=np.float64)
+    if pts.ndim < 1 or pts.shape[-1] != 3:
+        raise ValueError("points must have shape (..., 3)")
+    if int(chunk_size) < 1:
+        raise ValueError("chunk_size must be at least 1")
+    projection = np.asarray(direction, dtype=np.float64)
+    if projection.shape != (3,) or not np.all(np.isfinite(projection)):
+        raise ValueError("direction must be a finite 3-vector")
+    projection_norm = float(np.linalg.norm(projection))
+    if projection_norm == 0.0:
+        raise ValueError("direction must be nonzero")
+    projection = projection / projection_norm
+
+    segment_list = list(segments)
+    output_shape = pts.shape[:-1] + (len(segment_list),)
+    if not segment_list:
+        return np.zeros(output_shape, dtype=np.float64)
+
+    starts = np.asarray([start for start, _ in segment_list], dtype=np.float64)
+    ends = np.asarray([end for _, end in segment_list], dtype=np.float64)
+    if starts.shape != (len(segment_list), 3) or ends.shape != starts.shape:
+        raise ValueError("segments must contain pairs of 3-D endpoints")
+    if not np.all(np.isfinite(starts)) or not np.all(np.isfinite(ends)):
+        raise ValueError("segment endpoints must be finite")
+
+    flat_points = pts.reshape(-1, 3)
+    sensitivity = np.zeros((flat_points.shape[0], len(segment_list)))
+    coefficient = MU0 / (4.0 * np.pi)
+    for first in range(0, len(segment_list), int(chunk_size)):
+        last = min(first + int(chunk_size), len(segment_list))
+        x1 = starts[first:last]
+        x2 = ends[first:last]
+        displacement = x2 - x1
+        lengths = np.linalg.norm(displacement, axis=1)
+        unit = np.zeros_like(displacement)
+        valid = lengths > 0.0
+        unit[valid] = displacement[valid] / lengths[valid, np.newaxis]
+
+        r1 = flat_points[:, np.newaxis, :] - x1[np.newaxis, :, :]
+        r2 = flat_points[:, np.newaxis, :] - x2[np.newaxis, :, :]
+        n1 = np.linalg.norm(r1, axis=-1)
+        n2 = np.linalg.norm(r2, axis=-1)
+        cross = np.cross(unit[np.newaxis, :, :], r1)
+        d2 = np.sum(cross**2, axis=-1)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            term = (
+                np.sum(unit[np.newaxis, :, :] * r1, axis=-1) / n1
+                - np.sum(unit[np.newaxis, :, :] * r2, axis=-1) / n2
+            )
+            factor = np.where(
+                d2 > 0.0,
+                term / np.where(d2 > 0.0, d2, 1.0),
+                0.0,
+            )
+        fields = coefficient * factor[..., np.newaxis] * cross
+        sensitivity[:, first:last] = np.sum(
+            fields * projection[np.newaxis, np.newaxis, :], axis=-1
+        )
+
+    return sensitivity.reshape(output_shape)
+
+
 def circular_loop(
     center: Sequence[float],
     radius: float,
