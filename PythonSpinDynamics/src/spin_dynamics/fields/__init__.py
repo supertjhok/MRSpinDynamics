@@ -58,11 +58,20 @@ from spin_dynamics.fields.gradient_coils import (
     CylindricalGradientSystem,
     CylindricalWindingSurface,
     GradientCoilDesignResult,
+    GradientCoilRegularizationPath,
     build_cylindrical_gradient_system,
     design_cylindrical_gradient_coil,
     linear_gradient_target,
     solve_gradient_coil,
+    solve_regularization_path,
     spherical_target_points,
+)
+from spin_dynamics.fields.gradient_windings import (
+    WindingContour,
+    extract_winding_contours,
+    stream_function_contours,
+    winding_contour_levels,
+    winding_segments,
 )
 from spin_dynamics.fields.interpolate import dlinear_sample
 from spin_dynamics.fields.magnetostatics import (
@@ -150,11 +159,18 @@ __all__ = [
     "CylindricalWindingSurface",
     "CylindricalGradientSystem",
     "GradientCoilDesignResult",
+    "GradientCoilRegularizationPath",
+    "WindingContour",
     "spherical_target_points",
     "linear_gradient_target",
     "build_cylindrical_gradient_system",
     "solve_gradient_coil",
+    "solve_regularization_path",
     "design_cylindrical_gradient_coil",
+    "winding_contour_levels",
+    "extract_winding_contours",
+    "stream_function_contours",
+    "winding_segments",
     # coil properties (single-layer solenoid RF extraction)
     "ConductorMaterial",
     "ANNEALED_COPPER",

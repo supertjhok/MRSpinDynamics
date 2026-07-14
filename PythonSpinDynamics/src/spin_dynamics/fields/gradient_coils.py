@@ -4,8 +4,8 @@ The first implementation follows the regular-surface construction from the
 textbook treatment: azimuthal thin-wire source segments are optimized to
 produce a target ``B_z`` field, an axial KCL constraint closes each azimuthal
 current column, and cumulative current along ``z`` recovers a discrete stream
-function. Contour extraction and multi-surface active shielding are planned
-extensions; the current module provides the reusable inverse-field core.
+function. The companion :mod:`gradient_windings` module extracts periodic
+winding contours; multi-surface active shielding remains a planned extension.
 """
 
 from __future__ import annotations
@@ -167,6 +167,41 @@ class GradientCoilDesignResult:
 
         return self.predicted_field_t - self.target_field_t
 
+    @property
+    def stream_z(self) -> np.ndarray:
+        """Axial coordinates of the stream-function cell edges (m)."""
+
+        surface = self.system.surface
+        return np.linspace(
+            surface.center[2] - 0.5 * surface.length,
+            surface.center[2] + 0.5 * surface.length,
+            int(surface.n_z) + 1,
+        )
+
+
+@dataclass(frozen=True)
+class GradientCoilRegularizationPath:
+    """Current/error trade-off over a positive regularization grid."""
+
+    regularizations_t2_per_a2: np.ndarray
+    weighted_residual_norms_t: np.ndarray
+    current_norms_a: np.ndarray
+    l_curve_curvature: np.ndarray
+    selected_index: int
+    results: tuple[GradientCoilDesignResult, ...]
+
+    @property
+    def selected_regularization(self) -> float:
+        """Regularization value at the discrete L-curve corner."""
+
+        return float(self.regularizations_t2_per_a2[self.selected_index])
+
+    @property
+    def selected_result(self) -> GradientCoilDesignResult:
+        """Coil design at the discrete L-curve corner."""
+
+        return self.results[self.selected_index]
+
 
 def spherical_target_points(
     radius: float,
@@ -321,8 +356,10 @@ def solve_gradient_coil(
         np.sum(weights * residual**2) + regularization * current_norm**2
     )
 
-    stream_function = np.zeros_like(currents)
-    stream_function[:, 1:] = -np.cumsum(currents[:, :-1], axis=1)
+    stream_function = np.zeros(
+        (currents.shape[0], currents.shape[1] + 1), dtype=np.float64
+    )
+    stream_function[:, 1:] = -np.cumsum(currents, axis=1)
     return GradientCoilDesignResult(
         system=system,
         target_field_t=target,
@@ -340,6 +377,97 @@ def solve_gradient_coil(
         stop_code=stop_code,
         iterations=iterations,
     )
+
+
+def solve_regularization_path(
+    system: CylindricalGradientSystem,
+    target_field_t: np.ndarray,
+    regularizations: Sequence[float],
+    *,
+    field_weights: np.ndarray | None = None,
+    solver: SolverName = "auto",
+    atol: float = 1.0e-10,
+    btol: float = 1.0e-10,
+    max_iterations: int | None = None,
+) -> GradientCoilRegularizationPath:
+    """Solve a positive alpha grid and select its discrete L-curve corner.
+
+    The expensive field-sensitivity system is reused for every candidate. The
+    corner is the maximum curvature magnitude of
+    ``(log residual norm, log current norm)`` parameterized by ``log(alpha)``;
+    the two path endpoints are never selected.
+    """
+
+    values = np.asarray(regularizations, dtype=np.float64)
+    if values.ndim != 1 or values.size < 3:
+        raise ValueError("regularizations must contain at least three values")
+    if not np.all(np.isfinite(values)) or np.any(values <= 0.0):
+        raise ValueError("regularizations must be finite and positive")
+    values = np.unique(values)
+    if values.size < 3:
+        raise ValueError("regularizations must contain at least three unique values")
+    values.sort()
+
+    n_points = system.target_points.shape[0]
+    if field_weights is None:
+        weights = np.ones(n_points, dtype=np.float64)
+    else:
+        weights = np.asarray(field_weights, dtype=np.float64)
+        if weights.shape != (n_points,):
+            raise ValueError(f"field_weights must have shape ({n_points},)")
+        if not np.all(np.isfinite(weights)) or np.any(weights < 0.0):
+            raise ValueError("field_weights must be finite and non-negative")
+        if not np.any(weights > 0.0):
+            raise ValueError("at least one field weight must be positive")
+
+    results = tuple(
+        solve_gradient_coil(
+            system,
+            target_field_t,
+            regularization=float(value),
+            field_weights=weights,
+            solver=solver,
+            atol=atol,
+            btol=btol,
+            max_iterations=max_iterations,
+        )
+        for value in values
+    )
+    weight_sum_sqrt = float(np.sqrt(np.sum(weights)))
+    residual_norms = np.asarray(
+        [result.weighted_rms_error_t * weight_sum_sqrt for result in results]
+    )
+    current_norms = np.asarray([result.current_norm_a for result in results])
+    curvature = _l_curve_curvature(values, residual_norms, current_norms)
+    selected_index = int(np.argmax(curvature))
+    return GradientCoilRegularizationPath(
+        regularizations_t2_per_a2=values,
+        weighted_residual_norms_t=residual_norms,
+        current_norms_a=current_norms,
+        l_curve_curvature=curvature,
+        selected_index=selected_index,
+        results=results,
+    )
+
+
+def _l_curve_curvature(
+    regularizations: np.ndarray,
+    residual_norms: np.ndarray,
+    current_norms: np.ndarray,
+) -> np.ndarray:
+    tiny = np.finfo(np.float64).tiny
+    parameter = np.log(np.maximum(regularizations, tiny))
+    x = np.log(np.maximum(residual_norms, tiny))
+    y = np.log(np.maximum(current_norms, tiny))
+    dx = np.gradient(x, parameter, edge_order=2)
+    dy = np.gradient(y, parameter, edge_order=2)
+    ddx = np.gradient(dx, parameter, edge_order=2)
+    ddy = np.gradient(dy, parameter, edge_order=2)
+    denominator = np.maximum((dx**2 + dy**2) ** 1.5, tiny)
+    curvature = np.abs(dx * ddy - dy * ddx) / denominator
+    curvature[~np.isfinite(curvature)] = 0.0
+    curvature[[0, -1]] = 0.0
+    return curvature
 
 
 def design_cylindrical_gradient_coil(
@@ -549,9 +677,11 @@ __all__ = [
     "CylindricalWindingSurface",
     "CylindricalGradientSystem",
     "GradientCoilDesignResult",
+    "GradientCoilRegularizationPath",
     "spherical_target_points",
     "linear_gradient_target",
     "build_cylindrical_gradient_system",
     "solve_gradient_coil",
+    "solve_regularization_path",
     "design_cylindrical_gradient_coil",
 ]

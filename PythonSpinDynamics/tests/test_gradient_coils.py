@@ -16,6 +16,7 @@ from spin_dynamics.fields.gradient_coils import (  # noqa: E402
     build_cylindrical_gradient_system,
     linear_gradient_target,
     solve_gradient_coil,
+    solve_regularization_path,
     spherical_target_points,
 )
 from spin_dynamics.fields.magnetostatics import (  # noqa: E402
@@ -103,7 +104,7 @@ class CylindricalGradientDesignTests(unittest.TestCase):
         self.assertLess(result.relative_rms_error, 0.08)
         np.testing.assert_allclose(
             -np.diff(result.stream_function_a, axis=1),
-            result.segment_currents_a[:, :-1],
+            result.segment_currents_a,
             rtol=1.0e-13,
             atol=1.0e-13,
         )
@@ -149,6 +150,18 @@ class CylindricalGradientDesignTests(unittest.TestCase):
         )
         self.assertLess(strong.current_norm_a, weak.current_norm_a)
         self.assertGreater(strong.weighted_rms_error_t, weak.weighted_rms_error_t)
+
+    def test_regularization_path_selects_an_interior_candidate(self) -> None:
+        path = solve_regularization_path(
+            self.system,
+            self.target,
+            np.logspace(-20, -10, 11),
+            solver="numpy",
+        )
+        self.assertGreater(path.selected_index, 0)
+        self.assertLess(path.selected_index, len(path.results) - 1)
+        self.assertIs(path.selected_result, path.results[path.selected_index])
+        self.assertTrue(np.all(np.diff(path.current_norms_a) <= 1.0e-8))
 
     def test_auto_solver_returns_finite_result(self) -> None:
         result = solve_gradient_coil(

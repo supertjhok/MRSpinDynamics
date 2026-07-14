@@ -44,7 +44,8 @@ Use PythonSpinDynamics when you want to:
   control (GRAPE), including robust/ensemble and NQR/quadrupolar targets;
 - design cylindrical MRI gradient-coil current distributions and stream
   functions with a KCL-constrained, Tikhonov-regularized Biot-Savart inverse
-  solve;
+  solve, L-curve regularization selection, and periodic 3-D winding-contour
+  extraction;
 - model radio-frequency interference (RFI) pickup and cancellation for
   low-field NQR detection.
 

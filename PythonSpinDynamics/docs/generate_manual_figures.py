@@ -77,6 +77,11 @@ FIGURES: dict[str, tuple[str, ...]] = {
         "--output",
         "example_nmr_mouse_fields.png",
     ),
+    "gradient-coil-design": (
+        "plot_stream_function_gradient_coil.py",
+        "--output",
+        "example_gradient_coil_design.png",
+    ),
     "squid-ulf-crossover": (
         "plot_squid_ulf_crossover.py",
         "--save",

@@ -731,11 +731,23 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `CylindricalWindingSurface` | Regular z-axis cylindrical winding surface. |
 | class | `CylindricalGradientSystem` | A cylindrical source mesh and its field sensitivity matrix. |
 | class | `GradientCoilDesignResult` | Constrained current solution, stream function, and fit diagnostics. |
+| class | `GradientCoilRegularizationPath` | Current/error trade-off over a positive regularization grid. |
 | function | `spherical_target_points(radius: float, *, points_per_axis: int = 9, center: Sequence[float] = (0.0, 0.0, 0.0)) -> np.ndarray` | Return a Cartesian point grid clipped to a spherical target volume. |
 | function | `linear_gradient_target(points: np.ndarray, gradient: Sequence[float], *, center: Sequence[float] = (0.0, 0.0, 0.0), offset_t: float = 0.0) -> np.ndarray` | Return ``offset + gradient dot (position - center)`` in tesla. |
 | function | `build_cylindrical_gradient_system(surface: CylindricalWindingSurface, target_points: np.ndarray, *, field_direction: Sequence[float] = (0.0, 0.0, 1.0), chunk_size: int = 128) -> CylindricalGradientSystem` | Build the projected field-per-ampere matrix for a cylindrical mesh. |
 | function | `solve_gradient_coil(system: CylindricalGradientSystem, target_field_t: np.ndarray, *, regularization: float = 0.0, field_weights: np.ndarray | None = None, solver: SolverName = 'auto', atol: float = 1e-10, btol: float = 1e-10, max_iterations: int | None = None) -> GradientCoilDesignResult` | Solve the KCL-constrained, Tikhonov-regularized coil design. |
+| function | `solve_regularization_path(system: CylindricalGradientSystem, target_field_t: np.ndarray, regularizations: Sequence[float], *, field_weights: np.ndarray | None = None, solver: SolverName = 'auto', atol: float = 1e-10, btol: float = 1e-10, max_iterations: int | None = None) -> GradientCoilRegularizationPath` | Solve a positive alpha grid and select its discrete L-curve corner. |
 | function | `design_cylindrical_gradient_coil(surface: CylindricalWindingSurface, target_points: np.ndarray, target_field_t: np.ndarray, *, field_direction: Sequence[float] = (0.0, 0.0, 1.0), regularization: float = 0.0, field_weights: np.ndarray | None = None, chunk_size: int = 128, solver: SolverName = 'auto', atol: float = 1e-10, btol: float = 1e-10, max_iterations: int | None = None) -> GradientCoilDesignResult` | Build and solve a cylindrical gradient-coil problem in one call. |
+
+## `spin_dynamics.fields.gradient_windings`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `WindingContour` | One oriented stream-function contour on a cylindrical surface. |
+| function | `winding_contour_levels(stream_function_a: np.ndarray, current_per_turn_a: float) -> np.ndarray` | Return half-step-centered contour levels separated by one turn current. |
+| function | `extract_winding_contours(result: GradientCoilDesignResult, *, current_per_turn_a: float, levels_a: Sequence[float] | None = None, require_closed: bool = True) -> tuple[WindingContour, ...]` | Extract oriented 3-D windings from a solved cylindrical stream function. |
+| function | `stream_function_contours(surface: CylindricalWindingSurface, stream_function_a: np.ndarray, levels_a: Sequence[float], *, z_coordinates: np.ndarray | None = None, require_closed: bool = True) -> tuple[WindingContour, ...]` | Contour a periodic cylindrical stream-function grid without Matplotlib. |
+| function | `winding_segments(contours: Sequence[WindingContour]) -> tuple[Segment, ...]` | Flatten several winding contours into straight source segments. |
 
 ## `spin_dynamics.fields.interpolate`
 

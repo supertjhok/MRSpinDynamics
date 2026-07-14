@@ -19,6 +19,7 @@ from tests.test_composition import (
 )
 from tests.test_examples import ExampleSmokeTests
 from tests.test_gradient_coils import CylindricalGradientDesignTests
+from tests.test_gradient_windings import SyntheticContourTests
 from tests.test_hyperpolarization_singlet import SingletStateTests
 from tests.test_hyperpolarization_workflows import LongLivedSingletWorkflowTests
 from tests.test_phase_cycling import PhaseCyclingTests
@@ -112,6 +113,11 @@ def load_tests(
     suite.addTest(
         CylindricalGradientDesignTests(
             "test_numpy_solve_enforces_kcl_and_fits_linear_target"
+        )
+    )
+    suite.addTest(
+        SyntheticContourTests(
+            "test_periodic_seam_is_stitched_into_closed_cylindrical_loops"
         )
     )
     suite.addTest(

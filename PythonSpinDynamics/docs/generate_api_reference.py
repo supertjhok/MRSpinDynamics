@@ -76,6 +76,7 @@ MODULES = [
     "fields.domain",
     "fields.eddy_modes",
     "fields.gradient_coils",
+    "fields.gradient_windings",
     "fields.interpolate",
     "fields.magnetostatics",
     "fields.maps",

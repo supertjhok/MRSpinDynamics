@@ -54,9 +54,9 @@ azimuthal column of the mesh, which causes the recovered stream-function
 contours to close.
 
 The regularization value has physical units of `T^2/A^2` for the unnormalized
-form above. There is no universal optimum: users must choose it from the field
-error/current trade-off, or use a regularization-path selector when that phase
-is implemented.
+form above. There is no universal optimum. `solve_regularization_path` evaluates
+a positive alpha grid, reports the field-residual/current-norm L-curve, and
+selects its maximum-curvature interior point.
 
 ## Public API direction
 
@@ -78,10 +78,28 @@ result = solve_gradient_coil(
     target_bz,
     regularization=1.0e-14,
 )
+
+path = solve_regularization_path(
+    system,
+    target_bz,
+    regularizations=np.logspace(-20, -9, 23),
+)
+result = path.selected_result
+contours = extract_winding_contours(
+    result,
+    current_per_turn_a=1.0,
+)
+segments = winding_segments(contours)
 ```
 
 Separating system construction from the solve makes the expensive sensitivity
-matrix reusable for regularization sweeps and alternative targets.
+matrix reusable for regularization sweeps and alternative targets. The returned
+stream function has shape `(n_phi, n_z + 1)` on `result.stream_z`; its finite
+difference obeys `segment_currents_a == -np.diff(stream_function_a, axis=1)`.
+Contour levels are half-step centered and separated by `current_per_turn_a`.
+They are stitched across the periodic azimuth seam, oriented consistently with
+the optimized surface current, and mapped to the package's straight-segment
+Biot-Savart representation.
 
 ## Implementation phases
 
@@ -97,7 +115,7 @@ matrix reusable for regularization sweeps and alternative targets.
   along `z`.
 - Report field error, current norm, closure error, and solver diagnostics.
 
-### Phase 2: winding extraction and regularization paths
+### Phase 2: winding extraction and regularization paths (implemented)
 
 - Extract equally spaced periodic contours of the stream function without
   making Matplotlib a runtime dependency.
@@ -145,7 +163,15 @@ An actively shielded reference will use the textbook's concentric 40 cm and
 
 ## Current status
 
-Phase 1 is implemented: the package can build cylindrical source meshes,
-calculate segment sensitivities, solve the KCL-constrained regularized inverse
-problem, and return the segment-current grid and discrete stream function. The
-remaining phases above define intended scope, not yet-available public behavior.
+Phases 1 and 2 are implemented. The package can build cylindrical source
+meshes, calculate segment sensitivities, solve the KCL-constrained inverse
+problem, select a design from a regularization path, and extract closed,
+oriented three-dimensional winding contours. Run
+`examples/plot_stream_function_gradient_coil.py` for the complete workflow and
+`examples/plot_gradient_coil_regularization.py` for a focused L-curve study.
+
+The extracted contours are independent closed loops carrying the requested
+current per turn. Automatic routing of crossovers and end connections into one
+manufacturable series conductor is not yet included. Active shielding,
+mechanical constraints, and electrical/PEEC integration remain Phase 3 and 4
+work.

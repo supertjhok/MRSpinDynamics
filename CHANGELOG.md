@@ -12,8 +12,9 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
 - Started stream-function MRI gradient-coil design in PythonSpinDynamics with
   cylindrical thin-wire source meshes, chunked per-segment Biot-Savart
   sensitivities, exact axial KCL constraints, Tikhonov-regularized NumPy/SciPy
-  solvers, discrete stream-function recovery, tests, and an implementation
-  roadmap for winding extraction, active shielding, and PEEC integration.
+  solvers, discrete stream-function recovery, L-curve regularization paths,
+  seam-aware oriented 3-D winding contours, plotting examples, tests, and user
+  manual documentation. Active shielding and PEEC integration remain planned.
 - Ported the multi-axis NQR SLSE optimizer from the retired feature branch,
   including degeneracy-safe JAX/NumPy multi-coil propagation, bounded
   amplitude/phase/timing optimization, powder-averaged validation tests, and a

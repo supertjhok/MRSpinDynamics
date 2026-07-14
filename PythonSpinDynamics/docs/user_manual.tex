@@ -4297,6 +4297,87 @@ sensitivity honestly falls off with depth as the gradient weakens; the engine's
 constant-gradient physics is validated against the exact Carr-Purcell law. The
 example \code{plot\_nmr\_mouse\_depth\_profile.py} profiles a layered phantom.
 
+\subsection{Stream-function gradient-coil design}
+\label{sec:gradient-coil-design}
+
+\code{spin\_dynamics.fields} designs cylindrical MRI gradient coils directly
+from a desired \(B_z\) field. A divergence-free current sheet on a cylinder is
+represented by a scalar stream function \(\psi(\phi,z)\),
+\[
+J_\phi=-\frac{\partial\psi}{\partial z},\qquad
+J_z=\frac{1}{r}\frac{\partial\psi}{\partial\phi}.
+\]
+The implementation discretizes the azimuthal component into short filamentary
+segments and constructs their Biot--Savart sensitivity matrix \(S\), so the
+sampled field is \(B_z=SI\). For target field \(b\), field weights \(W_f\), and
+regularization \(\alpha\), it solves
+\[
+\min_I \left\|W_f(SI-b)\right\|_2^2
+       +\alpha\left\|I\right\|_2^2,
+\qquad CI=0.
+\]
+The exact KCL constraint \(CI=0\) closes every azimuthal current column. The
+regularization path reuses \(S\), reports the field-residual/current-norm
+L-curve, and selects the maximum-curvature interior sample. Because the
+unnormalized objective uses tesla and amperes, \(\alpha\) has units
+\(\mathrm{T}^2/\mathrm{A}^2\); users should span the visible corner rather than
+regard any fixed value as universal.
+
+\begin{lstlisting}[language=Python]
+import numpy as np
+from spin_dynamics.fields import (
+    CylindricalWindingSurface,
+    build_cylindrical_gradient_system,
+    extract_winding_contours,
+    linear_gradient_target,
+    solve_regularization_path,
+    spherical_target_points,
+    winding_segments,
+)
+
+surface = CylindricalWindingSurface(
+    radius=0.08, length=0.18, n_phi=32, n_z=17
+)
+points = spherical_target_points(0.03, points_per_axis=7)
+target_bz = linear_gradient_target(points, (0.0, 10e-3, 0.0))
+system = build_cylindrical_gradient_system(surface, points)
+path = solve_regularization_path(
+    system, target_bz, np.logspace(-20, -9, 23)
+)
+result = path.selected_result
+contours = extract_winding_contours(
+    result, current_per_turn_a=1.0
+)
+segments = winding_segments(contours)
+\end{lstlisting}
+
+The result includes the optimized segment-current grid, predicted and residual
+fields, closure and fit diagnostics, and a stream function on the \(n_z+1\)
+axial cell edges in \code{result.stream\_z}. Its discrete convention is
+\code{segment\_currents\_a == -np.diff(stream\_function\_a, axis=1)}.
+\code{extract\_winding\_contours} places levels half a turn-current from zero,
+stitches paths across the periodic \(0/2\pi\) seam without requiring Matplotlib,
+orients them consistently with the optimized current sheet, and maps them to
+three-dimensional straight segments accepted by \code{biot\_savart}.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.98\linewidth]{images/example_gradient_coil_design.png}
+\caption{A complete cylindrical \(y\)-gradient design: L-curve selection,
+unwrapped stream function and periodic contours, three-dimensional winding
+paths, and a direct target-versus-realized field comparison. Blue and red paths
+denote the two contour polarities.}
+\label{fig:gradient-coil-design}
+\end{figure}
+
+Run \code{python examples/plot\_stream\_function\_gradient\_coil.py --output
+gradient\_coil.png} to reproduce Figure~\ref{fig:gradient-coil-design}. The
+companion \code{plot\_gradient\_coil\_regularization.py} isolates the bias-current
+trade-off and curvature diagnostic. Extracted contours currently represent
+independent closed loops carrying \code{current\_per\_turn\_a}; automatic
+crossover and end-connection routing into one manufacturable series conductor,
+active shielding, and force/torque constraints are future extensions.
+
 \subsection{Quasistatic E-field and eddy currents}
 \label{sec:fields-quasistatic}
 
