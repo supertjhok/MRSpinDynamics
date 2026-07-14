@@ -7,6 +7,13 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
 
 ## [Unreleased]
 
+### Added
+
+- Ported the multi-axis NQR SLSE optimizer from the retired feature branch,
+  including degeneracy-safe JAX/NumPy multi-coil propagation, bounded
+  amplitude/phase/timing optimization, powder-averaged validation tests, and a
+  runnable one-/two-/three-axis comparison example.
+
 ### Fixed
 
 - Hardened PEEC impedance extraction against platform-dependent numerical

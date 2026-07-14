@@ -127,6 +127,7 @@ MODULES = [
     "optimal_control.diffusion",
     "optimal_control.drivers",
     "optimal_control.hamiltonians",
+    "optimal_control.multi_axis",
     "optimal_control.objectives",
     "optimal_control.parameterization",
     "optimal_control.solvers",

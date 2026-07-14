@@ -288,6 +288,106 @@ if JAX_AVAILABLE:
 
         return jax.vmap(one)(h_drift_batch, h_x_batch, h_y_batch, psi0_batch)
 
+    def _segment_propagator_multi(
+        h_drift, hx_stack, hy_stack, amp_vec, phase_vec, dt, method="expm"
+    ):
+        """``exp(-i H_seg dt)`` for a segment driven by several coils at once.
+
+        ``hx_stack``/``hy_stack`` are ``(n_coils, dim, dim)`` per-coil quadrature
+        operators; ``amp_vec``/``phase_vec`` are ``(n_coils,)`` per-coil amplitude
+        (hertz) and phase (radians). The segment Hamiltonian is
+        ``H_drift + sum_c amp_c (cos phi_c hx_c + sin phi_c hy_c)`` -- the
+        multi-axis generalization of :func:`_segment_propagator`. ``method="expm"``
+        (the default here) is degeneracy-safe, which quadrupolar/NQR spectra require.
+        """
+
+        cos_w = amp_vec * jnp.cos(phase_vec)
+        sin_w = amp_vec * jnp.sin(phase_vec)
+        drive = jnp.einsum("c,cij->ij", cos_w, hx_stack) + jnp.einsum(
+            "c,cij->ij", sin_w, hy_stack
+        )
+        h_seg = h_drift + drive
+        if method == "expm":
+            return _jax_expm(-1j * h_seg * dt)
+        values, vectors = jnp.linalg.eigh(h_seg)
+        seg_phases = jnp.exp(-1j * values * dt)
+        return (vectors * seg_phases[jnp.newaxis, :]) @ vectors.conj().T
+
+    @partial(jax.jit, static_argnames=("method",))
+    def propagate_unitary_scan_multi(
+        h_drift, hx_stack, hy_stack, amplitude, phase, dt, *, method="expm"
+    ):
+        """Propagate the identity through a multi-coil composite pulse to a unitary.
+
+        ``amplitude``/``phase`` have shape ``(n_segments, n_coils)`` (per-segment,
+        per-coil polar controls); ``dt`` is scalar or ``(n_segments,)``. Returns the
+        composite propagator, reused across an echo train without recomputation.
+        """
+
+        dt_arr = _broadcast_dt(dt, amplitude.shape[0])
+        u0 = jnp.eye(h_drift.shape[0], dtype=jnp.complex128)
+
+        def body(u, xs):
+            amp_j, phase_j, dt_j = xs
+            u_seg = _segment_propagator_multi(
+                h_drift, hx_stack, hy_stack, amp_j, phase_j, dt_j, method
+            )
+            return u_seg @ u, None
+
+        u_final, _ = lax.scan(body, u0, (amplitude, phase, dt_arr))
+        return u_final
+
+    @partial(jax.jit, static_argnames=("method",))
+    def propagate_unitary_batched_multi(
+        h_drift, hx_stack_batch, hy_stack_batch, amplitude, phase, dt, *, method="expm"
+    ):
+        """Vectorize :func:`propagate_unitary_scan_multi` over orientations.
+
+        ``hx_stack_batch``/``hy_stack_batch`` have shape
+        ``(n_orient, n_coils, dim, dim)``. Each crystallite has its own per-coil
+        drive operators while the drift and per-segment waveform are shared.
+        """
+
+        def one(hxs, hys):
+            return propagate_unitary_scan_multi(
+                h_drift, hxs, hys, amplitude, phase, dt, method=method
+            )
+
+        return jax.vmap(one)(hx_stack_batch, hy_stack_batch)
+
+
+def _segment_unitary_multi_numpy(h_drift, hx_stack, hy_stack, amp_vec, phase_vec, dt):
+    cos_w = np.asarray(amp_vec) * np.cos(phase_vec)
+    sin_w = np.asarray(amp_vec) * np.sin(phase_vec)
+    drive = np.einsum("c,cij->ij", cos_w, hx_stack) + np.einsum(
+        "c,cij->ij", sin_w, hy_stack
+    )
+    values, vectors = np.linalg.eigh(h_drift + drive)
+    return (vectors * np.exp(-1j * values * dt)[np.newaxis, :]) @ vectors.conj().T
+
+
+def propagate_unitary_scan_multi_numpy(h_drift, hx_stack, hy_stack, amplitude, phase, dt):
+    """Plain-NumPy reference for :func:`propagate_unitary_scan_multi`.
+
+    This is the ground truth for multi-coil parity tests and can evaluate an
+    optimized multi-axis pulse without the optional JAX dependency.
+    """
+
+    h_drift = np.asarray(h_drift, dtype=np.complex128)
+    hx_stack = np.asarray(hx_stack, dtype=np.complex128)
+    hy_stack = np.asarray(hy_stack, dtype=np.complex128)
+    amplitude = np.asarray(amplitude, dtype=np.float64)
+    phase = np.asarray(phase, dtype=np.float64)
+    n_segments = amplitude.shape[0]
+    dt_arr = np.broadcast_to(np.asarray(dt, dtype=np.float64), (n_segments,))
+    u = np.eye(h_drift.shape[0], dtype=np.complex128)
+    for amp_j, phase_j, dt_j in zip(amplitude, phase, dt_arr):
+        u_seg = _segment_unitary_multi_numpy(
+            h_drift, hx_stack, hy_stack, amp_j, phase_j, dt_j
+        )
+        u = u_seg @ u
+    return u
+
 
 def propagate_state_numpy(h_drift, h_x, h_y, amplitude, phase, dt, psi0):
     """Plain-NumPy reference implementation (no JAX required).

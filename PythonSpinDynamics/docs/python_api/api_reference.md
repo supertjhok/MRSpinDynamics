@@ -1361,6 +1361,18 @@ No public classes or functions found.
 | function | `nqr_fundamental_states(site, *, b0_vector_tesla_pas: Sequence[float] | np.ndarray | None = None) -> tuple[int, int]` | Return the ``(lower, upper)`` eigen-indices of the fundamental NQR line. |
 | function | `nqr_powder_control_batch(site, orientations, *, rf_frequency_hz: float | None = None, b0_vector_tesla_pas: Sequence[float] | np.ndarray | None = None) -> list[tuple[np.ndarray, np.ndarray]]` | Per-orientation ``(h_x, h_y)`` drive operators for a powder ensemble. |
 
+## `spin_dynamics.optimal_control.multi_axis`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `MultiAxisSLSEConfig` | Configuration for a tri-axial parametric SLSE optimization. |
+| function | `control_bounds(config: MultiAxisSLSEConfig, *, amp_max: float = 4.0) -> list[tuple[float, float]]` | Per-parameter ``(lower, upper)`` bounds for one control vector. |
+| function | `make_multi_axis_slse_objective(config: MultiAxisSLSEConfig)` | Return ``value_and_grad(x) -> (energy, grad)`` for the SLSE train energy. |
+| function | `slse_train_amplitudes(config: MultiAxisSLSEConfig, x: np.ndarray) -> np.ndarray` | Return the complex powder echo-train (num_echoes,) for a control vector. |
+| class | `MultiAxisSLSEResult` | Result of a multistart tri-axial SLSE optimization. |
+| function | `simultaneous_seed(config: MultiAxisSLSEConfig, *, amp_fraction: float = 1.5, excite_len: float = 0.5, refocus_len: float = 1.0) -> np.ndarray` | A circular-style warm start: all coils simultaneous, quadrature phases. |
+| function | `optimize_multi_axis_slse(config: MultiAxisSLSEConfig, *, n_starts: int = 8, seed: int = 0, amp_max: float = 4.0, include_simultaneous_seed: bool = True, options: dict | None = None) -> MultiAxisSLSEResult` | Multistart-optimize the tri-axial rectangular SLSE pulse parameters. |
+
 ## `spin_dynamics.optimal_control.objectives`
 
 | Kind | Name | Summary |

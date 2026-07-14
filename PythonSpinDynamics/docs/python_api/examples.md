@@ -857,6 +857,12 @@ both spin-1 and spin-3/2 sites.
 Use `--n-chi` and `--b1-b0-angle` to control the correlated weak-field powder
 average between the static field and RF field.
 
+`grape_nqr_multi_axis_slse.py` optimizes the amplitude, phase, delay, and
+duration of rectangular sub-pulses on one, two, or three orthogonal coils. It
+compares powder SLSE echo-train energy at matched per-coil B1 and reports the
+extra transmit-power and receiver-noise costs, showing when the optimizer
+rediscovers the circularly polarized two-coil solution.
+
 `plot_nqr_slse_sorc_sensitivity.py` compares the SNR per unit time of SLSE and
 steady-state SORC honestly, and finds them *comparable* rather than the often-quoted
 `sqrt(T1/T2e)` SORC win (which is an artifact of a T1-independent steady-state
@@ -941,6 +947,7 @@ notched out while the nearby NQR line survives.
 
 ```powershell
 python examples\plot_nqr_powder_nutation.py --output results\nqr_powder_nutation.png
+python examples\grape_nqr_multi_axis_slse.py --save results\grape_nqr_multi_axis_slse.png
 python examples\plot_nqr_population_transfer.py --output results\nqr_population_transfer.png
 python examples\plot_nqr_slse_offset.py --output results\nqr_slse_offset.png
 python examples\plot_nqr_slse_spacing.py --output results\nqr_slse_spacing.png

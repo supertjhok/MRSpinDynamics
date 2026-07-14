@@ -2648,6 +2648,7 @@ sweep = simulate_slse_offset_sweep(
 \end{lstlisting}
 
 \subsection{Circular and Multi-Axis Excitation}
+\label{sec:nqr-circular}
 
 The examples above excite the powder with a single linearly-polarized coil. The
 full density-matrix engine keeps a general RF direction and phase per coil and is
@@ -6813,7 +6814,36 @@ result reported rather than hidden. The per-orientation refocused-signal ratio i
 \(\min/\max\approx 0.02\) for SLSE versus \(\approx 0.26\) for the small-tip SORC
 steady state, so SORC is far more powder-robust to begin with. The clean GRAPE
 wins for NQR are therefore broadband \emph{excitation} and \emph{inversion}
-(above), not beating well-tuned powder detection trains.
+(above), not beating well-tuned \emph{single-coil} powder detection trains.
+
+\subsection{Tri-axial (multi-coil) SLSE excitation}
+\label{sec:grape-multi-axis}
+
+The module \code{optimal\_control.multi\_axis} asks a different hardware-level
+question: whether additional orthogonal coils improve the powder SLSE signal.
+It optimizes one rectangular sub-pulse per coil, with independently adjustable
+amplitude, phase, delay, and duration for both excitation and refocusing.
+Sequential versus simultaneous excitation is not imposed; it emerges from the
+fit. Smooth sigmoid edges render the sub-pulses on a fixed time grid so that
+delay and duration remain differentiable, and the objective uses the
+degeneracy-safe \code{expm} propagator.
+
+\code{MultiAxisSLSEConfig} sets the number of coils, per-coil \(B_1\) cap,
+pulse windows, powder grid, echo train, and single- or quadrature-coil receiver.
+\code{optimize\_multi\_axis\_slse} then performs bounded multistart optimization
+of the coherently powder-averaged echo-train energy. Run the comparison with:
+
+\begin{lstlisting}[language=bash]
+python examples/grape_nqr_multi_axis_slse.py --save results/grape_multi_axis.png
+\end{lstlisting}
+
+At matched \emph{per-coil} \(B_1\), the optimizer normally recovers most of its
+gain on moving from one to two axes by driving the crossed coils near
+quadrature---effectively rediscovering circular polarization
+(Section~\ref{sec:nqr-circular}). A third independently controlled axis adds
+little. The comparison reports the additional transmit power and the
+\(\sqrt{2}\) two-channel receiver-noise penalty explicitly; this is a hardware
+tradeoff, not a free pulse-shaping gain.
 
 Higher-spin transition-selective pulses (drive one line, leave another) and
 exact lab-frame satellite control are natural follow-ons on the same engine.

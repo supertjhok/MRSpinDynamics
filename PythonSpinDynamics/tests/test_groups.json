@@ -6,7 +6,10 @@
     "nqr": {
       "paths": [
         "src/spin_dynamics/nqr/**",
+        "src/spin_dynamics/optimal_control/_jax_propagation.py",
+        "src/spin_dynamics/optimal_control/multi_axis.py",
         "tests/test_nqr*.py",
+        "tests/test_optimal_control_multi_axis.py",
         "tests/test_batched_nqr.py",
         "examples/*nqr*.py"
       ],
@@ -21,7 +24,8 @@
         "tests.test_nqr_lab_frame",
         "tests.test_nqr_rwa_validation",
         "tests.test_nqr_floquet",
-        "tests.test_nqr_field_relaxation"
+        "tests.test_nqr_field_relaxation",
+        "tests.test_optimal_control_multi_axis"
       ]
     },
     "relaxation": {
