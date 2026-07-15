@@ -4,9 +4,21 @@
 
 This is a design document for a future PythonSpinDynamics feature.  It was
 refined on 2026-07-15 after reviewing the local Weinberg Medical Physics
-archive.  The first implementation phase will model and validate individual
+archive.  The first implementation phase models and validates individual
 electropermanent magnets (EPMs) before adding array synthesis, nonlinear
 imaging, particle transport, or closed-loop therapy.
+
+Implementation progress as of 2026-07-15:
+
+- **Complete:** evidence-tagged AlNiCo material and retained-state records;
+  arbitrary-axis finite rods; documented one-rod and 37-rod presets; explicit
+  close-packed bundles; area-equivalent cylinder reduction; exact on-axis and
+  cubature field solvers; imaging/motion field-map adapters; static tests,
+  documentation, and the magnet-only plotting example.
+- **Next:** capacitor/H-bridge/RLC programming pulses and regression against
+  the archived 220/400/600 V current traces.
+- **Pending:** calibrated hysteresis transitions, neighbor-coupled programming,
+  hybrid NdFeB/AlNiCo sub-units, and the full 72-element array.
 
 The textbook starting point is Section 11.2, printed pages 603--604, of
 `References/Measurements_Book_2_Final_WEB.pdf`.  Figure 11.6 describes an

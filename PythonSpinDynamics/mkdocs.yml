@@ -108,6 +108,7 @@ nav:
       - Radiation damping: radiation_damping.md
       - Relaxation validation: relaxation_validation.md
   - Fields and Hardware:
+      - Electropermanent AlNiCo magnets: electropermanent_magnets.md
       - Gradient-coil design: gradient_coil_design.md
       - Gradient-coil engineering: gradient_coil_engineering.md
       - Quasistatic field solvers: field_solvers_quasistatic.md

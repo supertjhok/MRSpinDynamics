@@ -18,6 +18,7 @@ from tests.test_composition import (
     test_flow_field_interpolates_space_and_time_in_si_units,
 )
 from tests.test_examples import ExampleSmokeTests
+from tests.test_electropermanent import ElectropermanentRodFieldTests
 from tests.test_gradient_coils import CylindricalGradientDesignTests
 from tests.test_gradient_shielding import ActivelyShieldedGradientTests
 from tests.test_gradient_windings import SyntheticContourTests
@@ -136,6 +137,11 @@ def load_tests(
     )
     suite.addTest(
         LongLivedSingletWorkflowTests("test_slic_prepare_store_readout_follows_ts")
+    )
+    suite.addTest(
+        ElectropermanentRodFieldTests(
+            "test_published_rod_matches_reported_surface_field_scale"
+        )
     )
     return suite
 

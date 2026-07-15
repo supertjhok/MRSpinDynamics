@@ -34,7 +34,7 @@ what supports the underlying scientific or numerical claim.
 | PGSE diffusion encoding | The deterministic moment backend follows the Stejskal-Tanner b-value and exp(-bD) attenuation, and free walkers converge toward that result. | **A**, **C** | validated |
 | Moving-isochromat diffusion and boundaries | Seeded particle motion has the expected diffusion statistics, boundary behavior, RF rotation, and static-gradient refocusing limits. | **A**, **R** | validated |
 | Flow washout and transit polarization | Plug and laminar pipe washout and flux-weighted transit polarization follow their analytical distributions and Monte Carlo estimates. | **A**, **C** | validated |
-| Magnetostatic field solvers | Biot-Savart coil fields and selected magnet geometries reproduce analytical center-field, symmetry, scaling, and finite-length limits. | **A** | validated |
+| Magnetostatic field solvers | Biot-Savart coil fields and selected magnet geometries reproduce analytical center-field, symmetry, scaling, finite-length, and far-field limits; the documented AlNiCo electropermanent rod also reproduces its published surface-field benchmark. | **A**, **D** | validated |
 | PEEC coil impedance and parasitics | PEEC inductance/resistance trends agree with analytical kernels and selected independent QOIL, FastHenry, and FasterCap comparisons. | **C**, **A** | partially validated |
 | Thermal networks, conduction, and electromagnets | Lumped, one-dimensional, axisymmetric, perfused, and advective thermal models reproduce closed-form limits; coupled electromagnets recover exact RL and electrothermal fixed points, and selected conduction cases are cross-checked with FEMM. | **A**, **C** | validated |
 | NQR Hamiltonians and pulse models | Spin-1 and spin-3/2 transition conventions, powder weights, selective pulses, and SORC/SLSE limits reproduce analytical and published theory results. | **A**, **D** | partially validated |
@@ -142,15 +142,15 @@ what supports the underlying scientific or numerical claim.
 
 ### Magnetostatic field solvers
 
-- **Claim:** Biot-Savart coil fields and selected magnet geometries reproduce analytical center-field, symmetry, scaling, and finite-length limits.
-- **Evidence:** A (validated)
-- **Basis:** Circular-loop center field, symmetry planes, current scaling, and known Halbach field orientation.
-- **Tested range:** Loop coils, yoke-image checks, finite Halbach rods, and NMR-MOUSE-scale grids.
+- **Claim:** Biot-Savart coil fields and selected magnet geometries reproduce analytical center-field, symmetry, scaling, finite-length, and far-field limits; the documented AlNiCo electropermanent rod also reproduces its published surface-field benchmark.
+- **Evidence:** A, D (validated)
+- **Basis:** Circular-loop center field, symmetry planes, current scaling, known Halbach field orientation, exact finite-cylinder axial fields, point-dipole limits, and a published AlNiCo-5 rod benchmark.
+- **Tested range:** Loop coils, yoke-image checks, finite Halbach rods, NMR-MOUSE-scale grids, and finite cylindrical AlNiCo rods and bundles.
 - **Metric:** Vector-field value, direction, symmetry, and scaling
 - **Tolerance:** Geometry/discretization-specific tolerances declared in tests.
-- **References:** Biot-Savart circular-loop solution; Ideal Halbach dipole symmetry
-- **Reproduce:** [`tests/test_magnetostatics.py::test_loop_center_matches_analytic`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_magnetostatics.py#L27); [`tests/test_magnetostatics.py::test_field_scales_with_current`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_magnetostatics.py#L36); [`tests/test_magnetostatics.py::test_four_rod_halbach_phasing_points_bore_field_along_x`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_magnetostatics.py#L105)
-- **Limitations:** Nonlinear material models have analytical/synthetic checks but limited measured-magnet comparison.
+- **References:** Biot-Savart circular-loop solution; Ideal Halbach dipole symmetry; Weinberg Medical Physics variable-field NMR AlNiCo rod measurements
+- **Reproduce:** [`tests/test_magnetostatics.py::test_loop_center_matches_analytic`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_magnetostatics.py#L27); [`tests/test_magnetostatics.py::test_field_scales_with_current`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_magnetostatics.py#L36); [`tests/test_magnetostatics.py::test_four_rod_halbach_phasing_points_bore_field_along_x`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_magnetostatics.py#L105); [`tests/test_electropermanent.py::test_published_rod_matches_reported_surface_field_scale`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_electropermanent.py#L53); [`tests/test_electropermanent.py::test_cubature_converges_to_exact_on_axis_cylinder_field`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_electropermanent.py#L63); [`tests/test_electropermanent.py::test_far_field_matches_magnetic_dipole_limit`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_electropermanent.py#L88)
+- **Limitations:** The electropermanent-magnet implementation currently treats retained remanence as prescribed; programming-pulse hysteresis and coupled pulse/thermal dynamics are not yet modeled.
 
 ### PEEC coil impedance and parasitics
 

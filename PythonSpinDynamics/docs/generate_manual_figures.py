@@ -92,6 +92,11 @@ FIGURES: dict[str, tuple[str, ...]] = {
         "--output",
         "example_electrothermal_electromagnet.png",
     ),
+    "electropermanent-magnet": (
+        "plot_electropermanent_magnet.py",
+        "--output",
+        "example_electropermanent_magnet.png",
+    ),
     "squid-ulf-crossover": (
         "plot_squid_ulf_crossover.py",
         "--save",

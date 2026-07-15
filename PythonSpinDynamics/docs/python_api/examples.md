@@ -580,6 +580,27 @@ minutes. Use `--semi-major` / `--semi-minor` to set the eccentricity,
 `--num-orientations` / `--walkers-per-cell` to trade runtime for smoother curves.
 Only Matplotlib is required.
 
+## Electropermanent AlNiCo Magnet
+
+This magnet-only example implements the first phase of the electropermanent
+MRI plan. It builds the locally documented 37-rod AlNiCo-5 bundle, keeps
+nominal material remanence separate from retained state, and compares the
+explicit bundle with an area-equivalent cylinder. The six panels show the rod
+packing, partial-remanence axial profiles, the external `Bz` map, bundle
+reduction error, the field contribution of an opposed neighboring bundle, and
+cubature convergence against the exact finite-cylinder axial field.
+
+```powershell
+python examples\plot_electropermanent_magnet.py --output results\electropermanent_magnet.png
+```
+
+Use `--remanence-t`, `--n-cross`, and `--n-length` to change the retained state
+and numerical resolution. The example prints evidence provenance, the retained
+fraction of nominal AlNiCo `Br`, bundle dimensions and magnetic moment, the
+published approximately 150 mT surface-field benchmark, equivalent-cylinder
+error, and neighbor-field perturbation. Pulse programming and hysteresis state
+updates are deliberately deferred to the next implementation phase.
+
 ## Electrothermal Electromagnet B0 Source
 
 This example builds a 30 mT air-core solenoid from the existing Biot-Savart

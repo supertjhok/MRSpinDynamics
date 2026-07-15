@@ -136,20 +136,23 @@
     {
       "id": "magnetostatic_fields",
       "component": "Magnetostatic field solvers",
-      "claim": "Biot-Savart coil fields and selected magnet geometries reproduce analytical center-field, symmetry, scaling, and finite-length limits.",
-      "evidence_types": ["A"],
-      "basis": "Circular-loop center field, symmetry planes, current scaling, and known Halbach field orientation.",
-      "parameter_range": "Loop coils, yoke-image checks, finite Halbach rods, and NMR-MOUSE-scale grids.",
+      "claim": "Biot-Savart coil fields and selected magnet geometries reproduce analytical center-field, symmetry, scaling, finite-length, and far-field limits; the documented AlNiCo electropermanent rod also reproduces its published surface-field benchmark.",
+      "evidence_types": ["A", "D"],
+      "basis": "Circular-loop center field, symmetry planes, current scaling, known Halbach field orientation, exact finite-cylinder axial fields, point-dipole limits, and a published AlNiCo-5 rod benchmark.",
+      "parameter_range": "Loop coils, yoke-image checks, finite Halbach rods, NMR-MOUSE-scale grids, and finite cylindrical AlNiCo rods and bundles.",
       "metric": "Vector-field value, direction, symmetry, and scaling",
       "tolerance": "Geometry/discretization-specific tolerances declared in tests.",
       "status": "validated",
       "reproducers": [
         "tests/test_magnetostatics.py::test_loop_center_matches_analytic",
         "tests/test_magnetostatics.py::test_field_scales_with_current",
-        "tests/test_magnetostatics.py::test_four_rod_halbach_phasing_points_bore_field_along_x"
+        "tests/test_magnetostatics.py::test_four_rod_halbach_phasing_points_bore_field_along_x",
+        "tests/test_electropermanent.py::test_published_rod_matches_reported_surface_field_scale",
+        "tests/test_electropermanent.py::test_cubature_converges_to_exact_on_axis_cylinder_field",
+        "tests/test_electropermanent.py::test_far_field_matches_magnetic_dipole_limit"
       ],
-      "references": ["Biot-Savart circular-loop solution", "Ideal Halbach dipole symmetry"],
-      "limitations": ["Nonlinear material models have analytical/synthetic checks but limited measured-magnet comparison."]
+      "references": ["Biot-Savart circular-loop solution", "Ideal Halbach dipole symmetry", "Weinberg Medical Physics variable-field NMR AlNiCo rod measurements"],
+      "limitations": ["The electropermanent-magnet implementation currently treats retained remanence as prescribed; programming-pulse hysteresis and coupled pulse/thermal dynamics are not yet modeled."]
     },
     {
       "id": "coil_peec",

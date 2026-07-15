@@ -54,6 +54,25 @@ from spin_dynamics.fields.coil_peec import (
 )
 from spin_dynamics.fields.domain import SpatialDomain
 from spin_dynamics.fields.eddy_modes import EddyModes, EddyModeSpectrum
+from spin_dynamics.fields.electropermanent import (
+    ALNICO5_AC500,
+    ALNICO5_FEMM_2019,
+    UNPROGRAMMED_STATE,
+    AlNiCoMaterial,
+    ElectropermanentBundle,
+    ElectropermanentFieldMaps,
+    ElectropermanentRod,
+    EvidenceRecord,
+    ProgrammingCoil,
+    RemanenceState,
+    close_packed_rod_bundle,
+    electropermanent_field,
+    finite_cylinder_on_axis_field,
+    hexagonal_rod_offsets,
+    sample_electropermanent_field,
+    variable_field_nmr_rod,
+    weinberg_37_rod_bundle,
+)
 from spin_dynamics.fields.gradient_coils import (
     CylindricalGradientSystem,
     CylindricalWindingSurface,
@@ -272,6 +291,24 @@ __all__ = [
     "CoilLoading",
     "EddyModes",
     "EddyModeSpectrum",
+    # electropermanent AlNiCo rods and bundles
+    "EvidenceRecord",
+    "AlNiCoMaterial",
+    "ALNICO5_AC500",
+    "ALNICO5_FEMM_2019",
+    "RemanenceState",
+    "UNPROGRAMMED_STATE",
+    "ProgrammingCoil",
+    "ElectropermanentRod",
+    "ElectropermanentBundle",
+    "ElectropermanentFieldMaps",
+    "electropermanent_field",
+    "finite_cylinder_on_axis_field",
+    "hexagonal_rod_offsets",
+    "close_packed_rod_bundle",
+    "variable_field_nmr_rod",
+    "weinberg_37_rod_bundle",
+    "sample_electropermanent_field",
     # nonlinear magnetostatics (ferrite / saturable iron / permanent magnets)
     "BrauerBH",
     "MagneticMaterial",

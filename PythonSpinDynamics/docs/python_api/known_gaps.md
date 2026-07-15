@@ -270,6 +270,12 @@ Remaining gaps:
   limits (no skin-depth shielding), and thermo-mechanical expansion,
   permanent-magnet drift, and nonlinear ferromagnetic-core behavior remain out
   of scope;
+- electropermanent AlNiCo B0 sources (`spin_dynamics.fields.electropermanent`,
+  see `docs/electropermanent_magnets.md`) currently model prescribed retained
+  remanence, finite cylindrical rods, close-packed bundles, field maps, and
+  composition adapters. Programming-pulse RLC dynamics, rate-dependent
+  hysteresis, pulse heating, and calibrated state-transition laws are the next
+  phase;
 - flowing-sample modeling (`spin_dynamics.flow`, see `docs/flow_modeling.md`)
   covers plug and laminar pipe flow -- washout during acquisition, transit-time
   inflow polarization, and thermal advection (lumped `flow_conductance` plus a

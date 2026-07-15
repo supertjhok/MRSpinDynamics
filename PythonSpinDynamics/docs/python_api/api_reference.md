@@ -724,6 +724,25 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `EddyModeSpectrum` | Eddy-mode decomposition of a gradient's residual field at the sample. |
 | class | `EddyModes` | Coaxial-ring eddy model of a conducting structure. |
 
+## `spin_dynamics.fields.electropermanent`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `EvidenceRecord` | Traceable provenance for one model value or preset. |
+| class | `AlNiCoMaterial` | AlNiCo material properties used by EPM field and state models. |
+| class | `RemanenceState` | Retained axial remanence and history metadata for one EPM element. |
+| class | `ProgrammingCoil` | Geometry-independent metadata for an EPM programming winding. |
+| class | `ElectropermanentRod` | A finite cylindrical AlNiCo rod with a retained axial state. |
+| class | `ElectropermanentBundle` | A collection of individually represented EPM rods and one bundle coil. |
+| function | `electropermanent_field(points: np.ndarray, sources: Sequence[ElectropermanentSource], *, n_cross: int = 7, n_length: int = 31, chunk_size: int = 4096) -> np.ndarray` | Return the external B field of EPM rods or bundles in tesla. |
+| function | `finite_cylinder_on_axis_field(axial_position_m: float | np.ndarray, rod: ElectropermanentRod) -> float | np.ndarray` | Exact axial field component of a uniformly magnetized finite cylinder. |
+| function | `hexagonal_rod_offsets(count: int, pitch_m: float, *, axis: Sequence[float] = (0.0, 0.0, 1.0)) -> np.ndarray` | Return ``count`` deterministic hexagonal-lattice offsets in 3-D. |
+| function | `close_packed_rod_bundle(count: int, *, rod_radius_m: float, rod_length_m: float, center_m: Sequence[float] = (0.0, 0.0, 0.0), axis: Sequence[float] = (0.0, 0.0, 1.0), gap_m: float = 0.0, material: AlNiCoMaterial = ALNICO5_AC500, state: RemanenceState = UNPROGRAMMED_STATE, coil: ProgrammingCoil | None = None, label: str = '', evidence: Sequence[EvidenceRecord] = ()) -> ElectropermanentBundle` | Build a close-packed bundle of equal parallel cylindrical rods. |
+| function | `variable_field_nmr_rod(*, center_m: Sequence[float] = (0.0, 0.0, 0.0), axis: Sequence[float] = (0.0, 0.0, 1.0), effective_remanence_t: float = 0.33) -> ElectropermanentRod` | Return the published one-inch by six-inch variable-field NMR rod. |
+| function | `weinberg_37_rod_bundle(*, center_m: Sequence[float] = (0.0, 0.0, 0.0), axis: Sequence[float] = (0.0, 0.0, 1.0), state: RemanenceState = UNPROGRAMMED_STATE) -> ElectropermanentBundle` | Return the locally documented 37-rod AlNiCo-5 bundle geometry. |
+| class | `ElectropermanentFieldMaps` | Sampled EPM field with adapters to existing MR field containers. |
+| function | `sample_electropermanent_field(axes: Sequence[Sequence[float] | np.ndarray], sources: Sequence[ElectropermanentSource], *, cartesian_axes: Sequence[int] | None = None, field_direction: Sequence[float] = (0.0, 0.0, 1.0), n_cross: int = 7, n_length: int = 31, chunk_size: int = 4096, gyromagnetic_ratio: float = GAMMA_PROTON) -> ElectropermanentFieldMaps` | Sample an EPM assembly onto a 1-D, 2-D, or 3-D Cartesian grid. |
+
 ## `spin_dynamics.fields.gradient_coils`
 
 | Kind | Name | Summary |
