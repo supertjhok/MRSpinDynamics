@@ -622,6 +622,22 @@ cross peaks. Non-negative inversion uses SciPy-backed NNLS from the `opt` extra;
 without SciPy the script falls back to an unconstrained preview. Matplotlib is
 required for plotting.
 
+## Actively Shielded Gradient-Coil Design
+
+This example jointly optimizes concentric primary and shield cylinders for a
+z-gradient and a zero-field exterior shell. It plots both stream functions, the
+extracted physical turns, and the exterior field with and without active
+shielding. It also prints target fidelity, wire length, DC resistance,
+inductance, power, and static force/torque metrics.
+
+```powershell
+python examples\plot_actively_shielded_gradient_coil.py --output results\active_gradient.png
+```
+
+Use `--turns-per-polarity` to study contour quantization and
+`--wire-diameter-mm` / `--b0-t` to set the engineering calculation. Matplotlib
+and SciPy are recommended; the inverse solve has a NumPy fallback.
+
 ## Internal / Susceptibility Gradients
 
 This example builds the internal field of a packed-grain pore space with

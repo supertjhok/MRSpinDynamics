@@ -19,6 +19,7 @@ from tests.test_composition import (
 )
 from tests.test_examples import ExampleSmokeTests
 from tests.test_gradient_coils import CylindricalGradientDesignTests
+from tests.test_gradient_shielding import ActivelyShieldedGradientTests
 from tests.test_gradient_windings import SyntheticContourTests
 from tests.test_hyperpolarization_singlet import SingletStateTests
 from tests.test_hyperpolarization_workflows import LongLivedSingletWorkflowTests
@@ -113,6 +114,11 @@ def load_tests(
     suite.addTest(
         CylindricalGradientDesignTests(
             "test_numpy_solve_enforces_kcl_and_fits_linear_target"
+        )
+    )
+    suite.addTest(
+        ActivelyShieldedGradientTests(
+            "test_joint_solve_closes_both_surfaces_and_suppresses_fringe_field"
         )
     )
     suite.addTest(

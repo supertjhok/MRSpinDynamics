@@ -4373,17 +4373,129 @@ denote the two contour polarities.}
 Run \code{python examples/plot\_stream\_function\_gradient\_coil.py --output
 gradient\_coil.png} to reproduce Figure~\ref{fig:gradient-coil-design}. The
 companion \code{plot\_gradient\_coil\_regularization.py} isolates the bias-current
-trade-off and curvature diagnostic. Extracted contours currently represent
-independent closed loops carrying \code{current\_per\_turn\_a}; automatic
-crossover and end-connection routing into one manufacturable series conductor,
-active shielding, and force/torque constraints are future extensions.
+trade-off and curvature diagnostic.
+
+\subsubsection{Active shielding}
+
+An actively shielded design places a second current sheet on a larger concentric
+cylinder and optimizes the two surfaces together. With target-volume matrix
+$S_t$, exterior-surface matrix $S_e$, and independent KCL constraints
+$C_pI_p=0$, $C_sI_s=0$, the implemented problem is
+\[
+\min_{I_p,I_s}
+ \left\|W_t\bigl(S_t[I_p;I_s]-b\bigr)\right\|_2^2
+ +\left\|W_eS_e[I_p;I_s]\right\|_2^2
+ +\alpha\left(p_p\|I_p\|_2^2+p_s\|I_s\|_2^2\right).
+\]
+The exterior target is zero. \code{shield\_weights} changes its importance and
+\code{surface\_regularization\_weights} can discourage current on either
+surface. The result retains separate current grids and stream functions, plus
+target error, exterior RMS/peak field, current norms, and closure diagnostics.
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.fields import (
+    build_actively_shielded_gradient_system,
+    cylindrical_shield_points,
+    extract_actively_shielded_winding,
+    solve_actively_shielded_gradient_coil,
+)
+
+primary = CylindricalWindingSurface(0.05, 0.12, 24, 13)
+shield = CylindricalWindingSurface(0.065, 0.15, 24, 13)
+outside = cylindrical_shield_points(
+    0.085, 0.18, n_phi=32, n_z=17
+)
+target_bz = linear_gradient_target(points, (0, 0, 10e-3))
+system = build_actively_shielded_gradient_system(
+    primary, shield, points, outside
+)
+result = solve_actively_shielded_gradient_coil(
+    system, target_bz, regularization=1e-15,
+    shield_weights=5.0
+)
+winding = extract_actively_shielded_winding(
+    result, current_per_turn_a=1.0
+)
+\end{lstlisting}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.98\linewidth]{images/example_active_gradient_shielding.png}
+\caption{Joint active-shield design. The top panels show the primary and shield
+stream functions; the lower panels show their extracted contours and compare
+the sampled exterior field against the same unshielded primary.}
+\label{fig:active-gradient-shielding}
+\end{figure}
+
+Run \code{python examples/plot\_actively\_shielded\_gradient\_coil.py --output
+active\_gradient.png} to reproduce Figure~\ref{fig:active-gradient-shielding}.
+The continuous current sheet is the inverse solution; turn extraction quantizes
+it. Target fidelity and exterior suppression must therefore be recomputed for
+the extracted contours, and again after leads and crossovers are routed.
+
+\subsubsection{Engineering metrics and workflow handoff}
+
+\code{gradient\_coil\_engineering\_metrics} evaluates the realized winding once
+and returns three grouped reports:
+\begin{center}
+\begin{tabular}{p{0.18\linewidth}p{0.72\linewidth}}
+\toprule
+Field & fitted gradient/offset and efficiency per ampere; target RMS error and
+correlation; exterior RMS and peak field \\
+Electrical & wire length, DC resistance and power, approximate series-equivalent
+inductance, stored energy, and voltage per current slew \\
+Mechanical & net and per-contour Lorentz force/torque and peak segment force in
+a supplied static background field \\
+\bottomrule
+\end{tabular}
+\end{center}
+Force is integrated as $d\mathbf F=I\,d\boldsymbol\ell\times\mathbf B_0$, with
+torque about a user-selected origin. The background may be a constant vector or
+a spatial callback. These are filament-load estimates, not a structural or
+vibration analysis. Resistance uses the selected conductor material and
+temperature. Self inductance uses an equal-perimeter circular-loop estimate and
+mutual terms use the existing Neumann calculation on the actual paths.
+
+\begin{lstlisting}[language=Python]
+metrics = gradient_coil_engineering_metrics(
+    winding, points, target_field_t=target_bz,
+    shield_points=outside, wire_radius=0.5e-3,
+    background_field=(0, 0, 3.0)
+)
+
+# Existing PEEC, eddy/pre-emphasis, and imaging interfaces
+conductors = winding_peec_conductors(
+    winding, wire_radius=0.5e-3
+)
+driver = winding_to_gradient_driver(
+    winding, eddy_modes, tau_rl=1e-3
+)
+field_map = winding_imaging_field_map(winding, (x_axis, z_axis))
+motion_maps = field_map.to_motion_field_maps()
+\end{lstlisting}
+
+The PEEC handoff returns one \code{Conductor} per contour, opened at its first
+sample to define terminals. It deliberately does not invent crossovers or end
+connections; those paths must be added before treating the loops as one routed
+series conductor. The eddy adapter passes the combined oriented primary/shield
+segments to the existing \code{EddyModes.to\_gradient\_driver}, yielding the
+standard pre-emphasis response. The imaging adapter retains tesla and converts
+to angular off-resonance in rad/s. Its physical-axis defaults match existing
+workflows: $z$ in 1-D, $(x,z)$ in 2-D, and $(x,y,z)$ in 3-D.
+
+The inverse solver currently supports regular concentric cylinders. Extracted
+contours are independent closed loops; manufacturability constraints, automatic
+routing, arbitrary surfaces, and force/torque constraints inside the inverse
+solve remain future extensions. Force and torque \emph{evaluation} is available
+for any realized winding.
 
 \subsection{Quasistatic E-field and eddy currents}
 \label{sec:fields-quasistatic}
 
 Biot-Savart gives a coil's B-field but not the accompanying E-field --- and it is
 the E-field that drives eddy currents (resistive power loss, B1 perturbation, and
-gradient field decay) in a conductor. \code{spin\_dynamics.fields.quasistatic}
+gradient field decay) in a conductor. \code{spin\_dynamics.fields.}\allowbreak
+\code{quasistatic}
 adds the magnetoquasistatic induced field \(\mathbf{E}=-\partial\mathbf{A}/
 \partial t-\nabla\phi\): the vector potential \code{vector\_potential} is computed
 from the same filament segments (its curl reproduces \code{biot\_savart}), the

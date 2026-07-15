@@ -406,6 +406,7 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_gradient_eddy_preemphasis.py",
             "examples/plot_gradient_coil_regularization.py",
             "examples/plot_stream_function_gradient_coil.py",
+            "examples/plot_actively_shielded_gradient_coil.py",
             "examples/plot_logging_coil_loading.py",
             "examples/plot_logging_cpmg_multinuclear.py",
         ]

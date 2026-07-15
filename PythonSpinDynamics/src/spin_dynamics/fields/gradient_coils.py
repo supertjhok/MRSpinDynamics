@@ -673,6 +673,196 @@ def _solve_with_numpy(
     return currents, "numpy.linalg.lstsq", 0, 0
 
 
+def _expand_multi_closed_currents(
+    free_currents: np.ndarray,
+    shapes: Sequence[tuple[int, int]],
+) -> np.ndarray:
+    """Expand KCL-reduced currents for several independent winding surfaces."""
+
+    free = np.asarray(free_currents, dtype=np.float64)
+    expanded: list[np.ndarray] = []
+    offset = 0
+    for shape in shapes:
+        count = shape[0] * (shape[1] - 1)
+        expanded.append(_expand_closed_currents(free[offset : offset + count], shape))
+        offset += count
+    if offset != free.size:
+        raise ValueError("free current vector has the wrong size for surface shapes")
+    return np.concatenate(expanded)
+
+
+def _multi_closed_current_adjoint(
+    currents: np.ndarray,
+    shapes: Sequence[tuple[int, int]],
+) -> np.ndarray:
+    """Adjoint of :func:`_expand_multi_closed_currents`."""
+
+    values = np.asarray(currents, dtype=np.float64)
+    reduced: list[np.ndarray] = []
+    offset = 0
+    for shape in shapes:
+        count = shape[0] * shape[1]
+        reduced.append(_closed_current_adjoint(values[offset : offset + count], shape))
+        offset += count
+    if offset != values.size:
+        raise ValueError("current vector has the wrong size for surface shapes")
+    return np.concatenate(reduced)
+
+
+def _multi_closure_matrix(
+    shapes: Sequence[tuple[int, int]],
+) -> np.ndarray:
+    n_currents = sum(shape[0] * shape[1] for shape in shapes)
+    n_free = sum(shape[0] * (shape[1] - 1) for shape in shapes)
+    transform = np.zeros((n_currents, n_free), dtype=np.float64)
+    for column in range(n_free):
+        basis = np.zeros(n_free)
+        basis[column] = 1.0
+        transform[:, column] = _expand_multi_closed_currents(basis, shapes)
+    return transform
+
+
+def _solve_multi_reduced_system(
+    sensitivity: np.ndarray,
+    target: np.ndarray,
+    weights: np.ndarray,
+    shapes: Sequence[tuple[int, int]],
+    regularization: float,
+    current_weights: np.ndarray,
+    solver: SolverName,
+    atol: float,
+    btol: float,
+    max_iterations: int | None,
+) -> tuple[np.ndarray, str, int, int]:
+    """Solve a KCL-constrained inverse problem over multiple surfaces."""
+
+    shape_tuple = tuple(shapes)
+    if not shape_tuple:
+        raise ValueError("at least one surface shape is required")
+    n_currents = sum(shape[0] * shape[1] for shape in shape_tuple)
+    penalty_weights = np.asarray(current_weights, dtype=np.float64)
+    if penalty_weights.shape != (n_currents,):
+        raise ValueError(f"current_weights must have shape ({n_currents},)")
+    if not np.all(np.isfinite(penalty_weights)) or np.any(penalty_weights <= 0.0):
+        raise ValueError("current_weights must be finite and positive")
+
+    if solver in {"auto", "scipy"}:
+        try:
+            from scipy.sparse.linalg import LinearOperator, lsmr
+
+            return _solve_multi_with_scipy_lsmr(
+                sensitivity,
+                target,
+                weights,
+                shape_tuple,
+                regularization,
+                penalty_weights,
+                atol,
+                btol,
+                max_iterations,
+                LinearOperator,
+                lsmr,
+            )
+        except ImportError:
+            if solver == "scipy":
+                raise ImportError(
+                    "SciPy is required for solver='scipy'; install the 'opt' extra"
+                ) from None
+    return _solve_multi_with_numpy(
+        sensitivity,
+        target,
+        weights,
+        shape_tuple,
+        regularization,
+        penalty_weights,
+    )
+
+
+def _solve_multi_with_scipy_lsmr(
+    sensitivity: np.ndarray,
+    target: np.ndarray,
+    weights: np.ndarray,
+    shapes: Sequence[tuple[int, int]],
+    regularization: float,
+    current_weights: np.ndarray,
+    atol: float,
+    btol: float,
+    max_iterations: int | None,
+    linear_operator,
+    lsmr,
+) -> tuple[np.ndarray, str, int, int]:
+    n_points, n_currents = sensitivity.shape
+    n_free = sum(shape[0] * (shape[1] - 1) for shape in shapes)
+    sqrt_weights = np.sqrt(weights)
+    sqrt_penalty = np.sqrt(regularization * current_weights)
+    regularized = regularization > 0.0
+    row_count = n_points + (n_currents if regularized else 0)
+
+    def matvec(free: np.ndarray) -> np.ndarray:
+        currents = _expand_multi_closed_currents(free, shapes)
+        field = sqrt_weights * (sensitivity @ currents)
+        if not regularized:
+            return field
+        return np.concatenate([field, sqrt_penalty * currents])
+
+    def rmatvec(values: np.ndarray) -> np.ndarray:
+        gradient = sensitivity.T @ (sqrt_weights * values[:n_points])
+        if regularized:
+            gradient = gradient + sqrt_penalty * values[n_points:]
+        return _multi_closed_current_adjoint(gradient, shapes)
+
+    operator = linear_operator(
+        (row_count, n_free),
+        matvec=matvec,
+        rmatvec=rmatvec,
+        dtype=np.float64,
+    )
+    right_hand_side = sqrt_weights * target
+    if regularized:
+        right_hand_side = np.concatenate(
+            [right_hand_side, np.zeros(n_currents, dtype=np.float64)]
+        )
+    solve = lsmr(
+        operator,
+        right_hand_side,
+        atol=atol,
+        btol=btol,
+        conlim=0.0,
+        maxiter=max_iterations,
+    )
+    currents = _expand_multi_closed_currents(solve[0], shapes)
+    return currents, "scipy.sparse.linalg.lsmr", int(solve[1]), int(solve[2])
+
+
+def _solve_multi_with_numpy(
+    sensitivity: np.ndarray,
+    target: np.ndarray,
+    weights: np.ndarray,
+    shapes: Sequence[tuple[int, int]],
+    regularization: float,
+    current_weights: np.ndarray,
+) -> tuple[np.ndarray, str, int, int]:
+    n_free = sum(shape[0] * (shape[1] - 1) for shape in shapes)
+    if n_free > 1024:
+        raise ImportError(
+            "SciPy is required for gradient-coil systems with more than 1024 "
+            "free currents; install the 'opt' extra"
+        )
+    transform = _multi_closure_matrix(shapes)
+    sqrt_weights = np.sqrt(weights)
+    design = sqrt_weights[:, np.newaxis] * (sensitivity @ transform)
+    right_hand_side = sqrt_weights * target
+    if regularization > 0.0:
+        penalty = np.sqrt(regularization * current_weights)[:, np.newaxis]
+        design = np.vstack([design, penalty * transform])
+        right_hand_side = np.concatenate(
+            [right_hand_side, np.zeros(transform.shape[0], dtype=np.float64)]
+        )
+    free, _, _, _ = np.linalg.lstsq(design, right_hand_side, rcond=None)
+    currents = _expand_multi_closed_currents(free, shapes)
+    return currents, "numpy.linalg.lstsq", 0, 0
+
+
 __all__ = [
     "CylindricalWindingSurface",
     "CylindricalGradientSystem",

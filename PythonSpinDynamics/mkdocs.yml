@@ -108,6 +108,7 @@ nav:
       - Relaxation validation: relaxation_validation.md
   - Fields and Hardware:
       - Gradient-coil design: gradient_coil_design.md
+      - Gradient-coil engineering: gradient_coil_engineering.md
       - Quasistatic field solvers: field_solvers_quasistatic.md
       - Reduced scalar potential 3-D: reduced_scalar_potential_3d.md
       - Coil properties: coil_properties.md

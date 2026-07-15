@@ -739,13 +739,48 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `solve_regularization_path(system: CylindricalGradientSystem, target_field_t: np.ndarray, regularizations: Sequence[float], *, field_weights: np.ndarray | None = None, solver: SolverName = 'auto', atol: float = 1e-10, btol: float = 1e-10, max_iterations: int | None = None) -> GradientCoilRegularizationPath` | Solve a positive alpha grid and select its discrete L-curve corner. |
 | function | `design_cylindrical_gradient_coil(surface: CylindricalWindingSurface, target_points: np.ndarray, target_field_t: np.ndarray, *, field_direction: Sequence[float] = (0.0, 0.0, 1.0), regularization: float = 0.0, field_weights: np.ndarray | None = None, chunk_size: int = 128, solver: SolverName = 'auto', atol: float = 1e-10, btol: float = 1e-10, max_iterations: int | None = None) -> GradientCoilDesignResult` | Build and solve a cylindrical gradient-coil problem in one call. |
 
+## `spin_dynamics.fields.gradient_engineering`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `GradientFieldMetrics` | Efficiency, fitted gradient, target fidelity, and exterior leakage. |
+| class | `GradientElectricalMetrics` | Low-frequency series-equivalent winding properties. |
+| class | `GradientMechanicalMetrics` | Lorentz force and torque in a specified background field. |
+| class | `GradientCoilEngineeringMetrics` | Field, electrical, and mechanical metrics for one realized winding. |
+| class | `GradientImagingFieldMap` | Sampled gradient field in tesla and imaging angular-frequency units. |
+| function | `winding_field(points: np.ndarray, winding: Winding, *, current_scale: float = 1.0) -> np.ndarray` | Evaluate the vector field of one or two realized contour surfaces. |
+| function | `winding_force_torque(winding: Winding, background_field: BackgroundField, *, origin: Sequence[float] = (0.0, 0.0, 0.0), current_scale: float = 1.0) -> GradientMechanicalMetrics` | Integrate ``I dl cross B`` force and moment over every contour segment. |
+| function | `estimate_gradient_electrical_metrics(winding: Winding, *, wire_radius: float, material: ConductorMaterial = ANNEALED_COPPER, temperature: float | None = None) -> GradientElectricalMetrics` | Estimate series-equivalent DC resistance and filamentary inductance. |
+| function | `gradient_coil_engineering_metrics(winding: Winding, target_points: np.ndarray, *, field_direction: Sequence[float] = (0.0, 0.0, 1.0), target_field_t: np.ndarray | None = None, shield_points: np.ndarray | None = None, wire_radius: float, material: ConductorMaterial = ANNEALED_COPPER, temperature: float | None = None, background_field: BackgroundField = (0.0, 0.0, 0.0), force_origin: Sequence[float] = (0.0, 0.0, 0.0)) -> GradientCoilEngineeringMetrics` | Extract field, low-frequency electrical, and mechanical metrics. |
+| function | `winding_peec_conductors(winding: Winding, *, wire_radius: float, material: ConductorMaterial = ANNEALED_COPPER, temperature: float | None = None, n_radial: int = 6, n_angular: int = 8)` | Return one existing PEEC :class:`Conductor` per closed contour. |
+| function | `winding_to_gradient_driver(winding: Winding, eddy_modes, *, tau_rl: float, **driver_options)` | Build the existing eddy/pre-emphasis driver from realized windings. |
+| function | `winding_imaging_field_map(winding: Winding, axes: Sequence[Sequence[float] | np.ndarray], *, field_direction: Sequence[float] = (0.0, 0.0, 1.0), cartesian_axes: Sequence[int] | None = None, gamma_rad_s_t: float = GAMMA_PROTON, current_scale: float = 1.0) -> GradientImagingFieldMap` | Sample a winding into the angular off-resonance maps imaging consumes. |
+
+## `spin_dynamics.fields.gradient_shielding`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `ActivelyShieldedGradientSystem` | Combined primary/shield source matrix and its two field regions. |
+| class | `ActivelyShieldedGradientDesignResult` | Primary/shield currents, stream functions, fields, and diagnostics. |
+| class | `ActivelyShieldedRegularizationPath` | L-curve diagnostics for an actively shielded design. |
+| function | `spherical_shell_points(radius: float, *, n_points: int = 96, center: Sequence[float] = (0.0, 0.0, 0.0)) -> np.ndarray` | Return approximately uniform Fibonacci points on a spherical shell. |
+| function | `cylindrical_shield_points(radius: float, length: float, *, n_phi: int = 32, n_z: int = 17, center: Sequence[float] = (0.0, 0.0, 0.0)) -> np.ndarray` | Return a symmetric point grid on a cylindrical shield-control surface. |
+| function | `build_actively_shielded_gradient_system(primary_surface: CylindricalWindingSurface, shield_surface: CylindricalWindingSurface, target_points: np.ndarray, shield_points: np.ndarray, *, field_direction: Sequence[float] = (0.0, 0.0, 1.0), chunk_size: int = 128) -> ActivelyShieldedGradientSystem` | Build the combined field matrix for concentric primary/shield cylinders. |
+| function | `solve_actively_shielded_gradient_coil(system: ActivelyShieldedGradientSystem, target_field_t: np.ndarray, *, regularization: float = 0.0, field_weights: np.ndarray | None = None, shield_weights: np.ndarray | float | None = None, surface_regularization_weights: Sequence[float] = (1.0, 1.0), solver: SolverName = 'auto', atol: float = 1e-10, btol: float = 1e-10, max_iterations: int | None = None) -> ActivelyShieldedGradientDesignResult` | Fit the target field while driving the exterior shield target to zero. |
+| function | `solve_actively_shielded_regularization_path(system: ActivelyShieldedGradientSystem, target_field_t: np.ndarray, regularizations: Sequence[float], **solve_options) -> ActivelyShieldedRegularizationPath` | Solve an alpha grid and select the active design's L-curve corner. |
+| function | `design_actively_shielded_gradient_coil(primary_surface: CylindricalWindingSurface, shield_surface: CylindricalWindingSurface, target_points: np.ndarray, shield_points: np.ndarray, target_field_t: np.ndarray, **options) -> ActivelyShieldedGradientDesignResult` | Build and solve an actively shielded cylindrical design in one call. |
+
 ## `spin_dynamics.fields.gradient_windings`
 
 | Kind | Name | Summary |
 | --- | --- | --- |
 | class | `WindingContour` | One oriented stream-function contour on a cylindrical surface. |
+| class | `GradientWinding` | Realized contours on one surface carrying a common turn current. |
+| class | `ActivelyShieldedWinding` | Primary and shield contour sets from a joint active-shield solve. |
 | function | `winding_contour_levels(stream_function_a: np.ndarray, current_per_turn_a: float) -> np.ndarray` | Return half-step-centered contour levels separated by one turn current. |
 | function | `extract_winding_contours(result: GradientCoilDesignResult, *, current_per_turn_a: float, levels_a: Sequence[float] | None = None, require_closed: bool = True) -> tuple[WindingContour, ...]` | Extract oriented 3-D windings from a solved cylindrical stream function. |
+| function | `winding_from_design(result: GradientCoilDesignResult, *, current_per_turn_a: float, levels_a: Sequence[float] | None = None, require_closed: bool = True) -> GradientWinding` | Return a one-surface winding object from a gradient design result. |
+| function | `extract_actively_shielded_winding(result: ActivelyShieldedGradientDesignResult, *, current_per_turn_a: float, require_closed: bool = True) -> ActivelyShieldedWinding` | Extract primary and shield contours at one common current per turn. |
 | function | `stream_function_contours(surface: CylindricalWindingSurface, stream_function_a: np.ndarray, levels_a: Sequence[float], *, z_coordinates: np.ndarray | None = None, require_closed: bool = True) -> tuple[WindingContour, ...]` | Contour a periodic cylindrical stream-function grid without Matplotlib. |
 | function | `winding_segments(contours: Sequence[WindingContour]) -> tuple[Segment, ...]` | Flatten several winding contours into straight source segments. |
 

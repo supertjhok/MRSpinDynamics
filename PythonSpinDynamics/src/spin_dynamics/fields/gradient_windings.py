@@ -12,6 +12,9 @@ from spin_dynamics.fields.gradient_coils import (
     CylindricalWindingSurface,
     GradientCoilDesignResult,
 )
+from spin_dynamics.fields.gradient_shielding import (
+    ActivelyShieldedGradientDesignResult,
+)
 
 Segment = tuple[np.ndarray, np.ndarray]
 NodeKey = tuple[int, int]
@@ -45,6 +48,51 @@ class WindingContour:
             (self.points[index], self.points[index + 1])
             for index in range(self.points.shape[0] - 1)
         )
+
+
+@dataclass(frozen=True)
+class GradientWinding:
+    """Realized contours on one surface carrying a common turn current."""
+
+    surface: CylindricalWindingSurface
+    contours: tuple[WindingContour, ...]
+    current_per_turn_a: float
+
+    def __post_init__(self) -> None:
+        if not np.isfinite(self.current_per_turn_a) or self.current_per_turn_a <= 0.0:
+            raise ValueError("current_per_turn_a must be finite and positive")
+
+    @property
+    def segments(self) -> tuple[Segment, ...]:
+        return winding_segments(self.contours)
+
+
+@dataclass(frozen=True)
+class ActivelyShieldedWinding:
+    """Primary and shield contour sets from a joint active-shield solve."""
+
+    primary: GradientWinding
+    shield: GradientWinding
+
+    @property
+    def segments(self) -> tuple[Segment, ...]:
+        """All oriented segments for unit common current drive."""
+
+        if not np.isclose(
+            self.primary.current_per_turn_a,
+            self.shield.current_per_turn_a,
+        ):
+            raise ValueError("combined segments require equal primary/shield turn currents")
+        return self.primary.segments + self.shield.segments
+
+    @property
+    def current_per_turn_a(self) -> float:
+        if not np.isclose(
+            self.primary.current_per_turn_a,
+            self.shield.current_per_turn_a,
+        ):
+            raise ValueError("primary and shield turn currents differ")
+        return self.primary.current_per_turn_a
 
 
 def winding_contour_levels(
@@ -103,6 +151,69 @@ def extract_winding_contours(
         z_coordinates=result.stream_z,
         require_closed=require_closed,
     )
+
+
+def winding_from_design(
+    result: GradientCoilDesignResult,
+    *,
+    current_per_turn_a: float,
+    levels_a: Sequence[float] | None = None,
+    require_closed: bool = True,
+) -> GradientWinding:
+    """Return a one-surface winding object from a gradient design result."""
+
+    return GradientWinding(
+        surface=result.system.surface,
+        contours=extract_winding_contours(
+            result,
+            current_per_turn_a=current_per_turn_a,
+            levels_a=levels_a,
+            require_closed=require_closed,
+        ),
+        current_per_turn_a=float(current_per_turn_a),
+    )
+
+
+def extract_actively_shielded_winding(
+    result: ActivelyShieldedGradientDesignResult,
+    *,
+    current_per_turn_a: float,
+    require_closed: bool = True,
+) -> ActivelyShieldedWinding:
+    """Extract primary and shield contours at one common current per turn."""
+
+    current = float(current_per_turn_a)
+    primary_levels = winding_contour_levels(
+        result.primary_stream_function_a,
+        current,
+    )
+    shield_levels = winding_contour_levels(
+        result.shield_stream_function_a,
+        current,
+    )
+    primary = GradientWinding(
+        surface=result.system.primary_surface,
+        contours=stream_function_contours(
+            result.system.primary_surface,
+            result.primary_stream_function_a,
+            primary_levels,
+            z_coordinates=result.primary_stream_z,
+            require_closed=require_closed,
+        ),
+        current_per_turn_a=current,
+    )
+    shield = GradientWinding(
+        surface=result.system.shield_surface,
+        contours=stream_function_contours(
+            result.system.shield_surface,
+            result.shield_stream_function_a,
+            shield_levels,
+            z_coordinates=result.shield_stream_z,
+            require_closed=require_closed,
+        ),
+        current_per_turn_a=current,
+    )
+    return ActivelyShieldedWinding(primary=primary, shield=shield)
 
 
 def stream_function_contours(
@@ -353,8 +464,12 @@ def _cylindrical_points(
 
 __all__ = [
     "WindingContour",
+    "GradientWinding",
+    "ActivelyShieldedWinding",
     "winding_contour_levels",
     "extract_winding_contours",
+    "winding_from_design",
+    "extract_actively_shielded_winding",
     "stream_function_contours",
     "winding_segments",
 ]

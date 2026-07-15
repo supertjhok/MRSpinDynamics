@@ -95,7 +95,8 @@ extensions.
   provide lower-level numerical pieces used by the workflows. `fields` also
   includes magnetostatic, quasistatic eddy-current, and induced-electric-field
   solvers for coils and gradient drivers, cylindrical stream-function gradient
-  coil design, plus a nonlinear magnetostatic solver
+  coil design with active shielding, winding engineering metrics, and
+  PEEC/eddy/imaging adapters, plus a nonlinear magnetostatic solver
   (`nonlinear_magnetostatics`) for flux-shaping materials -- high-permeability RF
   ferrites and saturable iron -- in planar and axisymmetric geometries, and a 3D
   reduced-scalar-potential solver (`scalar_potential_3d`) for asymmetric magnet

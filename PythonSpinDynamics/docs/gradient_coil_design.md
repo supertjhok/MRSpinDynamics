@@ -1,177 +1,145 @@
 # Stream-function gradient-coil design
 
-## Purpose
+PythonSpinDynamics implements cylindrical stream-function gradient-coil design,
+closed-winding extraction, active shielding, and adapters to the library's coil
+engineering, eddy-current, and imaging tools.  The formulation follows Section
+10.3.3 of *Sensors, Circuits, and Systems for Scientific Instruments: Back-ends
+and Applications*.
 
-PythonSpinDynamics will support numerical MRI gradient-coil design using the
-stream-function method described in Section 10.3.3 of *Sensors, Circuits, and
-Systems for Scientific Instruments: Back-ends and Applications*. The first
-implementation targets regular cylindrical winding surfaces, for which the
-surface current can be represented by a rectangular azimuth/axial mesh of
-thin-wire elements.
+## Inverse design model
 
-The feature is intended to connect coil geometry to the rest of the library:
-
-- the finite-segment Biot-Savart solver for field prediction;
-- PEEC extraction of winding resistance and inductance;
-- gradient eddy-current and pre-emphasis models;
-- imaging workflows that consume sampled gradient-field maps.
-
-## Mathematical model
-
-A divergence-free surface current density can be written in terms of a stream
-function, `psi`, normal to the winding surface. On a cylinder,
+For a cylindrical winding surface, a divergence-free surface current is written
+in terms of a stream function, `psi`,
 
 \[
-J_\phi = -\frac{\partial \psi}{\partial z}, \qquad
-J_z = \frac{1}{r}\frac{\partial \psi}{\partial \phi}.
+J_\phi=-\frac{\partial\psi}{\partial z}, \qquad
+J_z=\frac{1}{r}\frac{\partial\psi}{\partial\phi}.
 \]
 
-For a regular cylinder, the initial implementation discretizes the azimuthal
-current into short filamentary segments. The axial segments needed to close a
-physical winding do not contribute to `B_z`, so they are omitted from the
-inverse field solve. Applying the Biot-Savart law independently to every source
-segment produces the sensitivity matrix
+The cylinder is discretized into short azimuthal filament elements.  Applying
+Biot-Savart to each element gives the projected-field sensitivity matrix `S`.
+The KCL-constrained Tikhonov solve is
 
 \[
-B_z = S I.
+\underset{I}{\operatorname{minimize}}\quad
+\sum_q w_q (S I-b)_q^2+\alpha\sum_j p_j I_j^2,
+\qquad C I=0.
 \]
 
-Given a target field `b`, the segment currents are found from the constrained
-Tikhonov problem
-
-\[
-\mathop{\mathrm{minimize}}_I
-\left\|W_f(SI-b)\right\|_2^2
-+ \alpha\left\|W_p I\right\|_2^2,
-\qquad C I = 0.
-\]
-
-`W_f` contains field-point or quadrature weights. The first implementation
-uses `W_p = I`, matching the textbook current-norm penalty. A later electrical
-extension will allow segment-resistance weights so the second term estimates
-actual `I^2 R` loss. `C I = 0` enforces Kirchhoff current balance along every
-azimuthal column of the mesh, which causes the recovered stream-function
-contours to close.
-
-The regularization value has physical units of `T^2/A^2` for the unnormalized
-form above. There is no universal optimum. `solve_regularization_path` evaluates
-a positive alpha grid, reports the field-residual/current-norm L-curve, and
-selects its maximum-curvature interior point.
-
-## Public API direction
-
-The design API is split into a reusable field system and a solve:
+`C I = 0` is enforced by eliminating one current per azimuthal column, not by a
+soft penalty.  The returned stream function therefore obeys
+`segment_currents_a == -np.diff(stream_function_a, axis=1)` and its nonzero
+periodic contours close.  SciPy `lsmr` is used when available; small problems
+also have a NumPy dense fallback.  `solve_regularization_path` reuses `S`,
+reports the L-curve, and chooses its maximum-curvature interior point.
 
 ```python
-surface = CylindricalWindingSurface(
-    radius=0.40,
-    length=0.90,
-    n_phi=56,
-    n_z=61,
+import numpy as np
+from spin_dynamics.fields import (
+    CylindricalWindingSurface,
+    build_cylindrical_gradient_system,
+    extract_winding_contours,
+    linear_gradient_target,
+    solve_regularization_path,
+    spherical_target_points,
 )
-points = spherical_target_points(radius=0.20, points_per_axis=11)
-target_bz = linear_gradient_target(points, gradient=(0.0, 1.0e-3, 0.0))
 
+surface = CylindricalWindingSurface(0.08, 0.18, 32, 17)
+points = spherical_target_points(0.03, points_per_axis=7)
+target_bz = linear_gradient_target(points, gradient=(0.0, 10e-3, 0.0))
 system = build_cylindrical_gradient_system(surface, points)
-result = solve_gradient_coil(
-    system,
-    target_bz,
-    regularization=1.0e-14,
+path = solve_regularization_path(system, target_bz, np.logspace(-20, -9, 23))
+result = path.selected_result
+contours = extract_winding_contours(result, current_per_turn_a=1.0)
+```
+
+Contour levels are half-step centered and separated by the specified current
+per turn.  They are stitched across the periodic azimuth seam and oriented with
+the optimized current before conversion to the library's common straight-line
+segment representation.
+
+## Active shielding
+
+An active design jointly solves independent current sheets on a primary and a
+larger concentric shield cylinder.  If `S_t` samples the target volume and `S_e`
+samples a surface outside the shield, the combined problem is
+
+\[
+\underset{I_p,I_s}{\operatorname{minimize}}\quad
+\left\|W_t(S_t[I_p;I_s]-b)\right\|_2^2+
+\left\|W_eS_e[I_p;I_s]\right\|_2^2+
+\alpha(p_p\|I_p\|_2^2+p_s\|I_s\|_2^2),
+\]
+
+with a separate exact KCL constraint on each surface.  `shield_weights` controls
+the relative exterior-field objective, while
+`surface_regularization_weights` can discourage current on either cylinder.
+
+```python
+from spin_dynamics.fields import (
+    build_actively_shielded_gradient_system,
+    cylindrical_shield_points,
+    extract_actively_shielded_winding,
+    solve_actively_shielded_gradient_coil,
 )
 
-path = solve_regularization_path(
+primary = CylindricalWindingSurface(0.05, 0.12, 24, 13)
+shield = CylindricalWindingSurface(0.065, 0.15, 24, 13)
+exterior = cylindrical_shield_points(0.085, 0.18, n_phi=32, n_z=17)
+target_bz = linear_gradient_target(points, gradient=(0.0, 0.0, 10e-3))
+system = build_actively_shielded_gradient_system(
+    primary, shield, points, exterior
+)
+result = solve_actively_shielded_gradient_coil(
     system,
     target_bz,
-    regularizations=np.logspace(-20, -9, 23),
+    regularization=1e-15,
+    shield_weights=5.0,
 )
-result = path.selected_result
-contours = extract_winding_contours(
+winding = extract_actively_shielded_winding(
     result,
     current_per_turn_a=1.0,
 )
-segments = winding_segments(contours)
 ```
 
-Separating system construction from the solve makes the expensive sensitivity
-matrix reusable for regularization sweeps and alternative targets. The returned
-stream function has shape `(n_phi, n_z + 1)` on `result.stream_z`; its finite
-difference obeys `segment_currents_a == -np.diff(stream_function_a, axis=1)`.
-Contour levels are half-step centered and separated by `current_per_turn_a`.
-They are stitched across the periodic azimuth seam, oriented consistently with
-the optimized surface current, and mapped to the package's straight-segment
-Biot-Savart representation.
+The result reports target error, exterior RMS and peak field, primary and shield
+current norms, both stream functions, and the common closure error.  Use a
+symmetric cylindrical control surface for a coaxial shield.  The separate
+`spherical_shell_points` helper or an application-specific point set can be used
+when that geometry better represents the exclusion region.
 
-## Implementation phases
+## Realization and validation
 
-### Phase 1: cylindrical inverse solve
+The continuous current sheet is the inverse-design result.  Contour extraction
+quantizes that sheet into physical turns and generally changes target error and
+shielding.  Always re-evaluate the realized winding with
+`gradient_coil_engineering_metrics`; decrease current per turn or refine the
+source mesh when quantization error is excessive.
 
-- Generate a z-axis cylindrical mesh of azimuthal source segments.
-- Calculate a chunked `B_z`-per-ampere sensitivity matrix.
-- Enforce the axial KCL constraints by eliminating one current per azimuthal
-  column.
-- Solve the weighted, regularized least-squares problem with SciPy `lsmr` when
-  available and a NumPy dense fallback for small systems.
-- Recover the discrete stream function by integrating the segment currents
-  along `z`.
-- Report field error, current norm, closure error, and solver diagnostics.
+The implementation tests sensitivity columns against direct Biot-Savart,
+independent KCL closure, target scaling, L-curve behavior, periodic contour
+closure, and active suppression relative to the same unshielded primary.  The
+book's dimensions can be reproduced, but its exact point quadrature,
+regularization, and contour current are not specified, so its reported error is
+not used as an exact regression fixture.
 
-### Phase 2: winding extraction and regularization paths (implemented)
+Run these plotting examples:
 
-- Extract equally spaced periodic contours of the stream function without
-  making Matplotlib a runtime dependency.
-- Stitch contours across the `0/2 pi` seam and map them to 3-D segment paths.
-- Define contour spacing through an explicit current-per-turn value.
-- Add alpha sweeps and L-curve diagnostics.
+```bash
+python examples/plot_gradient_coil_regularization.py --output results/lcurve.png
+python examples/plot_stream_function_gradient_coil.py --output results/winding.png
+python examples/plot_actively_shielded_gradient_coil.py --output results/shielded.png
+```
 
-### Phase 3: active shielding and mechanical constraints
+See [Gradient-coil engineering and integration](gradient_coil_engineering.md)
+for electrical, force/torque, PEEC, eddy-current, and imaging adapters.
 
-- Concatenate main- and shield-cylinder source matrices.
-- Add zero-field targets on a surface outside the shield.
-- Add net-force and net-torque calculations in a specified static field.
-- Support zero-torque equality constraints and optional torque penalties.
+## Scope
 
-### Phase 4: electrical and workflow integration
-
-- Convert winding contours to the common straight-segment representation.
-- Feed realizable windings to the PEEC resistance/inductance solver.
-- Feed the same paths to the eddy-mode and gradient-driver models.
-- Sample the optimized fields directly for imaging workflows.
-- Add planar surfaces; reserve arbitrary triangular-surface boundary-element
-  design for a separate extension.
-
-## Validation strategy
-
-Fast tests will verify:
-
-- each sensitivity column against a direct one-segment Biot-Savart result;
-- exact current closure within numerical tolerance;
-- linear scaling with target gradient amplitude;
-- the expected parity of transverse and longitudinal gradients;
-- lower current norm as regularization is increased;
-- agreement between the returned predicted field and direct Biot-Savart
-  evaluation of all independently weighted source segments.
-
-A slower reference test will use the textbook's unshielded cylinder dimensions:
-40 cm radius, 90 cm height, a `56 x 61` source mesh, and a 20 cm spherical target
-volume. The book does not state its exact target-point sampling, regularization
-value, or contour current, so these inputs must be recorded in the test before
-the reported approximately 2 percent field-error result can be used as a fixed
-regression threshold.
-
-An actively shielded reference will use the textbook's concentric 40 cm and
-50 cm winding cylinders and a zero-field target at 60 cm radius.
-
-## Current status
-
-Phases 1 and 2 are implemented. The package can build cylindrical source
-meshes, calculate segment sensitivities, solve the KCL-constrained inverse
-problem, select a design from a regularization path, and extract closed,
-oriented three-dimensional winding contours. Run
-`examples/plot_stream_function_gradient_coil.py` for the complete workflow and
-`examples/plot_gradient_coil_regularization.py` for a focused L-curve study.
-
-The extracted contours are independent closed loops carrying the requested
-current per turn. Automatic routing of crossovers and end connections into one
-manufacturable series conductor is not yet included. Active shielding,
-mechanical constraints, and electrical/PEEC integration remain Phase 3 and 4
-work.
+The current inverse solver supports regular concentric cylinders.  Extracted
+contours are independent closed loops; automatic crossover, terminal, and lead
+routing is not invented.  Electrical extraction therefore documents its
+series-equivalent assumption and exposes individual contours to PEEC for a
+later routed design.  Planar surfaces, arbitrary triangular surfaces,
+manufacturing constraints, and force/torque constraints in the inverse solve
+remain future extensions; force and torque evaluation is available now.

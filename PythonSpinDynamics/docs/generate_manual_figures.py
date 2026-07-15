@@ -82,6 +82,11 @@ FIGURES: dict[str, tuple[str, ...]] = {
         "--output",
         "example_gradient_coil_design.png",
     ),
+    "active-gradient-shielding": (
+        "plot_actively_shielded_gradient_coil.py",
+        "--output",
+        "example_active_gradient_shielding.png",
+    ),
     "squid-ulf-crossover": (
         "plot_squid_ulf_crossover.py",
         "--save",
