@@ -282,11 +282,12 @@ Remaining gaps:
   The remaining gaps are measured demagnetization/minor-loop and array-coupling
   matrices, repeated-pulse retention, selectable open/clamped inactive-channel
   topologies, switching-loss temperature impulses, exact hybrid-array CAD,
-  nonlinear EPM encoding/reconstruction, nanoparticle force/trajectory models,
-  closed-loop image-guided control, and conductive-shield eddy loss. The
+  nanoparticle force/trajectory models, closed-loop image-guided control, and
+  conductive-shield eddy loss. The
   specified 18-sub-unit/72-control hierarchy, illustrative hybrid geometry,
   cached field bases, and bounded imaging/off/affine-transport synthesis are
-  implemented;
+  implemented, as are dense nonlinear encoding, nonnegative regularized
+  reconstruction, acquisition noise, and a simple tissue-phantom example;
 - flowing-sample modeling (`spin_dynamics.flow`, see `docs/flow_modeling.md`)
   covers plug and laminar pipe flow -- washout during acquisition, transit-time
   inflow polarization, and thermal advection (lumped `flow_conductance` plus a

@@ -39,8 +39,11 @@ Implementation progress as of 2026-07-15:
   two-panel 18-sub-unit/72-control hierarchy, cached vector field bases, bounded
   regularized synthesis of uniform imaging, field-off, and affine directional
   transport modes, and explicit specified-versus-inferred geometry evidence.
-- **Next:** nonlinear EPM encoding/reconstruction and superparamagnetic
-  particle-force/trajectory integration, followed by an alternating
+- **Complete at nonlinear-imaging tier:** retained-state field profiles,
+  receiver-reference demodulation, dense non-Fourier encoding matrices,
+  nonnegative Tikhonov reconstruction, complex acquisition noise, and a simple
+  proton-density/T1/T2 tissue phantom with an off-center localization target.
+- **Next:** superparamagnetic particle-force/trajectory integration, followed by an alternating
   image-localize-program-transport controller. Measured minor loops and
   coupling matrices remain parallel calibration work.
 
@@ -258,13 +261,13 @@ follow once the geometry benchmark is stable.
 
 After the EPM model is validated:
 
-1. Add constrained state synthesis for uniform imaging, nonlinear encoding,
-   field-off, and directional transport objectives.
-2. Add nonlinear MR encoding,
+1. **Complete:** add constrained state synthesis for uniform imaging, nonlinear
+   encoding, field-off, and directional transport objectives.
+2. **Complete:** add nonlinear MR encoding,
    `s_k = sum_j rho_j exp(-i gamma integral B_k(r_j, t) dt)`, and regularized
    reconstruction.  Conventional FFT reconstruction is not sufficient for the
    deliberately nonlinear profiles.
-3. Add magnetophoretic particle/cluster transport.  In the linear
+3. **Next:** add magnetophoretic particle/cluster transport.  In the linear
    superparamagnetic regime,
    `F = V DeltaChi grad(|B|^2) / (2 mu0)`, with a Langevin or saturation cap at
    higher fields, plus drag, background flow, Brownian diffusion, and boundary

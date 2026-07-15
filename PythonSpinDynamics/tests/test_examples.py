@@ -335,6 +335,7 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_electropermanent_return_point.py",
             "examples/plot_electropermanent_transient_crosstalk.py",
             "examples/plot_epm_hybrid_array_synthesis.py",
+            "examples/plot_epm_nonlinear_tissue_imaging.py",
             "examples/plot_shim_a_ring_magnet.py",
             "examples/plot_logging_ferrite_b1_focusing.py",
             "examples/plot_nmr_mouse_fields.py",
@@ -545,6 +546,11 @@ class ExampleSmokeTests(unittest.TestCase):
         )
         self.assertIn("--panel-gap-mm", result.stdout)
         self.assertIn("--transport-gradient-mt-per-m", result.stdout)
+        result = run_example(
+            "examples/plot_epm_nonlinear_tissue_imaging.py", "--help"
+        )
+        self.assertIn("--matrix-size", result.stdout)
+        self.assertIn("--phase-encoding-us", result.stdout)
         result = run_example("examples/plot_shim_a_ring_magnet.py", "--help")
         self.assertIn("--iron-outer-mm", result.stdout)
         self.assertIn("--remanence-t", result.stdout)

@@ -117,6 +117,11 @@ FIGURES: dict[str, tuple[str, ...]] = {
         "--output",
         "example_epm_hybrid_array_synthesis.png",
     ),
+    "electropermanent-nonlinear-imaging": (
+        "plot_epm_nonlinear_tissue_imaging.py",
+        "--output",
+        "example_epm_nonlinear_tissue_imaging.png",
+    ),
     "squid-ulf-crossover": (
         "plot_squid_ulf_crossover.py",
         "--save",

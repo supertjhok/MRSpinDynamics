@@ -1940,6 +1940,19 @@ No public classes or functions found.
 | function | `run_tuned_diffusion_cpmg(num_echoes: int = 5, echo_spacing_seconds: float = 0.001, t1_seconds: float = 0.1, t2_seconds: float = 0.1, dz: float = 0.001, diffusion_time: float = 0.001, diffusion_coefficient: float | None = None, gradient: float = 1.0, t90_seconds: float = 0.0001, q_value: float | None = None, *, numpts: int = 101, apply_receiver: bool = True, num_workers: int | None = 1, auto_refine_grid: bool = False, rephase_safety_factor: float = 1.25, rephase_action: str = 'warn', absolute_phase: AbsolutePhaseSpec | Mapping[str, Any] | None = None) -> TunedDiffusionCPMGResult` | Run a compact tuned-probe diffusion-aware CPMG train. |
 | function | `run_matched_diffusion_q_sweep(q_values: Iterable[float] | np.ndarray | None = None, *, num_echoes: int = 5, echo_spacing_seconds: float = 0.001, diffusion_coefficient: float | None = None, diffusion_time: float = 0.001, dz: float = 0.001, t90_seconds: float = 0.0001, numpts: int = 101, num_workers: int | None = 1, sweep_workers: int | None = 1, q_stability_action: str = 'warn', auto_refine_grid: bool = False, rephase_safety_factor: float = 1.25, rephase_action: str = 'warn', absolute_phase: AbsolutePhaseSpec | Mapping[str, Any] | None = None) -> MatchedDiffusionQSweepResult` | Sweep matched-probe Q for the compact diffusion CPMG workflow. |
 
+## `spin_dynamics.workflows.electropermanent_imaging`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `TissuePhantom2D` | Simple proton-density/T1/T2 phantom on a Cartesian imaging plane. |
+| function | `simple_tissue_phantom(matrix_size: int = 16, *, field_of_view_m: float = 0.04) -> TissuePhantom2D` | Return an illustrative soft-tissue ellipse with one off-center target. |
+| class | `NonlinearEPMEncoding` | Known EPM field states and their dense nonlinear encoding matrix. |
+| function | `random_epm_encoding_states(basis: ElectropermanentArrayFieldBasis, encoding_count: int, *, amplitude_fraction: float = 0.6, seed: int = 0, include_reference: bool = True) -> np.ndarray` | Generate deterministic bounded Rademacher retained-remanence states. |
+| function | `build_epm_nonlinear_encoding(basis: ElectropermanentArrayFieldBasis, remanence_states_t: np.ndarray, *, image_shape: tuple[int, int], phase_encoding_s: float = 0.0003, field_direction: Sequence[float] = (0.0, 0.0, 1.0), gamma_rad_s_t: float = GAMMA_PROTON, reference_point_index: int | None = None) -> NonlinearEPMEncoding` | Build nonlinear phase encoding from retained states and a cached basis. |
+| class | `EPMNonlinearImagingResult` | Signal, reconstruction, and diagnostics for nonlinear EPM imaging. |
+| function | `reconstruct_epm_nonlinear_image(encoding: NonlinearEPMEncoding, signal: Sequence[complex] | np.ndarray, *, regularization: float = 0.0001, nonnegative: bool = True, max_iterations: int = 4000, tolerance: float = 1e-08) -> tuple[np.ndarray, int, bool]` | Reconstruct a real image with dimensionless Tikhonov regularization. |
+| function | `run_epm_nonlinear_imaging(encoding: NonlinearEPMEncoding, expected_image: np.ndarray, *, regularization: float = 0.0001, nonnegative: bool = True, snr_db: float | None = None, seed: int = 0, max_iterations: int = 4000, tolerance: float = 1e-08) -> EPMNonlinearImagingResult` | Encode, optionally add complex noise, and reconstruct one EPM image. |
+
 ## `spin_dynamics.workflows.fid`
 
 | Kind | Name | Summary |

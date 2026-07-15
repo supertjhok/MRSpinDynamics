@@ -27,6 +27,10 @@ from tests.test_electropermanent_hysteresis import (
     NeighborCouplingTests,
     PlayHysteresisTests,
 )
+from tests.test_electropermanent_imaging import (
+    NonlinearEPMImagingTests,
+    TissuePhantomTests,
+)
 from tests.test_electropermanent_pulses import (
     EmpiricalProgrammingTests,
     PulseArchiveRegressionTests,
@@ -167,6 +171,16 @@ def load_tests(
     suite.addTest(
         ArraySynthesisTests(
             "test_numpy_bounded_solver_recovers_representable_target"
+        )
+    )
+    suite.addTest(
+        TissuePhantomTests(
+            "test_simple_phantom_contains_off_center_target_and_relaxation_maps"
+        )
+    )
+    suite.addTest(
+        NonlinearEPMImagingTests(
+            "test_noisy_tissue_reconstruction_is_reproducible_and_accurate"
         )
     )
     suite.addTest(

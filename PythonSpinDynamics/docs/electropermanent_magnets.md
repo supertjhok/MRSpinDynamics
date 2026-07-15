@@ -311,9 +311,48 @@ programmed_array = transport.applied_array()
 ```
 
 The affine transport target is the linear field-design precursor to
-magnetophoretic force synthesis. The next phase will evaluate
-`grad(|B|^2)` with susceptibility/Langevin force laws and integrate particles
-through flow, diffusion, and vessel boundaries.
+magnetophoretic force synthesis.
+
+## Nonlinear EPM imaging
+
+`NonlinearEPMEncoding` converts multiple retained-remanence states into a dense
+non-Fourier encoding matrix. For state `k` and voxel `j`, the model is
+
+```text
+s_k = sum_j rho_j exp(-i gamma tau [B_k(r_j) - B_k(r_ref)]).
+```
+
+Subtracting the field at `r_ref` represents receiver demodulation of the global
+state frequency; it does not remove the spatially varying phase. Because the
+EPM profiles are deliberately nonlinear, `reconstruct_epm_nonlinear_image()`
+solves the measured matrix directly with dimensionless Tikhonov regularization
+and optional nonnegativity rather than applying an FFT.
+
+```python
+from spin_dynamics.fields import illustrative_hybrid_epm_array
+from spin_dynamics.workflows import (
+    build_epm_nonlinear_encoding,
+    random_epm_encoding_states,
+    run_epm_nonlinear_imaging,
+    simple_tissue_phantom,
+)
+
+phantom = simple_tissue_phantom(16, field_of_view_m=0.040)
+array = illustrative_hybrid_epm_array()
+basis = array.build_field_basis(phantom.points_m)
+states = random_epm_encoding_states(basis, 384, seed=4)
+encoding = build_epm_nonlinear_encoding(
+    basis, states, image_shape=phantom.shape, phase_encoding_s=300e-6,
+)
+contrast = phantom.spin_echo_image(repetition_time_s=1.2, echo_time_s=0.040)
+image = run_epm_nonlinear_imaging(encoding, contrast, snr_db=35.0, seed=5)
+print(image.nrmse, encoding.condition_number)
+```
+
+The bundled `TissuePhantom2D` is intentionally simple: an elliptical soft-
+tissue region and one off-center target carry illustrative proton density, T1,
+and T2 values. It exercises contrast, nonlinear encoding, noise, reconstruction,
+and localization without claiming clinical tissue constants.
 
 ## Imaging and motion compatibility
 
@@ -417,6 +456,18 @@ python examples\plot_epm_hybrid_array_synthesis.py \
 
 ![Hybrid EPM array state synthesis](images/example_epm_hybrid_array_synthesis.png)
 
+The nonlinear-imaging example uses 384 retained states to reconstruct a 16 by
+16 spin-echo tissue phantom and reports both image error and target localization:
+
+```powershell
+python examples\plot_epm_nonlinear_tissue_imaging.py \
+  --matrix-size 16 \
+  --encodings 384 \
+  --output results\epm_nonlinear_tissue_imaging.png
+```
+
+![Nonlinear EPM tissue imaging](images/example_epm_nonlinear_tissue_imaging.png)
+
 ## Current limitations and next phase
 
 The current phase still has important limits:
@@ -434,12 +485,12 @@ The current phase still has important limits:
 - conductive shielding is not yet connected to transient eddy-current loss.
 - the reference array hierarchy and gap are specified, but exact element
   dimensions and coupling matrices remain inferred; and
-- affine transport-field synthesis is implemented, while nonlinear encoding,
+- nonlinear encoding and tissue-phantom reconstruction are implemented, while
   nanoparticle force saturation, flow/diffusion trajectories, and closed-loop
   image-guided control remain the next system phase.
 
-The next implementation phase couples nonlinear EPM encoding/reconstruction to
-superparamagnetic force and trajectory models, then alternates imaging and
+The next implementation phase uses the reconstructed target in superparamagnetic
+force and trajectory models, then alternates imaging and
 transport states in a controller. Measured minor loops, repeated-pulse
 retention, exact CAD, and cross-talk matrices remain necessary before the array
 can become a quantitative hardware digital twin.

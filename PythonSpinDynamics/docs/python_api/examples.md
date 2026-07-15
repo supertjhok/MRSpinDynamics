@@ -672,6 +672,22 @@ targets. The panels show the system hierarchy, imaging and field-off maps,
 achieved centerline fields. The hierarchy and 150 mm gap are specified by the
 project record; exact element dimensions are labeled inferred.
 
+## Nonlinear EPM Tissue Imaging
+
+This example turns retained-state EPM field profiles into a dense nonlinear
+encoding matrix, simulates noisy spin-echo measurements of a simple tissue
+phantom, and reconstructs the image without an FFT.
+
+```powershell
+python examples\plot_epm_nonlinear_tissue_imaging.py --output results\epm_nonlinear_tissue_imaging.png
+```
+
+Use `--matrix-size`, `--encodings`, `--phase-encoding-us`, and `--snr-db` to
+explore resolution and conditioning. The six panels show tissue contrast, four
+nonlinear phase profiles, the encoding singular-value spectrum, complex
+measurements, the nonnegative reconstruction, and the localization error for
+the off-center target.
+
 ## Electrothermal Electromagnet B0 Source
 
 This example builds a 30 mT air-core solenoid from the existing Biot-Savart

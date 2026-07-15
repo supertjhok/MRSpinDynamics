@@ -168,6 +168,7 @@ MODULES = [
     "workflows.cpmg",
     "workflows.cpmg_ir",
     "workflows.diffusion",
+    "workflows.electropermanent_imaging",
     "workflows.fid",
     "workflows.imaging",
     "workflows.imaging_3d",

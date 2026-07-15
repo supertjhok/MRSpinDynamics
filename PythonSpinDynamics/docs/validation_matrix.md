@@ -20,9 +20,9 @@ what supports the underlying scientific or numerical claim.
 
 ## Coverage Summary
 
-- 30 capability-level claims
+- 31 capability-level claims
 - 14 validated
-- 11 partially validated
+- 12 partially validated
 - 5 regression-only
 
 | Component | Claim | Evidence | Status |
@@ -39,6 +39,7 @@ what supports the underlying scientific or numerical claim.
 | Electropermanent return-point memory and neighbor coupling | Weighted play operators close nested reversal loops exactly and obey wiping-out, while finite-geometry two-element coupling has the expected symmetry and sign and the self-demagnetizing programming fixed point converges. | **A**, **R** | partially validated |
 | Electropermanent transient winding cross-talk | The multi-winding integrator reduces to the isolated RLC driver at zero coupling, produces the Lenz-law neighbor-current sign for positive mutual inductance, closes the coupled electrical-energy balance, and propagates pulse-driven disturbance into every return-point state. | **A**, **R** | partially validated |
 | Hybrid electropermanent array and operating-state synthesis | The cached fixed-plus-programmable field basis exactly reproduces direct finite-magnet superposition, and bounded synthesis recovers representable targets while reducing the reference field-off residual and preserving a requested transport-gradient sign. | **A**, **R** | partially validated |
+| Nonlinear electropermanent-array imaging | Retained-state fields generate the expected receiver-demodulated phase matrix, and nonnegative regularized inversion reproducibly reconstructs a noisy two-tissue phantom while localizing its off-center target. | **A**, **R** | partially validated |
 | PEEC coil impedance and parasitics | PEEC inductance/resistance trends agree with analytical kernels and selected independent QOIL, FastHenry, and FasterCap comparisons. | **C**, **A** | partially validated |
 | Thermal networks, conduction, and electromagnets | Lumped, one-dimensional, axisymmetric, perfused, and advective thermal models reproduce closed-form limits; coupled electromagnets recover exact RL and electrothermal fixed points, and selected conduction cases are cross-checked with FEMM. | **A**, **C** | validated |
 | NQR Hamiltonians and pulse models | Spin-1 and spin-3/2 transition conventions, powder weights, selective pulses, and SORC/SLSE limits reproduce analytical and published theory results. | **A**, **D** | partially validated |
@@ -202,7 +203,19 @@ what supports the underlying scientific or numerical claim.
 - **Tolerance:** Floating-point equality for cached/direct superposition and representable synthetic targets; geometry-specific reduction and gradient-sign checks for the illustrative full array.
 - **References:** Magnetostatic superposition and linearity in magnetization; Weinberg project evidence for the 18-sub-unit, 72-control hierarchy and control-region intent
 - **Reproduce:** [`tests/test_electropermanent_array.py::test_cached_basis_matches_direct_superposition`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_electropermanent_array.py#L45); [`tests/test_electropermanent_array.py::test_numpy_bounded_solver_recovers_representable_target`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_electropermanent_array.py#L90); [`tests/test_electropermanent_array.py::test_field_off_synthesis_reduces_reference_array_field`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_electropermanent_array.py#L106); [`tests/test_electropermanent_array.py::test_transport_target_and_synthesis_preserve_gradient_direction`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_electropermanent_array.py#L131); [`examples/plot_epm_hybrid_array_synthesis.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/examples/plot_epm_hybrid_array_synthesis.py)
-- **Limitations:** The exact historical rod dimensions, pitch, and within-sub-unit layout are inferred illustrative assumptions until CAD or measured field bases are available. Transport synthesis currently targets an affine projected static field; nonlinear imaging, superparamagnetic force and trajectory dynamics, programming schedules, and closed-loop control are not yet included.
+- **Limitations:** The exact historical rod dimensions, pitch, and within-sub-unit layout are inferred illustrative assumptions until CAD or measured field bases are available. Transport synthesis currently targets an affine projected static field; superparamagnetic force and trajectory dynamics, programming schedules, and closed-loop control are not yet included. Nonlinear imaging is tracked by a separate validation record.
+
+### Nonlinear electropermanent-array imaging
+
+- **Claim:** Retained-state fields generate the expected receiver-demodulated phase matrix, and nonnegative regularized inversion reproducibly reconstructs a noisy two-tissue phantom while localizing its off-center target.
+- **Evidence:** A, R (partially validated)
+- **Basis:** Direct cached-field evaluation, the analytical phase relation gamma times encoding duration times field offset, seeded complex-noise regression, and a known synthetic proton-density/T1/T2 phantom.
+- **Tested range:** Illustrative 18-sub-unit/72-control array, 10-by-10 through 16-by-16 Cartesian tissue phantoms over 40 mm, 160 through 384 retained-state acquisitions, 250--300 us phase encoding, and 35 dB RMS acquisition SNR.
+- **Metric:** Field and phase equality, matrix magnitude, inverse-system condition number, image NRMSE, convergence, repeatability, and target-centroid error
+- **Tolerance:** Floating-point field/phase identities; below 3 percent NRMSE and condition number below 10 for the compact seeded regression.
+- **References:** General spatial encoding matrix s_k = sum_j rho_j exp(-i phi_kj); Known synthetic tissue phantom generated by the package
+- **Reproduce:** [`tests/test_electropermanent_imaging.py::test_encoding_matches_cached_fields_and_reference_demodulation`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_electropermanent_imaging.py#L56); [`tests/test_electropermanent_imaging.py::test_noisy_tissue_reconstruction_is_reproducible_and_accurate`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_electropermanent_imaging.py#L81); [`examples/plot_epm_nonlinear_tissue_imaging.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/examples/plot_epm_nonlinear_tissue_imaging.py)
+- **Limitations:** Tissue relaxation constants, encoding states, array geometry, and noise are illustrative rather than measured platform data. The workflow models one static phase-encoding interval per retained state and a real nonnegative spin-echo image; RF excitation, EPM programming time, eddy-current transients, off-resonance relaxation during readout, and multi-coil sensitivity encoding are not yet coupled. Synthetic reconstruction validates the implemented inverse but is not an independent experimental or scanner benchmark.
 
 ### PEEC coil impedance and parasitics
 
