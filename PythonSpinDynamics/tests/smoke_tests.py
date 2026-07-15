@@ -31,6 +31,10 @@ from tests.test_electropermanent_imaging import (
     NonlinearEPMImagingTests,
     TissuePhantomTests,
 )
+from tests.test_electropermanent_transport import (
+    MagnetophoreticTransportTests,
+    ParticlePhysicsTests,
+)
 from tests.test_electropermanent_pulses import (
     EmpiricalProgrammingTests,
     PulseArchiveRegressionTests,
@@ -181,6 +185,16 @@ def load_tests(
     suite.addTest(
         NonlinearEPMImagingTests(
             "test_noisy_tissue_reconstruction_is_reproducible_and_accurate"
+        )
+    )
+    suite.addTest(
+        ParticlePhysicsTests(
+            "test_langevin_force_recovers_linear_low_field_and_saturates"
+        )
+    )
+    suite.addTest(
+        MagnetophoreticTransportTests(
+            "test_seeded_transport_is_reproducible_and_captures_target"
         )
     )
     suite.addTest(

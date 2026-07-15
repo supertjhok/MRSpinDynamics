@@ -94,6 +94,14 @@ from spin_dynamics.workflows.electropermanent_imaging import (
     run_epm_nonlinear_imaging,
     simple_tissue_phantom,
 )
+from spin_dynamics.workflows.electropermanent_transport import (
+    MagneticForceMap2D,
+    MagnetophoreticTransportResult,
+    SuperparamagneticParticle,
+    magnetic_force_from_gradient,
+    magnetic_force_map_2d,
+    simulate_magnetophoretic_transport,
+)
 from spin_dynamics.workflows.imaging_frequency import (
     FrequencyEncodedImagingResult,
     SliceSensitivityResult,
@@ -261,6 +269,12 @@ STABLE_WORKFLOW_API = (
 )
 
 EXTENDED_WORKFLOW_API = (
+    "MagneticForceMap2D",
+    "MagnetophoreticTransportResult",
+    "SuperparamagneticParticle",
+    "magnetic_force_from_gradient",
+    "magnetic_force_map_2d",
+    "simulate_magnetophoretic_transport",
     "EPMNonlinearImagingResult",
     "NonlinearEPMEncoding",
     "TissuePhantom2D",
@@ -377,6 +391,9 @@ __all__ = [
     "EPMNonlinearImagingResult",
     "NonlinearEPMEncoding",
     "TissuePhantom2D",
+    "MagneticForceMap2D",
+    "MagnetophoreticTransportResult",
+    "SuperparamagneticParticle",
     "IdealTimeVaryingCPMGResult",
     "IdealTimeVaryingSweepResult",
     "IdealCPMGImagingResult",
@@ -432,6 +449,8 @@ __all__ = [
     "calc_macq_tuned_probe_relax4",
     "calc_macq_untuned_probe_relax4",
     "build_epm_nonlinear_encoding",
+    "magnetic_force_from_gradient",
+    "magnetic_force_map_2d",
     "check_matched_diffusion_q_stability",
     "fit_imaging_echo_decay",
     "form_imaging_image",
@@ -491,6 +510,7 @@ __all__ = [
     "run_pgste_walkers",
     "run_rare_imaging",
     "run_epm_nonlinear_imaging",
+    "simulate_magnetophoretic_transport",
     "run_spin_warp_imaging",
     "run_bssfp_imaging",
     "BSSFPImagingResult",

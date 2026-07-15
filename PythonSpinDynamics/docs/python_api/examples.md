@@ -688,6 +688,24 @@ nonlinear phase profiles, the encoding singular-value spectrum, complex
 measurements, the nonnegative reconstruction, and the localization error for
 the off-center target.
 
+## Image-Guided EPM Particle Transport
+
+This example reconstructs the simple tissue target, points an affine EPM
+transport state toward its image-derived centroid, and integrates magnetic
+aggregate trajectories with Stokes drag, background flow, Brownian diffusion,
+reflecting map boundaries, and target capture.
+
+```powershell
+python examples\plot_epm_image_guided_transport.py --output results\epm_image_guided_transport.png
+```
+
+Use `--transport-gradient-mt-per-m`, `--duration-min`, and `--particles` to
+explore the transport burst. The six panels connect array geometry, nonlinear
+reconstruction, `|B|` and force direction, guided paths, capture versus a
+flow-only control, and force/speed histories. The default 30 um hydrodynamic
+diameter is an illustrative magnetic aggregate, not a single nanoparticle or a
+clinical dose model.
+
 ## Electrothermal Electromagnet B0 Source
 
 This example builds a 30 mT air-core solenoid from the existing Biot-Savart

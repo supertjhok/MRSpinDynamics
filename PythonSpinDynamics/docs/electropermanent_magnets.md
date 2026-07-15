@@ -354,6 +354,57 @@ tissue region and one off-center target carry illustrative proton density, T1,
 and T2 values. It exercises contrast, nonlinear encoding, noise, reconstruction,
 and localization without claiming clinical tissue constants.
 
+## Image-guided superparamagnetic transport
+
+`SuperparamagneticParticle` stores the magnetic material volume, low-field SI
+susceptibility, saturation magnetization, hydrodynamic radius, viscosity, and
+temperature. The linear force law is
+
+```text
+F = V chi grad(|B|^2) / (2 mu0).
+```
+
+The default Langevin path uses `M = Ms L(3 chi |B|/(mu0 Ms))`; this recovers the
+same linear limit and approaches `Ms` smoothly. `magnetic_force_map_2d()`
+differentiates a sampled vector field, while
+`simulate_magnetophoretic_transport()` combines the resulting force with
+Stokes drift `F/(6 pi eta r_h)`, Stokes--Einstein diffusion, background flow,
+existing rectangular boundary handling, and irreversible circular-target
+capture.
+
+```python
+from spin_dynamics.workflows import (
+    SuperparamagneticParticle,
+    magnetic_force_map_2d,
+    simulate_magnetophoretic_transport,
+)
+
+force_map = magnetic_force_map_2d(x_axis, y_axis, transport_field)
+aggregate = SuperparamagneticParticle(
+    magnetic_core_radius_m=12e-6,
+    hydrodynamic_radius_m=15e-6,
+    magnetic_volume_fraction=0.60,
+    volume_susceptibility=1.4,
+    saturation_magnetization_a_m=4.5e5,
+    fluid_viscosity_pa_s=1.5e-3,
+)
+result = simulate_magnetophoretic_transport(
+    force_map, aggregate, initial_positions,
+    duration_s=75 * 60, time_step_s=5,
+    target_center_m=localized_target,
+    target_radius_m=4.2e-3,
+    background_velocity_m_s=(2.5e-6, 0.0), seed=10,
+)
+print(result.capture_fraction, result.peak_force_n)
+```
+
+The transport solver accepts any sampled vector field, so it is compatible
+with the EPM basis, other magnetostatic sources, and the same SI position and
+boundary conventions used by moving-isochromat workflows. Captured particles
+are immobilized in this first model; adhesion kinetics, concentration-dependent
+interactions, vascular branching, tissue permeability, and particle feedback
+on the field or flow are not yet included.
+
 ## Imaging and motion compatibility
 
 `sample_electropermanent_field()` samples one or more sources on a 1-D, 2-D,
@@ -468,6 +519,19 @@ python examples\plot_epm_nonlinear_tissue_imaging.py \
 
 ![Nonlinear EPM tissue imaging](images/example_epm_nonlinear_tissue_imaging.png)
 
+The image-guided transport example reconstructs the same tissue target, uses
+its centroid to set the affine EPM transport direction, and compares magnetic
+guidance with an otherwise matched nonmagnetic flow-only control:
+
+```powershell
+python examples\plot_epm_image_guided_transport.py \
+  --transport-gradient-mt-per-m 150 \
+  --duration-min 75 \
+  --output results\epm_image_guided_transport.png
+```
+
+![Image-guided EPM aggregate transport](images/example_epm_image_guided_transport.png)
+
 ## Current limitations and next phase
 
 The current phase still has important limits:
@@ -485,12 +549,11 @@ The current phase still has important limits:
 - conductive shielding is not yet connected to transient eddy-current loss.
 - the reference array hierarchy and gap are specified, but exact element
   dimensions and coupling matrices remain inferred; and
-- nonlinear encoding and tissue-phantom reconstruction are implemented, while
-  nanoparticle force saturation, flow/diffusion trajectories, and closed-loop
-  image-guided control remain the next system phase.
+- nonlinear encoding, tissue-phantom reconstruction, Langevin-limited particle
+  force, flow/diffusion trajectories, and target capture are implemented, while
+  closed-loop image-guided control remains the next system phase.
 
-The next implementation phase uses the reconstructed target in superparamagnetic
-force and trajectory models, then alternates imaging and
-transport states in a controller. Measured minor loops, repeated-pulse
+The next implementation phase alternates imaging, localization, programming,
+and transport states in a controller. Measured minor loops, repeated-pulse
 retention, exact CAD, and cross-talk matrices remain necessary before the array
 can become a quantitative hardware digital twin.

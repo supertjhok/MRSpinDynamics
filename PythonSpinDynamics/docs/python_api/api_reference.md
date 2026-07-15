@@ -1953,6 +1953,17 @@ No public classes or functions found.
 | function | `reconstruct_epm_nonlinear_image(encoding: NonlinearEPMEncoding, signal: Sequence[complex] | np.ndarray, *, regularization: float = 0.0001, nonnegative: bool = True, max_iterations: int = 4000, tolerance: float = 1e-08) -> tuple[np.ndarray, int, bool]` | Reconstruct a real image with dimensionless Tikhonov regularization. |
 | function | `run_epm_nonlinear_imaging(encoding: NonlinearEPMEncoding, expected_image: np.ndarray, *, regularization: float = 0.0001, nonnegative: bool = True, snr_db: float | None = None, seed: int = 0, max_iterations: int = 4000, tolerance: float = 1e-08) -> EPMNonlinearImagingResult` | Encode, optionally add complex noise, and reconstruct one EPM image. |
 
+## `spin_dynamics.workflows.electropermanent_transport`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `SuperparamagneticParticle` | Magnetic and hydrodynamic properties of a particle or aggregate. |
+| function | `magnetic_force_from_gradient(particle: SuperparamagneticParticle, field_magnitude_t: float | np.ndarray, grad_b_squared_t2_m: np.ndarray, *, model: MagnetizationModel = 'langevin') -> np.ndarray` | Return magnetic force from ``|B|`` and ``grad(|B|^2)``. |
+| class | `MagneticForceMap2D` | Sampled vector field and ``grad(|B|^2)`` on an ``(x, y)`` plane. |
+| function | `magnetic_force_map_2d(x_m: Sequence[float] | np.ndarray, y_m: Sequence[float] | np.ndarray, field_t: np.ndarray) -> MagneticForceMap2D` | Construct a force map by differentiating a sampled vector field. |
+| class | `MagnetophoreticTransportResult` | Particle histories and capture diagnostics for one transport burst. |
+| function | `simulate_magnetophoretic_transport(force_map: MagneticForceMap2D, particle: SuperparamagneticParticle, initial_positions_m: np.ndarray, *, duration_s: float, time_step_s: float, target_center_m: Sequence[float], target_radius_m: float, background_velocity_m_s: TransportVelocity = None, magnetization_model: MagnetizationModel = 'langevin', boundary: TransportBoundary = 'reflect', seed: int | None = None) -> MagnetophoreticTransportResult` | Advance overdamped particles and irreversibly capture target entries. |
+
 ## `spin_dynamics.workflows.fid`
 
 | Kind | Name | Summary |

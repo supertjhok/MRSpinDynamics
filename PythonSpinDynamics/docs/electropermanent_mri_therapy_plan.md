@@ -43,8 +43,11 @@ Implementation progress as of 2026-07-15:
   receiver-reference demodulation, dense non-Fourier encoding matrices,
   nonnegative Tikhonov reconstruction, complex acquisition noise, and a simple
   proton-density/T1/T2 tissue phantom with an off-center localization target.
-- **Next:** superparamagnetic particle-force/trajectory integration, followed by an alternating
-  image-localize-program-transport controller. Measured minor loops and
+- **Complete at particle-transport tier:** linear and Langevin-limited
+  superparamagnetic force, Stokes drag, Stokes--Einstein diffusion, background
+  flow, reflective boundaries, target capture, and image-derived transport
+  direction for the simple tissue phantom.
+- **Next:** an alternating image-localize-program-transport controller. Measured minor loops and
   coupling matrices remain parallel calibration work.
 
 The textbook starting point is Section 11.2, printed pages 603--604, of
@@ -267,7 +270,7 @@ After the EPM model is validated:
    `s_k = sum_j rho_j exp(-i gamma integral B_k(r_j, t) dt)`, and regularized
    reconstruction.  Conventional FFT reconstruction is not sufficient for the
    deliberately nonlinear profiles.
-3. **Next:** add magnetophoretic particle/cluster transport.  In the linear
+3. **Complete:** add magnetophoretic particle/cluster transport.  In the linear
    superparamagnetic regime,
    `F = V DeltaChi grad(|B|^2) / (2 mu0)`, with a Langevin or saturation cap at
    higher fields, plus drag, background flow, Brownian diffusion, and boundary
