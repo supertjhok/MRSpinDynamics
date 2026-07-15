@@ -112,6 +112,11 @@ FIGURES: dict[str, tuple[str, ...]] = {
         "--output",
         "example_electropermanent_transient_crosstalk.png",
     ),
+    "electropermanent-array": (
+        "plot_epm_hybrid_array_synthesis.py",
+        "--output",
+        "example_epm_hybrid_array_synthesis.png",
+    ),
     "squid-ulf-crossover": (
         "plot_squid_ulf_crossover.py",
         "--save",

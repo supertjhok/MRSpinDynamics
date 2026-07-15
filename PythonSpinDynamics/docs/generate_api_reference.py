@@ -76,6 +76,7 @@ MODULES = [
     "fields.domain",
     "fields.eddy_modes",
     "fields.electropermanent",
+    "fields.electropermanent_array",
     "fields.electropermanent_hysteresis",
     "fields.electropermanent_transient",
     "fields.electropermanent_pulses",

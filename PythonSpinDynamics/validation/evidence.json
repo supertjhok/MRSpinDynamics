@@ -214,6 +214,26 @@
       "limitations": ["Inactive channels are modeled as closed through recovery resistors; open, actively clamped, and multiplexed topologies are not yet available. Mutual inductance and winding-field leakage are explicit inferred inputs because no measured array matrix is bundled."]
     },
     {
+      "id": "electropermanent_array_synthesis",
+      "component": "Hybrid electropermanent array and operating-state synthesis",
+      "claim": "The cached fixed-plus-programmable field basis exactly reproduces direct finite-magnet superposition, and bounded synthesis recovers representable targets while reducing the reference field-off residual and preserving a requested transport-gradient sign.",
+      "evidence_types": ["A", "R"],
+      "basis": "Linearity of magnetostatic fields in retained remanence, direct-versus-cached finite-rod field comparison, exact synthetic bounded least squares, and full 18-sub-unit array regressions.",
+      "parameter_range": "Two illustrative opposing 3-by-3 panels with 18 hybrid sub-units, 72 AlNiCo controls, retained-remanence limits of plus/minus 0.33 T, compact control-region samples, uniform imaging and field-off targets, and affine transport gradients.",
+      "metric": "Vector-field equality, target residual, reference-to-field-off RMS reduction, retained-state bounds, saturation count, and fitted centerline gradient sign",
+      "tolerance": "Floating-point equality for cached/direct superposition and representable synthetic targets; geometry-specific reduction and gradient-sign checks for the illustrative full array.",
+      "status": "partially_validated",
+      "reproducers": [
+        "tests/test_electropermanent_array.py::test_cached_basis_matches_direct_superposition",
+        "tests/test_electropermanent_array.py::test_numpy_bounded_solver_recovers_representable_target",
+        "tests/test_electropermanent_array.py::test_field_off_synthesis_reduces_reference_array_field",
+        "tests/test_electropermanent_array.py::test_transport_target_and_synthesis_preserve_gradient_direction",
+        "examples/plot_epm_hybrid_array_synthesis.py"
+      ],
+      "references": ["Magnetostatic superposition and linearity in magnetization", "Weinberg project evidence for the 18-sub-unit, 72-control hierarchy and control-region intent"],
+      "limitations": ["The exact historical rod dimensions, pitch, and within-sub-unit layout are inferred illustrative assumptions until CAD or measured field bases are available.", "Transport synthesis currently targets an affine projected static field; nonlinear imaging, superparamagnetic force and trajectory dynamics, programming schedules, and closed-loop control are not yet included."]
+    },
+    {
       "id": "coil_peec",
       "component": "PEEC coil impedance and parasitics",
       "claim": "PEEC inductance/resistance trends agree with analytical kernels and selected independent QOIL, FastHenry, and FasterCap comparisons.",

@@ -20,9 +20,9 @@ what supports the underlying scientific or numerical claim.
 
 ## Coverage Summary
 
-- 29 capability-level claims
+- 30 capability-level claims
 - 14 validated
-- 10 partially validated
+- 11 partially validated
 - 5 regression-only
 
 | Component | Claim | Evidence | Status |
@@ -38,6 +38,7 @@ what supports the underlying scientific or numerical claim.
 | Electropermanent programming pulses and retained state | The NumPy capacitor/H-bridge/series-RLC integrator reproduces the exact underdamped current solution and configuration-specific fits recover the archived 220/400/600-V peak-current examples; empirical remanence updates enforce their calibrated branch, polarity, range, uncertainty, and provenance. | **A**, **E**, **R** | partially validated |
 | Electropermanent return-point memory and neighbor coupling | Weighted play operators close nested reversal loops exactly and obey wiping-out, while finite-geometry two-element coupling has the expected symmetry and sign and the self-demagnetizing programming fixed point converges. | **A**, **R** | partially validated |
 | Electropermanent transient winding cross-talk | The multi-winding integrator reduces to the isolated RLC driver at zero coupling, produces the Lenz-law neighbor-current sign for positive mutual inductance, closes the coupled electrical-energy balance, and propagates pulse-driven disturbance into every return-point state. | **A**, **R** | partially validated |
+| Hybrid electropermanent array and operating-state synthesis | The cached fixed-plus-programmable field basis exactly reproduces direct finite-magnet superposition, and bounded synthesis recovers representable targets while reducing the reference field-off residual and preserving a requested transport-gradient sign. | **A**, **R** | partially validated |
 | PEEC coil impedance and parasitics | PEEC inductance/resistance trends agree with analytical kernels and selected independent QOIL, FastHenry, and FasterCap comparisons. | **C**, **A** | partially validated |
 | Thermal networks, conduction, and electromagnets | Lumped, one-dimensional, axisymmetric, perfused, and advective thermal models reproduce closed-form limits; coupled electromagnets recover exact RL and electrothermal fixed points, and selected conduction cases are cross-checked with FEMM. | **A**, **C** | validated |
 | NQR Hamiltonians and pulse models | Spin-1 and spin-3/2 transition conventions, powder weights, selective pulses, and SORC/SLSE limits reproduce analytical and published theory results. | **A**, **D** | partially validated |
@@ -190,6 +191,18 @@ what supports the underlying scientific or numerical claim.
 - **References:** Coupled-inductor circuit equations and Lenz's law; Weinberg archive 20200525 IGBT update neighbor-effect observations
 - **Reproduce:** [`tests/test_electropermanent_transient.py::test_zero_coupling_reproduces_isolated_target_waveform`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_electropermanent_transient.py#L71); [`tests/test_electropermanent_transient.py::test_positive_mutual_inductance_opposes_neighbor_current_ramp`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_electropermanent_transient.py#L98); [`tests/test_electropermanent_transient.py::test_coupled_circuit_closes_electrical_energy_balance`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_electropermanent_transient.py#L117); [`tests/test_electropermanent_transient.py::test_transient_crosstalk_disturbs_neighbor_return_point_state`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_electropermanent_transient.py#L194); [`tests/test_electropermanent_transient.py::test_state_dependent_inductance_outer_iteration_converges`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_electropermanent_transient.py#L209)
 - **Limitations:** Inactive channels are modeled as closed through recovery resistors; open, actively clamped, and multiplexed topologies are not yet available. Mutual inductance and winding-field leakage are explicit inferred inputs because no measured array matrix is bundled.
+
+### Hybrid electropermanent array and operating-state synthesis
+
+- **Claim:** The cached fixed-plus-programmable field basis exactly reproduces direct finite-magnet superposition, and bounded synthesis recovers representable targets while reducing the reference field-off residual and preserving a requested transport-gradient sign.
+- **Evidence:** A, R (partially validated)
+- **Basis:** Linearity of magnetostatic fields in retained remanence, direct-versus-cached finite-rod field comparison, exact synthetic bounded least squares, and full 18-sub-unit array regressions.
+- **Tested range:** Two illustrative opposing 3-by-3 panels with 18 hybrid sub-units, 72 AlNiCo controls, retained-remanence limits of plus/minus 0.33 T, compact control-region samples, uniform imaging and field-off targets, and affine transport gradients.
+- **Metric:** Vector-field equality, target residual, reference-to-field-off RMS reduction, retained-state bounds, saturation count, and fitted centerline gradient sign
+- **Tolerance:** Floating-point equality for cached/direct superposition and representable synthetic targets; geometry-specific reduction and gradient-sign checks for the illustrative full array.
+- **References:** Magnetostatic superposition and linearity in magnetization; Weinberg project evidence for the 18-sub-unit, 72-control hierarchy and control-region intent
+- **Reproduce:** [`tests/test_electropermanent_array.py::test_cached_basis_matches_direct_superposition`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_electropermanent_array.py#L45); [`tests/test_electropermanent_array.py::test_numpy_bounded_solver_recovers_representable_target`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_electropermanent_array.py#L90); [`tests/test_electropermanent_array.py::test_field_off_synthesis_reduces_reference_array_field`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_electropermanent_array.py#L106); [`tests/test_electropermanent_array.py::test_transport_target_and_synthesis_preserve_gradient_direction`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_electropermanent_array.py#L131); [`examples/plot_epm_hybrid_array_synthesis.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/examples/plot_epm_hybrid_array_synthesis.py)
+- **Limitations:** The exact historical rod dimensions, pitch, and within-sub-unit layout are inferred illustrative assumptions until CAD or measured field bases are available. Transport synthesis currently targets an affine projected static field; nonlinear imaging, superparamagnetic force and trajectory dynamics, programming schedules, and closed-loop control are not yet included.
 
 ### PEEC coil impedance and parasitics
 

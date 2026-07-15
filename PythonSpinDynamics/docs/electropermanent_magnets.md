@@ -261,6 +261,60 @@ models a closed recovery path, not an open winding. Mutual-inductance and
 winding-field matrices must be measured or independently solved for a
 quantitative array prediction.
 
+## Hybrid array and operating-state synthesis
+
+`HybridEPMSubunit` groups fixed NdFeB sources with independently programmable
+AlNiCo rods. `ElectropermanentArray` flattens those controls while preserving
+panel and sub-unit identity. The `illustrative_hybrid_epm_array()` preset follows
+the locally documented hierarchy: two opposing 3 by 3 panels, 18 hybrid
+sub-units, four AlNiCo controls per sub-unit, 72 controls total, a 150 mm panel
+gap, and a 40 mm control ROI. Its exact pitch, radii, length, and intra-sub-unit
+layout are explicitly inferred until complete CAD is recovered.
+
+`build_field_basis()` performs magnetostatics once and returns an
+`ElectropermanentArrayFieldBasis` containing
+
+```text
+B(r) = B_fixed_NdFeB(r) + sum_i Br_i K_i(r),
+```
+
+where every `K_i` is the vector field per tesla of retained AlNiCo remanence.
+The same cached basis supports multiple bounded state-synthesis objectives:
+
+- `synthesize_uniform_imaging_state()` targets uniform projected B0;
+- `synthesize_field_off_state()` minimizes the residual projected field; and
+- `synthesize_transport_state()` targets an affine bias-plus-gradient field.
+
+The general `synthesize_epm_array_state()` solves a weighted, regularized
+least-squares problem subject to each element's retained-remanence limits. It
+uses SciPy bounded least squares when available and includes a pure-NumPy
+projected accelerated-gradient backend.
+
+```python
+from spin_dynamics.fields import (
+    illustrative_hybrid_epm_array,
+    synthesize_field_off_state,
+    synthesize_transport_state,
+    synthesize_uniform_imaging_state,
+)
+
+array = illustrative_hybrid_epm_array(panel_gap_m=0.150)
+basis = array.build_field_basis(roi_points)
+imaging = synthesize_uniform_imaging_state(basis, 2e-3)
+field_off = synthesize_field_off_state(basis)
+transport = synthesize_transport_state(
+    basis,
+    bias_field_t=2e-3,
+    gradient_t_per_m=(0.050, 0.0, 0.0),
+)
+programmed_array = transport.applied_array()
+```
+
+The affine transport target is the linear field-design precursor to
+magnetophoretic force synthesis. The next phase will evaluate
+`grad(|B|^2)` with susceptibility/Langevin force laws and integrate particles
+through flow, diffusion, and vessel boundaries.
+
 ## Imaging and motion compatibility
 
 `sample_electropermanent_field()` samples one or more sources on a 1-D, 2-D,
@@ -351,6 +405,18 @@ disturbance threshold.
 
 ![Transient EPM programming cross-talk](images/example_electropermanent_transient_crosstalk.png)
 
+The hybrid-array example reuses one ROI basis to synthesize three operating
+modes, then evaluates them on a denser mid-plane map:
+
+```powershell
+python examples\plot_epm_hybrid_array_synthesis.py \
+  --imaging-field-mt 2 \
+  --transport-gradient-mt-per-m 50 \
+  --output results\epm_hybrid_array_synthesis.png
+```
+
+![Hybrid EPM array state synthesis](images/example_epm_hybrid_array_synthesis.png)
+
 ## Current limitations and next phase
 
 The current phase still has important limits:
@@ -366,8 +432,14 @@ The current phase still has important limits:
 - discrete switching loss is included in cumulative driver energy but not
   deposited as a time-resolved temperature impulse; and
 - conductive shielding is not yet connected to transient eddy-current loss.
+- the reference array hierarchy and gap are specified, but exact element
+  dimensions and coupling matrices remain inferred; and
+- affine transport-field synthesis is implemented, while nonlinear encoding,
+  nanoparticle force saturation, flow/diffusion trajectories, and closed-loop
+  image-guided control remain the next system phase.
 
-The next implementation phase is the hybrid NdFeB/AlNiCo sub-unit and a cached
-field-basis array with constrained imaging/transport state synthesis. Measured
-minor loops, repeated-pulse retention, and cross-talk matrices remain necessary
-before the array can become a quantitative hardware digital twin.
+The next implementation phase couples nonlinear EPM encoding/reconstruction to
+superparamagnetic force and trajectory models, then alternates imaging and
+transport states in a controller. Measured minor loops, repeated-pulse
+retention, exact CAD, and cross-talk matrices remain necessary before the array
+can become a quantitative hardware digital twin.

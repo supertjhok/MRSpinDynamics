@@ -655,6 +655,23 @@ cross-talk mechanisms. The final panel sweeps leakage to expose the threshold
 where the inactive neighbor no longer retains its state. These inputs are
 explicitly illustrative until measured coupling matrices are supplied.
 
+## Hybrid EPM Array State Synthesis
+
+This example builds the two-panel 18-sub-unit/72-control hybrid reference
+geometry, caches fixed-NdFeB and per-tesla AlNiCo vector field bases, and solves
+bounded retained-state programs for uniform imaging, field-off, and directional
+transport modes.
+
+```powershell
+python examples\plot_epm_hybrid_array_synthesis.py --output results\epm_hybrid_array_synthesis.png
+```
+
+Use `--imaging-field-mt` and `--transport-gradient-mt-per-m` to set the mode
+targets. The panels show the system hierarchy, imaging and field-off maps,
+`grad(|B|^2)` transport direction, all 72 retained states, and target-versus-
+achieved centerline fields. The hierarchy and 150 mm gap are specified by the
+project record; exact element dimensions are labeled inferred.
+
 ## Electrothermal Electromagnet B0 Source
 
 This example builds a 30 mT air-core solenoid from the existing Biot-Savart

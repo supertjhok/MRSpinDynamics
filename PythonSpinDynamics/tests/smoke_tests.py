@@ -19,6 +19,10 @@ from tests.test_composition import (
 )
 from tests.test_examples import ExampleSmokeTests
 from tests.test_electropermanent import ElectropermanentRodFieldTests
+from tests.test_electropermanent_array import (
+    ArraySynthesisTests,
+    HybridArrayGeometryTests,
+)
 from tests.test_electropermanent_hysteresis import (
     NeighborCouplingTests,
     PlayHysteresisTests,
@@ -153,6 +157,16 @@ def load_tests(
     suite.addTest(
         ElectropermanentRodFieldTests(
             "test_published_rod_matches_reported_surface_field_scale"
+        )
+    )
+    suite.addTest(
+        HybridArrayGeometryTests(
+            "test_reference_hierarchy_has_two_panels_and_72_controls"
+        )
+    )
+    suite.addTest(
+        ArraySynthesisTests(
+            "test_numpy_bounded_solver_recovers_representable_target"
         )
     )
     suite.addTest(

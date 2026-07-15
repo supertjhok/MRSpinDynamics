@@ -35,9 +35,14 @@ Implementation progress as of 2026-07-15:
   inductance iteration, array-channel losses, temperatures, and energy checks.
   The mutual and leakage matrices remain explicit inferred inputs pending
   measurement.
-- **Next:** hybrid NdFeB/AlNiCo sub-units, field-basis assembly, constrained
-  state synthesis, and then the full 18-sub-unit/72-element array. Measured
-  minor loops and coupling matrices remain parallel calibration work.
+- **Complete at array-synthesis tier:** hybrid NdFeB/AlNiCo sub-units, the
+  two-panel 18-sub-unit/72-control hierarchy, cached vector field bases, bounded
+  regularized synthesis of uniform imaging, field-off, and affine directional
+  transport modes, and explicit specified-versus-inferred geometry evidence.
+- **Next:** nonlinear EPM encoding/reconstruction and superparamagnetic
+  particle-force/trajectory integration, followed by an alternating
+  image-localize-program-transport controller. Measured minor loops and
+  coupling matrices remain parallel calibration work.
 
 The textbook starting point is Section 11.2, printed pages 603--604, of
 `References/Measurements_Book_2_Final_WEB.pdf`.  Figure 11.6 describes an

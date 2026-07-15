@@ -743,6 +743,21 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `ElectropermanentFieldMaps` | Sampled EPM field with adapters to existing MR field containers. |
 | function | `sample_electropermanent_field(axes: Sequence[Sequence[float] | np.ndarray], sources: Sequence[ElectropermanentSource], *, cartesian_axes: Sequence[int] | None = None, field_direction: Sequence[float] = (0.0, 0.0, 1.0), n_cross: int = 7, n_length: int = 31, chunk_size: int = 4096, gyromagnetic_ratio: float = GAMMA_PROTON) -> ElectropermanentFieldMaps` | Sample an EPM assembly onto a 1-D, 2-D, or 3-D Cartesian grid. |
 
+## `spin_dynamics.fields.electropermanent_array`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `HybridEPMSubunit` | One fixed NdFeB source plus independently programmable AlNiCo rods. |
+| class | `ElectropermanentArray` | A collection of hybrid sub-units with flattened control channels. |
+| class | `ElectropermanentArrayFieldBasis` | Cached fixed field and one vector-field column per AlNiCo element. |
+| class | `ArrayStateSynthesisResult` | Bounded retained-state solution for one array field objective. |
+| function | `synthesize_epm_array_state(basis: ElectropermanentArrayFieldBasis, target_field_t: float | Sequence[float] | np.ndarray, *, field_direction: Sequence[float] = (0.0, 0.0, 1.0), mode: SynthesisMode = 'custom', weights: float | Sequence[float] | np.ndarray = 1.0, regularization: float = 1e-06, reference_remanence_t: Sequence[float] | np.ndarray | None = None, backend: SynthesisBackend = 'auto', max_iterations: int = 20000, tolerance_t: float = 1e-10) -> ArrayStateSynthesisResult` | Solve a bounded regularized projected-field least-squares problem. |
+| function | `synthesize_uniform_imaging_state(basis: ElectropermanentArrayFieldBasis, field_t: float, **kwargs) -> ArrayStateSynthesisResult` | Synthesize a uniform projected imaging field over the basis points. |
+| function | `synthesize_field_off_state(basis: ElectropermanentArrayFieldBasis, **kwargs) -> ArrayStateSynthesisResult` | Minimize the projected field over the basis points. |
+| function | `affine_transport_target(points_m: np.ndarray, *, bias_field_t: float, gradient_t_per_m: Sequence[float], center_m: Sequence[float] | None = None) -> np.ndarray` | Return ``bias + gradient dot (r-center)`` for directional transport. |
+| function | `synthesize_transport_state(basis: ElectropermanentArrayFieldBasis, *, bias_field_t: float, gradient_t_per_m: Sequence[float], center_m: Sequence[float] | None = None, **kwargs) -> ArrayStateSynthesisResult` | Synthesize an affine projected field for a directional transport burst. |
+| function | `illustrative_hybrid_epm_array(*, panel_gap_m: float = 0.15, grid_pitch_m: float = 0.035, subunit_element_offset_m: float = 0.008, magnet_length_m: float = 0.03, fixed_ndfeb_remanence_t: float = 1.2, alnico_remanence_limit_t: float = 0.33) -> ElectropermanentArray` | Return the published 18-sub-unit/72-element hierarchy. |
+
 ## `spin_dynamics.fields.electropermanent_hysteresis`
 
 | Kind | Name | Summary |
