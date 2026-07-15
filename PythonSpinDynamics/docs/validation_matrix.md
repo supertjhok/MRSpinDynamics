@@ -20,9 +20,9 @@ what supports the underlying scientific or numerical claim.
 
 ## Coverage Summary
 
-- 26 capability-level claims
+- 27 capability-level claims
 - 14 validated
-- 7 partially validated
+- 8 partially validated
 - 5 regression-only
 
 | Component | Claim | Evidence | Status |
@@ -35,6 +35,7 @@ what supports the underlying scientific or numerical claim.
 | Moving-isochromat diffusion and boundaries | Seeded particle motion has the expected diffusion statistics, boundary behavior, RF rotation, and static-gradient refocusing limits. | **A**, **R** | validated |
 | Flow washout and transit polarization | Plug and laminar pipe washout and flux-weighted transit polarization follow their analytical distributions and Monte Carlo estimates. | **A**, **C** | validated |
 | Magnetostatic field solvers | Biot-Savart coil fields and selected magnet geometries reproduce analytical center-field, symmetry, scaling, finite-length, and far-field limits; the documented AlNiCo electropermanent rod also reproduces its published surface-field benchmark. | **A**, **D** | validated |
+| Electropermanent programming pulses and retained state | The NumPy capacitor/H-bridge/series-RLC integrator reproduces the exact underdamped current solution and configuration-specific fits recover the archived 220/400/600-V peak-current examples; empirical remanence updates enforce their calibrated branch, polarity, range, uncertainty, and provenance. | **A**, **E**, **R** | partially validated |
 | PEEC coil impedance and parasitics | PEEC inductance/resistance trends agree with analytical kernels and selected independent QOIL, FastHenry, and FasterCap comparisons. | **C**, **A** | partially validated |
 | Thermal networks, conduction, and electromagnets | Lumped, one-dimensional, axisymmetric, perfused, and advective thermal models reproduce closed-form limits; coupled electromagnets recover exact RL and electrothermal fixed points, and selected conduction cases are cross-checked with FEMM. | **A**, **C** | validated |
 | NQR Hamiltonians and pulse models | Spin-1 and spin-3/2 transition conventions, powder weights, selective pulses, and SORC/SLSE limits reproduce analytical and published theory results. | **A**, **D** | partially validated |
@@ -150,7 +151,19 @@ what supports the underlying scientific or numerical claim.
 - **Tolerance:** Geometry/discretization-specific tolerances declared in tests.
 - **References:** Biot-Savart circular-loop solution; Ideal Halbach dipole symmetry; Weinberg Medical Physics variable-field NMR AlNiCo rod measurements
 - **Reproduce:** [`tests/test_magnetostatics.py::test_loop_center_matches_analytic`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_magnetostatics.py#L27); [`tests/test_magnetostatics.py::test_field_scales_with_current`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_magnetostatics.py#L36); [`tests/test_magnetostatics.py::test_four_rod_halbach_phasing_points_bore_field_along_x`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_magnetostatics.py#L105); [`tests/test_electropermanent.py::test_published_rod_matches_reported_surface_field_scale`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_electropermanent.py#L53); [`tests/test_electropermanent.py::test_cubature_converges_to_exact_on_axis_cylinder_field`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_electropermanent.py#L63); [`tests/test_electropermanent.py::test_far_field_matches_magnetic_dipole_limit`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_electropermanent.py#L88)
-- **Limitations:** The electropermanent-magnet implementation currently treats retained remanence as prescribed; programming-pulse hysteresis and coupled pulse/thermal dynamics are not yet modeled.
+- **Limitations:** Static field evaluation consumes a retained state supplied directly or by the separate programming calibration; it does not solve self-demagnetizing and neighbor-coupled internal fields self-consistently.
+
+### Electropermanent programming pulses and retained state
+
+- **Claim:** The NumPy capacitor/H-bridge/series-RLC integrator reproduces the exact underdamped current solution and configuration-specific fits recover the archived 220/400/600-V peak-current examples; empirical remanence updates enforce their calibrated branch, polarity, range, uncertainty, and provenance.
+- **Evidence:** A, E, R (partially validated)
+- **Basis:** Exact underdamped series-RLC current, electrical energy balance, archived peak-current traces, and protocol invariants for the coarse published demagnetization envelope.
+- **Tested range:** 10--50 us gates, 220--600 V capacitor commands, approximately 147--330 A measured peaks, passive recovery, and a 0--100 percent saturate-then-demagnetize command.
+- **Metric:** Current waveform and peak, energy residual, temperature direction, retained remanence, branch, reversal point, and uncertainty
+- **Tolerance:** 2e-8 relative for the analytical RLC waveform; 4 percent for configuration-specific archived peak-current fits; exact protocol guards and interpolation anchors.
+- **References:** Weinberg archive MRI/IGBT_board/experimental results.pdf; Weinberg archive NQR_proposal_2019 demagnetization figure; Series-RLC transient solution
+- **Reproduce:** [`tests/test_electropermanent_pulses.py::test_drive_matches_exact_underdamped_series_rlc_current`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_electropermanent_pulses.py#L48); [`tests/test_electropermanent_pulses.py::test_archived_peak_current_cases_match_configuration_specific_fits`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_electropermanent_pulses.py#L149); [`tests/test_electropermanent_pulses.py::test_recovery_path_decays_current_and_closes_energy_balance`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_electropermanent_pulses.py#L91); [`tests/test_electropermanent_pulses.py::test_published_protocol_zero_crossing_updates_state_and_history`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_electropermanent_pulses.py#L213)
+- **Limitations:** Effective L/R/C values are inferred fits rather than independently measured parameters for every trace; the three-anchor remanence envelope is not raw hysteresis data and cannot predict arbitrary minor loops or neighbor-coupled programming.
 
 ### PEEC coil impedance and parasitics
 

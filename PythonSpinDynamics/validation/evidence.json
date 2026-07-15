@@ -152,7 +152,26 @@
         "tests/test_electropermanent.py::test_far_field_matches_magnetic_dipole_limit"
       ],
       "references": ["Biot-Savart circular-loop solution", "Ideal Halbach dipole symmetry", "Weinberg Medical Physics variable-field NMR AlNiCo rod measurements"],
-      "limitations": ["The electropermanent-magnet implementation currently treats retained remanence as prescribed; programming-pulse hysteresis and coupled pulse/thermal dynamics are not yet modeled."]
+      "limitations": ["Static field evaluation consumes a retained state supplied directly or by the separate programming calibration; it does not solve self-demagnetizing and neighbor-coupled internal fields self-consistently."]
+    },
+    {
+      "id": "electropermanent_programming",
+      "component": "Electropermanent programming pulses and retained state",
+      "claim": "The NumPy capacitor/H-bridge/series-RLC integrator reproduces the exact underdamped current solution and configuration-specific fits recover the archived 220/400/600-V peak-current examples; empirical remanence updates enforce their calibrated branch, polarity, range, uncertainty, and provenance.",
+      "evidence_types": ["A", "E", "R"],
+      "basis": "Exact underdamped series-RLC current, electrical energy balance, archived peak-current traces, and protocol invariants for the coarse published demagnetization envelope.",
+      "parameter_range": "10--50 us gates, 220--600 V capacitor commands, approximately 147--330 A measured peaks, passive recovery, and a 0--100 percent saturate-then-demagnetize command.",
+      "metric": "Current waveform and peak, energy residual, temperature direction, retained remanence, branch, reversal point, and uncertainty",
+      "tolerance": "2e-8 relative for the analytical RLC waveform; 4 percent for configuration-specific archived peak-current fits; exact protocol guards and interpolation anchors.",
+      "status": "partially_validated",
+      "reproducers": [
+        "tests/test_electropermanent_pulses.py::test_drive_matches_exact_underdamped_series_rlc_current",
+        "tests/test_electropermanent_pulses.py::test_archived_peak_current_cases_match_configuration_specific_fits",
+        "tests/test_electropermanent_pulses.py::test_recovery_path_decays_current_and_closes_energy_balance",
+        "tests/test_electropermanent_pulses.py::test_published_protocol_zero_crossing_updates_state_and_history"
+      ],
+      "references": ["Weinberg archive MRI/IGBT_board/experimental results.pdf", "Weinberg archive NQR_proposal_2019 demagnetization figure", "Series-RLC transient solution"],
+      "limitations": ["Effective L/R/C values are inferred fits rather than independently measured parameters for every trace; the three-anchor remanence envelope is not raw hysteresis data and cannot predict arbitrary minor loops or neighbor-coupled programming."]
     },
     {
       "id": "coil_peec",

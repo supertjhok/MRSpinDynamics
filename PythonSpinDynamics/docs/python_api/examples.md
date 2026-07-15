@@ -598,8 +598,27 @@ Use `--remanence-t`, `--n-cross`, and `--n-length` to change the retained state
 and numerical resolution. The example prints evidence provenance, the retained
 fraction of nominal AlNiCo `Br`, bundle dimensions and magnetic moment, the
 published approximately 150 mT surface-field benchmark, equivalent-cylinder
-error, and neighbor-field perturbation. Pulse programming and hysteresis state
-updates are deliberately deferred to the next implementation phase.
+error, and neighbor-field perturbation.
+
+## Electropermanent Programming Pulses
+
+This companion example integrates the capacitor/H-bridge/series-RLC
+programming circuit, passive recovery, coil and driver losses, and lumped
+temperatures. It compares configuration-specific fits with the archived
+220 V/50 us, 400 V/20 us, and 600 V/10 us peak currents, then applies the
+protocol-scoped published demagnetization envelope.
+
+```powershell
+python examples\plot_electropermanent_programming.py --output results\electropermanent_programming.png
+```
+
+Use `--command-fraction` to select the independent saturate-then-demagnetize
+cycle and `--pulse-count` / `--cooling-s` to change the thermal train. The six
+panels show realized current, capacitor droop, measured-versus-modeled peaks,
+retained `Br` with uncertainty, state-dependent-inductance and neighbor-field
+hooks, and cumulative pulse heating. The example explicitly labels the
+three-anchor remanence curve as an inferred envelope rather than raw hysteresis
+data.
 
 ## Electrothermal Electromagnet B0 Source
 

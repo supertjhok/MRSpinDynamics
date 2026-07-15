@@ -73,6 +73,17 @@ from spin_dynamics.fields.electropermanent import (
     variable_field_nmr_rod,
     weinberg_37_rod_bundle,
 )
+from spin_dynamics.fields.electropermanent_pulses import (
+    EmpiricalProgrammingCalibration,
+    ProgrammingPulse,
+    ProgrammingResult,
+    PulsePowerDriver,
+    PulseThermalState,
+    PulseValidationCase,
+    PulseWaveform,
+    archived_igbt_pulse_cases,
+    published_demagnetization_calibration,
+)
 from spin_dynamics.fields.gradient_coils import (
     CylindricalGradientSystem,
     CylindricalWindingSurface,
@@ -309,6 +320,15 @@ __all__ = [
     "variable_field_nmr_rod",
     "weinberg_37_rod_bundle",
     "sample_electropermanent_field",
+    "PulseThermalState",
+    "ProgrammingPulse",
+    "PulsePowerDriver",
+    "PulseWaveform",
+    "PulseValidationCase",
+    "EmpiricalProgrammingCalibration",
+    "ProgrammingResult",
+    "archived_igbt_pulse_cases",
+    "published_demagnetization_calibration",
     # nonlinear magnetostatics (ferrite / saturable iron / permanent magnets)
     "BrauerBH",
     "MagneticMaterial",

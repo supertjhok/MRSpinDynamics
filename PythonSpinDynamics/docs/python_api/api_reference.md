@@ -743,6 +743,20 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `ElectropermanentFieldMaps` | Sampled EPM field with adapters to existing MR field containers. |
 | function | `sample_electropermanent_field(axes: Sequence[Sequence[float] | np.ndarray], sources: Sequence[ElectropermanentSource], *, cartesian_axes: Sequence[int] | None = None, field_direction: Sequence[float] = (0.0, 0.0, 1.0), n_cross: int = 7, n_length: int = 31, chunk_size: int = 4096, gyromagnetic_ratio: float = GAMMA_PROTON) -> ElectropermanentFieldMaps` | Sample an EPM assembly onto a 1-D, 2-D, or 3-D Cartesian grid. |
 
+## `spin_dynamics.fields.electropermanent_pulses`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `PulseThermalState` | Temperatures and cumulative losses carried between programming pulses. |
+| class | `ProgrammingPulse` | One capacitor-bank command applied through an H-bridge. |
+| class | `PulsePowerDriver` | Capacitor/H-bridge/series-RLC model for an EPM programming winding. |
+| class | `PulseWaveform` | Realized electrical, field, loss, and temperature response of one pulse. |
+| class | `PulseValidationCase` | One configuration-specific archived peak-current comparison. |
+| function | `archived_igbt_pulse_cases() -> tuple[PulseValidationCase, ...]` | Return the separately calibrated 220/400/600-V archive comparisons. |
+| class | `EmpiricalProgrammingCalibration` | Protocol-scoped interpolation from a pulse metric to retained remanence. |
+| class | `ProgrammingResult` | One waveform-driven, empirically calibrated retained-state transition. |
+| function | `published_demagnetization_calibration() -> EmpiricalProgrammingCalibration` | Return a conservative three-anchor interpretation of the published plot. |
+
 ## `spin_dynamics.fields.gradient_coils`
 
 | Kind | Name | Summary |

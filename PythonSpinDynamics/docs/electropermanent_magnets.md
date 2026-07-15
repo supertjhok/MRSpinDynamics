@@ -1,9 +1,9 @@
 # Electropermanent AlNiCo magnets
 
-PythonSpinDynamics models the static geometry and retained state of
-electropermanent magnets (EPMs) before attempting pulse programming. This first
-phase targets AlNiCo rods and close-packed rod bundles used as reconfigurable
-`B0` sources.
+PythonSpinDynamics models the static geometry, programming electronics, thermal
+response, and protocol-calibrated retained state of electropermanent magnets
+(EPMs). The current implementation targets AlNiCo rods and close-packed rod
+bundles used as reconfigurable `B0` sources.
 
 ## Why retained state is separate from material data
 
@@ -79,6 +79,82 @@ The area-equivalent cylinder preserves total AlNiCo volume and magnetic dipole
 moment. It is a useful far-field and optimization approximation, but it does
 not preserve detailed near-field structure at the bundle face.
 
+## Programming-pulse circuit
+
+`PulsePowerDriver` integrates a capacitor bank, H-bridge, winding resistance
+and inductance, passive recovery path, current and voltage limits, and lumped
+coil/driver temperatures. During the command interval,
+
+```text
+C dVc/dt = -p I
+L dI/dt = p (Vc - Vbridge) - I (Rcoil(T) + Rseries),
+```
+
+where `p` is the bridge polarity. After turn-off, the capacitor is disconnected
+and current decays through `Rcoil + Rrecovery`. The NumPy RK4 integrator splits
+steps exactly at the switching boundary. `PulseWaveform` reports realized
+current, capacitor and bridge voltages, nominal internal `H`, electrical losses,
+temperatures, field impulse, and an electrical energy-balance residual.
+
+```python
+import numpy as np
+
+from spin_dynamics.fields import archived_igbt_pulse_cases
+
+case = archived_igbt_pulse_cases()[0]  # 220 V / 50 us
+times = np.linspace(0, 160e-6, 1001)
+waveform = case.driver.simulate(times, case.pulse)
+
+print(waveform.peak_current_a)
+print(waveform.peak_internal_h_a_per_m)
+print(waveform.coil_energy_j, waveform.driver_energy_j)
+thermal_state = waveform.final_thermal_state
+```
+
+The archived 220 V/50 us, 400 V/20 us, and 600 V/10 us examples are separate
+`PulseValidationCase` objects. Only voltage, gate duration, and peak current are
+tagged as measured. Their effective inductances and common capacitance/resistance
+assumptions are tagged as inferred because the archive does not establish that
+all three traces used identical coils and wiring.
+
+`state_inductance_fraction_at_saturation` provides a documented fixed-state
+inductance hook for one pulse. `bias_field_a_per_m` adds a static neighbor or
+demagnetizing contribution to the reported internal field. These hooks make the
+coupling explicit; they do not yet solve state and field self-consistently.
+
+## Empirical retained-state transitions
+
+`EmpiricalProgrammingCalibration` maps a realized pulse metric to retained
+remanence. Supported metrics are command duty fraction, peak internal `H`,
+absolute `H` impulse, and signed `H` impulse. Every calibration declares its
+valid initial branch, pulse polarity, command range, extrapolation behavior,
+uncertainty, and evidence.
+
+```python
+from spin_dynamics.fields import (
+    ProgrammingPulse,
+    RemanenceState,
+    published_demagnetization_calibration,
+)
+
+pulse = ProgrammingPulse(
+    220.0,
+    50e-6,
+    polarity=-1,
+    command_fraction=0.17,
+)
+waveform = case.driver.simulate(times, pulse)
+initial = RemanenceState(0.33, branch="positive_saturation")
+result = published_demagnetization_calibration().apply(initial, waveform)
+```
+
+The published preset is deliberately conservative. The cropped figure supports
+positive and negative endpoints and a zero crossing near 17 percent duty, so
+the preset uses only those three anchors with graphical-extraction uncertainty.
+It is an inferred envelope, not a digitized raw dataset or a general minor-loop
+hysteresis model. Applying it with the wrong initial branch or polarity raises
+an error.
+
 ## Imaging and motion compatibility
 
 `sample_electropermanent_field()` samples one or more sources on a 1-D, 2-D,
@@ -107,7 +183,7 @@ convention as existing workflows. By default, the projected field at the grid
 sample nearest the origin is removed. Pass `reference_field_t=0` to retain
 absolute angular frequency.
 
-## Plotting example
+## Plotting examples
 
 The magnet-only example compares explicit rods with the equivalent cylinder,
 shows partial-remanence states and neighbor contributions, and verifies
@@ -125,18 +201,34 @@ equivalent-cylinder error, and the field contribution of an opposed neighbor.
 
 ![Static electropermanent-magnet model](images/example_electropermanent_magnet.png)
 
+The programming example plots all three archived current responses, capacitor
+droop and recovery, modeled-versus-archived peak current, the coarse retained
+state envelope, state-dependent inductance and neighbor-field hooks, and a
+thermal pulse train:
+
+```powershell
+python examples\plot_electropermanent_programming.py \
+  --command-fraction 0.17 \
+  --pulse-count 60 \
+  --output results\electropermanent_programming.png
+```
+
+![Electropermanent programming-pulse model](images/example_electropermanent_programming.png)
+
 ## Current limitations and next phase
 
-This phase does **not** infer pulse-to-remanence behavior. In particular:
+The current phase still has important limits:
 
-- `RemanenceState` records reversal history but does not yet update it;
-- the static B-H table is not treated as a major or minor hysteresis loop;
-- neighbor fields are calculated, but their effect on programming is not yet
-  solved self-consistently;
-- programming-coil R/L values are metadata rather than a pulse-power model; and
+- the three-anchor demagnetization envelope is protocol-specific and cannot
+  predict arbitrary minor loops or repeated reversals;
+- reversal points are recorded, but a Preisach/play/stop return-point model is
+  not yet implemented;
+- neighbor fields and state-dependent inductance are explicit inputs rather
+  than a self-consistent magnetic/circuit iteration;
+- discrete switching loss is included in cumulative driver energy but not
+  deposited as a time-resolved temperature impulse; and
 - conductive shielding is not yet connected to transient eddy-current loss.
 
-The next phase adds the capacitor/H-bridge/RLC pulse waveform, followed by a
-calibrated saturate-then-demagnetize state transition. That implementation will
-use the archived 220/400/600 V oscilloscope traces and the measured
-duty-cycle-versus-retained-field curve as separate validation fixtures.
+The next phase is a calibrated return-point model followed by a two-element
+neighbor interaction. Raw minor-loop or repeated-pulse measurements are needed
+before either can become a quantitative default.

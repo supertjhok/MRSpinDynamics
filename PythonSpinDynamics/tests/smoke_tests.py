@@ -19,6 +19,10 @@ from tests.test_composition import (
 )
 from tests.test_examples import ExampleSmokeTests
 from tests.test_electropermanent import ElectropermanentRodFieldTests
+from tests.test_electropermanent_pulses import (
+    EmpiricalProgrammingTests,
+    PulseArchiveRegressionTests,
+)
 from tests.test_gradient_coils import CylindricalGradientDesignTests
 from tests.test_gradient_shielding import ActivelyShieldedGradientTests
 from tests.test_gradient_windings import SyntheticContourTests
@@ -141,6 +145,16 @@ def load_tests(
     suite.addTest(
         ElectropermanentRodFieldTests(
             "test_published_rod_matches_reported_surface_field_scale"
+        )
+    )
+    suite.addTest(
+        PulseArchiveRegressionTests(
+            "test_archived_peak_current_cases_match_configuration_specific_fits"
+        )
+    )
+    suite.addTest(
+        EmpiricalProgrammingTests(
+            "test_published_protocol_zero_crossing_updates_state_and_history"
         )
     )
     return suite
