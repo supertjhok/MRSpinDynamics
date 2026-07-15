@@ -748,6 +748,8 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `GradientMechanicalMetrics` | Lorentz force and torque in a specified background field. |
 | class | `GradientCoilEngineeringMetrics` | Field, electrical, and mechanical metrics for one realized winding. |
 | class | `GradientImagingFieldMap` | Sampled gradient field in tesla and imaging angular-frequency units. |
+| class | `CylindricalShellEddyMode` | Dominant contour-current mode of a thin cylindrical conductor. |
+| function | `cylindrical_shell_eddy_mode(result: GradientCoilDesignResult, *, current_per_turn_a: float, thickness_m: float, resistivity_ohm_m: float, strip_width_m: float | None = None, require_closed: bool = True) -> CylindricalShellEddyMode` | Build a dominant thin-shell eddy mode from a solved outer-cylinder sheet. |
 | function | `winding_field(points: np.ndarray, winding: Winding, *, current_scale: float = 1.0) -> np.ndarray` | Evaluate the vector field of one or two realized contour surfaces. |
 | function | `winding_force_torque(winding: Winding, background_field: BackgroundField, *, origin: Sequence[float] = (0.0, 0.0, 0.0), current_scale: float = 1.0) -> GradientMechanicalMetrics` | Integrate ``I dl cross B`` force and moment over every contour segment. |
 | function | `estimate_gradient_electrical_metrics(winding: Winding, *, wire_radius: float, material: ConductorMaterial = ANNEALED_COPPER, temperature: float | None = None) -> GradientElectricalMetrics` | Estimate series-equivalent DC resistance and filamentary inductance. |

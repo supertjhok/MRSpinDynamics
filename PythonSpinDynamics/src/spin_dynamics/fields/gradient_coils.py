@@ -5,7 +5,8 @@ textbook treatment: azimuthal thin-wire source segments are optimized to
 produce a target ``B_z`` field, an axial KCL constraint closes each azimuthal
 current column, and cumulative current along ``z`` recovers a discrete stream
 function. The companion :mod:`gradient_windings` module extracts periodic
-winding contours; multi-surface active shielding remains a planned extension.
+winding contours, while :mod:`gradient_shielding` jointly optimizes concentric
+primary and shield surfaces.
 """
 
 from __future__ import annotations

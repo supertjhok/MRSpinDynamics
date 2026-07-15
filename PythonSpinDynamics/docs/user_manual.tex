@@ -4391,6 +4391,10 @@ The exterior target is zero. \code{shield\_weights} changes its importance and
 \code{surface\_regularization\_weights} can discourage current on either
 surface. The result retains separate current grids and stream functions, plus
 target error, exterior RMS/peak field, current norms, and closure diagnostics.
+Because the sensitivity matrix depends on geometry rather than the requested
+target, orthogonal x/y saddle coils reuse the same primary and shield cylinders.
+The z-gradient rings use a slightly smaller nested layer in the complete set so
+they do not coincide geometrically with the saddle paths.
 
 \begin{lstlisting}[language=Python]
 from spin_dynamics.fields import (
@@ -4400,38 +4404,41 @@ from spin_dynamics.fields import (
     solve_actively_shielded_gradient_coil,
 )
 
-primary = CylindricalWindingSurface(0.05, 0.12, 24, 13)
-shield = CylindricalWindingSurface(0.065, 0.15, 24, 13)
+primary_xy = CylindricalWindingSurface(0.05, 0.12, 24, 13)
+shield_xy = CylindricalWindingSurface(0.065, 0.15, 24, 13)
 outside = cylindrical_shield_points(
-    0.085, 0.18, n_phi=32, n_z=17
+    0.072, 0.18, n_phi=24, n_z=17
 )
-target_bz = linear_gradient_target(points, (0, 0, 10e-3))
-system = build_actively_shielded_gradient_system(
-    primary, shield, points, outside
+xy_system = build_actively_shielded_gradient_system(
+    primary_xy, shield_xy, points, outside
 )
-result = solve_actively_shielded_gradient_coil(
-    system, target_bz, regularization=1e-15,
-    shield_weights=5.0
+x_result = solve_actively_shielded_gradient_coil(
+    xy_system, linear_gradient_target(points, (10e-3, 0, 0)),
+    regularization=1e-15, shield_weights=0.1
 )
-winding = extract_actively_shielded_winding(
-    result, current_per_turn_a=1.0
+y_result = solve_actively_shielded_gradient_coil(
+    xy_system, linear_gradient_target(points, (0, 10e-3, 0)),
+    regularization=1e-15, shield_weights=0.1
 )
 \end{lstlisting}
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=0.98\linewidth]{images/example_active_gradient_shielding.png}
-\caption{Joint active-shield design. The top panels show the primary and shield
-stream functions; the lower panels show their extracted contours and compare
-the sampled exterior field against the same unshielded primary.}
+\caption{Complete actively shielded XYZ gradient set. The first two rows show
+primary and shield stream functions: x/y are rotated saddle patterns sharing
+the same cylindrical layers, while z uses nested rings. The bottom row predicts
+each time-domain response with a conducting outer cylinder, comparing the
+primary alone, the full active set, and causal pre-emphasis.}
 \label{fig:active-gradient-shielding}
 \end{figure}
 
 Run \code{python examples/plot\_actively\_shielded\_gradient\_coil.py --output
 active\_gradient.png} to reproduce Figure~\ref{fig:active-gradient-shielding}.
-The continuous current sheet is the inverse solution; turn extraction quantizes
-it. Target fidelity and exterior suppression must therefore be recomputed for
-the extracted contours, and again after leads and crossovers are routed.
+The continuous current sheets are the inverse solutions; turn extraction
+quantizes them. Target fidelity and exterior suppression must therefore be
+recomputed for the extracted contours, and again after leads and crossovers are
+routed.
 
 \subsubsection{Engineering metrics and workflow handoff}
 
@@ -4463,15 +4470,22 @@ metrics = gradient_coil_engineering_metrics(
     background_field=(0, 0, 3.0)
 )
 
-# Existing PEEC, eddy/pre-emphasis, and imaging interfaces
+# Existing PEEC and imaging interfaces
 conductors = winding_peec_conductors(
     winding, wire_radius=0.5e-3
 )
-driver = winding_to_gradient_driver(
-    winding, eddy_modes, tau_rl=1e-3
-)
 field_map = winding_imaging_field_map(winding, (x_axis, z_axis))
 motion_maps = field_map.to_motion_field_maps()
+
+# Dominant current mode of a thin conducting outer cylinder
+shell_mode = cylindrical_shell_eddy_mode(
+    outer_result, current_per_turn_a=outer_peak / 5,
+    thickness_m=1.5e-3, resistivity_ohm_m=2.82e-8
+)
+driver = shell_mode.to_gradient_driver(
+    winding, gradient_direction=(1, 0, 0), tau_rl=100e-6
+)
+delivered = driver.apply(commanded, dt)
 \end{lstlisting}
 
 The PEEC handoff returns one \code{Conductor} per contour, opened at its first
@@ -4479,7 +4493,15 @@ sample to define terminals. It deliberately does not invent crossovers or end
 connections; those paths must be added before treating the loops as one routed
 series conductor. The eddy adapter passes the combined oriented primary/shield
 segments to the existing \code{EddyModes.to\_gradient\_driver}, yielding the
-standard pre-emphasis response. The imaging adapter retains tesla and converts
+standard pre-emphasis response. For a transverse-capable outer-conductor model,
+\code{cylindrical\_shell\_eddy\_mode} extracts a dominant saddle (x/y) or ring
+(z) current mode on a thin cylindrical shell. Its resistance follows the shell
+resistivity, thickness and effective current-band width; self and mutual
+inductance use the actual contour paths. The resulting geometry-derived
+\code{time\_constant\_s} and coupling coefficient feed the same
+\code{GradientDriverResponse}. This reduced-order model does not resolve skin
+depth, apertures, joints, or a dense spectrum of overlapping shell modes.
+The imaging adapter retains tesla and converts
 to angular off-resonance in rad/s. Its physical-axis defaults match existing
 workflows: $z$ in 1-D, $(x,z)$ in 2-D, and $(x,y,z)$ in 3-D.
 

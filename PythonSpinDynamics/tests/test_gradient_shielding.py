@@ -20,6 +20,7 @@ from spin_dynamics.fields.gradient_coils import (  # noqa: E402
     spherical_target_points,
 )
 from spin_dynamics.fields.gradient_engineering import (  # noqa: E402
+    cylindrical_shell_eddy_mode,
     gradient_coil_engineering_metrics,
     winding_imaging_field_map,
     winding_peec_conductors,
@@ -141,6 +142,35 @@ class ActivelyShieldedGradientTests(unittest.TestCase):
             expected,
         )
 
+    def test_transverse_axes_reuse_one_system_and_produce_saddle_streams(
+        self,
+    ) -> None:
+        control = cylindrical_shield_points(0.085, 0.18, n_phi=16, n_z=11)
+        system = build_actively_shielded_gradient_system(
+            self.primary,
+            self.shield,
+            self.target_points,
+            control,
+        )
+        results = []
+        for gradient in ((1.0e-3, 0.0, 0.0), (0.0, 1.0e-3, 0.0)):
+            results.append(
+                solve_actively_shielded_gradient_coil(
+                    system,
+                    linear_gradient_target(self.target_points, gradient),
+                    regularization=1.0e-16,
+                    shield_weights=0.2,
+                    solver="numpy",
+                )
+            )
+        self.assertIs(results[0].system, results[1].system)
+        for result in results:
+            azimuthal_variation = np.max(
+                np.ptp(result.primary_stream_function_a, axis=0)
+            )
+            self.assertGreater(azimuthal_variation, 1.0e-3)
+            self.assertLess(result.target_relative_rms_error, 0.1)
+
 
 class GradientEngineeringWorkflowTests(unittest.TestCase):
     @classmethod
@@ -220,6 +250,49 @@ class GradientEngineeringWorkflowTests(unittest.TestCase):
         self.assertAlmostEqual(driver.tau_rl, 1.0e-3)
         self.assertEqual(len(driver.eddy_terms), 2)
         self.assertTrue(all(np.isfinite(term) for pair in driver.eddy_terms for term in pair))
+
+    def test_cylindrical_shell_mode_predicts_geometry_derived_transient(
+        self,
+    ) -> None:
+        design = ActivelyShieldedGradientTests
+        outer_surface = CylindricalWindingSurface(0.08, 0.18, 16, 9)
+        outer_system = build_cylindrical_gradient_system(
+            outer_surface,
+            design.target_points,
+        )
+        outer_result = solve_gradient_coil(
+            outer_system,
+            design.target,
+            regularization=1.0e-16,
+            solver="numpy",
+        )
+        peak = float(np.max(np.abs(outer_result.stream_function_a)))
+        mode = cylindrical_shell_eddy_mode(
+            outer_result,
+            current_per_turn_a=peak / 4.0,
+            thickness_m=1.5e-3,
+            resistivity_ohm_m=2.82e-8,
+        )
+        self.assertGreater(mode.resistance_ohm, 0.0)
+        self.assertGreater(mode.inductance_h, 0.0)
+        self.assertAlmostEqual(
+            mode.time_constant_s,
+            mode.inductance_h / mode.resistance_ohm,
+        )
+        spectrum = mode.spectrum(
+            self.winding.primary,
+            gradient_direction=(0.0, 0.0, 1.0),
+        )
+        self.assertTrue(np.all(np.isfinite(spectrum.alpha)))
+        driver = mode.to_gradient_driver(
+            self.winding.primary,
+            gradient_direction=(0.0, 0.0, 1.0),
+            tau_rl=1.0e-4,
+            oversample=1,
+        )
+        response = driver.apply(np.ones(600), 5.0e-6)
+        self.assertLess(float(response[0]), float(response[-1]))
+        self.assertGreater(float(response[-1]), 0.95)
 
 
 if __name__ == "__main__":

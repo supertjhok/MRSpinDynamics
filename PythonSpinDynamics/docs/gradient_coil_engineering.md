@@ -78,6 +78,43 @@ surfaces must use a common turn current.  `EddyModes` is a coaxial-ring model;
 its quantitative assumptions remain most appropriate for axisymmetric shield
 structures and should be validated separately for strongly transverse designs.
 
+### Thin cylindrical outer conductors for XYZ sets
+
+`CylindricalShellEddyMode` supplies a transverse-capable reduced-order model.
+First solve the outer cylinder for the required x, y, or z field symmetry and
+extract several contours as one dominant induced-current mode:
+
+```python
+from spin_dynamics.fields import cylindrical_shell_eddy_mode
+
+outer_result = solve_gradient_coil(outer_system, target, regularization=1e-15)
+peak = np.max(np.abs(outer_result.stream_function_a))
+shell_mode = cylindrical_shell_eddy_mode(
+    outer_result,
+    current_per_turn_a=peak / 5,
+    thickness_m=1.5e-3,
+    resistivity_ohm_m=2.82e-8,
+)
+driver = shell_mode.to_gradient_driver(
+    active_winding,
+    gradient_direction=(1, 0, 0),
+    tau_rl=100e-6,
+)
+delivered = driver.apply(commanded, dt)
+```
+
+For x/y, the outer-cylinder mode consists of saddle contours; for z it consists
+of rings. Resistance follows conductor length divided by shell thickness times
+effective current-band width. Self and mutual inductance use the actual contour
+paths, giving a geometry-derived `time_constant_s` and coupling `alpha`. The
+returned standard `GradientDriverResponse` can be used directly by existing
+pre-emphasis and optimal-control workflows.
+
+This is a dominant-mode, thin-shell approximation. It does not resolve skin
+depth, a dense spectrum of overlapping surface-current modes, apertures, joints,
+or three-dimensional conductor details. Use multiple independently generated
+modes or a field/circuit finite-element model when those effects set the design.
+
 ## Imaging and motion maps
 
 ```python
@@ -105,7 +142,8 @@ accept matching transmit and receive B1 maps.
 2. Route crossovers and leads, then repeat field and PEEC extraction.
 3. Evaluate force/torque over the actual background-field map and relevant
    current polarities.
-4. Use the realized paths in the eddy model and include its returned driver in
-   waveform optimization or pre-emphasis.
+4. Use the realized paths in either the ring model or a transverse-capable
+   cylindrical shell mode, then include its returned driver in waveform
+   optimization or pre-emphasis.
 5. Sample the final field on the exact imaging domain and gyromagnetic-ratio
    convention used by the sequence workflow.

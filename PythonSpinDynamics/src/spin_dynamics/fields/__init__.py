@@ -67,11 +67,13 @@ from spin_dynamics.fields.gradient_coils import (
     spherical_target_points,
 )
 from spin_dynamics.fields.gradient_engineering import (
+    CylindricalShellEddyMode,
     GradientCoilEngineeringMetrics,
     GradientElectricalMetrics,
     GradientFieldMetrics,
     GradientImagingFieldMap,
     GradientMechanicalMetrics,
+    cylindrical_shell_eddy_mode,
     estimate_gradient_electrical_metrics,
     gradient_coil_engineering_metrics,
     winding_field,
@@ -219,6 +221,7 @@ __all__ = [
     "GradientMechanicalMetrics",
     "GradientCoilEngineeringMetrics",
     "GradientImagingFieldMap",
+    "CylindricalShellEddyMode",
     "winding_field",
     "winding_force_torque",
     "estimate_gradient_electrical_metrics",
@@ -226,6 +229,7 @@ __all__ = [
     "winding_peec_conductors",
     "winding_to_gradient_driver",
     "winding_imaging_field_map",
+    "cylindrical_shell_eddy_mode",
     # coil properties (single-layer solenoid RF extraction)
     "ConductorMaterial",
     "ANNEALED_COPPER",

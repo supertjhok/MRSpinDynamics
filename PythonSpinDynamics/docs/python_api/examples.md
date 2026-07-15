@@ -624,19 +624,21 @@ required for plotting.
 
 ## Actively Shielded Gradient-Coil Design
 
-This example jointly optimizes concentric primary and shield cylinders for a
-z-gradient and a zero-field exterior shell. It plots both stream functions, the
-extracted physical turns, and the exterior field with and without active
-shielding. It also prints target fidelity, wire length, DC resistance,
-inductance, power, and static force/torque metrics.
+This example designs a complete actively shielded x/y/z gradient set. The
+orthogonal x/y saddle coils reuse the same primary and shield cylinders; the z
+rings use nested layers. A larger aluminium cylinder is reduced to
+geometry-derived saddle and ring eddy-current modes. The nine panels show all
+six stream functions and the predicted x/y/z step responses for the primary
+alone, the complete active winding, and causal pre-emphasis.
 
 ```powershell
 python examples\plot_actively_shielded_gradient_coil.py --output results\active_gradient.png
 ```
 
-Use `--turns-per-polarity` to study contour quantization and
-`--wire-diameter-mm` / `--b0-t` to set the engineering calculation. Matplotlib
-and SciPy are recommended; the inverse solve has a NumPy fallback.
+Use `--turns-per-primary-peak` to study contour quantization and the
+`--conductor-*` arguments to change the outer cylinder. `--tau-rl-us` controls
+the amplifier/coil pole. Matplotlib and SciPy are recommended; the inverse solve
+has a NumPy fallback.
 
 ## Internal / Susceptibility Gradients
 

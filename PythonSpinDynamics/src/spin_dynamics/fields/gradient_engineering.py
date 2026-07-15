@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 import numpy as np
 
@@ -15,12 +16,18 @@ from spin_dynamics.fields.gradient_windings import (
     ActivelyShieldedWinding,
     GradientWinding,
     WindingContour,
+    winding_from_design,
 )
 from spin_dynamics.fields.magnetostatics import GAMMA_PROTON, MU0, biot_savart
 from spin_dynamics.fields.quasistatic import (
     mutual_inductance,
     self_inductance_circular,
 )
+
+if TYPE_CHECKING:
+    from spin_dynamics.fields.eddy_modes import EddyModeSpectrum
+    from spin_dynamics.fields.gradient_coils import GradientCoilDesignResult
+    from spin_dynamics.optimal_control.control_response import GradientDriverResponse
 
 Winding = GradientWinding | ActivelyShieldedWinding
 BackgroundField = (
@@ -101,6 +108,210 @@ class GradientImagingFieldMap:
             b1_tx_map=b1_tx_map,
             b1_rx_map=b1_rx_map,
         )
+
+
+@dataclass(frozen=True)
+class CylindricalShellEddyMode:
+    """Dominant contour-current mode of a thin cylindrical conductor.
+
+    ``winding`` is a unit-amplitude contour approximation to one continuous
+    shell-current mode (a saddle mode for x/y or rings for z).  Resistance is
+    calculated from shell resistivity, thickness, and an effective current-band
+    width.  Self and mutual inductance use the actual three-dimensional paths.
+    The resulting one-mode L/R model predicts geometry-derived transient
+    coupling to any realized gradient winding.
+
+    This is a reduced-order thin-shell model, not a skin-effect or structural
+    finite-element solve.  Multiple independently generated modes can be used
+    when more than one pole is needed.
+    """
+
+    winding: GradientWinding
+    thickness_m: float
+    resistivity_ohm_m: float
+    strip_width_m: float
+    resistance_ohm: float = field(init=False)
+    inductance_h: float = field(init=False)
+    time_constant_s: float = field(init=False)
+
+    def __post_init__(self) -> None:
+        for value, name in (
+            (self.thickness_m, "thickness_m"),
+            (self.resistivity_ohm_m, "resistivity_ohm_m"),
+            (self.strip_width_m, "strip_width_m"),
+        ):
+            if not np.isfinite(value) or value <= 0.0:
+                raise ValueError(f"{name} must be finite and positive")
+        contours = self.winding.contours
+        if not contours or not all(contour.closed for contour in contours):
+            raise ValueError("winding must contain closed shell-current contours")
+        lengths = np.asarray(
+            [
+                np.sum(np.linalg.norm(np.diff(contour.points, axis=0), axis=1))
+                for contour in contours
+            ]
+        )
+        resistance = float(
+            self.resistivity_ohm_m
+            * np.sum(lengths)
+            / (self.thickness_m * self.strip_width_m)
+        )
+        wire_radius = float(
+            np.sqrt(self.thickness_m * self.strip_width_m / np.pi)
+        )
+        inductance = 0.0
+        for first, contour in enumerate(contours):
+            equivalent_radius = float(lengths[first] / (2.0 * np.pi))
+            if equivalent_radius > wire_radius:
+                inductance += self_inductance_circular(
+                    equivalent_radius,
+                    wire_radius,
+                )
+            else:
+                inductance += MU0 * lengths[first] / (2.0 * np.pi)
+            for second in range(first + 1, len(contours)):
+                forward = mutual_inductance(
+                    contour.segments(),
+                    contours[second].segments(),
+                )
+                reverse = mutual_inductance(
+                    contours[second].segments(),
+                    contour.segments(),
+                )
+                inductance += forward + reverse
+        if not np.isfinite(inductance) or inductance <= 0.0:
+            raise ValueError("shell-current mode has non-positive inductance")
+        object.__setattr__(self, "resistance_ohm", resistance)
+        object.__setattr__(self, "inductance_h", float(inductance))
+        object.__setattr__(self, "time_constant_s", float(inductance / resistance))
+
+    def spectrum(
+        self,
+        drive_winding: Winding,
+        *,
+        gradient_direction: Sequence[float],
+        field_direction: Sequence[float] = (0.0, 0.0, 1.0),
+        sample_point: Sequence[float] = (0.0, 0.0, 0.0),
+        difference_step_m: float = 1.0e-4,
+    ) -> EddyModeSpectrum:
+        """Return the geometry-derived single-pole eddy spectrum."""
+
+        from spin_dynamics.fields.eddy_modes import EddyModeSpectrum
+
+        drive_segments = tuple(
+            segment
+            for winding_set in _winding_sets(drive_winding)
+            for segment in winding_set.segments
+        )
+        mode_segments = self.winding.segments
+        mutual = 0.5 * (
+            mutual_inductance(mode_segments, drive_segments)
+            + mutual_inductance(drive_segments, mode_segments)
+        )
+        mode_gradient = _projected_field_gradient(
+            mode_segments,
+            sample_point,
+            field_direction,
+            gradient_direction,
+            difference_step_m,
+        )
+        drive_gradient = _projected_field_gradient(
+            drive_segments,
+            sample_point,
+            field_direction,
+            gradient_direction,
+            difference_step_m,
+        )
+        if np.isclose(drive_gradient, 0.0, atol=1.0e-18):
+            raise ValueError("drive winding has zero requested gradient at sample_point")
+        alpha = mode_gradient * mutual / (self.inductance_h * drive_gradient)
+        return EddyModeSpectrum(
+            tau=np.asarray([self.time_constant_s]),
+            alpha=np.asarray([float(alpha)]),
+            drive_gradient=float(drive_gradient),
+        )
+
+    def to_gradient_driver(
+        self,
+        drive_winding: Winding,
+        *,
+        gradient_direction: Sequence[float],
+        tau_rl: float,
+        field_direction: Sequence[float] = (0.0, 0.0, 1.0),
+        sample_point: Sequence[float] = (0.0, 0.0, 0.0),
+        minimum_alpha: float = 1.0e-6,
+        maximum_alpha: float = 0.99,
+        oversample: int = 8,
+    ) -> GradientDriverResponse:
+        """Return the existing driver response with this shell mode included."""
+
+        from spin_dynamics.optimal_control.control_response import (
+            GradientDriverResponse,
+        )
+
+        if not np.isfinite(minimum_alpha) or minimum_alpha < 0.0:
+            raise ValueError("minimum_alpha must be finite and non-negative")
+        if not np.isfinite(maximum_alpha) or not 0.0 < maximum_alpha < 1.0:
+            raise ValueError("maximum_alpha must be finite and in (0, 1)")
+        if minimum_alpha > maximum_alpha:
+            raise ValueError("minimum_alpha must not exceed maximum_alpha")
+        spectrum = self.spectrum(
+            drive_winding,
+            gradient_direction=gradient_direction,
+            field_direction=field_direction,
+            sample_point=sample_point,
+        )
+        raw_alpha = float(spectrum.alpha[0])
+        retained = min(max(raw_alpha, 0.0), float(maximum_alpha))
+        terms = (
+            ((retained, self.time_constant_s),)
+            if retained >= float(minimum_alpha)
+            else ()
+        )
+        return GradientDriverResponse(
+            tau_rl=float(tau_rl),
+            eddy_terms=terms,
+            oversample=int(oversample),
+        )
+
+
+def cylindrical_shell_eddy_mode(
+    result: GradientCoilDesignResult,
+    *,
+    current_per_turn_a: float,
+    thickness_m: float,
+    resistivity_ohm_m: float,
+    strip_width_m: float | None = None,
+    require_closed: bool = True,
+) -> CylindricalShellEddyMode:
+    """Build a dominant thin-shell eddy mode from a solved outer-cylinder sheet.
+
+    Solve the outer cylindrical surface for the desired x, y, or z field
+    symmetry, then pass that result here.  Equally spaced contours approximate
+    the continuous induced-current mode.  If omitted, ``strip_width_m`` assigns
+    half of the shorter cylinder dimension across all extracted contours.
+    """
+
+    winding = winding_from_design(
+        result,
+        current_per_turn_a=current_per_turn_a,
+        require_closed=require_closed,
+    )
+    if not winding.contours:
+        raise ValueError("current_per_turn_a produced no shell-current contours")
+    width = strip_width_m
+    if width is None:
+        available = min(
+            winding.surface.length,
+            2.0 * np.pi * winding.surface.radius,
+        )
+        width = 0.5 * available / len(winding.contours)
+    return CylindricalShellEddyMode(
+        winding=winding,
+        thickness_m=float(thickness_m),
+        resistivity_ohm_m=float(resistivity_ohm_m),
+        strip_width_m=float(width),
+    )
 
 
 def winding_field(
@@ -466,12 +677,33 @@ def _unit_vector(values: Sequence[float], name: str) -> np.ndarray:
     return vector / norm
 
 
+def _projected_field_gradient(
+    segments,
+    sample_point: Sequence[float],
+    field_direction: Sequence[float],
+    gradient_direction: Sequence[float],
+    difference_step_m: float,
+) -> float:
+    sample = np.asarray(sample_point, dtype=np.float64)
+    if sample.shape != (3,) or not np.all(np.isfinite(sample)):
+        raise ValueError("sample_point must be a finite 3-vector")
+    field_axis = _unit_vector(field_direction, "field_direction")
+    spatial_axis = _unit_vector(gradient_direction, "gradient_direction")
+    if not np.isfinite(difference_step_m) or difference_step_m <= 0.0:
+        raise ValueError("difference_step_m must be finite and positive")
+    offset = float(difference_step_m) * spatial_axis
+    points = np.vstack([sample + offset, sample - offset])
+    projected = biot_savart(points, segments, current=1.0) @ field_axis
+    return float((projected[0] - projected[1]) / (2.0 * difference_step_m))
+
+
 __all__ = [
     "GradientFieldMetrics",
     "GradientElectricalMetrics",
     "GradientMechanicalMetrics",
     "GradientCoilEngineeringMetrics",
     "GradientImagingFieldMap",
+    "CylindricalShellEddyMode",
     "winding_field",
     "winding_force_torque",
     "estimate_gradient_electrical_metrics",
@@ -479,4 +711,5 @@ __all__ = [
     "winding_peec_conductors",
     "winding_to_gradient_driver",
     "winding_imaging_field_map",
+    "cylindrical_shell_eddy_mode",
 ]

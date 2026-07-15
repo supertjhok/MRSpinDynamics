@@ -108,6 +108,31 @@ symmetric cylindrical control surface for a coaxial shield.  The separate
 `spherical_shell_points` helper or an application-specific point set can be used
 when that geometry better represents the exclusion region.
 
+### Complete XYZ sets
+
+The sensitivity matrix depends on geometry and field-sampling points, not the
+requested target. Therefore x and y can reuse the same primary/shield system and
+occupy the same cylindrical layers as orthogonal saddle patterns:
+
+```python
+xy_system = build_actively_shielded_gradient_system(
+    primary_xy, shield_xy, points, exterior
+)
+x_result = solve_actively_shielded_gradient_coil(
+    xy_system, linear_gradient_target(points, (10e-3, 0, 0)),
+    regularization=1e-15, shield_weights=0.1,
+)
+y_result = solve_actively_shielded_gradient_coil(
+    xy_system, linear_gradient_target(points, (0, 10e-3, 0)),
+    regularization=1e-15, shield_weights=0.1,
+)
+```
+
+The z-gradient rings can use a slightly smaller nested primary layer and their
+own shield layer so they do not geometrically coincide with the transverse
+saddle paths. This is the arrangement in
+`plot_actively_shielded_gradient_coil.py`.
+
 ## Realization and validation
 
 The continuous current sheet is the inverse-design result.  Contour extraction
@@ -128,7 +153,7 @@ Run these plotting examples:
 ```bash
 python examples/plot_gradient_coil_regularization.py --output results/lcurve.png
 python examples/plot_stream_function_gradient_coil.py --output results/winding.png
-python examples/plot_actively_shielded_gradient_coil.py --output results/shielded.png
+python examples/plot_actively_shielded_gradient_coil.py --output results/xyz-shielded.png
 ```
 
 See [Gradient-coil engineering and integration](gradient_coil_engineering.md)
