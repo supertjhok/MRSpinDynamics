@@ -102,6 +102,11 @@ extensions.
   ferrites and saturable iron -- in planar and axisymmetric geometries, and a 3D
   reduced-scalar-potential solver (`scalar_potential_3d`) for asymmetric magnet
   and soft-magnetic geometries.
+- `spin_dynamics.thermal` couples electrical losses to lumped and spatial
+  thermal models. It includes electromagnets as time-dependent B0 sources,
+  predicting RL ramping, Joule warm-up, resistance and field drift, supply
+  limits, and temperature/current/field-lock stabilization, with adapters to
+  the existing hardware and imaging field-map workflows.
 - `spin_dynamics.analysis` contains inverse-Laplace and regularization helpers
   for relaxation, diffusion, and exchange-map analysis.
 - `spin_dynamics.relaxation` contains microscopic relaxation models: BPP scalar

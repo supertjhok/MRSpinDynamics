@@ -31,6 +31,12 @@ from spin_dynamics.thermal.coupling import (
     ThermalCouplingResult,
     resistance_at_temperature,
 )
+from spin_dynamics.thermal.electromagnet import (
+    ElectromagnetControl,
+    ElectromagnetControlMode,
+    ElectrothermalElectromagnet,
+    ElectrothermalElectromagnetResult,
+)
 from spin_dynamics.thermal.network import (
     STEFAN_BOLTZMANN,
     ThermalLink,
@@ -74,6 +80,10 @@ __all__ = [
     "ThermalCoupling",
     "ThermalCouplingResult",
     "resistance_at_temperature",
+    "ElectromagnetControl",
+    "ElectromagnetControlMode",
+    "ElectrothermalElectromagnet",
+    "ElectrothermalElectromagnetResult",
     "STEFAN_BOLTZMANN",
     "ThermalLink",
     "ThermalNetwork",

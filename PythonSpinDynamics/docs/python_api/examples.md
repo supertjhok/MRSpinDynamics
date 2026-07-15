@@ -580,6 +580,25 @@ minutes. Use `--semi-major` / `--semi-minor` to set the eccentricity,
 `--num-orientations` / `--walkers-per-cell` to trade runtime for smoother curves.
 Only Matplotlib is required.
 
+## Electrothermal Electromagnet B0 Source
+
+This example builds a 30 mT air-core solenoid from the existing Biot-Savart
+geometry and predicts its coupled electrical and thermal warm-up. It compares
+constant-voltage operation with temperature compensation, current feedback,
+and a direct field lock. The four panels show the resulting B0 drift, coil
+temperature, current, and supply voltage over a fifteen-minute run.
+
+```powershell
+python examples\plot_electrothermal_electromagnet.py --output results\electromagnet.png
+```
+
+Use `--target-field-mt`, `--duration-min`, `--ramp-s`, and
+`--voltage-limit-v` to change the operating point and supply constraints. The
+example prints the geometry-derived B/I sensitivity, electrical and thermal
+poles, final field drift, temperature, resistance, and power for every control
+strategy. SciPy is recommended for the stiff coupled integration; a NumPy RK4
+fallback is included.
+
 ## DEXSY Exchange Map
 
 This example uses the semi-permeable membrane boundary to simulate a

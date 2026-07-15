@@ -36,7 +36,7 @@ what supports the underlying scientific or numerical claim.
 | Flow washout and transit polarization | Plug and laminar pipe washout and flux-weighted transit polarization follow their analytical distributions and Monte Carlo estimates. | **A**, **C** | validated |
 | Magnetostatic field solvers | Biot-Savart coil fields and selected magnet geometries reproduce analytical center-field, symmetry, scaling, and finite-length limits. | **A** | validated |
 | PEEC coil impedance and parasitics | PEEC inductance/resistance trends agree with analytical kernels and selected independent QOIL, FastHenry, and FasterCap comparisons. | **C**, **A** | partially validated |
-| Thermal networks and conduction | Lumped, one-dimensional, axisymmetric, perfused, and advective thermal models reproduce closed-form steady and transient limits; selected cases are cross-checked with FEMM. | **A**, **C** | validated |
+| Thermal networks, conduction, and electromagnets | Lumped, one-dimensional, axisymmetric, perfused, and advective thermal models reproduce closed-form limits; coupled electromagnets recover exact RL and electrothermal fixed points, and selected conduction cases are cross-checked with FEMM. | **A**, **C** | validated |
 | NQR Hamiltonians and pulse models | Spin-1 and spin-3/2 transition conventions, powder weights, selective pulses, and SORC/SLSE limits reproduce analytical and published theory results. | **A**, **D** | partially validated |
 | ESR/EPR spectra and pulsed dynamics | Zeeman resonance, lineshape, hyperfine splitting, relaxation, and Hahn-echo behavior reproduce analytical spin-1/2 limits. | **A**, **D** | partially validated |
 | Small scalar-coupled spin systems | Dense spin operators, scalar-coupling Hamiltonians, and selected low-field editing models satisfy exact operator and spectral limits. | **A**, **R** | partially validated |
@@ -164,17 +164,17 @@ what supports the underlying scientific or numerical claim.
 - **Reproduce:** [`tests/test_coil_peec.py::test_coil_properties_peec_fields_and_helpers`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_coil_peec.py#L684); [`tests/test_coil_peec_fasthenry.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_coil_peec_fasthenry.py); [`tests/test_coil_peec_fastercap.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_coil_peec_fastercap.py)
 - **Limitations:** Live external-tool tests are optional and not run in ordinary CI. Validation is sparse for shields, complex windings, and high-frequency radiation.
 
-### Thermal networks and conduction
+### Thermal networks, conduction, and electromagnets
 
-- **Claim:** Lumped, one-dimensional, axisymmetric, perfused, and advective thermal models reproduce closed-form steady and transient limits; selected cases are cross-checked with FEMM.
+- **Claim:** Lumped, one-dimensional, axisymmetric, perfused, and advective thermal models reproduce closed-form limits; coupled electromagnets recover exact RL and electrothermal fixed points, and selected conduction cases are cross-checked with FEMM.
 - **Evidence:** A, C (validated)
-- **Basis:** RC exponential response, slab/cylinder/sphere source solutions, conservation laws, advection-diffusion solutions, and FEMM scripts.
-- **Tested range:** Constant-property linear materials, standard boundary conditions, and selected coupled coil/sample cases.
-- **Metric:** Temperature, energy balance, steady-state rise, and transient time constant
+- **Basis:** RC and RL exponential responses, electrothermal fixed points, slab/cylinder/sphere source solutions, conservation laws, advection-diffusion solutions, and FEMM scripts.
+- **Tested range:** Constant-property thermal materials, temperature-dependent conductor resistance, standard boundary conditions, and selected coupled coil/sample/electromagnet cases.
+- **Metric:** Temperature, current, B0, energy balance, steady-state rise, and transient time constant
 - **Tolerance:** Analytical solver/discretization tolerances declared per test and FEMM validation script.
 - **References:** FEMM; Classical heat-equation and Pennes limits
-- **Reproduce:** [`tests/test_thermal.py::test_single_node_exponential_transient`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_thermal.py#L211); [`tests/test_thermal.py::test_slab_uniform_source_parabola`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_thermal.py#L496); [`tests/test_thermal.py::test_advection_diffusion_matches_analytic`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_thermal.py#L650); [`validation/femm/validate_conduction.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/validation/femm/validate_conduction.py)
-- **Limitations:** No general full-3D or CFD thermal validation.
+- **Reproduce:** [`tests/test_thermal.py::test_single_node_exponential_transient`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_thermal.py#L211); [`tests/test_thermal.py::test_slab_uniform_source_parabola`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_thermal.py#L496); [`tests/test_thermal.py::test_advection_diffusion_matches_analytic`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_thermal.py#L650); [`tests/test_electrothermal_electromagnet.py::test_voltage_step_matches_exact_rl_response_when_resistance_is_constant`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_electrothermal_electromagnet.py#L35); [`tests/test_electrothermal_electromagnet.py::test_constant_voltage_reaches_coupled_electrothermal_fixed_point`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_electrothermal_electromagnet.py#L53); [`validation/femm/validate_conduction.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/validation/femm/validate_conduction.py)
+- **Limitations:** No general full-3D or CFD thermal validation. Electromagnet validation is analytical and does not cover nonlinear ferromagnetic cores or measured supply/sensor dynamics.
 
 ### NQR Hamiltonians and pulse models
 

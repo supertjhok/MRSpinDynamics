@@ -171,22 +171,24 @@
     },
     {
       "id": "thermal_models",
-      "component": "Thermal networks and conduction",
-      "claim": "Lumped, one-dimensional, axisymmetric, perfused, and advective thermal models reproduce closed-form steady and transient limits; selected cases are cross-checked with FEMM.",
+      "component": "Thermal networks, conduction, and electromagnets",
+      "claim": "Lumped, one-dimensional, axisymmetric, perfused, and advective thermal models reproduce closed-form limits; coupled electromagnets recover exact RL and electrothermal fixed points, and selected conduction cases are cross-checked with FEMM.",
       "evidence_types": ["A", "C"],
-      "basis": "RC exponential response, slab/cylinder/sphere source solutions, conservation laws, advection-diffusion solutions, and FEMM scripts.",
-      "parameter_range": "Constant-property linear materials, standard boundary conditions, and selected coupled coil/sample cases.",
-      "metric": "Temperature, energy balance, steady-state rise, and transient time constant",
+      "basis": "RC and RL exponential responses, electrothermal fixed points, slab/cylinder/sphere source solutions, conservation laws, advection-diffusion solutions, and FEMM scripts.",
+      "parameter_range": "Constant-property thermal materials, temperature-dependent conductor resistance, standard boundary conditions, and selected coupled coil/sample/electromagnet cases.",
+      "metric": "Temperature, current, B0, energy balance, steady-state rise, and transient time constant",
       "tolerance": "Analytical solver/discretization tolerances declared per test and FEMM validation script.",
       "status": "validated",
       "reproducers": [
         "tests/test_thermal.py::test_single_node_exponential_transient",
         "tests/test_thermal.py::test_slab_uniform_source_parabola",
         "tests/test_thermal.py::test_advection_diffusion_matches_analytic",
+        "tests/test_electrothermal_electromagnet.py::test_voltage_step_matches_exact_rl_response_when_resistance_is_constant",
+        "tests/test_electrothermal_electromagnet.py::test_constant_voltage_reaches_coupled_electrothermal_fixed_point",
         "validation/femm/validate_conduction.py"
       ],
       "references": ["FEMM", "Classical heat-equation and Pennes limits"],
-      "limitations": ["No general full-3D or CFD thermal validation."]
+      "limitations": ["No general full-3D or CFD thermal validation.", "Electromagnet validation is analytical and does not cover nonlinear ferromagnetic cores or measured supply/sensor dynamics."]
     },
     {
       "id": "nqr_hamiltonians",

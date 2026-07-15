@@ -18,6 +18,7 @@ signal analysis with explicit validation evidence.
 | NMR workflows | [Workflow catalog](python_api/workflows.md) |
 | ESR/EPR | [ESR models](python_api/esr.md) |
 | Fields, coils, and hardware | [Gradient-coil design](gradient_coil_design.md), [engineering](gradient_coil_engineering.md), and [quasistatic solvers](field_solvers_quasistatic.md) |
+| Thermal and electromagnet B0 | [Coupled thermal modeling](thermal_modeling.md) |
 | Analysis and inversion | [Analysis tools](python_api/analysis.md) |
 | Public Python surface | [Generated API reference](python_api/api_reference.md) |
 | Scientific confidence | [Validation evidence](validation_matrix.md) and [known gaps](python_api/known_gaps.md) |

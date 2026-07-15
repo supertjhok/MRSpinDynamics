@@ -87,6 +87,11 @@ FIGURES: dict[str, tuple[str, ...]] = {
         "--output",
         "example_active_gradient_shielding.png",
     ),
+    "electrothermal-electromagnet": (
+        "plot_electrothermal_electromagnet.py",
+        "--output",
+        "example_electrothermal_electromagnet.png",
+    ),
     "squid-ulf-crossover": (
         "plot_squid_ulf_crossover.py",
         "--save",

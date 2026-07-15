@@ -1,8 +1,9 @@
 # Coupled Thermal Modeling: Design and Validation
 
-> **Status (audited 2026-07-11): implemented.** Material, source, network,
-> conduction, RF/gradient coupling, and flowing-sample thermal paths are
-> available with tests and examples. This page explains the model boundaries.
+> **Status (audited 2026-07-15): implemented.** Material, source, network,
+> conduction, RF/gradient coupling, flowing-sample thermal paths, and coupled
+> electrothermal electromagnets used as B0 sources are available with tests and
+> examples. This page explains the model boundaries.
 
 Design and validation note for the thermal solver in `spin_dynamics`, which
 models coupled heating of RF coils, gradient coils, and the sample.
@@ -22,6 +23,9 @@ Three heating paths matter in real experiments and motivate the implemented mode
    conductive sample, depositing `P = (1/2) integral sigma |E|^2 dV`; long
    high-duty sequences (CPMG/SLSE trains, decoupling, spin-lock) measurably
    warm lossy samples.
+4. **Electromagnet B0 drift.** A voltage-driven B0 coil warms under its own
+   `I^2 R(T)` loss. Its rising resistance reduces current and field unless the
+   supply compensates from a temperature, current, or direct field sensor.
 
 Temperature then feeds back into nearly every quantity the package computes:
 coil `R(T)` and `Q(T)` (SNR, probe transfer functions), sample `M0` (Curie
@@ -137,6 +141,61 @@ source density sampled from the quasistatic solver, mixed boundary conditions.
   (`dT = q_v (a^2 - r^2) / 4k`), transient slab series solution, comparison
   with the lumped limit at low Biot number.
 
+### Electrothermal electromagnet B0 sources
+
+`ElectrothermalElectromagnet` implements the coupled block diagram from
+Section 11.2 of the measurements textbook:
+
+```text
+L dI/dt = V - I R(T)                 B0 = (B/I)coil I
+Cth dT/dt = I^2 R(T) + Ploss - Gth(T - Tamb)
+R(T) = Rref rho(T) / rho(Tref)
+```
+
+`from_segments` obtains `(B/I)coil` from any existing Biot-Savart coil path.
+The time-domain solver returns current, temperature, resistance, voltage,
+power, deposited energy, and B0 for four supply modes:
+
+- `voltage`: direct CV operation, so heating produces current and B0 drift;
+- `temperature_compensated`: commands `V = Iset R(T)` without sensing current;
+- `current`: nominal-pole-canceling PI current feedback;
+- `field`: the same PI structure around a direct B0 sensor or field lock.
+
+```python
+from spin_dynamics.fields import coils
+from spin_dynamics.thermal import ElectromagnetControl, ElectrothermalElectromagnet
+
+paths = coils.solenoid(radius=0.12, length=0.24, turns=144)
+magnet = ElectrothermalElectromagnet.from_segments(
+    paths,
+    inductance_h=25e-3,
+    reference_resistance_ohm=0.20,
+    heat_capacity_j_per_k=15e3,
+    thermal_conductance_w_per_k=8.0,
+)
+result = magnet.simulate(
+    times,
+    30e-3,
+    control=ElectromagnetControl(
+        "field", response_time_s=0.5, voltage_limits_v=(-18, 18)
+    ),
+)
+hardware_b0 = result.uniform_b0()
+motion_maps = result.to_motion_field_maps((x_axis, z_axis))
+```
+
+The adapters preserve existing hardware and imaging conventions:
+`uniform_b0()` returns `experiment.UniformB0`, while
+`to_motion_field_maps()` samples the realized coil field and converts its
+spatial deviation from the reference field to angular off-resonance. Additional
+measured core or eddy loss can be supplied as `additional_power_w`.
+
+This core model is a uniform-temperature, one-thermal-pole representation with
+linear `B/I`. It does not infer ferromagnetic hysteresis, saturation,
+frequency-dependent core loss, sensor dynamics, or detailed switching-regulator
+ripple. Use the existing thermal network/conduction solvers for multiple
+thermal nodes and supply measured or separately calculated core loss.
+
 ### Option C -- 3D finite-difference conduction on the `fields` grids
 
 Voxelized `k`, `rho c_p`, and source maps on the existing `fields.domain`
@@ -159,9 +218,9 @@ Crank-Nicolson in time, conjugate-gradient solves.
   correlations for common geometries can be tabulated).
 - Pennes bioheat perfusion term for in-vivo samples -- straightforward to add
   to B/C later (`+ w_b c_b (T_a - T)`), noted for future imaging use cases.
-- Thermo-mechanical effects: thermal expansion detuning the probe, B0 drift
-  from magnet/shim heating. Real, but they need mechanical/magnet models the
-  package does not have; record as known gaps.
+- Thermo-mechanical expansion and permanent-magnet temperature drift remain
+  outside this solver. Electromagnet B0 drift from winding `R(T)` is modeled;
+  core hysteresis and saturation require separate magnetic material models.
 - Full-wave SAR at high field (`sigma ~ omega eps`, wavelength ~ sample): the
   quasistatic Born solver's stated limits apply to its thermal use too.
 
@@ -182,6 +241,7 @@ spin_dynamics/thermal/
                   # same Source/BC dataclasses as network.py
   coupling.py     # quasi-static loop: T -> rho(T), sigma(T), M0(T), tau_c(T)
                   # -> updated sources/consumers -> T ...
+  electromagnet.py # coupled RL + thermal B0 source and feedback controllers
 ```
 
 The coupling loop is explicit and opt-in, like radiation damping:
@@ -235,7 +295,8 @@ sample: two-temperature noise now computed, not assumed).
   shielding inside the sample); high-conductivity samples over-estimate
   deposition, as documented in
   [field_solvers_quasistatic.md](field_solvers_quasistatic.md).
-- Thermo-mechanical detuning and magnet/B0 drift are recorded as out of
-  scope (Option D).
+- Thermo-mechanical expansion and permanent-magnet B0 drift remain out of
+  scope. Electromagnet drift due to winding `R(T)` is included; nonlinear core
+  magnetics are not.
 - Temperature dependence of `T1`/`T2` requires a `tau_c(T)` model
   (Arrhenius parameters are sample-specific inputs, not predictions).

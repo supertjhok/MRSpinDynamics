@@ -5088,6 +5088,67 @@ time-steps the warm-up. \code{probe\_updates()} hands back \(T\), \(R\), and
 \(Q\) for an \code{sp} mapping, so a cryoprobe's cold-coil / warm-sample state
 feeds the two-temperature noise density directly.
 
+\textbf{Electromagnet $B_0$ sources.} For a resistive electromagnet the
+electrical and thermal problems cannot be separated over a long acquisition:
+\[
+L\frac{dI}{dt}=V-I R(T),\qquad
+C_{\rm th}\frac{dT}{dt}=I^2R(T)+P_{\rm loss}
+ -G_{\rm th}(T-T_{\rm amb}),\qquad
+B_0=\left(\frac{B}{I}\right)_{\rm coil}I .
+\]
+\code{ElectrothermalElectromagnet} integrates these states while the existing
+conductor model supplies $R(T)=R_{\rm ref}\rho(T)/\rho(T_{\rm ref})$.
+\code{from\_segments()} calculates $(B/I)_{\rm coil}$ from an arbitrary
+Biot--Savart winding. The four control modes correspond to the feedback paths
+of the textbook electrothermal diagram: direct voltage, temperature-compensated
+voltage $V=I_{\rm set}R(T)$, current PI feedback, and a direct field lock.
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.fields import coils
+from spin_dynamics.thermal import (
+    ElectromagnetControl, ElectrothermalElectromagnet,
+)
+
+paths = coils.solenoid(radius=0.12, length=0.24, turns=144)
+magnet = ElectrothermalElectromagnet.from_segments(
+    paths, inductance_h=25e-3, reference_resistance_ohm=0.20,
+    heat_capacity_j_per_k=15e3, thermal_conductance_w_per_k=8.0,
+)
+result = magnet.simulate(
+    times, 30e-3,
+    control=ElectromagnetControl(
+        "field", response_time_s=0.5, voltage_limits_v=(-18, 18)
+    ),
+)
+hardware_b0 = result.uniform_b0()
+motion_maps = result.to_motion_field_maps((x_axis, z_axis))
+\end{lstlisting}
+
+The result retains current, temperature, resistance, supply voltage, Joule
+power, deposited energy, and reference $B_0$ at every time. The two adapters
+hand the selected state to the existing uniform-hardware and spatial
+imaging/motion workflows. Figure~\ref{fig:electrothermal-electromagnet} shows
+why this coupling matters: constant voltage loses field as copper warms, while
+all three feedback paths raise the voltage to hold $B_0$.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.96\textwidth]{images/example_electrothermal_electromagnet.png}
+  \caption{Electrothermal warm-up of a 30 mT air-core electromagnet. Constant
+  voltage produces field and current droop as $R(T)$ rises. Temperature
+  compensation, current feedback, and direct field lock hold $B_0$, at the
+  cost of increased supply voltage and Joule power.}
+  \label{fig:electrothermal-electromagnet}
+\end{figure}
+
+The core model is deliberately reduced order: a uniform coil temperature, one
+thermal pole, and linear $B/I$. Ferromagnetic hysteresis and saturation,
+frequency-dependent core loss, sensor dynamics, detailed regulator ripple,
+and thermo-mechanical expansion are not inferred. Measured core/eddy loss may
+be passed as \code{additional\_power\_w}; multi-node or spatial temperature
+models remain available through \code{ThermalNetwork} and
+\code{Conduction1D}.
+
 \textbf{Conduction profiles (Option B, Phase 3).} \code{Conduction1D} solves
 the finite-volume heat equation on a slab, cylinder, or sphere with spatially
 varying properties, mixed boundary conditions, and an optional Pennes
@@ -5096,7 +5157,8 @@ internal profile (SAR hot-spot, coil-former stack) the lumped node cannot
 resolve.
 
 \textbf{Validation.} Every piece is checked against analytic results
-(single-node exponentials, slab/cylinder/sphere uniform-source center rises
+(single-node exponentials, exact RL steps, electrothermal fixed points,
+slab/cylinder/sphere uniform-source center rises
 \(qL^2/8k\), \(qa^2/4k\), \(qa^2/6k\), the perfusion penetration depth
 \(\sqrt{k/w_bc_b}\), and the closed-form self-heating fixed point) and, where a
 field solution exists, cross-checked against FEMM axisymmetric heat-flow FEA

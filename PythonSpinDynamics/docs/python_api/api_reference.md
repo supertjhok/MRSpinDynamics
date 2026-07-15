@@ -1742,6 +1742,66 @@ No public classes or functions found.
 | function | `internal_gradient_maps(field: SusceptibilityField) -> tuple[np.ndarray, np.ndarray, np.ndarray]` | Return ``(g_x, g_z, g_magnitude)`` internal-gradient maps in tesla/metre. |
 | function | `internal_gradient_distribution(field: SusceptibilityField, *, weights: Iterable[float] | np.ndarray | None = None, restrict_to_pore_space: bool = True, bins: int = 64, range_max: float | None = None) -> InternalGradientDistribution` | Summarize the pore-space internal-gradient magnitude (T/m). |
 
+## `spin_dynamics.thermal.conduction`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `PerfusionModel` | Pennes blood-perfusion sink ``w_b c_b (T_a - T)``. |
+| class | `ConductionResult` | Radial/linear temperature profile(s). |
+| class | `Conduction1D` | Finite-volume conduction on a slab / cylinder / sphere radial grid. |
+
+## `spin_dynamics.thermal.coupling`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `resistance_at_temperature(material: ConductorMaterial, reference_resistance: float, reference_temperature: float, temperature: float, *, exponent: float = 1.0) -> float` | Scale a measured coil resistance to another temperature. |
+| class | `CoupledCoilDrive` | Temperature-dependent coil Joule source. |
+| class | `CoupledSAR` | Temperature-dependent sample deposition. |
+| class | `ThermalCouplingResult` | Converged (or final) state of the coupling loop. |
+| class | `ThermalCoupling` | Fixed-point and macro-step coupling of sources, network, and consumers. |
+
+## `spin_dynamics.thermal.electromagnet`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `ElectromagnetControl` | Power-supply and feedback configuration for an electromagnet. |
+| class | `ElectrothermalElectromagnetResult` | Time-domain electrical, thermal, and B0 response of an electromagnet. |
+| class | `ElectrothermalElectromagnet` | Lumped electrothermal model of an electromagnet B0 source. |
+
+## `spin_dynamics.thermal.materials`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `ThermalMaterial` | Thermal constants of a solid, liquid, or gas. |
+
+## `spin_dynamics.thermal.network`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `ThermalNode` | A lumped node. ``heat_capacity=None`` marks a fixed-temperature bath. |
+| class | `ThermalLink` | Heat exchange between two nodes. |
+| function | `conduction_conductance(conductivity: float, area: float, length: float) -> float` | Slab conduction ``G = k A / L`` (W/K). |
+| function | `cylindrical_shell_conductance(conductivity: float, length: float, r_inner: float, r_outer: float) -> float` | Radial conduction through a cylindrical shell, ``2 pi k L / ln(r2/r1)``. |
+| function | `convection_conductance(film_coefficient: float, area: float) -> float` | Convection film ``G = h A`` (W/K). |
+| function | `flow_conductance(density: float, specific_heat: float, volumetric_flow_rate: float) -> float` | Advective heat-removal conductance ``G = rho c_p Q`` (W/K). |
+| function | `radiation_link(node_a: str, node_b: str, *, emissivity: float, area: float) -> ThermalLink` | Grey-body radiation link with coefficient ``eps sigma_SB A``. |
+| class | `ThermalTransientResult` | Transient temperatures: ``temperatures[name]`` is T(t) over ``times``. |
+| class | `ThermalNetwork` | Nodal RC thermal network with steady-state and transient solves. |
+
+## `spin_dynamics.thermal.sources`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `ConstantSource` | A steady heat source of ``power`` watts attached to a named node. |
+| class | `DutyCycledSource` | A pulsed source: ``peak_power`` watts active for ``duty_cycle`` of the time. |
+| function | `coil_joule_power(current: float, resistance: float, *, rms: bool = False) -> float` | Instantaneous coil dissipation ``I^2 R / 2`` (amplitude) or ``I_rms^2 R``. |
+| function | `transmit_coil_current(b1_tesla: float, b1_per_current: float) -> float` | Peak coil current (A) to produce a rotating-frame ``B1`` amplitude. |
+| function | `duty_cycle_from_pulse_params(pp: Mapping[str, Any] | Any) -> float` | RF duty cycle of a refocusing-train cycle from a ``pp`` parameter set. |
+| function | `average_coil_power(current: float, resistance: float, duty_cycle: float, *, rms: bool = False, name: str = 'coil') -> DutyCycledSource` | Duty-cycled coil Joule source: ``I^2 R / 2`` active for ``duty_cycle``. |
+| function | `gradient_waveform_power(current_waveform: np.ndarray, times: np.ndarray, resistance: float, *, repetition_time: float | None = None, name: str = 'gradient') -> ConstantSource` | Average ``i(t)^2 R`` of a gradient waveform (audio-frequency: no 1/2). |
+| function | `sar_source_from_eddy(eddy_result: Any, *, duty_cycle: float = 1.0, conductivity: float | np.ndarray | None = None, name: str = 'sample SAR') -> tuple[DutyCycledSource, np.ndarray]` | Sample SAR source and volumetric density map from an ``EddyResult``. |
+| function | `sar_power_from_loading(current: float, reflected_resistance: float, *, duty_cycle: float = 1.0, name: str = 'sample SAR') -> DutyCycledSource` | Sample deposition from the circuit side: ``P = I_peak^2 R_reflected / 2``. |
+
 ## `spin_dynamics.workflows.acquisition`
 
 | Kind | Name | Summary |

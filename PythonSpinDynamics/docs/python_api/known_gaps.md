@@ -261,12 +261,15 @@ Remaining gaps:
 - coupled thermal modeling (`spin_dynamics.thermal`, see
   `docs/thermal_modeling.md`) currently provides the lumped RC network, the
   quasi-static coupling loop, and 1D/axisymmetric conduction with Pennes
-  perfusion, validated analytically and against FEMM. The stretch 3D
+  perfusion, plus electrothermal electromagnet B0 sources with voltage,
+  temperature, current, and field-lock control. These are validated
+  analytically and selected conduction cases against FEMM. The stretch 3D
   finite-difference conduction backend on the `fields.domain` grids (Phase 5)
   is not yet implemented, convection enters only through film coefficients (no
   flow solving), the sample-SAR source inherits the quasistatic solver's Born
-  limits (no skin-depth shielding), and thermo-mechanical detuning / magnet-B0
-  drift are out of scope;
+  limits (no skin-depth shielding), and thermo-mechanical expansion,
+  permanent-magnet drift, and nonlinear ferromagnetic-core behavior remain out
+  of scope;
 - flowing-sample modeling (`spin_dynamics.flow`, see `docs/flow_modeling.md`)
   covers plug and laminar pipe flow -- washout during acquisition, transit-time
   inflow polarization, and thermal advection (lumped `flow_conductance` plus a
