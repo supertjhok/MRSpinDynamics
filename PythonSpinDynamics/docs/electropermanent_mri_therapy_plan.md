@@ -50,9 +50,15 @@ Implementation progress as of 2026-07-15:
 - **Complete at controller tier:** repeated image-localize-program-transport
   cycles, capture-goal stopping, per-cycle re-aiming from the uncaptured
   centroid, explicit mode timing, and retained-state programming effort.
-- **Next:** measurement-derived particle-state estimation plus vascular and
-  tissue delivery physics. Measured minor loops and
-  coupling matrices remain parallel calibration work.
+- **Complete at dynamic-inversion mechanism tier:** rigid ferromagnetic sphere
+  and finite-cylinder hydrodynamics; separate body and magnetic-moment angles;
+  Brownian translation/rotation; finite internal moment relaxation; the
+  published polarize-delay-antialigned-gradient timing; non-sticky stability
+  and escape metrics; and coil, EPM-only, and hybrid switching assessments.
+- **Next:** measured coil/EPM field maps and particle magnetic-relaxation data,
+  followed by measurement-derived particle-state estimation plus vascular and
+  tissue delivery physics. Measured minor loops and coupling matrices remain
+  parallel calibration work.
 
 The textbook starting point is Section 11.2, printed pages 603--604, of
 `References/Measurements_Book_2_Final_WEB.pdf`.  Figure 11.6 describes an
@@ -282,7 +288,11 @@ After the EPM model is validated:
 4. **Complete:** add an integrated controller alternating image/localization windows, EPM
    programming, and transport bursts.  Static central trapping must not be
    implied; dynamic inversion is a separate protocol for central focusing.
-5. Connect switching transients to the existing eddy-current, imaging, motion,
+5. **Complete at mechanism tier:** add dynamic inversion with explicit rod
+   orientation, moment relaxation, pulsed repulsion, non-sticky retention, and
+   architecture pulse-count/timing consequences. Measured actuator field maps,
+   3-D focusing, and biological transport remain open.
+6. Connect switching transients to the existing eddy-current, imaging, motion,
    engineering-metrics, and electrothermal workflows.
 
 ## Plotting example plan

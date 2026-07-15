@@ -132,6 +132,11 @@ FIGURES: dict[str, tuple[str, ...]] = {
         "--output",
         "example_epm_closed_loop_controller.png",
     ),
+    "electropermanent-dynamic-inversion": (
+        "plot_epm_dynamic_inversion.py",
+        "--output",
+        "example_epm_dynamic_inversion.png",
+    ),
     "squid-ulf-crossover": (
         "plot_squid_ulf_crossover.py",
         "--save",

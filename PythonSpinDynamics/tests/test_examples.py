@@ -338,6 +338,7 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_epm_nonlinear_tissue_imaging.py",
             "examples/plot_epm_image_guided_transport.py",
             "examples/plot_epm_closed_loop_controller.py",
+            "examples/plot_epm_dynamic_inversion.py",
             "examples/plot_shim_a_ring_magnet.py",
             "examples/plot_logging_ferrite_b1_focusing.py",
             "examples/plot_nmr_mouse_fields.py",
@@ -563,6 +564,11 @@ class ExampleSmokeTests(unittest.TestCase):
         )
         self.assertIn("--capture-goal", result.stdout)
         self.assertIn("--transport-min", result.stdout)
+        result = run_example(
+            "examples/plot_epm_dynamic_inversion.py", "--help"
+        )
+        self.assertIn("--polarizing-mt", result.stdout)
+        self.assertIn("--gradient-field-mt", result.stdout)
         result = run_example("examples/plot_shim_a_ring_magnet.py", "--help")
         self.assertIn("--iron-outer-mm", result.stdout)
         self.assertIn("--remanence-t", result.stdout)

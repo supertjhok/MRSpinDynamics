@@ -1964,6 +1964,20 @@ No public classes or functions found.
 | function | `localize_epm_target(reconstructed_image: np.ndarray, x_m: Sequence[float] | np.ndarray, y_m: Sequence[float] | np.ndarray, *, threshold_fraction: float = 0.9) -> tuple[np.ndarray, np.ndarray, float]` | Return peak-relative target mask, signal-weighted centroid, and threshold. |
 | function | `run_epm_image_guided_controller(encoding: NonlinearEPMEncoding, expected_image: np.ndarray, x_m: Sequence[float] | np.ndarray, y_m: Sequence[float] | np.ndarray, particle: SuperparamagneticParticle, initial_positions_m: np.ndarray, *, config: EPMTherapyControllerConfig | None = None, background_velocity_m_s: TransportVelocity = None) -> EPMTherapyControllerResult` | Run alternating image-localize-program-transport controller cycles. |
 
+## `spin_dynamics.workflows.electropermanent_dynamic_inversion`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `FerromagneticParticle` | Rigid magnetic sphere or blunt-ended cylindrical rod in a fluid. |
+| class | `DynamicInversionSequence` | Polarize-delay-gradient sequence and analytical source geometry. |
+| function | `nacev_2015_sequence(*, polarizing_field_t: float = 0.05, gradient_field_at_center_t: float = 0.01, actuator_radius_m: float = 0.025) -> DynamicInversionSequence` | Return the reported 2015 timing with explicit inferred field inputs. |
+| class | `DynamicInversionStability` | Concentration and retention metrics without irreversible capture. |
+| class | `DynamicInversionResult` | Saved trajectories, orientations, and trap-stability diagnostics. |
+| function | `simulate_dynamic_inversion(sequence: DynamicInversionSequence, particle: FerromagneticParticle, initial_positions_m: np.ndarray, *, duration_s: float, target_radius_m: float, initial_body_angles_rad: Sequence[float] | np.ndarray | None = None, initial_moment_angles_rad: Sequence[float] | np.ndarray | None = None, background_velocity_m_s: Sequence[float] = (0.0, 0.0), bounds_m: Sequence[Sequence[float]] | np.ndarray | None = None, brownian: bool = True, seed: int | None = None, save_every_full_cycles: int = 1) -> DynamicInversionResult` | Integrate repeated dynamic-inversion cycles without sticky capture. |
+| class | `DynamicInversionHardwareConfig` | Timing, parallelism, and optional energy assumptions for one architecture. |
+| class | `DynamicInversionHardwareAssessment` | Pulse-count, timing, energy, and orientation-memory consequences. |
+| function | `assess_dynamic_inversion_hardware(sequence: DynamicInversionSequence, particle: FerromagneticParticle, *, duration_s: float, config: DynamicInversionHardwareConfig) -> DynamicInversionHardwareAssessment` | Compare fast coils, EPM-only switching, or an EPM/coil hybrid. |
+
 ## `spin_dynamics.workflows.electropermanent_transport`
 
 | Kind | Name | Summary |

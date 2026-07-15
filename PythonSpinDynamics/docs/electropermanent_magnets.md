@@ -444,6 +444,80 @@ variation are reported as channel-summed programming-effort metrics. They are
 not electrical energy; energy requires a calibrated sequence of 72-channel
 programming pulses and a selected driver model.
 
+## Dynamic-inversion central trap
+
+`simulate_dynamic_inversion()` removes the controller's irreversible-capture
+assumption and implements the mechanism reported by Nacev et al. (Nano Letters
+15, 2015, 359--364). Each direction first applies a uniform polarizing field,
+waits for the configured delay, and then applies a short oppositely directed
+gradient. A rigid ferromagnetic moment is initially repelled; mechanical or
+internal moment rotation eventually reverses the force, so the gradient must
+end while the moment is still antialigned.
+
+```python
+from spin_dynamics.workflows import (
+    FerromagneticParticle,
+    nacev_2015_sequence,
+    simulate_dynamic_inversion,
+)
+
+rod = FerromagneticParticle(
+    shape="rod",
+    length_m=200e-6,
+    diameter_m=200e-9,
+    volume_susceptibility=0.65,
+    saturation_magnetization_a_m=1.4e6,
+    remanent_magnetization_a_m=1.0e6,
+    fluid_viscosity_pa_s=0.7e-3,
+)
+sequence = nacev_2015_sequence(
+    polarizing_field_t=0.5,
+    gradient_field_at_center_t=0.2,
+    actuator_radius_m=8e-3,
+)
+trap = simulate_dynamic_inversion(
+    sequence,
+    rod,
+    initial_positions,
+    duration_s=60.0,
+    target_radius_m=2e-3,
+    seed=3,
+)
+print(trap.stability.concentration_gain)
+```
+
+Spheres recover Stokes translation and rotation. Rods use the
+Tirado--Martinez--de la Torre finite-cylinder drag expressions, including
+parallel/perpendicular translation and tumbling rotation. Body and magnetic-
+moment angles are distinct: `internal_relaxation_time_s=None` locks the moment
+to the body, while a finite phenomenological time demonstrates the loss of
+repulsion when domains or a superparamagnetic-like moment follow the gradient
+too quickly. No target entry is immobilized. `DynamicInversionStability`
+reports RMS-radius concentration gain, target retention and escape, the
+fraction of gradient samples that remain repulsive, and an early log-radius
+contraction rate.
+
+The preset preserves the published 600 us polarizing pulse, 5 us delay, 50 us
+gradient pulse, and 60.6 ms sequence-element period. Its field magnitudes and
+inverse-power source radius remain explicit inferred inputs: the paper does
+not provide the measured maps needed to reproduce force or concentration rate.
+
+`assess_dynamic_inversion_hardware()` applies the same timing to three
+architectures:
+
+- **Fast coils:** two field pulses per element reproduce the intended waveform,
+  but copper loss and driver stress repeat for the entire trap duration.
+- **EPM only:** at least polarize, gradient, and field-off retained states are
+  required every element. A 9.1 minute run contains about 9,009 elements,
+  27,027 array states, and nearly 1.95 million channel pulses when all 72
+  channels change. Programming transients are not calibrated therapeutic
+  fields, so waveform fidelity defaults to infeasible.
+- **Hybrid EPM plus coils:** the EPM array supplies a slowly changed bias or
+  shaping state while coils create the fast inversion waveform. This retains
+  coil loss but reduces EPM cycling to setup and teardown. The current result
+  is an architecture assessment; a specific 72-channel bias state and its
+  static particle force have not yet been synthesized.
+
 ## Imaging and motion compatibility
 
 `sample_electropermanent_field()` samples one or more sources on a 1-D, 2-D,
@@ -582,6 +656,18 @@ python examples\plot_epm_closed_loop_controller.py \
 
 ![Closed-loop EPM therapy controller](images/example_epm_closed_loop_controller.png)
 
+The dynamic-inversion example sweeps sphere and rod dimensions, contrasts a
+rigid ferromagnetic moment with a 100 ns internal-relaxation control, and counts
+the switching burden for coil, EPM-only, and hybrid architectures:
+
+```powershell
+python examples\plot_epm_dynamic_inversion.py \
+  --duration-s 60 \
+  --output results\epm_dynamic_inversion.png
+```
+
+![Dynamic-inversion particle trap](images/example_epm_dynamic_inversion.png)
+
 ## Current limitations and next phase
 
 The current phase still has important limits:
@@ -602,6 +688,10 @@ The current phase still has important limits:
 - nonlinear encoding, tissue-phantom reconstruction, Langevin-limited particle
   force, flow/diffusion trajectories, and target capture are implemented, while
   alternating image-guided control is implemented at the simulated-state tier.
+- dynamic inversion includes particle orientation, finite-cylinder drag,
+  moment relaxation, non-sticky stability metrics, and architecture counts,
+  but its inverse-power sources are inferred rather than measured coil/EPM
+  field maps; it remains 2-D, dilute, and outside vascular/tissue physics.
 
 The next implementation phase estimates the particle distribution from
 measurements rather than reading it directly from the simulator, and adds

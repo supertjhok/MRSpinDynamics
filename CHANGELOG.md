@@ -9,6 +9,11 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
 
 ### Added
 
+- Added a dynamic-inversion magnetic-particle trap to PythonSpinDynamics with
+  rigid sphere/finite-cylinder hydrodynamics, coupled body and moment rotation,
+  Brownian motion, finite internal relaxation, non-sticky stability metrics,
+  the published Nacev polarize-delay-gradient timing, and coil/EPM/hybrid
+  timing and switching-burden assessments.
 - Started stream-function MRI gradient-coil design in PythonSpinDynamics with
   cylindrical thin-wire source meshes, chunked per-segment Biot-Savart
   sensitivities, exact axial KCL constraints, Tikhonov-regularized NumPy/SciPy

@@ -34,6 +34,9 @@ from tests.test_electropermanent_imaging import (
 from tests.test_electropermanent_controller import (
     EPMTherapyControllerTests,
 )
+from tests.test_electropermanent_dynamic_inversion import (
+    DynamicInversionTests,
+)
 from tests.test_electropermanent_transport import (
     MagnetophoreticTransportTests,
     ParticlePhysicsTests,
@@ -203,6 +206,11 @@ def load_tests(
     suite.addTest(
         EPMTherapyControllerTests(
             "test_controller_alternates_modes_reaims_and_accumulates_capture"
+        )
+    )
+    suite.addTest(
+        DynamicInversionTests(
+            "test_rigid_long_rod_contracts_while_fast_moment_relaxation_expands"
         )
     )
     suite.addTest(

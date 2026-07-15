@@ -293,6 +293,27 @@
       "limitations": ["The target image is synthetic and the controller reads particle positions and capture state directly from the simulator; it does not yet infer particle concentration or location from MR measurements.", "Summed retained-remanence variation is a programming-effort metric, not pulse count, switching energy, temperature, or driver stress. A calibrated 72-channel programming schedule is required for those quantities.", "The controller inherits the illustrative array, aggregate, dilute transport, irreversible circular capture, and missing vascular/tissue physics of the component models."]
     },
     {
+      "id": "dynamic_inversion_particle_trap",
+      "component": "Dynamic-inversion ferromagnetic-particle trap",
+      "claim": "The workflow executes the published polarize-delay-antialigned-gradient timing, recovers spherical Stokes and Tirado finite-cylinder diffusion limits, reproducibly couples rigid-body and magnetic-moment orientation to translation, distinguishes contraction from rapidly relaxing-moment expansion, and makes coil, EPM-only, and hybrid switching burdens explicit.",
+      "evidence_types": ["A", "D", "R"],
+      "basis": "Closed-form Stokes and rotational Einstein limits, published Tirado finite-cylinder diffusion expressions, the Nacev 2015 pulse order and timing, seeded stochastic trajectory regression, and exact architecture pulse-count identities.",
+      "parameter_range": "Two-dimensional dilute particles represented as spheres or rods with rod aspect ratio at least 2; rigid or finite internal moment relaxation; four-direction inverse-power source model; configurable polarizer, gradient, geometry, flow, Brownian motion, reflecting bounds, timing, EPM parallelism, and optional calibrated pulse energies.",
+      "metric": "Translational and rotational drag/diffusion, orientation-memory time, repulsive gradient fraction, RMS-radius concentration gain, target retention and escape, seeded repeatability, state/channel pulse count, timing margin, waveform fidelity, and average power when energy inputs are supplied",
+      "tolerance": "Floating-point analytical drag/diffusion identities; exact seeded trajectory equality; qualitative contraction for the compact rigid long-rod case and expansion for its 100 ns internal-relaxation control; exact integer hardware counts.",
+      "status": "partially_validated",
+      "reproducers": [
+        "tests/test_electropermanent_dynamic_inversion.py::test_sphere_drag_recovers_stokes_and_rotational_limits",
+        "tests/test_electropermanent_dynamic_inversion.py::test_rod_diffusion_matches_tirado_finite_cylinder_expressions",
+        "tests/test_electropermanent_dynamic_inversion.py::test_seeded_dynamic_inversion_is_reproducible_and_nonsticky",
+        "tests/test_electropermanent_dynamic_inversion.py::test_rigid_long_rod_contracts_while_fast_moment_relaxation_expands",
+        "tests/test_electropermanent_dynamic_inversion.py::test_architecture_counts_and_waveform_consequences_are_explicit",
+        "examples/plot_epm_dynamic_inversion.py"
+      ],
+      "references": ["Nacev et al., Nano Letters 15 (2015), 359-364, DOI 10.1021/nl503654t", "Tirado, Martinez, and Garcia de la Torre, Journal of Chemical Physics 81 (1984), 2047-2052, DOI 10.1063/1.447827"],
+      "limitations": ["The analytical inverse-power gradient sources are inferred and are not reconstructed from measured coil or EPM field maps; the implementation therefore validates mechanism and trends, not the published concentration rate.", "The model is two-dimensional, dilute, overdamped, and noninteracting; it omits aggregation, rod flexibility, walls beyond rectangular reflection, tissue adhesion, vascular branching, collisions, and fluid-structure coupling.", "The finite internal-relaxation option is a phenomenological moment-angle relaxation, not a microscopic Neel/domain model. Tirado fitted end corrections are extrapolated above aspect ratio 30.", "EPM-only waveform fidelity defaults to infeasible because retained-state programming transients are not calibrated as therapeutic polarize/gradient pulses. Hybrid EPM bias/shaping does not yet synthesize a specific 72-element state or include its static force perturbation.", "Energy and average power remain unavailable unless architecture-specific coil and EPM pulse energies are supplied."]
+    },
+    {
       "id": "coil_peec",
       "component": "PEEC coil impedance and parasitics",
       "claim": "PEEC inductance/resistance trends agree with analytical kernels and selected independent QOIL, FastHenry, and FasterCap comparisons.",

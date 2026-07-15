@@ -723,6 +723,27 @@ explicit mode timeline, and capture gain versus retained-state change. The
 controller reads the uncaptured particle centroid from simulation state; a
 particle-distribution imaging estimator remains future work.
 
+## Dynamic-Inversion Particle Trap
+
+This example replaces irreversible target capture with explicit particle-body
+and magnetic-moment orientation. It runs the Nacev polarize-delay-antialigned-
+gradient sequence for spheres and rods, including anisotropic finite-cylinder
+drag, rotational and translational Brownian motion, and optional internal
+moment relaxation.
+
+```powershell
+python examples\plot_epm_dynamic_inversion.py --output results\epm_dynamic_inversion.png
+```
+
+Use `--duration-s`, `--polarizing-mt`, and `--gradient-field-mt` to examine the
+stability window. The field magnitudes and inverse-power source geometry are
+explicit illustrative assumptions because the 2015 article reports timing,
+coil geometry, current, and concentration but not calibrated field maps. The
+hardware panels compare fast coils, three retained-state changes per element
+for EPM-only operation, and a hybrid in which the EPM array changes slowly
+while fast coils preserve the inversion waveform. Energy is reported only
+when calibrated per-pulse inputs are supplied.
+
 ## Electrothermal Electromagnet B0 Source
 
 This example builds a 30 mT air-core solenoid from the existing Biot-Savart

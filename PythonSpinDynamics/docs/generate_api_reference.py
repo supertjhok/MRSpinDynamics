@@ -170,6 +170,7 @@ MODULES = [
     "workflows.diffusion",
     "workflows.electropermanent_imaging",
     "workflows.electropermanent_controller",
+    "workflows.electropermanent_dynamic_inversion",
     "workflows.electropermanent_transport",
     "workflows.fid",
     "workflows.imaging",

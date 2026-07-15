@@ -70,6 +70,16 @@ flow. The most distinctive unifying target is a virtual instrument pipeline:
 `geometry -> fields -> circuits -> realized sequence -> spin/motion/thermal
 evolution -> detector/noise -> reconstruction -> inference`.
 
+For image-guided magnetic therapy, dynamic inversion now removes the prior
+assumption that every target entry is immobilized. The current mechanism model
+is still two-dimensional and uses inferred inverse-power gradient sources.
+Quantitative hardware conclusions require measured coil and EPM field maps,
+particle remanence and Brownian/internal relaxation data, calibrated per-pulse
+energy, 3-D focusing, and vascular/tissue interactions. EPM-only switching is
+therefore classified as waveform-limited by default; the hybrid conclusion is
+an architecture assessment rather than a synthesized 72-channel hardware
+design.
+
 The main MATLAB-to-Python porting phase is now largely complete for the
 canonical Version 3 workflows. The remaining gaps are mostly validation depth,
 specialized variants, packaging polish, and performance backends rather than
