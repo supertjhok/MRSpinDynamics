@@ -40,7 +40,7 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
   material now shares one physical-model chapter; imaging, fields, EPM
   hardware, magnetic therapy, transport, detection, analysis, and optimization
   have distinct chapters; and MkDocs exposes image-guided therapy as a
-  first-class navigation destination.
+  dedicated application guide under Fields and Hardware.
 - Expanded the PythonSpinDynamics user manual with thirteen reproducible
   example-result figures spanning CPMG probe response, BPP relaxation, ESR
   powders, the NQR--NMR crossover, multinuclear ZULF coupling, sequence timing,

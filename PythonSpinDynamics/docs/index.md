@@ -7,7 +7,7 @@ signal analysis with explicit validation evidence.
 
 [Get started](python_api/installation.md){ .md-button .md-button--primary }
 [Run an experiment](python_api/experiment_workflow.md){ .md-button }
-[Explore magnetic therapy](image_guided_magnetic_therapy.md){ .md-button }
+[Browse examples](python_api/examples.md){ .md-button }
 
 ## Find what you need
 
@@ -19,7 +19,6 @@ signal analysis with explicit validation evidence.
 | ESR/EPR | [ESR models](python_api/esr.md) |
 | Fields, coils, and hardware | [Gradient-coil design](gradient_coil_design.md), [engineering](gradient_coil_engineering.md), and [quasistatic solvers](field_solvers_quasistatic.md) |
 | Electropermanent hardware | [AlNiCo rods, retained states, programming, and array synthesis](electropermanent_magnets.md) |
-| Image-guided magnetic therapy | [Imaging, particle transport, feedback control, trapping, and hardware choices](image_guided_magnetic_therapy.md) |
 | Thermal and electromagnet B0 | [Coupled thermal modeling](thermal_modeling.md) |
 | Analysis and inversion | [Analysis tools](python_api/analysis.md) |
 | Public Python surface | [Generated API reference](python_api/api_reference.md) |

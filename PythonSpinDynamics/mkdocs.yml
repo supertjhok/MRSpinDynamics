@@ -111,8 +111,7 @@ nav:
           - Internal gradients: python_api/internal_gradients.md
           - Bipolar PGSTE: python_api/bipolar_pgste.md
           - Flowing samples: flow_modeling.md
-  - Fields, Hardware, and Therapy:
-      - Image-guided magnetic therapy: image_guided_magnetic_therapy.md
+  - Fields and Hardware:
       - Magnetic field sources:
           - Electropermanent magnets: electropermanent_magnets.md
           - Gradient-coil design: gradient_coil_design.md
@@ -126,6 +125,8 @@ nav:
       - Detection and noise:
           - Non-inductive detection: non_inductive_detection.md
           - Spin noise: spin_noise.md
+      - Integrated applications:
+          - Image-guided magnetic therapy: image_guided_magnetic_therapy.md
   - Pulse Design and Optimization:
       - Optimal-control hardware response: optimal_control_hardware_response.md
       - PGSE diffusion optimal control: optimal_control_pgse_diffusion.md
