@@ -1,5 +1,7 @@
 """Optimization and MATLAB result-layout fixture checks."""
 
+import uuid
+
 from tests.octave_fixtures.support import *
 
 
@@ -1255,7 +1257,8 @@ class OctaveOptimizationFixtureTests(OctaveFixtureBase):
             bounds=(0.0, 2 * np.pi),
         )
         outdir = ROOT / ".tmp" / "tests"
-        outfile = outdir / "multistart_export_test.npz"
+        outfile = outdir / f"multistart_export_test_{uuid.uuid4().hex}.npz"
+        self.addCleanup(outfile.unlink, missing_ok=True)
 
         save_multistart_results_npz(multistart, outfile)
         loaded = load_multistart_results_npz(outfile)
