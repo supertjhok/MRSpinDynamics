@@ -29,8 +29,15 @@ Implementation progress as of 2026-07-15:
   state-dependent inductance, pulse waveform, bias field, and retained state.
   The built-in play distribution remains explicitly illustrative because raw
   minor-loop calibration data are unavailable.
-- **Next:** measured minor-loop calibration and transient neighbor disturbance,
-  followed by hybrid NdFeB/AlNiCo sub-units and the full 72-element array.
+- **Complete at transient two-element tier:** mutually coupled winding currents,
+  induced neighbor voltage, closed recovery paths, winding-field leakage,
+  sample-by-sample disturbance of every return-point state, state-dependent
+  inductance iteration, array-channel losses, temperatures, and energy checks.
+  The mutual and leakage matrices remain explicit inferred inputs pending
+  measurement.
+- **Next:** hybrid NdFeB/AlNiCo sub-units, field-basis assembly, constrained
+  state synthesis, and then the full 18-sub-unit/72-element array. Measured
+  minor loops and coupling matrices remain parallel calibration work.
 
 The textbook starting point is Section 11.2, printed pages 603--604, of
 `References/Measurements_Book_2_Final_WEB.pdf`.  Figure 11.6 describes an

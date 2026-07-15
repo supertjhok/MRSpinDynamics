@@ -755,6 +755,15 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `CoupledProgrammingResult` | Fixed-point result for one programmed element in an interacting array. |
 | class | `CoupledEPMProgrammer` | Self-consistent circuit/hysteresis update for interacting EPM elements. |
 
+## `spin_dynamics.fields.electropermanent_transient`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `ArrayPulseWaveform` | Electrical, magnetic, and thermal histories for all EPM windings. |
+| class | `MutualProgrammingCircuit` | Mutually coupled EPM windings with one commanded bridge per pulse. |
+| class | `TransientProgrammingResult` | Converged multi-element state update for one array programming pulse. |
+| class | `TransientCoupledEPMProgrammer` | Pulse, mutual-inductance, and return-point update for an EPM array. |
+
 ## `spin_dynamics.fields.electropermanent_pulses`
 
 | Kind | Name | Summary |

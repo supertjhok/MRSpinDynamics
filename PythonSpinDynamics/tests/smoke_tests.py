@@ -27,6 +27,10 @@ from tests.test_electropermanent_pulses import (
     EmpiricalProgrammingTests,
     PulseArchiveRegressionTests,
 )
+from tests.test_electropermanent_transient import (
+    MutualProgrammingCircuitTests,
+    TransientProgrammingTests,
+)
 from tests.test_gradient_coils import CylindricalGradientDesignTests
 from tests.test_gradient_shielding import ActivelyShieldedGradientTests
 from tests.test_gradient_windings import SyntheticContourTests
@@ -169,6 +173,16 @@ def load_tests(
     suite.addTest(
         NeighborCouplingTests(
             "test_saturated_neighbor_changes_partial_programming_result"
+        )
+    )
+    suite.addTest(
+        MutualProgrammingCircuitTests(
+            "test_positive_mutual_inductance_opposes_neighbor_current_ramp"
+        )
+    )
+    suite.addTest(
+        TransientProgrammingTests(
+            "test_transient_crosstalk_disturbs_neighbor_return_point_state"
         )
     )
     return suite

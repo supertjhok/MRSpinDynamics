@@ -189,7 +189,9 @@ from spin_dynamics.fields import (
 )
 
 sources = (target_rod, neighbor_rod)
-coupling = neighbor_coupling_matrix(sources, demagnetizing_factors=(0.02, 0.02))
+coupling = neighbor_coupling_matrix(
+    sources, self_demagnetizing_factors=(0.02, 0.02)
+)
 programmer = CoupledEPMProgrammer(
     sources,
     (driver, driver),
@@ -202,10 +204,62 @@ result = programmer.program(
 updated_sources = result.final_sources
 ```
 
-The present coupling is quasistatic during each fixed-point iteration: the
-neighbor contributes its retained field, while the target experiences its
-realized programming waveform. It does not yet solve transient programming-coil
-cross-talk or pulse-driven changes in a neighbor's hidden hysteresis state.
+This first coupled programmer is useful when neighboring windings can be
+ignored. The transient array model below includes their electrical and magnetic
+response.
+
+## Transient winding cross-talk
+
+`MutualProgrammingCircuit` integrates all winding currents while one H-bridge
+is commanded. Inactive channels are closed through their recovery resistors,
+so positive mutual inductance produces the expected opposing induced current.
+For inductance matrix `L`, channel resistance vector `R`, and commanded channel
+`q`, the electrical model is
+
+```text
+L(Br) dI/dt = Vbridge - R(T, switch_state) I,
+Cq dVc/dt = -polarity Iq.
+```
+
+`field_coupling_a_per_m_per_a[i, j]` maps winding `j` current to the
+programming field at magnet `i`. `TransientCoupledEPMProgrammer` combines that
+field with the retained-state interaction matrix at every sample,
+
+```text
+Hi(t) = sum_j Gij Ij(t) + sum_j Kij Brj(t),
+```
+
+advances every return-point state, and closes state-dependent self inductance
+with an outer fixed-point iteration. `ArrayPulseWaveform` reports the full
+current, applied/induced voltage, internal-field, loss, temperature, and energy
+histories; `TransientProgrammingResult` adds every remanence trajectory and the
+indices of disturbed non-target elements.
+
+```python
+from spin_dynamics.fields import (
+    MutualProgrammingCircuit,
+    TransientCoupledEPMProgrammer,
+)
+
+circuit = MutualProgrammingCircuit.from_coupling_coefficients(
+    (driver_0, driver_1),
+    [[0.0, 0.08], [0.08, 0.0]],
+    field_coupling_fractions=[[1.0, 0.20], [0.20, 1.0]],
+)
+programmer = TransientCoupledEPMProgrammer(
+    sources,
+    (model_0, model_1),
+    retained_field_coupling,
+    circuit,
+)
+result = programmer.program(0, times, negative_pulse)
+print(result.disturbed_indices)
+```
+
+The inactive-channel topology is deliberately explicit: this implementation
+models a closed recovery path, not an open winding. Mutual-inductance and
+winding-field matrices must be measured or independently solved for a
+quantitative array prediction.
 
 ## Imaging and motion compatibility
 
@@ -282,6 +336,21 @@ programmed state versus neighbor remanence, and the resulting static field.
 
 ![Electropermanent return-point and neighbor model](images/example_electropermanent_return_point.png)
 
+The transient example shows why static neighbor bias alone is insufficient:
+
+```powershell
+python examples\plot_electropermanent_transient_crosstalk.py \
+  --mutual-coefficient 0.08 \
+  --leakage-fraction 0.20 \
+  --output results\electropermanent_transient_crosstalk.png
+```
+
+It plots both winding currents, applied and induced voltages, internal fields,
+time-resolved retained states, and a leakage sweep that locates the neighbor
+disturbance threshold.
+
+![Transient EPM programming cross-talk](images/example_electropermanent_transient_crosstalk.png)
+
 ## Current limitations and next phase
 
 The current phase still has important limits:
@@ -291,14 +360,14 @@ The current phase still has important limits:
 - the weighted-play preset demonstrates return-point behavior, but raw
   AlNiCo minor-loop data are still needed to calibrate its thresholds, weights,
   temperature dependence, and uncertainty;
-- neighbor and self-demagnetizing fields participate in a converged quasistatic
-  programming iteration, but transient coil cross-talk and pulse-driven changes
-  of neighboring hidden states are not represented;
+- transient coil cross-talk and pulse-driven neighbor-state changes are now
+  represented for a closed recovery path, but the bundled mutual-inductance and
+  winding-leakage examples are inferred rather than measured array matrices;
 - discrete switching loss is included in cumulative driver energy but not
   deposited as a time-resolved temperature impulse; and
 - conductive shielding is not yet connected to transient eddy-current loss.
 
-The next phase is measured minor-loop calibration and transient two-element
-interaction, followed by hybrid/array programming. Raw minor-loop,
-repeated-pulse, and cross-talk measurements are needed before those models can
-be quantitative defaults.
+The next implementation phase is the hybrid NdFeB/AlNiCo sub-unit and a cached
+field-basis array with constrained imaging/transport state synthesis. Measured
+minor loops, repeated-pulse retention, and cross-talk matrices remain necessary
+before the array can become a quantitative hardware digital twin.

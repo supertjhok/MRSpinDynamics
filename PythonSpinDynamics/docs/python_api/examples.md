@@ -639,6 +639,22 @@ neighbor-biased pulse waveforms, final target remanence, and the corresponding
 static field. The bundled thresholds and weights are explicitly inferred, not
 a measured AlNiCo minor-loop fit.
 
+## Electropermanent Transient Cross-Talk
+
+This example commands one EPM while its neighboring winding is closed through
+the recovery path. It predicts mutually coupled currents, induced voltage,
+winding-field leakage, sample-by-sample return-point-state disturbance, losses,
+temperatures, and state-dependent-inductance convergence.
+
+```powershell
+python examples\plot_electropermanent_transient_crosstalk.py --output results\electropermanent_transient_crosstalk.png
+```
+
+Use `--mutual-coefficient` and `--leakage-fraction` to explore the two distinct
+cross-talk mechanisms. The final panel sweeps leakage to expose the threshold
+where the inactive neighbor no longer retains its state. These inputs are
+explicitly illustrative until measured coupling matrices are supplied.
+
 ## Electrothermal Electromagnet B0 Source
 
 This example builds a 30 mT air-core solenoid from the existing Biot-Savart

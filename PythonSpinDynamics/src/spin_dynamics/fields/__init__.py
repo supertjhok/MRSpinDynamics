@@ -93,6 +93,12 @@ from spin_dynamics.fields.electropermanent_pulses import (
     archived_igbt_pulse_cases,
     published_demagnetization_calibration,
 )
+from spin_dynamics.fields.electropermanent_transient import (
+    ArrayPulseWaveform,
+    MutualProgrammingCircuit,
+    TransientCoupledEPMProgrammer,
+    TransientProgrammingResult,
+)
 from spin_dynamics.fields.gradient_coils import (
     CylindricalGradientSystem,
     CylindricalWindingSurface,
@@ -336,6 +342,10 @@ __all__ = [
     "neighbor_coupling_matrix",
     "CoupledProgrammingResult",
     "CoupledEPMProgrammer",
+    "ArrayPulseWaveform",
+    "MutualProgrammingCircuit",
+    "TransientProgrammingResult",
+    "TransientCoupledEPMProgrammer",
     "PulseThermalState",
     "ProgrammingPulse",
     "PulsePowerDriver",

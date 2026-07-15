@@ -191,7 +191,27 @@
         "tests/test_electropermanent_hysteresis.py::test_self_demagnetizing_fixed_point_converges"
       ],
       "references": ["Scalar play-operator hysteresis and return-point memory", "Finite magnetic-dipole interaction symmetry"],
-      "limitations": ["The bundled thresholds, weights, saturation remanence, and temperature coefficient are illustrative inferred values rather than a measured AlNiCo minor-loop fit; coupling treats neighbors as static retained-field sources during each programmed pulse and omits transient coil cross-talk and neighbor-state disturbance."]
+      "limitations": ["The bundled thresholds, weights, saturation remanence, and temperature coefficient are illustrative inferred values rather than a measured AlNiCo minor-loop fit; transient winding interaction is handled by a separate multi-channel model whose coupling matrices require measurement."]
+    },
+    {
+      "id": "electropermanent_transient_crosstalk",
+      "component": "Electropermanent transient winding cross-talk",
+      "claim": "The multi-winding integrator reduces to the isolated RLC driver at zero coupling, produces the Lenz-law neighbor-current sign for positive mutual inductance, closes the coupled electrical-energy balance, and propagates pulse-driven disturbance into every return-point state.",
+      "evidence_types": ["A", "R"],
+      "basis": "Zero-coupling reduction, initial coupled-inductor derivative sign, capacitor plus coupled-inductor energy conservation with resistive loss, and synthetic threshold-crossing regressions.",
+      "parameter_range": "Two closed recovery windings, dimensionless mutual coefficients through 0.15, 20--30 us gates, 50--100 V commands, winding leakage through 0.20, and state-dependent self inductance through 25 percent.",
+      "metric": "Current and induced-voltage sign, waveform deviation from isolated drive, energy residual, internal field, retained-state change, and fixed-point residual",
+      "tolerance": "2e-12 waveform reduction tolerance, 0.02 percent relative energy residual, exact sign/threshold checks, and 2 uT retained-state convergence.",
+      "status": "partially_validated",
+      "reproducers": [
+        "tests/test_electropermanent_transient.py::test_zero_coupling_reproduces_isolated_target_waveform",
+        "tests/test_electropermanent_transient.py::test_positive_mutual_inductance_opposes_neighbor_current_ramp",
+        "tests/test_electropermanent_transient.py::test_coupled_circuit_closes_electrical_energy_balance",
+        "tests/test_electropermanent_transient.py::test_transient_crosstalk_disturbs_neighbor_return_point_state",
+        "tests/test_electropermanent_transient.py::test_state_dependent_inductance_outer_iteration_converges"
+      ],
+      "references": ["Coupled-inductor circuit equations and Lenz's law", "Weinberg archive 20200525 IGBT update neighbor-effect observations"],
+      "limitations": ["Inactive channels are modeled as closed through recovery resistors; open, actively clamped, and multiplexed topologies are not yet available. Mutual inductance and winding-field leakage are explicit inferred inputs because no measured array matrix is bundled."]
     },
     {
       "id": "coil_peec",

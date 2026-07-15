@@ -276,10 +276,13 @@ Remaining gaps:
   passive recovery, lumped pulse heating, and protocol-scoped empirical state
   transitions. Weighted play operators now provide return-point memory, and a
   quasistatic fixed-point solve couples self/neighbor fields, state-dependent
-  inductance, and retained state. The remaining gaps are measured
-  demagnetization/minor-loop calibration, repeated-pulse retention, transient
-  programming-coil cross-talk and neighbor-state disturbance, switching-loss
-  temperature impulses, and conductive-shield eddy loss;
+  inductance, and retained state. A multi-winding transient solve now adds
+  mutual inductance, induced neighbor currents/voltages, closed recovery paths,
+  winding leakage, and pulse-driven disturbance of every return-point state.
+  The remaining gaps are measured demagnetization/minor-loop and array-coupling
+  matrices, repeated-pulse retention, selectable open/clamped inactive-channel
+  topologies, switching-loss temperature impulses, hybrid-array state synthesis,
+  and conductive-shield eddy loss;
 - flowing-sample modeling (`spin_dynamics.flow`, see `docs/flow_modeling.md`)
   covers plug and laminar pipe flow -- washout during acquisition, transit-time
   inflow polarization, and thermal advection (lumped `flow_conductance` plus a

@@ -107,6 +107,11 @@ FIGURES: dict[str, tuple[str, ...]] = {
         "--output",
         "example_electropermanent_return_point.png",
     ),
+    "electropermanent-transient": (
+        "plot_electropermanent_transient_crosstalk.py",
+        "--output",
+        "example_electropermanent_transient_crosstalk.png",
+    ),
     "squid-ulf-crossover": (
         "plot_squid_ulf_crossover.py",
         "--save",

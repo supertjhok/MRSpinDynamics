@@ -20,9 +20,9 @@ what supports the underlying scientific or numerical claim.
 
 ## Coverage Summary
 
-- 28 capability-level claims
+- 29 capability-level claims
 - 14 validated
-- 9 partially validated
+- 10 partially validated
 - 5 regression-only
 
 | Component | Claim | Evidence | Status |
@@ -37,6 +37,7 @@ what supports the underlying scientific or numerical claim.
 | Magnetostatic field solvers | Biot-Savart coil fields and selected magnet geometries reproduce analytical center-field, symmetry, scaling, finite-length, and far-field limits; the documented AlNiCo electropermanent rod also reproduces its published surface-field benchmark. | **A**, **D** | validated |
 | Electropermanent programming pulses and retained state | The NumPy capacitor/H-bridge/series-RLC integrator reproduces the exact underdamped current solution and configuration-specific fits recover the archived 220/400/600-V peak-current examples; empirical remanence updates enforce their calibrated branch, polarity, range, uncertainty, and provenance. | **A**, **E**, **R** | partially validated |
 | Electropermanent return-point memory and neighbor coupling | Weighted play operators close nested reversal loops exactly and obey wiping-out, while finite-geometry two-element coupling has the expected symmetry and sign and the self-demagnetizing programming fixed point converges. | **A**, **R** | partially validated |
+| Electropermanent transient winding cross-talk | The multi-winding integrator reduces to the isolated RLC driver at zero coupling, produces the Lenz-law neighbor-current sign for positive mutual inductance, closes the coupled electrical-energy balance, and propagates pulse-driven disturbance into every return-point state. | **A**, **R** | partially validated |
 | PEEC coil impedance and parasitics | PEEC inductance/resistance trends agree with analytical kernels and selected independent QOIL, FastHenry, and FasterCap comparisons. | **C**, **A** | partially validated |
 | Thermal networks, conduction, and electromagnets | Lumped, one-dimensional, axisymmetric, perfused, and advective thermal models reproduce closed-form limits; coupled electromagnets recover exact RL and electrothermal fixed points, and selected conduction cases are cross-checked with FEMM. | **A**, **C** | validated |
 | NQR Hamiltonians and pulse models | Spin-1 and spin-3/2 transition conventions, powder weights, selective pulses, and SORC/SLSE limits reproduce analytical and published theory results. | **A**, **D** | partially validated |
@@ -176,7 +177,19 @@ what supports the underlying scientific or numerical claim.
 - **Tolerance:** Machine precision for exact nested-loop closure; geometry-specific symmetry tolerances and 1 uT retained-remanence convergence in regression tests.
 - **References:** Scalar play-operator hysteresis and return-point memory; Finite magnetic-dipole interaction symmetry
 - **Reproduce:** [`tests/test_electropermanent_hysteresis.py::test_return_to_nested_reversal_restores_operator_state_exactly`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_electropermanent_hysteresis.py#L43); [`tests/test_electropermanent_hysteresis.py::test_exceeding_outer_return_point_wipes_inner_memory`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_electropermanent_hysteresis.py#L62); [`tests/test_electropermanent_hysteresis.py::test_geometry_coupling_is_symmetric_and_equatorial_field_is_opposed`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_electropermanent_hysteresis.py#L140); [`tests/test_electropermanent_hysteresis.py::test_saturated_neighbor_changes_partial_programming_result`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_electropermanent_hysteresis.py#L153); [`tests/test_electropermanent_hysteresis.py::test_self_demagnetizing_fixed_point_converges`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_electropermanent_hysteresis.py#L209)
-- **Limitations:** The bundled thresholds, weights, saturation remanence, and temperature coefficient are illustrative inferred values rather than a measured AlNiCo minor-loop fit; coupling treats neighbors as static retained-field sources during each programmed pulse and omits transient coil cross-talk and neighbor-state disturbance.
+- **Limitations:** The bundled thresholds, weights, saturation remanence, and temperature coefficient are illustrative inferred values rather than a measured AlNiCo minor-loop fit; transient winding interaction is handled by a separate multi-channel model whose coupling matrices require measurement.
+
+### Electropermanent transient winding cross-talk
+
+- **Claim:** The multi-winding integrator reduces to the isolated RLC driver at zero coupling, produces the Lenz-law neighbor-current sign for positive mutual inductance, closes the coupled electrical-energy balance, and propagates pulse-driven disturbance into every return-point state.
+- **Evidence:** A, R (partially validated)
+- **Basis:** Zero-coupling reduction, initial coupled-inductor derivative sign, capacitor plus coupled-inductor energy conservation with resistive loss, and synthetic threshold-crossing regressions.
+- **Tested range:** Two closed recovery windings, dimensionless mutual coefficients through 0.15, 20--30 us gates, 50--100 V commands, winding leakage through 0.20, and state-dependent self inductance through 25 percent.
+- **Metric:** Current and induced-voltage sign, waveform deviation from isolated drive, energy residual, internal field, retained-state change, and fixed-point residual
+- **Tolerance:** 2e-12 waveform reduction tolerance, 0.02 percent relative energy residual, exact sign/threshold checks, and 2 uT retained-state convergence.
+- **References:** Coupled-inductor circuit equations and Lenz's law; Weinberg archive 20200525 IGBT update neighbor-effect observations
+- **Reproduce:** [`tests/test_electropermanent_transient.py::test_zero_coupling_reproduces_isolated_target_waveform`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_electropermanent_transient.py#L71); [`tests/test_electropermanent_transient.py::test_positive_mutual_inductance_opposes_neighbor_current_ramp`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_electropermanent_transient.py#L98); [`tests/test_electropermanent_transient.py::test_coupled_circuit_closes_electrical_energy_balance`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_electropermanent_transient.py#L117); [`tests/test_electropermanent_transient.py::test_transient_crosstalk_disturbs_neighbor_return_point_state`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_electropermanent_transient.py#L194); [`tests/test_electropermanent_transient.py::test_state_dependent_inductance_outer_iteration_converges`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_electropermanent_transient.py#L209)
+- **Limitations:** Inactive channels are modeled as closed through recovery resistors; open, actively clamped, and multiplexed topologies are not yet available. Mutual inductance and winding-field leakage are explicit inferred inputs because no measured array matrix is bundled.
 
 ### PEEC coil impedance and parasitics
 

@@ -77,6 +77,7 @@ MODULES = [
     "fields.eddy_modes",
     "fields.electropermanent",
     "fields.electropermanent_hysteresis",
+    "fields.electropermanent_transient",
     "fields.electropermanent_pulses",
     "fields.gradient_coils",
     "fields.gradient_engineering",
