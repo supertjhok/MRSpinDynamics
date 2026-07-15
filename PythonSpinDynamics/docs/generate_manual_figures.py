@@ -127,6 +127,11 @@ FIGURES: dict[str, tuple[str, ...]] = {
         "--output",
         "example_epm_image_guided_transport.png",
     ),
+    "electropermanent-closed-loop-controller": (
+        "plot_epm_closed_loop_controller.py",
+        "--output",
+        "example_epm_closed_loop_controller.png",
+    ),
     "squid-ulf-crossover": (
         "plot_squid_ulf_crossover.py",
         "--save",

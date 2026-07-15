@@ -270,7 +270,27 @@
         "examples/plot_epm_image_guided_transport.py"
       ],
       "references": ["Linear superparamagnetic force F = V chi grad(|B|^2)/(2 mu0)", "Langevin magnetization, Stokes drag, and Stokes--Einstein diffusion"],
-      "limitations": ["The integrated example uses an illustrative 30 um hydrodynamic magnetic aggregate and inferred array geometry, not a calibrated nanoparticle formulation or clinical dose.", "The first transport model is dilute and overdamped; it omits particle-particle interactions, aggregation kinetics, adhesion and release kinetics, branching vasculature, porous tissue permeability, hydrodynamic wall corrections, and feedback on field or flow.", "Target capture is irreversible on entry to a circle, and the controller that alternates imaging, EPM programming, and transport windows is not yet implemented."]
+      "limitations": ["The integrated example uses an illustrative 30 um hydrodynamic magnetic aggregate and inferred array geometry, not a calibrated nanoparticle formulation or clinical dose.", "The first transport model is dilute and overdamped; it omits particle-particle interactions, aggregation kinetics, adhesion and release kinetics, branching vasculature, porous tissue permeability, hydrodynamic wall corrections, and feedback on field or flow.", "Target capture is irreversible on entry to a circle. The alternating controller is tracked by a separate validation record."]
+    },
+    {
+      "id": "electropermanent_therapy_controller",
+      "component": "Alternating image-guided EPM therapy controller",
+      "claim": "The controller executes contiguous image-program-transport mode intervals, re-localizes a known target from independently seeded acquisitions, re-aims each affine transport objective from the uncaptured-particle centroid, preserves prior captures, and stops reproducibly at its capture goal or cycle limit.",
+      "evidence_types": ["A", "R"],
+      "basis": "State-machine interval identities, direct centroid-direction geometry, seeded nonlinear reconstructions and Brownian paths, retained-state total variation, and monotone persistent-capture regressions.",
+      "parameter_range": "One through four cycles in compact regressions and examples; 10-by-10 through 14-by-14 EPM encoding/force grids; 16 through 80 illustrative magnetic aggregates; configurable imaging, programming, and transport windows; capture goals in (0, 1].",
+      "metric": "Mode order and contiguity, localization centroid, requested direction, remanence variation, force, capture monotonicity, stopping reason, and seeded repeatability",
+      "tolerance": "Floating-point interval and direction identities; exact seeded output equality; non-decreasing persistent capture and exact configured stopping semantics.",
+      "status": "partially_validated",
+      "reproducers": [
+        "tests/test_electropermanent_controller.py::test_peak_relative_localization_returns_weighted_centroid",
+        "tests/test_electropermanent_controller.py::test_controller_alternates_modes_reaims_and_accumulates_capture",
+        "tests/test_electropermanent_controller.py::test_seeded_controller_is_reproducible",
+        "tests/test_electropermanent_transport.py::test_initial_capture_mask_keeps_particles_immobilized",
+        "examples/plot_epm_closed_loop_controller.py"
+      ],
+      "references": ["Feedback state-machine and centroid steering identities", "Package nonlinear EPM imaging and magnetophoretic transport validation records"],
+      "limitations": ["The target image is synthetic and the controller reads particle positions and capture state directly from the simulator; it does not yet infer particle concentration or location from MR measurements.", "Summed retained-remanence variation is a programming-effort metric, not pulse count, switching energy, temperature, or driver stress. A calibrated 72-channel programming schedule is required for those quantities.", "The controller inherits the illustrative array, aggregate, dilute transport, irreversible circular capture, and missing vascular/tissue physics of the component models."]
     },
     {
       "id": "coil_peec",

@@ -378,6 +378,7 @@ def simulate_magnetophoretic_transport(
     background_velocity_m_s: TransportVelocity = None,
     magnetization_model: MagnetizationModel = "langevin",
     boundary: TransportBoundary = "reflect",
+    initial_captured: Sequence[bool] | np.ndarray | None = None,
     seed: int | None = None,
 ) -> MagnetophoreticTransportResult:
     """Advance overdamped particles and irreversibly capture target entries."""
@@ -406,7 +407,14 @@ def simulate_magnetophoretic_transport(
     forces = np.empty_like(history)
     velocities = np.empty_like(history)
     capture_time = np.full(count, np.inf, dtype=np.float64)
-    captured = np.linalg.norm(positions - center, axis=1) <= radius
+    if initial_captured is None:
+        captured = np.zeros(count, dtype=bool)
+    else:
+        captured = np.asarray(initial_captured, dtype=bool)
+        if captured.shape != (count,):
+            raise ValueError("initial_captured must have one value per particle")
+        captured = captured.copy()
+    captured |= np.linalg.norm(positions - center, axis=1) <= radius
     capture_time[captured] = 0.0
     history[0] = positions
     rng = np.random.default_rng(seed)

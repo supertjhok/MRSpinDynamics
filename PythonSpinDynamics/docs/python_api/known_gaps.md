@@ -282,16 +282,19 @@ Remaining gaps:
   The remaining gaps are measured demagnetization/minor-loop and array-coupling
   matrices, repeated-pulse retention, selectable open/clamped inactive-channel
   topologies, switching-loss temperature impulses, exact hybrid-array CAD,
-  closed-loop image-guided control, vascular/tissue transport physics,
-  concentration-dependent particle interactions, and conductive-shield eddy
-  loss. The
+  measurement-derived particle-state estimation, vascular/tissue transport
+  physics, concentration-dependent particle interactions, calibrated
+  multi-channel programming energy, and conductive-shield eddy loss. The
   specified 18-sub-unit/72-control hierarchy, illustrative hybrid geometry,
   cached field bases, and bounded imaging/off/affine-transport synthesis are
   implemented, as are dense nonlinear encoding, nonnegative regularized
   reconstruction, acquisition noise, a simple tissue-phantom example, and
   superparamagnetic aggregate force/trajectory modeling with Langevin
   saturation, Stokes drag, Brownian diffusion, background flow, boundaries,
-  and target capture;
+  target capture, and an alternating image-localize-program-transport
+  controller with explicit mode timing and capture-goal stopping. The
+  controller currently reads particle positions from simulator state rather
+  than estimating them from measured images;
 - flowing-sample modeling (`spin_dynamics.flow`, see `docs/flow_modeling.md`)
   covers plug and laminar pipe flow -- washout during acquisition, transit-time
   inflow polarization, and thermal advection (lumped `flow_conductance` plus a

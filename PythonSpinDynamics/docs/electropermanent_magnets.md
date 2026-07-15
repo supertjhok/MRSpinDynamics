@@ -405,6 +405,45 @@ are immobilized in this first model; adhesion kinetics, concentration-dependent
 interactions, vascular branching, tissue permeability, and particle feedback
 on the field or flow are not yet included.
 
+## Alternating image-guided controller
+
+`run_epm_image_guided_controller()` closes the first system-level loop. Each
+cycle performs a fresh noisy nonlinear reconstruction, localizes the target by
+a peak-relative threshold and signal-weighted centroid, forms the centroid of
+the uncaptured particle population, synthesizes an affine EPM field directed
+between those centroids, observes a programming dwell, and integrates one
+transport burst. The run stops at the configured capture goal or cycle limit.
+
+```python
+from spin_dynamics.workflows import (
+    EPMTherapyControllerConfig,
+    run_epm_image_guided_controller,
+)
+
+closed_loop = run_epm_image_guided_controller(
+    encoding, contrast, phantom.x_m, phantom.y_m,
+    aggregate, initial_positions,
+    config=EPMTherapyControllerConfig(
+        max_cycles=4,
+        capture_goal=0.70,
+        imaging_window_s=90,
+        programming_window_s=0.25,
+        transport_window_s=24*60,
+        transport_gradient_t_m=0.150,
+    ),
+    background_velocity_m_s=(2.5e-6, 0.0),
+)
+print(closed_loop.stop_reason, closed_loop.capture_fraction_by_cycle)
+```
+
+`ControllerModeInterval` makes the imaging, programming, and transport timing
+explicit. Every `EPMTherapyCycleResult` retains the reconstruction, localized
+target, feedback direction, synthesized state, force map, particle history,
+and capture increment. Imaging-state and transport-state total remanence
+variation are reported as channel-summed programming-effort metrics. They are
+not electrical energy; energy requires a calibrated sequence of 72-channel
+programming pulses and a selected driver model.
+
 ## Imaging and motion compatibility
 
 `sample_electropermanent_field()` samples one or more sources on a 1-D, 2-D,
@@ -532,6 +571,17 @@ python examples\plot_epm_image_guided_transport.py \
 
 ![Image-guided EPM aggregate transport](images/example_epm_image_guided_transport.png)
 
+The closed-loop example repeats the entire decision sequence and exposes its
+mode timeline and per-cycle outcome:
+
+```powershell
+python examples\plot_epm_closed_loop_controller.py \
+  --cycles 4 --transport-min 24 --capture-goal 0.70 \
+  --output results\epm_closed_loop_controller.png
+```
+
+![Closed-loop EPM therapy controller](images/example_epm_closed_loop_controller.png)
+
 ## Current limitations and next phase
 
 The current phase still has important limits:
@@ -551,9 +601,10 @@ The current phase still has important limits:
   dimensions and coupling matrices remain inferred; and
 - nonlinear encoding, tissue-phantom reconstruction, Langevin-limited particle
   force, flow/diffusion trajectories, and target capture are implemented, while
-  closed-loop image-guided control remains the next system phase.
+  alternating image-guided control is implemented at the simulated-state tier.
 
-The next implementation phase alternates imaging, localization, programming,
-and transport states in a controller. Measured minor loops, repeated-pulse
-retention, exact CAD, and cross-talk matrices remain necessary before the array
-can become a quantitative hardware digital twin.
+The next implementation phase estimates the particle distribution from
+measurements rather than reading it directly from the simulator, and adds
+vascular/tissue transport, adhesion, and delivery metrics. Measured minor
+loops, repeated-pulse retention, exact CAD, and cross-talk matrices remain
+necessary before the array can become a quantitative hardware digital twin.

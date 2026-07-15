@@ -94,6 +94,14 @@ from spin_dynamics.workflows.electropermanent_imaging import (
     run_epm_nonlinear_imaging,
     simple_tissue_phantom,
 )
+from spin_dynamics.workflows.electropermanent_controller import (
+    ControllerModeInterval,
+    EPMTherapyControllerConfig,
+    EPMTherapyControllerResult,
+    EPMTherapyCycleResult,
+    localize_epm_target,
+    run_epm_image_guided_controller,
+)
 from spin_dynamics.workflows.electropermanent_transport import (
     MagneticForceMap2D,
     MagnetophoreticTransportResult,
@@ -269,6 +277,12 @@ STABLE_WORKFLOW_API = (
 )
 
 EXTENDED_WORKFLOW_API = (
+    "ControllerModeInterval",
+    "EPMTherapyControllerConfig",
+    "EPMTherapyControllerResult",
+    "EPMTherapyCycleResult",
+    "localize_epm_target",
+    "run_epm_image_guided_controller",
     "MagneticForceMap2D",
     "MagnetophoreticTransportResult",
     "SuperparamagneticParticle",
@@ -391,6 +405,10 @@ __all__ = [
     "EPMNonlinearImagingResult",
     "NonlinearEPMEncoding",
     "TissuePhantom2D",
+    "ControllerModeInterval",
+    "EPMTherapyControllerConfig",
+    "EPMTherapyControllerResult",
+    "EPMTherapyCycleResult",
     "MagneticForceMap2D",
     "MagnetophoreticTransportResult",
     "SuperparamagneticParticle",
@@ -451,6 +469,7 @@ __all__ = [
     "build_epm_nonlinear_encoding",
     "magnetic_force_from_gradient",
     "magnetic_force_map_2d",
+    "localize_epm_target",
     "check_matched_diffusion_q_stability",
     "fit_imaging_echo_decay",
     "form_imaging_image",
@@ -511,6 +530,7 @@ __all__ = [
     "run_rare_imaging",
     "run_epm_nonlinear_imaging",
     "simulate_magnetophoretic_transport",
+    "run_epm_image_guided_controller",
     "run_spin_warp_imaging",
     "run_bssfp_imaging",
     "BSSFPImagingResult",

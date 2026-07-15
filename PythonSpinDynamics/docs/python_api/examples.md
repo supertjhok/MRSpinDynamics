@@ -706,6 +706,23 @@ flow-only control, and force/speed histories. The default 30 um hydrodynamic
 diameter is an illustrative magnetic aggregate, not a single nanoparticle or a
 clinical dose model.
 
+## Closed-Loop EPM Therapy Controller
+
+This example repeats nonlinear imaging, target localization, transport-state
+synthesis, programming dwell, and magnetic aggregate motion until the capture
+goal or cycle limit is reached.
+
+```powershell
+python examples\plot_epm_closed_loop_controller.py --output results\epm_closed_loop_controller.png
+```
+
+Use `--cycles`, `--transport-min`, and `--capture-goal` to change the feedback
+schedule. The panels show localization repeatability, the last re-aimed force
+field, centroid-to-target control decisions, cycle-colored trajectories, the
+explicit mode timeline, and capture gain versus retained-state change. The
+controller reads the uncaptured particle centroid from simulation state; a
+particle-distribution imaging estimator remains future work.
+
 ## Electrothermal Electromagnet B0 Source
 
 This example builds a 30 mT air-core solenoid from the existing Biot-Savart

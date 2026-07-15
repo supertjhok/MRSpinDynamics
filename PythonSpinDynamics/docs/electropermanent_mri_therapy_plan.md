@@ -47,7 +47,11 @@ Implementation progress as of 2026-07-15:
   superparamagnetic force, Stokes drag, Stokes--Einstein diffusion, background
   flow, reflective boundaries, target capture, and image-derived transport
   direction for the simple tissue phantom.
-- **Next:** an alternating image-localize-program-transport controller. Measured minor loops and
+- **Complete at controller tier:** repeated image-localize-program-transport
+  cycles, capture-goal stopping, per-cycle re-aiming from the uncaptured
+  centroid, explicit mode timing, and retained-state programming effort.
+- **Next:** measurement-derived particle-state estimation plus vascular and
+  tissue delivery physics. Measured minor loops and
   coupling matrices remain parallel calibration work.
 
 The textbook starting point is Section 11.2, printed pages 603--604, of
@@ -275,7 +279,7 @@ After the EPM model is validated:
    `F = V DeltaChi grad(|B|^2) / (2 mu0)`, with a Langevin or saturation cap at
    higher fields, plus drag, background flow, Brownian diffusion, and boundary
    interactions.
-4. Add an integrated controller alternating image/localization windows, EPM
+4. **Complete:** add an integrated controller alternating image/localization windows, EPM
    programming, and transport bursts.  Static central trapping must not be
    implied; dynamic inversion is a separate protocol for central focusing.
 5. Connect switching transients to the existing eddy-current, imaging, motion,

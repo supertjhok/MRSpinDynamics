@@ -156,6 +156,34 @@ class MagnetophoreticTransportTests(unittest.TestCase):
         self.assertAlmostEqual(result.capture_time_s[0], 0.4375, places=6)
         self.assertAlmostEqual(result.positions_m[-1, 0, 0], -0.1e-3, places=12)
 
+    def test_initial_capture_mask_keeps_particles_immobilized(self) -> None:
+        particle = SuperparamagneticParticle(
+            magnetic_core_radius_m=2e-6,
+            hydrodynamic_radius_m=3e-6,
+            volume_susceptibility=1.0,
+            saturation_magnetization_a_m=4e5,
+        )
+        initial = np.asarray(((-0.7e-3, 0.4e-3), (-0.7e-3, -0.4e-3)))
+        result = simulate_magnetophoretic_transport(
+            self._force_map(),
+            particle,
+            initial,
+            duration_s=2.0,
+            time_step_s=0.5,
+            target_center_m=(0.8e-3, 0.0),
+            target_radius_m=0.05e-3,
+            background_velocity_m_s=(100e-6, 0.0),
+            initial_captured=(True, False),
+            seed=3,
+        )
+
+        np.testing.assert_array_equal(
+            result.positions_m[:, 0],
+            np.repeat(initial[[0]], result.time_s.size, axis=0),
+        )
+        self.assertTrue(result.captured[0])
+        self.assertGreater(result.positions_m[-1, 1, 0], initial[1, 0])
+
 
 if __name__ == "__main__":
     unittest.main()

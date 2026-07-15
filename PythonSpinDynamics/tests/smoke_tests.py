@@ -31,6 +31,9 @@ from tests.test_electropermanent_imaging import (
     NonlinearEPMImagingTests,
     TissuePhantomTests,
 )
+from tests.test_electropermanent_controller import (
+    EPMTherapyControllerTests,
+)
 from tests.test_electropermanent_transport import (
     MagnetophoreticTransportTests,
     ParticlePhysicsTests,
@@ -195,6 +198,11 @@ def load_tests(
     suite.addTest(
         MagnetophoreticTransportTests(
             "test_seeded_transport_is_reproducible_and_captures_target"
+        )
+    )
+    suite.addTest(
+        EPMTherapyControllerTests(
+            "test_controller_alternates_modes_reaims_and_accumulates_capture"
         )
     )
     suite.addTest(
