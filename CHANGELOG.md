@@ -35,6 +35,12 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
 
 ### Changed
 
+- Reorganized the PythonSpinDynamics print and web manuals around user tasks
+  instead of one catch-all workflow chapter. Coupled-spin and hyperpolarization
+  material now shares one physical-model chapter; imaging, fields, EPM
+  hardware, magnetic therapy, transport, detection, analysis, and optimization
+  have distinct chapters; and MkDocs exposes image-guided therapy as a
+  first-class navigation destination.
 - Expanded the PythonSpinDynamics user manual with thirteen reproducible
   example-result figures spanning CPMG probe response, BPP relaxation, ESR
   powders, the NQR--NMR crossover, multinuclear ZULF coupling, sequence timing,

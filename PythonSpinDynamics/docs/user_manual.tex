@@ -136,7 +136,8 @@ transport, fields, and instrument hardware.
 \clearpage
 \pagenumbering{arabic}
 
-\part{Getting Started}
+\part{Orientation and Foundations}
+\label{part:foundations}
 
 \chapter{Start Here: Your First Experiment}
 \label{chap:start}
@@ -253,14 +254,19 @@ workflow, validating an equation, or need a specialized model directly.
 You do not need to read the manual linearly.
 
 \begin{itemize}
-  \item \textbf{New user:} read Chapters~\ref{chap:start}--\ref{chap:conventions}, then the unified
-  experiment workflow in Chapter~\ref{chap:experiment} and the relevant recipe
-  in Chapter~\ref{chap:workflows}.
+  \item \textbf{New user:} read Chapters~\ref{chap:start}--\ref{chap:conventions},
+  then the unified experiment workflow in Chapter~\ref{chap:experiment}. Use
+  Parts~\ref{part:nmr-experiments}--\ref{part:analysis} as task-oriented guides.
   \item \textbf{NQR, ESR, or coupled-spin user:} skim the physical scope and
   conventions, then go directly to Chapter~\ref{chap:nqr}, \ref{chap:esr}, or
   \ref{chap:jcoupling}.
   \item \textbf{Sequence developer:} read Chapter~\ref{chap:sequence-ir}, then
-  the experiment facade and workflow guide.
+  the experiment facade and the acquisition, imaging, diffusion, or optimal
+  control chapter that matches the sequence.
+  \item \textbf{Fields or hardware developer:} begin with
+  Part~\ref{part:hardware}. Image-guided magnetic therapy has its own
+  Chapter~\ref{chap:magnetic-therapy}; it is not part of the field-solver
+  reference.
   \item \textbf{Reviewer or validator:} begin with the validation chapter and
   follow each claim to its machine-readable evidence and reproducer.
 \end{itemize}
@@ -268,6 +274,31 @@ You do not need to read the manual linearly.
 Every chapter opens with an ``In this chapter'' box. The boxes are a fast route
 through the narrative; the API reference at the end is for lookup, not for
 first-time reading.
+
+The parts have distinct jobs:
+
+\begin{longtable}{p{0.30\linewidth}p{0.60\linewidth}}
+\toprule
+Part & Purpose \\
+\midrule
+Orientation and Foundations & Installation, scope, package map, units, and
+shared conventions. \\
+Physical Models & Coupled nuclear spins and hyperpolarization, ESR/EPR, and
+NQR. \\
+Sequences and Experiment Planning & Sequence interchange, compilation, and
+the unified plan/run/save facade. \\
+NMR Experiments and Imaging & Echo trains, FID, imaging, and an integrated
+portable MRI study. \\
+Fields, Hardware, and Magnetic Systems & Field sources and solvers, EPM
+hardware, image-guided therapy, coils, electromagnetics, and thermal models. \\
+Transport, Detection, and Signal Analysis & Flow, noise and detection,
+diffusion, moving spins, phase-sensitive experiments, inversion, and exchange. \\
+Pulse Design and Optimization & Compact searches and hardware-aware GRAPE. \\
+Runnable Examples & Reproducible scripts grouped by learning goal. \\
+Evidence and Reference & Validation claims, generated API tables, and known
+gaps. \\
+\bottomrule
+\end{longtable}
 
 \chapter{Physical Scope and Assumptions}
 \label{chap:scope}
@@ -1084,9 +1115,10 @@ The finite-sequence implementation can add feedback during free-precession and
 acquisition windows, and can optionally apply an operator-split approximation
 during RF pulse matrices.
 
-\part{Physics Models}
+\part{Physical Models}
+\label{part:physics-models}
 
-\chapter{Scalar J-Coupling Models}
+\chapter{Coupled Nuclear Spins and Hyperpolarization}
 \label{chap:jcoupling}
 
 Scalar J coupling is field independent, so it can remain visible in weak or
@@ -1098,7 +1130,8 @@ coupling layer propagates small dense Hilbert-space systems or evaluates
 closed-form J-editing response curves.
 
 \chapterpath{Choose between analytical J-editing responses and dense
-Hamiltonian propagation, then build a small scalar-coupled spin system.}
+Hamiltonian propagation, then carry the same coupled-spin algebra into
+zero-field spectra, long-lived singlet states, and PHIP.}
 
 \scopebox{Accent}{
 \textbf{Use this layer for:} heteronuclear low-field J-editing curves,
@@ -3290,7 +3323,8 @@ spin-1 \code{x}, \code{y}, and \code{z} transitions. Off-diagonal features
 indicate that perturbation and detection frequencies are connected through the
 same quadrupolar site.
 
-\part{Sequences and Experiments}
+\part{Sequences and Experiment Planning}
+\label{part:sequences}
 
 \chapter{Sequence Interchange and Compilation}
 \label{chap:sequence-ir}
@@ -3759,18 +3793,20 @@ at:
   \item \code{examples/experiment\_config\_pgse\_walkers\_flow.toml}
 \end{itemize}
 
-\part{Practical Workflows}
+\part{NMR Experiments and Imaging}
+\label{part:nmr-experiments}
 
-\chapter{Workflow Guides}
+\chapter{Echo Trains and Basic Acquisitions}
 \label{chap:workflows}
 
-This chapter is the practical half of the manual. The earlier chapters define
-the model layers; the sections below show how those layers are assembled into
-experimental workflows. The order is roughly from the most common NMR building
-blocks to more specialized field, motion, exchange, and analysis tools.
+This chapter begins the task-oriented half of the manual. It collects the
+common one-dimensional acquisitions that are natural starting points for NMR
+experiments. Imaging, fields and hardware, transport, analysis, and pulse
+optimization each have their own chapters and parts rather than sharing one
+catch-all workflow chapter.
 
-\chapterpath{Use task-oriented recipes for CPMG, FID, imaging, diffusion,
-motion, fields, exchange, analysis, hardware response, and optimization.}
+\chapterpath{Run CPMG and FID acquisitions, understand finite echo trains, and
+connect probe response to the acquired signal.}
 
 \section{CPMG}
 
@@ -3916,7 +3952,14 @@ sp, pp = set_params_ideal_fid(numpts=101)
 macq, fid, tvect = sim_fid_ideal(sp, pp)
 \end{lstlisting}
 
-\section{Imaging}
+\chapter{Imaging and Integrated MRI}
+\label{chap:imaging}
+
+\chapterpath{Move from k-space acquisition and reconstruction through
+frequency encoding, steady-state and slice-selective imaging, then close the
+loop in a portable MRI system study.}
+
+\section{Imaging Workflow and Reconstruction}
 
 \begin{lstlisting}[language=Python]
 import numpy as np
@@ -3953,7 +3996,7 @@ When \code{noise} is supplied, clean k-space and image fields remain in the
 result while noisy counterparts are stored in \code{kspace\_noisy},
 \code{image\_noisy}, and \code{magnitude\_noisy}.
 
-\subsection{Frequency-Encoded Imaging: Spin-Warp and RARE}
+\section{Frequency-Encoded Imaging: Spin-Warp and RARE}
 
 The phase-encoded workflows above fill k-space one point per phase-encode step.
 \code{run\_spin\_warp\_imaging} and \code{run\_rare\_imaging} add a readout
@@ -4014,7 +4057,7 @@ efficiency for the spin-echo sensitive volume. The example
 \code{plot\_sensitive\_slice.py} visualizes the curved, non-uniform slice in a
 single-sided-like field.
 
-\subsection{Balanced SSFP: Steady-State Imaging and Off-Resonance Banding}
+\section{Balanced SSFP: Steady-State Imaging and Off-Resonance Banding}
 
 Balanced SSFP (bSSFP; also TrueFISP, FIESTA, balanced FFE) is the workhorse
 steady-state gradient echo. Unlike the spin-echo imagers above, it never lets the
@@ -4097,7 +4140,7 @@ acquired line is demodulated by its transmit phase, without which the alternatin
 pulse phase imprints a \((-1)^{\text{line}}\) modulation on k-space that shifts the
 image by half the field of view along the phase-encode axis.
 
-\subsection{Slice-Selective Excitation and 3D Multi-Slice Imaging}
+\section{Slice-Selective Excitation and 3D Multi-Slice Imaging}
 
 \code{imaging\_slice\_sensitivity} above is a passive analysis: it uses a hard
 (rectangular) pulse and relies on the existing B0 inhomogeneity to define the
@@ -4151,7 +4194,7 @@ B1, relaxation, and density---through the dimension-agnostic
 \code{SpatialFieldMaps}), so the 1D, 2D, and 3D paths share one field
 representation and one gradient-coupling rule.
 
-\subsection{Complete Portable Halbach MRI Capstone}
+\section{Complete Portable Halbach MRI Capstone}
 
 The preceding imaging and field components are deliberately composable, but it
 is useful to see them closed into one complete design loop. The capstone example
@@ -4192,8 +4235,16 @@ metric is regenerated from the same typed workflow result.
 \includegraphics[width=0.97\linewidth]{images/portable_halbach_capstone_imaging.png}
 \end{center}
 
-\section{Field Solvers}
+\part{Fields, Hardware, and Magnetic Systems}
+\label{part:hardware}
+
+\chapter{Magnetic Field Sources and Solvers}
+\label{chap:field-solvers}
 \label{sec:field-solvers}
+
+\chapterpath{Generate magnetic field maps from analytic sources or numerical
+solvers, understand their validity limits, and pass the maps into imaging and
+motion workflows.}
 
 \code{spin\_dynamics.fields} computes device fields from first principles rather
 than assuming a synthetic map. Two families live here: closed-form \emph{analytic}
@@ -4206,7 +4257,7 @@ only on NumPy; SciPy and (for the 3D solver) pyamg accelerate the larger linear
 solves when available. The single-sided NMR depth-profiling workflow that consumes
 these fields is described alongside the analytic sources it is built on.
 
-\subsection{Analytic magnet and coil sources}
+\section{Analytic Magnet and Coil Sources}
 \label{sec:fields-analytic-sources}
 
 The imaging and motion workflows consume \code{(B0, B1)} maps;
@@ -4276,7 +4327,14 @@ direction, uniformity, finite-length axial falloff, and gradient map. These
 fields also feed the polarization-enhanced NQR transport model in
 Sec.~\ref{sec:nqr-polarization-enhancement}.
 
-\subsubsection{Electropermanent AlNiCo sources}
+\chapter{Electropermanent Hardware and Arrays}
+\label{chap:epm-hardware}
+
+\chapterpath{Model retained AlNiCo states and programming hardware, synthesize
+array operating states, and distinguish retained-state counts from electrical
+energy and thermal limits.}
+
+\section{Electropermanent AlNiCo Sources}
 \label{sec:electropermanent-magnets}
 
 Electropermanent magnets retain a programmed state without continuous coil
@@ -4502,7 +4560,7 @@ Figure~\ref{fig:electropermanent-transient-crosstalk} is generated by
 \code{plot\_electropermanent\_transient\_crosstalk.py}. Its coupling values are
 illustrative until measured matrices are available.
 
-\subsubsection{Hybrid array and operating-state synthesis}
+\section{Hybrid Array and Operating-State Synthesis}
 
 The array layer groups fixed NdFeB sources and independently programmable
 AlNiCo rods into hybrid sub-unit objects. An
@@ -4566,7 +4624,20 @@ Figure~\ref{fig:epm-hybrid-array-synthesis} is generated by
 \code{plot\_epm\_hybrid\_array\_synthesis.py}. This stage supplies the static
 system states needed by the therapeutic platform model.
 
-\subsubsection{Nonlinear EPM imaging of a tissue phantom}
+\chapter{Image-Guided Magnetic Therapy}
+\label{chap:magnetic-therapy}
+
+\chapterpath{Reconstruct particle distributions, steer them with closed-loop
+field updates, and compare static capture with dynamic-inversion trapping
+across particle shapes, sizes, and hardware architectures.}
+
+This chapter treats imaging, delivery, feedback, and localization as one
+system-level workflow. It consumes the EPM and coil models of the preceding
+chapter, but it is not a field-solver reference: its outputs are reconstructed
+particle distributions, trajectories, target occupancy, stability metrics,
+and switching burdens.
+
+\section{Nonlinear EPM Imaging of a Tissue Phantom}
 
 Each retained-remanence state supplies a measured or modeled spatial field
 profile. After receiver demodulation removes the field at a reference voxel,
@@ -4628,7 +4699,7 @@ Figure~\ref{fig:epm-nonlinear-tissue-imaging} is generated by
 $16\mathbin{\times}16$-voxel case reports image NRMSE, encoding condition
 number, field-span range, and target-centroid error.
 
-\subsubsection{Image-guided superparamagnetic transport}
+\section{Image-Guided Superparamagnetic Transport}
 
 For a magnetic material volume (V) with low-field SI susceptibility
 \(\chi\), the linear superparamagnetic force is
@@ -4695,7 +4766,7 @@ not yet represent particle interactions, aggregation kinetics, adhesion,
 branching vasculature, porous tissue permeability, or feedback on the field or
 flow.
 
-\subsubsection{Alternating image-guided controller}
+\section{Alternating Image-Guided Controller}
 
 \code{run\_epm\_image\_guided\_controller} closes the first system-level loop.
 Each cycle acquires a fresh noisy nonlinear image, localizes the target, forms
@@ -4751,7 +4822,7 @@ the particle centroid and capture mask directly from simulator state; inferring
 particle concentration from measured images, vascular flow, tissue
 permeability, adhesion, and release are the next system tier.
 
-\subsubsection{Dynamic-inversion central trapping}
+\section{Dynamic-Inversion Central Trapping}
 
 The controller above deliberately immobilizes particles after target entry.
 That capture rule is useful for delivery but is not a magnetostatically stable
@@ -4851,7 +4922,14 @@ sensitivity honestly falls off with depth as the gradient weakens; the engine's
 constant-gradient physics is validated against the exact Carr-Purcell law. The
 example \code{plot\_nmr\_mouse\_depth\_profile.py} profiles a layered phantom.
 
-\subsection{Stream-function gradient-coil design}
+\chapter{Coil Design and Electromagnetic Field Solvers}
+\label{chap:coil-field-solvers}
+
+\chapterpath{Design gradient and RF coils, quantify shielding and electrical
+properties, solve quasistatic and nonlinear field problems, and couple device
+losses to thermal models.}
+
+\section{Stream-Function Gradient-Coil Design}
 \label{sec:gradient-coil-design}
 
 \code{spin\_dynamics.fields} designs cylindrical MRI gradient coils directly
@@ -4929,7 +5007,7 @@ gradient\_coil.png} to reproduce Figure~\ref{fig:gradient-coil-design}. The
 companion \code{plot\_gradient\_coil\_regularization.py} isolates the bias-current
 trade-off and curvature diagnostic.
 
-\subsubsection{Active shielding}
+\subsection{Active Shielding}
 
 An actively shielded design places a second current sheet on a larger concentric
 cylinder and optimizes the two surfaces together. With target-volume matrix
@@ -4994,7 +5072,7 @@ quantizes them. Target fidelity and exterior suppression must therefore be
 recomputed for the extracted contours, and again after leads and crossovers are
 routed.
 
-\subsubsection{Engineering metrics and workflow handoff}
+\subsection{Engineering Metrics and Workflow Handoff}
 
 \code{gradient\_coil\_engineering\_metrics} evaluates the realized winding once
 and returns three grouped reports:
@@ -5065,7 +5143,7 @@ routing, arbitrary surfaces, and force/torque constraints inside the inverse
 solve remain future extensions. Force and torque \emph{evaluation} is available
 for any realized winding.
 
-\subsection{Quasistatic E-field and eddy currents}
+\section{Quasistatic E-Field and Eddy Currents}
 \label{sec:fields-quasistatic}
 
 Biot-Savart gives a coil's B-field but not the accompanying E-field --- and it is
@@ -5133,7 +5211,7 @@ the same frequency where \(B_0\) is \(\sim\)3.8\(\times\) higher, with non-optim
 flip angles from the proton-calibrated pulses) to estimate its fractional signal
 contribution. Design note: \code{docs/field\_solvers\_quasistatic.md}.
 
-\subsection{Coil property extraction: inductance, resistance, \texorpdfstring{$Q$}{Q}, and self-resonance}
+\section{Coil Property Extraction: Inductance, Resistance, \texorpdfstring{$Q$}{Q}, and Self-Resonance}
 \label{sec:fields-coil-properties}
 
 The solvers above give a coil's \emph{fields}; a probe designer needs the coil's
@@ -5206,7 +5284,7 @@ chosen operating frequency.}
 Reproduce Figure~\ref{fig:solenoid-properties-example} with
 \code{python examples/plot\_solenoid\_coil\_properties.py --save solenoid.png}.
 
-\subsection{Arbitrary-geometry coil solver (PEEC): multi-layer, saddle, and gradient coils}
+\section{Arbitrary-Geometry Coil Solver (PEEC): Multi-Layer, Saddle, and Gradient Coils}
 \label{sec:fields-coil-peec}
 
 The analytic model above is limited to single-layer air-core solenoids. Real RF coils
@@ -5419,7 +5497,7 @@ below the crude analytic \(2\pi\varepsilon_0 L/(\ln(L/a)-1)\), confirming the th
 kernel against the reference rather than the approximation; the coil self-capacitance is
 additionally validated against the Medhurst formula. Design note: \code{docs/coil\_peec.md}.
 
-\subsection{Nonlinear magnetostatics: ferrites and saturable iron}
+\section{Nonlinear Magnetostatics: Ferrites and Saturable Iron}
 \label{sec:fields-nonlinear-magnetostatics}
 
 The analytic solvers above superpose permanent-magnet dipoles and Biot-Savart
@@ -5479,7 +5557,7 @@ negligible next to the brine. The reported figure of merit is therefore the
 naive reciprocity ratio. The material model and nonlinear scheme are adapted from
 the author's Motor\_Design finite-element solver.
 
-\subsection{Three-dimensional magnetostatics: the reduced scalar potential}
+\section{Three-Dimensional Magnetostatics: The Reduced Scalar Potential}
 \label{sec:fields-scalar-potential-3d}
 
 The vector-potential solvers above are two-dimensional --- symmetry collapses
@@ -5588,7 +5666,7 @@ the solved fields; \(S\) falls \(\sim\!100\times\) over the first centimetre
 (surface-coil \(B_1\) dominated), so the measured profile decays with depth as a
 real single-sided measurement does.
 
-\subsection{Coupled Thermal Modeling}
+\section{Coupled Thermal Modeling}
 \label{subsec:thermal-modeling}
 
 RF and gradient coils dissipate power and warm up, RF pulses deposit power in
@@ -5725,8 +5803,15 @@ perfusion compete against the surface-peaked deposition), and the warm-up over
 a ten-minute exam. The fully quantum measurement-back-action description of
 spin noise and CFD/flow solving of the convection remain out of scope.
 
-\subsection{Flowing Samples}
+\part{Transport, Detection, and Signal Analysis}
+\label{part:analysis}
+
+\chapter{Flowing Samples}
+\label{chap:flow}
 \label{subsec:flow}
+
+\chapterpath{Account for sample replacement, inflow polarization, and
+advective cooling in inline and flowing-sample experiments.}
 
 Many measurements run on a \emph{moving} sample -- inline process monitoring in
 a pipe, stopped-flow kinetics, hyphenated LC-NMR. The \code{spin\_dynamics.flow}
@@ -5779,6 +5864,12 @@ flux-weighted transit distribution. The example
 \code{plot\_flowing\_pipe\_nmr.py} shows CPMG washout, apparent $T_2$ and
 amplitude versus flow rate, and advective cooling for an inline pipe monitor.
 Turbulent/well-mixed flow and analyte Taylor dispersion are out of scope.
+
+\chapter{Detection and Noise}
+\label{chap:detection}
+
+\chapterpath{Add receiver and spin noise, then compare inductive coils with
+SQUID and OPM detection using common field-referred signal and noise models.}
 
 \section{Received-Signal Noise}
 
@@ -5989,7 +6080,13 @@ without a uniform ambient field (the magnetometer loses \(\sim\!1000\times\), th
 gradiometers are unaffected). Detector-aware GRAPE objectives follow in a later
 increment (see \code{docs/non\_inductive\_detection.md}).
 
-\section{Diffusion}
+\chapter{Diffusion and Moving Spins}
+\label{chap:diffusion}
+
+\chapterpath{Choose analytical or walker-based diffusion encoding, add
+restricted geometry, and propagate moving spins through spatial field maps.}
+
+\section{Diffusion Workflows}
 
 \begin{lstlisting}[language=Python]
 from spin_dynamics.workflows import run_matched_diffusion_q_sweep
@@ -6541,6 +6638,12 @@ sample so residual phase spread reduces the received signal. In contrast,
 ordinary unrestricted diffusion in a static gradient usually gives very similar
 CPMG and UDD attenuation.
 
+\chapter{Time-Dependent Fields and Phase-Sensitive Experiments}
+\label{chap:time-dependent}
+
+\chapterpath{Model time-varying detuning, adiabatic and nonresonant field
+manipulation, RF phase, Bloch--Siegert effects, and probe back-action.}
+
 \section{Time-Varying Fields}
 
 \begin{lstlisting}[language=Python]
@@ -6904,6 +7007,12 @@ toward the positive equilibrium direction.}
 Run \code{python examples/plot\_radiation\_damping.py --output
 radiation\_damping.png} to reproduce Figure~\ref{fig:radiation-damping-example}.
 
+\chapter{Inverse Problems and Exchange}
+\label{chap:inverse-exchange}
+
+\chapterpath{Recover relaxation and diffusion distributions, then connect
+two-dimensional inverse problems to chemical and site exchange.}
+
 \section{Inverse Laplace Analysis}
 
 \begin{lstlisting}[language=Python]
@@ -7006,6 +7115,12 @@ interval.}
 
 Run \code{python examples/plot\_t2\_t2\_exchange.py --output
 t2\_t2\_exchange.png} to reproduce Figure~\ref{fig:t2-t2-exchange-example}.
+
+\chapter{Internal Gradients and Specialized Diffusion Encoding}
+\label{chap:internal-gradient-diffusion}
+
+\chapterpath{Generate susceptibility-induced internal fields and suppress
+background-gradient bias with bipolar stimulated-echo encoding.}
 
 \section{Internal and Susceptibility Gradients}
 \label{sec:internal-gradients}
@@ -7119,7 +7234,14 @@ apparent-diffusion suppression versus \(g_0\), and the walker runner validated
 against \(\exp(-b D)\). The moment model is the free-diffusion b-value for ideal
 rectangular lobes; trapezoidal ramps need a shaped-gradient extension.
 
-\section{Optimization Workflows}
+\part{Pulse Design and Optimization}
+\label{part:optimization}
+
+\chapter{Optimization Workflows}
+\label{chap:optimization}
+
+\chapterpath{Start with compact phase-program searches, then progress to
+hardware-aware GRAPE design for NMR, NQR, and detector-aware objectives.}
 
 The optimization package provides compact, plotting-free drivers for
 phase-program searches and result handoff:
@@ -7679,7 +7801,10 @@ tradeoff, not a free pulse-shaping gain.
 Higher-spin transition-selective pulses (drive one line, leave another) and
 exact lab-frame satellite control are natural follow-ons on the same engine.
 
-\chapter{Examples}
+\part{Runnable Examples}
+\label{part:examples}
+
+\chapter{Examples by Learning Goal}
 
 The example scripts can be run from \code{PythonSpinDynamics}; each script also
 works from inside \code{examples/} by adding the local source tree to
@@ -7817,6 +7942,7 @@ python -m spin_dynamics.experiment run examples\experiment_config_pgse_walkers_f
 \end{lstlisting}
 
 \part{Evidence and Reference}
+\label{part:evidence}
 
 \chapter{Validation}
 

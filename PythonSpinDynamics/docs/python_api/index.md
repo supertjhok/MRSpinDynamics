@@ -9,30 +9,42 @@ physics rather than baseline MATLAB parity.
 
 ## Start Here
 
+### Run and configure experiments
+
 - [Installation](installation.md)
-- [Deprecation Policy](deprecation_policy.md)
-- [Development Environment](../development_environment.md)
 - [Concepts and Units](concepts.md)
-- [Cross-Component Composition](composition.md)
 - [Unified Experiment Workflow](experiment_workflow.md) — recommended entry point
 - [Examples](examples.md)
-- [Parameters](parameters.md)
-- [Core Numerical Functions](core.md)
 - [Workflows](workflows.md)
-- [Analysis](analysis.md)
-- [Chemical / Site Exchange](exchange.md)
-- [Internal / Susceptibility Gradients](internal_gradients.md)
-- [Bipolar 13-Interval PGSTE](bipolar_pgste.md)
+
+### Choose a physical model
+
 - [J-Coupling Models](j_coupling.md)
 - [Hyperpolarization and Singlet States](hyperpolarization.md)
 - [NQR Models](nqr.md)
 - [ESR Models](esr.md)
+- [Chemical / Site Exchange](exchange.md)
+- [Internal / Susceptibility Gradients](internal_gradients.md)
+- [Bipolar 13-Interval PGSTE](bipolar_pgste.md)
+
+### Build sequences and systems
+
 - [Phase Cycling Findings](phase_cycling.md)
 - [Sequence IR and Pulseq Import](sequence_ir.md)
+- [Cross-Component Composition](composition.md)
+- [Image-Guided Magnetic Therapy](../image_guided_magnetic_therapy.md)
+- [Analysis](analysis.md)
+
+### Look up and validate
+
+- [Parameters](parameters.md)
+- [Core Numerical Functions](core.md)
 - [API Reference](api_reference.md)
 - [Performance](performance.md)
 - [Validation](validation.md)
 - [Known Gaps](known_gaps.md)
+- [Deprecation Policy](deprecation_policy.md)
+- [Development Environment](../development_environment.md)
 
 ## Current Supported Surface
 

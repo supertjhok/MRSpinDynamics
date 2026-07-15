@@ -1,9 +1,13 @@
-# Electropermanent AlNiCo magnets
+# Electropermanent Magnets: Hardware and Field Models
 
 PythonSpinDynamics models the static geometry, programming electronics, thermal
 response, and protocol-calibrated retained state of electropermanent magnets
 (EPMs). The current implementation targets AlNiCo rods and close-packed rod
 bundles used as reconfigurable `B0` sources.
+
+This page is the hardware and actuator reference. For nonlinear particle
+imaging, closed-loop delivery, and dynamic-inversion stability, use the
+[Image-Guided Magnetic Therapy guide](image_guided_magnetic_therapy.md).
 
 ## Why retained state is separate from material data
 

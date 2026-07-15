@@ -3,9 +3,19 @@
 The pages in this site are the searchable web edition of the
 PythonSpinDynamics manual. Start with [Concepts and Units](concepts.md), then use
 the [Unified Experiment Workflow](experiment_workflow.md) and
-[Examples](examples.md) for practical work. The [API Reference](api_reference.md)
-and [Validation Evidence](validation.md) document the implemented surface and
-the evidence behind it.
+[Examples](examples.md) for practical work. The navigation follows the same
+task-to-model flow as the print edition:
+
+1. orientation and experiment planning;
+2. experiments, sequences, and imaging;
+3. coupled-spin, NQR, ESR, relaxation, and spatial physics;
+4. fields, hardware, and image-guided magnetic therapy;
+5. pulse design and optimization; and
+6. API and validation reference.
+
+The [API Reference](api_reference.md) and
+[Validation Evidence](validation.md) document the implemented surface and the
+evidence behind it.
 
 [Download the PDF print edition](../user_manual.pdf){ .md-button .md-button--primary }
 
@@ -79,6 +89,17 @@ B0 banding and B1 shading in images, then shows the phase-cycled correction.
 The solenoid example closes the loop from geometry to inductance, AC loss,
 quality factor, self-resonance, and probe loading.
 
+### Image-guided magnetic therapy
+
+![Dynamic-inversion stability across particle shapes and hardware architectures](../images/example_epm_dynamic_inversion.png)
+
+The therapy workflow now has a dedicated
+[system guide](../image_guided_magnetic_therapy.md) connecting nonlinear EPM
+imaging, particle transport, feedback control, dynamic trapping, and the
+coil/EPM/hybrid hardware trade. The figure compares particle orientation memory
+and concentration stability while keeping inferred actuator assumptions
+visible.
+
 ### Single-sided NMR fields
 
 ![NMR-MOUSE B0, gradient, B1, and frequency-selected sensitive slices](../images/example_nmr_mouse_fields.png)
@@ -120,6 +141,8 @@ to a Faraday coil as the precession field falls and the line narrows.
 
 - [NQR-to-NMR crossover and powder relaxation](nqr.md)
 - [Workflow catalog](workflows.md)
-- [Fields and hardware models](../field_solvers_quasistatic.md)
+- [Image-guided magnetic therapy](../image_guided_magnetic_therapy.md)
+- [Electropermanent hardware and field models](../electropermanent_magnets.md)
+- [Coils and quasistatic field solvers](../field_solvers_quasistatic.md)
 - [Known gaps](known_gaps.md)
 - [Validation results](../validation_results.md)

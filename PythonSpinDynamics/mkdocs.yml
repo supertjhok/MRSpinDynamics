@@ -80,50 +80,60 @@ exclude_docs: |
 
 nav:
   - Home: index.md
-  - Start Here:
+  - Orientation:
       - Installation: python_api/installation.md
       - Capability overview: python_api/index.md
       - Concepts and units: python_api/concepts.md
       - Unified experiment workflow: python_api/experiment_workflow.md
-      - Examples: python_api/examples.md
-      - Workflow catalog: python_api/workflows.md
       - Print manual: python_api/manual.md
-  - API and Models:
-      - API reference: python_api/api_reference.md
-      - Core numerical functions: python_api/core.md
-      - Parameters: python_api/parameters.md
+  - Experiments and Sequences:
+      - Workflow catalog: python_api/workflows.md
+      - Runnable examples: python_api/examples.md
       - Sequence IR and Pulseq: python_api/sequence_ir.md
       - Phase cycling: python_api/phase_cycling.md
-      - Cross-component composition: python_api/composition.md
-      - Analysis: python_api/analysis.md
-  - Physics:
-      - NQR and quadrupolar NMR: python_api/nqr.md
-      - Powder relaxation methods: nqr_powder_relaxation_methods.md
+      - Imaging and system design:
+          - Portable Halbach MRI: portable_halbach_adaptive_mri.md
+          - Q-space imaging robustness: qspace_imaging_robustness.md
+      - Signal analysis: python_api/analysis.md
+  - Physical Models:
+      - Coupled spins and hyperpolarization:
+          - J-coupling models: python_api/j_coupling.md
+          - Hyperpolarization and singlets: python_api/hyperpolarization.md
+      - NQR and quadrupolar NMR:
+          - NQR models and workflows: python_api/nqr.md
+          - Powder relaxation methods: nqr_powder_relaxation_methods.md
       - ESR and EPR: python_api/esr.md
-      - Chemical and site exchange: python_api/exchange.md
-      - J coupling: python_api/j_coupling.md
-      - Hyperpolarization and singlets: python_api/hyperpolarization.md
-      - Internal gradients: python_api/internal_gradients.md
-      - Bipolar PGSTE: python_api/bipolar_pgste.md
-      - Radiation damping: radiation_damping.md
-      - Relaxation validation: relaxation_validation.md
-  - Fields and Hardware:
-      - Electropermanent AlNiCo magnets: electropermanent_magnets.md
-      - Gradient-coil design: gradient_coil_design.md
-      - Gradient-coil engineering: gradient_coil_engineering.md
-      - Quasistatic field solvers: field_solvers_quasistatic.md
-      - Reduced scalar potential 3-D: reduced_scalar_potential_3d.md
-      - Coil properties: coil_properties.md
-      - PEEC coil models: coil_peec.md
-      - Non-inductive detection: non_inductive_detection.md
-      - Spin noise: spin_noise.md
-      - Thermal modeling: thermal_modeling.md
-      - Flow modeling: flow_modeling.md
-  - Design and Imaging:
+      - Relaxation and feedback:
+          - Chemical and site exchange: python_api/exchange.md
+          - Radiation damping: radiation_damping.md
+          - Relaxation validation: relaxation_validation.md
+      - Spatial dynamics:
+          - Internal gradients: python_api/internal_gradients.md
+          - Bipolar PGSTE: python_api/bipolar_pgste.md
+          - Flowing samples: flow_modeling.md
+  - Fields, Hardware, and Therapy:
+      - Image-guided magnetic therapy: image_guided_magnetic_therapy.md
+      - Magnetic field sources:
+          - Electropermanent magnets: electropermanent_magnets.md
+          - Gradient-coil design: gradient_coil_design.md
+          - Reduced scalar potential 3-D: reduced_scalar_potential_3d.md
+      - Coils and electromagnetics:
+          - Gradient-coil engineering: gradient_coil_engineering.md
+          - Quasistatic field solvers: field_solvers_quasistatic.md
+          - Coil properties: coil_properties.md
+          - PEEC coil models: coil_peec.md
+          - Thermal modeling: thermal_modeling.md
+      - Detection and noise:
+          - Non-inductive detection: non_inductive_detection.md
+          - Spin noise: spin_noise.md
+  - Pulse Design and Optimization:
       - Optimal-control hardware response: optimal_control_hardware_response.md
       - PGSE diffusion optimal control: optimal_control_pgse_diffusion.md
-      - Portable Halbach MRI: portable_halbach_adaptive_mri.md
-      - Q-space imaging robustness: qspace_imaging_robustness.md
+  - API Reference:
+      - Generated API reference: python_api/api_reference.md
+      - Core numerical functions: python_api/core.md
+      - Parameters: python_api/parameters.md
+      - Cross-component composition: python_api/composition.md
   - Validation:
       - Validation guide: python_api/validation.md
       - Evidence matrix: validation_matrix.md
