@@ -63,6 +63,7 @@ extra_javascript:
 exclude_docs: |
   generated/
   assets/logo-options/
+  electropermanent_mri_therapy_plan.md
   migration_plan.md
   nqr_module_plan.md
   nqr_nmr_crossover_plan.md
