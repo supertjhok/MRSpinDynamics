@@ -152,7 +152,7 @@
         "tests/test_electropermanent.py::test_far_field_matches_magnetic_dipole_limit"
       ],
       "references": ["Biot-Savart circular-loop solution", "Ideal Halbach dipole symmetry", "Weinberg Medical Physics variable-field NMR AlNiCo rod measurements"],
-      "limitations": ["Static field evaluation consumes a retained state supplied directly or by the separate programming calibration; it does not solve self-demagnetizing and neighbor-coupled internal fields self-consistently."]
+      "limitations": ["Static field evaluation consumes a retained state supplied directly or by a programming model; quasistatic self-demagnetizing and neighbor coupling are handled by the separate coupled programmer rather than the field evaluator itself."]
     },
     {
       "id": "electropermanent_programming",
@@ -171,7 +171,27 @@
         "tests/test_electropermanent_pulses.py::test_published_protocol_zero_crossing_updates_state_and_history"
       ],
       "references": ["Weinberg archive MRI/IGBT_board/experimental results.pdf", "Weinberg archive NQR_proposal_2019 demagnetization figure", "Series-RLC transient solution"],
-      "limitations": ["Effective L/R/C values are inferred fits rather than independently measured parameters for every trace; the three-anchor remanence envelope is not raw hysteresis data and cannot predict arbitrary minor loops or neighbor-coupled programming."]
+      "limitations": ["Effective L/R/C values are inferred fits rather than independently measured parameters for every trace; the three-anchor remanence envelope is not raw hysteresis data and cannot predict arbitrary minor loops. The separate return-point model is currently illustrative rather than measured."]
+    },
+    {
+      "id": "electropermanent_return_point_coupling",
+      "component": "Electropermanent return-point memory and neighbor coupling",
+      "claim": "Weighted play operators close nested reversal loops exactly and obey wiping-out, while finite-geometry two-element coupling has the expected symmetry and sign and the self-demagnetizing programming fixed point converges.",
+      "evidence_types": ["A", "R"],
+      "basis": "Scalar play-operator return-point identities, finite-magnet dipole symmetry, and explicit fixed-point residual checks.",
+      "parameter_range": "Illustrative six-operator AlNiCo model over plus/minus 400 kA/m, side-by-side finite rods, optional diagonal demagnetizing factors, and one programmed target per solve.",
+      "metric": "Loop-closure error, retained remanence, coupling-matrix sign and symmetry, iteration count, and fixed-point residual",
+      "tolerance": "Machine precision for exact nested-loop closure; geometry-specific symmetry tolerances and 1 uT retained-remanence convergence in regression tests.",
+      "status": "partially_validated",
+      "reproducers": [
+        "tests/test_electropermanent_hysteresis.py::test_return_to_nested_reversal_restores_operator_state_exactly",
+        "tests/test_electropermanent_hysteresis.py::test_exceeding_outer_return_point_wipes_inner_memory",
+        "tests/test_electropermanent_hysteresis.py::test_geometry_coupling_is_symmetric_and_equatorial_field_is_opposed",
+        "tests/test_electropermanent_hysteresis.py::test_saturated_neighbor_changes_partial_programming_result",
+        "tests/test_electropermanent_hysteresis.py::test_self_demagnetizing_fixed_point_converges"
+      ],
+      "references": ["Scalar play-operator hysteresis and return-point memory", "Finite magnetic-dipole interaction symmetry"],
+      "limitations": ["The bundled thresholds, weights, saturation remanence, and temperature coefficient are illustrative inferred values rather than a measured AlNiCo minor-loop fit; coupling treats neighbors as static retained-field sources during each programmed pulse and omits transient coil cross-talk and neighbor-state disturbance."]
     },
     {
       "id": "coil_peec",

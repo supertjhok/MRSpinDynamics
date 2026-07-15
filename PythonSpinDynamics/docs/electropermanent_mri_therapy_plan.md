@@ -23,8 +23,14 @@ Implementation progress as of 2026-07-15:
   interpolation with branch/polarity guards, uncertainty, and reversal-point
   recording. The published preset intentionally uses only three defensible
   anchors because the raw demagnetization samples remain unavailable.
-- **Next:** return-point hysteresis and neighbor-coupled programming, followed
-  by hybrid NdFeB/AlNiCo sub-units and the full 72-element array.
+- **Complete at mathematical tier:** weighted play-operator return-point memory,
+  wiping-out, temperature-scaled saturation, geometry-derived neighbor
+  coupling, optional self-demagnetizing diagonals, and fixed-point coupling of
+  state-dependent inductance, pulse waveform, bias field, and retained state.
+  The built-in play distribution remains explicitly illustrative because raw
+  minor-loop calibration data are unavailable.
+- **Next:** measured minor-loop calibration and transient neighbor disturbance,
+  followed by hybrid NdFeB/AlNiCo sub-units and the full 72-element array.
 
 The textbook starting point is Section 11.2, printed pages 603--604, of
 `References/Measurements_Book_2_Final_WEB.pdf`.  Figure 11.6 describes an

@@ -274,10 +274,12 @@ Remaining gaps:
   see `docs/electropermanent_magnets.md`) model finite rods and bundles, field
   maps and composition adapters, capacitor/H-bridge/RLC programming pulses,
   passive recovery, lumped pulse heating, and protocol-scoped empirical state
-  transitions. The remaining gaps are raw demagnetization/minor-loop data,
-  return-point hysteresis, repeated-pulse retention, self-consistent neighbor
-  coupling, switching-loss temperature impulses, and conductive-shield eddy
-  loss;
+  transitions. Weighted play operators now provide return-point memory, and a
+  quasistatic fixed-point solve couples self/neighbor fields, state-dependent
+  inductance, and retained state. The remaining gaps are measured
+  demagnetization/minor-loop calibration, repeated-pulse retention, transient
+  programming-coil cross-talk and neighbor-state disturbance, switching-loss
+  temperature impulses, and conductive-shield eddy loss;
 - flowing-sample modeling (`spin_dynamics.flow`, see `docs/flow_modeling.md`)
   covers plug and laminar pipe flow -- washout during acquisition, transit-time
   inflow polarization, and thermal advection (lumped `flow_conductance` plus a

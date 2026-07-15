@@ -20,9 +20,9 @@ what supports the underlying scientific or numerical claim.
 
 ## Coverage Summary
 
-- 27 capability-level claims
+- 28 capability-level claims
 - 14 validated
-- 8 partially validated
+- 9 partially validated
 - 5 regression-only
 
 | Component | Claim | Evidence | Status |
@@ -36,6 +36,7 @@ what supports the underlying scientific or numerical claim.
 | Flow washout and transit polarization | Plug and laminar pipe washout and flux-weighted transit polarization follow their analytical distributions and Monte Carlo estimates. | **A**, **C** | validated |
 | Magnetostatic field solvers | Biot-Savart coil fields and selected magnet geometries reproduce analytical center-field, symmetry, scaling, finite-length, and far-field limits; the documented AlNiCo electropermanent rod also reproduces its published surface-field benchmark. | **A**, **D** | validated |
 | Electropermanent programming pulses and retained state | The NumPy capacitor/H-bridge/series-RLC integrator reproduces the exact underdamped current solution and configuration-specific fits recover the archived 220/400/600-V peak-current examples; empirical remanence updates enforce their calibrated branch, polarity, range, uncertainty, and provenance. | **A**, **E**, **R** | partially validated |
+| Electropermanent return-point memory and neighbor coupling | Weighted play operators close nested reversal loops exactly and obey wiping-out, while finite-geometry two-element coupling has the expected symmetry and sign and the self-demagnetizing programming fixed point converges. | **A**, **R** | partially validated |
 | PEEC coil impedance and parasitics | PEEC inductance/resistance trends agree with analytical kernels and selected independent QOIL, FastHenry, and FasterCap comparisons. | **C**, **A** | partially validated |
 | Thermal networks, conduction, and electromagnets | Lumped, one-dimensional, axisymmetric, perfused, and advective thermal models reproduce closed-form limits; coupled electromagnets recover exact RL and electrothermal fixed points, and selected conduction cases are cross-checked with FEMM. | **A**, **C** | validated |
 | NQR Hamiltonians and pulse models | Spin-1 and spin-3/2 transition conventions, powder weights, selective pulses, and SORC/SLSE limits reproduce analytical and published theory results. | **A**, **D** | partially validated |
@@ -151,7 +152,7 @@ what supports the underlying scientific or numerical claim.
 - **Tolerance:** Geometry/discretization-specific tolerances declared in tests.
 - **References:** Biot-Savart circular-loop solution; Ideal Halbach dipole symmetry; Weinberg Medical Physics variable-field NMR AlNiCo rod measurements
 - **Reproduce:** [`tests/test_magnetostatics.py::test_loop_center_matches_analytic`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_magnetostatics.py#L27); [`tests/test_magnetostatics.py::test_field_scales_with_current`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_magnetostatics.py#L36); [`tests/test_magnetostatics.py::test_four_rod_halbach_phasing_points_bore_field_along_x`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_magnetostatics.py#L105); [`tests/test_electropermanent.py::test_published_rod_matches_reported_surface_field_scale`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_electropermanent.py#L53); [`tests/test_electropermanent.py::test_cubature_converges_to_exact_on_axis_cylinder_field`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_electropermanent.py#L63); [`tests/test_electropermanent.py::test_far_field_matches_magnetic_dipole_limit`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_electropermanent.py#L88)
-- **Limitations:** Static field evaluation consumes a retained state supplied directly or by the separate programming calibration; it does not solve self-demagnetizing and neighbor-coupled internal fields self-consistently.
+- **Limitations:** Static field evaluation consumes a retained state supplied directly or by a programming model; quasistatic self-demagnetizing and neighbor coupling are handled by the separate coupled programmer rather than the field evaluator itself.
 
 ### Electropermanent programming pulses and retained state
 
@@ -163,7 +164,19 @@ what supports the underlying scientific or numerical claim.
 - **Tolerance:** 2e-8 relative for the analytical RLC waveform; 4 percent for configuration-specific archived peak-current fits; exact protocol guards and interpolation anchors.
 - **References:** Weinberg archive MRI/IGBT_board/experimental results.pdf; Weinberg archive NQR_proposal_2019 demagnetization figure; Series-RLC transient solution
 - **Reproduce:** [`tests/test_electropermanent_pulses.py::test_drive_matches_exact_underdamped_series_rlc_current`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_electropermanent_pulses.py#L48); [`tests/test_electropermanent_pulses.py::test_archived_peak_current_cases_match_configuration_specific_fits`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_electropermanent_pulses.py#L149); [`tests/test_electropermanent_pulses.py::test_recovery_path_decays_current_and_closes_energy_balance`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_electropermanent_pulses.py#L91); [`tests/test_electropermanent_pulses.py::test_published_protocol_zero_crossing_updates_state_and_history`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_electropermanent_pulses.py#L213)
-- **Limitations:** Effective L/R/C values are inferred fits rather than independently measured parameters for every trace; the three-anchor remanence envelope is not raw hysteresis data and cannot predict arbitrary minor loops or neighbor-coupled programming.
+- **Limitations:** Effective L/R/C values are inferred fits rather than independently measured parameters for every trace; the three-anchor remanence envelope is not raw hysteresis data and cannot predict arbitrary minor loops. The separate return-point model is currently illustrative rather than measured.
+
+### Electropermanent return-point memory and neighbor coupling
+
+- **Claim:** Weighted play operators close nested reversal loops exactly and obey wiping-out, while finite-geometry two-element coupling has the expected symmetry and sign and the self-demagnetizing programming fixed point converges.
+- **Evidence:** A, R (partially validated)
+- **Basis:** Scalar play-operator return-point identities, finite-magnet dipole symmetry, and explicit fixed-point residual checks.
+- **Tested range:** Illustrative six-operator AlNiCo model over plus/minus 400 kA/m, side-by-side finite rods, optional diagonal demagnetizing factors, and one programmed target per solve.
+- **Metric:** Loop-closure error, retained remanence, coupling-matrix sign and symmetry, iteration count, and fixed-point residual
+- **Tolerance:** Machine precision for exact nested-loop closure; geometry-specific symmetry tolerances and 1 uT retained-remanence convergence in regression tests.
+- **References:** Scalar play-operator hysteresis and return-point memory; Finite magnetic-dipole interaction symmetry
+- **Reproduce:** [`tests/test_electropermanent_hysteresis.py::test_return_to_nested_reversal_restores_operator_state_exactly`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_electropermanent_hysteresis.py#L43); [`tests/test_electropermanent_hysteresis.py::test_exceeding_outer_return_point_wipes_inner_memory`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_electropermanent_hysteresis.py#L62); [`tests/test_electropermanent_hysteresis.py::test_geometry_coupling_is_symmetric_and_equatorial_field_is_opposed`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_electropermanent_hysteresis.py#L140); [`tests/test_electropermanent_hysteresis.py::test_saturated_neighbor_changes_partial_programming_result`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_electropermanent_hysteresis.py#L153); [`tests/test_electropermanent_hysteresis.py::test_self_demagnetizing_fixed_point_converges`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_electropermanent_hysteresis.py#L209)
+- **Limitations:** The bundled thresholds, weights, saturation remanence, and temperature coefficient are illustrative inferred values rather than a measured AlNiCo minor-loop fit; coupling treats neighbors as static retained-field sources during each programmed pulse and omits transient coil cross-talk and neighbor-state disturbance.
 
 ### PEEC coil impedance and parasitics
 

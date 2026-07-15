@@ -73,6 +73,15 @@ from spin_dynamics.fields.electropermanent import (
     variable_field_nmr_rod,
     weinberg_37_rod_bundle,
 )
+from spin_dynamics.fields.electropermanent_hysteresis import (
+    CoupledEPMProgrammer,
+    CoupledProgrammingResult,
+    PlayHysteresisModel,
+    ReturnPointState,
+    ReturnPointTrace,
+    illustrative_alnico_return_point_model,
+    neighbor_coupling_matrix,
+)
 from spin_dynamics.fields.electropermanent_pulses import (
     EmpiricalProgrammingCalibration,
     ProgrammingPulse,
@@ -320,6 +329,13 @@ __all__ = [
     "variable_field_nmr_rod",
     "weinberg_37_rod_bundle",
     "sample_electropermanent_field",
+    "ReturnPointState",
+    "ReturnPointTrace",
+    "PlayHysteresisModel",
+    "illustrative_alnico_return_point_model",
+    "neighbor_coupling_matrix",
+    "CoupledProgrammingResult",
+    "CoupledEPMProgrammer",
     "PulseThermalState",
     "ProgrammingPulse",
     "PulsePowerDriver",

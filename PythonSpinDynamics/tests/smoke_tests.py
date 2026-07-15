@@ -19,6 +19,10 @@ from tests.test_composition import (
 )
 from tests.test_examples import ExampleSmokeTests
 from tests.test_electropermanent import ElectropermanentRodFieldTests
+from tests.test_electropermanent_hysteresis import (
+    NeighborCouplingTests,
+    PlayHysteresisTests,
+)
 from tests.test_electropermanent_pulses import (
     EmpiricalProgrammingTests,
     PulseArchiveRegressionTests,
@@ -155,6 +159,16 @@ def load_tests(
     suite.addTest(
         EmpiricalProgrammingTests(
             "test_published_protocol_zero_crossing_updates_state_and_history"
+        )
+    )
+    suite.addTest(
+        PlayHysteresisTests(
+            "test_return_to_nested_reversal_restores_operator_state_exactly"
+        )
+    )
+    suite.addTest(
+        NeighborCouplingTests(
+            "test_saturated_neighbor_changes_partial_programming_result"
         )
     )
     return suite

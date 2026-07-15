@@ -119,8 +119,8 @@ all three traces used identical coils and wiring.
 
 `state_inductance_fraction_at_saturation` provides a documented fixed-state
 inductance hook for one pulse. `bias_field_a_per_m` adds a static neighbor or
-demagnetizing contribution to the reported internal field. These hooks make the
-coupling explicit; they do not yet solve state and field self-consistently.
+demagnetizing contribution to the reported internal field. These hooks can be
+used directly, or assembled into the self-consistent iteration described below.
 
 ## Empirical retained-state transitions
 
@@ -154,6 +154,58 @@ the preset uses only those three anchors with graphical-extraction uncertainty.
 It is an inferred envelope, not a digitized raw dataset or a general minor-loop
 hysteresis model. Applying it with the wrong initial branch or polarity raises
 an error.
+
+## Return-point memory and neighbor coupling
+
+`PlayHysteresisModel` represents rate-independent return-point memory with a
+weighted collection of scalar play operators. For threshold `r_i`, each hidden
+coordinate is advanced by
+
+```text
+y_i <- max(H - r_i, min(H + r_i, y_i_previous)),
+Br  = Br_sat(T) sum_i w_i clip(y_i / r_i, -1, 1).
+```
+
+This construction closes nested reversal loops exactly and wipes an inner loop
+when the field exceeds its enclosing reversal. `ReturnPointState` keeps the
+hidden coordinates and reversal stack separate from the public
+`RemanenceState`; `ReturnPointTrace` returns both retained remanence and applied
+field histories. `illustrative_alnico_return_point_model()` is a numerically
+useful preset, but its thresholds and weights are inferred and are **not** a
+fit to measured AlNiCo minor loops.
+
+`neighbor_coupling_matrix()` derives the axial field at every source from a
+unit retained remanence in every other finite EPM. Off-diagonal entries have
+units `(A/m)/T`. An optional demagnetizing-factor vector adds diagonal
+`-N / mu0` terms. `CoupledEPMProgrammer` then iterates the retained states,
+state-dependent winding inductance, pulse waveform, and static internal bias to
+a declared remanence tolerance.
+
+```python
+from spin_dynamics.fields import (
+    CoupledEPMProgrammer,
+    illustrative_alnico_return_point_model,
+    neighbor_coupling_matrix,
+)
+
+sources = (target_rod, neighbor_rod)
+coupling = neighbor_coupling_matrix(sources, demagnetizing_factors=(0.02, 0.02))
+programmer = CoupledEPMProgrammer(
+    sources,
+    (driver, driver),
+    (illustrative_alnico_return_point_model(),) * 2,
+    coupling,
+)
+result = programmer.program(
+    0, times, target_pulse, states=initial_return_point_states
+)
+updated_sources = result.final_sources
+```
+
+The present coupling is quasistatic during each fixed-point iteration: the
+neighbor contributes its retained field, while the target experiences its
+realized programming waveform. It does not yet solve transient programming-coil
+cross-talk or pulse-driven changes in a neighbor's hidden hysteresis state.
 
 ## Imaging and motion compatibility
 
@@ -215,20 +267,38 @@ python examples\plot_electropermanent_programming.py \
 
 ![Electropermanent programming-pulse model](images/example_electropermanent_programming.png)
 
+The return-point example exercises nested loops and programs one of two
+side-by-side rods while sweeping the retained state of its neighbor:
+
+```powershell
+python examples\plot_electropermanent_return_point.py \
+  --separation-mm 80 \
+  --output results\electropermanent_return_point.png
+```
+
+The six panels show the illustrative major loop, exact minor-loop closure,
+geometry-derived interaction matrix, neighbor-biased pulse responses, the
+programmed state versus neighbor remanence, and the resulting static field.
+
+![Electropermanent return-point and neighbor model](images/example_electropermanent_return_point.png)
+
 ## Current limitations and next phase
 
 The current phase still has important limits:
 
 - the three-anchor demagnetization envelope is protocol-specific and cannot
   predict arbitrary minor loops or repeated reversals;
-- reversal points are recorded, but a Preisach/play/stop return-point model is
-  not yet implemented;
-- neighbor fields and state-dependent inductance are explicit inputs rather
-  than a self-consistent magnetic/circuit iteration;
+- the weighted-play preset demonstrates return-point behavior, but raw
+  AlNiCo minor-loop data are still needed to calibrate its thresholds, weights,
+  temperature dependence, and uncertainty;
+- neighbor and self-demagnetizing fields participate in a converged quasistatic
+  programming iteration, but transient coil cross-talk and pulse-driven changes
+  of neighboring hidden states are not represented;
 - discrete switching loss is included in cumulative driver energy but not
   deposited as a time-resolved temperature impulse; and
 - conductive shielding is not yet connected to transient eddy-current loss.
 
-The next phase is a calibrated return-point model followed by a two-element
-neighbor interaction. Raw minor-loop or repeated-pulse measurements are needed
-before either can become a quantitative default.
+The next phase is measured minor-loop calibration and transient two-element
+interaction, followed by hybrid/array programming. Raw minor-loop,
+repeated-pulse, and cross-talk measurements are needed before those models can
+be quantitative defaults.

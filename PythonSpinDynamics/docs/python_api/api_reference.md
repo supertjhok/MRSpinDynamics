@@ -743,6 +743,18 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `ElectropermanentFieldMaps` | Sampled EPM field with adapters to existing MR field containers. |
 | function | `sample_electropermanent_field(axes: Sequence[Sequence[float] | np.ndarray], sources: Sequence[ElectropermanentSource], *, cartesian_axes: Sequence[int] | None = None, field_direction: Sequence[float] = (0.0, 0.0, 1.0), n_cross: int = 7, n_length: int = 31, chunk_size: int = 4096, gyromagnetic_ratio: float = GAMMA_PROTON) -> ElectropermanentFieldMaps` | Sample an EPM assembly onto a 1-D, 2-D, or 3-D Cartesian grid. |
 
+## `spin_dynamics.fields.electropermanent_hysteresis`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `ReturnPointState` | Internal play-operator state plus the public retained remanence. |
+| class | `ReturnPointTrace` | Applied H history, retained-remanence trajectory, and final memory. |
+| class | `PlayHysteresisModel` | Weighted scalar play operators with exact return-point memory. |
+| function | `illustrative_alnico_return_point_model() -> PlayHysteresisModel` | Return a qualitative AlNiCo play model, not a measured calibration. |
+| function | `neighbor_coupling_matrix(sources: Sequence[ElectropermanentSource], *, self_demagnetizing_factors: Sequence[float] | None = None, n_cross: int = 5, n_length: int = 21) -> np.ndarray` | Return axial H-bias coupling in ``(A/m)/T`` of retained remanence. |
+| class | `CoupledProgrammingResult` | Fixed-point result for one programmed element in an interacting array. |
+| class | `CoupledEPMProgrammer` | Self-consistent circuit/hysteresis update for interacting EPM elements. |
+
 ## `spin_dynamics.fields.electropermanent_pulses`
 
 | Kind | Name | Summary |

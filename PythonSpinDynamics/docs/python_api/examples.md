@@ -620,6 +620,25 @@ hooks, and cumulative pulse heating. The example explicitly labels the
 three-anchor remanence curve as an inferred envelope rather than raw hysteresis
 data.
 
+## Electropermanent Return-Point and Neighbor Programming
+
+This example adds rate-independent return-point memory and a geometry-derived
+two-element programming interaction. Weighted play operators demonstrate exact
+nested-loop closure and wiping-out, while a fixed-point solve couples retained
+remanence, self/neighbor bias, state-dependent winding inductance, and the
+realized programming pulse.
+
+```powershell
+python examples\plot_electropermanent_return_point.py --output results\electropermanent_return_point.png
+```
+
+Use `--separation-mm` to change the side-by-side rod spacing and
+`--neighbor-samples` to control the neighbor-remanence sweep. The six panels
+show the illustrative major loop, nested minor loops, coupling geometry,
+neighbor-biased pulse waveforms, final target remanence, and the corresponding
+static field. The bundled thresholds and weights are explicitly inferred, not
+a measured AlNiCo minor-loop fit.
+
 ## Electrothermal Electromagnet B0 Source
 
 This example builds a 30 mT air-core solenoid from the existing Biot-Savart
