@@ -94,6 +94,7 @@ nav:
       - Imaging and system design:
           - Portable Halbach MRI: portable_halbach_adaptive_mri.md
           - Q-space imaging robustness: qspace_imaging_robustness.md
+          - Image-guided magnetic therapy: image_guided_magnetic_therapy.md
       - Signal analysis: python_api/analysis.md
   - Physical Models:
       - Coupled spins and hyperpolarization:
