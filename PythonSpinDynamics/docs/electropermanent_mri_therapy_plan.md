@@ -60,23 +60,25 @@ Implementation progress as of 2026-07-16:
   image-estimate-program-transport-verify cycles; image-derived stopping and
   re-aiming; explicit truth-only estimator diagnostics; mode timing; and
   retained-state programming effort.
-- **Complete at first physical particle-contrast tier:** selected-state EPM B0
+- **Complete at physical particle-sequence comparison tier:** selected-state EPM B0
   maps, field-dependent equivalent-sphere dipole perturbations, spatial
-  subvoxel off-resonance, finite-pulse paired spin-warp acquisitions, tissue
-  T1/T2, diffusing water walkers, reconstructed negative contrast, resolved
-  susceptibility foci, and controller feedback from contrast centroids. The
-  implementation preserves the direct-signal model as an explicit baseline.
+  subvoxel off-resonance, finite-pulse paired spin echo and GRE, GRE
+  phase-gradient positive contrast, center-out radial 11 microsecond imaging,
+  tissue T1/T2, diffusing water walkers, reconstructed contrast, resolved
+  susceptibility foci, truth-only centroid/focus metrics, and controller
+  feedback from contrast centroids. The implementation preserves both the
+  direct-signal model and spin echo as explicit baselines.
 - **Complete at dynamic-inversion mechanism tier:** rigid ferromagnetic sphere
   and finite-cylinder hydrodynamics; separate body and magnetic-moment angles;
   Brownian translation/rotation; finite internal moment relaxation; the
   published polarize-delay-antialigned-gradient timing; non-sticky stability
   and escape metrics; and coil, EPM-only, and hybrid switching assessments.
-- **Next:** compare the spin-echo baseline against GRE/UTE and phase-gradient
-  positive-contrast sequences; add rod-orientation and aggregation-dependent
-  fields; then calibrate with measured coil/EPM B0/B1 maps, particle
-  magnetization/relaxivity data, experimental estimator validation, and
-  vascular/tissue delivery physics. Measured minor loops and coupling matrices
-  remain parallel calibration work.
+- **Next:** calibrate absolute, bandwidth- and scan-time-matched receiver noise;
+  add measured field-dependent r1/r2/r2-star and steady-state short-TE contrast;
+  add rod-orientation and aggregation-dependent fields; then validate the
+  estimator with measured coil/EPM B0/B1 maps and phantom images. Vascular and
+  tissue delivery physics, measured minor loops, and coupling matrices remain
+  parallel calibration work.
 
 The textbook starting point is Section 11.2, printed pages 603--604, of
 `References/Measurements_Book_2_Final_WEB.pdf`.  Figure 11.6 describes an

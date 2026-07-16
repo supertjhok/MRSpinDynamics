@@ -761,6 +761,25 @@ blooming make the inferred centroid substantially less accurate than the ideal
 direct-signal baseline. Use `--snr-db` to add complex k-space noise and
 `--core-radius-um` to test detectability versus aggregate size.
 
+## Susceptibility Particle-Localization Sequence Comparison
+
+This example holds the EPM B0 state, aggregate cloud, particle dipole field,
+tissue maps, subvoxel sampling, water diffusion, and random seed fixed while it
+compares spin echo, Cartesian gradient echo, GRE phase-gradient mapping, and
+center-out radial short-TE imaging.
+
+```powershell
+python examples\plot_epm_particle_sequence_comparison.py --output results\epm_particle_sequence_comparison.png
+```
+
+The figure reports centroid error, a symmetric nearest-focus error, center
+k-space time, and focus count. In the default susceptibility-only case spin
+echo has the lowest centroid error, phase-gradient processing improves raw GRE,
+and the 11 microsecond radial acquisition generates extra artifact foci. The
+short-TE path does not invent T1 relaxivity; quantitative positive UTE contrast
+requires measured r1/r2-star data. Optional `--snr-db` is relative to each
+sequence separately, not an absolute scan-time-matched noise model.
+
 ## Dynamic-Inversion Particle Trap
 
 This example replaces irreversible target capture with explicit particle-body

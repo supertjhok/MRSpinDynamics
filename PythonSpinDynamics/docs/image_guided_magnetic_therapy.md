@@ -11,11 +11,10 @@ concentration of particles. The transport model represents it internally with
 continuous particle positions. Two deliberately separate imaging models are
 available. The original **direct-signal baseline** assigns calibrated positive
 signal to particle density; it tests encoding, reconstruction, and feedback in
-isolation. The newer **susceptibility spin-echo model** gives particles no
-signal of their own. Their field-dependent dipole moments perturb tissue B0,
-and a finite 90-degree--180-degree spin-warp sequence turns that perturbation
-into excitation/refocusing loss, distortion, intravoxel dephasing, and
-diffusion-mediated attenuation.
+isolation. The newer **susceptibility imaging model** gives particles no signal
+of their own. Their field-dependent dipole moments perturb tissue B0, and a
+selected spin echo, gradient echo, phase-gradient map, or radial short-TE
+acquisition turns that perturbation into measurable tissue-signal contrast.
 
 The controller also reconstructs a **tissue-contrast image** to identify the
 target. Tissue contrast and particle concentration are separate measurement
@@ -63,7 +62,7 @@ The implemented system is organized as five successive layers:
    a spatial field and gradient from an explicit hardware state.
 2. **Image formation.** The tissue target uses nonlinear EPM encoding. Particle
    imaging can use either the direct-signal baseline or paired susceptibility-
-   aware spin echoes under an actual selected EPM B0 state.
+   aware acquisitions under an actual selected EPM B0 state.
 3. **Transport.** Superparamagnetic particles move under magnetic force,
    background flow, Brownian diffusion, and reflecting boundaries.
 4. **Feedback control.** The reconstructed tissue image supplies the target;
@@ -148,9 +147,9 @@ This baseline should be used when the question is whether the inverse problem
 and controller wiring work. It should not be used to predict particle
 detectability.
 
-## Susceptibility-aware spin-echo imaging
+## Susceptibility-aware MR imaging
 
-`run_epm_particle_susceptibility_spin_echo` is the physical-contrast path. It
+`run_epm_particle_susceptibility_imaging` is the physical-contrast path. It
 uses the selected retained EPM state to calculate the background B0 map and
 then evaluates the field-dependent moment of every magnetic aggregate with the
 same Langevin or linear magnetization law used for transport. Each aggregate is
@@ -163,13 +162,12 @@ the projected perturbation is
 \]
 
 The simulator samples that field at multiple subvoxel locations and removes
-water signal from samples inside a magnetic core. It then runs
-paired particle-free and particle-present spin-warp acquisitions with finite
-90-degree and 180-degree pulses, phase encoding, frequency-encoded readout,
-tissue T1/T2, and explicit diffusing water walkers. The paired magnitude
-difference supplies a non-negative contrast map. Connected contrast regions
-provide resolved foci, while contrast-weighted whole-cloud and outside-target
-centroids provide controller inputs.
+water signal from samples inside a magnetic core. It then runs paired
+particle-free and particle-present acquisitions with finite RF pulses, tissue
+T1/T2, and explicit diffusing water walkers. A support mask derived from the
+particle-free reference excludes locations with no observable tissue signal.
+Connected contrast regions provide resolved foci, while contrast-weighted
+whole-cloud and outside-target centroids provide controller inputs.
 
 ```bash
 python examples/plot_epm_particle_spin_echo.py \
@@ -197,6 +195,48 @@ and quantitative ultrashort-TE nanoparticle imaging
 ([Gharagouzloo et al., 2015](https://doi.org/10.1002/mrm.25426)). Spin echo is
 therefore retained as the first physical baseline, not presumed to be the final
 particle-localization sequence.
+
+### Sequence comparison
+
+The physical model now preserves spin echo and adds three alternatives:
+
+| Sequence | Particle contrast used here | Main tradeoff |
+|---|---|---|
+| Spin echo | Particle-free minus particle-present magnitude | Refocuses static B0 error, but suppresses susceptibility sensitivity |
+| Gradient echo | Particle-free minus particle-present magnitude | Retains susceptibility dephasing, but background B0 also causes signal loss |
+| GRE phase gradient | Magnitude-weighted spatial gradient of the paired complex phase | Converts dipole phase boundaries into positive contrast without phase unwrapping |
+| Radial short TE | Paired magnitude difference from immediate center-out spokes | Samples k-space center at 11 microseconds, but undersampling and ringing can create false foci |
+
+All four paths use the same EPM state, particle dipole field, tissue maps,
+subvoxel samples, and diffusion seed. Run the comparison with:
+
+```bash
+python examples/plot_epm_particle_sequence_comparison.py \
+  --output results/epm_particle_sequence_comparison.png
+```
+
+![Particle localization sequence comparison](images/example_epm_particle_sequence_comparison.png)
+
+For the bundled 16-by-16, 4 mT, 100 micrometre-core diagnostic with receiver
+noise disabled, the results are:
+
+| Sequence | Center-k-space time | Centroid error | Symmetric focus error | Resolved foci |
+|---|---:|---:|---:|---:|
+| Spin echo | 3000 us | 1.97 mm | 7.42 mm | 7 |
+| Gradient echo | 1575 us | 6.10 mm | 8.77 mm | 8 |
+| GRE phase gradient | 1575 us | 4.64 mm | 8.58 mm | 5 |
+| Radial short TE | 11 us | 5.63 mm | 11.44 mm | 17 |
+
+Spin echo wins the centroid metric in this particular susceptibility-only
+low-field example; the phase-gradient map improves on raw GRE. Radial short TE
+preserves the fastest-decaying signal but does not automatically make that
+signal particle-specific, so its spoke undersampling and background structure
+produce extra foci. The implementation deliberately does **not** infer the
+positive T1 effect used by quantitative UTE contrast-enhanced methods: doing so
+requires measured field-dependent r1/r2-star relaxivities and an appropriate
+steady-state preparation model. If `--snr-db` is supplied, it sets the same
+relative complex SNR independently for each acquisition; it is not yet an
+absolute bandwidth- and scan-time-matched receiver-noise comparison.
 
 ## Image-guided particle transport
 
@@ -236,11 +276,13 @@ centroid error by cycle. It is still a synthetic proof of mechanism: particle
 contrast, noise, model mismatch, and biological transport need
 experiment-specific calibration.
 
-Set `particle_imaging_model="susceptibility_spin_echo"` and supply tissue
-proton-density, T1, and T2 maps to drive the same steering loop from the paired
-physical-contrast acquisition. In that mode the reported target fraction is a
-fraction of recovered susceptibility contrast, not a calibrated particle count;
-blooming can move contrast across the target boundary.
+Set `particle_imaging_model="susceptibility"`, choose
+`particle_susceptibility_sequence`, and supply tissue proton-density, T1, and
+T2 maps to drive the same steering loop from a paired physical-contrast
+acquisition. The legacy `susceptibility_spin_echo` model name remains accepted.
+The reported target fraction is a fraction of recovered susceptibility
+contrast, not a calibrated particle count; blooming can move contrast across
+the target boundary.
 
 ## Dynamic-inversion trapping
 

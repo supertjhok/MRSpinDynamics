@@ -20,6 +20,11 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
   subvoxel dephasing, finite-pulse paired spin echoes, tissue relaxation, and
   diffusing water. The ideal direct-signal model remains available as the
   controller baseline.
+- Extended that physical particle-imaging tier with Cartesian gradient echo,
+  paired GRE phase-gradient positive contrast, and center-out radial 11
+  microsecond imaging. A shared example compares centroid and symmetric-focus
+  localization errors while preserving spin echo as the default; the
+  controller can select any implemented sequence.
 - Added a dynamic-inversion magnetic-particle trap to PythonSpinDynamics with
   rigid sphere/finite-cylinder hydrodynamics, coupled body and moment rotation,
   Brownian motion, finite internal relaxation, non-sticky stability metrics,

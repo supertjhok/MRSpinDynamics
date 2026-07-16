@@ -12,6 +12,8 @@ sys.path.insert(0, str(ROOT / "src"))
 from spin_dynamics.workflows import (
     imaging_slice_sensitivity,
     make_imaging_field_maps,
+    run_gradient_echo_imaging,
+    run_radial_ute_imaging,
     run_rare_imaging,
     run_spin_warp_imaging,
 )
@@ -56,6 +58,33 @@ class FrequencyEncodedImagingTests(unittest.TestCase):
         # A single point is a clean delta: the next-brightest pixel is negligible.
         second = np.sort(magnitude.ravel())[-2]
         self.assertLess(second, 1e-6 * magnitude.max())
+
+    def test_gradient_echo_localizes_a_point_without_refocusing(self) -> None:
+        rho = np.zeros((8, 8))
+        rho[5, 2] = 1.0
+        result = run_gradient_echo_imaging(rho, fov=(0.02, 0.02))
+
+        peak = np.unravel_index(int(np.argmax(result.magnitude[:, :, 0])), rho.shape)
+        self.assertEqual(peak, (5, 2))
+        self.assertEqual(result.method, "gradient_echo")
+        self.assertLess(result.echo_spacing, 2e-3)
+
+    def test_radial_ute_localizes_a_point_at_short_echo_time(self) -> None:
+        rho = np.zeros((8, 8))
+        rho[5, 2] = 1.0
+        result = run_radial_ute_imaging(
+            rho,
+            fov=(0.02, 0.02),
+            num_spokes=24,
+            radial_samples=6,
+            regularization=1e-5,
+        )
+
+        peak = np.unravel_index(int(np.argmax(result.magnitude)), rho.shape)
+        self.assertEqual(peak, (5, 2))
+        self.assertLess(result.echo_time_s, 20e-6)
+        self.assertEqual(result.samples.size, 24 * 7)
+        np.testing.assert_allclose(result.reconstruct(), result.image)
 
     def test_spin_warp_recovers_phantom(self) -> None:
         rho = _phantom()

@@ -9,6 +9,8 @@ cannot express.
 
 * ``run_spin_warp_imaging`` -- a spin echo per phase-encode line: readout along
   x, phase encode along z. One image needs ``pz`` excitations.
+* ``run_gradient_echo_imaging`` -- the matched Cartesian gradient-echo
+  acquisition without a 180-degree pulse.
 * ``run_rare_imaging`` -- Rapid Acquisition with Relaxation Enhancement (a.k.a.
   fast spin echo): a CPMG echo train where each echo reads a different k-space
   line, so ``echo_train_length`` lines are filled per excitation. The image is
@@ -60,6 +62,47 @@ class FrequencyEncodedImagingResult:
         """Return the complex image (alias for the stored reconstruction)."""
 
         return self.image[:, :, 0]
+
+
+@dataclass(frozen=True)
+class RadialUTEImagingResult:
+    """Finite-pulse center-out radial short-TE acquisition and reconstruction."""
+
+    samples: np.ndarray
+    trajectory_rad_m: np.ndarray
+    encoding_matrix: np.ndarray
+    image: np.ndarray
+    magnitude: np.ndarray
+    rho: np.ndarray
+    fov: tuple[float, float]
+    num_spokes: int
+    radial_samples: int
+    echo_time_s: float
+    readout_time_s: float
+    excitation_duration_s: float
+    flip_angle_rad: float
+    regularization: float
+    num_offsets: int
+    offset_spread: float
+    diffusion_coefficient: float
+    walkers_per_cell: int
+
+    def reconstruct(
+        self,
+        samples: np.ndarray | None = None,
+        *,
+        regularization: float | None = None,
+    ) -> np.ndarray:
+        """Reconstruct supplied or stored non-Cartesian samples."""
+
+        data = self.samples if samples is None else np.asarray(samples, dtype=np.complex128)
+        penalty = self.regularization if regularization is None else float(regularization)
+        return _reconstruct_radial_samples(
+            self.encoding_matrix,
+            data,
+            self.rho.shape,
+            penalty,
+        )
 
 
 @dataclass(frozen=True)
@@ -182,6 +225,7 @@ def run_rare_imaging(
     walkers_per_cell: int = 1,
     seed: int | None = None,
     jitter: bool = False,
+    refocusing: bool = True,
     gamma: float = 2.675e8,
     substeps_per_interval: int = 1,
 ) -> FrequencyEncodedImagingResult:
@@ -218,6 +262,10 @@ def run_rare_imaging(
     spin-echo attenuation when water diffuses through a spatially varying B0
     field.  ``seed`` makes the walker initialization and propagation
     reproducible; ``jitter`` distributes walkers within their source voxels.
+
+    ``refocusing=False`` selects a single Cartesian gradient echo and requires
+    ``echo_train_length=1``. The same finite RF, B0, subvoxel, diffusion, and
+    readout models remain active.
     """
 
     rho_arr, t1_arr, t2_arr, b0_arr, b1_tx_arr, b1_rx_arr = _resolve_maps(
@@ -240,6 +288,8 @@ def run_rare_imaging(
         raise ValueError("diffusion_coefficient must be finite and non-negative")
     if int(walkers_per_cell) != walkers_per_cell or walkers_per_cell < 1:
         raise ValueError("walkers_per_cell must be a positive integer")
+    if not refocusing and int(echo_train_length) != 1:
+        raise ValueError("gradient echo requires echo_train_length=1")
     offset_maps = None
     if subvoxel_b0_offsets is not None:
         offset_maps = np.asarray(subvoxel_b0_offsets, dtype=np.float64)
@@ -286,7 +336,13 @@ def run_rare_imaging(
 
     schedule = _phase_encode_schedule(pz, echo_train_length, phase_encode_order)
     num_shots = len(schedule)
-    echo_spacing = refocusing_duration + 2.0 * phase_time + readout_time
+    if refocusing:
+        echo_spacing = refocusing_duration + 2.0 * phase_time + readout_time
+    else:
+        center_sample = (px // 2 + 1) / px
+        echo_spacing = (
+            0.5 * excitation_duration + phase_time + center_sample * readout_time
+        )
     sub = int(substeps_per_interval)
 
     def _shot_steps(lines: list[int]) -> list[MotionSequenceStep]:
@@ -299,7 +355,7 @@ def run_rare_imaging(
                 label="excitation_90",
             ),
         ]
-        if pre_180_gap > 0.0:
+        if refocusing and pre_180_gap > 0.0:
             steps.append(
                 MotionSequenceStep(
                     duration=pre_180_gap, substeps=max(1, sub), label="te_centering"
@@ -307,15 +363,18 @@ def run_rare_imaging(
             )
         for line in lines:
             moment_pe = (line - pz // 2) * dk_z / phase_time
-            steps.extend(
-                [
+            if refocusing:
+                steps.append(
                     MotionSequenceStep(
                         duration=refocusing_duration,
                         rf_amplitude=np.pi / refocusing_duration,
                         rf_phase=0.0,
                         substeps=max(1, sub),
                         label="refocus_180",
-                    ),
+                    )
+                )
+            steps.extend(
+                [
                     # x pre-dephase + z phase encode together (two-axis gradient).
                     MotionSequenceStep(
                         duration=phase_time,
@@ -422,7 +481,11 @@ def run_rare_imaging(
         line_echo_time=line_echo_time,
         fov=(fov_x, fov_z),
         echo_spacing=echo_spacing,
-        method="rare" if echo_train_length > 1 else "spin_warp",
+        method=(
+            "rare"
+            if echo_train_length > 1
+            else ("spin_warp" if refocusing else "gradient_echo")
+        ),
         num_offsets=int(offsets.shape[0]),
         offset_spread=reported_spread,
         offset_model=offset_model,
@@ -441,7 +504,237 @@ def run_spin_warp_imaging(rho, **kwargs) -> FrequencyEncodedImagingResult:
 
     kwargs.pop("echo_train_length", None)
     kwargs.pop("phase_encode_order", None)
-    return run_rare_imaging(rho, echo_train_length=1, **kwargs)
+    kwargs.pop("refocusing", None)
+    return run_rare_imaging(rho, echo_train_length=1, refocusing=True, **kwargs)
+
+
+def run_gradient_echo_imaging(rho, **kwargs) -> FrequencyEncodedImagingResult:
+    """Simulate one Cartesian gradient echo per phase-encode line.
+
+    Unlike ``run_spin_warp_imaging``, this sequence has no 180-degree pulse, so
+    static susceptibility phase and intravoxel dephasing remain at readout.
+    ``echo_spacing`` on the result stores the center-k-space echo time.
+    """
+
+    kwargs.pop("echo_train_length", None)
+    kwargs.pop("phase_encode_order", None)
+    kwargs.pop("refocusing", None)
+    return run_rare_imaging(rho, echo_train_length=1, refocusing=False, **kwargs)
+
+
+def _reconstruct_radial_samples(
+    encoding_matrix: np.ndarray,
+    samples: np.ndarray,
+    shape: tuple[int, int],
+    regularization: float,
+) -> np.ndarray:
+    matrix = np.asarray(encoding_matrix, dtype=np.complex128)
+    data = np.asarray(samples, dtype=np.complex128)
+    if data.shape != (matrix.shape[0],) or np.any(~np.isfinite(data)):
+        raise ValueError("samples must be finite and match the radial trajectory")
+    penalty_fraction = float(regularization)
+    if not np.isfinite(penalty_fraction) or penalty_fraction < 0.0:
+        raise ValueError("regularization must be finite and non-negative")
+    normal = matrix.conj().T @ matrix
+    scale = float(np.linalg.norm(matrix, ord=2) ** 2)
+    normal += penalty_fraction * scale * np.eye(matrix.shape[1])
+    estimate = np.linalg.solve(normal, matrix.conj().T @ data)
+    return estimate.reshape(shape)
+
+
+def run_radial_ute_imaging(
+    rho,
+    *,
+    t1_map=None,
+    t2_map=None,
+    b0_map=None,
+    b1_tx_map=None,
+    b1_rx_map=None,
+    fov: tuple[float, float] = (0.02, 0.02),
+    num_spokes: int | None = None,
+    radial_samples: int | None = None,
+    excitation_duration: float = 20e-6,
+    readout_time: float = 0.4e-3,
+    center_dwell: float = 1e-6,
+    flip_angle: float = np.pi / 6.0,
+    regularization: float = 1e-4,
+    subvoxel_b0_offsets=None,
+    subvoxel_density_weights=None,
+    diffusion_coefficient: float = 0.0,
+    walkers_per_cell: int = 1,
+    seed: int | None = None,
+    jitter: bool = False,
+    gamma: float = 2.675e8,
+    substeps_per_interval: int = 1,
+) -> RadialUTEImagingResult:
+    """Simulate a finite-pulse center-out radial short-TE acquisition.
+
+    Each spoke starts from equilibrium, applies one finite RF excitation, takes
+    a near-zero-gradient center sample, and immediately reads radially outward.
+    This is a mechanistic UTE-like acquisition rather than a steady-state SPGR
+    model: TR saturation and concentration-dependent T1 relaxivity are not
+    inferred. Spatial subvoxel B0 offsets, water exclusion, and random-walker
+    diffusion follow the Cartesian imaging conventions.
+    """
+
+    rho_arr, t1_arr, t2_arr, b0_arr, b1_tx_arr, b1_rx_arr = _resolve_maps(
+        rho, t1_map, t2_map, b0_map, b1_tx_map, b1_rx_map
+    )
+    px, pz = rho_arr.shape
+    fov_x, fov_z = float(fov[0]), float(fov[1])
+    if fov_x <= 0.0 or fov_z <= 0.0:
+        raise ValueError("fov entries must be positive")
+    spokes = 2 * max(px, pz) if num_spokes is None else int(num_spokes)
+    samples_per_spoke = (
+        max(px, pz) // 2 if radial_samples is None else int(radial_samples)
+    )
+    if spokes < 4 or samples_per_spoke < 2:
+        raise ValueError("num_spokes must be at least 4 and radial_samples at least 2")
+    if excitation_duration <= 0.0 or readout_time <= 0.0 or center_dwell <= 0.0:
+        raise ValueError("UTE timing values must be positive")
+    if not np.isfinite(flip_angle) or not 0.0 < flip_angle <= np.pi:
+        raise ValueError("flip_angle must be in (0, pi]")
+    if int(walkers_per_cell) != walkers_per_cell or walkers_per_cell < 1:
+        raise ValueError("walkers_per_cell must be a positive integer")
+    diffusion = float(diffusion_coefficient)
+    if not np.isfinite(diffusion) or diffusion < 0.0:
+        raise ValueError("diffusion_coefficient must be finite and non-negative")
+
+    if subvoxel_b0_offsets is None:
+        offsets = np.zeros((1, px, pz), dtype=np.float64)
+    else:
+        offsets = np.asarray(subvoxel_b0_offsets, dtype=np.float64)
+        if (
+            offsets.ndim != 3
+            or offsets.shape[1:] != rho_arr.shape
+            or offsets.shape[0] < 1
+            or np.any(~np.isfinite(offsets))
+        ):
+            raise ValueError(
+                "subvoxel_b0_offsets must be finite with shape (samples, px, pz)"
+            )
+    if subvoxel_density_weights is None:
+        density_weights = np.ones_like(offsets)
+    else:
+        density_weights = np.asarray(subvoxel_density_weights, dtype=np.float64)
+        if (
+            density_weights.shape != offsets.shape
+            or np.any(~np.isfinite(density_weights))
+            or np.any(density_weights < 0.0)
+        ):
+            raise ValueError(
+                "subvoxel_density_weights must be finite, non-negative, and "
+                "match subvoxel_b0_offsets"
+            )
+
+    x_axis = (np.arange(px) - px // 2) * (fov_x / px)
+    z_axis = (np.arange(pz) - pz // 2) * (fov_z / pz)
+    x_grid, z_grid = np.meshgrid(x_axis, z_axis, indexing="ij")
+    positions = np.column_stack((x_grid.ravel(), z_grid.ravel()))
+    dx = fov_x / px
+    dz = fov_z / pz
+    k_max = np.pi / min(dx, dz)
+    radii = np.linspace(k_max / samples_per_spoke, k_max, samples_per_spoke)
+    angles = np.linspace(0.0, 2.0 * np.pi, spokes, endpoint=False)
+    trajectory_parts: list[np.ndarray] = []
+    for angle in angles:
+        direction = np.asarray((np.cos(angle), np.sin(angle)))
+        trajectory_parts.append(np.zeros((1, 2)))
+        trajectory_parts.append(radii[:, None] * direction[None, :])
+    trajectory = np.vstack(trajectory_parts)
+    encoding_matrix = np.exp(-1j * (trajectory @ positions.T))
+
+    t1_particles = np.repeat(t1_arr.reshape(-1), int(walkers_per_cell))
+    t2_particles = np.repeat(t2_arr.reshape(-1), int(walkers_per_cell))
+    accumulated = np.zeros(trajectory.shape[0], dtype=np.complex128)
+    substeps = max(1, int(substeps_per_interval))
+    for offset_index, (offset, density_weight) in enumerate(
+        zip(offsets, density_weights)
+    ):
+        sample_seed = None if seed is None else int(seed) + offset_index
+        ensemble = initialize_ensemble_from_density(
+            rho_arr * density_weight,
+            x_axis,
+            z_axis,
+            walkers_per_cell=int(walkers_per_cell),
+            diffusion_coefficient=diffusion,
+            seed=sample_seed,
+            jitter=bool(jitter),
+        )
+        fields = make_motion_field_maps_2d(
+            x_axis,
+            z_axis,
+            b0_map=b0_arr + offset,
+            b1_tx_map=b1_tx_arr,
+            b1_rx_map=b1_rx_arr,
+        )
+        motion_rng = np.random.default_rng(sample_seed)
+        cursor = 0
+        for angle in angles:
+            direction = np.asarray((np.cos(angle), np.sin(angle)))
+            steps = (
+                MotionSequenceStep(
+                    duration=excitation_duration,
+                    rf_amplitude=float(flip_angle) / excitation_duration,
+                    rf_phase=np.pi / 2.0,
+                    substeps=substeps,
+                    label="ute_excitation",
+                ),
+                MotionSequenceStep(
+                    duration=center_dwell,
+                    acquire=True,
+                    num_samples=1,
+                    substeps=1,
+                    label="ute_center",
+                ),
+                MotionSequenceStep(
+                    duration=readout_time,
+                    gradient=tuple((k_max / readout_time) * direction),
+                    acquire=True,
+                    num_samples=samples_per_spoke,
+                    substeps=substeps,
+                    label="ute_center_out_readout",
+                ),
+            )
+            sequence = run_motion_sequence(
+                ensemble,
+                fields,
+                steps,
+                rng=motion_rng,
+                t1=t1_particles,
+                t2=t2_particles,
+                default_substeps=substeps,
+            )
+            count = 1 + samples_per_spoke
+            accumulated[cursor : cursor + count] += sequence.signal
+            cursor += count
+    accumulated /= float(offsets.shape[0])
+    image = _reconstruct_radial_samples(
+        encoding_matrix,
+        accumulated,
+        rho_arr.shape,
+        regularization,
+    )
+    return RadialUTEImagingResult(
+        samples=accumulated,
+        trajectory_rad_m=trajectory,
+        encoding_matrix=encoding_matrix,
+        image=image,
+        magnitude=np.abs(image),
+        rho=rho_arr,
+        fov=(fov_x, fov_z),
+        num_spokes=spokes,
+        radial_samples=samples_per_spoke,
+        echo_time_s=0.5 * float(excitation_duration) + float(center_dwell),
+        readout_time_s=float(readout_time),
+        excitation_duration_s=float(excitation_duration),
+        flip_angle_rad=float(flip_angle),
+        regularization=float(regularization),
+        num_offsets=int(offsets.shape[0]),
+        offset_spread=float(np.max(np.abs(offsets))),
+        diffusion_coefficient=diffusion,
+        walkers_per_cell=int(walkers_per_cell),
+    )
 
 
 def imaging_slice_sensitivity(

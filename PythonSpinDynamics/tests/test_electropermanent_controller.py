@@ -17,6 +17,7 @@ from spin_dynamics.workflows import (
     random_epm_encoding_states,
     run_epm_image_guided_controller,
     run_epm_particle_imaging,
+    run_epm_particle_susceptibility_imaging,
     run_epm_particle_susceptibility_spin_echo,
     simple_tissue_phantom,
 )
@@ -190,6 +191,54 @@ class EPMParticleSusceptibilitySpinEchoTests(unittest.TestCase):
         self.assertGreater(result.estimate.resolved_focus_count, 0)
         self.assertLess(result.centroid_error_m, 12e-3)
 
+    def test_gre_ute_and_phase_gradient_share_physical_particle_model(self) -> None:
+        phantom = simple_tissue_phantom(8, field_of_view_m=0.032)
+        basis = illustrative_hybrid_epm_array().build_field_basis(
+            phantom.points_m,
+            n_cross=1,
+            n_length=3,
+        )
+        states = random_epm_encoding_states(basis, 64, seed=8)
+        encoding = build_epm_nonlinear_encoding(
+            basis,
+            states,
+            image_shape=phantom.shape,
+        )
+        state_index = int(
+            np.argmax(np.mean(np.abs(encoding.projected_fields_t), axis=1))
+        )
+        positions = np.asarray(((-4e-3, 0.0), (4e-3, 0.0)))
+        results = {}
+        for sequence in ("gradient_echo", "phase_gradient", "radial_ute"):
+            results[sequence] = run_epm_particle_susceptibility_imaging(
+                encoding,
+                positions,
+                phantom.x_m,
+                phantom.y_m,
+                self.particle,
+                phantom.proton_density,
+                phantom.t1_s,
+                phantom.t2_s,
+                sequence=sequence,
+                target_center_m=(4e-3, 0.0),
+                target_radius_m=3e-3,
+                imaging_state_index=state_index,
+                subvoxel_grid_size=2,
+                water_walkers_per_voxel=1,
+                sequence_substeps=1,
+                ute_num_spokes=16,
+                ute_radial_samples=4,
+                snr_db=None,
+            )
+
+        for sequence, result in results.items():
+            self.assertEqual(result.sequence, sequence)
+            self.assertGreater(float(np.max(result.contrast_image)), 0.0)
+            self.assertGreater(result.estimate.resolved_focus_count, 0)
+            self.assertTrue(np.isfinite(result.focus_chamfer_error_m))
+        self.assertIsNotNone(results["phase_gradient"].phase_gradient_image_rad_m)
+        self.assertLess(results["radial_ute"].echo_time_s, 20e-6)
+
 
 class EPMTherapyControllerTests(unittest.TestCase):
     @classmethod
@@ -286,7 +335,7 @@ class EPMTherapyControllerTests(unittest.TestCase):
         self.assertLess(first.centroid_error_m, max(first.estimate.spatial_resolution_m))
         self.assertEqual(first.ground_truth_capture_fraction, 0.0)
 
-    def test_controller_can_use_susceptibility_spin_echo_feedback(self) -> None:
+    def test_controller_can_use_phase_gradient_susceptibility_feedback(self) -> None:
         physical_particle = SuperparamagneticParticle(
             magnetic_core_radius_m=60e-6,
             hydrodynamic_radius_m=75e-6,
@@ -310,7 +359,8 @@ class EPMTherapyControllerTests(unittest.TestCase):
                 transport_window_s=10.0,
                 transport_time_step_s=1.0,
                 target_radius_m=4.2e-3,
-                particle_imaging_model="susceptibility_spin_echo",
+                particle_imaging_model="susceptibility",
+                particle_susceptibility_sequence="phase_gradient",
                 particle_spin_echo_subvoxel_grid_size=2,
                 particle_spin_echo_walkers_per_voxel=2,
                 particle_spin_echo_substeps=1,
@@ -323,6 +373,7 @@ class EPMTherapyControllerTests(unittest.TestCase):
         )
 
         cycle = result.cycles[0]
+        self.assertEqual(cycle.particle_imaging_before.sequence, "phase_gradient")
         self.assertEqual(
             cycle.particle_imaging_before.particle_acquisition.offset_model,
             "spatial",

@@ -110,10 +110,13 @@ from spin_dynamics.workflows.electropermanent_particle_imaging import (
     run_epm_particle_imaging,
 )
 from spin_dynamics.workflows.electropermanent_particle_spin_echo import (
+    ParticleMRSequence,
     ParticleSpinEchoEstimate2D,
+    ParticleSusceptibilityImagingResult,
     ParticleSusceptibilitySpinEchoResult,
     estimate_particles_from_spin_echo_contrast,
     particle_dipole_field_samples,
+    run_epm_particle_susceptibility_imaging,
     run_epm_particle_susceptibility_spin_echo,
 )
 from spin_dynamics.workflows.electropermanent_dynamic_inversion import (
@@ -137,9 +140,12 @@ from spin_dynamics.workflows.electropermanent_transport import (
 )
 from spin_dynamics.workflows.imaging_frequency import (
     FrequencyEncodedImagingResult,
+    RadialUTEImagingResult,
     SliceSensitivityResult,
     imaging_slice_sensitivity,
+    run_gradient_echo_imaging,
     run_rare_imaging,
+    run_radial_ute_imaging,
     run_spin_warp_imaging,
 )
 from spin_dynamics.workflows.bssfp import (
@@ -311,6 +317,8 @@ EXTENDED_WORKFLOW_API = (
     "EPMParticleImagingResult",
     "ParticleStateEstimate2D",
     "ParticleSpinEchoEstimate2D",
+    "ParticleMRSequence",
+    "ParticleSusceptibilityImagingResult",
     "ParticleSusceptibilitySpinEchoResult",
     "estimate_particle_state_from_image",
     "estimate_particles_from_spin_echo_contrast",
@@ -318,6 +326,7 @@ EXTENDED_WORKFLOW_API = (
     "particle_dipole_field_samples",
     "run_epm_particle_imaging",
     "run_epm_particle_susceptibility_spin_echo",
+    "run_epm_particle_susceptibility_imaging",
     "DynamicInversionHardwareAssessment",
     "DynamicInversionHardwareConfig",
     "DynamicInversionResult",
@@ -439,6 +448,7 @@ LEGACY_SWEEP_API = (
 )
 
 __all__ = [
+    "ParticleMRSequence",
     "CPMGResult",
     "CPMGIRTrainResult",
     "CPMGRelaxationSweepResult",
@@ -456,6 +466,7 @@ __all__ = [
     "EPMParticleImagingResult",
     "ParticleStateEstimate2D",
     "ParticleSpinEchoEstimate2D",
+    "ParticleSusceptibilityImagingResult",
     "ParticleSusceptibilitySpinEchoResult",
     "DynamicInversionHardwareAssessment",
     "DynamicInversionHardwareConfig",
@@ -489,6 +500,7 @@ __all__ = [
     "simulate_bloch_siegert_phase_sweep",
     "DDEWalkerResult",
     "FrequencyEncodedImagingResult",
+    "RadialUTEImagingResult",
     "GradientMoments",
     "SliceSensitivityResult",
     "OGSEWalkerResult",
@@ -586,9 +598,12 @@ __all__ = [
     "run_pgse_walkers",
     "run_pgste_walkers",
     "run_rare_imaging",
+    "run_gradient_echo_imaging",
+    "run_radial_ute_imaging",
     "run_epm_nonlinear_imaging",
     "run_epm_particle_imaging",
     "run_epm_particle_susceptibility_spin_echo",
+    "run_epm_particle_susceptibility_imaging",
     "simulate_magnetophoretic_transport",
     "run_epm_image_guided_controller",
     "assess_dynamic_inversion_hardware",

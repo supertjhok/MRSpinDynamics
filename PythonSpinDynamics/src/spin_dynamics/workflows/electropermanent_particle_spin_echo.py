@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import Literal
 
 import numpy as np
 
@@ -31,15 +32,28 @@ from spin_dynamics.workflows.electropermanent_transport import (
 from spin_dynamics.workflows.imaging import reconstruct_image_from_kspace
 from spin_dynamics.workflows.imaging_frequency import (
     FrequencyEncodedImagingResult,
+    RadialUTEImagingResult,
+    run_gradient_echo_imaging,
+    run_radial_ute_imaging,
     run_spin_warp_imaging,
 )
 
 __all__ = [
+    "ParticleMRSequence",
     "ParticleSpinEchoEstimate2D",
+    "ParticleSusceptibilityImagingResult",
     "ParticleSusceptibilitySpinEchoResult",
     "estimate_particles_from_spin_echo_contrast",
     "particle_dipole_field_samples",
+    "run_epm_particle_susceptibility_imaging",
     "run_epm_particle_susceptibility_spin_echo",
+]
+
+ParticleMRSequence = Literal[
+    "spin_echo",
+    "gradient_echo",
+    "radial_ute",
+    "phase_gradient",
 ]
 
 
@@ -232,14 +246,17 @@ class ParticleSpinEchoEstimate2D:
 
 @dataclass(frozen=True)
 class ParticleSusceptibilitySpinEchoResult:
-    """Paired spin-echo acquisitions and truth-only validation diagnostics."""
+    """Paired physical-contrast acquisitions and truth-only diagnostics."""
 
-    reference_acquisition: FrequencyEncodedImagingResult
-    particle_acquisition: FrequencyEncodedImagingResult
+    sequence: ParticleMRSequence
+    reference_acquisition: FrequencyEncodedImagingResult | RadialUTEImagingResult
+    particle_acquisition: FrequencyEncodedImagingResult | RadialUTEImagingResult
     reference_image: np.ndarray
     particle_image: np.ndarray
     signed_contrast_image: np.ndarray
     contrast_image: np.ndarray
+    phase_gradient_image_rad_m: np.ndarray | None
+    reference_support_mask: np.ndarray
     background_field_t: np.ndarray
     particle_delta_b0_samples_t: np.ndarray
     particle_water_mask_samples: np.ndarray
@@ -252,8 +269,10 @@ class ParticleSusceptibilitySpinEchoResult:
 
     @property
     def echo_time_s(self) -> float:
-        """Time of the single acquired spin echo."""
+        """Center-k-space echo time for the selected acquisition."""
 
+        if isinstance(self.particle_acquisition, RadialUTEImagingResult):
+            return self.particle_acquisition.echo_time_s
         return self.particle_acquisition.echo_spacing
 
     @property
@@ -262,6 +281,20 @@ class ParticleSusceptibilitySpinEchoResult:
 
         truth = np.mean(self.ground_truth_positions_m, axis=0)
         return float(np.linalg.norm(self.estimate.centroid_m - truth))
+
+    @property
+    def focus_chamfer_error_m(self) -> float:
+        """Symmetric nearest-neighbour error between foci and hidden particles."""
+
+        foci = self.estimate.positions_m
+        truth = self.ground_truth_positions_m
+        if foci.size == 0:
+            return float(np.inf)
+        distance = np.linalg.norm(foci[:, None, :] - truth[None, :, :], axis=2)
+        squared = np.concatenate(
+            (np.min(distance, axis=0) ** 2, np.min(distance, axis=1) ** 2)
+        )
+        return float(np.sqrt(np.mean(squared)))
 
     @property
     def ground_truth_capture_fraction(self) -> float:
@@ -276,6 +309,9 @@ class ParticleSusceptibilitySpinEchoResult:
     @property
     def capture_fraction_error(self) -> float:
         return self.estimate.capture_fraction - self.ground_truth_capture_fraction
+
+
+ParticleSusceptibilityImagingResult = ParticleSusceptibilitySpinEchoResult
 
 
 def _connected_components(mask: np.ndarray) -> list[np.ndarray]:
@@ -388,22 +424,53 @@ def estimate_particles_from_spin_echo_contrast(
 
 
 def _noisy_image(
-    acquisition: FrequencyEncodedImagingResult,
+    acquisition: FrequencyEncodedImagingResult | RadialUTEImagingResult,
     *,
     snr_db: float | None,
     seed: int,
 ) -> np.ndarray:
-    kspace = acquisition.kspace.copy()
+    data = (
+        acquisition.samples.copy()
+        if isinstance(acquisition, RadialUTEImagingResult)
+        else acquisition.kspace.copy()
+    )
     if snr_db is not None:
         if not np.isfinite(snr_db) or snr_db <= 0.0:
             raise ValueError("snr_db must be finite and positive")
-        rms = float(np.sqrt(np.mean(np.abs(kspace) ** 2)))
+        rms = float(np.sqrt(np.mean(np.abs(data) ** 2)))
         noise_std = rms * 10.0 ** (-float(snr_db) / 20.0) / np.sqrt(2.0)
         rng = np.random.default_rng(seed)
-        kspace += noise_std * (
-            rng.normal(size=kspace.shape) + 1j * rng.normal(size=kspace.shape)
+        data += noise_std * (
+            rng.normal(size=data.shape) + 1j * rng.normal(size=data.shape)
         )
-    return reconstruct_image_from_kspace(kspace, 0).T
+    if isinstance(acquisition, RadialUTEImagingResult):
+        return acquisition.reconstruct(data).T
+    return reconstruct_image_from_kspace(data, 0).T
+
+
+def _phase_gradient_contrast(
+    reference_image: np.ndarray,
+    particle_image: np.ndarray,
+    x_axis: np.ndarray,
+    y_axis: np.ndarray,
+) -> np.ndarray:
+    """Return magnitude-weighted phase-gradient contrast without unwrapping."""
+
+    epsilon = np.finfo(np.float64).eps
+    reference_power = np.abs(reference_image) ** 2
+    relative = particle_image * np.conj(reference_image) / (reference_power + epsilon)
+    derivative_y, derivative_x = np.gradient(relative, y_axis, x_axis, edge_order=1)
+    relative_power = np.abs(relative) ** 2 + epsilon
+    phase_gradient_x = np.imag(np.conj(relative) * derivative_x) / relative_power
+    phase_gradient_y = np.imag(np.conj(relative) * derivative_y) / relative_power
+    phase_gradient = np.sqrt(phase_gradient_x**2 + phase_gradient_y**2)
+    magnitude_weight = np.sqrt(
+        np.abs(reference_image) * np.abs(particle_image)
+    )
+    scale = float(np.percentile(magnitude_weight, 95.0))
+    if scale > 0.0:
+        magnitude_weight = np.clip(magnitude_weight / scale, 0.0, 1.0)
+    return phase_gradient * magnitude_weight
 
 
 def run_epm_particle_susceptibility_spin_echo(
@@ -418,6 +485,7 @@ def run_epm_particle_susceptibility_spin_echo(
     *,
     target_center_m: Sequence[float],
     target_radius_m: float,
+    sequence: ParticleMRSequence = "spin_echo",
     imaging_state_index: int = 0,
     subvoxel_grid_size: int = 3,
     magnetization_model: MagnetizationModel = "langevin",
@@ -425,19 +493,47 @@ def run_epm_particle_susceptibility_spin_echo(
     refocusing_duration_s: float = 200e-6,
     readout_time_s: float = 2e-3,
     phase_encoding_time_s: float = 0.4e-3,
+    ute_excitation_duration_s: float = 20e-6,
+    ute_readout_time_s: float = 0.4e-3,
+    ute_center_dwell_s: float = 1e-6,
+    ute_flip_angle_rad: float = np.pi / 6.0,
+    ute_num_spokes: int | None = None,
+    ute_radial_samples: int | None = None,
+    ute_regularization: float = 1e-4,
     water_diffusion_coefficient_m2_s: float = 2.3e-9,
     water_walkers_per_voxel: int = 4,
     sequence_substeps: int = 2,
     support_threshold_fraction: float = 0.10,
+    reference_support_threshold_fraction: float = 0.05,
     snr_db: float | None = 40.0,
     seed: int = 0,
     ground_truth_captured: Sequence[bool] | np.ndarray | None = None,
 ) -> ParticleSusceptibilitySpinEchoResult:
-    """Acquire paired reference/particle spin echoes and estimate particle foci."""
+    """Acquire paired physical-contrast images and estimate particle foci.
+
+    ``spin_echo`` preserves the original physical baseline. ``gradient_echo``
+    measures magnitude loss without refocusing, ``phase_gradient`` reconstructs
+    a positive contrast map from the paired complex GRE phase, and
+    ``radial_ute`` uses a center-out short-TE trajectory. The UTE option does not
+    invent concentration-dependent T1 relaxivity.
+    """
 
     x_axis = _axis(x_m, "x_m")
     y_axis = _axis(y_m, "y_m")
     positions = _positions(positions_m)
+    if sequence not in {
+        "spin_echo",
+        "gradient_echo",
+        "radial_ute",
+        "phase_gradient",
+    }:
+        raise ValueError("unsupported particle MR sequence")
+    reference_support_fraction = float(reference_support_threshold_fraction)
+    if (
+        not np.isfinite(reference_support_fraction)
+        or not 0.0 <= reference_support_fraction < 1.0
+    ):
+        raise ValueError("reference_support_threshold_fraction must be in [0, 1)")
     shape = (y_axis.size, x_axis.size)
     if tuple(encoding.image_shape) != shape:
         raise ValueError("encoding image shape must match x_m and y_m")
@@ -480,10 +576,6 @@ def run_epm_particle_susceptibility_spin_echo(
         t2_map=t2_map.T,
         b0_map=background_offresonance.T,
         fov=fov,
-        readout_time=readout_time_s,
-        phase_time=phase_encoding_time_s,
-        excitation_duration=excitation_duration_s,
-        refocusing_duration=refocusing_duration_s,
         gamma=float(GAMMA_PROTON),
         diffusion_coefficient=water_diffusion_coefficient_m2_s,
         walkers_per_cell=water_walkers_per_voxel,
@@ -492,17 +584,57 @@ def run_epm_particle_susceptibility_spin_echo(
         substeps_per_interval=sequence_substeps,
     )
     transposed_offsets = np.transpose(particle_offsets, (0, 2, 1))
-    reference_acquisition = run_spin_warp_imaging(
-        density.T,
-        subvoxel_b0_offsets=np.zeros_like(transposed_offsets),
-        **common,
-    )
-    particle_acquisition = run_spin_warp_imaging(
-        density.T,
-        subvoxel_b0_offsets=transposed_offsets,
-        subvoxel_density_weights=np.transpose(particle_water_masks, (0, 2, 1)),
-        **common,
-    )
+    transposed_water = np.transpose(particle_water_masks, (0, 2, 1))
+    if sequence == "radial_ute":
+        reference_acquisition = run_radial_ute_imaging(
+            density.T,
+            subvoxel_b0_offsets=np.zeros_like(transposed_offsets),
+            excitation_duration=ute_excitation_duration_s,
+            readout_time=ute_readout_time_s,
+            center_dwell=ute_center_dwell_s,
+            flip_angle=ute_flip_angle_rad,
+            num_spokes=ute_num_spokes,
+            radial_samples=ute_radial_samples,
+            regularization=ute_regularization,
+            **common,
+        )
+        particle_acquisition = run_radial_ute_imaging(
+            density.T,
+            subvoxel_b0_offsets=transposed_offsets,
+            subvoxel_density_weights=transposed_water,
+            excitation_duration=ute_excitation_duration_s,
+            readout_time=ute_readout_time_s,
+            center_dwell=ute_center_dwell_s,
+            flip_angle=ute_flip_angle_rad,
+            num_spokes=ute_num_spokes,
+            radial_samples=ute_radial_samples,
+            regularization=ute_regularization,
+            **common,
+        )
+    else:
+        cartesian_common = dict(
+            readout_time=readout_time_s,
+            phase_time=phase_encoding_time_s,
+            excitation_duration=excitation_duration_s,
+            refocusing_duration=refocusing_duration_s,
+            **common,
+        )
+        acquisition_function = (
+            run_spin_warp_imaging
+            if sequence == "spin_echo"
+            else run_gradient_echo_imaging
+        )
+        reference_acquisition = acquisition_function(
+            density.T,
+            subvoxel_b0_offsets=np.zeros_like(transposed_offsets),
+            **cartesian_common,
+        )
+        particle_acquisition = acquisition_function(
+            density.T,
+            subvoxel_b0_offsets=transposed_offsets,
+            subvoxel_density_weights=transposed_water,
+            **cartesian_common,
+        )
     reference_image = _noisy_image(
         reference_acquisition,
         snr_db=snr_db,
@@ -514,7 +646,22 @@ def run_epm_particle_susceptibility_spin_echo(
         seed=seed + 1,
     )
     signed_contrast = np.abs(reference_image) - np.abs(particle_image)
-    contrast = np.maximum(signed_contrast, 0.0)
+    phase_gradient = None
+    if sequence == "phase_gradient":
+        phase_gradient = _phase_gradient_contrast(
+            reference_image,
+            particle_image,
+            x_axis,
+            y_axis,
+        )
+        contrast = phase_gradient
+    else:
+        contrast = np.maximum(signed_contrast, 0.0)
+    reference_magnitude = np.abs(reference_image)
+    reference_support = reference_magnitude >= (
+        reference_support_fraction * float(np.max(reference_magnitude))
+    )
+    contrast = np.where(reference_support, contrast, 0.0)
     estimate = estimate_particles_from_spin_echo_contrast(
         contrast,
         x_axis,
@@ -529,12 +676,15 @@ def run_epm_particle_susceptibility_spin_echo(
         if captured.shape != (positions.shape[0],):
             raise ValueError("ground_truth_captured must match positions_m")
     return ParticleSusceptibilitySpinEchoResult(
+        sequence=sequence,
         reference_acquisition=reference_acquisition,
         particle_acquisition=particle_acquisition,
         reference_image=reference_image,
         particle_image=particle_image,
         signed_contrast_image=signed_contrast,
         contrast_image=contrast,
+        phase_gradient_image_rad_m=phase_gradient,
+        reference_support_mask=reference_support,
         background_field_t=background.copy(),
         particle_delta_b0_samples_t=particle_fields,
         particle_water_mask_samples=particle_water_masks,
@@ -545,3 +695,8 @@ def run_epm_particle_susceptibility_spin_echo(
         target_radius_m=float(target_radius_m),
         snr_db=None if snr_db is None else float(snr_db),
     )
+
+
+run_epm_particle_susceptibility_imaging = (
+    run_epm_particle_susceptibility_spin_echo
+)

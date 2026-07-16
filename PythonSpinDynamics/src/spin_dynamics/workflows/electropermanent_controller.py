@@ -35,8 +35,9 @@ from spin_dynamics.workflows.electropermanent_particle_imaging import (
     run_epm_particle_imaging,
 )
 from spin_dynamics.workflows.electropermanent_particle_spin_echo import (
+    ParticleMRSequence,
     ParticleSusceptibilitySpinEchoResult,
-    run_epm_particle_susceptibility_spin_echo,
+    run_epm_particle_susceptibility_imaging,
 )
 from spin_dynamics.workflows.electropermanent_transport import (
     MagneticForceMap2D,
@@ -60,7 +61,11 @@ __all__ = [
 
 ControllerMode = Literal["imaging", "programming", "transport"]
 StopReason = Literal["capture_goal", "max_cycles"]
-ParticleImagingModel = Literal["direct_signal", "susceptibility_spin_echo"]
+ParticleImagingModel = Literal[
+    "direct_signal",
+    "susceptibility",
+    "susceptibility_spin_echo",
+]
 ParticleImagingResult = EPMParticleImagingResult | ParticleSusceptibilitySpinEchoResult
 
 
@@ -113,6 +118,7 @@ class EPMTherapyControllerConfig:
     particle_support_threshold_fraction: float = 0.01
     particle_boundary_capture_correction: bool = True
     particle_imaging_model: ParticleImagingModel = "direct_signal"
+    particle_susceptibility_sequence: ParticleMRSequence = "spin_echo"
     particle_spin_echo_state_index: int | None = None
     particle_spin_echo_subvoxel_grid_size: int = 3
     particle_spin_echo_excitation_duration_s: float = 100e-6
@@ -124,6 +130,13 @@ class EPMTherapyControllerConfig:
     particle_spin_echo_substeps: int = 2
     particle_spin_echo_support_threshold_fraction: float = 0.10
     particle_spin_echo_snr_db: float | None = None
+    particle_ute_excitation_duration_s: float = 20e-6
+    particle_ute_readout_time_s: float = 0.4e-3
+    particle_ute_center_dwell_s: float = 1e-6
+    particle_ute_flip_angle_rad: float = np.pi / 6.0
+    particle_ute_num_spokes: int | None = None
+    particle_ute_radial_samples: int | None = None
+    particle_ute_regularization: float = 1e-4
 
     def __post_init__(self) -> None:
         if int(self.max_cycles) != self.max_cycles or self.max_cycles < 1:
@@ -144,6 +157,9 @@ class EPMTherapyControllerConfig:
             "particle_spin_echo_refocusing_duration_s",
             "particle_spin_echo_readout_time_s",
             "particle_spin_echo_phase_encoding_time_s",
+            "particle_ute_excitation_duration_s",
+            "particle_ute_readout_time_s",
+            "particle_ute_center_dwell_s",
             "synthesis_tolerance_t",
         ):
             _positive(getattr(self, name), name)
@@ -174,12 +190,20 @@ class EPMTherapyControllerConfig:
             raise ValueError("particle_support_threshold_fraction must be in [0, 1)")
         if self.particle_imaging_model not in {
             "direct_signal",
+            "susceptibility",
             "susceptibility_spin_echo",
         }:
             raise ValueError(
-                "particle_imaging_model must be 'direct_signal' or "
-                "'susceptibility_spin_echo'"
+                "particle_imaging_model must be 'direct_signal', "
+                "'susceptibility', or legacy 'susceptibility_spin_echo'"
             )
+        if self.particle_susceptibility_sequence not in {
+            "spin_echo",
+            "gradient_echo",
+            "radial_ute",
+            "phase_gradient",
+        }:
+            raise ValueError("unsupported particle_susceptibility_sequence")
         if self.particle_spin_echo_state_index is not None:
             state_index = int(self.particle_spin_echo_state_index)
             if state_index != self.particle_spin_echo_state_index or state_index < 0:
@@ -206,6 +230,19 @@ class EPMTherapyControllerConfig:
             )
         if self.particle_spin_echo_snr_db is not None:
             _positive(self.particle_spin_echo_snr_db, "particle_spin_echo_snr_db")
+        if not 0.0 < float(self.particle_ute_flip_angle_rad) <= np.pi:
+            raise ValueError("particle_ute_flip_angle_rad must be in (0, pi]")
+        _positive(
+            self.particle_ute_regularization,
+            "particle_ute_regularization",
+            allow_zero=True,
+        )
+        for name in ("particle_ute_num_spokes", "particle_ute_radial_samples"):
+            value = getattr(self, name)
+            if value is not None:
+                if int(value) != value or value < 1:
+                    raise ValueError(f"{name} must be a positive integer")
+                object.__setattr__(self, name, int(value))
         _positive(
             self.synthesis_regularization,
             "synthesis_regularization",
@@ -450,8 +487,9 @@ def run_epm_image_guided_controller(
     transport integrator, but control decisions use only reconstructed particle
     state.  Ground-truth fields on the result are diagnostic scores.  The
     default ``direct_signal`` particle channel preserves the ideal baseline.
-    ``susceptibility_spin_echo`` requires the three tissue maps and uses paired
-    finite-pulse spin-warp acquisitions with particle-induced dipole fields.
+    ``susceptibility`` (or legacy ``susceptibility_spin_echo``) requires the
+    three tissue maps and uses the selected physical particle sequence with
+    particle-induced dipole fields.
     """
 
     settings = EPMTherapyControllerConfig() if config is None else config
@@ -461,11 +499,11 @@ def run_epm_image_guided_controller(
     if image.shape != encoding.image_shape or image.shape != (y_axis.size, x_axis.size):
         raise ValueError("expected_image, encoding image_shape, and axes must match")
     density = t1_map = t2_map = None
-    if settings.particle_imaging_model == "susceptibility_spin_echo":
+    if settings.particle_imaging_model != "direct_signal":
         supplied_maps = (tissue_proton_density, tissue_t1_s, tissue_t2_s)
         if any(values is None for values in supplied_maps):
             raise ValueError(
-                "susceptibility_spin_echo requires tissue_proton_density, "
+                "susceptibility imaging requires tissue_proton_density, "
                 "tissue_t1_s, and tissue_t2_s"
             )
         density = np.asarray(tissue_proton_density, dtype=np.float64)
@@ -529,7 +567,7 @@ def run_epm_image_guided_controller(
             state_index = int(
                 np.argmax(np.mean(np.abs(encoding.projected_fields_t), axis=1))
             )
-        return run_epm_particle_susceptibility_spin_echo(
+        return run_epm_particle_susceptibility_imaging(
             encoding,
             current_positions,
             x_axis,
@@ -540,6 +578,7 @@ def run_epm_image_guided_controller(
             t2_map,
             target_center_m=target_center,
             target_radius_m=settings.target_radius_m,
+            sequence=settings.particle_susceptibility_sequence,
             imaging_state_index=state_index,
             subvoxel_grid_size=settings.particle_spin_echo_subvoxel_grid_size,
             magnetization_model=settings.magnetization_model,
@@ -553,6 +592,13 @@ def run_epm_image_guided_controller(
             phase_encoding_time_s=(
                 settings.particle_spin_echo_phase_encoding_time_s
             ),
+            ute_excitation_duration_s=settings.particle_ute_excitation_duration_s,
+            ute_readout_time_s=settings.particle_ute_readout_time_s,
+            ute_center_dwell_s=settings.particle_ute_center_dwell_s,
+            ute_flip_angle_rad=settings.particle_ute_flip_angle_rad,
+            ute_num_spokes=settings.particle_ute_num_spokes,
+            ute_radial_samples=settings.particle_ute_radial_samples,
+            ute_regularization=settings.particle_ute_regularization,
             water_diffusion_coefficient_m2_s=(
                 settings.particle_spin_echo_water_diffusion_m2_s
             ),
