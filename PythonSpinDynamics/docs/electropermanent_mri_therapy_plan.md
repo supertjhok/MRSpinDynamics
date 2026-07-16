@@ -1,12 +1,19 @@
-# Electropermanent MRI and image-guided therapy plan
+# Electropermanent MRI and Therapy Architecture Record
 
 ## Status and scope
 
-This is a design document for a future PythonSpinDynamics feature.  It was
-refined on 2026-07-15 after reviewing the local Weinberg Medical Physics
-archive.  The first implementation phase models and validates individual
-electropermanent magnets (EPMs) before adding array synthesis, nonlinear
-imaging, particle transport, or closed-loop therapy.
+This internal record preserves the design sequence, evidence decisions, and
+open measurement tasks for the electropermanent-magnet and image-guided therapy
+work. It is no longer a future-feature plan: the mechanism-level software
+layers listed below are implemented. Users should read
+[`electropermanent_magnets.md`](electropermanent_magnets.md) for actuator
+hardware and [`image_guided_magnetic_therapy.md`](image_guided_magnetic_therapy.md)
+for the system workflow.
+
+The record was refined on 2026-07-15 after reviewing the local Weinberg Medical
+Physics archive. Remaining work concerns measured calibration, biological
+transport, and quantitative system validation rather than basic software
+scaffolding.
 
 Implementation progress as of 2026-07-15:
 

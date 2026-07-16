@@ -1,5 +1,12 @@
 # PHIP, SABRE, and Long-Lived Singlet States
 
+> **Document role (updated 2026-07-16): partially implemented research
+> record.** Singlet/triplet state primitives, SLIC long-lived-state workflows,
+> and hydrogenative PASADENA/ALTADENA reference models are implemented. A full
+> SABRE catalyst-bound/free-pool exchange model remains future work. Users
+> should start with
+> [`python_api/hyperpolarization.md`](python_api/hyperpolarization.md).
+
 ## Research conclusions and implementation plan
 
 This document records the physics and software conclusions from the initial

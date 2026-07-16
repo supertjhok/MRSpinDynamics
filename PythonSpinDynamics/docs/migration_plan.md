@@ -5,6 +5,11 @@
 > established. New work should be tracked as validation, performance, or new
 > physics rather than as migration.
 
+This file is an internal historical record. Users looking for supported Python
+entry points should begin with [`python_api/index.md`](python_api/index.md);
+maintainers tracing a Python function to MATLAB should use
+[`matlab_mapping.md`](matlab_mapping.md).
+
 ## Reference Policy
 
 - Keep `MATLABSpinDynamics/Version_3/code` as the active MATLAB reference.

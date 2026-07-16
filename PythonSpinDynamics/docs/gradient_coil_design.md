@@ -1,10 +1,18 @@
 # Stream-function gradient-coil design
 
-PythonSpinDynamics implements cylindrical stream-function gradient-coil design,
-closed-winding extraction, active shielding, and adapters to the library's coil
-engineering, eddy-current, and imaging tools.  The formulation follows Section
-10.3.3 of *Sensors, Circuits, and Systems for Scientific Instruments: Back-ends
-and Applications*.
+MRI and diffusion sequences require coils that create a nearly linear magnetic
+field over a target region while keeping current, inductance, and stray field
+manageable. Gradient-coil design is therefore an inverse problem: choose a
+current pattern whose field approximates a desired spatial gradient.
+
+Use this page to design cylindrical gradient windings from a target field,
+choose regularization, extract closed wire contours, and add an active shield.
+The output is an idealized winding geometry. Continue to
+[Gradient-coil engineering and integration](gradient_coil_engineering.md) for
+resistance, inductance, forces, driver limits, and downstream handoff.
+
+The formulation follows Section 10.3.3 of *Sensors, Circuits, and Systems for
+Scientific Instruments: Back-ends and Applications*.
 
 ## Inverse design model
 

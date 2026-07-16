@@ -10,6 +10,10 @@ implementation work. The package currently favors MATLAB parity and readable
 NumPy implementations, so each item should be validated against the existing
 physics and fixture tests before being marked complete.
 
+This file is excluded from the user site because it records completed
+implementation findings. For current benchmark commands and interpretation,
+use [`python_api/performance.md`](python_api/performance.md).
+
 ## Work Items
 
 1. Tuned phase-encoded imaging does redundant branch work.

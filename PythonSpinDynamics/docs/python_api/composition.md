@@ -1,9 +1,14 @@
 # Cross-Component Composition
 
-`spin_dynamics.composition` is the interchange layer for studies that combine
-field solvers, thermal models, flow, hardware realization, and sequence
-execution. It leaves each numerical engine's native result type intact and
-adapts values only at component boundaries.
+Integrated studies often fail at the boundaries between otherwise correct
+models: axes are reordered, Hz is mistaken for rad/s, a command waveform is
+interpolated like a physical state, or a field map is evaluated on the wrong
+grid. `spin_dynamics.composition` makes those boundaries explicit.
+
+This is an advanced integration page, not the first place to learn an
+individual field, thermal, flow, or sequence model. Use it after the component
+models work independently and you need typed spatial/time resampling and unit
+checks while preserving each engine's native result type.
 
 The shared conventions are:
 

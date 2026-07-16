@@ -1,12 +1,20 @@
 # J-Coupling Models
 
-The core Bloch-style workflows in this package model uncoupled spin-1/2
-isochromats. The `spin_dynamics.coupling` namespace is the explicit extension
-point for scalar-coupled spin-1/2 networks.
+Scalar J coupling transfers spin information through chemical bonds. Unlike a
+chemical shift, its frequency does not collapse with the applied field, so it
+can dominate spectra and pulse responses in zero-, ultra-low-, or strongly
+inhomogeneous fields.
 
-These helpers target low-field and inhomogeneous-field experiments where
-chemical-shift dispersion is weak, but scalar J-couplings remain observable
-because they are field independent.
+Use this page when independent Bloch magnetization vectors are no longer
+enough because two or more spin-1/2 nuclei evolve coherently together. The
+`spin_dynamics.coupling` namespace offers two levels: fast analytical models
+for specific J-editing/filter experiments, and small dense Hamiltonians for
+general few-spin propagation. It is not intended for large sparse spin
+networks.
+
+For singlet order, PHIP, and long-lived-state workflows built on the same
+spin-pair algebra, continue to [Hyperpolarization and Long-Lived Singlet
+Workflows](hyperpolarization.md).
 
 ## Heteronuclear J-Editing
 

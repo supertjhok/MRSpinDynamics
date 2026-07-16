@@ -1,5 +1,11 @@
 # Microscopic Relaxation Validation
 
+Relaxation times are often used as fitted inputs, but a microscopic model tries
+to explain them from molecular motion and spin interactions. That stronger
+claim needs comparison with experiments that isolate the relevant mechanisms.
+This page is for readers evaluating that evidence, not for users who simply
+want to assign phenomenological T1 and T2 values to a workflow.
+
 ## Purpose
 
 Relaxation calculations are only useful when the model boundary is as clear as

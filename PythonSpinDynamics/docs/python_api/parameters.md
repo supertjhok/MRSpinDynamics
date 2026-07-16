@@ -1,6 +1,13 @@
 # Parameters
 
-Parameter constructors live in `spin_dynamics.parameters`.
+Parameter constructors create the historical system, pulse, and probe
+dataclasses expected by the MATLAB-compatible workflows. They are useful for
+reproducing reference cases or for modifying a known workflow without manually
+assembling every field.
+
+New applications should normally begin with the `Experiment` facade or a
+public workflow function. Use these constructors when the documentation for
+that workflow explicitly returns or accepts `sp`, `pp`, or `params` objects.
 
 ## `set_params_ideal`
 

@@ -1,9 +1,16 @@
 # Electropermanent Magnets: Hardware and Field Models
 
-PythonSpinDynamics models the static geometry, programming electronics, thermal
-response, and protocol-calibrated retained state of electropermanent magnets
-(EPMs). The current implementation targets AlNiCo rods and close-packed rod
-bundles used as reconfigurable `B0` sources.
+An electropermanent magnet (EPM) is a magnet whose retained field can be changed
+by a short electrical pulse and then held without continuous coil power. That
+makes EPMs attractive for portable or reconfigurable instruments, but it also
+means that geometry, pulse history, magnetic state, and programming electronics
+cannot be collapsed into one material constant.
+
+Use this page to model AlNiCo rods and bundles as reconfigurable B0 sources,
+simulate their programming circuits, and synthesize array operating states. It
+is the actuator reference: it explains what field a commanded magnetic state
+produces and how that state may be reached. It does not by itself simulate an
+image, particle delivery, or biological response.
 
 This page is the hardware and actuator reference. For nonlinear particle
 imaging, closed-loop delivery, and dynamic-inversion stability, use the
@@ -697,8 +704,8 @@ The current phase still has important limits:
   but its inverse-power sources are inferred rather than measured coil/EPM
   field maps; it remains 2-D, dilute, and outside vascular/tissue physics.
 
-The next implementation phase estimates the particle distribution from
-measurements rather than reading it directly from the simulator, and adds
-vascular/tissue transport, adhesion, and delivery metrics. Measured minor
+The next therapy phase needs a particle-sensitive measurement model and state
+estimator rather than reading particle positions directly from the simulator.
+It also needs vascular/tissue transport, adhesion, and delivery metrics. Measured minor
 loops, repeated-pulse retention, exact CAD, and cross-talk matrices remain
 necessary before the array can become a quantitative hardware digital twin.

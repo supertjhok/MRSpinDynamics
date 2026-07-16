@@ -1,15 +1,30 @@
 # Examples
 
-Examples live in `examples/`. They can be run from `PythonSpinDynamics` or from
-inside `PythonSpinDynamics/examples`; each script adds the local `src` directory
-to `sys.path` when the package has not been installed yet.
+The example directory is a collection of reproducible scientific questions,
+not a recommended reading order. Each script constructs a model, runs it, and
+prints or plots the quantities needed to interpret the result. Use the table
+below to choose a short path; then read the matching narrative page before
+changing parameters whose physical meaning is unfamiliar.
+
+Examples can be run from `PythonSpinDynamics` or from inside
+`PythonSpinDynamics/examples`; each script adds the local `src` directory to
+`sys.path` when the package has not been installed yet.
 
 [Browse all example source files on GitHub](https://github.com/supertjhok/MRSpinDynamics/tree/main/PythonSpinDynamics/examples){ .md-button }
 
-The rest of this page is a runnable index grouped loosely by the workflow stage
-it exercises — from the recommended facade on-ramp, through the individual
-building blocks (CPMG, FID, probes), to specialized field, motion, imaging,
-NQR/ESR, and optimization tools.
+## Choose a learning path
+
+| Goal | First example | Then try |
+|---|---|---|
+| Learn the common plan/run/result pattern | `experiment_facade_quickstart.py` | `ideal_cpmg_train.py` |
+| Compare ideal and realistic probe behavior | `plot_probe_cpmg.py` | `plot_probe_parameter_sweep.py` |
+| Learn imaging from acquisition to reconstruction | `plot_ideal_imaging.py` | `plot_imaging_inhomogeneity.py` and the portable Halbach capstone |
+| Learn diffusion and motion | `plot_pgse_qspace_walkers.py` | restricted diffusion, PGSTE, DDE, or OGSE examples |
+| Learn NQR or ESR | `experiment_nqr_auto_model.py` or `plot_esr_pulsed_echo.py` | powder, relaxation, and optimal-control examples |
+| Study fields and hardware | `plot_halbach_dipole_field.py` or `plot_solenoid_coil_properties.py` | gradient, PEEC, thermal, and detector examples |
+| Reproduce image-guided magnetic therapy | `plot_epm_nonlinear_tissue_imaging.py` | transport, closed-loop control, then dynamic inversion |
+
+The remainder of the page is the complete runnable index.
 
 ## Unified Experiment Workflow (start here)
 
@@ -720,8 +735,8 @@ Use `--cycles`, `--transport-min`, and `--capture-goal` to change the feedback
 schedule. The panels show localization repeatability, the last re-aimed force
 field, centroid-to-target control decisions, cycle-colored trajectories, the
 explicit mode timeline, and capture gain versus retained-state change. The
-controller reads the uncaptured particle centroid from simulation state; a
-particle-distribution imaging estimator remains future work.
+controller reads the uncaptured-particle centroid from simulation state, so a
+particle-sensitive measurement model and state estimator remain future work.
 
 ## Dynamic-Inversion Particle Trap
 
@@ -1038,9 +1053,10 @@ python examples\plot_esr_hyperfine_doublet.py --output results\esr_hyperfine_dou
 
 ## NQR Examples
 
-These examples exercise the early quadrupolar extension. The current pulsed
-examples are explicitly spin-1 examples using the `x`, `y`, and `z` transition
-labels. The powder nutation example sweeps the nominal SLSE detection pulse
+These examples demonstrate the package's quadrupolar NQR models. Most of the
+introductory pulsed examples use spin 1 and the `x`, `y`, and `z` transition
+labels because that case makes the pulse pathways easy to inspect. The powder
+nutation example sweeps the nominal SLSE detection pulse
 angle, the population transfer example builds a compact two-frequency
 perturbation/detection map, and the SLSE relaxation examples sweep RF offset
 and pulse period with the Liouville-space relaxation model. The SLSE relaxation

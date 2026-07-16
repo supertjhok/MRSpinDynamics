@@ -11,15 +11,19 @@ quadrupole resonance. It is based on the local references in `../References`,
 especially the 2D NQR population-transfer paper and the pulsed nitrogen-14 NQR
 fundamentals chapter.
 
-## Scope
+Users should read [`python_api/nqr.md`](python_api/nqr.md). The material below
+is retained to show how the implementation evolved and why some early
+milestones use terminology that is narrower than the current supported model.
 
-The first target is pulsed, mostly zero-field NQR for solid samples. The key
-assumption for the initial implementation is selective RF excitation: ordinary
-narrowband pulses address only one transition of the `(2I + 1)` quadrupolar
-manifold, so the RF action can be treated as an embedded two-level rotation.
-That embedded two-level pulse model is appropriate for the current spin-1
-examples; spin-3/2 nuclei require a separate degenerate-doublet RF manifold
-model before pulsed chlorine SLSE/FID simulations are considered supported.
+## Original scope
+
+The first target was pulsed, mostly zero-field NQR for solid samples. The
+initial implementation assumed selective RF excitation and represented one
+isolated spin-1 transition as an embedded two-level rotation. The current
+package retains that efficient reduced model where its isolation test is
+satisfied and also provides full density-matrix dynamics for spin-3/2,
+weak-field crossover, and multilevel excitation. The bullets below record the
+original requirements, not the present capability boundary.
 
 The module should support:
 

@@ -1,10 +1,20 @@
 # Radiation Damping
 
-The radiation-damping implementation follows the rotating-frame back-action
-model in Section 10.2.5 of the local Measurements textbook (with one deliberate
-convention correction, see "Feedback Phase Convention" below). The probe is
-described by the same tuned or matched parameter sets used by the regular pulse
-sequence workflows, and the nonlinear feedback strength is set by
+Radiation damping is feedback from the detected sample magnetization through
+the resonant probe. A large transverse magnetization drives current in the
+coil; the coil field then acts back on the same spins. The result can be a
+non-exponential FID, rapid return toward equilibrium, altered echo trains, or an
+idealized maser-like instability.
+
+Use this page when sample-probe back-action is strong enough that receive
+coupling cannot be treated as passive. The implementation reuses the tuned or
+matched probe parameters from ordinary workflows and offers an instantaneous
+high-Q limit and a finite-ringdown circuit model. It is deterministic and does
+not by itself include stochastic spin noise.
+
+The model follows the rotating-frame treatment in Section 10.2.5 of the local
+Measurements textbook, with the feedback-phase convention explained below.
+Its nonlinear strength is set by
 
 ```text
 Trd = 2 / (gamma * mu0 * eta * M0 * Q)

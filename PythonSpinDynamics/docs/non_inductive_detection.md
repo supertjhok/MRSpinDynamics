@@ -1,16 +1,19 @@
 # Non-Inductive Detection: SQUID and OPM Magnetometers
 
-> **Status (audited 2026-07-11): implemented.** SQUID, OPM, inductive,
-> gradiometer, and spatial-coupling models now share the detection layer. The
-> text below preserves the design choices and validation basis.
+An inductive receive coil measures a voltage proportional to the time derivative
+of magnetic flux. That signal collapses at low frequency. SQUIDs and optically
+pumped magnetometers (OPMs) instead sense flux or magnetic field directly,
+which is why they enable ultra-low-field NMR/MRI and some zero- or low-field
+NQR experiments.
 
-This note records the design for adding **non-inductive detectors**
-— SQUIDs (Superconducting QUantum Interference Devices) and OPMs (Optically
-Pumped / atomic Magnetometers) — to the `spin_dynamics` signal-detection chain.
-The earlier receiver layer assumed a conventional **inductive (Faraday) coil**.
-SQUIDs and OPMs are the enabling detectors for ultra-low-field
-(ULF) NMR/MRI and for zero-/low-field NQR, and they obey a *different* detection
-physics that the current pipeline cannot express.
+Use this page to compare inductive, SQUID, and OPM signal/noise scaling, attach
+pickup loops or gradiometers, and compute spatial field coupling. These devices
+cannot be modeled by changing only a probe Q: their observable, noise units,
+bandwidth, and environmental sensitivity are different.
+
+> **Status (audited 2026-07-11): implemented.** SQUID, OPM, inductive,
+> gradiometer, and spatial-coupling models share the detection layer. The text
+> below preserves the design choices and validation basis.
 
 Primary reference: Clarke, Hatridge & Mößle, "SQUID-Detected MRI in Microtesla
 Fields," *Annu. Rev. Biomed. Eng.* **9**, 389 (2007) — in `References/`. NQR

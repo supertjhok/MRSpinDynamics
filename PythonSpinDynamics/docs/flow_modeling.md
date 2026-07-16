@@ -1,9 +1,15 @@
 # Flowing-Sample NMR
 
-Design and validation note for `spin_dynamics.flow` and the flow extensions to
-`spin_dynamics.thermal`. Many NMR measurements run on a moving sample -- inline
-process monitoring in a pipe, stopped-flow kinetics, hyphenated LC-NMR -- where
-flow changes both the measured signal and the sample temperature.
+In a flowing-sample experiment, spins do not remain in the sensitive volume for
+the whole sequence. Excited spins leave, fresh spins enter with a polarization
+set by their upstream history, and the moving fluid carries heat away. Ignoring
+those effects can make flow look like a shorter T2 or an unexplained amplitude
+change.
+
+Use this page for plug or laminar flow through a cylindrical sensitive region,
+including signal washout, inflow polarization, and thermal advection. It is a
+reduced process-NMR model, not a computational-fluid-dynamics solver; velocity
+profiles are prescribed rather than solved from arbitrary plumbing geometry.
 
 ## Physics
 

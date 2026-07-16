@@ -1,9 +1,18 @@
 # ESR Models
 
-The `spin_dynamics.esr` package provides a first ESR/EPR surface for
-single-electron spin-1/2 systems. Hamiltonians are represented in radians per
-second, matching the dense Hamiltonian conventions used elsewhere in the Python
-package.
+Electron spin resonance (ESR, also called EPR) measures transitions of
+unpaired electron spins. Electron gyromagnetic ratios and anisotropic g tensors
+make its frequency, field scale, powder patterns, and relaxation experiments
+different from nuclear-spin NMR even though both use magnetic-resonance
+language.
+
+Use this page for single-electron spin-1/2 resonance positions, CW spectra,
+pulsed FID/echo relaxation, isotropic hyperfine coupling, DEER/PELDOR, ESEEM,
+HYSCORE, and ENDOR reference models. It does not yet provide a general
+higher-spin or large electron-nuclear network engine.
+
+Hamiltonians are represented in radians per second, matching the dense
+Hamiltonian conventions used elsewhere in the package.
 
 The initial model uses the electron Zeeman Hamiltonian
 

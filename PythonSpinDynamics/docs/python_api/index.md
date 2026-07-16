@@ -1,13 +1,17 @@
 # Python API Documentation
 
-This directory documents the Python port as it exists today. The MATLAB
-implementation under `../MATLABSpinDynamics/Version_3/code`
-remains the reference implementation, but the major Version 3 workflow port is
-now mostly complete. Current work emphasizes validation depth, coherent
-documentation, broader static typing, package-index publication, and new
-physics rather than baseline MATLAB parity.
+This is the capability map for PythonSpinDynamics. Use it when you know the
+scientific area but not yet the relevant guide, workflow, or module. For a
+first simulation, follow [How to Use This Documentation](../documentation_map.md)
+and the [Unified Experiment Workflow](experiment_workflow.md) instead of
+reading the API pages in directory order.
 
-## Start Here
+The package began as a Python port of the active MATLAB Version 3 workflows,
+but it now also contains substantial Python-native physics, field, hardware,
+and analysis layers. The MATLAB tree remains a parity reference for the
+original workflows; it is not the organizing principle for new user code.
+
+## Choose an entry point
 
 ### Run and configure experiments
 

@@ -1,13 +1,22 @@
 # Capstone: a complete portable MRI design study in a 15–20 minute run budget
 
-This capstone turns the low-cost C8 Halbach scanner in *Portable Low-Field MRI
-Scanners* into one executable system model. A single run connects magnet and
-coil geometry, PEEC electrical properties, ferrite RF loss, gradient-driver
-requirements, receiver gain, thermal drift, noisy acquisition, compressed
-sensing, and automatic stopping. The workflow is deliberately compact enough
-to fit comfortably inside a 15–20 minute design-loop budget; the optimized
-64×64 example completed in about 5.4 seconds on the development workstation,
-leaving ample time for parameter sweeps and higher-resolution reruns.
+Most documentation pages isolate one model. This capstone instead asks a system
+question: if a compact Halbach magnet, RF coil, gradients, receiver, thermal
+paths, and reconstruction algorithm are assembled into one scanner, which
+component limits the image and how does a hardware change propagate through
+the rest of the design?
+
+Use this page after learning the individual imaging and hardware models. A
+single run connects magnet and coil geometry, PEEC electrical properties,
+ferrite RF loss, gradient-driver requirements, receiver gain, thermal drift,
+noisy acquisition, compressed sensing, and automatic stopping. The low-cost C8
+Halbach scanner from *Portable Low-Field MRI Scanners* supplies the reference
+geometry and measured calibration inputs.
+
+The workflow is deliberately compact enough for an interactive design loop;
+the optimized 64×64 reference run completed in about 5.4 seconds on the
+development workstation. That timing is illustrative rather than a guarantee
+for every machine.
 
 The important distinction throughout this chapter is:
 

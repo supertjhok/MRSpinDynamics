@@ -1,7 +1,20 @@
 # NQR Models
 
-The `spin_dynamics.nqr` namespace contains the quadrupolar-spin extension for
-pulsed NQR. It is separate from the spin-1/2 Bloch and J-coupling layers.
+Nuclear quadrupole resonance (NQR) detects nuclei with spin greater than one
+half through their interaction with the local electric-field gradient. Unlike
+ordinary NMR, a static applied field is not required: the material's local
+crystal or molecular environment establishes the energy-level structure.
+
+Use this page when simulating pulsed NQR spectra, FIDs, echo trains,
+population-transfer experiments, powders, or the crossover into weak-field
+quadrupolar NMR. The first decision is whether one isolated transition can be
+treated as an effective two-level system or whether the complete nuclear
+density matrix must be propagated. That choice is a physical approximation,
+not merely a performance setting.
+
+If you only need to run a supported high-level NQR experiment, start with the
+[Unified Experiment Workflow](experiment_workflow.md). Return here to choose
+the engine and interpret its limits.
 
 ## Two modeling regimes: reduced two-level vs. full density matrix
 

@@ -1,5 +1,11 @@
 # NQR-to-NMR Crossover Modeling Plan
 
+> **Document role (updated 2026-07-16): implemented architecture record.** The
+> static crossover, transition tracking, powder dynamics, relaxation, and field
+> histories described here have been implemented through the milestones noted
+> below. Users should start with [`python_api/nqr.md`](python_api/nqr.md); this
+> file preserves derivations, design choices, and deferred research questions.
+
 ## Purpose
 
 This document records the analytical and implementation groundwork for modeling

@@ -1,13 +1,16 @@
 # Unified Experiment Workflow
 
-`spin_dynamics.experiment` is the recommended entry point for new code. It is a
-thin, declarative layer over the validated `run_*` / `simulate_*` workflows: you
-describe an experiment with frozen-dataclass specs, front-load validation with
-`plan()`, execute with `run()`, and save the result with provenance. The facade
-never re-implements any dynamics — a default `Experiment` reproduces the direct
-workflow call bit for bit — so it costs nothing in fidelity and adds
-compatibility checking, runtime estimation, automatic hardware wiring, and
-serialization on top.
+Most simulations begin with the same practical questions: what is the sample,
+what sequence is applied, what hardware realizes it, what is acquired, and is
+that combination supported? The `spin_dynamics.experiment` interface collects
+those choices into one description and checks them before a costly calculation
+starts.
+
+This is the recommended entry point for new application code. You describe an
+experiment with immutable specifications, inspect the resolved plan, run the
+validated underlying workflow, and save the result together with provenance.
+The interface is called a *facade* because it coordinates existing
+`run_*`/`simulate_*` functions; it does not introduce a second physics engine.
 
 If you already know which `run_*` function you want, calling it directly (see
 [Workflows](workflows.md)) remains fully supported. Reach for the facade when

@@ -17,6 +17,10 @@ The [API Reference](api_reference.md) and
 [Validation Evidence](validation.md) document the implemented surface and the
 evidence behind it.
 
+If the distinction between a workflow, model reference, design note, and
+generated evidence page is unclear, begin with
+[How to Use This Documentation](../documentation_map.md).
+
 [Download the PDF print edition](../user_manual.pdf){ .md-button .md-button--primary }
 
 The PDF preserves the equation-rich, paginated reference manual and is also

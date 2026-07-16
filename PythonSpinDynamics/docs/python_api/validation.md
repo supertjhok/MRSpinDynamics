@@ -1,9 +1,16 @@
 # Validation
 
-Validation evidence is tracked by capability in `validation/evidence.json` and
-published in the generated [`docs/validation_matrix.md`](../validation_matrix.md).
-The matrix distinguishes analytical results, MATLAB/Octave parity, independent
-tools, published comparisons, experimental evidence, and regression-only tests.
+Validation asks a narrower question than “do the tests pass?”: which physical
+claim has been checked, over what parameter range, against what reference, and
+with what tolerance? A regression test may protect software behavior without
+establishing physical accuracy; an analytical limit may validate one regime
+without covering an entire workflow.
+
+Use the generated [Validation Evidence Matrix](../validation_matrix.md) to
+inspect capability-level claims, evidence grades, ranges, tolerances,
+reproducers, and limitations. Its structured source is
+`validation/evidence.json`. This page explains how to regenerate the MATLAB and
+Octave parity fixtures that form one part of that evidence.
 
 The fixture workflow below supplies the MATLAB/Octave parity portion of that
 evidence. Python functions are compared with small reference arrays stored in

@@ -1,8 +1,14 @@
 # Analysis
 
-Analysis helpers live under `spin_dynamics.analysis`. They are intended for
-post-processing simulated or measured signals rather than for reproducing a
-specific MATLAB workflow line by line.
+Simulation produces signals; analysis turns those signals into estimated
+distributions or fitted parameters. This page covers inverse problems such as
+recovering a T2 or diffusion distribution from decays. Those inversions are
+ill-conditioned: regularization and data phase are part of the scientific
+model, not optional plotting choices.
+
+Use `spin_dynamics.analysis` after a workflow has produced a signal matrix, or
+with measured data that obey the same forward model. Start with a synthetic
+forward-and-inverse example before interpreting an experimental distribution.
 
 ## Inverse Laplace Transforms
 

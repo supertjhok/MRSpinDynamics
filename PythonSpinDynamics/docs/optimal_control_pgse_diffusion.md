@@ -1,21 +1,21 @@
 # PGSE Optimal Control: q-vector + detected-SNR objectives (Milestone 5)
 
+In PGSE, a strong echo is not sufficient: the delivered gradient must also
+produce the intended diffusion wavevector and return the residual moment to
+zero at the echo. RF filtering, gradient slew, eddy currents, and B0/B1
+inhomogeneity can make those goals compete.
+
+Use this page for the end-to-end optimal-control capstone that co-optimizes RF
+pulses and the gradient command on realistic hardware. The objective penalizes
+incorrect delivered q-vector while maximizing the receiver-filtered echo SNR.
+Read [Optimal-Control Hardware Response](optimal_control_hardware_response.md)
+first for the probe, driver, and receiver models.
+
 > **Status (audited 2026-07-11): implemented.** The q-vector, diffusion, and
-> detected-SNR objectives described here are available and exercised by the
-> PGSE optimal-control example. This page is an engineering record.
+> detected-SNR objectives are exercised by the PGSE optimal-control example.
 
-Design and validation note for the diffusion (PGSE) capstone of
-`spin_dynamics.optimal_control`: co-optimize the RF pulses **and** the gradient
-waveform of a pulsed-gradient spin echo so that, on realistic hardware (a tuned
-RF probe on transmit *and* receive, a gradient driver with `L/R` slew + eddy
-currents, and an inhomogeneous `B0`/`B1` field), the sequence both delivers the
-intended diffusion encoding (**correct q-vector**) and maximizes the
-**detected echo SNR**. This is the end-to-end exerciser of the M4 hardware-
-response layer; see `optimal_control_hardware_response.md`.
-
-Builds on M1 (RF-robust), M2 (gradient channel), M3 (NQR), M4 (probe/driver
-response). Reuses the existing PGSE machinery's conventions (below) rather than
-inventing new ones.
+The implementation reuses the existing PGSE conventions below rather than
+introducing a second definition of gradient moment or b-value.
 
 ## Reused conventions (from `workflows/pgse.py`, `fields/positions.py`, `motion.py`)
 

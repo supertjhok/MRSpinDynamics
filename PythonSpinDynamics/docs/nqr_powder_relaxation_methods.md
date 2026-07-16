@@ -13,6 +13,12 @@ The ordering is part of the physical model. Operations such as magnitude,
 root-mean-square averaging, echo-center sampling, filtering, and normalization
 do not generally commute with the powder sum.
 
+This is a methods page for readers validating powder calculations or comparing
+them with measured echo trains. For a first NQR simulation, begin with
+[NQR Models](python_api/nqr.md); use this page when orientation averaging,
+relaxation, receiver response, or echo-amplitude extraction becomes the source
+of disagreement.
+
 ## 1. What must be averaged
 
 For orientation $k$, let `rho_k(t)` be the density matrix, `M_k` the complex

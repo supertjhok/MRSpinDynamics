@@ -1,10 +1,19 @@
 # Sequence IR and Pulseq Interchange
 
-`spin_dynamics.sequences` now contains the foundation of a backend-neutral
-pulse-sequence intermediate representation. It follows the block model of the
-open, vendor-independent [Pulseq specification](https://pulseq.github.io/specification.pdf):
-blocks execute sequentially, while RF, X/Y/Z gradients, and ADC events may
-overlap within a block.
+A pulse sequence must mean the same thing to a timeline plotter, a simulator,
+an exported Pulseq file, and eventually hardware. The sequence intermediate
+representation (IR) is the shared description that prevents each backend from
+inventing its own timing and unit conventions.
+
+Use this page when importing Pulseq, constructing general RF/gradient/ADC
+timelines, or adapting one sequence to multiple execution engines. For a
+prebuilt CPMG, imaging, NQR, or ESR experiment, start with the workflow catalog
+instead.
+
+The IR follows the block model of the open, vendor-independent
+[Pulseq specification](https://pulseq.github.io/specification.pdf): blocks
+execute sequentially, while RF, X/Y/Z gradients, and ADC events may overlap
+within a block.
 
 The IR deliberately preserves Pulseq's physical units:
 

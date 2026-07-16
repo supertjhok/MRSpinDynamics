@@ -1,12 +1,22 @@
 # q-Space Imaging Robustness Study
 
-This study completes the inverse-imaging robustness checks that follow the
-finite-pulse walker validation. It asks how much pore shape survives three
-common acquisition limitations:
+q-Space pore imaging infers a real-space pore shape from diffusion-encoded
+signal intensity. The reconstruction is an inverse problem: phase is missing,
+high-q measurements are weak, and experimental sampling is noisy or incomplete.
+A visually plausible pore is therefore not enough; the method must be tested
+against controlled losses of information.
+
+Use this page to understand the robustness study rather than to learn the basic
+PGSE sequence. It asks how much pore shape survives three common acquisition
+limitations:
 
 - finite intensity SNR;
 - a reduced radial q-space window; and
 - randomly missing samples inside that window.
+
+The reported geometries are synthetic ground-truth tests. They establish
+algorithm behavior for these shapes and sampling conditions, not universal
+resolution or success guarantees for experimental porous media.
 
 The reproducible driver is
 [`examples/plot_pgse_qspace_robustness.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/examples/plot_pgse_qspace_robustness.py).

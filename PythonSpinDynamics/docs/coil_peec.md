@@ -1,11 +1,18 @@
 # PEEC Coil Solver: Arbitrary-Geometry L, R, C, Q, and Self-Resonance
 
-> **Status (audited 2026-07-11): implemented and stabilized.** The arbitrary
-> wire-path PEEC solver, terminal reduction, RF resistance, capacitance, and
-> validation examples are available. This page explains method and limits.
+Real RF and gradient coils often cannot be reduced to a single-layer solenoid.
+Their turns, legs, crossovers, shields, and dielectric formers create distributed
+inductance, resistance, and capacitance that depend on the actual wire path.
 
-Design and validation note for `spin_dynamics.fields.coil_peec`, the field-based coil-property
-solver for arbitrary wire geometries.
+Use this page when the geometry falls outside the specialized solenoid model.
+The partial-element equivalent-circuit (PEEC) solver converts an arbitrary
+polyline conductor into terminal L, R, C, Q, and self-resonance estimates. It is
+more general and more expensive than the solenoid extractor, and its accuracy
+depends on conductor discretization and loss formulation.
+
+> **Status (audited 2026-07-11): implemented and stabilized.** The arbitrary
+> wire-path solver, terminal reduction, RF resistance, capacitance, and
+> validation examples are available.
 
 ## Motivation
 

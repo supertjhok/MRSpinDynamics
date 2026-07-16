@@ -1,10 +1,13 @@
 # Validation Results
 
-This document is the historical run log and detailed Python-vs-MATLAB/Octave
-fixture inventory. For the current capability-level claims, evidence grades,
-tested ranges, tolerances, exact reproducers, and limitations, use the generated
-[Validation Evidence Matrix](validation_matrix.md). Its authoritative structured
-source is `validation/evidence.json`.
+This page is a historical run log and detailed fixture inventory. It answers
+“which comparisons were run and what files did they use?” It is not the best
+place to decide whether a current scientific claim is supported.
+
+For current capability-level claims, evidence grades, tested ranges,
+tolerances, exact reproducers, and limitations, use the generated
+[Validation Evidence Matrix](validation_matrix.md). Its authoritative
+structured source is `validation/evidence.json`.
 
 Octave is useful for reproducible low-friction fixture generation; MATLAB is
 used for matched-probe fixtures that depend on toolbox behavior not available in

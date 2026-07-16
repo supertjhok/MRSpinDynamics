@@ -35,6 +35,13 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
 
 ### Changed
 
+- Rewrote the PythonSpinDynamics web documentation openings around reader
+  questions, prerequisites, model boundaries, and neighboring guides; added a
+  documentation map and maintainer writing standard; clarified that the
+  magnetic-therapy controller reconstructs its tissue target while particle
+  feedback still comes from simulation state; and converted stale planning
+  language in implemented thermal, coil, NQR, and workflow material into
+  current guidance.
 - Reorganized the PythonSpinDynamics print and web manuals around user tasks
   instead of one catch-all workflow chapter. Coupled-spin and hyperpolarization
   material now shares one physical-model chapter; imaging, fields, EPM

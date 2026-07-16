@@ -1,10 +1,13 @@
 # Core Numerical Functions
 
-Core functions live under `spin_dynamics.core`.
+The core modules contain rotation, propagation, acquisition, and echo-building
+kernels used by higher-level workflows. They operate close to array and matrix
+representations, so they expose fewer scientific guardrails and return less
+context than a workflow result.
 
-Most application code should call `spin_dynamics.workflows` first. The modules
-documented here are lower-level building blocks for validation, debugging, and
-continued MATLAB-to-Python conversion work.
+Most application code should start with `spin_dynamics.workflows`. Use this
+page when validating a numerical identity, debugging a workflow, or building a
+new experiment family from established kernels.
 
 ## Echo Utilities
 

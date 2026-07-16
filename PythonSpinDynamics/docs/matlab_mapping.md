@@ -4,6 +4,11 @@
 > page is now a traceability map for maintainers comparing Python behavior with
 > the MATLAB reference, not an implementation plan.
 
+Use this page when a Python result must be traced to the historical MATLAB
+function or fixture that defined its original behavior. New user code should
+start with the workflow and model guides; the Python package now includes many
+capabilities that have no MATLAB counterpart.
+
 ## Active MATLAB Source
 
 The recommended MATLAB source tree is:

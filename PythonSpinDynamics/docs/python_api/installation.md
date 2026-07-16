@@ -1,10 +1,20 @@
 # Installation
 
+This page gets PythonSpinDynamics running; it does not assume that you are
+developing the package. Choose the minimal installation if you only want to run
+simulations. Choose the persistent development environment if you will run the
+full example catalog, build documentation, modify code, or compare optional
+Numba/JAX backends.
+
 PythonSpinDynamics builds standard wheels and source distributions. Until a
-package index release is published, install from a checkout or from an artifact
-produced by `python -m build`. The recommended setup for development, examples,
-tests, plotting, and benchmarks is a persistent virtual environment managed by
-the repository scripts.
+package-index release is published, install from a checkout or from an artifact
+produced by `python -m build`.
+
+## Recommended development setup
+
+The repository scripts create an isolated environment, install the project in
+editable mode, and verify the optional numerical stack. This is the most
+reliable setup for contributors and for reproducing every documented example.
 
 From `PythonSpinDynamics` on Windows:
 
@@ -42,7 +52,7 @@ See [Development Environment](../development_environment.md) for WSL
 `Ubuntu-24.04` commands, external virtual-environment paths, smoke checks, and
 benchmarking notes.
 
-## Minimal Install
+## Minimal runtime install
 
 For a runtime-only editable install, use:
 

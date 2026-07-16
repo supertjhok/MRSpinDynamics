@@ -1,8 +1,16 @@
 # Gradient-coil engineering and integration
 
-The engineering API operates on `GradientWinding` or
-`ActivelyShieldedWinding`, so every calculation uses the same oriented contour
-geometry that is plotted and passed downstream.
+The inverse-design page answers *what current pattern produces the target
+field*. Engineering asks whether the extracted pattern can be built and driven:
+how much wire and power it needs, what inductance the driver sees, what forces
+act in the background field, and how switching couples to nearby conductors.
+
+Use this page after producing a `GradientWinding` or
+`ActivelyShieldedWinding`. Every calculation uses the same oriented contour
+geometry that is plotted and passed downstream, so field quality and hardware
+metrics refer to one design. The estimates support early trade studies; final
+routing, insulation, structural modes, and manufacturing details remain outside
+the model.
 
 ## Combined engineering report
 

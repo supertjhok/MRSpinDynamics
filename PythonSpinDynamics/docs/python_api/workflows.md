@@ -1,10 +1,29 @@
 # Workflows
 
-Workflow helpers live under `spin_dynamics.workflows`.
+This page is a catalog of task-oriented simulation entry points. A *workflow*
+accepts scientific inputs, assembles the necessary lower-level kernels, and
+returns a result object whose fields correspond to an experiment: echo trains,
+k-space, diffusion attenuation, trajectories, or spectra. It is normally the
+right level when the experiment family is known and the caller wants more
+control than the high-level `Experiment` facade provides.
 
-Application code should prefer the public workflow runners below. The
-lower-level examples remain useful for validation, porting, and debugging
-individual MATLAB reference paths.
+Do not read this long page linearly. Choose a family below, then follow its
+links to model assumptions and runnable examples.
+
+## Choose a workflow family
+
+| You want to simulate | Begin with | Important context |
+|---|---|---|
+| CPMG, FID, inversion recovery, or probe response | [Public CPMG runners](#public-cpmg-runners) | Read [Concepts and Units](concepts.md) first |
+| Prepolarization or molecular relaxation | [Prepolarization](#prepolarization) or [BPP relaxation](#bpp-relaxation) | These prepare parameters; they are not pulse sequences |
+| PGSE, restricted diffusion, PGSTE, DDE, or OGSE | [PGSE and PGSE-prepared CPMG](#pgse-and-pgse-prepared-cpmg) | Decide between analytical moments and explicit walkers |
+| Spins moving through B0/B1 maps or flowing samples | [Moving-isochromat sequences](#moving-isochromat-sequences) | Requires a spatial domain and field maps |
+| Phase-encoded, spin-warp, RARE, or multislice MRI | [CPMG imaging](#cpmg-imaging) | Acquisition and reconstruction are separate stages |
+| Single-sided NMR or magnet-derived field maps | [Magnet field sources and single-sided NMR](#magnet-field-sources-and-single-sided-nmr) | A field solver creates maps consumed by motion/imaging |
+| A simple ideal or probe-aware FID/CPMG reference | [Ideal CPMG](#ideal-cpmg) or [Ideal FID](#ideal-fid) | Useful for teaching and regression baselines |
+
+Application code should prefer these public runners. Lower-level functions and
+historical MATLAB-shaped paths remain useful for validation and debugging.
 
 ## Prepolarization
 

@@ -1,11 +1,20 @@
 # 3D Nonlinear Magnetostatics via the Reduced Scalar Potential
 
-This note is the design/assessment document for extending the structured-grid
-nonlinear magnetostatic solver from 2D (`fields/nonlinear_magnetostatics.py`:
-`PlanarMagnetostatics`, `AxisymmetricMagnetostatics`) to full 3D. It records
-*why* the reduced scalar potential (RSP) was chosen over the alternatives, the
-formulation, and — with numbers — the errors and limits an RSP solver carries so
-that a user knows when to trust it and when to reach for something heavier.
+Two-dimensional magnetic solvers are efficient only when the device has planar
+or axial symmetry. Shims, finite magnet arrays, ferrite structures, and many
+portable instruments break that symmetry and require a three-dimensional
+field calculation.
+
+Use this page to understand the package's reduced-scalar-potential (RSP) solver,
+why it was chosen, and when its structured-grid approximation is adequate. It
+is best suited to permanent magnets, source fields supplied separately by
+Biot-Savart, and soft-magnetic flux shaping. It is not a general replacement
+for edge-element finite-element analysis in current-filled or topologically
+complex domains.
+
+The remainder of the page records the formulation, quantified numerical
+limits, and validation examples so users can decide when a heavier solver is
+needed.
 
 Implementation: `fields/scalar_potential_3d.py`
 (`ReducedScalarPotential3D`, `ScalarPotentialSolution`).

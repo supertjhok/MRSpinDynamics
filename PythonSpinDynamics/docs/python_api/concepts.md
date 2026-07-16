@@ -1,26 +1,32 @@
 # Concepts and Units
 
-The Python package preserves the MATLAB model:
+Before selecting a function, decide what physical object must be propagated.
+An ordinary liquid-state echo may need only a three-component magnetization
+vector. J-coupled spins, singlet order, ESR, and NQR generally require a
+density matrix or Hamiltonian. Imaging and diffusion additionally require
+space; hardware studies may require fields, circuits, particles, or
+temperature. This page explains the shared conventions that let those layers
+connect without silently mixing units or meanings.
 
-- core Bloch workflows represent spins as uncoupled spin-1/2 magnetization
-  vectors;
-- the sample is represented by an offset grid of isochromats;
-- RF and free-precession intervals are applied as rotations in coherence space;
-- acquired spectra can be converted to time-domain echoes or FID traces.
+New users should read this page before the workflow catalog. The
+[documentation map](../documentation_map.md) defines recurring terms such as
+workflow, field map, and evidence.
 
-The separate `spin_dynamics.coupling` namespace adds scoped scalar-coupled
-spin-1/2 utilities for low-field J-editing, TANGO-B filtering, dense
-Hamiltonian propagation, and initial SLIC models.
+## Model layers at a glance
 
-The separate `spin_dynamics.hyperpolarization` namespace adds unit-trace
-singlet/triplet and parahydrogen states plus trace-zero singlet-order
-observables. Long-lived-state, PHIP reaction, and SABRE exchange workflows are
-being built on that density-matrix foundation.
+| Question | Representation | Start with |
+|---|---|---|
+| How does an ensemble of uncoupled spin-1/2 nuclei respond to RF and offsets? | Bloch magnetization vectors over isochromats | `spin_dynamics.workflows` |
+| Do scalar couplings or singlet/triplet symmetry matter? | Small dense spin-1/2 Hamiltonian and density matrix | [J coupling](j_coupling.md) and [hyperpolarization](hyperpolarization.md) |
+| Is a quadrupolar nucleus being excited? | Reduced transition model or full `(2I+1)` density matrix | [NQR models](nqr.md) |
+| Is an electron spin being detected? | ESR spin system and electron-spin Hamiltonian | [ESR models](esr.md) |
+| Do spins move through spatially varying fields? | Positions or walkers plus sampled field maps | [Workflow catalog](workflows.md) |
+| Is the device itself the object of study? | Magnet/coil geometry, circuits, fields, thermal states, or detector models | Fields and Hardware navigation |
 
-The separate `spin_dynamics.nqr` namespace adds early quadrupolar-spin helpers
-for pulsed NQR. Its initial workflows use dense single-site Hamiltonians and
-selective embedded two-level pulses, which is the usual narrowband-pulse limit
-for spin-1 nitrogen-14 NQR.
+The original MATLAB-compatible Bloch workflows use uncoupled spin-1/2
+isochromats, coherence-space rotations, and complex acquired spectra. Other
+namespaces extend that model deliberately; they are not interchangeable
+shortcuts for the same state.
 
 ## Coherence Ordering
 

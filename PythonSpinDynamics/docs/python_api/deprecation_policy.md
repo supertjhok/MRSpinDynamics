@@ -1,5 +1,9 @@
 # Deprecation Policy
 
+This page is for users maintaining scripts across releases and for developers
+changing a public interface. It defines which names and file formats receive a
+migration window and how replacements are announced.
+
 PythonSpinDynamics evolves additively whenever practical. When a supported
 public API must change, the project uses an explicit compatibility window
 rather than removing or silently changing it in one release.

@@ -1,11 +1,16 @@
 # Chemical / Site Exchange
 
-`spin_dynamics.exchange` adds Bloch-McConnell site exchange: a bath of
-magnetically distinct sites that swap magnetization at finite kinetic rates
-while each site relaxes with its own `T1`/`T2` and precesses at its own offset.
-It is the relaxation-domain counterpart to the diffusion-exchange (DEXSY)
-walker example and reuses the package's existing 2D inverse-Laplace solver for
-the inverse problem.
+Chemical or site exchange occurs when spins move between environments with
+different resonance offsets or relaxation times. Slow exchange produces
+separate spectral or relaxation components; fast exchange blends them. The
+measured line shape or two-dimensional relaxation map therefore contains both
+magnetic and kinetic information.
+
+Use this page for Bloch-McConnell exchange between a small number of
+well-mixed sites. Each site has its own offset and T1/T2, while a kinetic rate
+matrix transfers magnetization between sites. This is distinct from DEXSY
+walker simulations, which represent exchange caused by spatial motion between
+regions.
 
 ## System definition
 

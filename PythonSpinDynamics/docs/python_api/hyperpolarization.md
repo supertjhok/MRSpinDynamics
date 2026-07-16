@@ -1,9 +1,18 @@
 # Hyperpolarization and Long-Lived Singlet Workflows
 
-`spin_dynamics.hyperpolarization` provides the shared quantum-state foundation
-for long-lived singlet states, hydrogenative PHIP, and future SABRE workflows.
-It combines rigorously normalized state primitives with dense reference
-implementations of SLIC preparation/storage/readout and PASADENA/ALTADENA.
+Ordinary thermal polarization stores excess population along the magnetic
+field. Hyperpolarization and long-lived singlet experiments can instead store
+order in correlated two-spin states, where independent Bloch vectors cannot
+represent the physics.
+
+Use this page to construct physical singlet/triplet and parahydrogen states,
+simulate SLIC preparation and storage, or map parahydrogen order into
+hydrogenative PHIP products. The implementations are dense reference models for
+small spin systems. SABRE shares the state foundation but still requires its
+own catalyst-bound/free-pool exchange workflow.
+
+Read [J-Coupling Models](j_coupling.md) first if scalar-coupled Hamiltonians or
+SLIC matching are unfamiliar.
 
 ## Density conventions
 

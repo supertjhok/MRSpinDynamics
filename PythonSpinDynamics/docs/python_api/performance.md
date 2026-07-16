@@ -1,9 +1,15 @@
 # Performance
 
-The Python port prioritizes MATLAB parity and readable NumPy implementations,
-then adds acceleration where benchmarks show useful wins. Performance-sensitive
-workflows use vectorized NumPy kernels, explicit worker chunking over isochromat
-grids, and optional Numba/JAX backends for selected large numerical kernels.
+Performance results are meaningful only when the physics, discretization, and
+numerical output are held fixed. This page explains how to compare runtimes
+without mistaking a different grid, backend, or approximation for an
+optimization.
+
+Use it when profiling a supported workflow or checking for a performance
+regression. New users should first confirm correctness with a small example and
+the relevant validation tests. The package prioritizes readable NumPy
+implementations and reference parity, then adds vectorization, worker chunking,
+and optional Numba/JAX acceleration where benchmarks show useful gains.
 
 ## Benchmark Commands
 

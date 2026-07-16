@@ -6,6 +6,11 @@
 > reasoning and milestone history; users should start with
 > `docs/python_api/experiment_workflow.md`.
 
+This file is excluded from the public navigation because it describes the
+architecture before and during implementation. The current user-facing
+workflow, supported routes, and examples are documented in
+[`python_api/experiment_workflow.md`](python_api/experiment_workflow.md).
+
 ## 1. Motivation
 
 PythonSpinDynamics grew feature-first: each new capability (probes, NQR,

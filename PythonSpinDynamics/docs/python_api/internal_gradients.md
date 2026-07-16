@@ -1,13 +1,16 @@
 # Internal / Susceptibility Gradients
 
-`spin_dynamics.susceptibility` generates the static internal field set up by
-magnetic-susceptibility contrast between a solid matrix and the pore fluid. In
-porous media this internal gradient, not the applied gradient, is usually the
-dominant field inhomogeneity: it accelerates CPMG decay (diffusion in internal
-gradients) and biases diffusion measurements. The module produces the internal
-off-resonance field for cylindrical grains that fit the package's
-two-dimensional motion field maps, and summarizes the pore-space internal
-gradient, so the existing walker pipeline can simulate its effect.
+When two materials have different magnetic susceptibilities, an applied field
+creates a spatially varying internal field around their interface. Molecules
+diffusing through that field accumulate phase even when no gradient coil is
+active. In porous media this can shorten CPMG decays and bias an apparent
+diffusion coefficient.
+
+Use this page to generate a two-dimensional susceptibility field around
+cylindrical inclusions, measure its pore-space gradient distribution, and pass
+the result into the moving-walker workflows. The model is a dilute,
+small-susceptibility-contrast approximation; it is not a general arbitrary
+geometry magnetostatic solver.
 
 ## Geometry and field
 

@@ -1,13 +1,17 @@
 # Bipolar 13-Interval PGSTE
 
-`spin_dynamics.workflows.bipolar` implements the Cotts 13-interval alternating
-pulsed-gradient stimulated-echo (APGSTE) sequence -- the sequence in the Bruker
-`diff_stebp.gp` program -- for diffusion measurements that suppress a constant
-background gradient. The background gradient is often the internal gradient from
-magnetic-susceptibility contrast in porous media (see
-[Internal / Susceptibility Gradients](internal_gradients.md)); without
-suppression it biases the apparent diffusion coefficient through the cross-term
-between the applied and background gradients.
+A diffusion measurement normally assumes that the programmed gradient is the
+only relevant gradient. In porous or heterogeneous samples, a static internal
+gradient is already present. Its cross-term with the applied gradient can make
+the fitted diffusion coefficient depend on background field rather than only
+on molecular motion.
+
+The Cotts 13-interval bipolar PGSTE sequence suppresses that cross-term by
+refocusing the continuously present background and alternating the applied
+gradient polarity. Use this page to understand the sequence, its 16-step phase
+cycle, the free-diffusion moment model, and the explicit walker implementation.
+Read [Internal / Susceptibility Gradients](internal_gradients.md) first if the
+origin of the background gradient is unfamiliar.
 
 ## Sequence and phase cycle
 

@@ -1,13 +1,19 @@
-# Phase Cycling Findings
+# Phase Cycling
 
-Yes. The Python package had useful phase-related machinery, but phase cycling
-was not handled consistently as a first-class concept. An initial
-`spin_dynamics.phase_cycling` layer now owns reusable scan-table rows, receiver
-weights, and the default two-step CPMG/PAP branch combination. Current support
-is still partial: absolute RF phase tracking, receiver/display conventions, and
-some pathway approximations remain distributed across workflow-specific code.
+Phase cycling repeats a pulse sequence with selected transmitter and receiver
+phases, then combines the scans so the desired coherence pathway adds while
+artifacts cancel. It is therefore more than assigning a phase to one RF pulse:
+the complete scan table, receiver phase, and branch weight must be kept
+together.
 
-## What Exists
+Use this page to understand which workflows simulate explicit phase-cycle
+branches, which expose only a selected pathway, and how laboratory-frame
+absolute phase differs from scan-to-scan cycling. The
+`spin_dynamics.phase_cycling` layer owns reusable scan tables and the default
+two-step CPMG/PAP combination, but support is not yet uniform across every
+physics engine.
+
+## What is implemented
 
 - `spin_dynamics.phase_cycling` provides `PhaseStep`, `PhaseCycle`, and
   `cpmg_two_step_phase_cycle`. Rows are scan steps in the cycle. Columns are

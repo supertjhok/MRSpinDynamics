@@ -1,5 +1,16 @@
 # Known Gaps and Capability Roadmap
 
+This page records what the package does **not** yet model or validate well
+enough for routine use. It is organized by architectural and scientific risk,
+not by release promise. A listed gap may mean missing physics, limited scaling,
+incomplete integration, insufficient experimental evidence, or an API that is
+still too specialized.
+
+Read this page before treating a new model as quantitatively predictive. For
+the exact supported claims, use the [Validation Evidence
+Matrix](../validation_matrix.md); for stable public signatures, use the
+[API Reference](api_reference.md).
+
 ## 2026-07 Capability Audit
 
 PythonSpinDynamics now has about 65,000 source lines in 191 Python modules,

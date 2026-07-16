@@ -83,6 +83,7 @@ nav:
   - Orientation:
       - Installation: python_api/installation.md
       - Capability overview: python_api/index.md
+      - How to use these docs: documentation_map.md
       - Concepts and units: python_api/concepts.md
       - Unified experiment workflow: python_api/experiment_workflow.md
       - Print manual: python_api/manual.md
@@ -146,6 +147,7 @@ nav:
   - Development:
       - Development environment: development_environment.md
       - Testing strategy: testing_strategy.md
+      - Writing clear documentation: documentation_style.md
       - MATLAB mapping: matlab_mapping.md
 
 copyright: Copyright &copy; 2026 MRSpinDynamics contributors

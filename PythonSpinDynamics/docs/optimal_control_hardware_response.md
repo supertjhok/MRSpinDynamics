@@ -1,17 +1,23 @@
 # Optimal-Control Hardware Response (GRAPE Milestone 4)
 
+An optimal-control algorithm can produce a perfect waveform that real hardware
+cannot deliver. RF probes filter and ring down, gradient coils slew through an
+L/R response and excite eddy currents, and the receiver changes the signal used
+to score success. Optimizing an ideal command while ignoring those stages can
+overstate fidelity and produce fragile pulses.
+
+Use this page after learning the basic GRAPE controls. It explains how the
+commanded RF/gradient waveforms are passed through differentiable hardware
+models inside the optimization loop, and how detected-signal objectives include
+the receiver. It is a design and validation record, not a general circuit
+identification tutorial.
+
 > **Status (audited 2026-07-11): implemented.** Probe, gradient-driver,
 > eddy-current, and receiver-response models are integrated into the optimal
-> control layer. This is the milestone's design and validation record.
+> control layer.
 
-This note records the design for folding **probe and driver
-dynamics** into the `spin_dynamics.optimal_control` GRAPE engine. It covers the
-RF probe (tuned / untuned / matched), a *new* gradient-driver model
-(RL time constant plus eddy-current terms), and a receiver transfer function
-for detected-signal objectives.
-
-Prior milestones: M1 RF-robust GRAPE, M2 gradient-waveform channel,
-M3 NQR / quadrupolar targets. This is M4.
+In the project milestone history, this followed RF-robust GRAPE, the gradient
+control channel, and NQR/quadrupolar targets.
 
 ## Problem
 

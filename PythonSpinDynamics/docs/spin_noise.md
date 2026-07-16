@@ -1,13 +1,22 @@
 # Spin Noise
 
+Even at thermal equilibrium, a finite spin ensemble has random transverse
+magnetization. A sensitive detector sees those fluctuations as a narrowband
+noise source with the same sample-probe coupling that produces radiation
+damping. Spin noise is therefore distinct from coil Johnson noise and from
+arbitrary white noise added after acquisition.
+
+Use this page to predict equilibrium spin-noise variance and spectrum, generate
+stochastic time traces, or study how sample and circuit temperatures produce a
+noise bump or dip. It is a physics and validation reference; users who only
+need a requested output SNR should start with the ordinary workflow noise
+options.
+
 > **Status (audited 2026-07-11): implemented.** Equilibrium variance,
 > radiation-damping coupling, stochastic Ornstein-Uhlenbeck dynamics, and
-> two-bath examples are available. This page is the physics and validation
-> rationale, not an open implementation plan.
+> two-bath examples are available.
 
-This page records the physics analysis behind the spin-noise models, the
-scrutiny of the previous ad-hoc approach, and the implemented design. The
-primary sources are three papers kept local-only in the repository
+The primary sources are three papers kept local-only in the repository
 `References/` folder (gitignored):
 
 - D. I. Hoult and N. S. Ginsberg, *The Quantum Origins of the Free Induction

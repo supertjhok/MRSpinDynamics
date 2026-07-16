@@ -1,12 +1,19 @@
 # Coupled Thermal Modeling: Design and Validation
 
-> **Status (audited 2026-07-15): implemented.** Material, source, network,
-> conduction, RF/gradient coupling, flowing-sample thermal paths, and coupled
-> electrothermal electromagnets used as B0 sources are available with tests and
-> examples. This page explains the model boundaries.
+Magnetic-resonance hardware converts electrical power into heat, and that heat
+feeds back into resistance, Q, noise, field strength, sample properties, and
+safety margins. Treating temperature as a fixed input can therefore make a
+long sequence or high-duty device prediction internally inconsistent.
 
-Design and validation note for the thermal solver in `spin_dynamics`, which
-models coupled heating of RF coils, gradient coils, and the sample.
+Use this page to connect known heat sources to lumped thermal networks or
+one-dimensional conduction models, including RF/gradient coils, samples,
+flowing fluids, and voltage-driven electromagnets. The package predicts thermal
+transients from supplied geometry and material parameters; it is not a general
+three-dimensional CFD or bioheat planning system.
+
+> **Status (audited 2026-07-15): implemented.** Material, source, network,
+> conduction, RF/gradient coupling, flowing-sample paths, and coupled
+> electrothermal B0 electromagnets are available with tests and examples.
 
 ## Motivation
 
@@ -35,10 +42,13 @@ SAR), and the two-temperature noise models. The spin-noise work
 first-class, independent parameters -- a thermal solver is what makes them
 *dynamic and consistent* instead of user-supplied constants.
 
-## What the package already has
+## How the implemented pieces connect
 
-The heat **sources** and the temperature **consumers** largely exist; the
-missing piece is the transport model between them.
+Thermal calculations have three parts: a heat **source**, a model that
+**transports or stores** that heat, and a temperature-dependent **consumer**.
+The package implements all three. Users choose either a lumped thermal network
+or a one-dimensional conduction model, then opt into a coupling loop when
+temperature must update electrical or sample properties.
 
 Sources:
 
@@ -72,13 +82,16 @@ Consumers:
   correlation times (Arrhenius `tau_c(T)`), currently taking `tau_c` as a
   direct input.
 
-Infrastructure:
+Transport and coupling:
 
-- `fields.domain`/`maps`: the n-D grid layer that field maps already use; a
-  finite-difference conduction solve can reuse the same grids so thermal maps
-  and field maps are colocated.
-- The staged, opt-in workflow pattern (radiation damping, noise) that a
-  thermal coupling loop should follow.
+- `thermal.network`: lumped heat capacities, fixed-temperature baths, and
+  conductive, convective, radiative, or flowing-fluid links.
+- `thermal.conduction`: one-dimensional slab, cylinder, and sphere conduction,
+  including fixed-temperature, convection, and perfusion boundaries.
+- `thermal.coupling`: steady and time-marched quasi-static feedback from
+  temperature to coil resistance and sample SAR.
+- `thermal.electromagnet`: coupled current, winding temperature, resistance,
+  and B0 drift with voltage, current, temperature-compensated, or field control.
 
 ## Physics and time scales
 
@@ -100,9 +113,9 @@ back into the EM/spin layers between steps (quasi-static two-way coupling).
 The one fast path -- a single long pulse adiabatically heating a small sample
 -- is the lumped limit `dT = E_dep / (m c_p)` and needs no solver at all.
 
-## Modeling options
+## Choose a thermal model
 
-### Option A -- Lumped thermal network (recommended core)
+### Lumped thermal network (recommended starting point)
 
 Represent the probe as a nodal RC network: nodes (coil, former, shield,
 sample, optionally sample shells or coil sections) with heat capacities
@@ -124,7 +137,7 @@ package's fixed-step RK4).
 - Validation: analytic 1-2 node step responses; energy conservation; known
   coil warm-up curves.
 
-### Option B -- 1D / axisymmetric finite-difference conduction
+### One-dimensional finite-difference conduction
 
 A radial (cylinder/sphere) or 1D slab conduction solver for the two places
 profiles actually matter: the **sample interior** (SAR density from the eddy
@@ -196,7 +209,7 @@ frequency-dependent core loss, sensor dynamics, or detailed switching-regulator
 ripple. Use the existing thermal network/conduction solvers for multiple
 thermal nodes and supply measured or separately calculated core loss.
 
-### Option C -- 3D finite-difference conduction on the `fields` grids
+### Three-dimensional conduction (not implemented)
 
 Voxelized `k`, `rho c_p`, and source maps on the existing `fields.domain`
 grids (so PEEC winding losses and eddy-solver SAR maps deposit directly onto
@@ -208,9 +221,8 @@ Crank-Nicolson in time, conjugate-gradient solves.
 - Cons: an order of magnitude more code and runtime; boundary conditions on
   voxelized surfaces need care; convection still parameterized by film
   coefficients (no CFD).
-- Position: stretch phase after A+B prove the coupling loop; API should be
-  designed so B and C are interchangeable backends of the same source/BC
-  description.
+- Position: a possible future backend after measured cases establish that the
+  lumped and one-dimensional models are insufficient.
 
 ### Option D -- out of scope (documented boundaries)
 
@@ -224,9 +236,10 @@ Crank-Nicolson in time, conjugate-gradient solves.
 - Full-wave SAR at high field (`sigma ~ omega eps`, wavelength ~ sample): the
   quasistatic Born solver's stated limits apply to its thermal use too.
 
-## Coupling architecture
+## Package layout and coupling architecture
 
-One new package, `spin_dynamics.thermal`, plus a staged coupling loop:
+The `spin_dynamics.thermal` package separates material data, power sources,
+heat transport, and electrothermal feedback:
 
 ```text
 spin_dynamics/thermal/
@@ -237,7 +250,7 @@ spin_dynamics/thermal/
                   # solve; gradient-waveform RMS power; explicit constants
   network.py      # Option A: ThermalNode / ThermalLink / ThermalNetwork,
                   # transient + steady-state solves
-  conduction.py   # Option B (later C): 1D/axisymmetric FD conduction,
+  conduction.py   # 1D slab/cylinder/sphere conduction,
                   # same Source/BC dataclasses as network.py
   coupling.py     # quasi-static loop: T -> rho(T), sigma(T), M0(T), tau_c(T)
                   # -> updated sources/consumers -> T ...
@@ -257,36 +270,11 @@ The coupling loop is explicit and opt-in, like radiation damping:
    experiment-duration drift studies (e.g. SNR and frequency drift across a
    long CPMG averaging session).
 
-Deliverable workflows: `run_probe_thermal_steady_state`,
-`run_sequence_thermal_drift` (temperature, `Q`, SNR, `M0` vs. time for a
-given sequence and duty cycle), and a cryoprobe example (cold coil / warm
-sample: two-temperature noise now computed, not assumed).
-
-## Work plan
-
-- **Phase 0 -- materials and sources.** `ThermalMaterial` presets;
-  duty-cycle power extraction from existing `(sp, pp)` and gradient
-  waveforms; SAR source adapter over `fields.quasistatic`. Validation:
-  energy bookkeeping against pulse energies; SAR integral matches the eddy
-  solver's loading resistance (`P = I^2 R_load / 2`).
-- **Phase 1 -- lumped network (Option A).** Transient + steady solves,
-  bath/convection/radiation links, step-response fitting helper. Validation:
-  1-2 node analytic responses, energy conservation, linear-solve steady
-  state == long-time transient.
-- **Phase 2 -- coupling loop.** `coupling.py` fixed-point and time-marched
-  modes wired to `sp.T`, `Sample`, `ConductorMaterial`, spin-noise
-  temperatures. Validation: monotone convergence on a copper-coil warm-up
-  scenario; reproduces the known `Q(T)`/noise trends of the coil-loading
-  example; cryoprobe two-temperature SNR example.
-- **Phase 3 -- 1D/axisymmetric conduction (Option B).** Sample-interior SAR
-  profile and coil-stack conduction; lumped-limit cross-check at low Biot
-  number; analytic slab/cylinder validation.
-- **Phase 4 -- documentation and examples.** User-manual section, example
-  scripts (probe warm-up SNR drift; sample SAR heating during a SLSE train;
-  cryoprobe design curve).
-- **Phase 5 (stretch) -- 3D conduction (Option C)** on `fields.domain`
-  grids, PEEC/eddy sources deposited spatially; pluggable behind the same
-  API as Option B.
+Use `examples/plot_nmr_mouse_thermal.py` for a coupled sample-and-coil case and
+`examples/plot_electrothermal_electromagnet.py` for B0 drift and feedback. The
+validation suite checks analytic one- and two-node responses, energy
+conservation, steady/transient agreement, conduction limits, and coupled
+electromagnet fixed points.
 
 ## Boundaries and caveats
 

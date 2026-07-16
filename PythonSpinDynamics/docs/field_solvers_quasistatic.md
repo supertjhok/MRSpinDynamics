@@ -1,12 +1,19 @@
 # Quasistatic E-field and Eddy-Current Solvers
 
+A coil's B field is not the whole electromagnetic problem. When current changes,
+the associated electric field can drive currents in conductive samples,
+shields, cryostats, or nearby structures. Those currents deposit heat and
+create secondary magnetic fields that persist after the command changes.
+
+Use this page when estimating induced electric fields, first-order sample loss,
+discrete eddy modes, or gradient pre-emphasis. The page contains two different
+approximations: a Born model for conductive-volume response and a
+self-consistent filament-loop model for shield modes. Their validity limits
+must not be interchanged.
+
 > **Status (audited 2026-07-11): implemented.** Induced E-fields, conductive
 > response, loss, secondary fields, eddy modes, and pre-emphasis helpers are in
-> the public fields layer. This page documents formulation and limits.
-
-Design and validation note for induced-E-field and eddy-current solvers in the
-`spin_dynamics.fields` package, alongside the existing magnetostatic (Biot-Savart)
-B0/B1 solvers.
+> the public fields layer.
 
 ## Motivation
 

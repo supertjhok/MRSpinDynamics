@@ -1,11 +1,18 @@
 # Coil-Property Extraction for Single-Layer RF Solenoids
 
-> **Status (audited 2026-07-11): implemented.** The QOIL-style solenoid model,
-> shielding/former corrections, network quantities, and independent checks are
-> available. Use this page to understand assumptions and applicability.
+An RF probe design needs more than a Biot-Savart B1 map. Its inductance,
+frequency-dependent resistance, stray capacitance, quality factor, and
+self-resonance determine the matching network, transmitter voltage, receiver
+noise, and usable bandwidth.
 
-Design and validation note for `spin_dynamics.fields.coil_properties`, which turns a
-single-layer solenoid's geometry into the lumped RF properties a probe designer needs.
+Use this page for a **single-layer round-wire solenoid**, where a specialized
+QOIL-style model is fast and well validated. If the winding is multilayer,
+saddle-shaped, surface-mounted, or otherwise an arbitrary path, use the
+[PEEC coil solver](coil_peec.md) instead.
+
+> **Status (audited 2026-07-11): implemented.** The solenoid model,
+> shielding/former corrections, network quantities, and independent checks are
+> available.
 
 ## Motivation
 
@@ -119,18 +126,20 @@ at the operating temperature for a precise value.
   grows ~`sqrt(f)`, and Q peaks near a cubical form factor (`l ≈ D`), as
   `examples/plot_solenoid_coil_properties.py` demonstrates.
 
-## Scope and follow-on (staged)
+## Scope and relationship to the PEEC model
 
 This module covers **single-layer air-core solenoids** — the geometry with a validated
-semi-analytical reference. The planned follow-on adds **field-based** extraction for
-arbitrary coil geometries, slotting in alongside `solenoid_properties`:
+semi-analytical reference. For arbitrary winding paths, use the implemented
+[PEEC coil model](coil_peec.md), which provides field-based inductance and
+frequency-dependent current redistribution. Two effects still require more
+detailed electrostatic or eddy-current models:
 
 - **Proximity-effect resistance** from a 2-D eddy-current solve over the wire
   cross-section driven by the neighbour-turn field.
 - **Turn-to-turn / stray capacitance** from an electrostatic (charge) solve.
 
-These reuse the existing `fields.quasistatic` machinery and remove the single-layer /
-round-wire restriction, at the cost of a mesh and no closed-form reference.
+Those extensions would remove more of the round-wire and prescribed-capacitance
+assumptions, at the cost of a mesh and without the same closed-form reference.
 
 ## Attribution
 

@@ -1,9 +1,13 @@
 # Development Environment
 
-Use a persistent virtual environment for PythonSpinDynamics development,
-testing, plotting, and performance work. The setup scripts below create or
-update the environment, install the package in editable mode, and verify the
-optional numerical stack.
+This page is for contributors and reproducibility work. If you only need to run
+the package, the shorter [Installation](python_api/installation.md) page is
+enough. Continue here when modifying source, rebuilding documentation, running
+the complete test matrix, plotting in WSL, or benchmarking optional backends.
+
+Use a persistent virtual environment for that work. The setup scripts below
+create or update the environment, install the package in editable mode, and
+verify the optional numerical stack.
 
 The default Windows environment path is `PythonSpinDynamics/.venv-win`; the
 default WSL environment path is `PythonSpinDynamics/.venv-wsl`. They are

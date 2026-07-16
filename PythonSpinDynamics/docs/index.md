@@ -5,6 +5,11 @@ workspace. It models NMR, NQR, ESR/EPR, coupled spins, motion, diffusion,
 exchange, field maps, probe hardware, optimal control, and magnetic-resonance
 signal analysis with explicit validation evidence.
 
+If you are unsure which page or model you need, begin with
+[How to Use This Documentation](documentation_map.md). It explains the
+difference between experiments, workflows, numerical models, and validation
+evidence before you encounter the detailed APIs.
+
 [Get started](python_api/installation.md){ .md-button .md-button--primary }
 [Run an experiment](python_api/experiment_workflow.md){ .md-button }
 [Browse examples](python_api/examples.md){ .md-button }
@@ -13,6 +18,7 @@ signal analysis with explicit validation evidence.
 
 | Area | Start here |
 |---|---|
+| Documentation and terminology | [How the guides, models, and references fit together](documentation_map.md) |
 | Unified simulations | [Experiment workflow](python_api/experiment_workflow.md) |
 | Sequences and acquisitions | [Workflow catalog](python_api/workflows.md) and [runnable examples](python_api/examples.md) |
 | NQR to quadrupolar NMR | [NQR models and crossover methods](python_api/nqr.md) |

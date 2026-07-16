@@ -1,16 +1,51 @@
 # Image-Guided Magnetic Therapy
 
-This guide collects the imaging, particle-transport, feedback-control, and
-dynamic-trapping workflows into one system-level path. These models use field
-sources and hardware models, but they are not field solvers: their purpose is
-to answer whether a measured particle distribution can be reconstructed,
-steered toward a target, and kept localized under explicit flow and actuator
-constraints.
+Magnetic particles can act as carriers, local heat sources, or contrast agents.
+An external magnet can pull them toward a target, but applying a force is only
+half of an image-guided treatment: the system must also estimate where the
+particles are, decide how the next field should change, and determine whether
+the particles remain localized after they arrive.
 
-Start with [electropermanent magnet hardware](electropermanent_magnets.md) when
-you need rod geometry, retained remanence, programming circuits, hysteresis, or
-array-state synthesis. Start here when the scientific question concerns image
-formation, particle delivery, closed-loop control, or trapping stability.
+In this documentation, a **particle distribution** means the spatial
+concentration of particles. The transport models represent it with individual
+simulated particle positions. The imaging model currently reconstructs a
+**tissue-contrast image** that identifies the target region; it does not yet
+recover particle concentration from measurements. Keeping those two quantities
+separate is essential when interpreting the closed-loop example.
+
+This guide connects four questions that are otherwise easy to confuse:
+
+1. Can the hardware produce useful imaging and force fields?
+2. Can measurements reveal the target, and eventually the particle
+   concentration, well enough to guide a decision?
+3. Can magnetic force overcome diffusion and background flow to move particles
+   toward a target?
+4. Can the particles remain concentrated without relying on an impossible
+   static magnetic-field trap?
+
+The current implementation is a mechanism and engineering study, not a
+clinical-treatment model. It uses simplified tissue phantoms, dilute
+noninteracting particles, prescribed flow, and inferred actuator fields.
+
+Start with [electropermanent magnet hardware](electropermanent_magnets.md) for
+rod geometry, retained remanence, programming circuits, hysteresis, or array
+state synthesis. Continue here for image formation, transport, feedback, and
+trapping stability.
+
+## From delivery concept to simulation
+
+A complete simulated cycle begins with a known actuator command, generates a
+measurement of a tissue phantom, reconstructs the image, and localizes a target
+region. The simulator then chooses a force field using that target and the
+known positions of the uncaptured particles. *Target occupancy* is the fraction
+of simulated particles inside the target region. These definitions keep target
+imaging, particle-state estimation, transport success, and long-term
+localization as separate problems.
+
+> **Important model boundary:** the current feedback loop has image-derived
+> target localization but simulated particle-state feedback. A measurement
+> model that estimates particle concentration is the next missing link for a
+> fully image-guided controller.
 
 ## System workflow
 
@@ -19,12 +54,11 @@ The implemented system is organized as five successive layers:
 1. **Actuator state.** A coil, EPM array, or hybrid EPM-plus-coil system produces
    a spatial field and gradient from an explicit hardware state.
 2. **Image formation.** Multiple nonlinear EPM operating states encode a tissue
-   or particle distribution, including transmit and receive sensitivity.
+   contrast image, including transmit and receive sensitivity.
 3. **Transport.** Superparamagnetic particles move under magnetic force,
    background flow, Brownian diffusion, and reflecting boundaries.
-4. **Feedback control.** Reconstructed particle position and target occupancy
-   select the next transport state instead of assuming perfect open-loop
-   delivery.
+4. **Feedback control.** The reconstructed image supplies the target location;
+   simulated uncaptured-particle positions select the next transport direction.
 5. **Dynamic trapping.** Ferromagnetic rods retain their polarization briefly
    while an opposing gradient produces repulsion. Cycling the source direction
    creates time-averaged central localization without claiming a stable static
@@ -67,8 +101,8 @@ python examples/plot_epm_nonlinear_tissue_imaging.py \
   --output results/epm_nonlinear_tissue.png
 ```
 
-The resulting state set can be passed to the controller as a measured or
-synthetic localization source.
+The resulting image and state set can supply target localization to the
+controller. They do not estimate the transported particle cloud.
 
 ## Image-guided particle transport
 
@@ -90,19 +124,21 @@ pharmacokinetic compartment model.
 ## Alternating imaging and therapy control
 
 `run_epm_image_guided_controller` alternates among imaging, EPM programming,
-and transport intervals. Each cycle reconstructs the particle distribution,
-identifies uncaptured particles, synthesizes or selects a transport field, and
-records the resulting target capture and programming effort.
+and transport intervals. Each cycle reconstructs the tissue phantom, localizes
+the target, reads the uncaptured particles from simulation state, synthesizes a
+transport field aimed from their centroid toward the target, and records target
+capture and programming effort.
 
 ```bash
 python examples/plot_epm_closed_loop_controller.py \
   --output results/epm_closed_loop_controller.png
 ```
 
-The controller is useful for studying cadence and observability. It should not
-be read as evidence that tissue concentration can be inferred perfectly from a
-single image; measurement noise, model mismatch, and biological transport need
-experiment-specific calibration.
+The controller is useful for studying cadence, switching burden, and the value
+of repeated target localization. It should not be read as a demonstration of
+particle tracking from MR measurements. A particle-sensitive signal model,
+state estimator, measurement noise, model mismatch, and biological transport
+all need experiment-specific calibration.
 
 ## Dynamic-inversion trapping
 

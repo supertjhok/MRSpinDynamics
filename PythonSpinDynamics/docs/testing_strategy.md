@@ -1,9 +1,14 @@
 # Test Tiers and Change-Aware Selection
 
-PythonSpinDynamics has a large validation surface because analytical limits,
-external fixtures, optional backends, examples, and integrated workflows all
-matter. Running the complete suite after every edit is neither necessary nor a
-good feedback loop. Use progressively broader tiers instead.
+This page tells contributors which checks to run after a change. It is about
+efficient software verification; it does not define the scientific evidence
+level of a model. For that distinction, read the [Validation
+guide](python_api/validation.md).
+
+PythonSpinDynamics has a large test surface because analytical limits, external
+fixtures, optional backends, examples, and integrated workflows all matter.
+Running the complete suite after every edit is neither necessary nor a good
+feedback loop, so the repository uses progressively broader tiers.
 
 ## Edit loop: impacted tests
 
