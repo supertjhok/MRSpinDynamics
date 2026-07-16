@@ -39,6 +39,7 @@ MODULES = [
     "detection.spatial",
     "detection.squid",
     "design.reference_ir",
+    "design.adapters",
     "design.constraints",
     "design.costs",
     "design.diagnostics",

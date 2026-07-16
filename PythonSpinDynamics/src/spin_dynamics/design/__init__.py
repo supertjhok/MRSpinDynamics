@@ -6,6 +6,23 @@ utilities, physical costs, constraints, stopping, and replayable sessions.
 Phase 0 remains available as an exact-grid inversion-recovery reference.
 """
 
+from spin_dynamics.design.adapters import (
+    CPMGIRAdapter,
+    CPMGIRDesign,
+    ESRDelayDesign,
+    ESRHahnAdapter,
+    ExperimentAdapterCost,
+    ExperimentDesignAdapter,
+    ExperimentPlanConstraint,
+    ExperimentPredictor,
+    NQRFIDAdapter,
+    NQRFrequencyDesign,
+    PGSEAdapter,
+    PGSEDesign,
+    make_adapter_model,
+    make_adapter_session,
+)
+
 from spin_dynamics.design.constraints import (
     CallableConstraint,
     ConstraintResult,
@@ -87,6 +104,8 @@ from spin_dynamics.design.utilities import (
 
 __all__ = [
     "AdaptiveDesignSession",
+    "CPMGIRAdapter",
+    "CPMGIRDesign",
     "CallableConstraint",
     "CallableCost",
     "CandidateDesignSpace",
@@ -102,6 +121,12 @@ __all__ = [
     "DiscretePrior",
     "ExpectedInformationGain",
     "ExpectedVarianceReduction",
+    "ESRDelayDesign",
+    "ESRHahnAdapter",
+    "ExperimentAdapterCost",
+    "ExperimentDesignAdapter",
+    "ExperimentPlanConstraint",
+    "ExperimentPredictor",
     "GaussianLikelihood",
     "GridPosterior",
     "IRAcquisitionCost",
@@ -117,12 +142,16 @@ __all__ = [
     "IndependentPrior",
     "LogUniformPrior",
     "NormalPrior",
+    "NQRFIDAdapter",
+    "NQRFrequencyDesign",
     "ObservationLikelihood",
     "ParameterParticles",
     "ParticlePosterior",
     "PhysicalCost",
     "PosteriorStandardDeviationStopping",
     "PosteriorSummary",
+    "PGSEAdapter",
+    "PGSEDesign",
     "PredictiveModel",
     "Prior",
     "QuantityOfInterest",
@@ -132,6 +161,8 @@ __all__ = [
     "evaluate_constraints",
     "inversion_recovery_signal",
     "load_design_state",
+    "make_adapter_model",
+    "make_adapter_session",
     "posterior_from_state",
     "quantity_values",
     "recommend_ir_design",

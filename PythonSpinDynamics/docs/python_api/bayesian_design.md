@@ -13,7 +13,9 @@ PythonSpinDynamics currently provides two levels:
   QoI variance reduction, costs, constraints, stopping, and checkpointing; and
 - an exact-grid inversion-recovery reference that marginalizes amplitude,
   baseline, and noise while calculating information specifically about
-  \(T_1\).
+  \(T_1\); and
+- experiment-facade adapters for CPMG inversion recovery, deterministic PGSE,
+  NQR FID carrier/pulse selection, and ESR Hahn delay/carrier selection.
 
 The generic core recommends measurements and consumes results through an
 `ask()`/`tell()` loop. It does not control an instrument, and its physical cost
@@ -102,6 +104,82 @@ noisy without hiding the returned estimator uncertainty.
 
 Runnable version:
 [`examples/bayesian_design_linear.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/examples/bayesian_design_linear.py).
+
+## Connecting the design core to Experiment
+
+Phase 2 adapters turn a particle and an action into a simulation-only
+`Experiment`, extract a stable observable from its result, and calculate the
+laboratory duration of that action. Use `make_adapter_session()` instead of
+constructing `AdaptiveDesignSession` directly: it installs
+`ExperimentPlanConstraint`, ensuring every candidate passes the existing
+static experiment planner before its utility is scored or returned.
+
+| Adapter | Action | Bound latent fields | Default observable | Physical cost includes |
+|---|---|---|---|---|
+| `CPMGIRAdapter` | `CPMGIRDesign(delay_seconds)` | sample T1 and T2 | complex echo-integral vector | inversion delay, echo train, recovery, overhead |
+| `PGSEAdapter` | `PGSEDesign(G, delta, Delta)` | diffusion coefficient and T2 | complex echo vector | final echo time, recovery, overhead |
+| `NQRFIDAdapter` | `NQRFrequencyDesign(carrier, pulse, nutation)` | site quadrupole frequency and eta | complex FID | pulse, acquisition, recovery, overhead |
+| `ESRHahnAdapter` | `ESRDelayDesign(tau, carrier)` | sequence T2 and optional isotropic g factor | complex echo waveform | pulses, delay, acquisition, recovery, overhead |
+
+All four adapters also recognize optional scalar `signal_scale` and `baseline`
+particles. Set `echo_index` or `sample_index` to select a scalar observation;
+otherwise use `ComplexGaussianLikelihood(..., event_ndim=1)` for the returned
+vector. Acquisition noise must be disabled on the template because uncertainty
+belongs in the explicit Bayesian likelihood.
+
+```python
+import numpy as np
+from spin_dynamics.design import (
+    CPMGIRAdapter, CPMGIRDesign, CandidateDesignSpace,
+    ComplexGaussianLikelihood, ExpectedVarianceReduction,
+    ParticlePosterior, make_adapter_session,
+)
+from spin_dynamics.experiment import (
+    Acquisition, CPMGIRTrain, Experiment, Sample,
+)
+
+template = Experiment(
+    CPMGIRTrain(num_echoes=2, echo_spacing_seconds=1e-3),
+    Sample(t1_seconds=0.15, t2_seconds=0.06),
+    acquisition=Acquisition(numpts=21, maxoffs=5, rephase_action="ignore"),
+)
+adapter = CPMGIRAdapter(
+    template,
+    {"t1_seconds": 0.15, "t2_seconds": 0.06},
+    echo_index=0,
+    recovery_seconds=20e-3,
+)
+t1 = np.geomspace(0.05, 0.45, 15)
+posterior = ParticlePosterior({
+    "t1_seconds": t1,
+    "t2_seconds": np.full(t1.size, 0.06),
+})
+session = make_adapter_session(
+    adapter=adapter,
+    likelihood=ComplexGaussianLikelihood(0.5),
+    posterior=posterior,
+    design_space=CandidateDesignSpace(
+        CPMGIRDesign(delay) for delay in np.geomspace(5e-3, 0.6, 8)
+    ),
+    utility=ExpectedVarianceReduction(
+        lambda p: p["t1_seconds"], samples=32, scale=0.1
+    ),
+    seed=12,
+)
+next_action = session.ask().best.design
+```
+
+`ExperimentPredictor` caches deterministic workflow outputs by action and
+particle values, because `ask()` and `tell()` repeatedly need the same forward
+predictions. Call `clear_cache()` after changing external simulator state. The
+reference adapters currently accept scalar latent parameters and execute one
+facade workflow per distinct particle/action pair; surrogate and batched
+acceleration are Phase 3 work.
+
+Runnable examples:
+[`bayesian_design_cpmg_ir_adapter.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/examples/bayesian_design_cpmg_ir_adapter.py)
+and
+[`bayesian_design_adapter_catalog.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/examples/bayesian_design_adapter_catalog.py).
 
 ## Grid and particle posteriors
 
@@ -207,13 +285,12 @@ target-EIG estimators and to reproduce the synthetic benchmark in
 
 ## Scope and next integration step
 
-Phase 1 is simulator-agnostic. It does not yet bind uncertain parameters into
-`Experiment` specifications or extract observables from the heterogeneous
-workflow result classes. That is Phase 2: adapters for CPMG inversion recovery,
-PGSE, NQR, and ESR, with every proposed experiment passing the existing static
-planner before it can be recommended.
+Phase 2 provides reference facade adapters for four representative workflows.
+It is not yet a claim that every PythonSpinDynamics workflow can be designed
+adaptively. The next phase adds surrogate models, delayed-acceptance checks,
+model-discrepancy terms, and prior/model sensitivity reporting so expensive
+forward models can be used without silently changing the target utility.
 
 The research basis, formal objective, robustness concerns, phased roadmap, and
 full references are preserved in the
 [Bayesian experiment-design architecture plan](../bayesian_experiment_design_plan.md).
-

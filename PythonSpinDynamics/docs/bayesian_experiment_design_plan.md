@@ -1,10 +1,10 @@
 # Bayesian experiment design and adaptive acquisition
 
-> **Status (2026-07-16): Phases 0 and 1 implemented.** An exact-grid
-> inversion-recovery reference and a generic NumPy grid/particle design core
-> are operational. Experiment-facade adapters remain Phase 2; this is not a
-> claim that every PythonSpinDynamics workflow can already be planned
-> adaptively.
+> **Status (2026-07-16): Phases 0--2 implemented.** An exact-grid
+> inversion-recovery reference, a generic NumPy grid/particle design core, and
+> planner-validated facade adapters for CPMG-IR, deterministic PGSE, NQR FID,
+> and ESR Hahn echo are operational. This is not a claim that every
+> PythonSpinDynamics workflow can already be planned adaptively.
 
 Magnetic-resonance experiments often use a fixed, uniformly or logarithmically
 spaced acquisition schedule even when early measurements already rule out much
@@ -265,6 +265,16 @@ to a simulation-only `Experiment`, how controllable fields form an acquisition
 action, which result is the observable, what the physical action costs, and
 which constraints apply. Every proposed action should pass the existing static
 experiment planner before it can be scored or returned.
+
+**Implemented 2026-07-16.** `design.adapters` defines typed acquisition
+actions, scalar latent-parameter binding, result extraction, simulator-output
+caching, physical duration models, and `ExperimentPlanConstraint`.
+`make_adapter_session()` installs that constraint automatically. Reference
+adapters cover complex echo integrals for `CPMGIRTrain`, deterministic PGSE
+echoes, full NQR FIDs under frequency/pulse selection, and ESR Hahn waveforms
+under delay/carrier selection. The implementation deliberately keeps
+observation noise in the explicit likelihood rather than the simulation-only
+experiment template.
 
 ### Phase 3: performance and robustness
 

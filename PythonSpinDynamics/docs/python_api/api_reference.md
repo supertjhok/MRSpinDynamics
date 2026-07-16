@@ -303,6 +303,25 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `IRBenchmarkResult` | Outcome of one adaptive or fixed synthetic reference trial. |
 | function | `run_ir_reference_trial(*, prior: IRGridPrior, truth: IRTruth, candidate_designs: Sequence[IRDesign], cost: IRAcquisitionCost, rng: np.random.Generator, policy: str = 'adaptive', fixed_schedule: Sequence[IRDesign] | None = None, maximum_actions: int = 20, minimum_actions: int = 2, credible_probability: float = 0.95, maximum_width_seconds: float | None = None, maximum_relative_width: float | None = 0.25, quadrature_order: int = 12) -> IRBenchmarkResult` | Run one synthetic equal-model benchmark trial. |
 
+## `spin_dynamics.design.adapters`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `CPMGIRDesign` | One inversion delay for a CPMG inversion-recovery acquisition. |
+| class | `PGSEDesign` | Gradient amplitude and timing for one deterministic PGSE acquisition. |
+| class | `NQRFrequencyDesign` | NQR carrier selection with optional pulse duration and nutation rate. |
+| class | `ESRDelayDesign` | Hahn-echo delay with an optional explicitly selected ESR carrier. |
+| class | `ExperimentDesignAdapter` | Contract implemented by experiment-facade design adapters. |
+| class | `CPMGIRAdapter` | Bind ``t1_seconds`` and ``t2_seconds`` to a ``CPMGIRTrain`` template. |
+| class | `PGSEAdapter` | Bind diffusion and T2 parameters to a deterministic ``PGSE`` template. |
+| class | `NQRFIDAdapter` | Bind NQR site properties to an ``NQRFID`` carrier/pulse action. |
+| class | `ESRHahnAdapter` | Bind ESR T2 or an isotropic g factor to a Hahn-echo delay action. |
+| class | `ExperimentPredictor` | Vectorize an experiment adapter over posterior particles. |
+| class | `ExperimentPlanConstraint` | Reject an action unless its nominal experiment plan has no errors. |
+| class | `ExperimentAdapterCost` | Expose an adapter's physical-duration model as a design cost. |
+| function | `make_adapter_model(adapter: ExperimentDesignAdapter, likelihood: ObservationLikelihood, *, cache: bool = True) -> PredictiveModel` | Create a likelihood-backed predictive model from an adapter. |
+| function | `make_adapter_session(*, adapter: ExperimentDesignAdapter, likelihood: ObservationLikelihood, posterior: ParticlePosterior, design_space: CandidateDesignSpace, utility: DesignUtility, constraints: Sequence[DesignConstraint] = (), stopping_rule: StopRule | None = None, seed: int | None = None, resample_fraction: float | None = None, cache: bool = True) -> AdaptiveDesignSession` | Build an adaptive session with mandatory experiment-plan validation. |
+
 ## `spin_dynamics.design.constraints`
 
 | Kind | Name | Summary |

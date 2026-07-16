@@ -593,18 +593,21 @@
     {
       "id": "bayesian_experiment_design",
       "component": "Bayesian experiment design and adaptive acquisition",
-      "claim": "Discrete-grid updates, target information gain, weighted-particle updates, likelihoods, QoI risk utilities, common-random-number ranking, stopping, and checkpoint replay follow their stated probability and decision-theory contracts.",
+      "claim": "Discrete-grid updates, target information gain, weighted-particle updates, likelihoods, QoI risk utilities, common-random-number ranking, stopping, checkpoint replay, and planner-validated experiment adapters follow their stated probability and decision-theory contracts.",
       "evidence_types": ["A", "R"],
-      "basis": "Direct discrete Bayes-rule calculation, dense predictive mutual-information integration, prior-predictive interval coverage, analytical uninformative-design limits, deterministic replay, and seeded equal-model adaptive benchmarks.",
-      "parameter_range": "Scalar/vector real and complex Gaussian observations; finite Cartesian grids and finite weighted real/complex parameter particles; finite candidate spaces and synthetic inversion-recovery/linear examples.",
-      "metric": "Posterior probability, mutual information, expected variance reduction, credible coverage, design ranking, RNG/checkpoint identity, and time-to-precision in synthetic trials.",
+      "basis": "Direct discrete Bayes-rule calculation, dense predictive mutual-information integration, prior-predictive interval coverage, analytical uninformative-design limits, deterministic replay, seeded equal-model adaptive benchmarks, and facade parity checks for parameter binding, observable extraction, planner rejection, caching, and physical duration.",
+      "parameter_range": "Scalar/vector real and complex Gaussian observations; finite Cartesian grids and finite weighted real/complex parameter particles; finite candidate spaces; synthetic inversion-recovery/linear examples; CPMG-IR, deterministic PGSE, NQR FID, and ESR Hahn facade adapters.",
+      "metric": "Posterior probability, mutual information, expected variance reduction, credible coverage, design ranking, RNG/checkpoint identity, time-to-precision in synthetic trials, experiment-plan feasibility, workflow observable shape, and physical acquisition seconds.",
       "tolerance": "Floating-point or Monte Carlo tolerances declared in tests; prior-predictive coverage is required not to under-cover its nominal discrete interval in the fixed-seed reference.",
       "status": "partially_validated",
       "reproducers": [
         "tests/test_bayesian_design.py",
         "tests/test_bayesian_design_core.py",
+        "tests/test_bayesian_design_adapters.py",
         "examples/bayesian_ir_phase0.py",
-        "examples/bayesian_design_linear.py"
+        "examples/bayesian_design_linear.py",
+        "examples/bayesian_design_cpmg_ir_adapter.py",
+        "examples/bayesian_design_adapter_catalog.py"
       ],
       "references": [
         "T. Rainforth et al., Statistical Science 39 (2024) 100-114, doi:10.1214/23-STS915",
@@ -612,7 +615,7 @@
       ],
       "limitations": [
         "The evidence validates numerical/statistical contracts and synthetic examples, not time savings on a physical instrument.",
-        "Generic target-only EIG, model discrepancy, continuous design optimization, particle rejuvenation, and Experiment-facade adapters are not yet implemented."
+        "Generic target-only EIG, model discrepancy, continuous design optimization, particle rejuvenation, surrogate acceleration, and adapters for workflows beyond the four Phase 2 references are not yet implemented."
       ]
     },
     {

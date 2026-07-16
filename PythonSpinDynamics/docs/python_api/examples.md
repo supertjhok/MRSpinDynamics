@@ -17,7 +17,7 @@ Examples can be run from `PythonSpinDynamics` or from inside
 | Goal | First example | Then try |
 |---|---|---|
 | Learn the common plan/run/result pattern | `experiment_facade_quickstart.py` | `ideal_cpmg_train.py` |
-| Adapt measurements to an uncertain sample | `bayesian_design_linear.py` | `bayesian_ir_phase0.py` |
+| Adapt measurements to an uncertain sample | `bayesian_design_linear.py` | `bayesian_design_cpmg_ir_adapter.py` and `bayesian_ir_phase0.py` |
 | Compare ideal and realistic probe behavior | `plot_probe_cpmg.py` | `plot_probe_parameter_sweep.py` |
 | Learn imaging from acquisition to reconstruction | `plot_ideal_imaging.py` | `plot_imaging_inhomogeneity.py` and the portable Halbach capstone |
 | Learn diffusion and motion | `plot_pgse_qspace_walkers.py` | restricted diffusion, PGSTE, DDE, or OGSE examples |
@@ -82,6 +82,16 @@ specifically about T1 after marginalizing amplitude, baseline, and noise:
 
 ```powershell
 python examples\bayesian_ir_phase0.py --trials 12
+```
+
+The Phase 2 example binds uncertain T1/T2 particles and inversion-delay actions
+to real `Experiment(CPMGIRTrain(...))` simulations. Every candidate is checked
+by `Experiment.plan()` and ranked by expected T1-risk reduction per laboratory
+second:
+
+```powershell
+python examples\bayesian_design_cpmg_ir_adapter.py --steps 3
+python examples\bayesian_design_adapter_catalog.py
 ```
 
 These are synthetic algorithm demonstrations, not instrument-control scripts.

@@ -3874,6 +3874,60 @@ both a goal-oriented slope-variance utility and full-state information gain,
 prints posterior progress, stops on slope uncertainty, and optionally saves a
 JSON checkpoint.
 
+\section{Experiment-Facade Adapters}
+
+Phase~2 connects posterior particles to validated workflow simulations.
+\code{CPMGIRAdapter}, \code{PGSEAdapter}, \code{NQRFIDAdapter}, and
+\code{ESRHahnAdapter} bind sample properties into a simulation-only
+\code{Experiment}, replace the controllable sequence fields from a typed
+action, and extract a complex scalar or vector observable. Their matching
+actions are \code{CPMGIRDesign}, \code{PGSEDesign},
+\code{NQRFrequencyDesign}, and \code{ESRDelayDesign}.
+
+Use \code{make\_adapter\_session()} to construct the loop. It always includes
+\code{ExperimentPlanConstraint}, so an action with an invalid static
+\code{Experiment.plan()} is rejected before utility evaluation. Adapter costs
+include the sequence timeline plus user-specified recovery and fixed overhead;
+they remain laboratory time rather than simulator runtime. Noise must be
+disabled in the template and represented by the session likelihood.
+
+\begin{lstlisting}[language=Python]
+adapter = CPMGIRAdapter(
+    Experiment(
+        CPMGIRTrain(num_echoes=2, echo_spacing_seconds=1e-3),
+        Sample(t1_seconds=0.15, t2_seconds=0.06),
+        acquisition=Acquisition(
+            numpts=21, maxoffs=5, rephase_action="ignore"
+        ),
+    ),
+    {"t1_seconds": 0.15, "t2_seconds": 0.06},
+    echo_index=0,
+    recovery_seconds=20e-3,
+)
+session = make_adapter_session(
+    adapter=adapter,
+    likelihood=ComplexGaussianLikelihood(0.5),
+    posterior=posterior,
+    design_space=CandidateDesignSpace(
+        CPMGIRDesign(t) for t in np.geomspace(5e-3, 0.6, 8)
+    ),
+    utility=ExpectedVarianceReduction(
+        lambda p: p["t1_seconds"], samples=32, scale=0.1
+    ),
+)
+next_action = session.ask().best.design
+\end{lstlisting}
+
+The full closed-loop and four-family catalog examples are, respectively,
+\begin{center}
+\code{examples/bayesian\_design\_cpmg\_ir\_adapter.py}\\
+\code{examples/bayesian\_design\_adapter\_catalog.py}
+\end{center}
+The catalog prints each planner resolution and physical cost. Simulator outputs are cached
+by action and particle. These reference adapters currently accept scalar
+latent parameters and run one workflow for each distinct particle/action pair;
+Phase~3 adds validated surrogate acceleration.
+
 \section{Posterior Backends}
 
 \code{GridPosterior} is exact on a user-supplied Cartesian grid and exposes
@@ -3925,9 +3979,9 @@ Restoration explicitly requires the executable model, utility, cost,
 constraints, stopping rule, and identically ordered candidate space; arbitrary
 callables are never embedded in JSON.
 
-Phase~1 is simulator-agnostic. It does not yet bind unknown values into
-\code{Experiment} specs or extract observables from workflow result classes.
-Those CPMG-IR, PGSE, NQR, and ESR adapters are the next integration phase. The
+Phase~2 includes reference adapters for CPMG-IR, deterministic PGSE, NQR FID,
+and ESR Hahn experiments, but not yet every workflow. Validated surrogates and
+explicit model-discrepancy treatment are the next integration phase. The
 web guide \code{docs/python\_api/bayesian\_design.md} contains the current API
 and limitations; \code{docs/bayesian\_experiment\_design\_plan.md} preserves
 the mathematical formulation, research references, and roadmap.
@@ -8514,6 +8568,17 @@ to convert utility into an information or risk-reduction rate. \\
 for posterior, RNG, history, and candidate indices. \\
 \code{IRGridPosterior}, \code{IRAdaptiveSession} & Exact Phase~0
 inversion-recovery target-information reference. \\
+\code{CPMGIRAdapter}, \code{PGSEAdapter}, \code{NQRFIDAdapter},
+\code{ESRHahnAdapter} & Bind scalar posterior particles and typed actions to
+validated experiment-facade simulations and observables. \\
+\code{CPMGIRDesign}, \code{PGSEDesign}, \code{NQRFrequencyDesign},
+\code{ESRDelayDesign} & Typed delay, gradient, carrier, and pulse actions for
+the Phase~2 reference adapters. \\
+\code{ExperimentPredictor}, \code{ExperimentPlanConstraint},
+\code{ExperimentAdapterCost} & Cached particle-vectorized simulation, static
+planner feasibility, and laboratory-duration cost. \\
+\code{make\_adapter\_model}, \code{make\_adapter\_session} & Assemble an
+adapter predictor and a session with mandatory planner validation. \\
 \bottomrule
 \end{longtable}
 
