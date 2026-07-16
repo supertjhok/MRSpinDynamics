@@ -34,6 +34,10 @@ from spin_dynamics.workflows.electropermanent_particle_imaging import (
     EPMParticleImagingResult,
     run_epm_particle_imaging,
 )
+from spin_dynamics.workflows.electropermanent_particle_spin_echo import (
+    ParticleSusceptibilitySpinEchoResult,
+    run_epm_particle_susceptibility_spin_echo,
+)
 from spin_dynamics.workflows.electropermanent_transport import (
     MagneticForceMap2D,
     MagnetizationModel,
@@ -56,6 +60,8 @@ __all__ = [
 
 ControllerMode = Literal["imaging", "programming", "transport"]
 StopReason = Literal["capture_goal", "max_cycles"]
+ParticleImagingModel = Literal["direct_signal", "susceptibility_spin_echo"]
+ParticleImagingResult = EPMParticleImagingResult | ParticleSusceptibilitySpinEchoResult
 
 
 def _positive(value: float, name: str, *, allow_zero: bool = False) -> float:
@@ -106,6 +112,18 @@ class EPMTherapyControllerConfig:
     particle_signal_per_particle: float = 1.0
     particle_support_threshold_fraction: float = 0.01
     particle_boundary_capture_correction: bool = True
+    particle_imaging_model: ParticleImagingModel = "direct_signal"
+    particle_spin_echo_state_index: int | None = None
+    particle_spin_echo_subvoxel_grid_size: int = 3
+    particle_spin_echo_excitation_duration_s: float = 100e-6
+    particle_spin_echo_refocusing_duration_s: float = 200e-6
+    particle_spin_echo_readout_time_s: float = 2e-3
+    particle_spin_echo_phase_encoding_time_s: float = 0.4e-3
+    particle_spin_echo_water_diffusion_m2_s: float = 2.3e-9
+    particle_spin_echo_walkers_per_voxel: int = 4
+    particle_spin_echo_substeps: int = 2
+    particle_spin_echo_support_threshold_fraction: float = 0.10
+    particle_spin_echo_snr_db: float | None = None
 
     def __post_init__(self) -> None:
         if int(self.max_cycles) != self.max_cycles or self.max_cycles < 1:
@@ -122,6 +140,10 @@ class EPMTherapyControllerConfig:
             "target_radius_m",
             "transport_gradient_t_m",
             "particle_signal_per_particle",
+            "particle_spin_echo_excitation_duration_s",
+            "particle_spin_echo_refocusing_duration_s",
+            "particle_spin_echo_readout_time_s",
+            "particle_spin_echo_phase_encoding_time_s",
             "synthesis_tolerance_t",
         ):
             _positive(getattr(self, name), name)
@@ -150,6 +172,40 @@ class EPMTherapyControllerConfig:
         support = float(self.particle_support_threshold_fraction)
         if not np.isfinite(support) or not 0.0 <= support < 1.0:
             raise ValueError("particle_support_threshold_fraction must be in [0, 1)")
+        if self.particle_imaging_model not in {
+            "direct_signal",
+            "susceptibility_spin_echo",
+        }:
+            raise ValueError(
+                "particle_imaging_model must be 'direct_signal' or "
+                "'susceptibility_spin_echo'"
+            )
+        if self.particle_spin_echo_state_index is not None:
+            state_index = int(self.particle_spin_echo_state_index)
+            if state_index != self.particle_spin_echo_state_index or state_index < 0:
+                raise ValueError("particle_spin_echo_state_index must be non-negative")
+            object.__setattr__(self, "particle_spin_echo_state_index", state_index)
+        for name in (
+            "particle_spin_echo_subvoxel_grid_size",
+            "particle_spin_echo_walkers_per_voxel",
+            "particle_spin_echo_substeps",
+        ):
+            value = getattr(self, name)
+            if int(value) != value or value < 1:
+                raise ValueError(f"{name} must be a positive integer")
+            object.__setattr__(self, name, int(value))
+        _positive(
+            self.particle_spin_echo_water_diffusion_m2_s,
+            "particle_spin_echo_water_diffusion_m2_s",
+            allow_zero=True,
+        )
+        spin_echo_support = float(self.particle_spin_echo_support_threshold_fraction)
+        if not np.isfinite(spin_echo_support) or not 0.0 <= spin_echo_support < 1.0:
+            raise ValueError(
+                "particle_spin_echo_support_threshold_fraction must be in [0, 1)"
+            )
+        if self.particle_spin_echo_snr_db is not None:
+            _positive(self.particle_spin_echo_snr_db, "particle_spin_echo_snr_db")
         _positive(
             self.synthesis_regularization,
             "synthesis_regularization",
@@ -184,8 +240,8 @@ class EPMTherapyCycleResult:
     cycle_index: int
     intervals: tuple[ControllerModeInterval, ...]
     imaging: EPMNonlinearImagingResult
-    particle_imaging_before: EPMParticleImagingResult
-    particle_imaging_after: EPMParticleImagingResult
+    particle_imaging_before: ParticleImagingResult
+    particle_imaging_after: ParticleImagingResult
     target_mask: np.ndarray
     target_center_m: np.ndarray
     localization_threshold: float
@@ -384,12 +440,18 @@ def run_epm_image_guided_controller(
     *,
     config: EPMTherapyControllerConfig | None = None,
     background_velocity_m_s: TransportVelocity = None,
+    tissue_proton_density: np.ndarray | None = None,
+    tissue_t1_s: np.ndarray | None = None,
+    tissue_t2_s: np.ndarray | None = None,
 ) -> EPMTherapyControllerResult:
     """Run image-estimate-program-transport-verify controller cycles.
 
     Particle coordinates enter the imaging forward model and the physical
     transport integrator, but control decisions use only reconstructed particle
-    state.  Ground-truth fields on the result are diagnostic scores.
+    state.  Ground-truth fields on the result are diagnostic scores.  The
+    default ``direct_signal`` particle channel preserves the ideal baseline.
+    ``susceptibility_spin_echo`` requires the three tissue maps and uses paired
+    finite-pulse spin-warp acquisitions with particle-induced dipole fields.
     """
 
     settings = EPMTherapyControllerConfig() if config is None else config
@@ -398,6 +460,28 @@ def run_epm_image_guided_controller(
     image = np.asarray(expected_image, dtype=np.float64)
     if image.shape != encoding.image_shape or image.shape != (y_axis.size, x_axis.size):
         raise ValueError("expected_image, encoding image_shape, and axes must match")
+    density = t1_map = t2_map = None
+    if settings.particle_imaging_model == "susceptibility_spin_echo":
+        supplied_maps = (tissue_proton_density, tissue_t1_s, tissue_t2_s)
+        if any(values is None for values in supplied_maps):
+            raise ValueError(
+                "susceptibility_spin_echo requires tissue_proton_density, "
+                "tissue_t1_s, and tissue_t2_s"
+            )
+        density = np.asarray(tissue_proton_density, dtype=np.float64)
+        t1_map = np.asarray(tissue_t1_s, dtype=np.float64)
+        t2_map = np.asarray(tissue_t2_s, dtype=np.float64)
+        for name, values in (
+            ("tissue_proton_density", density),
+            ("tissue_t1_s", t1_map),
+            ("tissue_t2_s", t2_map),
+        ):
+            if values.shape != image.shape or np.any(~np.isfinite(values)):
+                raise ValueError(f"{name} must be finite and match expected_image")
+        if np.any(density < 0.0) or np.any(t1_map <= 0.0) or np.any(t2_map <= 0.0):
+            raise ValueError(
+                "tissue density must be non-negative and relaxation maps positive"
+            )
     positions = np.asarray(initial_positions_m, dtype=np.float64)
     if positions.ndim != 2 or positions.shape[1] != 2 or np.any(~np.isfinite(positions)):
         raise ValueError("initial_positions_m must have shape (n_particles, 2)")
@@ -413,6 +497,76 @@ def run_epm_image_guided_controller(
     )
     if not np.allclose(points, expected_points, rtol=0.0, atol=1e-12):
         raise ValueError("encoding basis points must follow the supplied Cartesian axes")
+
+    def acquire_particles(
+        current_positions: np.ndarray,
+        target_center: np.ndarray,
+        current_captured: np.ndarray,
+        acquisition_seed: int,
+    ) -> ParticleImagingResult:
+        if settings.particle_imaging_model == "direct_signal":
+            return run_epm_particle_imaging(
+                encoding,
+                current_positions,
+                x_axis,
+                y_axis,
+                target_center_m=target_center,
+                target_radius_m=settings.target_radius_m,
+                signal_per_particle=settings.particle_signal_per_particle,
+                support_threshold_fraction=(
+                    settings.particle_support_threshold_fraction
+                ),
+                boundary_capture_correction=(
+                    settings.particle_boundary_capture_correction
+                ),
+                regularization=settings.particle_imaging_regularization,
+                snr_db=settings.particle_imaging_snr_db,
+                seed=acquisition_seed,
+                ground_truth_captured=current_captured,
+            )
+        state_index = settings.particle_spin_echo_state_index
+        if state_index is None:
+            state_index = int(
+                np.argmax(np.mean(np.abs(encoding.projected_fields_t), axis=1))
+            )
+        return run_epm_particle_susceptibility_spin_echo(
+            encoding,
+            current_positions,
+            x_axis,
+            y_axis,
+            particle,
+            density,
+            t1_map,
+            t2_map,
+            target_center_m=target_center,
+            target_radius_m=settings.target_radius_m,
+            imaging_state_index=state_index,
+            subvoxel_grid_size=settings.particle_spin_echo_subvoxel_grid_size,
+            magnetization_model=settings.magnetization_model,
+            excitation_duration_s=(
+                settings.particle_spin_echo_excitation_duration_s
+            ),
+            refocusing_duration_s=(
+                settings.particle_spin_echo_refocusing_duration_s
+            ),
+            readout_time_s=settings.particle_spin_echo_readout_time_s,
+            phase_encoding_time_s=(
+                settings.particle_spin_echo_phase_encoding_time_s
+            ),
+            water_diffusion_coefficient_m2_s=(
+                settings.particle_spin_echo_water_diffusion_m2_s
+            ),
+            water_walkers_per_voxel=(
+                settings.particle_spin_echo_walkers_per_voxel
+            ),
+            sequence_substeps=settings.particle_spin_echo_substeps,
+            support_threshold_fraction=(
+                settings.particle_spin_echo_support_threshold_fraction
+            ),
+            snr_db=settings.particle_spin_echo_snr_db,
+            seed=acquisition_seed,
+            ground_truth_captured=current_captured,
+        )
 
     cycles: list[EPMTherapyCycleResult] = []
     captured = np.zeros(positions.shape[0], dtype=bool)
@@ -453,20 +607,11 @@ def run_epm_image_guided_controller(
             if np.any(uncaptured)
             else target_center.copy()
         )
-        particle_imaging_before = run_epm_particle_imaging(
-            encoding,
+        particle_imaging_before = acquire_particles(
             positions,
-            x_axis,
-            y_axis,
-            target_center_m=target_center,
-            target_radius_m=settings.target_radius_m,
-            signal_per_particle=settings.particle_signal_per_particle,
-            support_threshold_fraction=settings.particle_support_threshold_fraction,
-            boundary_capture_correction=settings.particle_boundary_capture_correction,
-            regularization=settings.particle_imaging_regularization,
-            snr_db=settings.particle_imaging_snr_db,
-            seed=seed_base + 1,
-            ground_truth_captured=captured,
+            target_center,
+            captured,
+            seed_base + 1,
         )
         source_centroid = particle_imaging_before.estimate.uncaptured_centroid_m
         direction = target_center - source_centroid
@@ -518,20 +663,11 @@ def run_epm_image_guided_controller(
         )
         positions = transport.positions_m[-1].copy()
         captured = transport.captured.copy()
-        particle_imaging_after = run_epm_particle_imaging(
-            encoding,
+        particle_imaging_after = acquire_particles(
             positions,
-            x_axis,
-            y_axis,
-            target_center_m=target_center,
-            target_radius_m=settings.target_radius_m,
-            signal_per_particle=settings.particle_signal_per_particle,
-            support_threshold_fraction=settings.particle_support_threshold_fraction,
-            boundary_capture_correction=settings.particle_boundary_capture_correction,
-            regularization=settings.particle_imaging_regularization,
-            snr_db=settings.particle_imaging_snr_db,
-            seed=seed_base + 3,
-            ground_truth_captured=captured,
+            target_center,
+            captured,
+            seed_base + 3,
         )
         verification_path = np.vstack(
             (transport_state.remanence_t, encoding.remanence_states_t)

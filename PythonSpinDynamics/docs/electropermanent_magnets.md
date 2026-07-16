@@ -365,6 +365,26 @@ tissue region and one off-center target carry illustrative proton density, T1,
 and T2 values. It exercises contrast, nonlinear encoding, noise, reconstruction,
 and localization without claiming clinical tissue constants.
 
+## Susceptibility-aware particle spin echo
+
+The original `run_epm_particle_imaging()` path remains an ideal direct-signal
+baseline: particle concentration is assigned positive calibrated intensity.
+`run_epm_particle_susceptibility_spin_echo()` is the physical-contrast tier.
+It evaluates field-dependent equivalent-sphere moments in a selected retained
+EPM B0 state, samples their dipole perturbations within every voxel, excludes
+water signal inside magnetic cores, and runs paired particle-free and
+particle-present spin-warp sequences with finite
+90/180-degree pulses, tissue relaxation, frequency readout, and diffusing water
+walkers. The reconstructed magnitude loss supplies susceptibility foci and
+contrast-weighted centroids without reading hidden particle coordinates.
+
+Ordinary spin echo is a deliberately conservative first sequence. Its
+refocusing pulse suppresses static susceptibility phase at the echo center;
+finite RF bandwidth, readout off-resonance, intravoxel field distributions, and
+diffusion retain contrast but also create blooming. The bundled diagnostic
+therefore treats spin echo as a physical baseline to compare later with GRE,
+phase-gradient, positive-contrast, or ultrashort-TE methods.
+
 ## Image-guided superparamagnetic transport
 
 `SuperparamagneticParticle` stores the magnetic material volume, low-field SI
@@ -424,6 +444,11 @@ a peak-relative threshold and signal-weighted centroid, forms the centroid of
 the uncaptured particle population, synthesizes an affine EPM field directed
 between those centroids, observes a programming dwell, and integrates one
 transport burst. The run stops at the configured capture goal or cycle limit.
+The default `direct_signal` particle channel preserves the earlier inverse-
+problem baseline. Selecting `susceptibility_spin_echo` and supplying tissue
+proton-density/T1/T2 maps drives the same feedback path from paired physical-
+contrast acquisitions. Its target fraction is contrast mass rather than a
+calibrated particle count because susceptibility blooming is nonlinear.
 
 ```python
 from spin_dynamics.workflows import (

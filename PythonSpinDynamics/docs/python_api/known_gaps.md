@@ -84,6 +84,14 @@ evolution -> detector/noise -> reconstruction -> inference`.
 For image-guided magnetic therapy, dynamic inversion now removes the prior
 assumption that every target entry is immobilized. The current mechanism model
 is still two-dimensional and uses inferred inverse-power gradient sources.
+Particle imaging now includes a susceptibility-aware finite-pulse spin-echo
+path with EPM B0 maps, equivalent-sphere dipole fields, subvoxel dephasing, and
+diffusing water walkers. It is not yet a calibrated relaxometry model: particle
+shape anisotropy, measured r1/r2/r2-star, aggregation-dependent magnetization,
+water exchange, slice selection, multicoil reception, and experimental B0/B1
+maps remain absent. Spin-echo contrast also blooms and is not a linear particle
+count, so target contrast fraction is not yet interchangeable with particle
+occupancy.
 Quantitative hardware conclusions require measured coil and EPM field maps,
 particle remanence and Brownian/internal relaxation data, calibrated per-pulse
 energy, 3-D focusing, and vascular/tissue interactions. EPM-only switching is

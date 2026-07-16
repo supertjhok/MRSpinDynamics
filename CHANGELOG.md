@@ -15,6 +15,11 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
   occupancy, plus post-transport verification imaging. The controller now aims
   and stops from reconstructed particle state; simulator truth is retained only
   for estimator-error diagnostics.
+- Added a separate susceptibility-aware particle-imaging tier using a selected
+  EPM B0 state, field-dependent equivalent-sphere dipole fields, spatial
+  subvoxel dephasing, finite-pulse paired spin echoes, tissue relaxation, and
+  diffusing water. The ideal direct-signal model remains available as the
+  controller baseline.
 - Added a dynamic-inversion magnetic-particle trap to PythonSpinDynamics with
   rigid sphere/finite-cylinder hydrodynamics, coupled body and moment rotation,
   Brownian motion, finite internal relaxation, non-sticky stability metrics,

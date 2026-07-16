@@ -252,6 +252,26 @@
       "limitations": ["Tissue relaxation constants, encoding states, array geometry, and noise are illustrative rather than measured platform data.", "The workflow models one static phase-encoding interval per retained state and a real nonnegative spin-echo image; RF excitation, EPM programming time, eddy-current transients, off-resonance relaxation during readout, and multi-coil sensitivity encoding are not yet coupled.", "Synthetic reconstruction validates the implemented inverse but is not an independent experimental or scanner benchmark."]
     },
     {
+      "id": "electropermanent_particle_susceptibility_spin_echo",
+      "component": "Susceptibility-aware EPM particle spin echo",
+      "claim": "A selected retained EPM state supplies the background B0 map; field-dependent equivalent-sphere particle moments generate subvoxel dipole perturbations while magnetic-core samples exclude water signal; paired finite-pulse spin-warp acquisitions propagate tissue relaxation and diffusing water; and the reconstructed magnitude difference yields image-derived susceptibility foci and centroids without reading particle truth.",
+      "evidence_types": ["A", "R"],
+      "basis": "Uniformly magnetized sphere interior and exterior dipole identities, direct EPM field-basis evaluation, explicit 90--180 spin-warp propagation, paired seeded random-walker diffusion, and synthetic contrast-localization fixtures.",
+      "parameter_range": "Two-dimensional uniform Cartesian tissue maps; one through nine subvoxel samples per axis; non-negative water diffusion; one or more walkers per voxel; linear or Langevin particle magnetization; finite excitation, refocusing, phase-encoding, and readout durations; optional complex k-space noise.",
+      "metric": "Dipole-field sign and symmetry, nonzero particle delta B0, selected EPM background field, spatial subvoxel propagation, echo time, resolved contrast foci, centroid error, controller consumption of the reconstructed outside-target centroid, and seeded repeatability.",
+      "tolerance": "Floating-point dipole symmetry identities; exact configuration and seeded-output identities; positive physical contrast in the compact regression; centroid error is reported because blooming depends strongly on size, field, sequence, and resolution.",
+      "status": "partially_validated",
+      "reproducers": [
+        "tests/test_electropermanent_controller.py::test_equivalent_sphere_field_has_expected_axial_and_equatorial_signs",
+        "tests/test_electropermanent_controller.py::test_contrast_estimator_returns_resolved_foci_without_particle_truth",
+        "tests/test_electropermanent_controller.py::test_spin_echo_uses_epm_b0_and_particle_subvoxel_field",
+        "tests/test_electropermanent_controller.py::test_controller_can_use_susceptibility_spin_echo_feedback",
+        "examples/plot_epm_particle_spin_echo.py"
+      ],
+      "references": ["Mani et al., Magnetic Resonance in Medicine 55 (2006), 126-135, DOI 10.1002/mrm.20739", "Zhao et al., NMR in Biomedicine 24 (2011), 464-472, DOI 10.1002/nbm.1608", "Gharagouzloo et al., Magnetic Resonance in Medicine 74 (2015), 431-441, DOI 10.1002/mrm.25426"],
+      "limitations": ["The equivalent-sphere field does not yet model rod orientation, nonspherical demagnetization, particle-particle magnetic interaction, aggregation-dependent magnetization, or microscopic water exchange.", "The spin-warp engine models a two-dimensional slice with ideal rectangular RF drive, scalar B1 maps, Cartesian gradients, and a mesoscopic subvoxel/random-walker approximation; it is not a scanner-validated Bloch-Torrey calculation.", "Target contrast fraction is not particle occupancy or particle count. Static spin echo suppresses susceptibility sensitivity, while finite-bandwidth and readout effects cause blooming and can shift the recovered centroid.", "The example uses an illustrative 100 um effective magnetic core and disables receiver noise by default to isolate sequence physics; it is not an injectable-particle detectability claim."]
+    },
+    {
       "id": "electropermanent_particle_transport",
       "component": "Image-guided superparamagnetic particle transport",
       "claim": "The transport workflow recovers the analytical linear superparamagnetic force and Stokes--Einstein limits, smoothly caps magnetization with a Langevin law, differentiates affine fields correctly, and reproducibly integrates seeded flow/diffusion trajectories with target capture.",
@@ -275,7 +295,7 @@
     {
       "id": "electropermanent_therapy_controller",
       "component": "Alternating image-guided EPM therapy controller",
-      "claim": "The controller executes contiguous image-program-transport-verification intervals, reconstructs a calibrated particle-sensitive concentration channel, estimates count, image-resolved positions, centroids, and target occupancy, re-aims each affine transport objective from the estimated outside-target centroid, and stops reproducibly from verification imaging rather than simulator truth.",
+      "claim": "The controller executes contiguous image-program-transport-verification intervals, supports both the calibrated direct-signal baseline and susceptibility-aware paired spin echoes, re-aims each affine transport objective from the reconstructed outside-target centroid, and stops reproducibly from verification imaging rather than simulator truth.",
       "evidence_types": ["A", "R"],
       "basis": "Cloud-in-cell conservation identities, exact noiseless image-state recovery cases, state-machine interval identities, direct estimated-centroid direction geometry, seeded noisy nonlinear reconstructions and Brownian paths, retained-state total variation, and persistent-capture regressions.",
       "parameter_range": "One through four cycles in compact regressions and examples; 5-by-5 estimator identity grids and 10-by-10 through 20-by-20 EPM encoding/force grids; 3 through 80 illustrative magnetic aggregates; configurable target, particle, and verification imaging noise/regularization, signal per particle, support threshold, boundary-capture partial-volume correction, timing windows, and capture goals in (0, 1].",
@@ -288,13 +308,14 @@
         "tests/test_electropermanent_controller.py::test_image_estimator_recovers_count_positions_centroid_and_occupancy",
         "tests/test_electropermanent_controller.py::test_boundary_capture_correction_uses_grid_geometry_not_particle_truth",
         "tests/test_electropermanent_controller.py::test_noisy_particle_imaging_is_reproducible_and_image_resolved",
+        "tests/test_electropermanent_controller.py::test_controller_can_use_susceptibility_spin_echo_feedback",
         "tests/test_electropermanent_controller.py::test_controller_alternates_modes_reaims_and_accumulates_capture",
         "tests/test_electropermanent_controller.py::test_seeded_controller_is_reproducible",
         "tests/test_electropermanent_transport.py::test_initial_capture_mask_keeps_particles_immobilized",
         "examples/plot_epm_closed_loop_controller.py"
       ],
       "references": ["Cloud-in-cell concentration imaging and image-moment identities", "Feedback state-machine and centroid steering identities", "Package nonlinear EPM imaging and magnetophoretic transport validation records"],
-      "limitations": ["The target and particle images are synthetic separate channels. Particle signal per aggregate is a supplied calibration, and experimental contrast separation, acquisition mismatch, and detectability have not been validated.", "Recovered positions are representative image-resolved distribution samples, not identity-preserving tracks. The boundary-capture partial-volume correction follows from the simulated first-entry capture rule and grid geometry; it requires experimental validation and should be disabled for a different capture mechanism.", "Summed retained-remanence variation is a programming-effort metric, not pulse count, switching energy, temperature, or driver stress. A calibrated 72-channel programming schedule is required for those quantities.", "The controller inherits the illustrative array, aggregate, dilute transport, irreversible circular capture, and missing vascular/tissue physics of the component models."]
+      "limitations": ["The direct-signal baseline uses a supplied signal per aggregate and is not a physical MR contrast mechanism. The spin-echo option is physical but uncalibrated and its target contrast fraction is not a particle count or occupancy measurement.", "Recovered positions are representative image-resolved distribution samples or susceptibility foci, not identity-preserving tracks. The direct-channel boundary-capture partial-volume correction follows from the simulated first-entry capture rule and grid geometry; it requires experimental validation and does not apply to blooming spin-echo contrast.", "Summed retained-remanence variation is a programming-effort metric, not pulse count, switching energy, temperature, or driver stress. A calibrated 72-channel programming schedule is required for those quantities.", "The controller inherits the illustrative array, aggregate, dilute transport, irreversible circular capture, and missing vascular/tissue physics of the component models."]
     },
     {
       "id": "dynamic_inversion_particle_trap",

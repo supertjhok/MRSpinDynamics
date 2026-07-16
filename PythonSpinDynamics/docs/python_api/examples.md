@@ -740,6 +740,27 @@ capture, and estimator errors. The controller consumes the reconstructed
 outside-target centroid and post-transport occupancy; hidden simulator
 positions are retained only to score those estimates.
 
+## Susceptibility-Aware EPM Particle Spin Echo
+
+This example keeps the ideal direct-signal particle channel as a baseline and
+instead generates particle contrast from the field-dependent dipole field of
+magnetic aggregates. It runs paired particle-free and particle-present
+spin-warp acquisitions with the selected EPM B0 map, finite 90/180-degree
+pulses, tissue relaxation, subvoxel off-resonance samples, and diffusing water
+walkers.
+
+```powershell
+python examples\plot_epm_particle_spin_echo.py --output results\epm_particle_spin_echo.png
+```
+
+The panels separate the EPM background field, particle-induced delta B0,
+reference and particle-present spin echoes, signed difference, and recovered
+susceptibility foci. The default disables receiver noise to expose the sequence
+physics: even then, ordinary spin-echo refocusing and readout-direction
+blooming make the inferred centroid substantially less accurate than the ideal
+direct-signal baseline. Use `--snr-db` to add complex k-space noise and
+`--core-radius-um` to test detectability versus aggregate size.
+
 ## Dynamic-Inversion Particle Trap
 
 This example replaces irreversible target capture with explicit particle-body

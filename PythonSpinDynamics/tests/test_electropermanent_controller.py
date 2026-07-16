@@ -10,11 +10,14 @@ from spin_dynamics.workflows import (
     SuperparamagneticParticle,
     build_epm_nonlinear_encoding,
     estimate_particle_state_from_image,
+    estimate_particles_from_spin_echo_contrast,
     localize_epm_target,
+    particle_dipole_field_samples,
     particle_distribution_image,
     random_epm_encoding_states,
     run_epm_image_guided_controller,
     run_epm_particle_imaging,
+    run_epm_particle_susceptibility_spin_echo,
     simple_tissue_phantom,
 )
 
@@ -97,6 +100,95 @@ class EPMParticleStateEstimationTests(unittest.TestCase):
         self.assertGreater(estimate.target_partial_volume_sensitivity, 0.0)
         self.assertLess(estimate.target_partial_volume_sensitivity, 1.0)
         self.assertAlmostEqual(estimate.capture_fraction, 1.0, places=8)
+
+
+class EPMParticleSusceptibilitySpinEchoTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.particle = SuperparamagneticParticle(
+            magnetic_core_radius_m=60e-6,
+            hydrodynamic_radius_m=75e-6,
+            volume_susceptibility=1.4,
+            saturation_magnetization_a_m=4.5e5,
+            magnetic_volume_fraction=0.60,
+        )
+
+    def test_equivalent_sphere_field_has_expected_axial_and_equatorial_signs(self) -> None:
+        axis = np.linspace(-1e-3, 1e-3, 3)
+        field = particle_dipole_field_samples(
+            np.asarray(((0.0, 0.0),)),
+            axis,
+            axis,
+            self.particle,
+            np.full((3, 3), 0.10),
+            subvoxel_grid_size=1,
+        )[0]
+
+        self.assertGreater(field[1, 1], 0.0)
+        self.assertLess(field[1, 0], 0.0)
+        self.assertAlmostEqual(field[1, 0], field[1, 2])
+        self.assertAlmostEqual(field[0, 1], field[2, 1])
+
+    def test_contrast_estimator_returns_resolved_foci_without_particle_truth(self) -> None:
+        axis = np.linspace(-2e-3, 2e-3, 5)
+        contrast = np.zeros((5, 5))
+        contrast[2, 1] = 1.0
+        contrast[2, 3] = 0.8
+
+        estimate = estimate_particles_from_spin_echo_contrast(
+            contrast,
+            axis,
+            axis,
+            target_center_m=(1e-3, 0.0),
+            target_radius_m=0.25e-3,
+            support_threshold_fraction=0.05,
+        )
+
+        self.assertEqual(estimate.resolved_focus_count, 2)
+        self.assertEqual(estimate.positions_m.shape, (2, 2))
+        self.assertGreater(estimate.capture_fraction, 0.0)
+
+    def test_spin_echo_uses_epm_b0_and_particle_subvoxel_field(self) -> None:
+        phantom = simple_tissue_phantom(8, field_of_view_m=0.032)
+        basis = illustrative_hybrid_epm_array().build_field_basis(
+            phantom.points_m,
+            n_cross=1,
+            n_length=3,
+        )
+        states = random_epm_encoding_states(basis, 64, seed=7)
+        encoding = build_epm_nonlinear_encoding(
+            basis,
+            states,
+            image_shape=phantom.shape,
+            phase_encoding_s=300e-6,
+        )
+        state_index = int(
+            np.argmax(np.mean(np.abs(encoding.projected_fields_t), axis=1))
+        )
+        positions = np.asarray(((-4e-3, 0.0), (4e-3, 0.0)))
+        result = run_epm_particle_susceptibility_spin_echo(
+            encoding,
+            positions,
+            phantom.x_m,
+            phantom.y_m,
+            self.particle,
+            phantom.proton_density,
+            phantom.t1_s,
+            phantom.t2_s,
+            target_center_m=(4e-3, 0.0),
+            target_radius_m=3e-3,
+            imaging_state_index=state_index,
+            subvoxel_grid_size=2,
+            support_threshold_fraction=0.02,
+            snr_db=None,
+        )
+
+        self.assertEqual(result.particle_acquisition.offset_model, "spatial")
+        self.assertEqual(result.particle_acquisition.num_offsets, 4)
+        self.assertGreater(float(np.max(np.abs(result.background_field_t))), 0.0)
+        self.assertGreater(float(np.max(np.abs(result.particle_delta_b0_samples_t))), 0.0)
+        self.assertGreater(float(np.max(result.contrast_image)), 0.0)
+        self.assertGreater(result.estimate.resolved_focus_count, 0)
+        self.assertLess(result.centroid_error_m, 12e-3)
 
 
 class EPMTherapyControllerTests(unittest.TestCase):
@@ -193,6 +285,56 @@ class EPMTherapyControllerTests(unittest.TestCase):
         self.assertLessEqual(abs(first.estimate.particle_count - self.initial.shape[0]), 2)
         self.assertLess(first.centroid_error_m, max(first.estimate.spatial_resolution_m))
         self.assertEqual(first.ground_truth_capture_fraction, 0.0)
+
+    def test_controller_can_use_susceptibility_spin_echo_feedback(self) -> None:
+        physical_particle = SuperparamagneticParticle(
+            magnetic_core_radius_m=60e-6,
+            hydrodynamic_radius_m=75e-6,
+            volume_susceptibility=1.4,
+            saturation_magnetization_a_m=4.5e5,
+            fluid_viscosity_pa_s=1.5e-3,
+            magnetic_volume_fraction=0.60,
+        )
+        result = run_epm_image_guided_controller(
+            self.encoding,
+            self.image,
+            self.phantom.x_m,
+            self.phantom.y_m,
+            physical_particle,
+            self.initial[:4],
+            config=EPMTherapyControllerConfig(
+                max_cycles=1,
+                capture_goal=0.99,
+                imaging_window_s=10.0,
+                programming_window_s=0.5,
+                transport_window_s=10.0,
+                transport_time_step_s=1.0,
+                target_radius_m=4.2e-3,
+                particle_imaging_model="susceptibility_spin_echo",
+                particle_spin_echo_subvoxel_grid_size=2,
+                particle_spin_echo_walkers_per_voxel=2,
+                particle_spin_echo_substeps=1,
+                particle_spin_echo_snr_db=None,
+                seed=13,
+            ),
+            tissue_proton_density=self.phantom.proton_density,
+            tissue_t1_s=self.phantom.t1_s,
+            tissue_t2_s=self.phantom.t2_s,
+        )
+
+        cycle = result.cycles[0]
+        self.assertEqual(
+            cycle.particle_imaging_before.particle_acquisition.offset_model,
+            "spatial",
+        )
+        np.testing.assert_array_equal(
+            cycle.source_centroid_m,
+            cycle.particle_imaging_before.estimate.uncaptured_centroid_m,
+        )
+        self.assertGreater(
+            float(np.max(cycle.particle_imaging_before.contrast_image)),
+            0.0,
+        )
 
     def test_controller_alternates_modes_reaims_and_accumulates_capture(self) -> None:
         result = self._run()

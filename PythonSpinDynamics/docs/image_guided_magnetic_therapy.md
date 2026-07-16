@@ -8,11 +8,14 @@ the particles remain localized after they arrive.
 
 In this documentation, a **particle distribution** means the spatial
 concentration of particles. The transport model represents it internally with
-continuous particle positions. A calibrated particle-sensitive channel turns
-those hidden positions into concentration signal, passes that signal through
-the nonlinear EPM acquisition, and reconstructs an image. The state estimator
-then obtains particle count, image-resolved positions, centroids, and target
-occupancy from that reconstructed image.
+continuous particle positions. Two deliberately separate imaging models are
+available. The original **direct-signal baseline** assigns calibrated positive
+signal to particle density; it tests encoding, reconstruction, and feedback in
+isolation. The newer **susceptibility spin-echo model** gives particles no
+signal of their own. Their field-dependent dipole moments perturb tissue B0,
+and a finite 90-degree--180-degree spin-warp sequence turns that perturbation
+into excitation/refocusing loss, distortion, intravoxel dephasing, and
+diffusion-mediated attenuation.
 
 The controller also reconstructs a **tissue-contrast image** to identify the
 target. Tissue contrast and particle concentration are separate measurement
@@ -46,12 +49,11 @@ acquires a verification image. *Target occupancy* is the fraction of recovered
 particle signal assigned to the target region. The controller stops from that
 image-derived occupancy rather than from simulator truth.
 
-> **Important model boundary:** the particle channel is a calibrated synthetic
-> contrast model with a supplied signal per particle. Its estimated positions
-> are representative locations at the image resolution; they describe the
-> recovered distribution and do not preserve individual particle identities.
-> True simulator positions appear only in diagnostics that score centroid and
-> occupancy error.
+> **Important model boundary:** the direct-signal baseline is not an MR
+> contrast mechanism. The susceptibility path is the physically motivated
+> option, but its resolved foci are contrast features rather than uniquely
+> identified particles. True simulator positions appear only in diagnostics
+> that score centroid and occupancy error.
 
 ## System workflow
 
@@ -59,8 +61,9 @@ The implemented system is organized as five successive layers:
 
 1. **Actuator state.** A coil, EPM array, or hybrid EPM-plus-coil system produces
    a spatial field and gradient from an explicit hardware state.
-2. **Image formation.** Multiple nonlinear EPM operating states separately
-   encode a tissue target and a particle-sensitive concentration image.
+2. **Image formation.** The tissue target uses nonlinear EPM encoding. Particle
+   imaging can use either the direct-signal baseline or paired susceptibility-
+   aware spin echoes under an actual selected EPM B0 state.
 3. **Transport.** Superparamagnetic particles move under magnetic force,
    background flow, Brownian diffusion, and reflecting boundaries.
 4. **Feedback control.** The reconstructed tissue image supplies the target;
@@ -110,7 +113,7 @@ python examples/plot_epm_nonlinear_tissue_imaging.py \
 
 The resulting tissue image supplies target localization to the controller.
 
-## Particle-sensitive imaging and state estimation
+## Direct-signal particle imaging: the baseline
 
 `particle_distribution_image` uses bilinear cloud-in-cell deposition to convert
 continuous hidden positions into calibrated concentration signal while
@@ -140,6 +143,60 @@ disabled for transport models that do not capture at a boundary.
 The result keeps the hidden simulator positions in explicitly named
 `ground_truth_*` diagnostics so centroid and occupancy error can be plotted.
 The controller never uses those fields for a decision.
+
+This baseline should be used when the question is whether the inverse problem
+and controller wiring work. It should not be used to predict particle
+detectability.
+
+## Susceptibility-aware spin-echo imaging
+
+`run_epm_particle_susceptibility_spin_echo` is the physical-contrast path. It
+uses the selected retained EPM state to calculate the background B0 map and
+then evaluates the field-dependent moment of every magnetic aggregate with the
+same Langevin or linear magnetization law used for transport. Each aggregate is
+represented as a uniformly magnetized equivalent sphere. Outside the sphere,
+the projected perturbation is
+
+\[
+\Delta B_0(\mathbf r)=\frac{\mu_0 m}{4\pi r^3}
+\left(3(\hat{\mathbf r}\cdot\hat{\mathbf B}_0)^2-1\right).
+\]
+
+The simulator samples that field at multiple subvoxel locations and removes
+water signal from samples inside a magnetic core. It then runs
+paired particle-free and particle-present spin-warp acquisitions with finite
+90-degree and 180-degree pulses, phase encoding, frequency-encoded readout,
+tissue T1/T2, and explicit diffusing water walkers. The paired magnitude
+difference supplies a non-negative contrast map. Connected contrast regions
+provide resolved foci, while contrast-weighted whole-cloud and outside-target
+centroids provide controller inputs.
+
+```bash
+python examples/plot_epm_particle_spin_echo.py \
+  --output results/epm_particle_spin_echo.png
+```
+
+![Susceptibility-aware particle spin echo](images/example_epm_particle_spin_echo.png)
+
+The example makes the spin-echo tradeoff visible. An ideal 180-degree pulse
+refocuses static off-resonance at the echo center, which helps anatomical
+imaging in an inhomogeneous magnet but also suppresses the very susceptibility
+contrast used to find the particles. Contrast remains through finite RF
+bandwidth, off-resonant readout, unresolved field distributions, and diffusion
+through particle-scale gradients. With the illustrative 4 mT EPM state and
+100 micrometre effective magnetic cores, the resulting features bloom and the
+centroid error is several millimetres even without receiver noise. That is a
+result of this model, not a hidden truth shortcut.
+
+This finding is consistent with why published particle-detection work often
+uses gradient-echo rephasing, phase-gradient mapping, or ultrashort-TE methods
+instead of ordinary spin echo. Examples include the primary GRASP phantom
+study ([Mani et al., 2006](https://doi.org/10.1002/mrm.20739)), phase-gradient
+mapping and quantification ([Zhao et al., 2011](https://doi.org/10.1002/nbm.1608)),
+and quantitative ultrashort-TE nanoparticle imaging
+([Gharagouzloo et al., 2015](https://doi.org/10.1002/mrm.25426)). Spin echo is
+therefore retained as the first physical baseline, not presumed to be the final
+particle-localization sequence.
 
 ## Image-guided particle transport
 
@@ -178,6 +235,12 @@ estimated positions over hidden truth, image-derived versus true capture, and
 centroid error by cycle. It is still a synthetic proof of mechanism: particle
 contrast, noise, model mismatch, and biological transport need
 experiment-specific calibration.
+
+Set `particle_imaging_model="susceptibility_spin_echo"` and supply tissue
+proton-density, T1, and T2 maps to drive the same steering loop from the paired
+physical-contrast acquisition. In that mode the reported target fraction is a
+fraction of recovered susceptibility contrast, not a calibrated particle count;
+blooming can move contrast across the target boundary.
 
 ## Dynamic-inversion trapping
 
@@ -232,7 +295,8 @@ tests. Quantitative system prediction still requires:
 - measured three-dimensional coil and EPM field maps;
 - calibrated programming transients, state uncertainty, and channel coupling;
 - particle remanence and internal relaxation across the relevant size range;
-- particle-sensitive MR contrast and signal-per-particle calibration;
+- measured particle magnetization, relaxivity, aggregation state, and
+  susceptibility contrast across the relevant field range;
 - viscosity, flow, adhesion, and permeability measurements for the target
   tissue or phantom; and
 - electrical pulse energy, driver limits, and temperature rise for the chosen

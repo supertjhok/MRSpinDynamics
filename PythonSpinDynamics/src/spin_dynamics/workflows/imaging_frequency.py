@@ -52,6 +52,9 @@ class FrequencyEncodedImagingResult:
     method: str
     num_offsets: int  # sub-voxel B0 samples averaged per voxel (1 = none)
     offset_spread: float  # half-width of the sub-voxel B0 spread (rad/s)
+    offset_model: str = "uniform"
+    diffusion_coefficient: float = 0.0
+    walkers_per_cell: int = 1
 
     def reconstruct(self) -> np.ndarray:
         """Return the complex image (alias for the stored reconstruction)."""
@@ -173,6 +176,12 @@ def run_rare_imaging(
     refocusing_duration: float = 100.0e-6,
     num_offsets: int = 1,
     offset_spread: float = 0.0,
+    subvoxel_b0_offsets=None,
+    subvoxel_density_weights=None,
+    diffusion_coefficient: float = 0.0,
+    walkers_per_cell: int = 1,
+    seed: int | None = None,
+    jitter: bool = False,
     gamma: float = 2.675e8,
     substeps_per_interval: int = 1,
 ) -> FrequencyEncodedImagingResult:
@@ -192,6 +201,23 @@ def run_rare_imaging(
     of the phase-encoded path. A spin echo refocuses the static spread at each
     echo, so the spread blurs the image along the readout axis (the T2*
     point-spread function) without decaying the echo train.
+
+    ``subvoxel_b0_offsets`` supplies spatially varying unresolved offsets with
+    shape ``(samples, px, pz)`` in rad/s.  It is useful for susceptibility
+    fields whose intravoxel distribution varies across the image.  Each offset
+    map is propagated through the complete pulse sequence and the resulting
+    complex signals are averaged.  It is mutually exclusive with the scalar
+    ``num_offsets``/``offset_spread`` model.
+
+    ``subvoxel_density_weights`` optionally supplies a non-negative multiplier
+    with the same shape.  It can exclude non-water inclusions independently at
+    each subvoxel sample.  The weights modify spin density, not B0.
+
+    ``diffusion_coefficient`` and ``walkers_per_cell`` activate an explicit
+    random-walker Bloch--Torrey approximation.  This captures irreversible
+    spin-echo attenuation when water diffuses through a spatially varying B0
+    field.  ``seed`` makes the walker initialization and propagation
+    reproducible; ``jitter`` distributes walkers within their source voxels.
     """
 
     rho_arr, t1_arr, t2_arr, b0_arr, b1_tx_arr, b1_rx_arr = _resolve_maps(
@@ -209,17 +235,36 @@ def run_rare_imaging(
         raise ValueError("num_offsets must be at least 1")
     if offset_spread < 0.0:
         raise ValueError("offset_spread must be non-negative")
+    diffusion = float(diffusion_coefficient)
+    if not np.isfinite(diffusion) or diffusion < 0.0:
+        raise ValueError("diffusion_coefficient must be finite and non-negative")
+    if int(walkers_per_cell) != walkers_per_cell or walkers_per_cell < 1:
+        raise ValueError("walkers_per_cell must be a positive integer")
+    offset_maps = None
+    if subvoxel_b0_offsets is not None:
+        offset_maps = np.asarray(subvoxel_b0_offsets, dtype=np.float64)
+        if (
+            offset_maps.ndim != 3
+            or offset_maps.shape[1:] != rho_arr.shape
+            or offset_maps.shape[0] < 1
+            or np.any(~np.isfinite(offset_maps))
+        ):
+            raise ValueError(
+                "subvoxel_b0_offsets must be finite with shape (samples, px, pz)"
+            )
+        if int(num_offsets) != 1 or float(offset_spread) != 0.0:
+            raise ValueError(
+                "subvoxel_b0_offsets is mutually exclusive with num_offsets "
+                "and offset_spread"
+            )
 
     # Voxel positions use an integer center (px//2) so they sit on the DFT grid
     # that fftshift/ifftshift assume; a half-integer center would imprint a
     # (-1)^index half-pixel modulation on the reconstruction.
     x_axis = (np.arange(px) - px // 2) * (fov_x / px)
     z_axis = (np.arange(pz) - pz // 2) * (fov_z / pz)
-    ensemble = initialize_ensemble_from_density(
-        rho_arr, x_axis, z_axis, walkers_per_cell=1, diffusion_coefficient=0.0
-    )
-    t2_particles = t2_arr.reshape(-1)
-    t1_particles = t1_arr.reshape(-1)
+    t2_particles = np.repeat(t2_arr.reshape(-1), int(walkers_per_cell))
+    t1_particles = np.repeat(t1_arr.reshape(-1), int(walkers_per_cell))
 
     # k-space steps (rad/m) and the gradient "moments" gamma*G that realize them.
     dk_x = 2.0 * np.pi / fov_x
@@ -300,24 +345,61 @@ def run_rare_imaging(
     shot_steps = [(_shot_steps(lines), lines) for lines in schedule]
 
     # Sub-voxel B0 spread: average isochromats spaced over +/- offset_spread.
-    offsets = (
-        np.array([0.0])
-        if num_offsets == 1
-        else np.linspace(-offset_spread, offset_spread, num_offsets)
-    )
+    if offset_maps is None:
+        offsets = (
+            np.zeros((1, px, pz), dtype=np.float64)
+            if num_offsets == 1
+            else np.broadcast_to(
+                np.linspace(-offset_spread, offset_spread, num_offsets)[:, None, None],
+                (num_offsets, px, pz),
+            )
+        )
+        offset_model = "uniform"
+        reported_spread = float(offset_spread)
+    else:
+        offsets = offset_maps
+        offset_model = "spatial"
+        reported_spread = float(np.max(np.abs(offset_maps)))
+    if subvoxel_density_weights is None:
+        density_weights = np.ones_like(offsets)
+    else:
+        density_weights = np.asarray(subvoxel_density_weights, dtype=np.float64)
+        if (
+            density_weights.shape != offsets.shape
+            or np.any(~np.isfinite(density_weights))
+            or np.any(density_weights < 0.0)
+        ):
+            raise ValueError(
+                "subvoxel_density_weights must be finite, non-negative, and "
+                "match the resolved subvoxel offsets"
+            )
     kspace = np.zeros((px, pz), dtype=np.complex128)
     line_echo_index = np.zeros(pz, dtype=np.int64)
     line_echo_time = np.zeros(pz, dtype=np.float64)
 
-    for offset in offsets:
+    for offset_index, (offset, density_weight) in enumerate(
+        zip(offsets, density_weights)
+    ):
+        sample_seed = None if seed is None else int(seed) + offset_index
+        ensemble = initialize_ensemble_from_density(
+            rho_arr * density_weight,
+            x_axis,
+            z_axis,
+            walkers_per_cell=int(walkers_per_cell),
+            diffusion_coefficient=diffusion,
+            seed=sample_seed,
+            jitter=bool(jitter),
+        )
+        motion_rng = np.random.default_rng(sample_seed)
         fields = make_motion_field_maps_2d(
             x_axis, z_axis,
-            b0_map=b0_arr + float(offset),
+            b0_map=b0_arr + offset,
             b1_tx_map=b1_tx_arr, b1_rx_map=b1_rx_arr,
         )
         for steps, lines in shot_steps:
             sequence = run_motion_sequence(
                 ensemble, fields, steps,
+                rng=motion_rng,
                 t1=t1_particles, t2=t2_particles, default_substeps=max(1, sub),
             )
             signal = sequence.signal
@@ -341,8 +423,11 @@ def run_rare_imaging(
         fov=(fov_x, fov_z),
         echo_spacing=echo_spacing,
         method="rare" if echo_train_length > 1 else "spin_warp",
-        num_offsets=int(num_offsets),
-        offset_spread=float(offset_spread),
+        num_offsets=int(offsets.shape[0]),
+        offset_spread=reported_spread,
+        offset_model=offset_model,
+        diffusion_coefficient=diffusion,
+        walkers_per_cell=int(walkers_per_cell),
     )
 
 

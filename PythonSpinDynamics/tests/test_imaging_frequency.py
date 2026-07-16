@@ -131,6 +131,59 @@ class FrequencyEncodedImagingTests(unittest.TestCase):
         self.assertGreater(sx1, sx0 + 0.3)
         self.assertAlmostEqual(sz1, sz0, delta=0.1)
 
+    def test_spatial_subvoxel_offsets_match_equivalent_uniform_offsets(self) -> None:
+        rho = _phantom(8)
+        values = np.asarray((-2.0, 0.0, 2.0)) * np.pi * 400.0
+        spatial = np.broadcast_to(values[:, None, None], (3, 8, 8))
+        mapped = run_spin_warp_imaging(
+            rho,
+            subvoxel_b0_offsets=spatial,
+            fov=(0.02, 0.02),
+        )
+        uniform = run_spin_warp_imaging(
+            rho,
+            num_offsets=3,
+            offset_spread=2.0 * np.pi * 400.0,
+            fov=(0.02, 0.02),
+        )
+
+        self.assertEqual(mapped.offset_model, "spatial")
+        self.assertEqual(mapped.num_offsets, 3)
+        np.testing.assert_allclose(mapped.kspace, uniform.kspace, atol=1e-12)
+
+    def test_subvoxel_density_weights_exclude_nonwater_signal(self) -> None:
+        rho = _phantom(8)
+        offsets = np.zeros((2, 8, 8))
+        weights = np.stack((np.ones((8, 8)), np.zeros((8, 8))))
+        weighted = run_spin_warp_imaging(
+            rho,
+            subvoxel_b0_offsets=offsets,
+            subvoxel_density_weights=weights,
+            fov=(0.02, 0.02),
+        )
+        base = run_spin_warp_imaging(rho, fov=(0.02, 0.02))
+
+        np.testing.assert_allclose(weighted.kspace, 0.5 * base.kspace, atol=1e-12)
+
+    def test_diffusing_spin_warp_is_seeded_and_reports_walker_metadata(self) -> None:
+        rho = _phantom(8)
+        b0 = np.linspace(-2000.0, 2000.0, 8)[:, None] * np.ones((1, 8))
+        kwargs = dict(
+            b0_map=b0,
+            diffusion_coefficient=2.3e-9,
+            walkers_per_cell=3,
+            seed=12,
+            jitter=True,
+            substeps_per_interval=2,
+            fov=(0.02, 0.02),
+        )
+        first = run_spin_warp_imaging(rho, **kwargs)
+        second = run_spin_warp_imaging(rho, **kwargs)
+
+        np.testing.assert_array_equal(first.kspace, second.kspace)
+        self.assertEqual(first.diffusion_coefficient, 2.3e-9)
+        self.assertEqual(first.walkers_per_cell, 3)
+
     def test_slice_sensitivity_peaks_on_resonance(self) -> None:
         n = 21
         rho = np.ones((n, n))

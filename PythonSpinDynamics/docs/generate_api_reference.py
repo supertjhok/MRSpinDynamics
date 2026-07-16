@@ -171,6 +171,7 @@ MODULES = [
     "workflows.electropermanent_imaging",
     "workflows.electropermanent_controller",
     "workflows.electropermanent_particle_imaging",
+    "workflows.electropermanent_particle_spin_echo",
     "workflows.electropermanent_dynamic_inversion",
     "workflows.electropermanent_transport",
     "workflows.fid",
