@@ -593,9 +593,9 @@
     {
       "id": "bayesian_experiment_design",
       "component": "Bayesian experiment design and adaptive acquisition",
-      "claim": "Bayesian updates, goal utilities, planner-validated adapters, batched PGSE parity, surrogate validation, staged/adaptive scoring, discrete-target nuisance marginalization, and robustness diagnostics follow their stated numerical and decision-theory contracts.",
+      "claim": "Bayesian updates, goal utilities, planner-validated adapters, batched PGSE parity, surrogate validation, staged/adaptive scoring, paired end-to-end adapter benchmarks, discrete-target nuisance marginalization, and robustness diagnostics follow their stated numerical and decision-theory contracts.",
       "evidence_types": ["A", "R"],
-      "basis": "Direct Bayes-rule and dense mutual-information calculations, prior-predictive coverage, deterministic replay, facade binding tests, batched-vs-facade PGSE parity, exact polynomial recovery, held-out surrogate errors, linear-Gaussian screening limits, nuisance-only target-information cancellation, discrepancy variance addition, model dispatch, and recommendation sensitivity cases.",
+      "basis": "Direct Bayes-rule and dense mutual-information calculations, prior-predictive coverage, deterministic replay, facade binding tests, paired common-truth/common-noise adaptive-versus-fixed trials for every Phase 2 adapter, exact prediction-table identity checks, batched-vs-facade PGSE parity, exact polynomial recovery, held-out surrogate errors, linear-Gaussian screening limits, nuisance-only target-information cancellation, discrepancy variance addition, model dispatch, and recommendation sensitivity cases.",
       "parameter_range": "Scalar/vector real and complex Gaussian observations; finite Cartesian grids and weighted particles; finite candidate spaces; CPMG-IR, deterministic PGSE, NQR FID, and ESR Hahn adapters; polynomial response surfaces; discrete target/model labels.",
       "metric": "Posterior probability, mutual information, expected variance reduction, credible coverage, ranking and replay identity, planner feasibility, batch parity, surrogate RMSE/correlation, Monte Carlo sample allocation, mixture dispatch, sensitivity agreement, physical seconds, and measured planning wall time.",
       "tolerance": "Floating-point or Monte Carlo tolerances declared in tests; prior-predictive coverage is required not to under-cover its nominal discrete interval in the fixed-seed reference.",
@@ -605,12 +605,15 @@
         "tests/test_bayesian_design_core.py",
         "tests/test_bayesian_design_adapters.py",
         "tests/test_bayesian_design_performance.py",
+        "tests/test_bayesian_adapter_benchmarks.py",
         "examples/bayesian_ir_phase0.py",
         "examples/bayesian_design_linear.py",
         "examples/bayesian_design_cpmg_ir_adapter.py",
         "examples/bayesian_design_adapter_catalog.py",
         "examples/plot_bayesian_pgse_batch_speedup.py",
-        "examples/plot_bayesian_surrogate_screening.py"
+        "examples/plot_bayesian_surrogate_screening.py",
+        "examples/plot_bayesian_adapter_benchmarks.py",
+        "validation/bayesian_adapter_benchmarks.json"
       ],
       "references": [
         "T. Rainforth et al., Statistical Science 39 (2024) 100-114, doi:10.1214/23-STS915",
@@ -618,7 +621,8 @@
       ],
       "limitations": [
         "The evidence validates numerical/statistical contracts and synthetic examples, not time savings on a physical instrument.",
-        "Continuous-target EIG, continuous design optimization, particle rejuvenation, live instrument timing, and batching/adapters beyond the documented reference workflows are not yet implemented; surrogate speedups are machine- and feature-dependent and require held-out validation."
+        "The paired adapter benchmarks draw truth from the same finite exact simulator table used for inference, so they do not test model mismatch, hardware artifacts, or time savings on a physical instrument.",
+        "Continuous-target EIG, continuous design optimization, particle rejuvenation, and live instrument timing are not yet implemented; batching remains workflow-specific, and surrogate speedups are machine- and feature-dependent and require held-out validation."
       ]
     },
     {

@@ -300,6 +300,31 @@ robustness layer. Runtime plots record exact-parity PGSE batching and held-out
 validated CPMG-IR surrogate screening; broader workflow batching and continuous
 target-information estimators remain open.
 
+### End-to-end Phase 2 adapter benchmark — implemented
+
+The four Phase 2 adapters now have a common paired prior-predictive benchmark.
+For each synthetic truth and noise stream it compares an adaptive policy, a
+declared fixed coverage schedule, and a prior-ranked schedule that is frozen
+before observations arrive. All policies share the exact adapter predictor,
+likelihood, posterior support, target-oriented variance utility, physical cost,
+credible-interval stopping rule, and maximum acquisition count.
+
+`CandidatePredictionTable` evaluates the finite particle/action support once
+and is then an exact lookup, not an approximate surrogate. Deterministic PGSE
+uses its Phase 3 batch implementation while the other adapters amortize exact
+facade simulations across trials. The result records physical acquisition
+seconds, adaptive planning wall time, and one-time table construction
+separately. The 96-trial reference plot and JSON output cover CPMG-IR T1,
+PGSE diffusion, NQR site frequency, and ESR Hahn T2. They show improved target
+success or physical efficiency for adaptive acquisition in all four stated
+synthetic problems, while retaining cases where a fixed policy wins an
+individual metric.
+
+This is equal-model evidence about the implemented decision algorithm. It is
+not evidence of time savings on an instrument, calibration under model
+discrepancy, or superiority for arbitrary priors and action spaces. Those
+questions remain Phase 4 validation work.
+
 ### Phase 4: batch and live operation
 
 Support small batches when adaptation cannot occur after every scan, explicit

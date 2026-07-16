@@ -6,7 +6,7 @@ candidate settings have different durations, or the informative region of a
 relaxation, diffusion, NQR, or ESR experiment depends strongly on unknown
 sample properties.
 
-PythonSpinDynamics currently provides two levels:
+PythonSpinDynamics currently provides three levels:
 
 - a generic NumPy core for finite candidate spaces, grid or particle
   posteriors, likelihood-based prediction, expected information gain, expected
@@ -245,6 +245,77 @@ Runnable benchmarks:
 [`plot_bayesian_pgse_batch_speedup.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/examples/plot_bayesian_pgse_batch_speedup.py)
 and
 [`plot_bayesian_surrogate_screening.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/examples/plot_bayesian_surrogate_screening.py).
+
+## End-to-end Phase 2 adapter benchmarks
+
+`make_phase2_adapter_benchmarks()` constructs matched reference problems for
+all four Phase 2 adapters. `run_adapter_benchmark()` then compares three
+policies in paired prior-predictive trials:
+
+- **adaptive** re-ranks every candidate after each observation;
+- **fixed coverage** cycles a declared endpoint-and-midpoint schedule; and
+- **prior-ranked fixed** ranks candidates once under the prior, then freezes
+  that open-loop order.
+
+Every policy receives the same sampled truth and the same per-step noise seed
+in a trial. It also uses the same likelihood, posterior support, physical cost,
+90% credible interval, and stopping threshold. The synthetic truth is one of
+the exact adapter-table particles, so this is an *equal-model* algorithm test:
+it measures acquisition-policy efficiency when the assumed simulator is
+correct, not robustness to instrument artifacts or model mismatch.
+
+![End-to-end Phase 2 adapter benchmark](../images/bayesian_adapter_end_to_end.png)
+
+The upper row shows median posterior interval width divided by the precision
+target; crossing 1 means the median trial has reached the requested precision.
+The lower row shows the fraction of trials that reached that target by a given
+amount of laboratory time. A curve that plateaus below 1 represents failures
+to reach the target within eight actions rather than discarded trials. A
+zero-width interval on the finite NQR grid is drawn at (10^{-3}) solely so it
+can appear on the logarithmic axis.
+
+The tracked 96-trial reference run produced:
+
+| Adapter target | Adaptive success | Fixed-coverage success | Adaptive median lab time | Fixed median lab time | Adaptive 90% coverage |
+|---|---:|---:|---:|---:|---:|
+| CPMG-IR T1 | 97.9% | 96.9% | 0.281 s | 0.996 s | 100.0% |
+| PGSE diffusion | 76.0% | 16.7% | 0.612 s | 0.816 s | 95.8% |
+| NQR site frequency | 94.8% | 84.4% | 4.61 ms | 6.92 ms | 100.0% |
+| ESR Hahn T2 | 87.5% | 63.5% | 39.6 us | 100.2 us | 97.9% |
+
+These medians include unsuccessful trials at their eight-action budget. The
+JSON result also reports success-conditioned time, action count, RMSE, bias,
+coverage, interval width, and planning time for all three policies. In the ESR
+case the prior-ranked fixed protocol has a slightly shorter median laboratory
+time than adaptive among all trials, but lower success (75.0%), lower coverage
+(93.8%), and higher RMSE. The benchmark preserves that tradeoff rather than
+claiming uniform dominance.
+
+Three clocks must not be conflated:
+
+1. **physical experiment time** is the sequence, acquisition, recovery, and
+   fixed overhead charged by the adapter; it is the horizontal axis above;
+2. **planning wall time** is Python time spent choosing adaptive actions; and
+3. **prediction-table build time** is a one-time exact-simulation setup cost
+   amortized over the paired synthetic trials.
+
+Phase 3 is used here through deterministic PGSE batching and exact prediction
+reuse. It changes clocks 2 and 3, not clock 1 or the Bayesian observations.
+For the fast NQR and ESR reference acquisitions, current Python planning time
+is longer than the simulated physical action duration, which makes further
+batching and live-instrument latency work important before deployment.
+
+Reproduce the reference plot and machine-readable results with:
+
+```powershell
+python examples\plot_bayesian_adapter_benchmarks.py --trials 96 `
+  --output results\bayesian-adapters.png `
+  --json-output results\bayesian-adapters.json
+```
+
+Use `--profile smoke --trials 2` for a fast integration check. The builders,
+runner, result dataclasses, and `CandidatePredictionTable` are public so new
+adapter benchmarks can use the same paired protocol.
 
 ## Robustness and nuisance parameters
 

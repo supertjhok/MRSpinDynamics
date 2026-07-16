@@ -40,6 +40,8 @@ MODULES = [
     "detection.squid",
     "design.reference_ir",
     "design.adapters",
+    "design.adapter_benchmarks",
+    "design.benchmarks",
     "design.constraints",
     "design.costs",
     "design.diagnostics",

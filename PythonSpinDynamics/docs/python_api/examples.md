@@ -17,7 +17,7 @@ Examples can be run from `PythonSpinDynamics` or from inside
 | Goal | First example | Then try |
 |---|---|---|
 | Learn the common plan/run/result pattern | `experiment_facade_quickstart.py` | `ideal_cpmg_train.py` |
-| Adapt measurements to an uncertain sample | `bayesian_design_linear.py` | `bayesian_design_cpmg_ir_adapter.py` and the Phase 3 speedup plots |
+| Adapt measurements to an uncertain sample | `bayesian_design_linear.py` | `bayesian_design_cpmg_ir_adapter.py` and the all-adapter benchmark |
 | Compare ideal and realistic probe behavior | `plot_probe_cpmg.py` | `plot_probe_parameter_sweep.py` |
 | Learn imaging from acquisition to reconstruction | `plot_ideal_imaging.py` | `plot_imaging_inhomogeneity.py` and the portable Halbach capstone |
 | Learn diffusion and motion | `plot_pgse_qspace_walkers.py` | restricted diffusion, PGSTE, DDE, or OGSE examples |
@@ -102,6 +102,16 @@ scoring, and the resulting recommendation agreement:
 ```powershell
 python examples\plot_bayesian_pgse_batch_speedup.py --output results\pgse-speedup.png
 python examples\plot_bayesian_surrogate_screening.py --output results\surrogate-speedup.png
+```
+
+The end-to-end benchmark uses the Phase 3 prediction paths to compare adaptive,
+fixed-coverage, and prior-ranked fixed acquisition policies for every Phase 2
+adapter. Paired trials share truth and noise, and the plot reports posterior
+precision against accumulated *physical experiment time*:
+
+```powershell
+python examples\plot_bayesian_adapter_benchmarks.py --trials 96 --output results\bayesian-adapters.png --json-output results\bayesian-adapters.json
+python examples\plot_bayesian_adapter_benchmarks.py --profile smoke --trials 2 --output results\bayesian-adapters-smoke.png
 ```
 
 These are synthetic algorithm demonstrations, not instrument-control scripts.

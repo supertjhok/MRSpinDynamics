@@ -3984,6 +3984,60 @@ The runnable plots are
 \code{examples/plot\_bayesian\_surrogate\_screening.py}
 \end{center}
 
+\section{End-to-End Adapter Benchmarks}
+
+The common benchmark framework tests every Phase~2 adapter against three
+acquisition policies. The adaptive policy re-ranks after every observation;
+the fixed-coverage policy cycles a declared endpoint-and-midpoint schedule;
+and the prior-ranked policy calculates one initial ranking and then freezes it.
+Within a paired trial they receive the same sampled truth, observation-noise
+seeds, posterior, physical cost, 90\% credible interval, stopping target, and
+eight-action limit.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.99\linewidth]{images/bayesian_adapter_end_to_end.png}
+\caption{Paired prior-predictive benchmarks for all four Phase~2 adapters.
+The upper row is median 90\% interval width divided by its stopping target; the
+lower row is the fraction reaching that precision versus physical experiment
+time. Curves below one at the right edge represent trials that exhausted the
+action budget. Zero-width intervals on the finite NQR grid are drawn at
+\(10^{-3}\) solely for the logarithmic axis.}
+\label{fig:bayesian-adapter-end-to-end}
+\end{figure}
+
+The tracked 96-trial reference run gave adaptive versus fixed-coverage success
+of 97.9\% versus 96.9\% for CPMG-IR, 76.0\% versus 16.7\% for PGSE, 94.8\%
+versus 84.4\% for NQR, and 87.5\% versus 63.5\% for ESR. Corresponding median
+physical times were 0.281 versus 0.996~s, 0.612 versus 0.816~s, 4.61 versus
+6.92~ms, and 39.6 versus 100.2~\(\mu\)s. These medians retain failed trials at
+their acquisition budget. The machine-readable result additionally records
+success-conditioned time, action count, RMSE, bias, coverage, interval width,
+and planning time.
+
+Three clocks remain separate. Adapter cost is laboratory time and supplies the
+plot's horizontal axis. Adaptive planning wall time measures how long Python
+takes to choose actions. Exact prediction-table construction is a one-time
+synthetic-benchmark setup cost amortized over trials. The table is an exact
+finite-support lookup rather than a surrogate: Phase~3 deterministic PGSE
+batching and prediction reuse make the comparison affordable without changing
+the observations or physical-time accounting. For the short NQR and ESR
+reference acquisitions, planning currently takes longer than the simulated
+physical acquisition, so live use still requires latency-aware integration.
+
+Reproduce the full result with:
+
+\begin{lstlisting}
+python examples/plot_bayesian_adapter_benchmarks.py --trials 96 \
+  --output results/bayesian-adapters.png \
+  --json-output results/bayesian-adapters.json
+\end{lstlisting}
+
+The benchmark is equal-model synthetic evidence: its truth is drawn from the
+same exact adapter table used for inference. It therefore validates policy
+behavior under the stated model, not real-instrument time savings or robustness
+to unmodeled sample and hardware effects.
+
 \section{Posterior Backends}
 
 \code{GridPosterior} is exact on a user-supplied Cartesian grid and exposes
@@ -8654,6 +8708,15 @@ nuisance particles marginalized. \\
 measurement-noise and model-discrepancy variances. \\
 \code{ModelMixturePredictor}, \code{analyze\_design\_sensitivity} & Posterior
 model dispatch and recommendation agreement across named prior/model cases. \\
+\code{CandidatePredictionTable}, \code{AdapterBenchmarkProblem} & Exact finite
+particle/action predictions and the shared definition of an adapter benchmark. \\
+\code{run\_adapter\_benchmark}, \code{save\_benchmark\_results} & Paired
+adaptive/fixed trials and strict JSON result output. \\
+\code{make\_cpmg\_ir\_benchmark}, \code{make\_pgse\_benchmark},
+\code{make\_nqr\_fid\_benchmark}, \code{make\_esr\_hahn\_benchmark} & Reference
+problems for every Phase~2 adapter. \\
+\code{make\_phase2\_adapter\_benchmarks} & Construct the complete benchmark
+suite with reference or smoke-sized posterior grids. \\
 \bottomrule
 \end{longtable}
 

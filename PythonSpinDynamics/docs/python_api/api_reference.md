@@ -322,6 +322,29 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `make_adapter_model(adapter: ExperimentDesignAdapter, likelihood: ObservationLikelihood, *, cache: bool = True, prefer_batch: bool = True) -> PredictiveModel` | Create a likelihood-backed predictive model from an adapter. |
 | function | `make_adapter_session(*, adapter: ExperimentDesignAdapter, likelihood: ObservationLikelihood, posterior: ParticlePosterior, design_space: CandidateDesignSpace, utility: DesignUtility, constraints: Sequence[DesignConstraint] = (), stopping_rule: StopRule | None = None, seed: int | None = None, resample_fraction: float | None = None, cache: bool = True, prefer_batch: bool = True) -> AdaptiveDesignSession` | Build an adaptive session with mandatory experiment-plan validation. |
 
+## `spin_dynamics.design.adapter_benchmarks`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `make_cpmg_ir_benchmark(*, profile: str = 'reference', utility_samples: int = 24) -> AdapterBenchmarkProblem` | Benchmark adaptive inversion-delay selection for T1 estimation. |
+| function | `make_pgse_benchmark(*, profile: str = 'reference', utility_samples: int = 24) -> AdapterBenchmarkProblem` | Benchmark adaptive gradient selection for diffusion estimation. |
+| function | `make_nqr_fid_benchmark(*, profile: str = 'reference', utility_samples: int = 24) -> AdapterBenchmarkProblem` | Benchmark adaptive NQR carrier selection for site-frequency estimation. |
+| function | `make_esr_hahn_benchmark(*, profile: str = 'reference', utility_samples: int = 24) -> AdapterBenchmarkProblem` | Benchmark adaptive Hahn-delay selection for electron-spin T2. |
+| function | `make_phase2_adapter_benchmarks(*, profile: str = 'reference', utility_samples: int = 24) -> tuple[AdapterBenchmarkProblem, ...]` | Build benchmark problems for every Phase 2 adapter. |
+
+## `spin_dynamics.design.benchmarks`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `CandidatePredictionTable` | Exact predictions for fixed particles and a finite candidate space. |
+| class | `AdapterBenchmarkProblem` | A fair finite-support comparison shared by adaptive and fixed policies. |
+| class | `BenchmarkTracePoint` | Posterior state after one synthetic acquisition. |
+| class | `BenchmarkTrial` | Outcome of one policy for one paired truth/noise realization. |
+| class | `BenchmarkPolicySummary` | Aggregate performance of one policy over paired trials. |
+| class | `AdapterBenchmarkResult` | All paired trials, summaries, and one-time planning setup costs. |
+| function | `run_adapter_benchmark(problem: AdapterBenchmarkProblem, *, trials: int = 64, seed: int = 0, policies: Sequence[str] = ('adaptive', 'fixed', 'prior_ranked')) -> AdapterBenchmarkResult` | Run paired prior-predictive trials under common truths and noise draws. |
+| function | `save_benchmark_results(path: str | Path, results: Sequence[AdapterBenchmarkResult]) -> None` | Write benchmark results as strict, human-readable JSON. |
+
 ## `spin_dynamics.design.constraints`
 
 | Kind | Name | Summary |
