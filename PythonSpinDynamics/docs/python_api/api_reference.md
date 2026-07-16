@@ -284,6 +284,133 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | --- | --- | --- |
 | class | `SQUIDMagnetometer` | Untuned SQUID magnetometer: flat field-noise floor with a ``1/f`` knee. |
 
+## `spin_dynamics.design.reference_ir`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `inversion_recovery_signal(delay_seconds: float | np.ndarray, t1_seconds: float | np.ndarray, amplitude: float | np.ndarray = 1.0, baseline: float | np.ndarray = 0.0) -> np.ndarray` | Return the ideal inversion-recovery signal. |
+| class | `IRDesign` | One inversion-recovery acquisition action. |
+| class | `IRAcquisitionCost` | Physical time used to rank inversion-recovery actions. |
+| class | `IRMeasurement` | One averaged scalar observation and the action that produced it. |
+| class | `IRGridPrior` | Discrete joint prior for the Phase 0 inversion-recovery model. |
+| class | `IRGridPosterior` | Exact posterior on an :class:`IRGridPrior` Cartesian grid. |
+| class | `IRDesignScore` | Goal-oriented information and physical cost for one candidate. |
+| class | `IRRecommendation` | Ranked Phase 0 candidate designs. |
+| function | `recommend_ir_design(posterior: IRGridPosterior, designs: Sequence[IRDesign], cost: IRAcquisitionCost, *, quadrature_order: int = 12, chunk_size: int = 4096) -> IRRecommendation` | Rank candidates by expected T1 information per physical second. |
+| class | `IRAdaptiveSession` | Replayable ask/tell loop for the Phase 0 reference problem. |
+| class | `IRTruth` | Ground-truth values used only by synthetic Phase 0 benchmarks. |
+| function | `simulate_ir_observation(truth: IRTruth, design: IRDesign, rng: np.random.Generator) -> float` | Draw one averaged synthetic observation from the Phase 0 model. |
+| class | `IRBenchmarkResult` | Outcome of one adaptive or fixed synthetic reference trial. |
+| function | `run_ir_reference_trial(*, prior: IRGridPrior, truth: IRTruth, candidate_designs: Sequence[IRDesign], cost: IRAcquisitionCost, rng: np.random.Generator, policy: str = 'adaptive', fixed_schedule: Sequence[IRDesign] | None = None, maximum_actions: int = 20, minimum_actions: int = 2, credible_probability: float = 0.95, maximum_width_seconds: float | None = None, maximum_relative_width: float | None = 0.25, quadrature_order: int = 12) -> IRBenchmarkResult` | Run one synthetic equal-model benchmark trial. |
+
+## `spin_dynamics.design.constraints`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `ConstraintResult` | Feasibility and an optional human-readable reason. |
+| class | `DesignConstraint` |  |
+| class | `CallableConstraint` | Constraint backed by a Boolean predicate. |
+| function | `evaluate_constraints(design: Any, constraints: Sequence[DesignConstraint]) -> tuple[bool, tuple[str, ...]]` | Evaluate every constraint and collect rejection messages. |
+
+## `spin_dynamics.design.costs`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `ConstantCost` | The same positive physical duration for every action. |
+| class | `CallableCost` | Physical duration supplied by ``function(design)``. |
+
+## `spin_dynamics.design.diagnostics`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `quantity_values(posterior: ParticlePosterior, quantity: QuantityOfInterest) -> np.ndarray` | Evaluate a scalar or vector QoI for every posterior particle. |
+| function | `weighted_mean(values: np.ndarray, weights: np.ndarray) -> np.ndarray` |  |
+| function | `weighted_variance(values: np.ndarray, weights: np.ndarray) -> np.ndarray` |  |
+| function | `weighted_quantile(values: np.ndarray, weights: np.ndarray, probability: float) -> float` | Return a left-continuous weighted scalar quantile. |
+| class | `PosteriorSummary` | Mean, standard deviation, and equal-tailed interval for a QoI. |
+| function | `summarize_quantity(posterior: ParticlePosterior, quantity: QuantityOfInterest, *, probability: float = 0.95) -> PosteriorSummary` |  |
+| class | `CredibleIntervalStopping` | Stop when every QoI interval is no wider than ``maximum_width``. |
+| class | `PosteriorStandardDeviationStopping` | Stop when every QoI standard deviation is below a threshold. |
+
+## `spin_dynamics.design.io`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `encode_jsonable(value: Any) -> Any` | Recursively encode NumPy arrays and complex scalars for JSON. |
+| function | `decode_jsonable(value: Any) -> Any` | Inverse of :func:`encode_jsonable`. |
+| function | `state_to_json(state: Mapping[str, Any], *, indent: int | None = 2) -> str` |  |
+| function | `state_from_json(payload: str) -> dict[str, Any]` |  |
+| function | `save_design_state(path: str | Path, state: Mapping[str, Any]) -> None` |  |
+| function | `load_design_state(path: str | Path) -> dict[str, Any]` |  |
+
+## `spin_dynamics.design.likelihoods`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `GaussianLikelihood` | Independent additive real Gaussian observation noise. |
+| class | `ComplexGaussianLikelihood` | Circular complex Gaussian noise with ``sigma`` per real quadrature. |
+
+## `spin_dynamics.design.models`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `PredictiveModel` | A vectorized deterministic predictor plus observation likelihood. |
+
+## `spin_dynamics.design.posterior`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `logsumexp(values: np.ndarray, axis: int | None = None) -> np.ndarray` | Stable NumPy log-sum-exp used by posterior and utility calculations. |
+| function | `normalize_log_weights(log_weights: np.ndarray) -> np.ndarray` | Return normalized one-dimensional log weights. |
+| function | `take_particles(parameters: ParameterParticles, indices: np.ndarray | list[int]) -> dict[str, np.ndarray]` | Select a common leading-dimension subset from named particles. |
+| class | `ParticlePosterior` | Weighted empirical posterior over named parameter particles. |
+| class | `GridPosterior` | Exact weighted posterior on a Cartesian parameter grid. |
+| function | `posterior_from_state(data: Mapping[str, Any]) -> ParticlePosterior` | Reconstruct a grid or particle posterior from ``state_dict`` data. |
+
+## `spin_dynamics.design.priors`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `ScalarPrior` | One-dimensional prior used by :class:`IndependentPrior`. |
+| class | `NormalPrior` | Univariate normal prior. |
+| class | `UniformPrior` | Continuous uniform prior on a closed finite interval. |
+| class | `LogUniformPrior` | Continuous log-uniform prior on positive finite bounds. |
+| class | `DiscretePrior` | Finite scalar prior with user-supplied probabilities. |
+| class | `IndependentPrior` | Product prior over named scalar parameters. |
+
+## `spin_dynamics.design.session`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `CandidateScore` | Utility, physical cost, and feasibility for one action. |
+| class | `DesignRecommendation` | Ranked candidate scores from one common-random-number evaluation. |
+| class | `DesignObservation` | One observed result identified by its stable candidate index. |
+| class | `AdaptiveDesignSession` | Replayable finite-space Bayesian adaptive-design loop. |
+
+## `spin_dynamics.design.spaces`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `CandidateDesignSpace` | Ordered finite actions available to an adaptive session. |
+
+## `spin_dynamics.design.types`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `Prior` | Distribution capable of drawing named parameter particles. |
+| class | `ObservationLikelihood` | Conditional observation distribution around model predictions. |
+| class | `PhysicalCost` | Physical acquisition cost for one design action. |
+| class | `StopRule` | Posterior-dependent termination criterion. |
+
+## `spin_dynamics.design.utilities`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `UtilityEstimate` | Estimated expected utility and Monte Carlo standard error. |
+| class | `DesignUtility` | Utility estimator consumed by an adaptive design session. |
+| class | `ExpectedInformationGain` | Expected information about the complete latent particle state. |
+| class | `ExpectedVarianceReduction` | Expected reduction in weighted squared-error Bayes risk for a QoI. |
+
 ## `spin_dynamics.deprecation`
 
 | Kind | Name | Summary |

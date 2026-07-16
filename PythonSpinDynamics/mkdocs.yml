@@ -90,6 +90,7 @@ nav:
   - Experiments and Sequences:
       - Workflow catalog: python_api/workflows.md
       - Runnable examples: python_api/examples.md
+      - Bayesian experiment design: python_api/bayesian_design.md
       - Sequence IR and Pulseq: python_api/sequence_ir.md
       - Phase cycling: python_api/phase_cycling.md
       - Imaging and system design:

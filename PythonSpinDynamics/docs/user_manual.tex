@@ -3793,6 +3793,145 @@ at:
   \item \code{examples/experiment\_config\_pgse\_walkers\_flow.toml}
 \end{itemize}
 
+\chapter{Bayesian Experiment Design}
+\label{chap:bayesian-design}
+
+Bayesian experiment design adapts the next measurement to the uncertainty left
+by previous measurements. The \code{spin\_dynamics.design} package provides a
+NumPy-only ask/tell layer for finite candidate spaces: represent uncertain
+parameters by an exact Cartesian grid or weighted particles, predict each
+candidate's possible observations through an explicit likelihood, rank the
+expected benefit per physical second, acquire externally, and update with the
+observed value.
+
+\chapterpath{Choose adaptive measurements with explicit uncertainty, physical
+cost, feasibility constraints, and a posterior stopping rule.}
+
+This layer recommends acquisitions; it does not operate an instrument.
+Physical acquisition cost is also distinct from the simulation-runtime estimate
+reported by \code{Experiment.plan()}.
+
+\section{A Generic Particle Study}
+
+The shortest complete example estimates a slope while treating the intercept
+as a nuisance parameter. The predictor is vectorized: its leading dimension is
+the posterior-particle index.
+
+\begin{lstlisting}[language=Python]
+from dataclasses import dataclass
+import numpy as np
+from spin_dynamics.design import (
+    AdaptiveDesignSession, CallableCost, CandidateDesignSpace,
+    ExpectedVarianceReduction, GaussianLikelihood, IndependentPrior,
+    NormalPrior, ParticlePosterior, PredictiveModel,
+)
+
+@dataclass(frozen=True)
+class Setting:
+    x: float
+    duration_seconds: float
+
+prior = IndependentPrior({
+    "slope": NormalPrior(0.0, 2.0),
+    "offset": NormalPrior(0.0, 1.0),
+})
+posterior = ParticlePosterior.from_prior(
+    prior, 4096, np.random.default_rng(10)
+)
+
+def predict(parameters, design):
+    return parameters["slope"] * design.x + parameters["offset"]
+
+def target(parameters):
+    return parameters["slope"]
+
+actions = CandidateDesignSpace(
+    Setting(x, 0.5 + abs(x)) for x in (-2.0, -1.0, 1.0, 2.0)
+)
+session = AdaptiveDesignSession(
+    model=PredictiveModel(predict, GaussianLikelihood(0.2)),
+    posterior=posterior,
+    design_space=actions,
+    utility=ExpectedVarianceReduction(target, samples=256),
+    cost=CallableCost(lambda design: design.duration_seconds),
+    seed=11,
+)
+
+recommendation = session.ask()
+setting = recommendation.best.design
+# Perform the acquisition externally.
+session.tell(setting, measured_value)
+\end{lstlisting}
+
+\code{recommendation.best} retains the estimated utility, its Monte Carlo
+standard error, physical duration, and utility rate. Every candidate evaluated
+by one \code{ask()} call uses the same pseudorandom particle indices and noise
+stream, reducing comparison noise. Rejected candidates remain in
+\code{recommendation.scores} with their constraint messages.
+
+The runnable version is \code{examples/bayesian\_design\_linear.py}. It supports
+both a goal-oriented slope-variance utility and full-state information gain,
+prints posterior progress, stops on slope uncertainty, and optionally saves a
+JSON checkpoint.
+
+\section{Posterior Backends}
+
+\code{GridPosterior} is exact on a user-supplied Cartesian grid and exposes
+named discrete marginals. Use it as a numerical reference when the uncertain
+space has only a few low-cardinality dimensions. \code{ParticlePosterior}
+scales to non-Cartesian samples and can be drawn from an
+\code{IndependentPrior} composed of normal, uniform, log-uniform, and discrete
+scalar priors.
+
+Particle updates are importance-weight updates. Monitor
+\code{effective\_sample\_size}; optional systematic resampling prevents a few
+particles from retaining all weight but does not create new support or perform
+MCMC rejuvenation. Sharp or long studies must therefore be checked against a
+denser initial particle set or a smaller exact grid.
+
+\section{Information Versus Goal-Oriented Risk}
+
+\code{ExpectedInformationGain} estimates \(I(\Theta;Y\mid d,H)\) in nats for
+the complete latent particle state. It is appropriate when every represented
+parameter matters. \code{ExpectedVarianceReduction} instead estimates the
+expected reduction in squared-error Bayes risk for a scalar or vector
+\(z=q(\Theta)\). Use its \code{scale} argument to nondimensionalize vector
+components.
+
+The distinction matters: full-state information can reward a measurement that
+mostly determines a nuisance parameter, whereas the QoI risk utility rewards
+that measurement only if it improves the requested output. Generic target-only
+mutual information with nuisance marginalization is not yet implemented. The
+Phase~0 inversion-recovery reference calculates \(I(T_1;Y)\) exactly on its
+discrete grid and remains the validation oracle for that future estimator.
+
+Monte Carlo utilities report standard errors. Near zero, a finite-sample
+utility estimate may be slightly negative; interpret candidate differences
+relative to their uncertainty instead of silently truncating them.
+
+\section{Physical Cost, Constraints, and Stopping}
+
+\code{ConstantCost} and \code{CallableCost} measure laboratory seconds, not
+Python compute time. Include sequence duration, repetitions, recovery, setup,
+and switching that cannot overlap. \code{CallableConstraint} attaches a reason
+to hardware, duty-cycle, or safety rejection. Stopping rules currently cover
+credible-interval width and posterior standard deviation for arbitrary QoIs.
+
+\section{Checkpoints and Current Boundary}
+
+\code{session.state\_dict()} plus \code{save\_design\_state()} preserves the
+posterior, RNG, observation history, candidate indices, and resampling state.
+Restoration explicitly requires the executable model, utility, cost,
+constraints, stopping rule, and identically ordered candidate space; arbitrary
+callables are never embedded in JSON.
+
+Phase~1 is simulator-agnostic. It does not yet bind unknown values into
+\code{Experiment} specs or extract observables from workflow result classes.
+Those CPMG-IR, PGSE, NQR, and ESR adapters are the next integration phase. The
+web guide \code{docs/python\_api/bayesian\_design.md} contains the current API
+and limitations; \code{docs/bayesian\_experiment\_design\_plan.md} preserves
+the mathematical formulation, research references, and roadmap.
+
 \part{NMR Experiments and Imaging}
 \label{part:nmr-experiments}
 
@@ -8294,6 +8433,7 @@ spin_dynamics.nqr
 spin_dynamics.noise
 spin_dynamics.motion
 spin_dynamics.experiment
+spin_dynamics.design
 spin_dynamics.sequences
 spin_dynamics.sequences.motion
 spin_dynamics.prepolarization
@@ -8340,6 +8480,40 @@ ADC sample times. \\
 \code{compiled\_to\_motion\_steps} & Adapter for the moving-isochromat engine. \\
 \code{plot\_sequence}, \code{sequence\_plot\_data} & Aligned timeline display
 and its backend-neutral plotting data. \\
+\bottomrule
+\end{longtable}
+
+\section{Bayesian Design APIs}
+
+\begin{longtable}{p{0.35\linewidth}p{0.57\linewidth}}
+\toprule
+Public object or function & Purpose \\
+\midrule
+\code{GridPosterior}, \code{ParticlePosterior} & Exact Cartesian-grid and
+weighted empirical posterior backends. \\
+\code{IndependentPrior}, \code{NormalPrior}, \code{UniformPrior},
+\code{LogUniformPrior}, \code{DiscretePrior} & NumPy prior construction and
+particle sampling. \\
+\code{PredictiveModel} & Vectorized deterministic predictor paired with an
+observation likelihood. \\
+\code{GaussianLikelihood}, \code{ComplexGaussianLikelihood} & Independent real
+or circular-complex additive measurement noise. \\
+\code{ExpectedInformationGain} & Nested Monte Carlo information gain for the
+complete latent particle state, with a standard-error estimate. \\
+\code{ExpectedVarianceReduction} & Goal-oriented expected squared-error risk
+reduction for a selected or derived quantity. \\
+\code{CandidateDesignSpace}, \code{CallableConstraint} & Ordered finite actions
+and feasibility checks with retained rejection reasons. \\
+\code{ConstantCost}, \code{CallableCost} & Physical acquisition seconds used
+to convert utility into an information or risk-reduction rate. \\
+\code{AdaptiveDesignSession} & Common-random-number \code{ask()}, Bayesian
+\code{tell()}, stopping, elapsed-time accounting, and checkpoint state. \\
+\code{CredibleIntervalStopping},
+\code{PosteriorStandardDeviationStopping} & QoI-based termination rules. \\
+\code{save\_design\_state}, \code{load\_design\_state} & JSON checkpoint I/O
+for posterior, RNG, history, and candidate indices. \\
+\code{IRGridPosterior}, \code{IRAdaptiveSession} & Exact Phase~0
+inversion-recovery target-information reference. \\
 \bottomrule
 \end{longtable}
 

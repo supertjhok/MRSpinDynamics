@@ -14,6 +14,7 @@ model references.
 | Goal | Start here | Continue with |
 |---|---|---|
 | Run a first NMR simulation | [Unified Experiment Workflow](python_api/experiment_workflow.md) | [Workflow catalog](python_api/workflows.md) and [examples](python_api/examples.md) |
+| Adapt measurements to infer a sample property efficiently | [Bayesian experiment design](python_api/bayesian_design.md) | [Architecture and research plan](bayesian_experiment_design_plan.md) |
 | Understand units and model choices | [Concepts and Units](python_api/concepts.md) | The relevant page under Physical Models |
 | Import or construct a pulse sequence | [Sequence IR and Pulseq](python_api/sequence_ir.md) | [Phase Cycling](python_api/phase_cycling.md) |
 | Simulate NQR, ESR, coupled spins, or exchange | The matching page under Physical Models | Its linked examples and validation records |

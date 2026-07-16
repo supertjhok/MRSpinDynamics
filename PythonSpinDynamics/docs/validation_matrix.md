@@ -20,9 +20,9 @@ what supports the underlying scientific or numerical claim.
 
 ## Coverage Summary
 
-- 35 capability-level claims
+- 36 capability-level claims
 - 14 validated
-- 16 partially validated
+- 17 partially validated
 - 5 regression-only
 
 | Component | Claim | Evidence | Status |
@@ -57,6 +57,7 @@ what supports the underlying scientific or numerical claim.
 | Optimal-control propagation and gradients | NumPy/JAX propagators, control gradients, hardware-response primitives, and bounded objectives agree across implementations and with finite-difference limits. | **C**, **R**, **B** | partially validated |
 | Unified experiment facade | Facade routes reproduce their direct workflow calls and preserve specifications, configs, arrays, and provenance through round trips. | **R** | regression only |
 | Reproducible results and provenance | Facade archives identify experiment inputs, implementation, numerical environment, randomness, and result content and can verify an exact rerun while remaining backward-compatible with version-1 archives. | **R** | regression only |
+| Bayesian experiment design and adaptive acquisition | Discrete-grid updates, target information gain, weighted-particle updates, likelihoods, QoI risk utilities, common-random-number ranking, stopping, and checkpoint replay follow their stated probability and decision-theory contracts. | **A**, **R** | partially validated |
 | Multi-frequency Bloch-Siegert phase and low-frequency RWA limits | Exact lab-frame paired-offset propagation reproduces the Mandal-2014 Bloch-Siegert phase slope and fitted 90-degree pulse length, while the second-order common phase isolates the counter-rotating contribution omitted by the RWA. | **D**, **A**, **C** | validated |
 | Arbitrary SequenceIR phase cycling | Named RF roles in a backend-neutral sequence are programmed branch-by-branch and receiver-combined according to an arbitrary phase table. | **A**, **R** | validated |
 | Inverse-excitation cancellation diagnostics | Excitation/inverse spectrum pairs report broadband and peak residuals, inverse coherence, and SNR mismatch with correct analytical limiting behavior. | **A**, **R** | validated |
@@ -424,6 +425,18 @@ what supports the underlying scientific or numerical claim.
 - **References:** FAIR Guiding Principles for scientific data management
 - **Reproduce:** [`tests/test_experiment.py::test_provenance_fingerprints_are_stable_and_specific`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_experiment.py#L151); [`tests/test_experiment.py::test_provenance_classifies_seeded_and_unseeded_randomness`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_experiment.py#L190); [`tests/test_experiment.py::test_version_one_run_archive_remains_readable`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_experiment.py#L207); [`tests/test_experiment.py::test_archive_fingerprints_detect_spec_and_result_tampering`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_experiment.py#L241); [`tests/test_experiment_cli.py::test_cli_run_and_show`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_experiment_cli.py#L212)
 - **Limitations:** Exact computational reproduction does not validate the physical model; unseeded legacy runs cannot be made reproducible after the fact.
+
+### Bayesian experiment design and adaptive acquisition
+
+- **Claim:** Discrete-grid updates, target information gain, weighted-particle updates, likelihoods, QoI risk utilities, common-random-number ranking, stopping, and checkpoint replay follow their stated probability and decision-theory contracts.
+- **Evidence:** A, R (partially validated)
+- **Basis:** Direct discrete Bayes-rule calculation, dense predictive mutual-information integration, prior-predictive interval coverage, analytical uninformative-design limits, deterministic replay, and seeded equal-model adaptive benchmarks.
+- **Tested range:** Scalar/vector real and complex Gaussian observations; finite Cartesian grids and finite weighted real/complex parameter particles; finite candidate spaces and synthetic inversion-recovery/linear examples.
+- **Metric:** Posterior probability, mutual information, expected variance reduction, credible coverage, design ranking, RNG/checkpoint identity, and time-to-precision in synthetic trials.
+- **Tolerance:** Floating-point or Monte Carlo tolerances declared in tests; prior-predictive coverage is required not to under-cover its nominal discrete interval in the fixed-seed reference.
+- **References:** T. Rainforth et al., Statistical Science 39 (2024) 100-114, doi:10.1214/23-STS915; C. A. Waudby et al., Journal of Magnetic Resonance 326 (2021) 106937, doi:10.1016/j.jmr.2021.106937
+- **Reproduce:** [`tests/test_bayesian_design.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_bayesian_design.py); [`tests/test_bayesian_design_core.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_bayesian_design_core.py); [`examples/bayesian_ir_phase0.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/examples/bayesian_ir_phase0.py); [`examples/bayesian_design_linear.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/examples/bayesian_design_linear.py)
+- **Limitations:** The evidence validates numerical/statistical contracts and synthetic examples, not time savings on a physical instrument. Generic target-only EIG, model discrepancy, continuous design optimization, particle rejuvenation, and Experiment-facade adapters are not yet implemented.
 
 ### Multi-frequency Bloch-Siegert phase and low-frequency RWA limits
 

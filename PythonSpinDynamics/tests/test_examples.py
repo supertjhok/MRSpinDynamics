@@ -108,6 +108,16 @@ class ExampleSmokeTests(unittest.TestCase):
 
     def test_non_plot_examples_run(self) -> None:
         commands = [
+            (
+                "examples/bayesian_design_linear.py",
+                "--particles",
+                "256",
+                "--utility-samples",
+                "16",
+                "--max-actions",
+                "2",
+            ),
+            ("examples/bayesian_ir_phase0.py", "--trials", "2"),
             ("examples/ideal_cpmg.py", "--numpts", "21"),
             ("examples/ideal_fid.py", "--numpts", "21"),
             ("examples/ideal_cpmg_train.py", "--numpts", "21", "--num-echoes", "3"),

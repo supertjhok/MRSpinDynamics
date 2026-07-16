@@ -9,6 +9,16 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
 
 ### Added
 
+- Added the first Bayesian experiment-planning layer to PythonSpinDynamics: a
+  goal-oriented exact-grid inversion-recovery reference that marginalizes
+  amplitude, baseline, and noise uncertainty; ranks candidate delays by
+  expected T1 information per physical second; supports replayable ask/tell
+  sessions and synthetic fixed-schedule benchmarks; plus a generic NumPy core
+  with scalar/product priors, real and complex Gaussian likelihoods, exact-grid
+  and particle posteriors, full-state EIG, QoI variance reduction, common-random-
+  number candidate ranking, physical costs, constraints, stopping rules, JSON
+  checkpoints, examples, and web/print documentation. The work is accompanied
+  by a referenced architecture and implementation plan.
 - Completed the PythonSpinDynamics image-guided therapy feedback loop with a
   calibrated particle-sensitive forward image, nonlinear noisy reconstruction,
   image-derived particle count, representative positions, centroids, and target

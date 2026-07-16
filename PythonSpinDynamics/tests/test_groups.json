@@ -50,6 +50,17 @@
         "tests.test_experiment",
         "tests.test_experiment_cli"
       ]
+    },
+    "design": {
+      "paths": [
+        "src/spin_dynamics/design/**",
+        "tests/test_bayesian_design*.py",
+        "examples/*bayesian*"
+      ],
+      "tests": [
+        "tests.test_bayesian_design",
+        "tests.test_bayesian_design_core"
+      ]
     }
   }
 }

@@ -17,6 +17,7 @@ Examples can be run from `PythonSpinDynamics` or from inside
 | Goal | First example | Then try |
 |---|---|---|
 | Learn the common plan/run/result pattern | `experiment_facade_quickstart.py` | `ideal_cpmg_train.py` |
+| Adapt measurements to an uncertain sample | `bayesian_design_linear.py` | `bayesian_ir_phase0.py` |
 | Compare ideal and realistic probe behavior | `plot_probe_cpmg.py` | `plot_probe_parameter_sweep.py` |
 | Learn imaging from acquisition to reconstruction | `plot_ideal_imaging.py` | `plot_imaging_inhomogeneity.py` and the portable Halbach capstone |
 | Learn diffusion and motion | `plot_pgse_qspace_walkers.py` | restricted diffusion, PGSTE, DDE, or OGSE examples |
@@ -64,6 +65,28 @@ spin-dynamics plan examples\experiment_config_cpmg.toml
 spin-dynamics run examples\experiment_config_cpmg.toml --output results\config_run.npz
 spin-dynamics show results\config_run.npz
 ```
+
+## Bayesian Experiment Design
+
+The generic NumPy example estimates an uncertain slope and offset, ranks
+candidate measurements by expected utility per physical second, updates a
+particle posterior, and can save a replayable JSON checkpoint:
+
+```powershell
+python examples\bayesian_design_linear.py --utility slope-variance
+python examples\bayesian_design_linear.py --utility full-eig --checkpoint results\design-state.json
+```
+
+The exact-grid inversion-recovery reference selects delays using information
+specifically about T1 after marginalizing amplitude, baseline, and noise:
+
+```powershell
+python examples\bayesian_ir_phase0.py --trials 12
+```
+
+These are synthetic algorithm demonstrations, not instrument-control scripts.
+See [Bayesian experiment design](bayesian_design.md) for utility semantics,
+costs, stopping, and current limitations.
 
 ## Sequence Timeline Visualizer
 
