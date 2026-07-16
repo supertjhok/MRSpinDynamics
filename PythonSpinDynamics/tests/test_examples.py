@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import subprocess
 import sys
+import tempfile
 import unittest
 import uuid
 from pathlib import Path
@@ -286,6 +287,28 @@ class ExampleSmokeTests(unittest.TestCase):
             with self.subTest(command=command[0]):
                 result = run_example(*command)
                 self.assertTrue(result.stdout.strip())
+
+    def test_bayesian_live_instrument_example_writes_recovery_artifacts(self) -> None:
+        LOCAL_TMP.mkdir(exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=LOCAL_TMP) as directory:
+            checkpoint = Path(directory) / "live-state.json"
+            audit = Path(directory) / "live-audit.json"
+            result = run_example(
+                "examples/bayesian_design_live_instrument.py",
+                "--batches",
+                "2",
+                "--batch-size",
+                "2",
+                "--checkpoint",
+                str(checkpoint),
+                "--audit",
+                str(audit),
+            )
+
+            self.assertIn("rejected=1", result.stdout)
+            self.assertIn("posterior T1=", result.stdout)
+            self.assertTrue(checkpoint.exists())
+            self.assertTrue(audit.exists())
 
     def test_examples_run_from_examples_directory(self) -> None:
         result = run_example("ideal_cpmg.py", "--numpts", "21", cwd=EXAMPLES)

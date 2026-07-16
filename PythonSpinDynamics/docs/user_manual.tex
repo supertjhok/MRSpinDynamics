@@ -4038,6 +4038,104 @@ same exact adapter table used for inference. It therefore validates policy
 behavior under the stated model, not real-instrument time savings or robustness
 to unmodeled sample and hardware effects.
 
+\section{Batch and Live Operation}
+
+Phase~4 places a recoverable orchestration layer around
+\code{AdaptiveDesignSession}. \code{LiveDesignSession} accepts a user-supplied
+\code{DesignInstrument}; the library itself remains independent of vendor
+drivers and never opens a hardware connection. Each
+\code{AcquisitionRequest} carries a stable request ID, candidate index, typed
+design, expected cost, and selection reason. The instrument returns exactly one
+\code{AcquisitionOutcome} per ID, either with an accepted observation or an
+explicit rejection reason.
+
+Small batches are planned with one posterior ranking. The leading distinct,
+feasible, non-excluded actions are acquired without adaptation inside the
+batch, then accepted observations are applied in request order. This provides a
+practical compromise for instruments that cannot pause after every scan; it is
+not a non-myopic joint batch optimizer. Larger batches reduce planning pauses
+but also reduce opportunities to react to new data.
+
+The live transaction has three stages:
+
+\begin{enumerate}
+  \item \code{plan\_batch()} records the complete ranking, constraint messages,
+  selected requests, selection reasons, and posterior summary in an atomic
+  checkpoint and audit.
+  \item \code{execute\_pending()} records that external I/O is about to begin,
+  then calls the instrument adapter.
+  \item The complete outcome set is validated before any posterior update.
+  Accepted values are committed; non-retryable rejections are excluded from
+  future batches; the completed state atomically replaces the pending state.
+\end{enumerate}
+
+\begin{lstlisting}[language=Python]
+class MyInstrument:
+    def acquire(self, requests):
+        outcomes = []
+        for request in requests:
+            try:
+                value, seconds = acquire_from_hardware(request.design)
+                outcomes.append(AcquisitionOutcome(
+                    request.request_id,
+                    accepted=True,
+                    observation=value,
+                    physical_seconds=seconds,
+                ))
+            except InterlockError as error:
+                outcomes.append(AcquisitionOutcome(
+                    request.request_id,
+                    accepted=False,
+                    reason=str(error),
+                    retryable=False,
+                ))
+        return outcomes
+
+live = LiveDesignSession(
+    adaptive_session,
+    MyInstrument(),
+    batch_size=2,
+    latency_budget_seconds=0.05,
+    audit_quantities={"T1_seconds": t1_quantity},
+    checkpoint_path="results/live-state.json",
+    audit_path="results/live-audit.json",
+)
+live.run(maximum_batches=4)
+\end{lstlisting}
+
+Planning, physical, and operational clocks remain distinct. Measured
+\code{planning\_seconds} is checked against the latency budget. Instrument
+\code{physical\_seconds} uses reported duration, falling back to the design
+cost for an accepted acquisition. \code{total\_operational\_seconds} includes
+planning only when it cannot overlap acquisition. These measurements do not
+retroactively alter the utility-rate denominator used for ranking.
+
+The live CPMG-IR example intentionally rejects its first requested action, then
+returns noisy echo integrals for the remaining requests:
+
+\begin{lstlisting}
+python examples/bayesian_design_live_instrument.py --batches 3 --batch-size 2 \
+  --checkpoint results/bayesian-live-state.json \
+  --audit results/bayesian-live-audit.json
+\end{lstlisting}
+
+Atomic state is written before the external call. If that call raises, a
+restored batch with a positive attempt count is ambiguous: the hardware may
+have acquired even though Python did not receive the response. The session
+therefore refuses automatic replay. Supply instrument-archived outcomes to
+\code{resolve\_pending()}, or authorize
+\code{execute\_pending(allow\_retry=True)} only when duplication is safe.
+Stable request IDs should be instrument-side idempotency keys where supported.
+
+The JSON audit records candidate utilities and Monte Carlo error, physical
+costs, constraint messages, live exclusions, selection reasons, instrument
+metadata, rejections, timing, and before/after posterior QoI summaries.
+\code{save\_design\_state\_atomic()} exposes the same same-directory,
+flush-and-replace checkpoint primitive to custom loops. Phase~4 is not a safety
+controller, vendor driver, remote scheduler, or authentication layer; real
+deployments must supply those responsibilities and calibrated observation
+parsing.
+
 \section{Posterior Backends}
 
 \code{GridPosterior} is exact on a user-supplied Cartesian grid and exposes
@@ -4091,10 +4189,10 @@ Restoration explicitly requires the executable model, utility, cost,
 constraints, stopping rule, and identically ordered candidate space; arbitrary
 callables are never embedded in JSON.
 
-Phase~3 includes validated batching, surrogate screening, adaptive sampling,
-discrete-target information, discrepancy, mixtures, and sensitivity reports.
-It does not yet cover every workflow or a general continuous-target information
-estimator. Batch and live instrument operation are the next integration phase.
+Phase~4 adds recoverable small batches, explicit planner latency, atomic
+checkpoints, rejected-acquisition handling, and an external instrument
+protocol. It does not cover every workflow, a general continuous-target
+information estimator, vendor hardware drivers, or non-myopic batch design.
 The web guide and architecture plan contain the current API,
 limitations, mathematical formulation, research references, and roadmap:
 \begin{center}
@@ -8717,6 +8815,15 @@ adaptive/fixed trials and strict JSON result output. \\
 problems for every Phase~2 adapter. \\
 \code{make\_phase2\_adapter\_benchmarks} & Construct the complete benchmark
 suite with reference or smoke-sized posterior grids. \\
+\code{AcquisitionRequest}, \code{AcquisitionOutcome} & Stable external request
+identity and an accepted observation or explicit instrument rejection. \\
+\code{DesignInstrument} & Minimal synchronous external acquisition protocol. \\
+\code{PendingBatch}, \code{BatchExecution} & Recoverable pre-I/O state and a
+completed batch with outcomes and separate timing. \\
+\code{LiveDesignSession} & Ranked small batches, planner-latency accounting,
+rejection handling, atomic recovery, and posterior/audit orchestration. \\
+\code{save\_design\_state\_atomic} & Flush a temporary JSON checkpoint beside
+the destination and atomically replace the previous complete state. \\
 \bottomrule
 \end{longtable}
 

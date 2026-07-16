@@ -317,6 +317,104 @@ Use `--profile smoke --trials 2` for a fast integration check. The builders,
 runner, result dataclasses, and `CandidatePredictionTable` are public so new
 adapter benchmarks can use the same paired protocol.
 
+## Phase 4 batch and live operation
+
+`LiveDesignSession` wraps an `AdaptiveDesignSession` without embedding hardware
+control in the Bayesian core. A user-supplied `DesignInstrument` receives a
+sequence of `AcquisitionRequest` objects and must return exactly one
+`AcquisitionOutcome` per request ID. Accepted outcomes update the posterior;
+rejected outcomes do not.
+
+The Phase 4 lifecycle is deliberately transactional:
+
+1. `plan_batch()` calls `ask()` once and selects the leading distinct feasible
+   actions that have not been permanently rejected. The candidate scores,
+   constraint messages, selection reasons, posterior summary, and a pending
+   batch are atomically checkpointed.
+2. `execute_pending()` atomically records that an instrument call is about to
+   start, then invokes the external adapter.
+3. The complete outcome set is validated before any observation is applied.
+   Accepted observations are committed in request order, permanent rejections
+   are excluded from future batches, and the completed audit/checkpoint state
+   is atomically replaced.
+
+This batch policy freezes one ranking and chooses its leading unique actions.
+It is useful when the instrument cannot pause after every scan, but it is not a
+joint non-myopic batch optimizer: increasing `batch_size` trades adaptation
+opportunities for operational convenience.
+
+```python
+class MyInstrument:
+    def acquire(self, requests):
+        outcomes = []
+        for request in requests:
+            try:
+                value, actual_seconds = acquire_from_hardware(request.design)
+                outcomes.append(AcquisitionOutcome(
+                    request.request_id,
+                    accepted=True,
+                    observation=value,
+                    physical_seconds=actual_seconds,
+                    metadata={"archive_id": instrument_archive_id()},
+                ))
+            except InterlockError as error:
+                outcomes.append(AcquisitionOutcome(
+                    request.request_id,
+                    accepted=False,
+                    reason=str(error),
+                    retryable=False,
+                ))
+        return outcomes
+
+live = LiveDesignSession(
+    adaptive_session,
+    MyInstrument(),
+    batch_size=2,
+    latency_budget_seconds=0.05,
+    audit_quantities={"T1_seconds": lambda p: p["t1_seconds"]},
+    checkpoint_path="results/live-state.json",
+    audit_path="results/live-audit.json",
+)
+live.run(maximum_batches=4)
+```
+
+### Timing semantics
+
+`planning_seconds` is measured wall time spent ranking actions.
+`latency_budget_seconds` is an operational threshold and
+`latency_exceeded_batches` counts overruns. `physical_seconds` uses the actual
+duration reported by the instrument, falling back to the adapter cost for an
+accepted result. `total_operational_seconds` adds planning time only when
+`planning_can_overlap=False`. These live clocks do not change the utility-rate
+cost used when the candidates were ranked.
+
+The synthetic CPMG-IR instrument example makes this distinction visible. On a
+representative run its first uncached plan took seconds while the physical
+two-action batch took milliseconds; the next cached ranking took about 10 ms.
+This is precisely why planner latency is now recorded rather than hidden.
+
+```powershell
+python examples\bayesian_design_live_instrument.py --batches 3 --batch-size 2 `
+  --checkpoint results\bayesian-live-state.json `
+  --audit results\bayesian-live-audit.json
+```
+
+### Recovery after interruption
+
+The live checkpoint is written before external I/O. If an instrument call
+raises, its pending batch has `attempt_count > 0`: the hardware might have
+completed the acquisition even though Python did not receive the reply.
+Restored sessions therefore refuse automatic execution. Reconcile archived
+instrument results with `resolve_pending(outcomes)`, or use
+`execute_pending(allow_retry=True)` only after deciding that a duplicate
+acquisition is safe. Stable request IDs should also be used as idempotency keys
+when the instrument API supports them.
+
+`save_design_state_atomic()` provides the same flush-and-replace checkpoint
+primitive for custom loops. It creates the temporary file beside the target,
+flushes it, and uses a same-filesystem atomic replacement so a failed write
+does not truncate the previous checkpoint.
+
 ## Robustness and nuisance parameters
 
 `ExpectedTargetInformationGain` estimates information about a *discrete*
@@ -441,10 +539,12 @@ target-EIG estimators and to reproduce the synthetic benchmark in
 
 ## Scope and next integration step
 
-Phase 3 provides acceleration and robustness references for representative workflows.
-It is not yet a claim that every PythonSpinDynamics workflow can be designed
-adaptively or batch-simulated. The next phase adds batch and live operation,
-planner latency, atomic checkpoints, and instrument-adapter examples.
+Phase 4 provides a synchronous external-instrument boundary, small open-loop
+batches, explicit planner latency, atomic recovery state, rejected-acquisition
+handling, and JSON audit records. It is not a vendor driver, scheduler, remote
+transport, safety system, or non-myopic batch optimizer. A real integration
+must still supply calibrated observation parsing, authentication, timeouts,
+hardware safety, and instrument-side idempotency.
 
 The research basis, formal objective, robustness concerns, phased roadmap, and
 full references are preserved in the

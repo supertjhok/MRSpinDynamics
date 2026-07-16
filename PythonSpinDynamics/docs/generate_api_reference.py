@@ -47,6 +47,7 @@ MODULES = [
     "design.diagnostics",
     "design.io",
     "design.likelihoods",
+    "design.live",
     "design.models",
     "design.performance",
     "design.posterior",

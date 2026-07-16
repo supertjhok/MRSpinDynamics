@@ -3,9 +3,11 @@
 The generic core provides NumPy grid/particle inference, likelihood-
 backed predictive models, finite candidate spaces, information and QoI-risk
 utilities, physical costs, constraints, stopping, and replayable sessions.
-Phase 2 binds representative experiments; Phase 3 adds batching, validated
-surrogates, staged scoring, nuisance marginalization, and robustness reports.
-Phase 0 remains available as an exact-grid inversion-recovery reference.
+Phase 2 binds representative experiments; Phase 3 adds prediction batching,
+validated surrogates, staged scoring, nuisance marginalization, and robustness
+reports. Phase 4 adds recoverable small-batch operation through an external
+instrument protocol. Phase 0 remains available as an exact-grid
+inversion-recovery reference.
 """
 
 from spin_dynamics.design.adapters import (
@@ -63,8 +65,17 @@ from spin_dynamics.design.diagnostics import (
 from spin_dynamics.design.io import (
     load_design_state,
     save_design_state,
+    save_design_state_atomic,
     state_from_json,
     state_to_json,
+)
+from spin_dynamics.design.live import (
+    AcquisitionOutcome,
+    AcquisitionRequest,
+    BatchExecution,
+    DesignInstrument,
+    LiveDesignSession,
+    PendingBatch,
 )
 from spin_dynamics.design.likelihoods import (
     ComplexGaussianLikelihood,
@@ -139,6 +150,8 @@ from spin_dynamics.design.utilities import (
 )
 
 __all__ = [
+    "AcquisitionOutcome",
+    "AcquisitionRequest",
     "AdaptiveDesignSession",
     "AdaptiveMonteCarloUtility",
     "AdapterBenchmarkProblem",
@@ -146,6 +159,7 @@ __all__ = [
     "BenchmarkPolicySummary",
     "BenchmarkTracePoint",
     "BenchmarkTrial",
+    "BatchExecution",
     "CPMGIRAdapter",
     "CPMGIRDesign",
     "CallableConstraint",
@@ -159,6 +173,7 @@ __all__ = [
     "ConstraintResult",
     "CredibleIntervalStopping",
     "DesignConstraint",
+    "DesignInstrument",
     "DesignObservation",
     "DesignRecommendation",
     "DesignSensitivityReport",
@@ -189,6 +204,7 @@ __all__ = [
     "IndependentPrior",
     "LogUniformPrior",
     "LaplaceInformationGain",
+    "LiveDesignSession",
     "ModelMixturePredictor",
     "NormalPrior",
     "NQRFIDAdapter",
@@ -196,6 +212,7 @@ __all__ = [
     "ObservationLikelihood",
     "ParameterParticles",
     "ParticlePosterior",
+    "PendingBatch",
     "PhysicalCost",
     "PosteriorStandardDeviationStopping",
     "PosteriorSummary",
@@ -228,6 +245,7 @@ __all__ = [
     "run_adapter_benchmark",
     "run_ir_reference_trial",
     "save_design_state",
+    "save_design_state_atomic",
     "save_benchmark_results",
     "scalar_parameter_encoder",
     "simulate_ir_observation",

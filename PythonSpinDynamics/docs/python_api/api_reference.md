@@ -383,6 +383,7 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `state_to_json(state: Mapping[str, Any], *, indent: int | None = 2) -> str` |  |
 | function | `state_from_json(payload: str) -> dict[str, Any]` |  |
 | function | `save_design_state(path: str | Path, state: Mapping[str, Any]) -> None` |  |
+| function | `save_design_state_atomic(path: str | Path, state: Mapping[str, Any]) -> None` | Atomically replace a JSON checkpoint after flushing it to disk. |
 | function | `load_design_state(path: str | Path) -> dict[str, Any]` |  |
 
 ## `spin_dynamics.design.likelihoods`
@@ -391,6 +392,17 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | --- | --- | --- |
 | class | `GaussianLikelihood` | Independent additive real Gaussian observation noise. |
 | class | `ComplexGaussianLikelihood` | Circular complex Gaussian noise with ``sigma`` per real quadrature. |
+
+## `spin_dynamics.design.live`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `AcquisitionRequest` | One selected action sent to an external instrument adapter. |
+| class | `AcquisitionOutcome` | Accepted observation or explicit instrument rejection for one request. |
+| class | `DesignInstrument` | External acquisition boundary consumed by :class:`LiveDesignSession`. |
+| class | `PendingBatch` | Checkpointed batch whose external acquisition is not yet reconciled. |
+| class | `BatchExecution` | Completed batch with outcomes and operational timing. |
+| class | `LiveDesignSession` | Run small, recoverable acquisition batches through an instrument protocol. |
 
 ## `spin_dynamics.design.models`
 

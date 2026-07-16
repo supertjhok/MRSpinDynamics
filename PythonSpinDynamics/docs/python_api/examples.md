@@ -114,6 +114,15 @@ python examples\plot_bayesian_adapter_benchmarks.py --trials 96 --output results
 python examples\plot_bayesian_adapter_benchmarks.py --profile smoke --trials 2 --output results\bayesian-adapters-smoke.png
 ```
 
+Phase 4 moves the same design loop across an explicit external-instrument
+boundary. This synthetic CPMG-IR driver demonstrates two-action batches, an RF
+interlock rejection, planner-latency accounting, atomic recovery checkpoints,
+and a complete JSON audit:
+
+```powershell
+python examples\bayesian_design_live_instrument.py --batches 3 --batch-size 2 --checkpoint results\bayesian-live-state.json --audit results\bayesian-live-audit.json
+```
+
 These are synthetic algorithm demonstrations, not instrument-control scripts.
 See [Bayesian experiment design](bayesian_design.md) for utility semantics,
 costs, stopping, and current limitations.

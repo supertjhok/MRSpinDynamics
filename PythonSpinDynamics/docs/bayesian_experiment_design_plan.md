@@ -323,7 +323,8 @@ individual metric.
 This is equal-model evidence about the implemented decision algorithm. It is
 not evidence of time savings on an instrument, calibration under model
 discrepancy, or superiority for arbitrary priors and action spaces. Those
-questions remain Phase 4 validation work.
+questions remain physical-validation work beyond the Phase 4 orchestration
+reference.
 
 ### Phase 4: batch and live operation
 
@@ -331,6 +332,29 @@ Support small batches when adaptation cannot occur after every scan, explicit
 planner latency, atomic checkpoints, external instrument adapter examples,
 rejected acquisitions, and audit logs containing posterior summaries,
 candidate scores, costs, constraints, and selection reasons.
+
+**Implemented 2026-07-16.** `LiveDesignSession` wraps the generic adaptive
+session with a synchronous `DesignInstrument` protocol. It ranks once per
+small batch, selects distinct feasible actions, measures planning wall time
+against an optional latency budget, and separately records instrument-reported
+physical time and non-overlapped operational time. Static planner rejections
+remain in candidate audits; instrument rejections do not update the posterior,
+and non-retryable actions are excluded from later batches.
+
+Every pending batch is written with `save_design_state_atomic()` before the
+instrument is called. The attempt itself is also checkpointed before external
+I/O, so a lost acknowledgement restores as an ambiguous pending acquisition.
+Automatic replay is refused until the caller supplies recovered outcomes or
+explicitly authorizes a retry. Candidate utilities and uncertainty, costs,
+constraint messages, selection reasons, request IDs, outcomes, timing, and
+before/after QoI summaries are retained in an atomically replaced JSON audit.
+The runnable CPMG-IR example includes a synthetic external adapter and interlock
+rejection while keeping the hardware boundary replaceable.
+
+This implementation is a synchronous orchestration reference, not a vendor
+driver, safety controller, distributed scheduler, or non-myopic batch design
+algorithm. Real deployments must add instrument-specific authentication,
+timeouts, calibration, archive reconciliation, and idempotency guarantees.
 
 ### Phase 5: advanced policies
 

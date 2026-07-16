@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
+import tempfile
 from typing import Any, Mapping
 
 import numpy as np
@@ -71,6 +73,40 @@ def save_design_state(path: str | Path, state: Mapping[str, Any]) -> None:
     Path(path).write_text(state_to_json(state), encoding="utf-8")
 
 
+def save_design_state_atomic(path: str | Path, state: Mapping[str, Any]) -> None:
+    """Atomically replace a JSON checkpoint after flushing it to disk.
+
+    The temporary file is created in the destination directory so
+    :func:`os.replace` remains an atomic same-filesystem operation. If writing
+    fails, the previous checkpoint is retained and the temporary file is
+    removed.
+    """
+
+    destination = Path(path)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary_name = tempfile.mkstemp(
+        dir=destination.parent,
+        prefix=f".{destination.name}.",
+        suffix=".tmp",
+    )
+    temporary = Path(temporary_name)
+    descriptor_open = True
+    try:
+        handle = os.fdopen(descriptor, "w", encoding="utf-8", newline="\n")
+        descriptor_open = False
+        with handle:
+            handle.write(state_to_json(state))
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, destination)
+    except BaseException:
+        try:
+            if descriptor_open:
+                os.close(descriptor)
+            temporary.unlink(missing_ok=True)
+        finally:
+            raise
+
+
 def load_design_state(path: str | Path) -> dict[str, Any]:
     return state_from_json(Path(path).read_text(encoding="utf-8"))
-
