@@ -697,15 +697,16 @@ The current phase still has important limits:
 - the reference array hierarchy and gap are specified, but exact element
   dimensions and coupling matrices remain inferred; and
 - nonlinear encoding, tissue-phantom reconstruction, Langevin-limited particle
-  force, flow/diffusion trajectories, and target capture are implemented, while
-  alternating image-guided control is implemented at the simulated-state tier.
+  force, flow/diffusion trajectories, particle-sensitive reconstruction,
+  image-derived state estimation, and alternating image-guided control are
+  implemented at the synthetic-measurement tier;
 - dynamic inversion includes particle orientation, finite-cylinder drag,
   moment relaxation, non-sticky stability metrics, and architecture counts,
   but its inverse-power sources are inferred rather than measured coil/EPM
   field maps; it remains 2-D, dilute, and outside vascular/tissue physics.
 
-The next therapy phase needs a particle-sensitive measurement model and state
-estimator rather than reading particle positions directly from the simulator.
-It also needs vascular/tissue transport, adhesion, and delivery metrics. Measured minor
-loops, repeated-pulse retention, exact CAD, and cross-talk matrices remain
-necessary before the array can become a quantitative hardware digital twin.
+The next therapy phase needs measured particle contrast, experimental state-
+estimation validation, vascular/tissue transport, adhesion, and delivery
+metrics. Measured minor loops, repeated-pulse retention, exact CAD, and
+cross-talk matrices remain necessary before the array can become a quantitative
+hardware digital twin.

@@ -10,12 +10,12 @@ layers listed below are implemented. Users should read
 hardware and [`image_guided_magnetic_therapy.md`](image_guided_magnetic_therapy.md)
 for the system workflow.
 
-The record was refined on 2026-07-15 after reviewing the local Weinberg Medical
+The record was refined on 2026-07-16 after reviewing the local Weinberg Medical
 Physics archive. Remaining work concerns measured calibration, biological
 transport, and quantitative system validation rather than basic software
 scaffolding.
 
-Implementation progress as of 2026-07-15:
+Implementation progress as of 2026-07-16:
 
 - **Complete:** evidence-tagged AlNiCo material and retained-state records;
   arbitrary-axis finite rods; documented one-rod and 37-rod presets; explicit
@@ -54,18 +54,21 @@ Implementation progress as of 2026-07-15:
   superparamagnetic force, Stokes drag, Stokes--Einstein diffusion, background
   flow, reflective boundaries, target capture, and image-derived transport
   direction for the simple tissue phantom.
-- **Complete at controller tier:** repeated image-localize-program-transport
-  cycles, capture-goal stopping, per-cycle re-aiming from the uncaptured
-  centroid, explicit mode timing, and retained-state programming effort.
+- **Complete at synthetic-measurement controller tier:** particle-sensitive
+  cloud-in-cell image formation, nonlinear noisy reconstruction, image-derived
+  count, representative positions, centroids, and target occupancy; repeated
+  image-estimate-program-transport-verify cycles; image-derived stopping and
+  re-aiming; explicit truth-only estimator diagnostics; mode timing; and
+  retained-state programming effort.
 - **Complete at dynamic-inversion mechanism tier:** rigid ferromagnetic sphere
   and finite-cylinder hydrodynamics; separate body and magnetic-moment angles;
   Brownian translation/rotation; finite internal moment relaxation; the
   published polarize-delay-antialigned-gradient timing; non-sticky stability
   and escape metrics; and coil, EPM-only, and hybrid switching assessments.
-- **Next:** measured coil/EPM field maps and particle magnetic-relaxation data,
-  followed by measurement-derived particle-state estimation plus vascular and
-  tissue delivery physics. Measured minor loops and coupling matrices remain
-  parallel calibration work.
+- **Next:** measured coil/EPM field maps, particle contrast and magnetic-
+  relaxation data, experimental estimator validation, and vascular/tissue
+  delivery physics. Measured minor loops and coupling matrices remain parallel
+  calibration work.
 
 The textbook starting point is Section 11.2, printed pages 603--604, of
 `References/Measurements_Book_2_Final_WEB.pdf`.  Figure 11.6 describes an

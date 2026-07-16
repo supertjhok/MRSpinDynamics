@@ -4627,24 +4627,25 @@ system states needed by the therapeutic platform model.
 \chapter{Image-Guided Magnetic Therapy}
 \label{chap:magnetic-therapy}
 
-\chapterpath{Reconstruct a tissue target, steer a simulated particle cloud with
-closed-loop field updates, and compare static capture with dynamic-inversion
-trapping across particle shapes, sizes, and hardware architectures.}
+\chapterpath{Reconstruct a tissue target and particle concentration, estimate
+the particle state used for closed-loop field updates, and compare static
+capture with dynamic-inversion trapping across particle shapes, sizes, and
+hardware architectures.}
 
 This chapter treats imaging, delivery, feedback, and localization as one
 system-level workflow. It consumes the EPM and coil models of the preceding
-chapter, but it is not a field-solver reference. The imaging stage reconstructs
-a tissue-contrast image and localizes its target. The transport stage represents
-the particle distribution with individual simulated positions. The current
-controller reads those particle positions from simulation state; it does not
-yet infer particle concentration from a measurement. Its outputs therefore
-separate target reconstruction, trajectories, target occupancy, stability
-metrics, and switching burdens.
+chapter, but it is not a field-solver reference. One imaging channel
+reconstructs a tissue-contrast image and localizes its target. A separately
+calibrated particle-sensitive channel reconstructs concentration and estimates
+particle count, image-resolved positions, the whole-cloud and outside-target
+centroids, and target occupancy. The controller uses those estimates for
+steering and stopping. Continuous simulator positions remain hidden from the
+decision path and appear only in error diagnostics.
 
-This distinction prevents two different inverse problems from being collapsed
-into one. Locating an anatomical or material target does not by itself reveal
-where a magnetic carrier cloud is. A particle-sensitive signal model and state
-estimator are still required for a fully measurement-driven controller.
+The estimated positions represent a distribution at the image resolution; they
+do not preserve individual particle identities. The signal per particle,
+contrast separation, and noise are supplied synthetic inputs rather than an
+experimental calibration.
 
 \section{Nonlinear EPM Imaging of a Tissue Phantom}
 
@@ -4777,12 +4778,27 @@ flow.
 
 \section{Alternating Image-Guided Controller}
 
-\code{run\_epm\_image\_guided\_controller} closes the first system-level loop.
-Each cycle acquires a fresh noisy nonlinear image, localizes the target, forms
-the centroid of the uncaptured particle population, synthesizes a transport
-gradient directed between those centroids, observes an explicit programming
-dwell, and integrates a transport burst. The controller stops when it reaches
-the configured capture goal or cycle limit.
+\code{run\_epm\_image\_guided\_controller} closes the measurement-and-control
+loop. Each cycle acquires fresh target and particle images, localizes the target,
+estimates the outside-target particle centroid, synthesizes a transport gradient
+directed between those centroids, observes an explicit programming dwell,
+integrates a transport burst, and acquires a verification particle image. The
+post-transport image supplies the capture estimate and stopping decision.
+
+\code{particle\_distribution\_image} is the forward measurement model. It uses
+bilinear cloud-in-cell deposition, preserving total calibrated particle signal
+and the spatial first moment. \code{run\_epm\_particle\_imaging} sends that
+hidden concentration through the same nonlinear EPM encoding and noisy
+nonnegative reconstruction as the tissue image. Only the reconstructed image is
+passed to \code{estimate\_particle\_state\_from\_image}, which recovers count,
+representative positions, centroids, and occupancy.
+
+Because the transport model immobilizes particles at first target entry,
+captured signal lies near the circular boundary. The controller therefore
+calibrates the fraction of a boundary particle's bilinear image footprint that
+falls on target-center voxels and applies that geometry-only partial-volume
+correction to occupancy. The calibration depends on the grid and target radius,
+not on hidden particle positions, and can be disabled for another capture model.
 
 \begin{lstlisting}[language=Python]
 from spin_dynamics.workflows import (
@@ -4806,8 +4822,10 @@ closed_loop = run_epm_image_guided_controller(
 \end{lstlisting}
 
 \code{ControllerModeInterval} records the wall-clock state machine, and each
-\code{EPMTherapyCycleResult} retains its reconstruction, target, feedback
-direction, synthesized state, force map, particle history, and capture gain.
+\code{EPMTherapyCycleResult} retains its target reconstruction, pre/post
+particle reconstructions and estimates, feedback direction, synthesized state,
+force map, particle history, and capture gain. Fields explicitly named
+\code{ground\_truth\_*} score the estimate and are not controller inputs.
 The controller also sums absolute retained-remanence changes across channels
 and imaging states. This ``channel T'' total is a programming-effort metric,
 not electrical energy. Pulse energy, driver stress, and temperature require a
@@ -4816,20 +4834,19 @@ calibrated 72-channel programming schedule.
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=0.98\textwidth]{images/example_epm_closed_loop_controller.png}
-  \caption{Alternating EPM image-localize-program-transport control. Fresh
-  reconstructions update the target, uncaptured-particle centroids re-aim the
-  affine force field, and cycle-colored trajectories show delivery progress.
-  The mode timeline, capture gain, and retained-state change expose the control
-  decisions and their cost surrogate.}
+  \caption{Alternating EPM image-estimate-program-transport-verify control.
+  Particle-sensitive reconstructions provide image-resolved positions and
+  outside-target centroids that re-aim the force field. The panels compare the
+  resulting estimate with hidden truth, show delivery and mode timing, and
+  report centroid and occupancy error without feeding truth back to control.}
   \label{fig:epm-closed-loop-controller}
 \end{figure}
 
 Figure~\ref{fig:epm-closed-loop-controller} is generated by
 \code{plot\_epm\_closed\_loop\_controller.py}. The default illustrative case
-reaches its capture goal with four re-aimed transport bursts. It still reads
-the particle centroid and capture mask directly from simulator state; inferring
-particle concentration from measured images, vascular flow, tissue
-permeability, adhesion, and release are the next system tier.
+uses four re-aimed transport bursts by default. Particle signal calibration,
+experimental contrast separation, partial-volume occupancy, vascular flow,
+tissue permeability, adhesion, and release are the next system tier.
 
 \section{Dynamic-Inversion Central Trapping}
 
@@ -8243,12 +8260,14 @@ Class & Purpose \\
 \code{TissuePhantom2D} & Cartesian proton-density, T1, T2, tissue-label, and off-center-target maps for the illustrative imaging example. \\
 \code{NonlinearEPMEncoding} & Retained states, projected field profiles, receiver-demodulated phase, and dense nonlinear encoding matrix. \\
 \code{EPMNonlinearImagingResult} & Clean/noisy acquisitions, nonnegative regularized reconstruction, convergence diagnostics, and image NRMSE. \\
+\code{ParticleStateEstimate2D} & Recovered concentration, calibrated count, representative image-resolved positions, centroids, target occupancy, and spatial resolution. \\
+\code{EPMParticleImagingResult} & Particle-sensitive acquisition and estimate plus explicitly separated truth-only centroid and occupancy diagnostics. \\
 \code{SuperparamagneticParticle} & Magnetic volume and susceptibility, Langevin saturation, Stokes drag, and Stokes--Einstein diffusion for a particle or effective aggregate. \\
 \code{MagneticForceMap2D} & Sampled vector field and bilinearly interpolated $\nabla |B|^2$ force precursor on an $(x,y)$ plane. \\
 \code{MagnetophoreticTransportResult} & Seeded particle histories, force and drift histories, capture times, capture fraction, and force/speed metrics. \\
-\code{EPMTherapyControllerConfig} & Imaging, programming, and transport timing; field objective; reconstruction settings; capture goal; and cycle limit. \\
-\code{EPMTherapyCycleResult} & One reconstructed target, feedback direction, synthesized state, force map, trajectory burst, programming effort, and capture increment. \\
-\code{EPMTherapyControllerResult} & Complete mode timeline, per-cycle localization and capture, stitched trajectories, stopping reason, and total remanence variation. \\
+\code{EPMTherapyControllerConfig} & Target/particle/verification imaging, programming, and transport timing; contrast and reconstruction settings; field objective; capture goal; and cycle limit. \\
+\code{EPMTherapyCycleResult} & Target and pre/post particle reconstructions, image-derived feedback direction, synthesized state, trajectory burst, estimator error, and capture increment. \\
+\code{EPMTherapyControllerResult} & Complete mode timeline, estimated and truth-only capture histories, image-resolved final positions, stitched trajectories, stopping reason, and total remanence variation. \\
 \code{FerromagneticParticle} & Sphere or finite-cylinder geometry, remanent moment, anisotropic drag/diffusion, and mechanical/internal orientation-memory scales. \\
 \code{DynamicInversionSequence} & Polarize-delay-antialigned-gradient timing, direction cycle, inferred inverse-power source geometry, and active duty cycle. \\
 \code{DynamicInversionResult} & Non-sticky particle/body/moment histories with RMS-radius concentration, retention, escape, and repulsive-phase metrics. \\

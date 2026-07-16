@@ -308,7 +308,7 @@ def main() -> None:
         f"  target capture guided/flow-only={100 * guided.capture_fraction:.1f}/"
         f"{100 * flow_only.capture_fraction:.1f}%"
     )
-    print("  next: alternate image-localize-program-transport windows in a controller")
+    print("  next: close the loop with particle-sensitive imaging and state estimation")
 
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)

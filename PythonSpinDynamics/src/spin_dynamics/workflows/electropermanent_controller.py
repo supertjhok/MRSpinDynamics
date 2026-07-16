@@ -1,10 +1,11 @@
 """Closed-loop imaging and magnetophoretic transport with EPM arrays.
 
-The controller alternates four explicit operations: nonlinear image
-acquisition, target localization, retained-state synthesis/programming dwell,
-and a magnetophoretic transport burst.  Every cycle re-aims the affine field
-gradient from the centroid of the uncaptured population toward the newly
-localized target.
+The controller alternates target and particle imaging, retained-state
+synthesis/programming, a magnetophoretic transport burst, and verification
+imaging.  Every cycle re-aims the affine field gradient from the image-estimated
+centroid of the uncaptured population toward the newly localized target.  True
+particle coordinates remain inside the transport simulator and are exposed on
+results only as validation diagnostics.
 
 The controller records retained-remanence total variation as a programming
 effort metric.  It intentionally does not turn that variation into electrical
@@ -28,6 +29,10 @@ from spin_dynamics.workflows.electropermanent_imaging import (
     EPMNonlinearImagingResult,
     NonlinearEPMEncoding,
     run_epm_nonlinear_imaging,
+)
+from spin_dynamics.workflows.electropermanent_particle_imaging import (
+    EPMParticleImagingResult,
+    run_epm_particle_imaging,
 )
 from spin_dynamics.workflows.electropermanent_transport import (
     MagneticForceMap2D,
@@ -95,6 +100,12 @@ class EPMTherapyControllerConfig:
     magnetization_model: MagnetizationModel = "langevin"
     boundary: TransportBoundary = "reflect"
     seed: int = 0
+    verification_imaging_window_s: float = 90.0
+    particle_imaging_regularization: float = 1.0e-4
+    particle_imaging_snr_db: float | None = 35.0
+    particle_signal_per_particle: float = 1.0
+    particle_support_threshold_fraction: float = 0.01
+    particle_boundary_capture_correction: bool = True
 
     def __post_init__(self) -> None:
         if int(self.max_cycles) != self.max_cycles or self.max_cycles < 1:
@@ -107,8 +118,10 @@ class EPMTherapyControllerConfig:
             "programming_window_s",
             "transport_window_s",
             "transport_time_step_s",
+            "verification_imaging_window_s",
             "target_radius_m",
             "transport_gradient_t_m",
+            "particle_signal_per_particle",
             "synthesis_tolerance_t",
         ):
             _positive(getattr(self, name), name)
@@ -127,6 +140,16 @@ class EPMTherapyControllerConfig:
         )
         if self.imaging_snr_db is not None:
             _positive(self.imaging_snr_db, "imaging_snr_db")
+        _positive(
+            self.particle_imaging_regularization,
+            "particle_imaging_regularization",
+            allow_zero=True,
+        )
+        if self.particle_imaging_snr_db is not None:
+            _positive(self.particle_imaging_snr_db, "particle_imaging_snr_db")
+        support = float(self.particle_support_threshold_fraction)
+        if not np.isfinite(support) or not 0.0 <= support < 1.0:
+            raise ValueError("particle_support_threshold_fraction must be in [0, 1)")
         _positive(
             self.synthesis_regularization,
             "synthesis_regularization",
@@ -161,26 +184,46 @@ class EPMTherapyCycleResult:
     cycle_index: int
     intervals: tuple[ControllerModeInterval, ...]
     imaging: EPMNonlinearImagingResult
+    particle_imaging_before: EPMParticleImagingResult
+    particle_imaging_after: EPMParticleImagingResult
     target_mask: np.ndarray
     target_center_m: np.ndarray
     localization_threshold: float
     source_centroid_m: np.ndarray
+    ground_truth_source_centroid_m: np.ndarray
     requested_direction: np.ndarray
     transport_state: ArrayStateSynthesisResult
     force_map: MagneticForceMap2D
     transport: MagnetophoreticTransportResult
     capture_fraction_before: float
+    estimated_capture_fraction_before: float
     imaging_remanence_variation_t: float
     transport_remanence_variation_t: float
     peak_transport_remanence_change_t: float
 
     @property
     def capture_fraction_after(self) -> float:
+        """Ground-truth capture fraction retained for simulator evaluation."""
+
         return self.transport.capture_fraction
+
+    @property
+    def estimated_capture_fraction_after(self) -> float:
+        """Post-transport target occupancy estimated from verification imaging."""
+
+        return self.particle_imaging_after.estimate.capture_fraction
 
     @property
     def newly_captured_fraction(self) -> float:
         return self.capture_fraction_after - self.capture_fraction_before
+
+    @property
+    def estimated_newly_captured_fraction(self) -> float:
+        return self.estimated_capture_fraction_after - self.estimated_capture_fraction_before
+
+    @property
+    def source_centroid_error_m(self) -> float:
+        return float(np.linalg.norm(self.source_centroid_m - self.ground_truth_source_centroid_m))
 
     @property
     def start_s(self) -> float:
@@ -193,7 +236,7 @@ class EPMTherapyCycleResult:
 
 @dataclass(frozen=True)
 class EPMTherapyControllerResult:
-    """Complete alternating image-localize-program-transport simulation."""
+    """Complete image-estimate-program-transport-verify simulation."""
 
     config: EPMTherapyControllerConfig
     cycles: tuple[EPMTherapyCycleResult, ...]
@@ -204,7 +247,25 @@ class EPMTherapyControllerResult:
 
     @property
     def capture_fraction(self) -> float:
+        """Ground-truth final capture, retained for simulation evaluation."""
+
         return float(np.mean(self.final_captured))
+
+    @property
+    def estimated_capture_fraction(self) -> float:
+        """Final capture fraction reported by particle verification imaging."""
+
+        if not self.cycles:
+            return 0.0
+        return self.cycles[-1].estimated_capture_fraction_after
+
+    @property
+    def estimated_final_positions_m(self) -> np.ndarray:
+        """Image-resolved representative particle locations after the final cycle."""
+
+        if not self.cycles:
+            return np.empty((0, 2))
+        return self.cycles[-1].particle_imaging_after.estimate.positions_m
 
     @property
     def total_time_s(self) -> float:
@@ -216,8 +277,28 @@ class EPMTherapyControllerResult:
 
     @property
     def capture_fraction_by_cycle(self) -> np.ndarray:
+        """Ground-truth capture history used to score the closed-loop estimate."""
+
         return np.asarray(
             [cycle.capture_fraction_after for cycle in self.cycles],
+            dtype=np.float64,
+        )
+
+    @property
+    def estimated_capture_fraction_by_cycle(self) -> np.ndarray:
+        """Capture history available to the controller through imaging."""
+
+        return np.asarray(
+            [cycle.estimated_capture_fraction_after for cycle in self.cycles],
+            dtype=np.float64,
+        )
+
+    @property
+    def particle_centroid_error_by_cycle_m(self) -> np.ndarray:
+        """Post-transport particle-centroid estimation error by cycle."""
+
+        return np.asarray(
+            [cycle.particle_imaging_after.centroid_error_m for cycle in self.cycles],
             dtype=np.float64,
         )
 
@@ -239,7 +320,9 @@ class EPMTherapyControllerResult:
     def trajectory_time_s(self) -> np.ndarray:
         values: list[np.ndarray] = []
         for index, cycle in enumerate(self.cycles):
-            transport_interval = cycle.intervals[-1]
+            transport_interval = next(
+                interval for interval in cycle.intervals if interval.mode == "transport"
+            )
             time = transport_interval.start_s + cycle.transport.time_s
             values.append(time if index == 0 else time[1:])
         return np.concatenate(values) if values else np.zeros(0)
@@ -302,7 +385,12 @@ def run_epm_image_guided_controller(
     config: EPMTherapyControllerConfig | None = None,
     background_velocity_m_s: TransportVelocity = None,
 ) -> EPMTherapyControllerResult:
-    """Run alternating image-localize-program-transport controller cycles."""
+    """Run image-estimate-program-transport-verify controller cycles.
+
+    Particle coordinates enter the imaging forward model and the physical
+    transport integrator, but control decisions use only reconstructed particle
+    state.  Ground-truth fields on the result are diagnostic scores.
+    """
 
     settings = EPMTherapyControllerConfig() if config is None else config
     x_axis = _strict_axis(x_m, "x_m")
@@ -336,18 +424,21 @@ def run_epm_image_guided_controller(
         imaging_end = imaging_start + settings.imaging_window_s
         programming_end = imaging_end + settings.programming_window_s
         transport_end = programming_end + settings.transport_window_s
+        verification_end = transport_end + settings.verification_imaging_window_s
         intervals = (
             ControllerModeInterval(cycle_index, "imaging", imaging_start, imaging_end),
             ControllerModeInterval(cycle_index, "programming", imaging_end, programming_end),
             ControllerModeInterval(cycle_index, "transport", programming_end, transport_end),
+            ControllerModeInterval(cycle_index, "imaging", transport_end, verification_end),
         )
 
+        seed_base = settings.seed + 5 * cycle_index
         imaging = run_epm_nonlinear_imaging(
             encoding,
             image,
             regularization=settings.imaging_regularization,
             snr_db=settings.imaging_snr_db,
-            seed=settings.seed + 3 * cycle_index,
+            seed=seed_base,
         )
         target_mask, target_center, threshold = localize_epm_target(
             imaging.reconstructed_image,
@@ -357,11 +448,27 @@ def run_epm_image_guided_controller(
         )
         captured |= np.linalg.norm(positions - target_center, axis=1) <= settings.target_radius_m
         uncaptured = ~captured
-        source_centroid = (
+        ground_truth_source_centroid = (
             np.mean(positions[uncaptured], axis=0)
             if np.any(uncaptured)
             else target_center.copy()
         )
+        particle_imaging_before = run_epm_particle_imaging(
+            encoding,
+            positions,
+            x_axis,
+            y_axis,
+            target_center_m=target_center,
+            target_radius_m=settings.target_radius_m,
+            signal_per_particle=settings.particle_signal_per_particle,
+            support_threshold_fraction=settings.particle_support_threshold_fraction,
+            boundary_capture_correction=settings.particle_boundary_capture_correction,
+            regularization=settings.particle_imaging_regularization,
+            snr_db=settings.particle_imaging_snr_db,
+            seed=seed_base + 1,
+            ground_truth_captured=captured,
+        )
+        source_centroid = particle_imaging_before.estimate.uncaptured_centroid_m
         direction = target_center - source_centroid
         norm = float(np.linalg.norm(direction))
         if norm <= np.finfo(np.float64).eps:
@@ -388,7 +495,7 @@ def run_epm_image_guided_controller(
         force_map = magnetic_force_map_2d(x_axis, y_axis, transport_field)
 
         imaging_path = np.vstack((previous_state, encoding.remanence_states_t))
-        imaging_variation = float(np.sum(np.abs(np.diff(imaging_path, axis=0))))
+        initial_imaging_variation = float(np.sum(np.abs(np.diff(imaging_path, axis=0))))
         final_imaging_state = encoding.remanence_states_t[-1]
         transport_delta = transport_state.remanence_t - final_imaging_state
         transport_variation = float(np.sum(np.abs(transport_delta)))
@@ -407,32 +514,60 @@ def run_epm_image_guided_controller(
             magnetization_model=settings.magnetization_model,
             boundary=settings.boundary,
             initial_captured=captured,
-            seed=settings.seed + 3 * cycle_index + 1,
+            seed=seed_base + 2,
         )
         positions = transport.positions_m[-1].copy()
         captured = transport.captured.copy()
+        particle_imaging_after = run_epm_particle_imaging(
+            encoding,
+            positions,
+            x_axis,
+            y_axis,
+            target_center_m=target_center,
+            target_radius_m=settings.target_radius_m,
+            signal_per_particle=settings.particle_signal_per_particle,
+            support_threshold_fraction=settings.particle_support_threshold_fraction,
+            boundary_capture_correction=settings.particle_boundary_capture_correction,
+            regularization=settings.particle_imaging_regularization,
+            snr_db=settings.particle_imaging_snr_db,
+            seed=seed_base + 3,
+            ground_truth_captured=captured,
+        )
+        verification_path = np.vstack(
+            (transport_state.remanence_t, encoding.remanence_states_t)
+        )
+        verification_variation = float(
+            np.sum(np.abs(np.diff(verification_path, axis=0)))
+        )
+        imaging_variation = initial_imaging_variation + verification_variation
         cycles.append(
             EPMTherapyCycleResult(
                 cycle_index=cycle_index,
                 intervals=intervals,
                 imaging=imaging,
+                particle_imaging_before=particle_imaging_before,
+                particle_imaging_after=particle_imaging_after,
                 target_mask=target_mask,
                 target_center_m=target_center,
                 localization_threshold=threshold,
                 source_centroid_m=source_centroid,
+                ground_truth_source_centroid_m=ground_truth_source_centroid,
                 requested_direction=direction,
                 transport_state=transport_state,
                 force_map=force_map,
                 transport=transport,
                 capture_fraction_before=capture_before,
+                estimated_capture_fraction_before=(
+                    particle_imaging_before.estimate.capture_fraction
+                ),
                 imaging_remanence_variation_t=imaging_variation,
                 transport_remanence_variation_t=transport_variation,
                 peak_transport_remanence_change_t=peak_transport_change,
             )
         )
-        elapsed = transport_end
-        previous_state = transport_state.remanence_t
-        if float(np.mean(captured)) >= settings.capture_goal:
+        elapsed = verification_end
+        previous_state = final_imaging_state
+        if particle_imaging_after.estimate.capture_fraction >= settings.capture_goal:
             return EPMTherapyControllerResult(
                 config=settings,
                 cycles=tuple(cycles),

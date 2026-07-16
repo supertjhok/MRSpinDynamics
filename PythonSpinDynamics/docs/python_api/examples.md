@@ -723,20 +723,22 @@ clinical dose model.
 
 ## Closed-Loop EPM Therapy Controller
 
-This example repeats nonlinear imaging, target localization, transport-state
-synthesis, programming dwell, and magnetic aggregate motion until the capture
-goal or cycle limit is reached.
+This example repeats target and particle imaging, particle-state estimation,
+transport-state synthesis, programming dwell, magnetic aggregate motion, and
+verification imaging until the image-derived capture goal or cycle limit is
+reached.
 
 ```powershell
 python examples\plot_epm_closed_loop_controller.py --output results\epm_closed_loop_controller.png
 ```
 
 Use `--cycles`, `--transport-min`, and `--capture-goal` to change the feedback
-schedule. The panels show localization repeatability, the last re-aimed force
-field, centroid-to-target control decisions, cycle-colored trajectories, the
-explicit mode timeline, and capture gain versus retained-state change. The
-controller reads the uncaptured-particle centroid from simulation state, so a
-particle-sensitive measurement model and state estimator remain future work.
+schedule. The panels show target localization, the recovered particle image and
+image-resolved positions, the last re-aimed force field, cycle-colored
+trajectories, the explicit mode timeline, image-derived versus hidden-truth
+capture, and estimator errors. The controller consumes the reconstructed
+outside-target centroid and post-transport occupancy; hidden simulator
+positions are retained only to score those estimates.
 
 ## Dynamic-Inversion Particle Trap
 

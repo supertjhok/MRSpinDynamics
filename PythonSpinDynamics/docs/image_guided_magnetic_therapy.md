@@ -7,17 +7,22 @@ particles are, decide how the next field should change, and determine whether
 the particles remain localized after they arrive.
 
 In this documentation, a **particle distribution** means the spatial
-concentration of particles. The transport models represent it with individual
-simulated particle positions. The imaging model currently reconstructs a
-**tissue-contrast image** that identifies the target region; it does not yet
-recover particle concentration from measurements. Keeping those two quantities
-separate is essential when interpreting the closed-loop example.
+concentration of particles. The transport model represents it internally with
+continuous particle positions. A calibrated particle-sensitive channel turns
+those hidden positions into concentration signal, passes that signal through
+the nonlinear EPM acquisition, and reconstructs an image. The state estimator
+then obtains particle count, image-resolved positions, centroids, and target
+occupancy from that reconstructed image.
+
+The controller also reconstructs a **tissue-contrast image** to identify the
+target. Tissue contrast and particle concentration are separate measurement
+channels in the present model; neither is silently treated as the other.
 
 This guide connects four questions that are otherwise easy to confuse:
 
 1. Can the hardware produce useful imaging and force fields?
-2. Can measurements reveal the target, and eventually the particle
-   concentration, well enough to guide a decision?
+2. Can measurements reveal both the target and particle concentration well
+   enough to guide a decision?
 3. Can magnetic force overcome diffusion and background flow to move particles
    toward a target?
 4. Can the particles remain concentrated without relying on an impossible
@@ -34,18 +39,19 @@ trapping stability.
 
 ## From delivery concept to simulation
 
-A complete simulated cycle begins with a known actuator command, generates a
-measurement of a tissue phantom, reconstructs the image, and localizes a target
-region. The simulator then chooses a force field using that target and the
-known positions of the uncaptured particles. *Target occupancy* is the fraction
-of simulated particles inside the target region. These definitions keep target
-imaging, particle-state estimation, transport success, and long-term
-localization as separate problems.
+A complete simulated cycle reconstructs the tissue target and the particle
+concentration, estimates the uncaptured-particle centroid, programs a force
+field from that estimate, transports the hidden physical particles, and then
+acquires a verification image. *Target occupancy* is the fraction of recovered
+particle signal assigned to the target region. The controller stops from that
+image-derived occupancy rather than from simulator truth.
 
-> **Important model boundary:** the current feedback loop has image-derived
-> target localization but simulated particle-state feedback. A measurement
-> model that estimates particle concentration is the next missing link for a
-> fully image-guided controller.
+> **Important model boundary:** the particle channel is a calibrated synthetic
+> contrast model with a supplied signal per particle. Its estimated positions
+> are representative locations at the image resolution; they describe the
+> recovered distribution and do not preserve individual particle identities.
+> True simulator positions appear only in diagnostics that score centroid and
+> occupancy error.
 
 ## System workflow
 
@@ -53,12 +59,13 @@ The implemented system is organized as five successive layers:
 
 1. **Actuator state.** A coil, EPM array, or hybrid EPM-plus-coil system produces
    a spatial field and gradient from an explicit hardware state.
-2. **Image formation.** Multiple nonlinear EPM operating states encode a tissue
-   contrast image, including transmit and receive sensitivity.
+2. **Image formation.** Multiple nonlinear EPM operating states separately
+   encode a tissue target and a particle-sensitive concentration image.
 3. **Transport.** Superparamagnetic particles move under magnetic force,
    background flow, Brownian diffusion, and reflecting boundaries.
-4. **Feedback control.** The reconstructed image supplies the target location;
-   simulated uncaptured-particle positions select the next transport direction.
+4. **Feedback control.** The reconstructed tissue image supplies the target;
+   the reconstructed particle image supplies the uncaptured centroid and target
+   occupancy used for steering and stopping.
 5. **Dynamic trapping.** Ferromagnetic rods retain their polarization briefly
    while an opposing gradient produces repulsion. Cycling the source direction
    creates time-averaged central localization without claiming a stable static
@@ -101,8 +108,38 @@ python examples/plot_epm_nonlinear_tissue_imaging.py \
   --output results/epm_nonlinear_tissue.png
 ```
 
-The resulting image and state set can supply target localization to the
-controller. They do not estimate the transported particle cloud.
+The resulting tissue image supplies target localization to the controller.
+
+## Particle-sensitive imaging and state estimation
+
+`particle_distribution_image` uses bilinear cloud-in-cell deposition to convert
+continuous hidden positions into calibrated concentration signal while
+preserving total signal and the ensemble centroid. `run_epm_particle_imaging`
+encodes that image, adds complex acquisition noise, performs the nonnegative
+reconstruction, and passes only the reconstructed image to
+`estimate_particle_state_from_image`.
+
+The estimate contains:
+
+- recovered particle count from total signal and the supplied per-particle
+  calibration;
+- representative image-resolved positions obtained by deterministic resampling
+  of the recovered concentration;
+- whole-cloud and outside-target centroids;
+- target occupancy; and
+- voxel resolution and support-threshold diagnostics.
+
+The transport model immobilizes a particle at first target entry, so captured
+particles accumulate near the circular boundary. A hard voxel-center mask would
+systematically lose the portion of each bilinear footprint outside that mask.
+For this controller, `particle_boundary_capture_correction=True` calibrates the
+boundary response from the known grid and target geometry and corrects the
+occupancy. The calibration never reads the hidden particle positions and can be
+disabled for transport models that do not capture at a boundary.
+
+The result keeps the hidden simulator positions in explicitly named
+`ground_truth_*` diagnostics so centroid and occupancy error can be plotted.
+The controller never uses those fields for a decision.
 
 ## Image-guided particle transport
 
@@ -123,22 +160,24 @@ pharmacokinetic compartment model.
 
 ## Alternating imaging and therapy control
 
-`run_epm_image_guided_controller` alternates among imaging, EPM programming,
-and transport intervals. Each cycle reconstructs the tissue phantom, localizes
-the target, reads the uncaptured particles from simulation state, synthesizes a
-transport field aimed from their centroid toward the target, and records target
-capture and programming effort.
+`run_epm_image_guided_controller` alternates among initial imaging, EPM
+programming, transport, and verification imaging. Each cycle reconstructs the
+tissue target and particle concentration, aims a transport field from the
+estimated outside-target centroid, advances the physical transport model, and
+then reconstructs the new particle state. The post-transport image supplies the
+reported capture estimate and stopping decision.
 
 ```bash
 python examples/plot_epm_closed_loop_controller.py \
   --output results/epm_closed_loop_controller.png
 ```
 
-The controller is useful for studying cadence, switching burden, and the value
-of repeated target localization. It should not be read as a demonstration of
-particle tracking from MR measurements. A particle-sensitive signal model,
-state estimator, measurement noise, model mismatch, and biological transport
-all need experiment-specific calibration.
+The controller is useful for studying observability, image resolution,
+cadence, switching burden, and estimator error. The bundled example plots
+estimated positions over hidden truth, image-derived versus true capture, and
+centroid error by cycle. It is still a synthetic proof of mechanism: particle
+contrast, noise, model mismatch, and biological transport need
+experiment-specific calibration.
 
 ## Dynamic-inversion trapping
 
@@ -193,6 +232,7 @@ tests. Quantitative system prediction still requires:
 - measured three-dimensional coil and EPM field maps;
 - calibrated programming transients, state uncertainty, and channel coupling;
 - particle remanence and internal relaxation across the relevant size range;
+- particle-sensitive MR contrast and signal-per-particle calibration;
 - viscosity, flow, adhesion, and permeability measurements for the target
   tissue or phantom; and
 - electrical pulse energy, driver limits, and temperature rise for the chosen

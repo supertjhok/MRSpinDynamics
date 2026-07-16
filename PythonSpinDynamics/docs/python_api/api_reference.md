@@ -1960,9 +1960,19 @@ No public classes or functions found.
 | class | `EPMTherapyControllerConfig` | Timing, field objective, reconstruction, and stopping parameters. |
 | class | `ControllerModeInterval` | One controller mode occupying a half-open wall-clock interval. |
 | class | `EPMTherapyCycleResult` | Image, decision, programmed state, and transport output for one cycle. |
-| class | `EPMTherapyControllerResult` | Complete alternating image-localize-program-transport simulation. |
+| class | `EPMTherapyControllerResult` | Complete image-estimate-program-transport-verify simulation. |
 | function | `localize_epm_target(reconstructed_image: np.ndarray, x_m: Sequence[float] | np.ndarray, y_m: Sequence[float] | np.ndarray, *, threshold_fraction: float = 0.9) -> tuple[np.ndarray, np.ndarray, float]` | Return peak-relative target mask, signal-weighted centroid, and threshold. |
-| function | `run_epm_image_guided_controller(encoding: NonlinearEPMEncoding, expected_image: np.ndarray, x_m: Sequence[float] | np.ndarray, y_m: Sequence[float] | np.ndarray, particle: SuperparamagneticParticle, initial_positions_m: np.ndarray, *, config: EPMTherapyControllerConfig | None = None, background_velocity_m_s: TransportVelocity = None) -> EPMTherapyControllerResult` | Run alternating image-localize-program-transport controller cycles. |
+| function | `run_epm_image_guided_controller(encoding: NonlinearEPMEncoding, expected_image: np.ndarray, x_m: Sequence[float] | np.ndarray, y_m: Sequence[float] | np.ndarray, particle: SuperparamagneticParticle, initial_positions_m: np.ndarray, *, config: EPMTherapyControllerConfig | None = None, background_velocity_m_s: TransportVelocity = None) -> EPMTherapyControllerResult` | Run image-estimate-program-transport-verify controller cycles. |
+
+## `spin_dynamics.workflows.electropermanent_particle_imaging`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `particle_distribution_image(positions_m: np.ndarray, x_m: Sequence[float] | np.ndarray, y_m: Sequence[float] | np.ndarray, *, signal_per_particle: float = 1.0) -> np.ndarray` | Deposit continuous particle positions onto a Cartesian image grid. |
+| class | `ParticleStateEstimate2D` | Image-derived particle distribution and control summary. |
+| class | `EPMParticleImagingResult` | Particle-sensitive acquisition, estimate, and truth-only diagnostics. |
+| function | `estimate_particle_state_from_image(reconstructed_image: np.ndarray, x_m: Sequence[float] | np.ndarray, y_m: Sequence[float] | np.ndarray, *, target_center_m: Sequence[float], target_radius_m: float, signal_per_particle: float = 1.0, support_threshold_fraction: float = 0.01, boundary_capture_correction: bool = False) -> ParticleStateEstimate2D` | Estimate particle count, positions, centroid, and occupancy from an image. |
+| function | `run_epm_particle_imaging(encoding: NonlinearEPMEncoding, positions_m: np.ndarray, x_m: Sequence[float] | np.ndarray, y_m: Sequence[float] | np.ndarray, *, target_center_m: Sequence[float], target_radius_m: float, signal_per_particle: float = 1.0, support_threshold_fraction: float = 0.01, boundary_capture_correction: bool = False, regularization: float = 0.0001, snr_db: float | None = 35.0, seed: int = 0, ground_truth_captured: Sequence[bool] | np.ndarray | None = None) -> EPMParticleImagingResult` | Acquire a synthetic particle-sensitive image and estimate its state. |
 
 ## `spin_dynamics.workflows.electropermanent_dynamic_inversion`
 
