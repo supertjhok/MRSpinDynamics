@@ -1,8 +1,10 @@
 """Bayesian experiment-design tools.
 
-The generic Phase 1 core provides NumPy grid/particle inference, likelihood-
+The generic core provides NumPy grid/particle inference, likelihood-
 backed predictive models, finite candidate spaces, information and QoI-risk
 utilities, physical costs, constraints, stopping, and replayable sessions.
+Phase 2 binds representative experiments; Phase 3 adds batching, validated
+surrogates, staged scoring, nuisance marginalization, and robustness reports.
 Phase 0 remains available as an exact-grid inversion-recovery reference.
 """
 
@@ -52,6 +54,14 @@ from spin_dynamics.design.likelihoods import (
     GaussianLikelihood,
 )
 from spin_dynamics.design.models import PredictiveModel
+from spin_dynamics.design.performance import (
+    AdaptiveMonteCarloUtility,
+    LaplaceInformationGain,
+    PolynomialSurrogatePredictor,
+    SurrogateValidation,
+    TwoStageDesignSession,
+    scalar_parameter_encoder,
+)
 from spin_dynamics.design.posterior import (
     GridPosterior,
     ParticlePosterior,
@@ -63,6 +73,15 @@ from spin_dynamics.design.priors import (
     LogUniformPrior,
     NormalPrior,
     UniformPrior,
+)
+from spin_dynamics.design.robustness import (
+    ComplexGaussianDiscrepancyLikelihood,
+    DesignSensitivityReport,
+    ExpectedTargetInformationGain,
+    GaussianDiscrepancyLikelihood,
+    ModelMixturePredictor,
+    SensitivityRecommendation,
+    analyze_design_sensitivity,
 )
 
 from spin_dynamics.design.reference_ir import (
@@ -104,6 +123,7 @@ from spin_dynamics.design.utilities import (
 
 __all__ = [
     "AdaptiveDesignSession",
+    "AdaptiveMonteCarloUtility",
     "CPMGIRAdapter",
     "CPMGIRDesign",
     "CallableConstraint",
@@ -111,15 +131,18 @@ __all__ = [
     "CandidateDesignSpace",
     "CandidateScore",
     "ComplexGaussianLikelihood",
+    "ComplexGaussianDiscrepancyLikelihood",
     "ConstantCost",
     "ConstraintResult",
     "CredibleIntervalStopping",
     "DesignConstraint",
     "DesignObservation",
     "DesignRecommendation",
+    "DesignSensitivityReport",
     "DesignUtility",
     "DiscretePrior",
     "ExpectedInformationGain",
+    "ExpectedTargetInformationGain",
     "ExpectedVarianceReduction",
     "ESRDelayDesign",
     "ESRHahnAdapter",
@@ -128,6 +151,7 @@ __all__ = [
     "ExperimentPlanConstraint",
     "ExperimentPredictor",
     "GaussianLikelihood",
+    "GaussianDiscrepancyLikelihood",
     "GridPosterior",
     "IRAcquisitionCost",
     "IRAdaptiveSession",
@@ -141,6 +165,8 @@ __all__ = [
     "IRTruth",
     "IndependentPrior",
     "LogUniformPrior",
+    "LaplaceInformationGain",
+    "ModelMixturePredictor",
     "NormalPrior",
     "NQRFIDAdapter",
     "NQRFrequencyDesign",
@@ -150,15 +176,20 @@ __all__ = [
     "PhysicalCost",
     "PosteriorStandardDeviationStopping",
     "PosteriorSummary",
+    "PolynomialSurrogatePredictor",
     "PGSEAdapter",
     "PGSEDesign",
     "PredictiveModel",
     "Prior",
     "QuantityOfInterest",
     "StopRule",
+    "SensitivityRecommendation",
+    "SurrogateValidation",
+    "TwoStageDesignSession",
     "UniformPrior",
     "UtilityEstimate",
     "evaluate_constraints",
+    "analyze_design_sensitivity",
     "inversion_recovery_signal",
     "load_design_state",
     "make_adapter_model",
@@ -168,6 +199,7 @@ __all__ = [
     "recommend_ir_design",
     "run_ir_reference_trial",
     "save_design_state",
+    "scalar_parameter_encoder",
     "simulate_ir_observation",
     "state_from_json",
     "state_to_json",

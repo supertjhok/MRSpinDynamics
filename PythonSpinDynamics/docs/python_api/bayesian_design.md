@@ -172,14 +172,99 @@ next_action = session.ask().best.design
 `ExperimentPredictor` caches deterministic workflow outputs by action and
 particle values, because `ask()` and `tell()` repeatedly need the same forward
 predictions. Call `clear_cache()` after changing external simulator state. The
-reference adapters currently accept scalar latent parameters and execute one
-facade workflow per distinct particle/action pair; surrogate and batched
-acceleration are Phase 3 work.
+reference adapters currently accept scalar latent parameters. CPMG-IR, NQR,
+and ESR execute one facade workflow per distinct particle/action pair; the
+deterministic PGSE adapter has the Phase 3 batch path described below.
 
 Runnable examples:
 [`bayesian_design_cpmg_ir_adapter.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/examples/bayesian_design_cpmg_ir_adapter.py)
 and
 [`bayesian_design_adapter_catalog.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/examples/bayesian_design_adapter_catalog.py).
+
+## Phase 3 acceleration
+
+Phase 3 separates cheap screening from exact refinement. These paths reduce
+the computer time needed to choose an acquisition; they do not change the
+laboratory duration used in the utility-rate denominator.
+
+### Batched deterministic PGSE
+
+`ExperimentPredictor` automatically uses `PGSEAdapter.simulate_batch()` when
+available. The nominal action still passes `Experiment.plan()`, but all
+diffusion/T2 particles are evaluated by the same vectorized equations used by
+the deterministic moment workflow. Set `prefer_batch=False` when performing a
+facade-per-particle parity audit.
+
+![PGSE batching benchmark](../images/bayesian_pgse_batch_speedup.png)
+
+The plotted benchmark checks every batched signal against the corresponding
+facade result before reporting time. Absolute timings depend on the machine;
+the scaling gap comes from eliminating thousands of Python dispatches and
+result allocations.
+
+### Validated surrogates and two-stage scoring
+
+`PolynomialSurrogatePredictor.fit()` trains a ridge-stabilized response surface
+from exact predictions. Scalar particle/action features work for smooth compact
+ranges; `joint_encoder` can supply physics-informed or candidate-specific
+features. Always call `validate()` on held-out particles and actions before a
+surrogate influences a recommendation.
+
+`LaplaceInformationGain` uses the weighted predictive covariance and Gaussian
+noise scale as a fast Fisher/Laplace information approximation. Its optional
+`backend="jax"` affects the eigensolve and requires the JAX extra.
+`TwoStageDesignSession` evaluates this or another cheap utility for every
+feasible action, then applies the requested particle estimator only to the
+leading `finalists`. `AdaptiveMonteCarloUtility` is an alternative when all
+candidates use nested Monte Carlo: it increases samples until the returned
+standard error meets absolute or relative tolerance.
+
+![CPMG-IR surrogate benchmark](../images/bayesian_surrogate_screening.png)
+
+In this reproducible benchmark the response surface is trained on eight T1
+values per candidate and validated over the complete 48-particle grid. The
+one-time fit costs about one exact ranking, while subsequent scoring is hundreds
+of times faster and selects the same delay. The script fails rather than plot a
+surrogate whose numerical predictions cannot be compared with exact results.
+
+```python
+session = TwoStageDesignSession(
+    model=surrogate_model,
+    posterior=posterior,
+    design_space=actions,
+    screening_utility=LaplaceInformationGain(),
+    refinement_utility=ExpectedInformationGain(samples=256),
+    finalists=3,
+    cost=physical_cost,
+    constraints=(ExperimentPlanConstraint(adapter),),
+    seed=10,
+)
+```
+
+Runnable benchmarks:
+[`plot_bayesian_pgse_batch_speedup.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/examples/plot_bayesian_pgse_batch_speedup.py)
+and
+[`plot_bayesian_surrogate_screening.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/examples/plot_bayesian_surrogate_screening.py).
+
+## Robustness and nuisance parameters
+
+`ExpectedTargetInformationGain` estimates information about a *discrete*
+target label while marginalizing particles that share that label. This covers
+model identity, material class, or a discretized output without rewarding
+measurements that determine only nuisance variables. Continuous target-only
+mutual information still requires a validated conditional-density estimator.
+
+`GaussianDiscrepancyLikelihood` and
+`ComplexGaussianDiscrepancyLikelihood` add independent measurement and model
+discrepancy variances explicitly. `ModelMixturePredictor` dispatches particles
+according to an integer `model_index`, keeping model uncertainty inside the
+posterior. `analyze_design_sensitivity()` repeats a recommendation under named
+prior/model scenarios and reports the modal action and agreement fraction.
+
+These diagnostics do not certify a surrogate or physical model. Treat a changed
+recommendation under plausible priors, discrepancy scales, held-out validation
+sets, or model components as a reason to acquire a robust action or return to
+the exact simulator.
 
 ## Grid and particle posteriors
 
@@ -224,11 +309,11 @@ Use it when only selected sample properties or derived outputs matter. Its
 summed. Unlike full-state EIG, this utility does not reward learning a nuisance
 parameter unless that learning reduces uncertainty in the chosen output.
 
-The generic Phase 1 EIG does not yet estimate target-only mutual information
-with nuisance parameters marginalized. The inversion-recovery reference does
-perform that calculation exactly on its grid. Generic target-only EIG requires
-a conditional density or nested marginal estimator and remains a later
-validated extension.
+Full-state EIG does not marginalize nuisance state. Phase 3
+`ExpectedTargetInformationGain` performs the nested marginal calculation for
+discrete target labels, while the inversion-recovery reference remains the
+exact-grid continuous-T1 oracle. A general continuous target still requires a
+validated conditional-density estimator.
 
 Both Monte Carlo utilities may return a slightly negative estimate when their
 true expected value is near zero. Use the standard error to decide whether
@@ -285,11 +370,10 @@ target-EIG estimators and to reproduce the synthetic benchmark in
 
 ## Scope and next integration step
 
-Phase 2 provides reference facade adapters for four representative workflows.
+Phase 3 provides acceleration and robustness references for representative workflows.
 It is not yet a claim that every PythonSpinDynamics workflow can be designed
-adaptively. The next phase adds surrogate models, delayed-acceptance checks,
-model-discrepancy terms, and prior/model sensitivity reporting so expensive
-forward models can be used without silently changing the target utility.
+adaptively or batch-simulated. The next phase adds batch and live operation,
+planner latency, atomic checkpoints, and instrument-adapter examples.
 
 The research basis, formal objective, robustness concerns, phased roadmap, and
 full references are preserved in the

@@ -3925,8 +3925,64 @@ The full closed-loop and four-family catalog examples are, respectively,
 \end{center}
 The catalog prints each planner resolution and physical cost. Simulator outputs are cached
 by action and particle. These reference adapters currently accept scalar
-latent parameters and run one workflow for each distinct particle/action pair;
-Phase~3 adds validated surrogate acceleration.
+latent parameters. CPMG-IR, NQR, and ESR run one workflow for each distinct
+particle/action pair; deterministic PGSE has the Phase~3 batch path below.
+
+\section{Performance and Robustness}
+
+Phase~3 accelerates the policy calculation without changing the physical-time
+denominator. \code{PGSEAdapter.}\allowbreak\code{simulate\_batch()} evaluates all deterministic
+diffusion/T2 particles with the vectorized moment equations after the nominal
+action passes \code{Experiment.plan()}. The benchmark below verifies every
+batch against facade-per-particle results before it reports time.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.98\linewidth]{images/bayesian_pgse_batch_speedup.png}
+\caption{Measured deterministic-PGSE prediction time. Vectorization removes
+per-particle facade dispatch while retaining numerical parity; absolute time
+depends on the machine.}
+\label{fig:bayesian-pgse-batch}
+\end{figure}
+
+\code{PolynomialSurrogatePredictor} fits a ridge-stabilized real or complex
+response surface. Ordinary scalar encoders serve compact smooth ranges;
+\code{joint\_encoder} can supply physics-informed or candidate-specific
+features. Its \code{validate()} method reports held-out RMSE, normalized RMSE,
+maximum error, and correlation. A surrogate must pass a held-out comparison
+before it influences an acquisition.
+
+\code{LaplaceInformationGain} supplies a fast weighted-predictive-covariance
+Fisher/Laplace screen using NumPy or an optional JAX eigensolve.
+\code{TwoStageDesignSession} screens all feasible actions, then evaluates the
+requested particle utility only for the leading candidates.
+\code{AdaptiveMonteCarloUtility} instead grows nested sample count until the
+utility standard error meets its absolute or relative tolerance.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.98\linewidth]{images/bayesian_surrogate_screening.png}
+\caption{Exact and surrogate CPMG-IR candidate scoring. The response surface
+is fitted once, validated over the complete held-out grid, and then reused;
+the plotted normalized information rates select the same inversion delay.}
+\label{fig:bayesian-surrogate}
+\end{figure}
+
+Robustness assumptions are explicit. \code{ExpectedTargetInformationGain}
+marginalizes nuisance particles for a discrete target label.
+\code{GaussianDiscrepancyLikelihood} and its complex counterpart add
+measurement and model-discrepancy variances. \code{ModelMixturePredictor}
+dispatches posterior particles through competing forward models, while
+\code{analyze\_design\_sensitivity()} repeats a recommendation under named
+prior/model scenarios and reports its agreement fraction. A changed choice
+under plausible discrepancy, prior, held-out, or model alternatives is a
+reason to prefer a robust action or return to exact simulation.
+
+The runnable plots are
+\begin{center}
+\code{examples/plot\_bayesian\_pgse\_batch\_speedup.py}\\
+\code{examples/plot\_bayesian\_surrogate\_screening.py}
+\end{center}
 
 \section{Posterior Backends}
 
@@ -3955,9 +4011,11 @@ components.
 The distinction matters: full-state information can reward a measurement that
 mostly determines a nuisance parameter, whereas the QoI risk utility rewards
 that measurement only if it improves the requested output. Generic target-only
-mutual information with nuisance marginalization is not yet implemented. The
-Phase~0 inversion-recovery reference calculates \(I(T_1;Y)\) exactly on its
-discrete grid and remains the validation oracle for that future estimator.
+mutual information does not marginalize nuisance state.
+\code{ExpectedTargetInformationGain} performs that marginal for discrete
+target labels. The Phase~0 inversion-recovery reference calculates
+\(I(T_1;Y)\) exactly on its grid and remains the validation oracle for a future
+general continuous-target estimator.
 
 Monte Carlo utilities report standard errors. Near zero, a finite-sample
 utility estimate may be slightly negative; interpret candidate differences
@@ -3979,12 +4037,16 @@ Restoration explicitly requires the executable model, utility, cost,
 constraints, stopping rule, and identically ordered candidate space; arbitrary
 callables are never embedded in JSON.
 
-Phase~2 includes reference adapters for CPMG-IR, deterministic PGSE, NQR FID,
-and ESR Hahn experiments, but not yet every workflow. Validated surrogates and
-explicit model-discrepancy treatment are the next integration phase. The
-web guide \code{docs/python\_api/bayesian\_design.md} contains the current API
-and limitations; \code{docs/bayesian\_experiment\_design\_plan.md} preserves
-the mathematical formulation, research references, and roadmap.
+Phase~3 includes validated batching, surrogate screening, adaptive sampling,
+discrete-target information, discrepancy, mixtures, and sensitivity reports.
+It does not yet cover every workflow or a general continuous-target information
+estimator. Batch and live instrument operation are the next integration phase.
+The web guide and architecture plan contain the current API,
+limitations, mathematical formulation, research references, and roadmap:
+\begin{center}
+\code{docs/python\_api/bayesian\_design.md}\\
+\code{docs/bayesian\_experiment\_design\_plan.md}
+\end{center}
 
 \part{NMR Experiments and Imaging}
 \label{part:nmr-experiments}
@@ -8579,6 +8641,19 @@ the Phase~2 reference adapters. \\
 planner feasibility, and laboratory-duration cost. \\
 \code{make\_adapter\_model}, \code{make\_adapter\_session} & Assemble an
 adapter predictor and a session with mandatory planner validation. \\
+\code{PolynomialSurrogatePredictor}, \code{SurrogateValidation} & Fit real or
+complex response surfaces and report held-out prediction error. \\
+\code{LaplaceInformationGain}, \code{AdaptiveMonteCarloUtility} & Cheap
+Fisher/Laplace screening and standard-error-controlled nested sampling. \\
+\code{TwoStageDesignSession} & Screen every feasible action and refine only a
+configured number of leaders with the full particle utility. \\
+\code{ExpectedTargetInformationGain} & Discrete-target information with
+nuisance particles marginalized. \\
+\code{GaussianDiscrepancyLikelihood},
+\code{ComplexGaussian}\allowbreak\code{DiscrepancyLikelihood} & Explicit independent
+measurement-noise and model-discrepancy variances. \\
+\code{ModelMixturePredictor}, \code{analyze\_design\_sensitivity} & Posterior
+model dispatch and recommendation agreement across named prior/model cases. \\
 \bottomrule
 \end{longtable}
 

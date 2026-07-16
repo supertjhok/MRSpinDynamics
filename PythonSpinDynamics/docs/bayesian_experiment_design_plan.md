@@ -1,9 +1,10 @@
 # Bayesian experiment design and adaptive acquisition
 
-> **Status (2026-07-16): Phases 0--2 implemented.** An exact-grid
+> **Status (2026-07-16): Phases 0--3 implemented.** An exact-grid
 > inversion-recovery reference, a generic NumPy grid/particle design core, and
 > planner-validated facade adapters for CPMG-IR, deterministic PGSE, NQR FID,
-> and ESR Hahn echo are operational. This is not a claim that every
+> and ESR Hahn echo, plus validated acceleration and robustness tools, are
+> operational. This is not a claim that every
 > PythonSpinDynamics workflow can already be planned adaptively.
 
 Magnetic-resonance experiments often use a fixed, uniformly or logarithmically
@@ -283,6 +284,21 @@ allocation, optional JAX scoring, and a Fisher/Laplace screening backend.
 Candidate sets can then be screened cheaply and the leaders rescored with a
 particle estimator. Add nuisance marginalization, model mixtures, discrepancy
 terms, and prior/model sensitivity reports.
+
+**Implemented 2026-07-16.** Deterministic PGSE adapters now evaluate posterior
+particles as one vectorized batch while retaining static planner validation and
+facade parity. `PolynomialSurrogatePredictor` supports ordinary or
+physics-informed joint features and reports held-out RMSE, normalized RMSE,
+maximum error, and correlation. `LaplaceInformationGain` supplies NumPy or
+optional-JAX Fisher/Laplace screening; `TwoStageDesignSession` refines only the
+screened leaders with the requested particle utility; and
+`AdaptiveMonteCarloUtility` stops nested sampling when its standard error is
+resolved. `ExpectedTargetInformationGain` marginalizes nuisance particles for
+discrete targets. Explicit discrepancy likelihoods, posterior model-mixture
+dispatch, and named prior/model sensitivity reports cover the initial
+robustness layer. Runtime plots record exact-parity PGSE batching and held-out
+validated CPMG-IR surrogate screening; broader workflow batching and continuous
+target-information estimators remain open.
 
 ### Phase 4: batch and live operation
 

@@ -319,8 +319,8 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `ExperimentPredictor` | Vectorize an experiment adapter over posterior particles. |
 | class | `ExperimentPlanConstraint` | Reject an action unless its nominal experiment plan has no errors. |
 | class | `ExperimentAdapterCost` | Expose an adapter's physical-duration model as a design cost. |
-| function | `make_adapter_model(adapter: ExperimentDesignAdapter, likelihood: ObservationLikelihood, *, cache: bool = True) -> PredictiveModel` | Create a likelihood-backed predictive model from an adapter. |
-| function | `make_adapter_session(*, adapter: ExperimentDesignAdapter, likelihood: ObservationLikelihood, posterior: ParticlePosterior, design_space: CandidateDesignSpace, utility: DesignUtility, constraints: Sequence[DesignConstraint] = (), stopping_rule: StopRule | None = None, seed: int | None = None, resample_fraction: float | None = None, cache: bool = True) -> AdaptiveDesignSession` | Build an adaptive session with mandatory experiment-plan validation. |
+| function | `make_adapter_model(adapter: ExperimentDesignAdapter, likelihood: ObservationLikelihood, *, cache: bool = True, prefer_batch: bool = True) -> PredictiveModel` | Create a likelihood-backed predictive model from an adapter. |
+| function | `make_adapter_session(*, adapter: ExperimentDesignAdapter, likelihood: ObservationLikelihood, posterior: ParticlePosterior, design_space: CandidateDesignSpace, utility: DesignUtility, constraints: Sequence[DesignConstraint] = (), stopping_rule: StopRule | None = None, seed: int | None = None, resample_fraction: float | None = None, cache: bool = True, prefer_batch: bool = True) -> AdaptiveDesignSession` | Build an adaptive session with mandatory experiment-plan validation. |
 
 ## `spin_dynamics.design.constraints`
 
@@ -375,6 +375,17 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | --- | --- | --- |
 | class | `PredictiveModel` | A vectorized deterministic predictor plus observation likelihood. |
 
+## `spin_dynamics.design.performance`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `scalar_parameter_encoder(parameters: Mapping[str, np.ndarray]) -> np.ndarray` | Stack named scalar particle arrays in sorted-name order. |
+| class | `SurrogateValidation` | Held-out error metrics for a deterministic surrogate. |
+| class | `PolynomialSurrogatePredictor` | Ridge-stabilized polynomial response surface for scalar particles. |
+| class | `LaplaceInformationGain` | Fast linear-Gaussian information approximation for candidate screening. |
+| class | `AdaptiveMonteCarloUtility` | Increase nested-Monte-Carlo effort until its standard error is resolved. |
+| class | `TwoStageDesignSession` | Screen all actions cheaply, then refine only the leading candidates. |
+
 ## `spin_dynamics.design.posterior`
 
 | Kind | Name | Summary |
@@ -396,6 +407,18 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `LogUniformPrior` | Continuous log-uniform prior on positive finite bounds. |
 | class | `DiscretePrior` | Finite scalar prior with user-supplied probabilities. |
 | class | `IndependentPrior` | Product prior over named scalar parameters. |
+
+## `spin_dynamics.design.robustness`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `GaussianDiscrepancyLikelihood` | Real Gaussian measurement noise plus independent model discrepancy. |
+| class | `ComplexGaussianDiscrepancyLikelihood` | Circular-complex measurement noise plus independent discrepancy. |
+| class | `ModelMixturePredictor` | Dispatch particles to competing predictors using an integer model label. |
+| class | `ExpectedTargetInformationGain` | Information about a discrete target after marginalizing nuisance state. |
+| class | `SensitivityRecommendation` | One scenario's selected action and utility rate. |
+| class | `DesignSensitivityReport` | Recommendation stability across alternative priors or models. |
+| function | `analyze_design_sensitivity(*, scenarios: Mapping[str, tuple[PredictiveModel, ParticlePosterior]], design_space: CandidateDesignSpace, utility: DesignUtility, cost: PhysicalCost | None = None, constraints: Sequence[DesignConstraint] = (), seed: int = 0) -> DesignSensitivityReport` | Repeat one recommendation under named prior/model scenarios. |
 
 ## `spin_dynamics.design.session`
 

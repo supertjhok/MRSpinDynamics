@@ -593,21 +593,24 @@
     {
       "id": "bayesian_experiment_design",
       "component": "Bayesian experiment design and adaptive acquisition",
-      "claim": "Discrete-grid updates, target information gain, weighted-particle updates, likelihoods, QoI risk utilities, common-random-number ranking, stopping, checkpoint replay, and planner-validated experiment adapters follow their stated probability and decision-theory contracts.",
+      "claim": "Bayesian updates, goal utilities, planner-validated adapters, batched PGSE parity, surrogate validation, staged/adaptive scoring, discrete-target nuisance marginalization, and robustness diagnostics follow their stated numerical and decision-theory contracts.",
       "evidence_types": ["A", "R"],
-      "basis": "Direct discrete Bayes-rule calculation, dense predictive mutual-information integration, prior-predictive interval coverage, analytical uninformative-design limits, deterministic replay, seeded equal-model adaptive benchmarks, and facade parity checks for parameter binding, observable extraction, planner rejection, caching, and physical duration.",
-      "parameter_range": "Scalar/vector real and complex Gaussian observations; finite Cartesian grids and finite weighted real/complex parameter particles; finite candidate spaces; synthetic inversion-recovery/linear examples; CPMG-IR, deterministic PGSE, NQR FID, and ESR Hahn facade adapters.",
-      "metric": "Posterior probability, mutual information, expected variance reduction, credible coverage, design ranking, RNG/checkpoint identity, time-to-precision in synthetic trials, experiment-plan feasibility, workflow observable shape, and physical acquisition seconds.",
+      "basis": "Direct Bayes-rule and dense mutual-information calculations, prior-predictive coverage, deterministic replay, facade binding tests, batched-vs-facade PGSE parity, exact polynomial recovery, held-out surrogate errors, linear-Gaussian screening limits, nuisance-only target-information cancellation, discrepancy variance addition, model dispatch, and recommendation sensitivity cases.",
+      "parameter_range": "Scalar/vector real and complex Gaussian observations; finite Cartesian grids and weighted particles; finite candidate spaces; CPMG-IR, deterministic PGSE, NQR FID, and ESR Hahn adapters; polynomial response surfaces; discrete target/model labels.",
+      "metric": "Posterior probability, mutual information, expected variance reduction, credible coverage, ranking and replay identity, planner feasibility, batch parity, surrogate RMSE/correlation, Monte Carlo sample allocation, mixture dispatch, sensitivity agreement, physical seconds, and measured planning wall time.",
       "tolerance": "Floating-point or Monte Carlo tolerances declared in tests; prior-predictive coverage is required not to under-cover its nominal discrete interval in the fixed-seed reference.",
       "status": "partially_validated",
       "reproducers": [
         "tests/test_bayesian_design.py",
         "tests/test_bayesian_design_core.py",
         "tests/test_bayesian_design_adapters.py",
+        "tests/test_bayesian_design_performance.py",
         "examples/bayesian_ir_phase0.py",
         "examples/bayesian_design_linear.py",
         "examples/bayesian_design_cpmg_ir_adapter.py",
-        "examples/bayesian_design_adapter_catalog.py"
+        "examples/bayesian_design_adapter_catalog.py",
+        "examples/plot_bayesian_pgse_batch_speedup.py",
+        "examples/plot_bayesian_surrogate_screening.py"
       ],
       "references": [
         "T. Rainforth et al., Statistical Science 39 (2024) 100-114, doi:10.1214/23-STS915",
@@ -615,7 +618,7 @@
       ],
       "limitations": [
         "The evidence validates numerical/statistical contracts and synthetic examples, not time savings on a physical instrument.",
-        "Generic target-only EIG, model discrepancy, continuous design optimization, particle rejuvenation, surrogate acceleration, and adapters for workflows beyond the four Phase 2 references are not yet implemented."
+        "Continuous-target EIG, continuous design optimization, particle rejuvenation, live instrument timing, and batching/adapters beyond the documented reference workflows are not yet implemented; surrogate speedups are machine- and feature-dependent and require held-out validation."
       ]
     },
     {

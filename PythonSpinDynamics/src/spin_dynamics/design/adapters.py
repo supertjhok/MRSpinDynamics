@@ -30,6 +30,7 @@ from spin_dynamics.experiment import (
     NQRFID,
     PGSE,
 )
+from spin_dynamics.workflows.pgse import pgse_b_value
 
 
 def _finite(value: float, name: str) -> float:
@@ -325,6 +326,80 @@ class PGSEAdapter(_AdapterMixin):
     ) -> np.ndarray:
         return _scaled(_index(result.signal, self.echo_index, "signal"), parameters)
 
+    def simulate_batch(
+        self, parameters: Mapping[str, np.ndarray], design: PGSEDesign
+    ) -> np.ndarray:
+        """Evaluate the deterministic PGSE equations for many particles at once.
+
+        This is algebraically identical to the registered moment workflow but
+        avoids one facade dispatch and result allocation per particle.  The
+        nominal experiment is still statically planned before evaluation.
+        """
+
+        plan = self.plan(design)
+        if not plan.ok:
+            raise ValueError("experiment plan has errors: " + "; ".join(plan.errors))
+        sequence = self.build_experiment(self.nominal_parameters, design).sequence
+        arrays = {name: np.asarray(value) for name, value in parameters.items()}
+        counts = {value.shape[0] for value in arrays.values() if value.ndim > 0}
+        if any(value.ndim == 0 for value in arrays.values()) or len(counts) != 1:
+            raise ValueError("batched PGSE parameters must share a leading dimension")
+        count = counts.pop()
+        sample = self.template.sample
+        diffusion_value = parameters.get(
+            "diffusion_coefficient", sample.diffusion_coefficient
+        )
+        t2_value = parameters.get("t2_seconds", sample.t2_seconds)
+        if diffusion_value is None or t2_value is None:
+            raise ValueError(
+                "diffusion_coefficient and t2_seconds must be bound or set in template"
+            )
+        diffusion = np.asarray(diffusion_value, dtype=np.float64)
+        t2 = np.asarray(t2_value, dtype=np.float64)
+        if diffusion.ndim == 0:
+            diffusion = np.full(count, float(diffusion))
+        if t2.ndim == 0:
+            t2 = np.full(count, float(t2))
+        if diffusion.ndim != 1 or t2.shape != diffusion.shape:
+            raise ValueError("batched PGSE parameters must be equal-length vectors")
+        if np.any(diffusion < 0.0) or np.any(t2 <= 0.0):
+            raise ValueError("diffusion coefficients must be non-negative and T2 positive")
+        first_echo = sequence.first_echo_time_seconds
+        if first_echo is None:
+            first_echo = 2.0 * sequence.diffusion_time
+        spacing = sequence.echo_spacing_seconds
+        if sequence.num_echoes == 1:
+            spacing = 0.0
+        elif spacing is None:
+            spacing = first_echo
+        echo_times = first_echo + float(spacing) * np.arange(sequence.num_echoes)
+        b_value = pgse_b_value(
+            sequence.gradient_amplitude,
+            sequence.gradient_duration,
+            sequence.diffusion_time,
+            gamma=sequence.gamma,
+        )
+        signal = np.exp(-b_value * diffusion[:, None]) * np.exp(
+            -echo_times[None, :] / t2[:, None]
+        )
+        scale = np.asarray(parameters.get("signal_scale", 1.0), dtype=np.float64)
+        baseline = np.asarray(parameters.get("baseline", 0.0), dtype=np.float64)
+        if scale.ndim == 0:
+            scale = np.full(diffusion.shape, float(scale))
+        if baseline.ndim == 0:
+            baseline = np.full(diffusion.shape, float(baseline))
+        if scale.shape != diffusion.shape or baseline.shape != diffusion.shape:
+            raise ValueError("signal_scale and baseline must be scalar or particle vectors")
+        signal = scale[:, None] * signal.astype(np.complex128) + baseline[:, None]
+        if self.echo_index is not None:
+            try:
+                return signal[:, self.echo_index]
+            except IndexError as exc:
+                raise ValueError(
+                    f"signal index {self.echo_index} is out of range"
+                ) from exc
+        return signal
+
     def physical_seconds(self, design: PGSEDesign) -> float:
         sequence = self.build_experiment(self.nominal_parameters, design).sequence
         first_echo = sequence.first_echo_time_seconds
@@ -506,9 +581,16 @@ class ExperimentPredictor:
     the same deterministic predictions.
     """
 
-    def __init__(self, adapter: ExperimentDesignAdapter, *, cache: bool = True) -> None:
+    def __init__(
+        self,
+        adapter: ExperimentDesignAdapter,
+        *,
+        cache: bool = True,
+        prefer_batch: bool = True,
+    ) -> None:
         self.adapter = adapter
         self.cache = bool(cache)
+        self.prefer_batch = bool(prefer_batch)
         self._cache: dict[tuple[str, tuple[tuple[str, float], ...]], np.ndarray] = {}
 
     def clear_cache(self) -> None:
@@ -524,7 +606,8 @@ class ExperimentPredictor:
         if any(value.ndim == 0 for value in arrays.values()) or len(counts) != 1:
             raise ValueError("parameter arrays must share one leading particle dimension")
         count = counts.pop()
-        predictions: list[np.ndarray] = []
+        particles: list[dict[str, float]] = []
+        keys: list[tuple[str, tuple[tuple[str, float], ...]]] = []
         for index in range(count):
             particle: dict[str, float] = {}
             for name, values in arrays.items():
@@ -535,27 +618,51 @@ class ExperimentPredictor:
                     )
                 particle[name] = _finite(item.item(), name)
             key = (repr(design), tuple(sorted(particle.items())))
-            if self.cache and key in self._cache:
-                observable = self._cache[key]
-            else:
+            particles.append(particle)
+            keys.append(key)
+
+        missing = [
+            index
+            for index, key in enumerate(keys)
+            if not self.cache or key not in self._cache
+        ]
+        batch_simulator = getattr(self.adapter, "simulate_batch", None)
+        if missing and self.prefer_batch and batch_simulator is not None:
+            batch_parameters = {
+                name: np.asarray([particles[index][name] for index in missing])
+                for name in arrays
+            }
+            batch = np.asarray(batch_simulator(batch_parameters, design))
+            if batch.ndim == 0 or batch.shape[0] != len(missing):
+                raise ValueError(
+                    "adapter batch output must lead with the requested particle count"
+                )
+            if np.any(~np.isfinite(batch)):
+                raise ValueError("adapter batch observable must be finite")
+            for row, index in enumerate(missing):
+                self._cache[keys[index]] = np.asarray(batch[row]).copy()
+        else:
+            for index in missing:
                 simulate = getattr(self.adapter, "simulate", None)
                 if simulate is None:
-                    experiment = self.adapter.build_experiment(particle, design)
+                    experiment = self.adapter.build_experiment(particles[index], design)
                     record = experiment.run()
                     observable = np.asarray(
-                        self.adapter.extract_observable(record.result, particle)
+                        self.adapter.extract_observable(record.result, particles[index])
                     )
                 else:
-                    observable = np.asarray(simulate(particle, design))
-                if self.cache:
-                    self._cache[key] = observable.copy()
-            predictions.append(observable)
+                    observable = np.asarray(simulate(particles[index], design))
+                self._cache[keys[index]] = observable.copy()
+        predictions = [self._cache[key] for key in keys]
         try:
-            return np.stack(predictions, axis=0)
+            result = np.stack(predictions, axis=0)
         except ValueError as exc:
             raise ValueError(
                 "adapter observables must have the same shape for every particle"
             ) from exc
+        if not self.cache:
+            self._cache.clear()
+        return result
 
 
 @dataclass(frozen=True)
@@ -589,10 +696,14 @@ def make_adapter_model(
     likelihood: ObservationLikelihood,
     *,
     cache: bool = True,
+    prefer_batch: bool = True,
 ) -> PredictiveModel:
     """Create a likelihood-backed predictive model from an adapter."""
 
-    return PredictiveModel(ExperimentPredictor(adapter, cache=cache), likelihood)
+    return PredictiveModel(
+        ExperimentPredictor(adapter, cache=cache, prefer_batch=prefer_batch),
+        likelihood,
+    )
 
 
 def make_adapter_session(
@@ -607,11 +718,14 @@ def make_adapter_session(
     seed: int | None = None,
     resample_fraction: float | None = None,
     cache: bool = True,
+    prefer_batch: bool = True,
 ) -> AdaptiveDesignSession:
     """Build an adaptive session with mandatory experiment-plan validation."""
 
     return AdaptiveDesignSession(
-        model=make_adapter_model(adapter, likelihood, cache=cache),
+        model=make_adapter_model(
+            adapter, likelihood, cache=cache, prefer_batch=prefer_batch
+        ),
         posterior=posterior,
         design_space=design_space,
         utility=utility,
