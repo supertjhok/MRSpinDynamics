@@ -40,14 +40,14 @@ def main() -> None:
     parser.add_argument(
         "--output",
         type=Path,
-        default=Path("results/bloch_siegert_multifrequency.png"),
+        default=None,
     )
     parser.add_argument("--data-output", type=Path)
     parser.add_argument("--map-points", type=int, default=64)
     parser.add_argument("--phase-noise-deg", type=float, default=0.08)
     parser.add_argument("--seed", type=int, default=14)
     args = parser.parse_args()
-    plt = load_matplotlib()
+    plt = load_matplotlib(headless=args.output is not None)
 
     # Mandal et al. Fig. 15: f0=1.48 MHz, paired offsets +/-25 kHz,
     # and a fitted 90-degree pulse length of 102 us.
@@ -275,9 +275,12 @@ def main() -> None:
         "Multi-frequency Bloch-Siegert phase: published RWA result and "
         "counter-rotating extension"
     )
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(args.output, dpi=180)
-    print(f"saved {args.output}")
+    if args.output is not None:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        fig.savefig(args.output, dpi=180)
+        print(f"saved {args.output}")
+    else:
+        plt.show()
     print(
         f"Mandal Fig. 15 endpoint: {np.degrees(paper.differential_phase_rad[-1]):.2f} deg; "
         f"T90 fit {inferred_t90_s * 1e6:.2f} us"

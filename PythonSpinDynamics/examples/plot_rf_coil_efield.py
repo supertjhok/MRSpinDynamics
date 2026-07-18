@@ -80,35 +80,37 @@ def main() -> None:
         results[name] = (bmag, emag, res)
         print(f"  {name:14s}: deposited power = {res.power * 1e3:.3f} mW")
 
+    plt = load_matplotlib(required=True, headless=args.save is not None)
+    fig, axes = plt.subplots(2, 3, figsize=(13, 8))
+    extent = [-args.extent_mm, args.extent_mm, -args.extent_mm, args.extent_mm]
+    for row, name in enumerate(("solenoid", "planar spiral")):
+        bmag, emag, res = results[name]
+        joule = args.conductivity * np.sum(np.abs(res.e_field) ** 2, axis=-1)
+        mid = res.e_field.shape[1] // 2
+        panels = [
+            (bmag.T * 1e6, f"{name}: |B1| (uT/A)", "viridis"),
+            (emag.T, f"{name}: |E| (V/m)", "magma"),
+            (joule[:, mid, :].T, f"{name}: eddy Joule sigma|E|^2 (W/m^3)", "inferno"),
+        ]
+        for col, (data, title, cmap) in enumerate(panels):
+            # Clip the colour scale to the 99th percentile: Biot-Savart is
+            # singular ON the filaments, and those on-wire spikes would
+            # otherwise dominate the scale and hide the field structure.
+            vmax = float(np.percentile(data[data > 0], 99)) if np.any(data > 0) else None
+            im = axes[row, col].imshow(
+                data, origin="lower", extent=extent, aspect="equal", cmap=cmap, vmax=vmax
+            )
+            axes[row, col].set_title(title, fontsize=9)
+            axes[row, col].set_xlabel("x (mm)")
+            axes[row, col].set_ylabel("z (mm)")
+            fig.colorbar(im, ax=axes[row, col], fraction=0.046)
+    fig.suptitle("First-order (Born) induced E-field -- no skin-effect shielding", fontsize=10)
+    fig.tight_layout()
     if args.save is not None:
-        plt = load_matplotlib(required=True, headless=True)
-        fig, axes = plt.subplots(2, 3, figsize=(13, 8))
-        extent = [-args.extent_mm, args.extent_mm, -args.extent_mm, args.extent_mm]
-        for row, name in enumerate(("solenoid", "planar spiral")):
-            bmag, emag, res = results[name]
-            joule = args.conductivity * np.sum(np.abs(res.e_field) ** 2, axis=-1)
-            mid = res.e_field.shape[1] // 2
-            panels = [
-                (bmag.T * 1e6, f"{name}: |B1| (uT/A)", "viridis"),
-                (emag.T, f"{name}: |E| (V/m)", "magma"),
-                (joule[:, mid, :].T, f"{name}: eddy Joule sigma|E|^2 (W/m^3)", "inferno"),
-            ]
-            for col, (data, title, cmap) in enumerate(panels):
-                # Clip the colour scale to the 99th percentile: Biot-Savart is
-                # singular ON the filaments, and those on-wire spikes would
-                # otherwise dominate the scale and hide the field structure.
-                vmax = float(np.percentile(data[data > 0], 99)) if np.any(data > 0) else None
-                im = axes[row, col].imshow(
-                    data, origin="lower", extent=extent, aspect="equal", cmap=cmap, vmax=vmax
-                )
-                axes[row, col].set_title(title, fontsize=9)
-                axes[row, col].set_xlabel("x (mm)")
-                axes[row, col].set_ylabel("z (mm)")
-                fig.colorbar(im, ax=axes[row, col], fraction=0.046)
-        fig.suptitle("First-order (Born) induced E-field -- no skin-effect shielding", fontsize=10)
-        fig.tight_layout()
         fig.savefig(args.save, dpi=150)
         print(f"  saved: {args.save}")
+    else:
+        plt.show()
 
 
 if __name__ == "__main__":

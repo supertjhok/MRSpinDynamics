@@ -292,75 +292,77 @@ def main() -> None:
           f"(offset/nutation = {args.offset_hz / nutation_hz:.1f}x)")
     print(f"  objective: {v0:.4f} -> {best.best_score:.4f}  [{int(args.starts)} starts]")
 
+    plt = load_matplotlib(required=True, headless=args.save is not None)
+    fig, axes = plt.subplots(2, 3, figsize=(15, 8))
+    amp_f1, grad_f1, dt_fine = wav1
+    s = max(rf.oversample, driver.oversample)
+    t_fine = np.arange(grad_f1.size) * dt_fine * 1e6
+
+    # (0,0) what GRAPE designed: the optimized phase-only refocusing pulse.
+    # Amplitude is the fixed 90/180 template (shaded); the OPTIMIZED PHASE
+    # across the pulse windows is the broadband refocusing pattern.
+    seg_t = (np.arange(n) + 0.5) * dt * 1e6
+    in_pulse = amp_template > 0
+    # NaN outside the pulse windows so the line breaks across the dead gaps
+    # (phase is meaningless where there is no RF).
+    phase_disp = np.where(in_pulse, np.mod(phase_opt, 2 * np.pi) / np.pi, np.nan)
+    axes[0, 0].fill_between(np.arange(n) * dt * 1e6, 0, amp_template * 1.0,
+                            step="post", color="0.85", label="pulse windows (90 / 180)")
+    axes[0, 0].step(seg_t, phase_disp, where="mid", color="C1", lw=1.4, label="optimized phase")
+    axes[0, 0].set_title("GRAPE phase-only refocusing pulse")
+    axes[0, 0].set_xlabel("time (us)")
+    axes[0, 0].set_ylabel("phase (pi rad)  /  windows")
+    axes[0, 0].legend(fontsize=8)
+
+    # (0,1) gradient: commanded (pre-emphasized) vs delivered (eddy)
+    cmd_fine = np.concatenate([np.repeat(grad_opt, s), np.zeros(grad_f1.size - n * s)])
+    axes[0, 1].plot(t_fine, cmd_fine, label="commanded", lw=1.2)
+    axes[0, 1].plot(t_fine, grad_f1, label="delivered (eddy)", lw=1.2)
+    axes[0, 1].set_title("Gradient: pre-emphasis vs eddy droop")
+    axes[0, 1].set_xlabel("time (us)")
+    axes[0, 1].set_ylabel("gradient (control units)")
+    axes[0, 1].legend(fontsize=8)
+
+    # (0,2) delivered q(t): encode + refocus
+    axes[0, 2].axhline(q_target, ls="--", color="k", lw=1, label="q*")
+    axes[0, 2].plot(np.arange(q0.size) * dt_fine * 1e6, q0, label="naive", lw=1.2)
+    axes[0, 2].plot(np.arange(q1.size) * dt_fine * 1e6, q1, label="optimized", lw=1.2)
+    axes[0, 2].set_title("Delivered q(t): encode + refocus")
+    axes[0, 2].set_xlabel("time (us)")
+    axes[0, 2].set_ylabel("q (effective)")
+    axes[0, 2].legend(fontsize=8)
+
+    # (1,0)-(1,1) fine held-out echo-amplitude heatmaps over (B0, B1)
+    eval_off = np.linspace(-args.offset_hz, args.offset_hz, int(args.eval_offsets))
+    eval_b1 = np.linspace(args.b1_min, args.b1_max, int(args.eval_b1s))
+    grid_kw = dict(dt=dt, n=n, positions=positions, eval_offsets=eval_off, eval_b1s=eval_b1,
+                   g_scale=g_scale, rf=rf, driver=driver)
+    naive_grid = _echo_amplitude_grid(amp_template_hz, phase0, grad0, **grid_kw)
+    opt_grid = _echo_amplitude_grid(amp_template_hz, phase_opt, grad_opt, **grid_kw)
+    vmax = max(naive_grid.max(), opt_grid.max())
+    extent = [eval_off[0], eval_off[-1], eval_b1[0], eval_b1[-1]]
+    for ax, grid, title in ((axes[1, 0], naive_grid, "naive"), (axes[1, 1], opt_grid, "optimized")):
+        im = ax.imshow(grid.T, origin="lower", aspect="auto", extent=extent, vmin=0, vmax=vmax)
+        ax.set_title(f"Echo amplitude over (B0, B1): {title}")
+        ax.set_xlabel("B0 offset (Hz)")
+        ax.set_ylabel("B1 scale")
+        fig.colorbar(im, ax=ax)
+
+    # (1,2) refocusing bandwidth: echo amplitude vs B0 at B1 = 1 (the money panel)
+    b1_idx = int(np.argmin(np.abs(eval_b1 - 1.0)))
+    axes[1, 2].plot(eval_off, naive_grid[:, b1_idx], label="naive (hard 180)", lw=1.4, color="gray")
+    axes[1, 2].plot(eval_off, opt_grid[:, b1_idx], label="GRAPE refocusing", lw=1.4, color="C0")
+    axes[1, 2].axvspan(-args.offset_hz, args.offset_hz, color="C0", alpha=0.06)
+    axes[1, 2].set_title(f"Refocusing bandwidth at B1=1\n(SNR {snr0:.3f} -> {snr1:.3f})")
+    axes[1, 2].set_xlabel("B0 offset (Hz)")
+    axes[1, 2].set_ylabel("echo amplitude")
+    axes[1, 2].legend(fontsize=8)
+    fig.tight_layout()
     if args.save is not None:
-        plt = load_matplotlib(required=True, headless=True)
-        fig, axes = plt.subplots(2, 3, figsize=(15, 8))
-        amp_f1, grad_f1, dt_fine = wav1
-        s = max(rf.oversample, driver.oversample)
-        t_fine = np.arange(grad_f1.size) * dt_fine * 1e6
-
-        # (0,0) what GRAPE designed: the optimized phase-only refocusing pulse.
-        # Amplitude is the fixed 90/180 template (shaded); the OPTIMIZED PHASE
-        # across the pulse windows is the broadband refocusing pattern.
-        seg_t = (np.arange(n) + 0.5) * dt * 1e6
-        in_pulse = amp_template > 0
-        # NaN outside the pulse windows so the line breaks across the dead gaps
-        # (phase is meaningless where there is no RF).
-        phase_disp = np.where(in_pulse, np.mod(phase_opt, 2 * np.pi) / np.pi, np.nan)
-        axes[0, 0].fill_between(np.arange(n) * dt * 1e6, 0, amp_template * 1.0,
-                                step="post", color="0.85", label="pulse windows (90 / 180)")
-        axes[0, 0].step(seg_t, phase_disp, where="mid", color="C1", lw=1.4, label="optimized phase")
-        axes[0, 0].set_title("GRAPE phase-only refocusing pulse")
-        axes[0, 0].set_xlabel("time (us)")
-        axes[0, 0].set_ylabel("phase (pi rad)  /  windows")
-        axes[0, 0].legend(fontsize=8)
-
-        # (0,1) gradient: commanded (pre-emphasized) vs delivered (eddy)
-        cmd_fine = np.concatenate([np.repeat(grad_opt, s), np.zeros(grad_f1.size - n * s)])
-        axes[0, 1].plot(t_fine, cmd_fine, label="commanded", lw=1.2)
-        axes[0, 1].plot(t_fine, grad_f1, label="delivered (eddy)", lw=1.2)
-        axes[0, 1].set_title("Gradient: pre-emphasis vs eddy droop")
-        axes[0, 1].set_xlabel("time (us)")
-        axes[0, 1].set_ylabel("gradient (control units)")
-        axes[0, 1].legend(fontsize=8)
-
-        # (0,2) delivered q(t): encode + refocus
-        axes[0, 2].axhline(q_target, ls="--", color="k", lw=1, label="q*")
-        axes[0, 2].plot(np.arange(q0.size) * dt_fine * 1e6, q0, label="naive", lw=1.2)
-        axes[0, 2].plot(np.arange(q1.size) * dt_fine * 1e6, q1, label="optimized", lw=1.2)
-        axes[0, 2].set_title("Delivered q(t): encode + refocus")
-        axes[0, 2].set_xlabel("time (us)")
-        axes[0, 2].set_ylabel("q (effective)")
-        axes[0, 2].legend(fontsize=8)
-
-        # (1,0)-(1,1) fine held-out echo-amplitude heatmaps over (B0, B1)
-        eval_off = np.linspace(-args.offset_hz, args.offset_hz, int(args.eval_offsets))
-        eval_b1 = np.linspace(args.b1_min, args.b1_max, int(args.eval_b1s))
-        grid_kw = dict(dt=dt, n=n, positions=positions, eval_offsets=eval_off, eval_b1s=eval_b1,
-                       g_scale=g_scale, rf=rf, driver=driver)
-        naive_grid = _echo_amplitude_grid(amp_template_hz, phase0, grad0, **grid_kw)
-        opt_grid = _echo_amplitude_grid(amp_template_hz, phase_opt, grad_opt, **grid_kw)
-        vmax = max(naive_grid.max(), opt_grid.max())
-        extent = [eval_off[0], eval_off[-1], eval_b1[0], eval_b1[-1]]
-        for ax, grid, title in ((axes[1, 0], naive_grid, "naive"), (axes[1, 1], opt_grid, "optimized")):
-            im = ax.imshow(grid.T, origin="lower", aspect="auto", extent=extent, vmin=0, vmax=vmax)
-            ax.set_title(f"Echo amplitude over (B0, B1): {title}")
-            ax.set_xlabel("B0 offset (Hz)")
-            ax.set_ylabel("B1 scale")
-            fig.colorbar(im, ax=ax)
-
-        # (1,2) refocusing bandwidth: echo amplitude vs B0 at B1 = 1 (the money panel)
-        b1_idx = int(np.argmin(np.abs(eval_b1 - 1.0)))
-        axes[1, 2].plot(eval_off, naive_grid[:, b1_idx], label="naive (hard 180)", lw=1.4, color="gray")
-        axes[1, 2].plot(eval_off, opt_grid[:, b1_idx], label="GRAPE refocusing", lw=1.4, color="C0")
-        axes[1, 2].axvspan(-args.offset_hz, args.offset_hz, color="C0", alpha=0.06)
-        axes[1, 2].set_title(f"Refocusing bandwidth at B1=1\n(SNR {snr0:.3f} -> {snr1:.3f})")
-        axes[1, 2].set_xlabel("B0 offset (Hz)")
-        axes[1, 2].set_ylabel("echo amplitude")
-        axes[1, 2].legend(fontsize=8)
-        fig.tight_layout()
         fig.savefig(args.save, dpi=150)
         print(f"  saved: {args.save}")
+    else:
+        plt.show()
 
 
 if __name__ == "__main__":

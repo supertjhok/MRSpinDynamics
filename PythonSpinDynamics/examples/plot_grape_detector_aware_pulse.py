@@ -271,11 +271,13 @@ def main() -> None:
     )
     print_summary(out)
 
-    if args.save:
-        plt = load_matplotlib(required=True, headless=True)
-        fig = make_figure(plt, out)
+    plt = load_matplotlib(required=True, headless=args.save is not None)
+    fig = make_figure(plt, out)
+    if args.save is not None:
         fig.savefig(args.save, dpi=150)
         print(f"wrote {args.save}")
+    else:
+        plt.show()
 
 
 if __name__ == "__main__":

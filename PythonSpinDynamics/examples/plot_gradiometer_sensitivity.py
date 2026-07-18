@@ -162,7 +162,7 @@ def main() -> None:
     parser.add_argument("--baseline-mm", type=float, default=50.0, help="gradiometer baseline (mm)")
     parser.add_argument("--n-segments", type=int, default=72, help="chords per loop")
     parser.add_argument("--save", type=str, default=None,
-                        help="path to save the figure; if omitted, only prints a summary")
+                        help="path to save the figure; if omitted, show interactively")
     args = parser.parse_args()
 
     radius_m = args.radius_mm * 1e-3
@@ -170,11 +170,13 @@ def main() -> None:
     pickups = build_pickups(radius_m=radius_m, baseline_m=baseline_m, n_segments=args.n_segments)
     print_summary(pickups)
 
-    if args.save:
-        plt = load_matplotlib(required=True, headless=True)
-        fig = make_figure(plt, pickups, radius_m=radius_m, baseline_m=baseline_m)
+    plt = load_matplotlib(required=True, headless=args.save is not None)
+    fig = make_figure(plt, pickups, radius_m=radius_m, baseline_m=baseline_m)
+    if args.save is not None:
         fig.savefig(args.save, dpi=150)
         print(f"wrote {args.save}")
+    else:
+        plt.show()
 
 
 if __name__ == "__main__":

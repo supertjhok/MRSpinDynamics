@@ -97,30 +97,32 @@ def main() -> None:
     # Part 3: the same geometry-derived driver in the M5 PGSE objective.
     _pgse_qvector_demo(driver, dt)
 
+    plt = load_matplotlib(required=True, headless=args.save is not None)
+    t = np.arange(n) * dt * 1e3
+    fig, axes = plt.subplots(1, 3, figsize=(14, 4))
+    axes[0].stem([t2 * 1e3 for _, t2 in terms], [a for a, _ in terms], basefmt=" ")
+    axes[0].set_title("Geometry-derived eddy modes")
+    axes[0].set_xlabel("tau (ms)")
+    axes[0].set_ylabel("alpha (fractional droop)")
+    axes[1].plot(t, target, "k--", lw=1, label="target")
+    axes[1].plot(t, uncompensated, lw=1.4, label="delivered (no pre-emphasis)")
+    axes[1].set_title("Eddy droop of a gradient plateau")
+    axes[1].set_xlabel("time (ms)")
+    axes[1].set_ylabel("gradient (norm.)")
+    axes[1].legend(fontsize=8)
+    axes[2].plot(t, target, "k--", lw=1, label="target")
+    axes[2].plot(t, cmd, lw=1.2, label="commanded (pre-emphasized)")
+    axes[2].plot(t, delivered, lw=1.4, label="delivered")
+    axes[2].set_title("Pre-emphasis through the M5 driver")
+    axes[2].set_xlabel("time (ms)")
+    axes[2].set_ylabel("gradient (norm.)")
+    axes[2].legend(fontsize=8)
+    fig.tight_layout()
     if args.save is not None:
-        plt = load_matplotlib(required=True, headless=True)
-        t = np.arange(n) * dt * 1e3
-        fig, axes = plt.subplots(1, 3, figsize=(14, 4))
-        axes[0].stem([t2 * 1e3 for _, t2 in terms], [a for a, _ in terms], basefmt=" ")
-        axes[0].set_title("Geometry-derived eddy modes")
-        axes[0].set_xlabel("tau (ms)")
-        axes[0].set_ylabel("alpha (fractional droop)")
-        axes[1].plot(t, target, "k--", lw=1, label="target")
-        axes[1].plot(t, uncompensated, lw=1.4, label="delivered (no pre-emphasis)")
-        axes[1].set_title("Eddy droop of a gradient plateau")
-        axes[1].set_xlabel("time (ms)")
-        axes[1].set_ylabel("gradient (norm.)")
-        axes[1].legend(fontsize=8)
-        axes[2].plot(t, target, "k--", lw=1, label="target")
-        axes[2].plot(t, cmd, lw=1.2, label="commanded (pre-emphasized)")
-        axes[2].plot(t, delivered, lw=1.4, label="delivered")
-        axes[2].set_title("Pre-emphasis through the M5 driver")
-        axes[2].set_xlabel("time (ms)")
-        axes[2].set_ylabel("gradient (norm.)")
-        axes[2].legend(fontsize=8)
-        fig.tight_layout()
         fig.savefig(args.save, dpi=150)
         print(f"  saved: {args.save}")
+    else:
+        plt.show()
 
 
 def _pgse_qvector_demo(driver, dt) -> None:

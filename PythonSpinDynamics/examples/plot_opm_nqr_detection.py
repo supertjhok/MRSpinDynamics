@@ -191,7 +191,7 @@ def main() -> None:
     parser.add_argument("--opm-bandwidth-hz", type=float, default=300.0,
                         help="RF-OPM atomic bandwidth / HWHM in Hz (default 300)")
     parser.add_argument("--save", type=str, default=None,
-                        help="path to save the figure; if omitted, only prints a summary")
+                        help="path to save the figure; if omitted, show interactively")
     args = parser.parse_args()
 
     f_center, hwhm = COMPOUNDS[args.compound]
@@ -203,11 +203,13 @@ def main() -> None:
     res = run(f_center=f_center, hwhm=hwhm, opm_bandwidth_hz=args.opm_bandwidth_hz)
     print_summary(res, compound=args.compound)
 
-    if args.save:
-        plt = load_matplotlib(required=True, headless=True)
-        fig = make_figure(plt, res)
+    plt = load_matplotlib(required=True, headless=args.save is not None)
+    fig = make_figure(plt, res)
+    if args.save is not None:
         fig.savefig(args.save, dpi=150)
         print(f"wrote {args.save}")
+    else:
+        plt.show()
 
 
 if __name__ == "__main__":

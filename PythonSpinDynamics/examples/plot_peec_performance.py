@@ -104,39 +104,41 @@ def main() -> None:
         build_t.append(dt)
         print("  K=%4d: %.2f s" % (n * n, dt))
 
+    plt = load_matplotlib(required=True, headless=args.save is not None)
+    fig, ax = plt.subplots(1, 3, figsize=(16, 4.6))
+    fm = freqs / 1e6
+    ax[0].loglog(fm, r_kelvin * 1e3, "k-", lw=2, label="Kelvin (exact)")
+    ax[0].loglog(fm, r_vol * 1e3, "s--", color="C3", label="volume, K~28 (fixed)")
+    ax[0].loglog(fm, r_sibc * 1e3, "o-", color="C0", label="surface impedance, K=48")
+    ax[0].set_xlabel("frequency (MHz)")
+    ax[0].set_ylabel("AC resistance (mOhm)")
+    ax[0].set_title("Deep-skin resistance: SIBC vs coarse volume")
+    ax[0].legend(fontsize=8)
+    ax[0].grid(True, which="both", alpha=0.2)
+
+    ax[1].plot(ks, np.array(err_u) * 100, "s-", color="C3", label="uniform")
+    ax[1].plot(ks, np.array(err_g) * 100, "o-", color="C2", label="graded (surface)")
+    ax[1].axhline(0, color="gray", lw=0.8)
+    ax[1].set_xlabel("cross-section cells K")
+    ax[1].set_ylabel("resistance error (%)")
+    ax[1].set_title("Graded vs uniform mesh (1 MHz)")
+    ax[1].legend(fontsize=8)
+    ax[1].grid(True, alpha=0.2)
+
+    ax[2].loglog(build_k, build_t, "o-", color="C4", label="measured build")
+    ref = build_t[0] * (np.array(build_k) / build_k[0]) ** 2
+    ax[2].loglog(build_k, ref, "k--", lw=1, label="O(K^2)")
+    ax[2].set_xlabel("cross-section cells K")
+    ax[2].set_ylabel("build time (s)")
+    ax[2].set_title("Cost scaling (motivates FMM at large K)")
+    ax[2].legend(fontsize=8)
+    ax[2].grid(True, which="both", alpha=0.2)
+    fig.tight_layout()
     if args.save is not None:
-        plt = load_matplotlib(required=True, headless=True)
-        fig, ax = plt.subplots(1, 3, figsize=(16, 4.6))
-        fm = freqs / 1e6
-        ax[0].loglog(fm, r_kelvin * 1e3, "k-", lw=2, label="Kelvin (exact)")
-        ax[0].loglog(fm, r_vol * 1e3, "s--", color="C3", label="volume, K~28 (fixed)")
-        ax[0].loglog(fm, r_sibc * 1e3, "o-", color="C0", label="surface impedance, K=48")
-        ax[0].set_xlabel("frequency (MHz)")
-        ax[0].set_ylabel("AC resistance (mOhm)")
-        ax[0].set_title("Deep-skin resistance: SIBC vs coarse volume")
-        ax[0].legend(fontsize=8)
-        ax[0].grid(True, which="both", alpha=0.2)
-
-        ax[1].plot(ks, np.array(err_u) * 100, "s-", color="C3", label="uniform")
-        ax[1].plot(ks, np.array(err_g) * 100, "o-", color="C2", label="graded (surface)")
-        ax[1].axhline(0, color="gray", lw=0.8)
-        ax[1].set_xlabel("cross-section cells K")
-        ax[1].set_ylabel("resistance error (%)")
-        ax[1].set_title("Graded vs uniform mesh (1 MHz)")
-        ax[1].legend(fontsize=8)
-        ax[1].grid(True, alpha=0.2)
-
-        ax[2].loglog(build_k, build_t, "o-", color="C4", label="measured build")
-        ref = build_t[0] * (np.array(build_k) / build_k[0]) ** 2
-        ax[2].loglog(build_k, ref, "k--", lw=1, label="O(K^2)")
-        ax[2].set_xlabel("cross-section cells K")
-        ax[2].set_ylabel("build time (s)")
-        ax[2].set_title("Cost scaling (motivates FMM at large K)")
-        ax[2].legend(fontsize=8)
-        ax[2].grid(True, which="both", alpha=0.2)
-        fig.tight_layout()
         fig.savefig(args.save, dpi=150)
         print(f"\n  saved: {args.save}")
+    else:
+        plt.show()
 
 
 if __name__ == "__main__":

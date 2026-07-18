@@ -45,8 +45,8 @@ Use PythonSpinDynamics when you want to:
   control, ideal and finite-pulse filter functions, addressed-qubit
   propagation, optical photon-count readout, analytic layers and half-spaces,
   voxel isotope densities, multi-isotope statistical spectra, and Gaussian
-  filter-overlap coherence; clocked Qdyne and synchronized I/Q readout,
-  separately budgeted sensor/sample/diffusion/memory coherence, effective
+  filter-overlap coherence; clocked Qdyne, ENDOR-QDyne, and synchronized I/Q
+  readout, separately budgeted sensor/sample/diffusion/memory coherence, effective
   sensor-memory correlation, coherent thermal chemical-shift/J spectra, and
   optional explicit DNP build-up/decay; plus unified statistical-spectrum and
   Qdyne experiment specs, nested TOML, result archives, and adaptive Qdyne;

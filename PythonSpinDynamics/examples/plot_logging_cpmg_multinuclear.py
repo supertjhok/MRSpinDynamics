@@ -269,67 +269,69 @@ def main() -> None:
     print(f"  noise (Johnson, T={args.temperature_k:.0f} K, noiseless Rx): {noise_rms * 1e9:.3f} nV")
     print(f"  estimated per-echo SNR: {snr:.1f}")
 
+    plt = load_matplotlib(required=True, headless=args.save is not None)
+    fig, axes = plt.subplots(2, 3, figsize=(15, 8))
+    ext = [xs[0] * 100, xs[-1] * 100, zs[0] * 100, zs[-1] * 100]
+    b0_plot = np.nan_to_num(b0_mag, nan=np.nanmax(b0_mag))
+
+    im = axes[0, 0].imshow(b0_plot.T, origin="lower", extent=ext, aspect="auto", cmap="viridis",
+                           vmax=float(np.nanpercentile(b0_mag, 98)))
+    axes[0, 0].contour(X * 100, Z * 100, np.nan_to_num(b0_mag), levels=[b_sweet], colors="cyan", linewidths=1.5)
+    axes[0, 0].contour(X * 100, Z * 100, np.nan_to_num(b0_mag), levels=[sodium["b_res"]], colors="orange", linewidths=1.5)
+    axes[0, 0].axvline(args.borehole_radius_cm, color="w", ls=":", lw=1)
+    axes[0, 0].set_title("|B0| (T): 1H sweet spot (cyan), 23Na shell (orange)")
+    axes[0, 0].set_xlabel("radius (cm)")
+    axes[0, 0].set_ylabel("z (cm)")
+    fig.colorbar(im, ax=axes[0, 0], fraction=0.046)
+
+    for ax, res, title in ((axes[0, 1], proton, "1H sensitive region"),
+                           (axes[0, 2], sodium, "23Na sensitive region")):
+        s = res["sensitivity"]
+        vmax = float(np.percentile(s[s > 0], 99)) if np.any(s > 0) else None
+        im = ax.imshow(s.T, origin="lower", extent=ext, aspect="auto", cmap="inferno", vmax=vmax)
+        ax.set_title(f"{title} (signal density)")
+        ax.set_xlabel("radius (cm)")
+        ax.set_ylabel("z (cm)")
+        fig.colorbar(im, ax=ax, fraction=0.046)
+
+    axes[1, 0].plot(t_acq * 1e3, echo_h * 1e9, label="1H", lw=1.4)
+    axes[1, 0].plot(t_acq * 1e3, echo_na * 1e9, label="23Na", lw=1.4)
+    axes[1, 0].plot(t_acq * 1e3, (echo_h + echo_na) * 1e9, "k--", lw=1, label="total")
+    axes[1, 0].set_title("Received echo through the tuned probe")
+    axes[1, 0].set_xlabel("time (ms)")
+    axes[1, 0].set_ylabel("echo EMF (nV)")
+    axes[1, 0].legend(fontsize=8)
+
+    axes[1, 1].bar([0, 1], [proton["total"] * 1e9, sodium["total"] * 1e9], color=["C0", "C1"])
+    axes[1, 1].set_xticks([0, 1])
+    axes[1, 1].set_xticklabels(["1H", "23Na"])
+    axes[1, 1].set_title(f"Signal by nucleus (23Na = {na_fraction * 100:.1f} %)")
+    axes[1, 1].set_ylabel("echo EMF (nV)")
+
+    axes[1, 2].axis("off")
+    txt = (f"Jasper-Jackson tool\n"
+           f"f_RF = {f_rf / 1e6:.3f} MHz\n"
+           f"sweet spot r = {r_sweet * 100:.1f} cm\n"
+           f"1H |B0| = {b_sweet:.4f} T\n"
+           f"23Na |B0| = {sodium['b_res']:.4f} T\n"
+           f"23Na flip ~ {na_flip_med:.0f} deg\n\n"
+           f"90 / 180 = {t90 * 1e6:.0f} / {t180 * 1e6:.0f} us\n"
+           f"peak current = {coil_current:.0f} A\n"
+           f"RF power = {rf_power / 1e3:.1f} kW\n\n"
+           f"1H echo  = {proton['total'] * 1e9:.2f} nV\n"
+           f"23Na echo = {sodium['total'] * 1e9:.2f} nV\n"
+           f"23Na fraction = {na_fraction * 100:.1f} %\n\n"
+           f"R_total = {r_total:.2f} ohm\n"
+           f"noise = {noise_rms * 1e9:.2f} nV\n"
+           f"SNR/echo = {snr:.1f}")
+    axes[1, 2].text(0.05, 0.95, txt, va="top", ha="left", fontsize=11, family="monospace")
+    axes[1, 2].set_title("Summary")
+    fig.tight_layout()
     if args.save is not None:
-        plt = load_matplotlib(required=True, headless=True)
-        fig, axes = plt.subplots(2, 3, figsize=(15, 8))
-        ext = [xs[0] * 100, xs[-1] * 100, zs[0] * 100, zs[-1] * 100]
-        b0_plot = np.nan_to_num(b0_mag, nan=np.nanmax(b0_mag))
-
-        im = axes[0, 0].imshow(b0_plot.T, origin="lower", extent=ext, aspect="auto", cmap="viridis",
-                               vmax=float(np.nanpercentile(b0_mag, 98)))
-        axes[0, 0].contour(X * 100, Z * 100, np.nan_to_num(b0_mag), levels=[b_sweet], colors="cyan", linewidths=1.5)
-        axes[0, 0].contour(X * 100, Z * 100, np.nan_to_num(b0_mag), levels=[sodium["b_res"]], colors="orange", linewidths=1.5)
-        axes[0, 0].axvline(args.borehole_radius_cm, color="w", ls=":", lw=1)
-        axes[0, 0].set_title("|B0| (T): 1H sweet spot (cyan), 23Na shell (orange)")
-        axes[0, 0].set_xlabel("radius (cm)")
-        axes[0, 0].set_ylabel("z (cm)")
-        fig.colorbar(im, ax=axes[0, 0], fraction=0.046)
-
-        for ax, res, title in ((axes[0, 1], proton, "1H sensitive region"),
-                               (axes[0, 2], sodium, "23Na sensitive region")):
-            s = res["sensitivity"]
-            vmax = float(np.percentile(s[s > 0], 99)) if np.any(s > 0) else None
-            im = ax.imshow(s.T, origin="lower", extent=ext, aspect="auto", cmap="inferno", vmax=vmax)
-            ax.set_title(f"{title} (signal density)")
-            ax.set_xlabel("radius (cm)")
-            ax.set_ylabel("z (cm)")
-            fig.colorbar(im, ax=ax, fraction=0.046)
-
-        axes[1, 0].plot(t_acq * 1e3, echo_h * 1e9, label="1H", lw=1.4)
-        axes[1, 0].plot(t_acq * 1e3, echo_na * 1e9, label="23Na", lw=1.4)
-        axes[1, 0].plot(t_acq * 1e3, (echo_h + echo_na) * 1e9, "k--", lw=1, label="total")
-        axes[1, 0].set_title("Received echo through the tuned probe")
-        axes[1, 0].set_xlabel("time (ms)")
-        axes[1, 0].set_ylabel("echo EMF (nV)")
-        axes[1, 0].legend(fontsize=8)
-
-        axes[1, 1].bar([0, 1], [proton["total"] * 1e9, sodium["total"] * 1e9], color=["C0", "C1"])
-        axes[1, 1].set_xticks([0, 1])
-        axes[1, 1].set_xticklabels(["1H", "23Na"])
-        axes[1, 1].set_title(f"Signal by nucleus (23Na = {na_fraction * 100:.1f} %)")
-        axes[1, 1].set_ylabel("echo EMF (nV)")
-
-        axes[1, 2].axis("off")
-        txt = (f"Jasper-Jackson tool\n"
-               f"f_RF = {f_rf / 1e6:.3f} MHz\n"
-               f"sweet spot r = {r_sweet * 100:.1f} cm\n"
-               f"1H |B0| = {b_sweet:.4f} T\n"
-               f"23Na |B0| = {sodium['b_res']:.4f} T\n"
-               f"23Na flip ~ {na_flip_med:.0f} deg\n\n"
-               f"90 / 180 = {t90 * 1e6:.0f} / {t180 * 1e6:.0f} us\n"
-               f"peak current = {coil_current:.0f} A\n"
-               f"RF power = {rf_power / 1e3:.1f} kW\n\n"
-               f"1H echo  = {proton['total'] * 1e9:.2f} nV\n"
-               f"23Na echo = {sodium['total'] * 1e9:.2f} nV\n"
-               f"23Na fraction = {na_fraction * 100:.1f} %\n\n"
-               f"R_total = {r_total:.2f} ohm\n"
-               f"noise = {noise_rms * 1e9:.2f} nV\n"
-               f"SNR/echo = {snr:.1f}")
-        axes[1, 2].text(0.05, 0.95, txt, va="top", ha="left", fontsize=11, family="monospace")
-        axes[1, 2].set_title("Summary")
-        fig.tight_layout()
         fig.savefig(args.save, dpi=150)
         print(f"  saved: {args.save}")
+    else:
+        plt.show()
 
 
 if __name__ == "__main__":

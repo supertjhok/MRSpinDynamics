@@ -187,49 +187,51 @@ def main() -> None:
     print("        another ~1.3-2x lower (dielectric former, solder/lead resistance, radiation).")
     print(f"  SRF > 10 MHz target: {'MET' if srf(c_box, imp.dc_inductance) > 10e6 else 'NOT MET (box too tight)'}")
 
+    plt = load_matplotlib(required=True, headless=args.save is not None)
+    fig, ax3 = plt.subplots(1, 3, figsize=(16, 4.6))
+    fm = freqs / 1e6
+    band = (2.0, 3.0)
+
+    ax3[0].plot(fm, ind * 1e6, "o-", color="C0")
+    ax3[0].axvspan(*band, color="orange", alpha=0.15, label="14N NQR band")
+    ax3[0].set_xlabel("frequency (MHz)")
+    ax3[0].set_ylabel("L (uH)")
+    ax3[0].set_title("Inductance (geometry-set, shield ~unchanged)")
+    ax3[0].legend(fontsize=8)
+
+    ax3[1].plot(fm, q_skin, "^:", color="0.6", label="skin only (chain)")
+    ax3[1].plot(fm, q_free, "o-", color="C2", label="+ proximity (full)")
+    ax3[1].plot(fm, q_box, "s-", color="C3", label="+ proximity + box")
+    ax3[1].axvspan(*band, color="orange", alpha=0.15)
+    ax3[1].set_xlabel("frequency (MHz)")
+    ax3[1].set_ylabel("unloaded Q")
+    ax3[1].set_title("Q: proximity + shield loss (theoretical upper bound)")
+    ax3[1].legend(fontsize=8)
+
+    labels = ["free", "+Teflon", "+box"]
+    caps = np.array([c_free, c_teflon, c_box]) * 1e12
+    srfs = np.array([srf(c_free, l_free_dc), srf(c_teflon, l_free_dc),
+                     srf(c_box, imp.dc_inductance)]) / 1e6
+    xb = np.arange(3)
+    b = ax3[2].bar(xb, caps, color=["C0", "C4", "C3"], alpha=0.8)
+    ax3[2].set_xticks(xb)
+    ax3[2].set_xticklabels(labels)
+    ax3[2].set_ylabel("self-capacitance (pF)")
+    axr = ax3[2].twinx()
+    axr.plot(xb, srfs, "kD--", label="SRF")
+    axr.axhline(10, color="red", ls=":", lw=1, label="SRF target 10 MHz")
+    axr.set_ylabel("self-resonance (MHz)")
+    ax3[2].set_title("Capacitance & SRF: former + shield")
+    for rect, mhz in zip(b, srfs):
+        axr.annotate(f"{mhz:.0f} MHz", (rect.get_x() + rect.get_width() / 2, mhz),
+                     ha="center", va="bottom", fontsize=8)
+    axr.legend(fontsize=8, loc="upper right")
+    fig.tight_layout()
     if args.save is not None:
-        plt = load_matplotlib(required=True, headless=True)
-        fig, ax3 = plt.subplots(1, 3, figsize=(16, 4.6))
-        fm = freqs / 1e6
-        band = (2.0, 3.0)
-
-        ax3[0].plot(fm, ind * 1e6, "o-", color="C0")
-        ax3[0].axvspan(*band, color="orange", alpha=0.15, label="14N NQR band")
-        ax3[0].set_xlabel("frequency (MHz)")
-        ax3[0].set_ylabel("L (uH)")
-        ax3[0].set_title("Inductance (geometry-set, shield ~unchanged)")
-        ax3[0].legend(fontsize=8)
-
-        ax3[1].plot(fm, q_skin, "^:", color="0.6", label="skin only (chain)")
-        ax3[1].plot(fm, q_free, "o-", color="C2", label="+ proximity (full)")
-        ax3[1].plot(fm, q_box, "s-", color="C3", label="+ proximity + box")
-        ax3[1].axvspan(*band, color="orange", alpha=0.15)
-        ax3[1].set_xlabel("frequency (MHz)")
-        ax3[1].set_ylabel("unloaded Q")
-        ax3[1].set_title("Q: proximity + shield loss (theoretical upper bound)")
-        ax3[1].legend(fontsize=8)
-
-        labels = ["free", "+Teflon", "+box"]
-        caps = np.array([c_free, c_teflon, c_box]) * 1e12
-        srfs = np.array([srf(c_free, l_free_dc), srf(c_teflon, l_free_dc),
-                         srf(c_box, imp.dc_inductance)]) / 1e6
-        xb = np.arange(3)
-        b = ax3[2].bar(xb, caps, color=["C0", "C4", "C3"], alpha=0.8)
-        ax3[2].set_xticks(xb)
-        ax3[2].set_xticklabels(labels)
-        ax3[2].set_ylabel("self-capacitance (pF)")
-        axr = ax3[2].twinx()
-        axr.plot(xb, srfs, "kD--", label="SRF")
-        axr.axhline(10, color="red", ls=":", lw=1, label="SRF target 10 MHz")
-        axr.set_ylabel("self-resonance (MHz)")
-        ax3[2].set_title("Capacitance & SRF: former + shield")
-        for rect, mhz in zip(b, srfs):
-            axr.annotate(f"{mhz:.0f} MHz", (rect.get_x() + rect.get_width() / 2, mhz),
-                         ha="center", va="bottom", fontsize=8)
-        axr.legend(fontsize=8, loc="upper right")
-        fig.tight_layout()
         fig.savefig(args.save, dpi=150)
         print(f"  saved: {args.save}")
+    else:
+        plt.show()
 
 
 if __name__ == "__main__":

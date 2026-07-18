@@ -149,54 +149,56 @@ def main() -> None:
           f"Q_unloaded {cp0.q_factor:.0f} -> {cp_cold.q_factor:.0f} "
           f"(x{cp_cold.q_factor / cp0.q_factor:.2f})")
 
+    plt = load_matplotlib(required=True, headless=args.save is not None)
+    fmhz = freqs / 1e6
+    fig, axes = plt.subplots(2, 2, figsize=(12, 8))
+
+    axes[0, 0].plot(fmhz, l_eff * 1e6, "o-", ms=3, lw=1.4, label="L_eff (sheath helix)")
+    axes[0, 0].plot(fmhz, l_s * 1e6, "-", lw=1.4, label="L_s (current sheet)")
+    axes[0, 0].axhline(l_field * 1e6, ls=":", color="C2", lw=1.4, label="L field-based (DC)")
+    axes[0, 0].axvline(f_res / 1e6, ls="--", color="gray", lw=1, label=f"f_res={f_res / 1e6:.0f} MHz")
+    axes[0, 0].set_title("Inductance: RF vs quasistatic")
+    axes[0, 0].set_xlabel("frequency (MHz)")
+    axes[0, 0].set_ylabel("inductance (uH)")
+    axes[0, 0].legend(fontsize=8)
+    axes[0, 0].grid(True, alpha=0.2)
+
+    axes[0, 1].plot(fmhz, r_ac, "o-", ms=3, color="C3", lw=1.4)
+    axes[0, 1].set_title("AC resistance (skin + proximity) ~ sqrt(f)")
+    axes[0, 1].set_xlabel("frequency (MHz)")
+    axes[0, 1].set_ylabel("R_ac (ohm)")
+    axes[0, 1].grid(True, alpha=0.2)
+
+    axes[1, 0].plot(fmhz, q, "o-", ms=3, color="C4", lw=1.4)
+    axes[1, 0].axvline(f_res / 1e6, ls="--", color="gray", lw=1)
+    axes[1, 0].set_title("Unloaded quality factor  Q = omega L / R")
+    axes[1, 0].set_xlabel("frequency (MHz)")
+    axes[1, 0].set_ylabel("Q")
+    axes[1, 0].grid(True, alpha=0.2)
+
+    # Q vs form factor at the design frequency (the classic cubical-coil optimum).
+    # Restrict to lengths where the winding pitch still clears the wire diameter.
+    ratio_min = 1.05 * turns * d / D
+    ratios = np.linspace(max(0.4, ratio_min), 3.0, 30)
+    q_ratio = []
+    for ratio in ratios:
+        ll = ratio * D
+        cpr = solenoid_properties(diameter=D, length=ll, turns=turns, wire_diameter=d, frequency=f0)
+        q_ratio.append(cpr.q_factor)
+    axes[1, 1].plot(ratios, q_ratio, "o-", ms=3, color="C5", lw=1.4)
+    axes[1, 1].axvline(1.0, ls="--", color="gray", lw=1, label="cubical (l = D)")
+    axes[1, 1].set_title(f"Q vs form factor at {args.design_mhz:.0f} MHz")
+    axes[1, 1].set_xlabel("length / diameter")
+    axes[1, 1].set_ylabel("Q")
+    axes[1, 1].legend(fontsize=8)
+    axes[1, 1].grid(True, alpha=0.2)
+
+    fig.tight_layout()
     if args.save is not None:
-        plt = load_matplotlib(required=True, headless=True)
-        fmhz = freqs / 1e6
-        fig, axes = plt.subplots(2, 2, figsize=(12, 8))
-
-        axes[0, 0].plot(fmhz, l_eff * 1e6, "o-", ms=3, lw=1.4, label="L_eff (sheath helix)")
-        axes[0, 0].plot(fmhz, l_s * 1e6, "-", lw=1.4, label="L_s (current sheet)")
-        axes[0, 0].axhline(l_field * 1e6, ls=":", color="C2", lw=1.4, label="L field-based (DC)")
-        axes[0, 0].axvline(f_res / 1e6, ls="--", color="gray", lw=1, label=f"f_res={f_res / 1e6:.0f} MHz")
-        axes[0, 0].set_title("Inductance: RF vs quasistatic")
-        axes[0, 0].set_xlabel("frequency (MHz)")
-        axes[0, 0].set_ylabel("inductance (uH)")
-        axes[0, 0].legend(fontsize=8)
-        axes[0, 0].grid(True, alpha=0.2)
-
-        axes[0, 1].plot(fmhz, r_ac, "o-", ms=3, color="C3", lw=1.4)
-        axes[0, 1].set_title("AC resistance (skin + proximity) ~ sqrt(f)")
-        axes[0, 1].set_xlabel("frequency (MHz)")
-        axes[0, 1].set_ylabel("R_ac (ohm)")
-        axes[0, 1].grid(True, alpha=0.2)
-
-        axes[1, 0].plot(fmhz, q, "o-", ms=3, color="C4", lw=1.4)
-        axes[1, 0].axvline(f_res / 1e6, ls="--", color="gray", lw=1)
-        axes[1, 0].set_title("Unloaded quality factor  Q = omega L / R")
-        axes[1, 0].set_xlabel("frequency (MHz)")
-        axes[1, 0].set_ylabel("Q")
-        axes[1, 0].grid(True, alpha=0.2)
-
-        # Q vs form factor at the design frequency (the classic cubical-coil optimum).
-        # Restrict to lengths where the winding pitch still clears the wire diameter.
-        ratio_min = 1.05 * turns * d / D
-        ratios = np.linspace(max(0.4, ratio_min), 3.0, 30)
-        q_ratio = []
-        for ratio in ratios:
-            ll = ratio * D
-            cpr = solenoid_properties(diameter=D, length=ll, turns=turns, wire_diameter=d, frequency=f0)
-            q_ratio.append(cpr.q_factor)
-        axes[1, 1].plot(ratios, q_ratio, "o-", ms=3, color="C5", lw=1.4)
-        axes[1, 1].axvline(1.0, ls="--", color="gray", lw=1, label="cubical (l = D)")
-        axes[1, 1].set_title(f"Q vs form factor at {args.design_mhz:.0f} MHz")
-        axes[1, 1].set_xlabel("length / diameter")
-        axes[1, 1].set_ylabel("Q")
-        axes[1, 1].legend(fontsize=8)
-        axes[1, 1].grid(True, alpha=0.2)
-
-        fig.tight_layout()
         fig.savefig(args.save, dpi=150)
         print(f"  saved: {args.save}")
+    else:
+        plt.show()
 
 
 if __name__ == "__main__":

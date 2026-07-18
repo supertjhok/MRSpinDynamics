@@ -1178,7 +1178,9 @@ charge NV optical cycle, and applies SPAD efficiency, background, dead time,
 afterpulsing, and timing jitter. The Qdyne example compares a clocked
 single-quadrature record with phase-preserving synchronized I/Q readout,
 separates sensor, sample, diffusion, and memory coherence, and evaluates an
-effective sensor-memory correlation. The coherent-spectrum example derives
+effective sensor-memory correlation. The ENDOR-QDyne example reproduces the
+Meinel et al. phase-cycled carrier, weak-measurement signal, and
+initialization-infidelity linewidth. The coherent-spectrum example derives
 thermal signal amplitudes from the bath populations, resolves chemical shifts
 and first-order J multiplets, and shows optional DNP build-up and nuclear-T1
 decay. The facade example loads the same clocked model from friendly TOML,
@@ -1195,6 +1197,7 @@ python examples\plot_esr_nano_mr_pulsed.py --output results\esr_nano_mr_pulsed.p
 python examples\plot_nano_mr_diffusing_liquid.py --output results\nano_mr_diffusion.png
 python examples\plot_nano_mr_realistic_noise.py --output results\nano_mr_realistic_noise.png
 python examples\plot_nano_mr_qdyne.py --output results\nano_mr_qdyne.png
+python examples\plot_nano_mr_endor_qdyne.py --output results\nano_mr_endor_qdyne.png
 python examples\plot_nano_mr_chemical_shift_j.py --output results\nano_mr_chemical_shift_j.png
 python examples\plot_nano_mr_scan_reconstruction.py --output results\nano_mr_scan_reconstruction.png
 python examples\plot_nano_mr_scan_reconstruction.py --correlated-noise --output results\nano_mr_scan_gls.png

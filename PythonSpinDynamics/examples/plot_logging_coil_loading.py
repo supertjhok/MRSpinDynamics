@@ -109,48 +109,50 @@ def main() -> None:
         print(f"  NOTE: skin depth {delta_max * 100:.1f} cm < borehole radius {r_bh * 100:.1f} cm at the top of "
               "the band -- first-order model over-estimates loss there.")
 
+    plt = load_matplotlib(required=True, headless=args.save is not None)
+    fig, axes = plt.subplots(2, 2, figsize=(12, 8))
+    fmhz = freqs / 1e6
+
+    axes[0, 0].loglog(fmhz, loading.reflected_resistance, "o-", lw=1.4, label="R_reflected (~f^2)")
+    axes[0, 0].loglog(fmhz, r_coil, "s-", lw=1.4, label="R_coil (~sqrt f)")
+    axes[0, 0].set_title("Series resistance vs frequency")
+    axes[0, 0].set_xlabel("frequency (MHz)")
+    axes[0, 0].set_ylabel("resistance (ohm)")
+    axes[0, 0].legend(fontsize=8)
+    axes[0, 0].grid(True, which="both", alpha=0.2)
+
+    axes[0, 1].plot(fmhz, loading.q_unloaded, "s-", lw=1.4, label="Q unloaded")
+    axes[0, 1].plot(fmhz, loading.q_loaded, "o-", lw=1.4, label="Q loaded (brine)")
+    axes[0, 1].set_title("Quality factor collapse")
+    axes[0, 1].set_xlabel("frequency (MHz)")
+    axes[0, 1].set_ylabel("Q")
+    axes[0, 1].legend(fontsize=8)
+
+    axes[1, 0].plot(fmhz, loading.noise_penalty, "o-", color="C3", lw=1.4)
+    axes[1, 0].axhline(1.0, ls="--", color="gray", lw=1)
+    axes[1, 0].set_title("Noise-floor penalty  sqrt(R_total / R_coil)")
+    axes[1, 0].set_xlabel("frequency (MHz)")
+    axes[1, 0].set_ylabel("SNR degradation (x)")
+
+    # eddy Joule-loss map in the borehole (x-z plane) at map-frequency
+    omega = 2.0 * np.pi * args.map_frequency_mhz * 1e6
+    res = eddy_currents(grid, coil, omega, conductivity=sigma, mask=brine,
+                        spacing=(dxy, dxy, dz), charge_correction=False)
+    joule = sigma * np.sum(np.abs(res.e_field) ** 2, axis=-1)
+    mid = joule.shape[1] // 2
+    extent = [-ext_xy * 1e3, ext_xy * 1e3, -ext_z * 1e3, ext_z * 1e3]
+    im = axes[1, 1].imshow(joule[:, mid, :].T, origin="lower", extent=extent,
+                           aspect="auto", cmap="inferno")
+    axes[1, 1].set_title(f"Brine eddy loss sigma|E|^2 at {args.map_frequency_mhz:.1f} MHz (W/m^3)")
+    axes[1, 1].set_xlabel("x (mm)")
+    axes[1, 1].set_ylabel("z (mm)")
+    fig.colorbar(im, ax=axes[1, 1], fraction=0.046)
+    fig.tight_layout()
     if args.save is not None:
-        plt = load_matplotlib(required=True, headless=True)
-        fig, axes = plt.subplots(2, 2, figsize=(12, 8))
-        fmhz = freqs / 1e6
-
-        axes[0, 0].loglog(fmhz, loading.reflected_resistance, "o-", lw=1.4, label="R_reflected (~f^2)")
-        axes[0, 0].loglog(fmhz, r_coil, "s-", lw=1.4, label="R_coil (~sqrt f)")
-        axes[0, 0].set_title("Series resistance vs frequency")
-        axes[0, 0].set_xlabel("frequency (MHz)")
-        axes[0, 0].set_ylabel("resistance (ohm)")
-        axes[0, 0].legend(fontsize=8)
-        axes[0, 0].grid(True, which="both", alpha=0.2)
-
-        axes[0, 1].plot(fmhz, loading.q_unloaded, "s-", lw=1.4, label="Q unloaded")
-        axes[0, 1].plot(fmhz, loading.q_loaded, "o-", lw=1.4, label="Q loaded (brine)")
-        axes[0, 1].set_title("Quality factor collapse")
-        axes[0, 1].set_xlabel("frequency (MHz)")
-        axes[0, 1].set_ylabel("Q")
-        axes[0, 1].legend(fontsize=8)
-
-        axes[1, 0].plot(fmhz, loading.noise_penalty, "o-", color="C3", lw=1.4)
-        axes[1, 0].axhline(1.0, ls="--", color="gray", lw=1)
-        axes[1, 0].set_title("Noise-floor penalty  sqrt(R_total / R_coil)")
-        axes[1, 0].set_xlabel("frequency (MHz)")
-        axes[1, 0].set_ylabel("SNR degradation (x)")
-
-        # eddy Joule-loss map in the borehole (x-z plane) at map-frequency
-        omega = 2.0 * np.pi * args.map_frequency_mhz * 1e6
-        res = eddy_currents(grid, coil, omega, conductivity=sigma, mask=brine,
-                            spacing=(dxy, dxy, dz), charge_correction=False)
-        joule = sigma * np.sum(np.abs(res.e_field) ** 2, axis=-1)
-        mid = joule.shape[1] // 2
-        extent = [-ext_xy * 1e3, ext_xy * 1e3, -ext_z * 1e3, ext_z * 1e3]
-        im = axes[1, 1].imshow(joule[:, mid, :].T, origin="lower", extent=extent,
-                               aspect="auto", cmap="inferno")
-        axes[1, 1].set_title(f"Brine eddy loss sigma|E|^2 at {args.map_frequency_mhz:.1f} MHz (W/m^3)")
-        axes[1, 1].set_xlabel("x (mm)")
-        axes[1, 1].set_ylabel("z (mm)")
-        fig.colorbar(im, ax=axes[1, 1], fraction=0.046)
-        fig.tight_layout()
         fig.savefig(args.save, dpi=150)
         print(f"  saved: {args.save}")
+    else:
+        plt.show()
 
 
 if __name__ == "__main__":

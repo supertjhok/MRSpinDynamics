@@ -291,13 +291,15 @@ def main() -> None:
     if args.csv:
         _write_csv(args.csv, rows)
         print(f"saved trials: {args.csv}")
-    if args.output:
-        # Load Matplotlib only after choosing interactive or headless output mode.
-        plt = load_matplotlib(headless=True)
-        fig = _plot(plt, args, axis, geometries, summaries, representative)
+    # Load Matplotlib only after choosing interactive or headless output mode.
+    plt = load_matplotlib(headless=args.output is not None)
+    fig = _plot(plt, args, axis, geometries, summaries, representative)
+    if args.output is not None:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(args.output, dpi=180)
         print(f"saved figure: {args.output}")
+    else:
+        plt.show()
 
 
 if __name__ == "__main__":

@@ -291,49 +291,51 @@ def main() -> None:
               f"{qh['single-ended'][j]:8.0f}{qh['differential'][j]:9.0f}"
               f"{qh['differential'][j] / qh['single-ended'][j]:6.2f}x")
 
+    plt = load_matplotlib(required=True, headless=args.save is not None)
+    fig, ax = plt.subplots(1, 3, figsize=(16, 4.6))
+    fm = freqs / 1e6
+
+    ax[0].plot(fm, q["single-ended"], "o-", color="C3", label="single-ended")
+    ax[0].plot(fm, q["differential"], "s-", color="C0", label="differential")
+    ax[0].set_xlabel("frequency (MHz)")
+    ax[0].set_ylabel("unloaded Q")
+    ax[0].set_title("Q vs frequency (coil over ground plane)")
+    ax[0].legend(fontsize=8)
+    ax[0].grid(True, alpha=0.2)
+
+    ax[1].plot(heights * 1e3, qh["single-ended"], "o-", color="C3", label="Q single-ended")
+    ax[1].plot(heights * 1e3, qh["differential"], "s-", color="C0", label="Q differential")
+    ax[1].axvline(args.board_mm, color="gray", ls=":", lw=1, label=f"{args.board_mm:.1f} mm board")
+    ax[1].set_xlabel("coil height above ground plane (mm)")
+    ax[1].set_ylabel(f"unloaded Q at {f0 / 1e6:.0f} MHz")
+    ax[1].set_title("Approaching plane: L collapses (both modes), Q falls")
+    ax[1].legend(fontsize=8, loc="upper left")
+    ax[1].grid(True, alpha=0.2)
+    ax1r = ax[1].twinx()  # the mode-independent inductance collapse behind the Q trend
+    ax1r.plot(heights * 1e3, lh * 1e9, "^--", color="0.5", label="L (both modes)")
+    ax1r.set_ylabel("L (nH)", color="0.5")
+    ax1r.legend(fontsize=8, loc="lower right")
+
+    # loss budget bars at f0
+    labels = ["copper", "gnd eddy", "dielectric"]
+    se = [r_cu[i0], r_eddy[i0], tand * w0**3 * L[i0] ** 2 * cg["single-ended"]]
+    di = [r_cu[i0], r_eddy[i0], tand * w0**3 * L[i0] ** 2 * cg["differential"]]
+    xb = np.arange(3)
+    ax[2].bar(xb - 0.19, np.array(se) * 1e3, 0.38, color="C3", label="single-ended")
+    ax[2].bar(xb + 0.19, np.array(di) * 1e3, 0.38, color="C0", label="differential")
+    ax[2].set_xticks(xb)
+    ax[2].set_xticklabels(labels)
+    ax[2].set_ylabel(f"series resistance (mOhm) at {f0 / 1e6:.0f} MHz")
+    ax[2].set_title("Loss budget: dielectric is the mode-dependent term")
+    ax[2].legend(fontsize=8)
+    ax[2].grid(True, axis="y", alpha=0.2)
+
+    fig.tight_layout()
     if args.save is not None:
-        plt = load_matplotlib(required=True, headless=True)
-        fig, ax = plt.subplots(1, 3, figsize=(16, 4.6))
-        fm = freqs / 1e6
-
-        ax[0].plot(fm, q["single-ended"], "o-", color="C3", label="single-ended")
-        ax[0].plot(fm, q["differential"], "s-", color="C0", label="differential")
-        ax[0].set_xlabel("frequency (MHz)")
-        ax[0].set_ylabel("unloaded Q")
-        ax[0].set_title("Q vs frequency (coil over ground plane)")
-        ax[0].legend(fontsize=8)
-        ax[0].grid(True, alpha=0.2)
-
-        ax[1].plot(heights * 1e3, qh["single-ended"], "o-", color="C3", label="Q single-ended")
-        ax[1].plot(heights * 1e3, qh["differential"], "s-", color="C0", label="Q differential")
-        ax[1].axvline(args.board_mm, color="gray", ls=":", lw=1, label=f"{args.board_mm:.1f} mm board")
-        ax[1].set_xlabel("coil height above ground plane (mm)")
-        ax[1].set_ylabel(f"unloaded Q at {f0 / 1e6:.0f} MHz")
-        ax[1].set_title("Approaching plane: L collapses (both modes), Q falls")
-        ax[1].legend(fontsize=8, loc="upper left")
-        ax[1].grid(True, alpha=0.2)
-        ax1r = ax[1].twinx()  # the mode-independent inductance collapse behind the Q trend
-        ax1r.plot(heights * 1e3, lh * 1e9, "^--", color="0.5", label="L (both modes)")
-        ax1r.set_ylabel("L (nH)", color="0.5")
-        ax1r.legend(fontsize=8, loc="lower right")
-
-        # loss budget bars at f0
-        labels = ["copper", "gnd eddy", "dielectric"]
-        se = [r_cu[i0], r_eddy[i0], tand * w0**3 * L[i0] ** 2 * cg["single-ended"]]
-        di = [r_cu[i0], r_eddy[i0], tand * w0**3 * L[i0] ** 2 * cg["differential"]]
-        xb = np.arange(3)
-        ax[2].bar(xb - 0.19, np.array(se) * 1e3, 0.38, color="C3", label="single-ended")
-        ax[2].bar(xb + 0.19, np.array(di) * 1e3, 0.38, color="C0", label="differential")
-        ax[2].set_xticks(xb)
-        ax[2].set_xticklabels(labels)
-        ax[2].set_ylabel(f"series resistance (mOhm) at {f0 / 1e6:.0f} MHz")
-        ax[2].set_title("Loss budget: dielectric is the mode-dependent term")
-        ax[2].legend(fontsize=8)
-        ax[2].grid(True, axis="y", alpha=0.2)
-
-        fig.tight_layout()
         fig.savefig(args.save, dpi=150)
         print(f"\n  saved: {args.save}")
+    else:
+        plt.show()
 
 
 if __name__ == "__main__":

@@ -338,10 +338,9 @@ def main() -> None:
     print(f"vs. fully rectangular at the same duration: fom_time = {baseline_fom:.3e} s "
           f"({baseline_fom / best_result.fom_time(best_result.snr_grape_amex):.2f}x worse)")
 
-    if args.output is None:
-        return
-
-    plt = load_matplotlib(required=True, headless=True)
+    plt = load_matplotlib(
+        required=True, headless=args.output is not None
+    )
     n_ref = best_result.n_ref
     dt_ref = jnp.full(n_ref, dt_seg)
     rect_ref = rectangular_seed_phase(n_ref)
@@ -439,9 +438,12 @@ def main() -> None:
 
     fig.suptitle("GRAPE CPMG refocusing + axis-matched excitation (AMEX)")
     fig.tight_layout()
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(args.output, dpi=150)
-    print(f"\nsaved: {args.output}")
+    if args.output is not None:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        fig.savefig(args.output, dpi=150)
+        print(f"\nsaved: {args.output}")
+    else:
+        plt.show()
 
 
 if __name__ == "__main__":

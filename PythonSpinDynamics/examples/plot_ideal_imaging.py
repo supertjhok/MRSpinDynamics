@@ -154,7 +154,12 @@ def main() -> None:
         help="Inversion delay in seconds for --t1-encoded.",
     )
     parser.add_argument("--image", type=Path, default=DEFAULT_IMAGE, help="Input phantom image.")
-    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT, help="Output image path.")
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=None,
+        help="save the figure instead of showing it interactively",
+    )
     parser.add_argument(
         "--raw-image",
         action="store_true",
@@ -162,7 +167,9 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    plt = load_matplotlib(required=False)
+    plt = load_matplotlib(
+        required=args.output is None, headless=args.output is not None
+    )
     rho = _load_phantom(args.image, args.pixels, invert=not args.raw_image)
 
     runners = {
@@ -199,7 +206,8 @@ def main() -> None:
         echo_index=echo_index,
     )
 
-    args.output.parent.mkdir(parents=True, exist_ok=True)
+    if args.output is not None:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
     if plt is None:
         # Minimal dependency path: create a simple three-panel PNG with Pillow.
         _save_with_pillow(
@@ -224,8 +232,12 @@ def main() -> None:
             axis.set_yticks([])
         if not args.raw_image:
             fig.text(0.5, 0.01, CONTRAST_NOTE, ha="center", va="bottom", fontsize=8)
-        fig.savefig(args.output, dpi=150)
-    print(f"saved: {args.output}")
+        if args.output is not None:
+            fig.savefig(args.output, dpi=150)
+        else:
+            plt.show()
+    if args.output is not None:
+        print(f"saved: {args.output}")
     print(f"probe: {result.probe}")
     if args.t1_encoded:
         print(f"T1 encoded: inversion time {args.inversion_time:.6g} s")

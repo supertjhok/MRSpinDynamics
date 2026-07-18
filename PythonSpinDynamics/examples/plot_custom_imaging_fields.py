@@ -125,10 +125,17 @@ def main() -> None:
         default=0.5e-3,
         help="Inversion delay in seconds for --t1-encoded.",
     )
-    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT, help="Output image path.")
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=None,
+        help="save the figure instead of showing it interactively",
+    )
     args = parser.parse_args()
 
-    plt = load_matplotlib(required=False)
+    plt = load_matplotlib(
+        required=args.output is None, headless=args.output is not None
+    )
     rho, b0_map, b1_tx_map, b1_rx_map = _synthetic_maps(args.pixels)
     field_maps = make_imaging_field_maps(
         rho,
@@ -162,7 +169,8 @@ def main() -> None:
     recon = form_imaging_image(result, mode=args.image_mode, echo_index=echo_index)
     image_label = args.image_mode.replace("-", " ").title()
 
-    args.output.parent.mkdir(parents=True, exist_ok=True)
+    if args.output is not None:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
     panels = [
         (result.rho, "Spin density", "gray"),
         (result.b0_map, "B0 offset map", "coolwarm"),
@@ -182,9 +190,13 @@ def main() -> None:
             axis.set_yticks([])
             fig.colorbar(im, ax=axis, fraction=0.046, pad=0.04)
         fig.suptitle(f"{result.probe.capitalize()} CPMG imaging with custom fields")
-        fig.savefig(args.output, dpi=150)
+        if args.output is not None:
+            fig.savefig(args.output, dpi=150)
+        else:
+            plt.show()
 
-    print(f"saved: {args.output}")
+    if args.output is not None:
+        print(f"saved: {args.output}")
     print(f"probe: {result.probe}")
     if args.t1_encoded:
         print(f"T1 encoded: inversion time {args.inversion_time:.6g} s")

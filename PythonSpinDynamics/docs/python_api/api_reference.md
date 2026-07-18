@@ -1343,6 +1343,16 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `CorrelationSpectrum2D` | Two-dimensional Fourier magnitude of a correlation surface. |
 | function | `correlation_spectrum_2d(result: TwoBlockCorrelationResult, *, window: bool = True, remove_mean: bool = True) -> CorrelationSpectrum2D` | Fourier transform a uniformly sampled two-block correlation surface. |
 
+## `spin_dynamics.nano_mr.endor_qdyne`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `EndorQdyneProtocol` | One phase-coherent ENDOR-QDyne acquisition. |
+| class | `EndorQdyneResult` | ENDOR-QDyne nuclear record, sensor signal, and baseband spectrum. |
+| function | `initialization_infidelity_decay_rate(longitudinal_hyperfine_hz: float, interval_seconds: float, initialization_fidelity: float, *, leading_order: bool = False) -> float` | Return the initialization-infidelity decay rate from Meinel et al. |
+| function | `meinel_2023_endor_qdyne_protocol(*, rf_reference_frequency_hz: float = 0.0, sensor_initialization_fidelity: float = 0.9, intrinsic_nuclear_decay_rate_per_second: float = 0.0) -> EndorQdyneProtocol` | Return the proof-of-principle parameters reported by Meinel et al. |
+| function | `simulate_endor_qdyne(protocol: EndorQdyneProtocol, *, target_frequency_hz: float, shot_count: int, initial_phase_rad: float = 0.0, include_measurement_backaction: bool = True, optical_model: OpticalReadoutModel | None = None, seed: int | None = None) -> EndorQdyneResult` | Simulate coherent-basis-mapping ENDOR-QDyne. |
+
 ## `spin_dynamics.nano_mr.esr_bridge`
 
 | Kind | Name | Summary |

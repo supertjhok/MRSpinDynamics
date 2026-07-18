@@ -143,39 +143,41 @@ def main() -> None:
     print("  dominant shield eddy modes (alpha, tau): "
           + ", ".join(f"({a_:.3f}, {t_ * 1e3:.1f} ms)" for a_, t_ in terms))
 
+    plt = load_matplotlib(required=True, headless=args.save is not None)
+    fig, axes = plt.subplots(1, 3, figsize=(16, 4.6))
+    fmhz = freqs / 1e6
+    q = 2 * np.pi * freqs * ind / res
+
+    ax = axes[0]
+    ax.plot(fmhz, ind * 1e6, "o-", color="C0", label="L (uH)")
+    ax.set_xlabel("frequency (MHz)")
+    ax.set_ylabel("L (uH)", color="C0")
+    ax.set_title(f"Two-layer solenoid L, R  (f_res={f_srf / 1e6:.0f} MHz)")
+    axr = ax.twinx()
+    axr.plot(fmhz, res, "s-", color="C3", label="R (ohm)")
+    axr.set_ylabel("R (ohm)", color="C3")
+
+    axes[1].plot(fmhz, q, "o-", color="C4")
+    axes[1].set_xlabel("frequency (MHz)")
+    axes[1].set_ylabel("Q")
+    axes[1].set_title("Unloaded Q (full formulation: skin + proximity)")
+
+    # current-density map at one mid-coil segment (full solve): the asymmetric crowding
+    # toward the neighbouring turns IS the proximity effect.
+    offs, cur = current_distribution(coil, args.map_frequency_mhz * 1e6, formulation="full")
+    dens = cur  # normalized magnitude
+    sc = axes[2].scatter(offs[:, 0] * 1e3, offs[:, 1] * 1e3, c=dens, s=120, cmap="inferno")
+    axes[2].set_aspect("equal")
+    axes[2].set_xlabel("x (mm)")
+    axes[2].set_ylabel("y (mm)")
+    axes[2].set_title(f"Mid-coil segment current crowding @ {args.map_frequency_mhz:.0f} MHz")
+    fig.colorbar(sc, ax=axes[2], fraction=0.046, label="|I| (norm.)")
+    fig.tight_layout()
     if args.save is not None:
-        plt = load_matplotlib(required=True, headless=True)
-        fig, axes = plt.subplots(1, 3, figsize=(16, 4.6))
-        fmhz = freqs / 1e6
-        q = 2 * np.pi * freqs * ind / res
-
-        ax = axes[0]
-        ax.plot(fmhz, ind * 1e6, "o-", color="C0", label="L (uH)")
-        ax.set_xlabel("frequency (MHz)")
-        ax.set_ylabel("L (uH)", color="C0")
-        ax.set_title(f"Two-layer solenoid L, R  (f_res={f_srf / 1e6:.0f} MHz)")
-        axr = ax.twinx()
-        axr.plot(fmhz, res, "s-", color="C3", label="R (ohm)")
-        axr.set_ylabel("R (ohm)", color="C3")
-
-        axes[1].plot(fmhz, q, "o-", color="C4")
-        axes[1].set_xlabel("frequency (MHz)")
-        axes[1].set_ylabel("Q")
-        axes[1].set_title("Unloaded Q (full formulation: skin + proximity)")
-
-        # current-density map at one mid-coil segment (full solve): the asymmetric crowding
-        # toward the neighbouring turns IS the proximity effect.
-        offs, cur = current_distribution(coil, args.map_frequency_mhz * 1e6, formulation="full")
-        dens = cur  # normalized magnitude
-        sc = axes[2].scatter(offs[:, 0] * 1e3, offs[:, 1] * 1e3, c=dens, s=120, cmap="inferno")
-        axes[2].set_aspect("equal")
-        axes[2].set_xlabel("x (mm)")
-        axes[2].set_ylabel("y (mm)")
-        axes[2].set_title(f"Mid-coil segment current crowding @ {args.map_frequency_mhz:.0f} MHz")
-        fig.colorbar(sc, ax=axes[2], fraction=0.046, label="|I| (norm.)")
-        fig.tight_layout()
         fig.savefig(args.save, dpi=150)
         print(f"\n  saved: {args.save}")
+    else:
+        plt.show()
 
 
 if __name__ == "__main__":

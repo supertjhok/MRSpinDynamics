@@ -218,7 +218,7 @@ def main() -> None:
     parser.add_argument("--t2", type=float, default=1.0,
                         help="homogeneous T2 in s, flooring the linewidth (default 1.0)")
     parser.add_argument("--save", type=str, default=None,
-                        help="path to save the figure; if omitted, only prints a summary")
+                        help="path to save the figure; if omitted, show interactively")
     args = parser.parse_args()
 
     res = run(
@@ -230,11 +230,13 @@ def main() -> None:
     )
     print_summary(res, frac_inhomogeneity=args.frac_inhomogeneity, t2_s=args.t2)
 
-    if args.save:
-        plt = load_matplotlib(required=True, headless=True)
-        fig = make_figure(plt, res)
+    plt = load_matplotlib(required=True, headless=args.save is not None)
+    fig = make_figure(plt, res)
+    if args.save is not None:
         fig.savefig(args.save, dpi=150)
         print(f"wrote {args.save}")
+    else:
+        plt.show()
 
 
 if __name__ == "__main__":

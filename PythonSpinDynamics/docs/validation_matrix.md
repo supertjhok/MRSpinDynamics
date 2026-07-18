@@ -20,9 +20,9 @@ what supports the underlying scientific or numerical claim.
 
 ## Coverage Summary
 
-- 37 capability-level claims
+- 38 capability-level claims
 - 14 validated
-- 18 partially validated
+- 19 partially validated
 - 5 regression-only
 
 | Component | Claim | Evidence | Status |
@@ -56,6 +56,7 @@ what supports the underlying scientific or numerical claim.
 | Spin noise and radiation damping | Equilibrium spin-noise spectra and stochastic dynamics reproduce fluctuation, radiation-damping, Ornstein-Uhlenbeck, and two-bath analytical identities. | **A**, **R** | validated |
 | Optimal-control propagation and gradients | NumPy/JAX propagators, control gradients, hardware-response primitives, and bounded objectives agree across implementations and with finite-difference limits. | **C**, **R**, **B** | partially validated |
 | Unified experiment facade | Facade routes reproduce their direct workflow calls and preserve specifications, configs, arrays, and provenance through round trips. | **R** | regression only |
+| ENDOR-QDyne coherent basis mapping and linewidth | The resolved-spin ENDOR-QDyne model reproduces the ideal coherent-basis-mapping signal, phase-cycled carrier, weak-measurement back-action map, initialization-infidelity linewidth, and proof-of-principle timing reported by Meinel et al. | **A**, **D**, **R** | partially validated |
 | Defect-spin nanoscale spectroscopy, MRI, and package integration | Implemented defect, bath, control, optical, statistical, exact-cluster, motion, imaging, high-resolution, and facade layers satisfy their documented analytical identities and deterministic/seeded regression contracts. | **A**, **R** | partially validated |
 | Reproducible results and provenance | Facade archives identify experiment inputs, implementation, numerical environment, randomness, and result content and can verify an exact rerun while remaining backward-compatible with version-1 archives. | **R** | regression only |
 | Bayesian experiment design and adaptive acquisition | Bayesian updates, goal utilities, planner-validated adapters, batched PGSE parity, surrogate validation, staged/adaptive scoring, paired end-to-end adapter benchmarks, recoverable live batches, discrete-target nuisance marginalization, and robustness diagnostics follow their stated numerical and decision-theory contracts. | **A**, **R** | partially validated |
@@ -414,6 +415,18 @@ what supports the underlying scientific or numerical claim.
 - **References:** Direct public workflow implementations
 - **Reproduce:** [`tests/test_experiment.py::test_pgse_moment_parity_and_plan`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_experiment.py#L777); [`tests/test_experiment.py::test_pgse_walkers_with_flow_matches_direct_workflow`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_experiment.py#L846); [`tests/test_experiment.py::test_nqr_slse_reduced_parity`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_experiment.py#L1008); [`tests/test_experiment.py::test_nqr_fid_parity`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_experiment.py#L1085); [`tests/test_experiment.py::test_nqr_population_transfer_parity_and_spin_guard`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_experiment.py#L1103); [`tests/test_experiment.py::test_esr_fid_parity`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_experiment.py#L1227); [`tests/test_experiment.py::test_esr_cw_sweep_parity_without_fixed_b0`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_experiment.py#L1272); [`tests/test_experiment.py::test_esr_deer_parity_and_round_trip`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_experiment.py#L1286); [`tests/test_experiment.py::test_esr_two_and_three_pulse_eseem_parity`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_experiment.py#L1314); [`tests/test_experiment.py::test_esr_hyscore_parity_and_round_trip`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_experiment.py#L1340); [`tests/test_experiment.py::test_esr_endor_parity_and_hyperfine_input_guard`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_experiment.py#L1368); [`tests/test_experiment.py::test_sequence_ir_facade_matches_direct_motion_backend`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_experiment.py#L1473); [`tests/test_experiment.py::test_sequence_ir_facade_round_trip_noise_and_reproduction`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_experiment.py#L1537)
 - **Limitations:** Facade parity validates delegation, not the physical model underneath each route.
+
+### ENDOR-QDyne coherent basis mapping and linewidth
+
+- **Claim:** The resolved-spin ENDOR-QDyne model reproduces the ideal coherent-basis-mapping signal, phase-cycled carrier, weak-measurement back-action map, initialization-infidelity linewidth, and proof-of-principle timing reported by Meinel et al.
+- **Evidence:** A, D, R (partially validated)
+- **Basis:** Main-text Eqs. 1-3, Supplementary Eqs. 14 and 23, the reported operation timings, and direct deterministic regressions against the corresponding closed-form expressions.
+- **Tested range:** Spin-one-half target; finite signed longitudinal Azz coupling in Hz; configurable RF reference, free-precession and sensing intervals, RF phase cycling, residual sensing phase, clock errors, sensor T2*, intrinsic nuclear decay, initialization fidelity, optional optical counts, and exact or disabled weak-measurement back-action; paper preset at Azz=6 kHz and 105.5 us repetition.
+- **Metric:** Samplewise Iz and Sz expectation values, RF operation and total cycle time, baseband carrier and FFT peak, exact and leading initialization decay rates, and discrete back-action recurrence.
+- **Tolerance:** Floating-point agreement for analytical identities; less than one Fourier bin for the simulated carrier; within 2 Hz of the reported 2.368 kHz phase-cycle target; the reported approximately 1 kHz Eq. 3 estimate is reproduced as 1.012 kHz.
+- **References:** J. Meinel et al., Communications Physics 6 (2023) 302, doi:10.1038/s42005-023-01419-2; Supplementary Information for High-resolution nanoscale NMR for arbitrary magnetic fields, doi:10.21203/rs.3.rs-2826442/v1
+- **Reproduce:** [`tests/test_nano_mr_endor_qdyne.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_nano_mr_endor_qdyne.py); [`examples/plot_nano_mr_endor_qdyne.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/examples/plot_nano_mr_endor_qdyne.py)
+- **Limitations:** The comparison uses the authors' published equations, sequence timings, and reported carrier/linewidth targets rather than a refit of deposited raw photon-count traces. RF basis mapping is ideal apart from an explicit residual sensing phase; off-resonant finite-pulse unitary errors, charge-state switching, excited-state hyperfine changes, and a microscopic optical reset channel are not propagated. The model covers one resolved spin-one-half target and an effective optical readout, not a many-spin ENDOR ensemble or a calibrated high-field instrument.
 
 ### Defect-spin nanoscale spectroscopy, MRI, and package integration
 

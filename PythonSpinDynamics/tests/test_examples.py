@@ -332,6 +332,17 @@ class ExampleSmokeTests(unittest.TestCase):
         self.assertIn("saved:", result.stdout)
         self.assertTrue(output.exists())
 
+    def test_plot_examples_show_interactively_by_default(self) -> None:
+        for script in sorted(EXAMPLES.glob("plot_*.py")):
+            source = script.read_text(encoding="utf-8")
+            uses_matplotlib = (
+                "load_matplotlib" in source or "matplotlib.pyplot" in source
+            )
+            if not uses_matplotlib:
+                continue
+            with self.subTest(script=script.name):
+                self.assertNotIn("matplotlib.use(", source)
+                self.assertIn("plt.show()", source)
     def test_plot_examples_expose_cli_without_matplotlib(self) -> None:
         scripts = [
             "examples/plot_ideal_workflows.py",
@@ -418,6 +429,7 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_nano_mr_chemical_shift_j.py",
             "examples/plot_nano_mr_diffusing_liquid.py",
             "examples/plot_nano_mr_qdyne.py",
+            "examples/plot_nano_mr_endor_qdyne.py",
             "examples/plot_nano_mr_realistic_noise.py",
             "examples/plot_nano_mr_scan_reconstruction.py",
             "examples/plot_nano_mr_statistical_spectra.py",
@@ -739,6 +751,10 @@ class ExampleSmokeTests(unittest.TestCase):
         result = run_example("examples/plot_nano_mr_qdyne.py", "--help")
         self.assertIn("--beat-hz", result.stdout)
         self.assertIn("--memory-t2-s", result.stdout)
+        result = run_example(
+            "examples/plot_nano_mr_endor_qdyne.py", "--help"
+        )
+        self.assertIn("--shots", result.stdout)
         result = run_example(
             "examples/plot_nano_mr_realistic_noise.py", "--help"
         )

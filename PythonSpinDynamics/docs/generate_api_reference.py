@@ -126,6 +126,7 @@ MODULES = [
     "nano_mr.baths",
     "nano_mr.compiler",
     "nano_mr.correlation",
+    "nano_mr.endor_qdyne",
     "nano_mr.esr_bridge",
     "nano_mr.exact",
     "nano_mr.filter_functions",

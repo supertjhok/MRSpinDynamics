@@ -8,8 +8,11 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-import matplotlib.pyplot as plt
 import numpy as np
+
+from _source_path import add_src_to_path, load_matplotlib
+
+add_src_to_path()
 
 from spin_dynamics.analysis.compressed_sensing import centered_ifft2
 from spin_dynamics.workflows.portable_halbach import (
@@ -70,7 +73,7 @@ def _print_design_tables(design) -> None:
     )
 
 
-def _plot_design_dashboard(design, output: Path) -> None:
+def _plot_design_dashboard(plt, design):
     pulse_us = design.pulse_sweep.pulse_lengths_s * 1e6
     sweep = design.pulse_sweep
     # Assemble the observables and diagnostics for side-by-side interpretation.
@@ -169,23 +172,26 @@ def _plot_design_dashboard(design, output: Path) -> None:
     )
 
     fig.suptitle("Portable Halbach MRI capstone — designer dashboard")
-    output.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(output, dpi=180)
-    print(f"saved {output}")
+    return fig
 
 
 # Keep orchestration in one entry point so helper functions remain reusable.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--matrix-size", type=int, default=64)
-    parser.add_argument("--output", type=Path, default=Path("results/portable_halbach_adaptive_mri.png"))
+    parser.add_argument("--output", type=Path, default=None)
     parser.add_argument(
         "--design-output",
         type=Path,
-        default=Path("results/portable_halbach_design_dashboard.png"),
+        default=None,
     )
     parser.add_argument("--data-output", type=Path)
     args = parser.parse_args()
+    plt = load_matplotlib(
+        headless=(
+            args.output is not None or args.design_output is not None
+        )
+    )
 
     result = simulate_portable_halbach_mri(
         PortableHalbachMRIConfig(matrix_size=args.matrix_size)
@@ -260,9 +266,10 @@ def main() -> None:
         f"active Q′={design.rf_coils.receive_loaded_probe_q_factor:.1f}, "
         f"stopped after {stop_minutes:.1f} min ({result.adaptive.stop_reason})"
     )
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(args.output, dpi=180)
-    print(f"saved {args.output}")
+    if args.output is not None:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        fig.savefig(args.output, dpi=180)
+        print(f"saved {args.output}")
     print(
         f"3-D static-field signal span: {result.static_signal_bandwidth_hz / 1e3:.1f} kHz "
         f"(measured reference {result.config.measured_signal_bandwidth_hz / 1e3:.0f} kHz)"
@@ -272,7 +279,13 @@ def main() -> None:
         f"zero-fill NRMSE={result.zero_fill_reference_nrmse:.3f}, "
         f"TV-CS NRMSE={result.reference_nrmse:.3f}"
     )
-    _plot_design_dashboard(design, args.design_output)
+    design_figure = _plot_design_dashboard(plt, design)
+    if args.design_output is not None:
+        args.design_output.parent.mkdir(parents=True, exist_ok=True)
+        design_figure.savefig(args.design_output, dpi=180)
+        print(f"saved {args.design_output}")
+    if args.output is None and args.design_output is None:
+        plt.show()
     _print_design_tables(design)
     if args.data_output is not None:
         args.data_output.parent.mkdir(parents=True, exist_ok=True)

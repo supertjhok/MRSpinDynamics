@@ -15,11 +15,11 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-import matplotlib
-
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 import numpy as np
+
+from _source_path import add_src_to_path, load_matplotlib
+
+add_src_to_path()
 
 from spin_dynamics.fields import illustrative_hybrid_epm_array
 from spin_dynamics.workflows import (
@@ -48,7 +48,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--output",
         type=Path,
-        default=Path("docs/images/example_epm_particle_spin_echo.png"),
+        default=None,
     )
     return parser
 
@@ -56,6 +56,7 @@ def _parser() -> argparse.ArgumentParser:
 # Keep orchestration in one entry point so helper functions remain reusable.
 def main() -> None:
     args = _parser().parse_args()
+    plt = load_matplotlib(headless=args.output is not None)
     rng = np.random.default_rng(args.seed)
     phantom = simple_tissue_phantom(args.matrix_size, field_of_view_m=0.040)
     array = illustrative_hybrid_epm_array(panel_gap_m=0.150)
@@ -172,10 +173,13 @@ def main() -> None:
         + ("no receiver noise" if args.snr_db is None else f"SNR={args.snr_db:g} dB"),
         fontsize=13,
     )
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    figure.savefig(args.output, dpi=180)
+    if args.output is not None:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        figure.savefig(args.output, dpi=180)
+        print(f"wrote {args.output}")
+    else:
+        plt.show()
     plt.close(figure)
-    print(f"wrote {args.output}")
     print(f"imaging state: {state_index}")
     print(f"B0 range: {np.ptp(result.background_field_t) * 1e3:.3f} mT")
     print(

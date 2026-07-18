@@ -868,31 +868,105 @@ sensor}\), but this does not imply unlimited resolution. Sample coherence,
 diffusion, clock instability, record duration, and signal-to-noise remain
 physical limits. Qdyne also measures an aliased beat unless the reference frequency or alias order is known. `raw_beat_frequency_hz`, `expected_beat_frequency_hz`, and `alias_order` retain all three quantities explicitly. Clock-perturbed coherent FID relaxation, diffusion, J modulation, and carrier phase use the same actual elapsed-time axis.
 
-### Relation to ENDOR Qdyne
+### ENDOR Qdyne
 
-The implementation above is a conventional, classical-field Qdyne forward
-model. It evaluates the response of a user-supplied microwave sensing sequence
-to a coherent field and samples that response against an external clock. It
-does not explicitly propagate a target nuclear-spin density matrix.
+`EndorQdyneProtocol` implements the high-field coherent-basis-mapping protocol
+introduced by
+[Meinel et al., Communications Physics 6, 302 (2023)](https://doi.org/10.1038/s42005-023-01419-2).
+Phase-coherent nuclear RF pulses map transverse target polarization onto
+\(I_z\), an electron Ramsey block weakly measures the static longitudinal
+hyperfine interaction \(2\pi A_{zz}S_zI_z\), and a final RF pulse returns the
+target to the transverse plane. This avoids microwave refocusing pulses on the
+nuclear-Larmor timescale; KDD belongs to the paper's conventional DD-Qdyne
+comparison, not to the ENDOR-QDyne sensing block.
 
-[Meinel et al., Communications Physics 6, 302 (2023)](https://doi.org/10.1038/s42005-023-01419-2)
-introduce a different high-field protocol, ENDOR Qdyne. Phase-coherent nuclear
-RF pulses map the target's transverse component onto `I_z`; an electron Ramsey
-block senses the static `A_zz S_z I_z` interaction; a final RF pulse returns the
-target to the transverse plane. This avoids placing microwave refocusing pulses
-on the increasingly short nuclear-Larmor timescale. Their conventional
-DD-Qdyne comparison uses KDD, but KDD is not what gives ENDOR Qdyne its
-high-field reach.
+With back-action disabled, `simulate_endor_qdyne` evaluates the paper's
+Eqs. 1-2 using spin-one-half expectation values:
 
-Consequently, the present model reproduces clocked down-conversion, sequence
-filtering, visibility loss, sampling aliases, and classical coherent envelopes,
-but not the paper's RF basis mapping, target back-action, hyperfine-conditioned
-phase kicks, or linewidth caused by repeated sensor initialization and charge
-errors. Nuclear-RF events can be represented in a `SensingSequence`, but the
-addressed-qubit compiler deliberately leaves them unpropagated. Reproducing the
-paper quantitatively requires a coupled electron-nuclear cycle map with
-phase-coherent RF control, optical reset, and target-state carryover between
-shots.
+\[
+\langle I_z\rangle_n =
+\frac12\cos\left[
+2\pi(\nu_L-\nu_i)n\tau_\mathrm{fid}+n\Phi+\phi_0
+\right],
+\qquad
+\langle S_z\rangle_n =
+-\sin(\alpha)\langle I_z\rangle_n ,
+\]
+
+where \(\alpha=2\pi A_{zz}\tau_\mathrm{sens}\), \(\Phi\) is an optional
+per-cycle RF phase increment, and \(A_{zz}\) is supplied in spectroscopic Hz.
+Only \(\tau_\mathrm{fid}\) accumulates target/reference detuning. The observed
+wall-clock carrier is therefore
+
+\[
+\nu_\mathrm{cycle} =
+(\nu_L-\nu_i)\frac{\tau_\mathrm{fid}}{T_\mathrm{rep}}
++\frac{\Phi+\beta_\mathrm{res}}{2\pi T_\mathrm{rep}} .
+\]
+
+`residual_sensing_phase_rad` represents imperfect satisfaction of the
+paper's \(\beta=2\pi k\) back-rotation condition. It is zero when resonant
+nuclear driving or RF refocusing removes sensing-period phase.
+
+```python
+from spin_dynamics.nano_mr import (
+    meinel_2023_endor_qdyne_protocol,
+    simulate_endor_qdyne,
+)
+
+reference_hz = 2.5e6
+protocol = meinel_2023_endor_qdyne_protocol(
+    rf_reference_frequency_hz=reference_hz,
+)
+endor = simulate_endor_qdyne(
+    protocol,
+    target_frequency_hz=reference_hz,
+    shot_count=512,
+)
+```
+
+The paper preset retains the reported 10 µs free-precession interval, 15 µs
+Ramsey sensing time, 66 µs RF Rabi period, 2.5 µs repolarization, 1.9 µs
+readout, 10 µs wait, 105.5 µs sampling interval, 6 kHz \(A_{zz}\), 50 µs
+sensor \(T_2^*\), and \(\pi/2\) phase cycling. The explicit operation sum is
+105.4 µs; the remaining 0.1 µs is preserved as unassigned timing margin.
+
+Repeated weak measurements use the coupled nuclear cycle map from
+Supplementary Eq. 14. Sensor-initialization infidelity uses the exact
+Supplementary Eq. 23, while
+`initialization_infidelity_decay_rate(..., leading_order=True)` returns
+main-text Eq. 3:
+
+\[
+\Gamma_\mathrm{init}
+=\frac{2(1-f)}{T_\mathrm{rep}}
+\sin^2(2\pi A_{zz}T_\mathrm{rep}).
+\]
+
+The intrinsic nuclear decay rate, initialization-error envelope,
+weak-measurement back-action, finite sensor Ramsey contrast, clock errors, and
+optional optical photon counts remain separately reported. Charge-state
+switching and off-resonant RF pulse-shape errors are not microscopically
+propagated; they must not be hidden by silently changing \(A_{zz}\) or the
+clock model.
+
+![Meinel et al. ENDOR-QDyne timing, carrier, and linewidth checks](../images/example_nano_mr_endor_qdyne.png)
+
+The implementation has four direct paper checks:
+
+- the preset's explicit operations sum to 105.4 µs within the reported
+  105.5 µs cycle;
+- \(\pi/2\) phase cycling gives
+  \(1/(4T_\mathrm{rep})=2.369668\) kHz, within 2 Hz of the reported
+  2.368 kHz carrier;
+- \(A_{zz}=6\) kHz, \(T_\mathrm{rep}=105\) µs, and \(f=0.9\) give
+  \(\Gamma_\mathrm{init}=1.012\) kHz in Eq. 3, matching the paper's
+  approximately 1 kHz estimate; and
+- the no-back-action limit matches Eqs. 1-2 sample by sample, while the
+  enabled cycle map matches Supplementary Eq. 14.
+
+Reproduce the comparison with
+`python examples/plot_nano_mr_endor_qdyne.py --output endor_qdyne.png`.
 
 ## Coherent thermal, chemical-shift/J, and DNP models
 

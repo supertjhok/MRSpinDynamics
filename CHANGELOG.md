@@ -9,6 +9,11 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
 
 ### Added
 
+- Added paper-grounded ENDOR-QDyne to PythonSpinDynamics with explicit RF-basis
+  mapping timing, Ramsey measurement strength, nuclear-state carryover, weak-
+  measurement back-action, sensor-initialization-infidelity linewidths, a
+  Meinel et al. parameter preset, regression tests, and a validation example.
+
 - Added the Phase-1 through Phase-8 defect-spin nanoscale
   spectroscopy/MRI
   foundation to
@@ -96,6 +101,9 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
 
 ### Fixed
 
+- Made every PythonSpinDynamics plotting example display interactively when no
+  output path is supplied, while retaining explicit headless saving for batch
+  and documentation builds; added a repository-wide regression guard.
 - Corrected the new nano-MR high-resolution and exact-cluster layers: sensor coherence now attenuates Qdyne visibility rather than phase, raw and Nyquist-aliased beats are reported separately, synchronized quadratures remain bounded beyond the weak-signal limit, clocked coherent evolution uses one physical timebase, secular nuclear interactions follow the static-field direction with homonuclear dipolar flip-flops, optical initialization fidelity affects acquired counts, and Gaussian coherence rejects incomplete one-sided PSD grids.
 - Hardened PEEC impedance extraction against platform-dependent numerical
   failures: unstable distant-filament closed forms are repaired by fixed

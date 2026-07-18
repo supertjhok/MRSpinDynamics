@@ -34,6 +34,7 @@
         "src/spin_dynamics/experiment/nano_mr_adapter.py",
         "tests/test_nano_mr.py",
         "tests/test_nano_mr_experiment.py",
+        "tests/test_nano_mr_endor_qdyne.py",
         "examples/*nano_mr*.py",
         "examples/*esr_nano_mr*.py",
         "docs/nano_mr_plan.md",
@@ -41,7 +42,8 @@
       ],
       "tests": [
         "tests.test_nano_mr",
-        "tests.test_nano_mr_experiment"
+        "tests.test_nano_mr_experiment",
+        "tests.test_nano_mr_endor_qdyne"
       ]
     },
     "relaxation": {
