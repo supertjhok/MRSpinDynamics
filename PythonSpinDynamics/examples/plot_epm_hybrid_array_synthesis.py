@@ -1,4 +1,7 @@
 """Plot hybrid EPM array field bases and constrained operating modes."""
+# Follow the example from physical inputs through simulation to plotted diagnostics.
+# Quantities use SI units unless a variable name or CLI help states otherwise.
+
 
 from __future__ import annotations
 
@@ -91,6 +94,7 @@ def _mode_map(basis, result, shape: tuple[int, int]) -> tuple[np.ndarray, np.nda
     return field, field[..., 2]
 
 
+# Keep orchestration in one entry point so helper functions remain reusable.
 def main() -> None:
     args = _parser().parse_args()
     _validate(args)
@@ -125,6 +129,7 @@ def main() -> None:
     off_field, off_bz = _mode_map(plane_basis, field_off, xx.shape)
     transport_field, transport_bz = _mode_map(plane_basis, transport, xx.shape)
 
+    # Assemble the observables and diagnostics for side-by-side interpretation.
     fig, axes = plt.subplots(2, 3, figsize=(15, 9), constrained_layout=True)
     fig.suptitle("Hybrid electropermanent array: cached field basis and operating modes", fontsize=16)
 

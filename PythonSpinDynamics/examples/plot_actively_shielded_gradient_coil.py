@@ -8,6 +8,9 @@ and after active shielding and pre-emphasis.
 
 Run with ``--output figure.png`` to save the plot; otherwise display it.
 """
+# Follow the example from physical inputs through simulation to plotted diagnostics.
+# Quantities use SI units unless a variable name or CLI help states otherwise.
+
 
 from __future__ import annotations
 
@@ -134,8 +137,10 @@ def _causal_preemphasis(driver, target: np.ndarray, dt: float, limit: float = 4.
     return np.clip(command, -float(limit), float(limit))
 
 
+# Keep orchestration in one entry point so helper functions remain reusable.
 def main() -> None:
     args = _parse_args()
+    # Load Matplotlib only after choosing interactive or headless output mode.
     plt = load_matplotlib(headless=bool(args.output))
 
     from spin_dynamics.fields import (
@@ -303,6 +308,7 @@ def main() -> None:
         f"thickness={args.conductor_thickness_mm:g} mm"
     )
 
+    # Assemble the observables and diagnostics for side-by-side interpretation.
     fig, axes = plt.subplots(3, 3, figsize=(15.5, 12.0))
     time_ms = np.arange(samples) * dt * 1.0e3
     for column, design in enumerate(designs):

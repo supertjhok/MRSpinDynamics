@@ -6,6 +6,9 @@ weak-field relaxation validation. Both examples use a tilted single-crystal
 geometry so transitions that borrow intensity in the intermediate regime are
 visible. Run with ``--output nqr_nmr_crossover.png`` to save the figure.
 """
+# Follow the example from physical inputs through simulation to plotted diagnostics.
+# Quantities use SI units unless a variable name or CLI help states otherwise.
+
 
 from __future__ import annotations
 
@@ -226,6 +229,7 @@ def _plot_material(
     return sweep, scatter
 
 
+# Keep orchestration in one entry point so helper functions remain reusable.
 def main() -> None:
     args = _parse_args()
     if args.min_ratio <= 0.0 or args.max_ratio <= args.min_ratio:
@@ -238,7 +242,9 @@ def main() -> None:
         args.points,
     )
     materials = (_load_nano2(), _naclo3())
+    # Load Matplotlib only after choosing interactive or headless output mode.
     plt = load_matplotlib(headless=args.output is not None)
+    # Assemble the observables and diagnostics for side-by-side interpretation.
     fig, axes = plt.subplots(2, 2, figsize=(12.4, 8.2), constrained_layout=True)
 
     sweeps = []

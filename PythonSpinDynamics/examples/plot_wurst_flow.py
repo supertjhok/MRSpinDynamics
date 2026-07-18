@@ -4,6 +4,9 @@ Follow the timing and transport assumptions carefully, then inspect how they
 change attenuation, phase, or the echo train. Run ``python
 examples/plot_wurst_flow.py --help`` to see the adjustable inputs.
 """
+# Follow the example from physical inputs through simulation to plotted diagnostics.
+# Quantities use SI units unless a variable name or CLI help states otherwise.
+
 
 from __future__ import annotations
 
@@ -46,6 +49,7 @@ def main() -> None:
     parser.add_argument("--output", type=Path, default=None, help="Optional output PNG path.")
     args = parser.parse_args()
 
+    # Load Matplotlib only after choosing interactive or headless output mode.
     plt = load_matplotlib()
     duration_seconds = args.duration_us * 1e-6
 
@@ -71,6 +75,7 @@ def main() -> None:
     )
 
     pulse_time_us = 1e6 * np.cumsum(ideal.pulse.duration)
+    # Assemble the observables and diagnostics for side-by-side interpretation.
     fig, axes = plt.subplots(2, 2, figsize=(11, 7.5), constrained_layout=True)
 
     axes[0, 0].plot(pulse_time_us, ideal.pulse.amplitude, label="amplitude")
@@ -112,6 +117,7 @@ def main() -> None:
     axes[1, 1].set_title("Matched WURST-CPMG Echoes")
     axes[1, 1].legend()
 
+    # Save reproducibly for batch runs; otherwise keep the figure interactive.
     if args.output is not None:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(args.output, dpi=150)

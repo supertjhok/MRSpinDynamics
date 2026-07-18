@@ -9,6 +9,9 @@ diffusion, reflecting tissue-map boundaries, and irreversible target capture.
 The array geometry and particle aggregate are illustrative engineering cases,
 not a clinical device or dose model.
 """
+# Follow the example from physical inputs through simulation to plotted diagnostics.
+# Quantities use SI units unless a variable name or CLI help states otherwise.
+
 
 from __future__ import annotations
 
@@ -100,6 +103,7 @@ def _zero_magnetic_particle(particle: SuperparamagneticParticle) -> Superparamag
     )
 
 
+# Keep orchestration in one entry point so helper functions remain reusable.
 def main() -> None:
     args = _parser().parse_args()
     _validate(args)
@@ -206,6 +210,7 @@ def main() -> None:
     force_norm = np.linalg.norm(force_nodes, axis=-1)
     force_safe = np.where(force_norm > 0.0, force_norm, 1.0)
 
+    # Assemble the observables and diagnostics for side-by-side interpretation.
     fig, axes = plt.subplots(2, 3, figsize=(15.0, 8.8), constrained_layout=True)
     fig.suptitle("Image-guided magnetic aggregate transport with a hybrid EPM array", fontsize=15)
 

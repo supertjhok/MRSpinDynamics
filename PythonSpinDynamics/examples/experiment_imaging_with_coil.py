@@ -7,6 +7,9 @@ sample), and hands the resulting B1 map to the imaging workflow -- replacing
 its synthetic default. ``plan()`` reports a transmit-efficiency diagnostic
 and warns if the coil is poorly oriented relative to B0.
 """
+# Follow the example from physical inputs through simulation to reported observables.
+# Quantities use SI units unless a variable name or CLI help states otherwise.
+
 
 from __future__ import annotations
 

@@ -4,6 +4,9 @@ This diagnostic solves the probe waveform for one nominal refocusing pulse at
 several absolute RF phases.  The plotted rotating-frame shapes are the same
 piecewise pulse segments used by the finite CPMG builders.
 """
+# Follow the example from physical inputs through simulation to plotted diagnostics.
+# Quantities use SI units unless a variable name or CLI help states otherwise.
+
 
 from __future__ import annotations
 
@@ -39,6 +42,7 @@ def main() -> None:
     parser.add_argument("--output", type=Path, default=None)
     args = parser.parse_args()
 
+    # Load Matplotlib only after choosing interactive or headless output mode.
     plt = load_matplotlib(headless=args.output is not None)
     shapes = [
         solve_probe_pulse_shape(
@@ -51,6 +55,7 @@ def main() -> None:
         for phase_cycles in args.absolute_phases
     ]
 
+    # Assemble the observables and diagnostics for side-by-side interpretation.
     fig, axes = plt.subplots(2, 2, figsize=(11, 7.5), constrained_layout=True)
     for shape in shapes:
         time_us = 1.0e6 * shape.time_seconds
@@ -89,6 +94,7 @@ def main() -> None:
         f"({args.probe} probe)"
     )
 
+    # Save reproducibly for batch runs; otherwise keep the figure interactive.
     if args.output is not None:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(args.output, dpi=150)

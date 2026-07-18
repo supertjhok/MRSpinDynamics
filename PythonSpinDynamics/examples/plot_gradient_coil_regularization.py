@@ -7,6 +7,9 @@ from weak, selected, and strong regularization.
 
 Run with ``--output figure.png`` to save the plot; otherwise display it.
 """
+# Follow the example from physical inputs through simulation to plotted diagnostics.
+# Quantities use SI units unless a variable name or CLI help states otherwise.
+
 
 from __future__ import annotations
 
@@ -29,8 +32,10 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+# Keep orchestration in one entry point so helper functions remain reusable.
 def main() -> None:
     args = _parse_args()
+    # Load Matplotlib only after choosing interactive or headless output mode.
     plt = load_matplotlib(headless=bool(args.output))
 
     from spin_dynamics.fields import (
@@ -61,6 +66,7 @@ def main() -> None:
         f"{path.selected_result.current_norm_a:.3f} A"
     )
 
+    # Assemble the observables and diagnostics for side-by-side interpretation.
     fig, axes = plt.subplots(2, 2, figsize=(12.0, 8.5))
     ax = axes[0, 0]
     ax.loglog(alphas, errors, "o-", color="C3", label="relative RMS field error")

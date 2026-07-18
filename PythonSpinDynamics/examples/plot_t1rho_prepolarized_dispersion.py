@@ -6,6 +6,9 @@ nutation frequency, using the shared on-resonance spin-lock rate
 ``plot_t1rho_molecular_size_dispersion.py`` for the companion example that sweeps
 molecular size instead of temperature.
 """
+# Follow the example from physical inputs through simulation to plotted diagnostics.
+# Quantities use SI units unless a variable name or CLI help states otherwise.
+
 
 from __future__ import annotations
 
@@ -127,6 +130,7 @@ def main() -> None:
     if args.spin_lock_min_khz <= 0.0 or args.spin_lock_max_khz <= args.spin_lock_min_khz:
         raise ValueError("spin-lock range must be positive and increasing")
 
+    # Load Matplotlib only after choosing interactive or headless output mode.
     plt = load_matplotlib(headless=args.output is not None)
     data = build_t1rho_dispersion(args)
     temperatures = data["temperatures"]
@@ -140,6 +144,7 @@ def main() -> None:
         ],
     )
 
+    # Assemble the observables and diagnostics for side-by-side interpretation.
     fig, axes = plt.subplots(2, 2, figsize=(12.0, 8.2), constrained_layout=True)
     for idx in selected:
         axes[0, 0].semilogx(
@@ -221,6 +226,7 @@ def main() -> None:
     print(f"T1rho at min spin-lock: {low:.6g} s")
     print(f"T1rho at max spin-lock: {high:.6g} s")
 
+    # Save reproducibly for batch runs; otherwise keep the figure interactive.
     if args.output is not None:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(args.output, dpi=150)

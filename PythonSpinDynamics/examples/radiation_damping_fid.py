@@ -4,6 +4,9 @@ Use the printed or plotted signal to connect pulse timing, probe choice, and
 relaxation to the resulting acquisition. Run ``python
 examples/radiation_damping_fid.py --help`` to see the adjustable inputs.
 """
+# Follow the example from physical inputs through simulation to reported observables.
+# Quantities use SI units unless a variable name or CLI help states otherwise.
+
 
 from __future__ import annotations
 

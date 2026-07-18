@@ -1,4 +1,7 @@
 """Benchmark adaptive, fixed, and prior-ranked protocols for all Phase 2 adapters."""
+# Follow the example from physical inputs through simulation to plotted diagnostics.
+# Quantities use SI units unless a variable name or CLI help states otherwise.
+
 
 from __future__ import annotations
 
@@ -97,6 +100,7 @@ def _display_time(name: str) -> tuple[float, str]:
     return 1.0, "s"
 
 
+# Keep orchestration in one entry point so helper functions remain reusable.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--trials", type=int, default=64)
@@ -111,6 +115,7 @@ def main() -> None:
     if args.trials <= 0 or args.utility_samples <= 0:
         parser.error("trials and utility-samples must be positive")
 
+    # Load Matplotlib only after choosing interactive or headless output mode.
     plt = load_matplotlib(headless=args.output is not None)
     problems = make_phase2_adapter_benchmarks(
         profile=args.profile, utility_samples=args.utility_samples
@@ -121,6 +126,7 @@ def main() -> None:
     )
     _print_summary(results)
 
+    # Assemble the observables and diagnostics for side-by-side interpretation.
     fig, axes = plt.subplots(2, 4, figsize=(15.5, 7.4))
     for column, (problem, result) in enumerate(zip(problems, results)):
         top = axes[0, column]
@@ -178,6 +184,7 @@ def main() -> None:
         args.json_output.parent.mkdir(parents=True, exist_ok=True)
         save_benchmark_results(args.json_output, results)
         print(f"saved: {args.json_output}")
+    # Save reproducibly for batch runs; otherwise keep the figure interactive.
     if args.output is not None:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(args.output, dpi=170)

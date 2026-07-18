@@ -1,4 +1,7 @@
 """Shared helpers for Mandal-2015-inspired absolute-phase examples."""
+# This support module centralizes constants and helpers reused by examples.
+# Keeping the shared calculation here prevents plotted variants from diverging.
+
 
 from __future__ import annotations
 

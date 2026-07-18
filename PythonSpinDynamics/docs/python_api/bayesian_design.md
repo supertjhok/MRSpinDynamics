@@ -120,12 +120,16 @@ static experiment planner before its utility is scored or returned.
 | `PGSEAdapter` | `PGSEDesign(G, delta, Delta)` | diffusion coefficient and T2 | complex echo vector | final echo time, recovery, overhead |
 | `NQRFIDAdapter` | `NQRFrequencyDesign(carrier, pulse, nutation)` | site quadrupole frequency and eta | complex FID | pulse, acquisition, recovery, overhead |
 | `ESRHahnAdapter` | `ESRDelayDesign(tau, carrier)` | sequence T2 and optional isotropic g factor | complex echo waveform | pulses, delay, acquisition, recovery, overhead |
+| `NanoMRQdyneAdapter` | `NanoMRQdyneDesign(reference, sensing duration)` | coherent signal frequency and field amplitude | normalized clock record or selected sample | shot count times repetition interval, overhead |
 
-All four adapters also recognize optional scalar `signal_scale` and `baseline`
+All five adapters also recognize optional scalar `signal_scale` and `baseline`
 particles. Set `echo_index` or `sample_index` to select a scalar observation;
 otherwise use `ComplexGaussianLikelihood(..., event_ndim=1)` for the returned
-vector. Acquisition noise must be disabled on the template because uncertainty
-belongs in the explicit Bayesian likelihood.
+complex vector, or the corresponding real Gaussian likelihood for Qdyne.
+Acquisition noise must be disabled on the template because uncertainty belongs
+in the explicit Bayesian likelihood. The Qdyne adapter also requires the
+effective optical readout to be disabled so photon statistics are not sampled
+in the forward model and counted again by the likelihood.
 
 ```python
 import numpy as np
@@ -179,7 +183,9 @@ deterministic PGSE adapter has the Phase 3 batch path described below.
 Runnable examples:
 [`bayesian_design_cpmg_ir_adapter.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/examples/bayesian_design_cpmg_ir_adapter.py)
 and
-[`bayesian_design_adapter_catalog.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/examples/bayesian_design_adapter_catalog.py).
+[`bayesian_design_adapter_catalog.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/examples/bayesian_design_adapter_catalog.py), plus the
+clocked nano-MR loop
+[`bayesian_design_nano_mr_qdyne.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/examples/bayesian_design_nano_mr_qdyne.py).
 
 ## Phase 3 acceleration
 

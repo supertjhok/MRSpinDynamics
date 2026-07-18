@@ -11,6 +11,9 @@ cubature convergence against the exact finite-cylinder axial field.
 
 Run with ``--output figure.png`` to save, or omit it to show interactively.
 """
+# Follow the example from physical inputs through simulation to plotted diagnostics.
+# Quantities use SI units unless a variable name or CLI help states otherwise.
+
 
 from __future__ import annotations
 
@@ -64,12 +67,14 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+# Keep orchestration in one entry point so helper functions remain reusable.
 def main() -> None:
     args = _parse_args()
     if args.pixels < 11:
         raise ValueError("--pixels must be at least 11")
     if not 0.0 <= args.remanence_t <= 1.27:
         raise ValueError("--remanence-t must lie between 0 and nominal material Br")
+    # Load Matplotlib only after choosing interactive or headless output mode.
     plt = load_matplotlib(headless=bool(args.output))
     from matplotlib.patches import Circle
 
@@ -221,6 +226,7 @@ def main() -> None:
     )
     print("  programming-pulse and hysteresis dynamics: not enabled in this phase")
 
+    # Assemble the observables and diagnostics for side-by-side interpretation.
     fig, axes = plt.subplots(2, 3, figsize=(15.0, 8.8))
 
     ax = axes[0, 0]

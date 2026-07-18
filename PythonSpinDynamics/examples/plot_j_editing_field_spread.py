@@ -4,6 +4,9 @@ Trace the coordinate and field conventions from model construction to the image 
 field diagnostic before changing the geometry. Run ``python
 examples/plot_j_editing_field_spread.py --help`` to see the adjustable inputs.
 """
+# Follow the example from physical inputs through simulation to plotted diagnostics.
+# Quantities use SI units unless a variable name or CLI help states otherwise.
+
 
 from __future__ import annotations
 
@@ -132,6 +135,7 @@ def main() -> None:
     if args.j_hz <= 0.0 or args.nutation_hz <= 0.0 or args.max_time_ms <= 0.0:
         raise SystemExit("--j-hz, --nutation-hz, and --max-time-ms must be positive")
 
+    # Load Matplotlib only after choosing interactive or headless output mode.
     plt = load_matplotlib(headless=args.output is not None)
 
     system = coupled_spin_system(
@@ -201,6 +205,7 @@ def main() -> None:
             )
             distortion[row, col] = float(np.sqrt(np.mean((curve - ideal_map) ** 2)))
 
+    # Assemble the observables and diagnostics for side-by-side interpretation.
     fig, axes = plt.subplots(2, 2, figsize=(11.5, 7.8), constrained_layout=True)
     time_ms = 1e3 * encoding_times
 
@@ -248,6 +253,7 @@ def main() -> None:
     )
     axes[1, 1].text(0.0, 0.98, summary, va="top", family="monospace", fontsize=11)
 
+    # Save reproducibly for batch runs; otherwise keep the figure interactive.
     if args.output is not None:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(args.output, dpi=150)

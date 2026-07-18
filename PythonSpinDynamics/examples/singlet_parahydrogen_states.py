@@ -1,4 +1,7 @@
 """Inspect singlet order versus parahydrogen enrichment."""
+# Follow the example from physical inputs through simulation to reported observables.
+# Quantities use SI units unless a variable name or CLI help states otherwise.
+
 
 from __future__ import annotations
 
@@ -15,6 +18,7 @@ from spin_dynamics.hyperpolarization import (  # noqa: E402
 )
 
 
+# Keep orchestration in one entry point so helper functions remain reusable.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(

@@ -6,6 +6,9 @@ finite-pulse spin-warp sequence then produces signal loss, distortion, and
 diffusion-mediated dephasing in surrounding tissue.  A paired particle-free
 reference converts the negative contrast into a localization image.
 """
+# Follow the example from physical inputs through simulation to plotted diagnostics.
+# Quantities use SI units unless a variable name or CLI help states otherwise.
+
 
 from __future__ import annotations
 
@@ -50,6 +53,7 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
+# Keep orchestration in one entry point so helper functions remain reusable.
 def main() -> None:
     args = _parser().parse_args()
     rng = np.random.default_rng(args.seed)

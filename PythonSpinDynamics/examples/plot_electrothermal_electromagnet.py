@@ -8,6 +8,9 @@ textbook: thermal compensation, current feedback, and direct field lock.
 
 Run with ``--output figure.png`` to save the plot; otherwise display it.
 """
+# Follow the example from physical inputs through simulation to plotted diagnostics.
+# Quantities use SI units unless a variable name or CLI help states otherwise.
+
 
 from __future__ import annotations
 
@@ -31,8 +34,10 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+# Keep orchestration in one entry point so helper functions remain reusable.
 def main() -> None:
     args = _parse_args()
+    # Load Matplotlib only after choosing interactive or headless output mode.
     plt = load_matplotlib(headless=bool(args.output))
 
     from spin_dynamics.fields import coils
@@ -115,6 +120,7 @@ def main() -> None:
             f"P={result.power_w[-1]:.1f} W"
         )
 
+    # Assemble the observables and diagnostics for side-by-side interpretation.
     fig, axes = plt.subplots(2, 2, figsize=(12.5, 8.5), sharex=True)
     time_min = times / 60.0
     styles = ("-", "--", "-.", ":")

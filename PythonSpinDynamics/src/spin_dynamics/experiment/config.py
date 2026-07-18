@@ -50,6 +50,10 @@ from spin_dynamics.experiment.specs import (
     DEERDistribution,
     Experiment,
     Hardware,
+    NanoMRBathComponent,
+    NanoMRLayer,
+    NanoMROpticalReadout,
+    NanoMRSensor,
     Phantom,
     Sample,
     SEQUENCE_TYPES,
@@ -77,6 +81,10 @@ _SPEC_CLASSES: tuple[type, ...] = (
     UniformFlow2D,
     DEERDistribution,
     SequenceDomain,
+    NanoMRSensor,
+    NanoMRBathComponent,
+    NanoMRLayer,
+    NanoMROpticalReadout,
     *SEQUENCE_TYPES,
     SolenoidCoil,
     PlanarSpiralCoil,
@@ -259,6 +267,14 @@ def _dump_toml(mapping: dict[str, Any], path: tuple[str, ...] = ()) -> list[str]
             table_lines.append("")
             table_lines.append(f"[{'.'.join(sub_path)}]")
             table_lines.extend(_dump_toml(value, sub_path))
+        elif isinstance(value, list) and value and all(
+            isinstance(item, dict) for item in value
+        ):
+            sub_path = path + (key,)
+            for item in value:
+                table_lines.append("")
+                table_lines.append(f"[[{'.'.join(sub_path)}]]")
+                table_lines.extend(_dump_toml(item, sub_path))
         else:
             scalar_lines.append(f"{key} = {_toml_value(value)}")
     return scalar_lines + table_lines

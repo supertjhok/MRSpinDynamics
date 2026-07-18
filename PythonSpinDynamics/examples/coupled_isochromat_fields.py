@@ -4,6 +4,9 @@ Trace the coordinate and field conventions from model construction to the image 
 field diagnostic before changing the geometry. Run ``python
 examples/coupled_isochromat_fields.py --help`` to see the adjustable inputs.
 """
+# Follow the example from physical inputs through simulation to reported observables.
+# Quantities use SI units unless a variable name or CLI help states otherwise.
+
 
 from __future__ import annotations
 

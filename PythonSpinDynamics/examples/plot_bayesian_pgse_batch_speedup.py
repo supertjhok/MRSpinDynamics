@@ -1,4 +1,7 @@
 """Plot Phase 3 batched-PGSE prediction speedup with exact parity checks."""
+# Follow the example from physical inputs through simulation to plotted diagnostics.
+# Quantities use SI units unless a variable name or CLI help states otherwise.
+
 
 from __future__ import annotations
 
@@ -36,6 +39,7 @@ def _elapsed(function, repeats: int) -> tuple[float, np.ndarray]:
     return float(best), np.asarray(value)
 
 
+# Keep orchestration in one entry point so helper functions remain reusable.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--maximum-particles", type=int, default=1024)
@@ -45,6 +49,7 @@ def main() -> None:
     if args.maximum_particles < 16 or args.repeats <= 0:
         parser.error("maximum-particles must be at least 16 and repeats positive")
 
+    # Load Matplotlib only after choosing interactive or headless output mode.
     plt = load_matplotlib(headless=args.output is not None)
     template = Experiment(
         PGSE(num_echoes=4),
@@ -83,6 +88,7 @@ def main() -> None:
     facade_times = np.asarray(facade_times)
     speedup = facade_times / batched_times
 
+    # Assemble the observables and diagnostics for side-by-side interpretation.
     fig, axes = plt.subplots(1, 2, figsize=(11.0, 4.3))
     axes[0].loglog(
         counts,
@@ -125,6 +131,7 @@ def main() -> None:
         f"{facade_times[-1]:.4f} s facade, {batched_times[-1]:.4f} s batched, "
         f"{speedup[-1]:.1f}x speedup"
     )
+    # Save reproducibly for batch runs; otherwise keep the figure interactive.
     if args.output is not None:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(args.output, dpi=170)

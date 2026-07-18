@@ -23,6 +23,9 @@ orientation differences into near-nulls and a well-tuned magic-angle rectangular
 sequence is already hard to beat -- see ``plot_grape_nqr_slse_excitation.py`` and
 the manual for that distinction.
 """
+# Follow the example from physical inputs through simulation to reported observables.
+# Quantities use SI units unless a variable name or CLI help states otherwise.
+
 
 from __future__ import annotations
 
@@ -144,7 +147,9 @@ def main() -> None:
     if args.save is not None:
         from _source_path import load_matplotlib
 
+        # Load Matplotlib only after choosing interactive or headless output mode.
         plt = load_matplotlib(required=True, headless=True)
+        # Assemble the observables and diagnostics for side-by-side interpretation.
         fig, axes = plt.subplots(1, 2, figsize=(11, 4))
         order = np.argsort(rect_fids)
         axes[0].plot(np.sort(rect_fids), label="rectangular", lw=1.5)

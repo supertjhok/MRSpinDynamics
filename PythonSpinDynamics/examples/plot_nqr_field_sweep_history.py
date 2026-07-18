@@ -1,4 +1,7 @@
 """Plot history-dependent NaNO2 dynamics during an up-and-down B0 sweep."""
+# Follow the example from physical inputs through simulation to plotted diagnostics.
+# Quantities use SI units unless a variable name or CLI help states otherwise.
+
 
 from __future__ import annotations
 
@@ -65,6 +68,7 @@ def _prepared_ground_state(site: QuadrupolarSite, field: np.ndarray) -> np.ndarr
     return np.outer(ground, ground.conj())
 
 
+# Keep orchestration in one entry point so helper functions remain reusable.
 def main() -> None:
     args = _parse_args()
     if args.points_per_leg < 3 or args.substeps <= 0:
@@ -109,7 +113,9 @@ def main() -> None:
     relaxing = run(args.relaxing_duration_ms * 1.0e-3, relaxation)
     turn = args.points_per_leg - 1
 
+    # Load Matplotlib only after choosing interactive or headless output mode.
     plt = load_matplotlib(headless=args.output is not None)
+    # Assemble the observables and diagnostics for side-by-side interpretation.
     fig, axes = plt.subplots(2, 2, figsize=(11.4, 7.8), constrained_layout=True)
     normalized_time = np.linspace(0.0, 1.0, ratios.size)
     axes[0, 0].plot(normalized_time, ratios, color="black")

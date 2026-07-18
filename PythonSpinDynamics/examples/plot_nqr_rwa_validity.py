@@ -5,6 +5,9 @@ example.  Color reports the density-matrix response error after a short pulse;
 contours mark 1% and 10% error.  The dashed curve is the normalized spacing to
 the nearest distinct RF-active line, a useful multiband warning scale.
 """
+# Follow the example from physical inputs through simulation to plotted diagnostics.
+# Quantities use SI units unless a variable name or CLI help states otherwise.
+
 
 from __future__ import annotations
 
@@ -63,6 +66,7 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+# Keep orchestration in one entry point so helper functions remain reusable.
 def main() -> None:
     args = _parse_args()
     if args.interaction_points < 3 or args.rf_points < 3:
@@ -72,7 +76,9 @@ def main() -> None:
     sites = (_nano2_site(), _naclo3_site())
     labels = (r"NaNO$_2$ $^{14}$N ($I=1$)", r"NaClO$_3$ $^{35}$Cl ($I=3/2$)")
 
+    # Load Matplotlib only after choosing interactive or headless output mode.
     plt = load_matplotlib(headless=args.output is not None)
+    # Assemble the observables and diagnostics for side-by-side interpretation.
     fig, axes = plt.subplots(1, 2, figsize=(12.2, 5.0), constrained_layout=True)
     mesh = None
     for axis, site, label in zip(axes, sites, labels, strict=True):

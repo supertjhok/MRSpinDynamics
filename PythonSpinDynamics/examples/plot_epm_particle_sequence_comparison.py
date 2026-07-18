@@ -6,6 +6,9 @@ fields, tissue maps, subvoxel water exclusion, and diffusion realization.  The
 comparison reports localization errors rather than assuming that the sequence
 with the strongest-looking contrast is the most accurate.
 """
+# Follow the example from physical inputs through simulation to plotted diagnostics.
+# Quantities use SI units unless a variable name or CLI help states otherwise.
+
 
 from __future__ import annotations
 
@@ -60,6 +63,7 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
+# Keep orchestration in one entry point so helper functions remain reusable.
 def main() -> None:
     args = _parser().parse_args()
     rng = np.random.default_rng(args.seed)

@@ -5,6 +5,9 @@ and a connected dumbbell pore. It separates finite intensity SNR, radial q-range
 truncation, and randomly missing q samples, then reports shift/reflection-
 invariant correlation and intersection-over-union across independent trials.
 """
+# Follow the example from physical inputs through simulation to plotted diagnostics.
+# Quantities use SI units unless a variable name or CLI help states otherwise.
+
 
 from __future__ import annotations
 
@@ -209,6 +212,7 @@ def _write_csv(path: Path, rows: list[dict[str, object]]) -> None:
 
 def _plot(plt, args, axis, geometries, summaries, representative):
     conditions = _conditions(args)
+    # Assemble the observables and diagnostics for side-by-side interpretation.
     fig, axes = plt.subplots(
         len(geometries),
         len(conditions) + 1,
@@ -254,6 +258,7 @@ def _plot(plt, args, axis, geometries, summaries, representative):
     return fig
 
 
+# Keep orchestration in one entry point so helper functions remain reusable.
 def main() -> None:
     args = _parse_args()
     if args.pixels < 24:
@@ -287,6 +292,7 @@ def main() -> None:
         _write_csv(args.csv, rows)
         print(f"saved trials: {args.csv}")
     if args.output:
+        # Load Matplotlib only after choosing interactive or headless output mode.
         plt = load_matplotlib(headless=True)
         fig = _plot(plt, args, axis, geometries, summaries, representative)
         args.output.parent.mkdir(parents=True, exist_ok=True)

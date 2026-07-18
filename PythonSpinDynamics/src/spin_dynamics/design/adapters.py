@@ -27,6 +27,7 @@ from spin_dynamics.experiment import (
     CPMGIRTrain,
     ESRHahnEcho,
     Experiment,
+    NanoMRQdyne,
     NQRFID,
     PGSE,
 )
@@ -162,6 +163,27 @@ class ESRDelayDesign:
         if self.rf_frequency_hz is not None:
             object.__setattr__(
                 self, "rf_frequency_hz", _positive(self.rf_frequency_hz, "rf_frequency_hz")
+            )
+
+
+@dataclass(frozen=True)
+class NanoMRQdyneDesign:
+    """Qdyne reference frequency with an optional sensing-window duration."""
+
+    reference_frequency_hz: float
+    sensing_duration_seconds: float | None = None
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "reference_frequency_hz",
+            _finite(self.reference_frequency_hz, "reference_frequency_hz"),
+        )
+        if self.sensing_duration_seconds is not None:
+            object.__setattr__(
+                self,
+                "sensing_duration_seconds",
+                _positive(self.sensing_duration_seconds, "sensing_duration_seconds"),
             )
 
 
@@ -570,6 +592,89 @@ class ESRHahnAdapter(_AdapterMixin):
             + sequence.tau_seconds
             + refocus
             + acquisition
+        )
+
+
+@dataclass(frozen=True, eq=False)
+class NanoMRQdyneAdapter(_AdapterMixin):
+    """Bind coherent signal frequency/amplitude to a Qdyne design action.
+
+    The observable is the deterministic normalized spin-projection record;
+    photon statistics belong in the Bayesian observation likelihood, so the
+    template must not enable the facade optical readout model.
+    """
+
+    template: Experiment
+    nominal_parameters: Mapping[str, float]
+    sample_index: int | None = None
+    sample_stride: int = 1
+    fixed_overhead_seconds: float = 0.0
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.template.sequence, NanoMRQdyne):
+            raise TypeError("NanoMRQdyneAdapter requires a NanoMRQdyne template")
+        if self.template.hardware.nano_mr_sensor is None:
+            raise ValueError("NanoMRQdyneAdapter template requires nano_mr_sensor")
+        if self.template.hardware.nano_mr_optical_readout is not None:
+            raise ValueError(
+                "adapter template nano_mr_optical_readout must be None; detector "
+                "noise belongs in the Bayesian likelihood"
+            )
+        if self.template.acquisition.noise is not None:
+            raise ValueError("adapter template acquisition.noise must be None")
+        if not isinstance(self.sample_stride, int) or self.sample_stride <= 0:
+            raise ValueError("sample_stride must be a positive integer")
+        if self.sample_index is not None and not isinstance(self.sample_index, int):
+            raise ValueError("sample_index must be an integer when set")
+        object.__setattr__(self, "nominal_parameters", _nominal(self.nominal_parameters))
+        object.__setattr__(
+            self,
+            "fixed_overhead_seconds",
+            _nonnegative(self.fixed_overhead_seconds, "fixed_overhead_seconds"),
+        )
+
+    def build_experiment(
+        self,
+        parameters: Mapping[str, float],
+        design: NanoMRQdyneDesign,
+    ) -> Experiment:
+        if not isinstance(design, NanoMRQdyneDesign):
+            raise TypeError("NanoMRQdyneAdapter requires NanoMRQdyneDesign actions")
+        sequence = self.template.sequence
+        frequency = parameters.get("signal_frequency_hz", sequence.signal_frequency_hz)
+        amplitude = parameters.get("field_amplitude_tesla", sequence.field_amplitude_tesla)
+        return replace(
+            self.template,
+            sequence=replace(
+                sequence,
+                signal_frequency_hz=_positive(frequency, "signal_frequency_hz"),
+                field_amplitude_tesla=_nonnegative(
+                    amplitude, "field_amplitude_tesla"
+                ),
+                reference_frequency_hz=design.reference_frequency_hz,
+                sensing_duration_seconds=(
+                    design.sensing_duration_seconds
+                    if design.sensing_duration_seconds is not None
+                    else sequence.sensing_duration_seconds
+                ),
+            ),
+        )
+
+    def extract_observable(
+        self, result: Any, parameters: Mapping[str, float]
+    ) -> np.ndarray:
+        values = np.asarray(result.normalized_signal)
+        if self.sample_index is not None:
+            values = _index(values, self.sample_index, "normalized_signal")
+        else:
+            values = values[:: self.sample_stride]
+        return _scaled(values, parameters)
+
+    def physical_seconds(self, design: NanoMRQdyneDesign) -> float:
+        sequence = self.build_experiment(self.nominal_parameters, design).sequence
+        return float(
+            self.fixed_overhead_seconds
+            + sequence.shot_count * sequence.repetition_interval_seconds
         )
 
 

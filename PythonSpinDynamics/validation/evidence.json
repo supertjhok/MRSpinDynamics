@@ -571,6 +571,39 @@
       "limitations": ["Facade parity validates delegation, not the physical model underneath each route."]
     },
     {
+      "id": "defect_spin_nano_mr",
+      "component": "Defect-spin nanoscale spectroscopy, MRI, and package integration",
+      "claim": "Implemented defect, bath, control, optical, statistical, exact-cluster, motion, imaging, high-resolution, and facade layers satisfy their documented analytical identities and deterministic/seeded regression contracts.",
+      "evidence_types": ["A", "R"],
+      "basis": "Spin-Hamiltonian eigenvalue and rotational-covariance identities; inverse-cube dipolar and layer-depth laws; sequence/filter integrals; polarization, Lorentzian normalization, Brownian MSD/drift/confinement and propagator-tail references, optical-count preparation/transfer, Qdyne visibility/alias/bin, memory-envelope, chemical-shift/J, and DNP limits; plus facade/direct delegation, config/archive round trips, Bayesian binding, and complexity gates.",
+      "parameter_range": "Built-in diamond NV-minus and configurable 4H-SiC PL6 presets; supported isotope presets; uniform/voxel baths; small dense resolved clusters; seeded three-dimensional trajectories; scanning/array forward models; effective optical/SPAD models; coherent clocked tones; analytic planar statistical spectra; compact Qdyne facade experiments.",
+      "metric": "Eigenvalues, tensor scaling/covariance, PSD integral and peak position, coherence, moments, photon-count statistics, reconstruction error, recovered beat/bin spacing, envelope decomposition, multiplet positions, polarization limits, facade result/config identity, planner feasibility, work units, memory, and loose wall time.",
+      "tolerance": "Floating-point, seeded-statistical, reconstruction, and deliberately loose performance tolerances declared in tests.",
+      "status": "partially_validated",
+      "reproducers": [
+        "tests/test_nano_mr.py",
+        "tests/test_nano_mr_experiment.py",
+        "examples/plot_nano_mr_statistical_spectra.py",
+        "examples/plot_nano_mr_diffusing_liquid.py",
+        "examples/plot_nano_mr_scan_reconstruction.py",
+        "examples/plot_nano_mr_realistic_noise.py",
+        "examples/plot_nano_mr_qdyne.py",
+        "examples/plot_nano_mr_chemical_shift_j.py",
+        "examples/nano_mr_experiment_facade.py",
+        "examples/bayesian_design_nano_mr_qdyne.py"
+      ],
+      "references": [
+        "C. L. Degen, F. Reinhard, and P. Cappellaro, Reviews of Modern Physics 89 (2017) 035002, doi:10.1103/RevModPhys.89.035002",
+        "S. Schmitt et al., Science 356 (2017) 832-837, doi:10.1126/science.aam5532",
+        "J. M. Boss et al., Science 356 (2017) 837-840, doi:10.1126/science.aam7009"
+      ],
+      "limitations": [
+        "The current evidence is analytical and synthetic regression evidence; it does not compare predictions with a calibrated NV, SiC, optical, or scanning experiment.",
+        "Defect and detector parameters are configurable phenomenology rather than ab initio or device-specific calibration, and the Phase-8 facade covers planar statistical spectra and coherent Qdyne rather than every expert nano-MR backend.",
+        "The Qdyne facade signal is a coherent classical tone; it does not make a statistically polarized nanoscale bath phase coherent. The Gaussian return-propagator tail is an analytic reference, not an end-to-end convergence validation of trajectory-derived dipolar correlations. Exact clusters remain small dense systems, and coherent chemical-shift/J and DNP models are effective first-order descriptions."
+      ]
+    },
+    {
       "id": "reproducible_provenance",
       "component": "Reproducible results and provenance",
       "claim": "Facade archives identify experiment inputs, implementation, numerical environment, randomness, and result content and can verify an exact rerun while remaining backward-compatible with version-1 archives.",
@@ -596,7 +629,7 @@
       "claim": "Bayesian updates, goal utilities, planner-validated adapters, batched PGSE parity, surrogate validation, staged/adaptive scoring, paired end-to-end adapter benchmarks, recoverable live batches, discrete-target nuisance marginalization, and robustness diagnostics follow their stated numerical and decision-theory contracts.",
       "evidence_types": ["A", "R"],
       "basis": "Direct Bayes-rule and dense mutual-information calculations, prior-predictive coverage, deterministic replay, facade binding tests, paired common-truth/common-noise adaptive-versus-fixed trials for every Phase 2 adapter, exact prediction-table identity checks, batched-vs-facade PGSE parity, atomic checkpoint replacement, pending-call recovery, complete-outcome validation, rejection exclusion, explicit latency accounting, exact polynomial recovery, held-out surrogate errors, linear-Gaussian screening limits, nuisance-only target-information cancellation, discrepancy variance addition, model dispatch, and recommendation sensitivity cases.",
-      "parameter_range": "Scalar/vector real and complex Gaussian observations; finite Cartesian grids and weighted particles; finite candidate spaces; CPMG-IR, deterministic PGSE, NQR FID, and ESR Hahn adapters; polynomial response surfaces; discrete target/model labels.",
+      "parameter_range": "Scalar/vector real and complex Gaussian observations; finite Cartesian grids and weighted particles; finite candidate spaces; CPMG-IR, deterministic PGSE, NQR FID, ESR Hahn, and coherent Qdyne adapters; polynomial response surfaces; discrete target/model labels.",
       "metric": "Posterior probability, mutual information, expected variance reduction, credible coverage, ranking and replay identity, planner feasibility, batch parity, atomic recovery identity, accepted/rejected update count, latency budget status, surrogate RMSE/correlation, Monte Carlo sample allocation, mixture dispatch, sensitivity agreement, physical seconds, and measured planning wall time.",
       "tolerance": "Floating-point or Monte Carlo tolerances declared in tests; prior-predictive coverage is required not to under-cover its nominal discrete interval in the fixed-seed reference.",
       "status": "partially_validated",
@@ -607,6 +640,7 @@
         "tests/test_bayesian_design_performance.py",
         "tests/test_bayesian_adapter_benchmarks.py",
         "tests/test_bayesian_design_live.py",
+        "tests/test_nano_mr_experiment.py::test_qdyne_bayesian_adapter_binds_particle_and_action",
         "examples/bayesian_ir_phase0.py",
         "examples/bayesian_design_linear.py",
         "examples/bayesian_design_cpmg_ir_adapter.py",
@@ -615,6 +649,7 @@
         "examples/plot_bayesian_surrogate_screening.py",
         "examples/plot_bayesian_adapter_benchmarks.py",
         "examples/bayesian_design_live_instrument.py",
+        "examples/bayesian_design_nano_mr_qdyne.py",
         "validation/bayesian_adapter_benchmarks.json"
       ],
       "references": [

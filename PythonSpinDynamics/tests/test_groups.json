@@ -28,6 +28,22 @@
         "tests.test_optimal_control_multi_axis"
       ]
     },
+    "nano_mr": {
+      "paths": [
+        "src/spin_dynamics/nano_mr/**",
+        "src/spin_dynamics/experiment/nano_mr_adapter.py",
+        "tests/test_nano_mr.py",
+        "tests/test_nano_mr_experiment.py",
+        "examples/*nano_mr*.py",
+        "examples/*esr_nano_mr*.py",
+        "docs/nano_mr_plan.md",
+        "docs/python_api/nano_mr.md"
+      ],
+      "tests": [
+        "tests.test_nano_mr",
+        "tests.test_nano_mr_experiment"
+      ]
+    },
     "relaxation": {
       "paths": [
         "src/spin_dynamics/relaxation.py",

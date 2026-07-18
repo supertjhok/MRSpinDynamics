@@ -1612,10 +1612,11 @@ def test_sequence_ir_facade_rejects_missing_domain_and_probe_effects() -> None:
 @pytest.mark.smoke
 def test_registry_entries_point_at_public_workflows() -> None:
     import spin_dynamics.esr as esr
+    import spin_dynamics.nano_mr as nano_mr
     import spin_dynamics.nqr as nqr
 
     entries = available_workflows()
-    assert len(entries) == 31
+    assert len(entries) == 33
     public = set(workflows.STABLE_WORKFLOW_API) | set(workflows.EXTENDED_WORKFLOW_API)
     for entry in entries:
         if getattr(nqr, entry.name, None) is not None:
@@ -1636,6 +1637,8 @@ def test_registry_entries_point_at_public_workflows() -> None:
             from spin_dynamics.experiment import sequence_adapter
 
             assert entry.func is sequence_adapter.run_sequence_ir
+        elif getattr(nano_mr, entry.name, None) is not None:
+            assert getattr(nano_mr, entry.name) is entry.func, entry.name
         elif getattr(esr, entry.name, None) is not None:
             assert getattr(esr, entry.name) is entry.func, entry.name
         else:

@@ -4,6 +4,9 @@ The left panel prepares singlet order, stores it with a measured ``T_S``, and
 reconverts it for detection.  The right panel compares high-field PASADENA
 with an explicitly trajectory-defined ALTADENA transport model.
 """
+# Follow the example from physical inputs through simulation to plotted diagnostics.
+# Quantities use SI units unless a variable name or CLI help states otherwise.
+
 
 from __future__ import annotations
 
@@ -31,6 +34,7 @@ def _spectrum(signal: np.ndarray, dwell_seconds: float) -> tuple[np.ndarray, np.
     return frequency, np.real(spectrum)
 
 
+# Keep orchestration in one entry point so helper functions remain reusable.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--ts", type=float, default=18.0, help="Singlet lifetime in seconds.")
@@ -39,6 +43,7 @@ def main() -> None:
     parser.add_argument("--output", type=Path, default=None)
     args = parser.parse_args()
 
+    # Load Matplotlib only after choosing interactive or headless output mode.
     plt = load_matplotlib(headless=args.output is not None)
     pair = coupled_spin_system(
         offsets_hz=[-0.35, 0.35],
@@ -88,6 +93,7 @@ def main() -> None:
     _, altadena_spectrum = _spectrum(altadena.signal, dwell)
     scale = max(np.max(np.abs(pasadena_spectrum)), np.max(np.abs(altadena_spectrum)))
 
+    # Assemble the observables and diagnostics for side-by-side interpretation.
     fig, axes = plt.subplots(1, 2, figsize=(11.2, 4.4), constrained_layout=True)
     axes[0].plot(storage_times, lls.normalized_signal, label="SLIC readout")
     axes[0].plot(

@@ -1,4 +1,7 @@
 """Book-calibrated Halbach MRI, thermal drift, noisy CS, and auto-stop demo."""
+# Follow the example from physical inputs through simulation to plotted diagnostics.
+# Quantities use SI units unless a variable name or CLI help states otherwise.
+
 
 from __future__ import annotations
 
@@ -70,6 +73,7 @@ def _print_design_tables(design) -> None:
 def _plot_design_dashboard(design, output: Path) -> None:
     pulse_us = design.pulse_sweep.pulse_lengths_s * 1e6
     sweep = design.pulse_sweep
+    # Assemble the observables and diagnostics for side-by-side interpretation.
     fig, axes = plt.subplots(2, 3, figsize=(13.0, 7.8), constrained_layout=True)
 
     axes[0, 0].plot(pulse_us, sweep.peak_forward_power_w, "o-")
@@ -170,6 +174,7 @@ def _plot_design_dashboard(design, output: Path) -> None:
     print(f"saved {output}")
 
 
+# Keep orchestration in one entry point so helper functions remain reusable.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--matrix-size", type=int, default=64)

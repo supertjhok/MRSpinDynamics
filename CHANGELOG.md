@@ -9,6 +9,44 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
 
 ### Added
 
+- Added the Phase-1 through Phase-8 defect-spin nanoscale
+  spectroscopy/MRI
+  foundation to
+  PythonSpinDynamics: explicit laboratory/defect/surface coordinate frames,
+  arbitrary-spin ZFS-plus-Zeeman Hamiltonians, ODMR transition analysis,
+  planar sensor geometry, point-dipole electron-nuclear tensors, diamond
+  NV-minus and 4H-SiC PL6 presets, phase-aware Ramsey/Hahn/CPMG/XY control,
+  ideal and finite-width filter functions, addressed-qubit propagation,
+  effective optical initialization and Poisson photon-count readout,
+  statistical/thermal/fixed-polarization nuclear baths, analytic uniform
+  layers and half-spaces, voxel isotope densities, normalized multi-isotope
+  spectral densities, Gaussian filter-overlap coherence, exact resolved-spin
+  clusters with chemical shift, scalar and nuclear dipolar coupling,
+  anisotropic sensor-target coupling, nuclear-RF control, resolved CW spectra,
+  two-block 2-D correlation spectroscopy, explicit dense-size limits, and a
+  strict compatibility bridge to the pure ESR module; plus seeded
+  Brownian/advection trajectories, reflecting/periodic/clipping confinement,
+  precessing nuclear dipolar field records, autocorrelations, Welch spectra,
+  displacement diagnostics, and stationary/free-diffusion/drift/long-time
+  validation references; plus raster, arbitrary-path, and sensor-array scan
+  geometries, coherent-field and statistical-variance dipolar forward
+  operators, analytic depth-profile kernels, nonnegative regularized density
+  reconstruction, bounded nonlinear point-source localization, and local
+  covariance estimates; plus correlated exponential or power-law target and
+  sensor field processes, spatial scan covariance, five-level-plus-charge
+  optical cycling, shot-resolved radiative emission, SPAD efficiency,
+  background, dead time, afterpulsing and jitter, and covariance-aware
+  generalized least-squares inversion; plus clocked Qdyne and synchronized
+  quadrature acquisition, explicit clock errors and independent
+  sensor/sample/diffusion/memory coherence budgets, effective sensor-memory
+  correlation, coherent thermal chemical-shift/J multiplets, and optional
+  bounded DNP build-up/nuclear-T1 decay. Added a dedicated user manual chapter,
+  cross-listed CW/pulsed, diffusing-liquid, realistic-noise, Qdyne,
+  chemical-shift/J, and scan-reconstruction examples, tests, and a
+  literature-backed implementation roadmap. Phase 8 adds unified statistical-
+  spectrum/Qdyne experiment specs, nested TOML, provenance-bearing native
+  result archives, planner cost/memory models, a Bayesian Qdyne adapter,
+  config-driven/adaptive examples, validation evidence, and performance gates.
 - Added the first Bayesian experiment-planning layer to PythonSpinDynamics: a
   goal-oriented exact-grid inversion-recovery reference that marginalizes
   amplitude, baseline, and noise uncertainty; ranks candidate delays by
@@ -50,9 +88,15 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
   including degeneracy-safe JAX/NumPy multi-coil propagation, bounded
   amplitude/phase/timing optimization, powder-averaged validation tests, and a
   runnable one-/two-/three-axis comparison example.
+- Added a phase-aware 20-pulse KDD sequence builder with pulse-error regression
+  coverage and a reader-facing KDD/UDD comparison. Replaced historical
+  implementation-phase labels in the nano-MR manual with descriptive subsystem
+  names, documented the scope difference from ENDOR Qdyne, and expanded
+  explanatory comments across the under-documented example scripts.
 
 ### Fixed
 
+- Corrected the new nano-MR high-resolution and exact-cluster layers: sensor coherence now attenuates Qdyne visibility rather than phase, raw and Nyquist-aliased beats are reported separately, synchronized quadratures remain bounded beyond the weak-signal limit, clocked coherent evolution uses one physical timebase, secular nuclear interactions follow the static-field direction with homonuclear dipolar flip-flops, optical initialization fidelity affects acquired counts, and Gaussian coherence rejects incomplete one-sided PSD grids.
 - Hardened PEEC impedance extraction against platform-dependent numerical
   failures: unstable distant-filament closed forms are repaired by fixed
   Gauss-Legendre integration, while terminal reduction retries an equilibrated

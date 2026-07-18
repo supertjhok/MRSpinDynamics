@@ -8,6 +8,9 @@ unwrapped stream function, the 3-D winding paths, and target-versus-realized Bz.
 
 Run with ``--output figure.png`` to save the plot; otherwise display it.
 """
+# Follow the example from physical inputs through simulation to plotted diagnostics.
+# Quantities use SI units unless a variable name or CLI help states otherwise.
+
 
 from __future__ import annotations
 
@@ -46,8 +49,10 @@ def _plot_unwrapped(ax, contour, **kwargs) -> None:
             ax.plot(phi[indices], z_cm[indices], **kwargs)
 
 
+# Keep orchestration in one entry point so helper functions remain reusable.
 def main() -> None:
     args = _parse_args()
+    # Load Matplotlib only after choosing interactive or headless output mode.
     plt = load_matplotlib(headless=bool(args.output))
 
     from spin_dynamics.fields import (
@@ -112,6 +117,7 @@ def main() -> None:
         f"gradient scale={winding_scale:.4f}"
     )
 
+    # Assemble the observables and diagnostics for side-by-side interpretation.
     fig = plt.figure(figsize=(13.5, 9.0))
     grid = fig.add_gridspec(2, 2, wspace=0.25, hspace=0.28)
 

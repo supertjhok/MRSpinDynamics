@@ -4,6 +4,9 @@ Follow how the quadrupolar site, pulse/acquisition settings, and orientation mod
 lead to the reported NQR response. Run ``python
 examples/plot_nqr_weak_b0_spectrum.py --help`` to see the adjustable inputs.
 """
+# Follow the example from physical inputs through simulation to plotted diagnostics.
+# Quantities use SI units unless a variable name or CLI help states otherwise.
+
 
 from __future__ import annotations
 
@@ -107,6 +110,7 @@ def main() -> None:
     parser.add_argument("--output", type=Path, default=None)
     args = parser.parse_args()
 
+    # Load Matplotlib only after choosing interactive or headless output mode.
     plt = load_matplotlib(headless=args.output is not None)
 
     site = QuadrupolarSite(
@@ -131,6 +135,7 @@ def main() -> None:
         for b0_mt in args.b0_mt
     ]
 
+    # Assemble the observables and diagnostics for side-by-side interpretation.
     fig, axes = plt.subplots(1, 2, figsize=(12, 4.8), constrained_layout=True)
 
     for b0_mt, result in zip(args.b0_mt, results):
@@ -160,6 +165,7 @@ def main() -> None:
     axes[1].set_ylabel("Relative transition intensity")
     axes[1].set_title(f"Resolved Transitions at {args.b0_mt[-1]:g} mT")
 
+    # Save reproducibly for batch runs; otherwise keep the figure interactive.
     if args.output is not None:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(args.output, dpi=150)

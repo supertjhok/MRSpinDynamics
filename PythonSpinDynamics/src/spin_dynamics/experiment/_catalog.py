@@ -8,6 +8,7 @@ call bit for bit.
 
 from __future__ import annotations
 
+import dataclasses
 from typing import Any
 
 import numpy as np
@@ -22,6 +23,7 @@ from spin_dynamics.esr.systems import ESREigensystem
 from spin_dynamics.experiment import (
     esr_adapter,
     esr_multidim_adapter,
+    nano_mr_adapter,
     nqr_adapter,
     sequence_adapter,
 )
@@ -44,6 +46,8 @@ from spin_dynamics.experiment.specs import (
     NQRSORC,
     NQRFID,
     NQRPopulationTransfer,
+    NanoMRQdyne,
+    NanoMRStatisticalSpectrum,
     PGSE,
     PGSEWalkers,
     SequenceIRExecution,
@@ -108,6 +112,11 @@ from spin_dynamics.workflows.imaging_types import (
     ProbeCPMGImagingResult,
 )
 from spin_dynamics.workflows.pgse import PGSEMomentResult, PGSEWalkerResult
+from spin_dynamics.nano_mr import (
+    OpticalReadoutResult,
+    QdyneResult,
+    StatisticalSpectrumResult,
+)
 
 register_result_type(CPMGResult)
 register_result_type(CPMGTrainResult)
@@ -130,6 +139,8 @@ register_result_type(EndorSpectrum)
 register_result_type(PGSEMomentResult)
 register_result_type(PGSEWalkerResult)
 register_result_type(sequence_adapter.SequenceIRResult)
+register_result_type(StatisticalSpectrumResult)
+register_result_type(QdyneResult)
 
 register_serializable(NoiseSpec)
 register_serializable(NoiseMetadata)
@@ -148,6 +159,7 @@ register_serializable(GradientWaveform)
 register_serializable(ADCEvent)
 register_serializable(SequenceBlock)
 register_serializable(SequenceIR)
+register_serializable(OpticalReadoutResult)
 
 _ACQ_GRID = frozenset({"acquisition.numpts", "acquisition.maxoffs"})
 _ACQ_REPHASE = frozenset(
@@ -754,3 +766,72 @@ for _probe, _func in _IR_FUNCS.items():
             cost=_make_ir_cost(_probe),
         )
     )
+
+
+def _nano_statistical_cost(experiment: Experiment) -> CostModel:
+    sequence = experiment.sequence
+    components = len(experiment.sample.nano_mr_layer.components)
+    points = sequence.num_points
+    work = float(components * points)
+    arrays = 2 * components * points + 4 * components + points
+    return CostModel(
+        work_units=work,
+        memory_bytes=8 * arrays,
+        notes=("analytic planar spectrum; no dense spin propagation",),
+    )
+
+
+def _nano_qdyne_cost(experiment: Experiment) -> CostModel:
+    sequence = experiment.sequence
+    pulses = sequence.xy_order * sequence.xy_repetitions
+    points = sequence.shot_count
+    work = float(points * (pulses + np.log2(max(points, 2))))
+    arrays = 7 * points + 2 * (points // 2 + 1)
+    if experiment.hardware.nano_mr_optical_readout is not None:
+        arrays += 3 * points
+    return CostModel(
+        work_units=work,
+        memory_bytes=8 * arrays,
+        notes=("clocked analytic Qdyne record plus real FFT",),
+    )
+
+
+_NANO_SENSOR = frozenset({"hardware.nano_mr_sensor"})
+_NANO_STATISTICAL_HONORS = _NANO_SENSOR | frozenset(
+    {
+        "sample.nano_mr_layer",
+        "sequence.b0_vector_tesla_lab",
+        "sequence.angular_frequency_min_rad_s",
+        "sequence.angular_frequency_max_rad_s",
+        "sequence.num_points",
+    }
+)
+_NANO_QDYNE_HONORS = _NANO_SENSOR | frozenset(
+    {
+        "hardware.nano_mr_optical_readout",
+        *(f"sequence.{field.name}" for field in dataclasses.fields(NanoMRQdyne)),
+    }
+)
+
+register_workflow(
+    WorkflowEntry(
+        name="simulate_statistical_spectrum",
+        sequence_type=NanoMRStatisticalSpectrum,
+        probe="ideal",
+        func=nano_mr_adapter.simulate_statistical_spectrum,
+        build_kwargs=nano_mr_adapter.statistical_kwargs,
+        honors=_NANO_STATISTICAL_HONORS,
+        cost=_nano_statistical_cost,
+    )
+)
+register_workflow(
+    WorkflowEntry(
+        name="simulate_qdyne",
+        sequence_type=NanoMRQdyne,
+        probe="ideal",
+        func=nano_mr_adapter.simulate_qdyne,
+        build_kwargs=nano_mr_adapter.qdyne_kwargs,
+        honors=_NANO_QDYNE_HONORS,
+        cost=_nano_qdyne_cost,
+    )
+)

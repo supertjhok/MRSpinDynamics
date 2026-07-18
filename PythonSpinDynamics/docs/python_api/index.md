@@ -27,6 +27,7 @@ original workflows; it is not the organizing principle for new user code.
 - [Hyperpolarization and Singlet States](hyperpolarization.md)
 - [NQR Models](nqr.md)
 - [ESR Models](esr.md)
+- [Defect-Spin Nanoscale MR](nano_mr.md)
 - [Chemical / Site Exchange](exchange.md)
 - [Internal / Susceptibility Gradients](internal_gradients.md)
 - [Bipolar 13-Interval PGSTE](bipolar_pgste.md)
@@ -138,6 +139,26 @@ The validated Python API currently covers:
   strain/disorder sampling, rectangular-pulse FID and Hahn-echo helpers, and
   Liouville-space pulsed T1/T2 relaxation, plus isotropic electron-nuclear
   hyperfine doublet simulations;
+- defect-spin nano-MR foundations (`spin_dynamics.nano_mr`): explicit
+  laboratory/defect/surface frames, arbitrary-spin ZFS-plus-Zeeman
+  Hamiltonians, ODMR transition analysis, planar sensor geometry,
+  point-dipole electron-nuclear tensors, diamond NV-minus and 4H-SiC PL6
+  presets, phase-aware dynamical-decoupling control, ideal and finite-pulse
+  filter functions, addressed-qubit propagation, and optical photon-count
+  readout, plus statistical/thermal/fixed-polarization nuclear baths,
+  analytic layers and half-spaces, voxel densities, multi-isotope spectra,
+  Gaussian filter-overlap coherence, exact resolved clusters and 2-D
+  correlation spectroscopy, and seeded diffusing/confined dipolar field
+  records with correlations and spectra, plus raster/arbitrary/array scan
+  geometries, coherent-field and statistical-variance dipolar operators,
+  analytic depth profiling, nonnegative density reconstruction, sparse
+  point-source localization, and local uncertainty estimates, plus correlated
+  target/sensor field processes, time-resolved optical cycling, SPAD detector
+  effects, shot records, covariance-weighted reconstruction, clocked Qdyne,
+  synchronized I/Q readout, independent coherence budgets, sensor-memory
+  correlation, coherent thermal chemical-shift/J spectra, and optional
+  explicit DNP preparation, plus unified statistical-spectrum/Qdyne specs,
+  nested TOML/result archives, and adaptive Qdyne design;
 - the current `sim_spin_dynamics_arb10` kernel;
 - the legacy-compatible `sim_spin_dynamics_arb7` path needed by ideal FID;
 - original/reference tuned, untuned, and matched probe CPMG paths.

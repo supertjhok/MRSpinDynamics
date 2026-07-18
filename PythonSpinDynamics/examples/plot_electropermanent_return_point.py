@@ -1,4 +1,7 @@
 """Plot return-point hysteresis and two-element EPM programming interaction."""
+# Follow the example from physical inputs through simulation to plotted diagnostics.
+# Quantities use SI units unless a variable name or CLI help states otherwise.
+
 
 from __future__ import annotations
 
@@ -80,6 +83,7 @@ def _validate(args: argparse.Namespace) -> None:
         raise ValueError("--neighbor-samples must be at least five")
 
 
+# Keep orchestration in one entry point so helper functions remain reusable.
 def main() -> None:
     args = _parser().parse_args()
     _validate(args)
@@ -184,6 +188,7 @@ def main() -> None:
         n_length=31,
     )[:, 2]
 
+    # Assemble the observables and diagnostics for side-by-side interpretation.
     fig, axes = plt.subplots(2, 3, figsize=(15.5, 9.4), constrained_layout=True)
     fig.suptitle(
         "Electropermanent return-point memory and neighbor-coupled programming",

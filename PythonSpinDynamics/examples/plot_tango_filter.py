@@ -4,6 +4,9 @@ Read the setup, simulation, and reporting stages in order; each stage is kept
 explicit so the example can be adapted without hidden state. Run ``python
 examples/plot_tango_filter.py --help`` to see the adjustable inputs.
 """
+# Follow the example from physical inputs through simulation to plotted diagnostics.
+# Quantities use SI units unless a variable name or CLI help states otherwise.
+
 
 from __future__ import annotations
 
@@ -35,9 +38,11 @@ def main() -> None:
     parser.add_argument("--output", type=Path, default=None, help="Optional output PNG path.")
     args = parser.parse_args()
 
+    # Load Matplotlib only after choosing interactive or headless output mode.
     plt = load_matplotlib(headless=args.output is not None)
     couplings = np.linspace(args.min_j, args.max_j, 801)
 
+    # Assemble the observables and diagnostics for side-by-side interpretation.
     fig, axes = plt.subplots(1, 2, figsize=(11, 4.5), constrained_layout=True)
 
     for order in args.orders:
@@ -73,6 +78,7 @@ def main() -> None:
     axes[1].set_ylabel("Relative amplitude")
     axes[1].legend(title="order")
 
+    # Save reproducibly for batch runs; otherwise keep the figure interactive.
     if args.output is not None:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(args.output, dpi=150)

@@ -4,6 +4,9 @@ Read the setup, simulation, and reporting stages in order; each stage is kept
 explicit so the example can be adapted without hidden state. Run ``python
 examples/nmr_maser.py --help`` to see the adjustable inputs.
 """
+# Follow the example from physical inputs through simulation to reported observables.
+# Quantities use SI units unless a variable name or CLI help states otherwise.
+
 
 from __future__ import annotations
 

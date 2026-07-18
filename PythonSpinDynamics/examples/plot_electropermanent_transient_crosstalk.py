@@ -1,4 +1,7 @@
 """Plot transient programming-coil cross-talk in a two-element EPM array."""
+# Follow the example from physical inputs through simulation to plotted diagnostics.
+# Quantities use SI units unless a variable name or CLI help states otherwise.
+
 
 from __future__ import annotations
 
@@ -121,6 +124,7 @@ def _make_programmer(
     )
 
 
+# Keep orchestration in one entry point so helper functions remain reusable.
 def main() -> None:
     args = _parser().parse_args()
     _validate(args)
@@ -196,6 +200,7 @@ def main() -> None:
     time_us = times * 1e6
     waveform = result.waveform
     colors = ("tab:blue", "tab:orange")
+    # Assemble the observables and diagnostics for side-by-side interpretation.
     fig, axes = plt.subplots(2, 3, figsize=(15, 9), constrained_layout=True)
     fig.suptitle("Transient cross-talk during two-element EPM programming", fontsize=16)
 

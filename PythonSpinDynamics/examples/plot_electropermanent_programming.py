@@ -4,6 +4,9 @@ The example keeps three evidence layers separate: archived peak-current values,
 configuration-specific inferred circuit parameters, and the coarse published
 demagnetization envelope.  It does not claim a universal AlNiCo hysteresis law.
 """
+# Follow the example from physical inputs through simulation to plotted diagnostics.
+# Quantities use SI units unless a variable name or CLI help states otherwise.
+
 
 from __future__ import annotations
 
@@ -68,6 +71,7 @@ def _check_arguments(args: argparse.Namespace) -> None:
         raise ValueError("--cooling-s must be finite and non-negative")
 
 
+# Keep orchestration in one entry point so helper functions remain reusable.
 def main() -> None:
     args = _parser().parse_args()
     _check_arguments(args)
@@ -177,6 +181,7 @@ def main() -> None:
             args.cooling_s,
         )
 
+    # Assemble the observables and diagnostics for side-by-side interpretation.
     fig, axes = plt.subplots(2, 3, figsize=(15.5, 9.4), constrained_layout=True)
     fig.suptitle(
         "Electropermanent-magnet programming — circuit before hysteresis",

@@ -1155,6 +1155,75 @@ python examples\plot_esr_relaxation.py --output results\esr_relaxation.png
 python examples\plot_esr_hyperfine_doublet.py --output results\esr_hyperfine_doublet.png
 ```
 
+## Defect-Spin Nano-MR Examples
+
+The defect-ODMR example compares the two strongest axial-field transition
+branches of diamond NV-minus and 4H-SiC PL6 sensors. The XY8 example compares
+ideal and finite-width filter functions and converts a sensor fringe into
+contrast-limited Poisson photon counts. The statistical-spectrum example
+resolves proton and fluorine peaks in a mixed surface layer and compares
+finite-layer depth response with the analytic half-space \(d^{-3}\) field-
+variance law. The cross-listed CW example verifies the spin-1/2 zero-ZFS ESR
+bridge and then resolves a proton-coupled NV doublet. The pulsed comparison
+places a conventional ESR Hahn echo beside an exact NV-proton two-block
+correlation surface and 2-D spectrum. The diffusing-liquid example connects
+seeded Brownian motion and reflecting confinement to a time-domain dipolar
+field record, normalized correlation, and Welch spectrum. The scanning
+nano-MRI example synthesizes a noisy variance image from two sparse
+proton-density voxels, reconstructs a nonnegative density map with voxel
+uncertainty, and refines the source positions with a bounded nonlinear fit.
+The realistic-noise example separates target and surface-spin correlations,
+constructs a spatial/temporal scan covariance, propagates a five-level-plus-
+charge NV optical cycle, and applies SPAD efficiency, background, dead time,
+afterpulsing, and timing jitter. The Qdyne example compares a clocked
+single-quadrature record with phase-preserving synchronized I/Q readout,
+separates sensor, sample, diffusion, and memory coherence, and evaluates an
+effective sensor-memory correlation. The coherent-spectrum example derives
+thermal signal amplitudes from the bath populations, resolves chemical shifts
+and first-order J multiplets, and shows optional DNP build-up and nuclear-T1
+decay. The facade example loads the same clocked model from friendly TOML,
+prints planner cost/memory estimates, runs it with effective photon counts,
+and can save a provenance-bearing NPZ archive. The Bayesian example adapts
+the Qdyne reference frequency while estimating an uncertain coherent tone.
+
+```powershell
+python examples\plot_nano_mr_defect_odmr.py --output results\nano_mr_odmr.png
+python examples\plot_nano_mr_xy8_filter_readout.py --rate-readout --output results\nano_mr_xy8.png
+python examples\plot_nano_mr_statistical_spectra.py --output results\nano_mr_spectrum.png
+python examples\plot_esr_nano_mr_cw.py --output results\esr_nano_mr_cw.png
+python examples\plot_esr_nano_mr_pulsed.py --output results\esr_nano_mr_pulsed.png
+python examples\plot_nano_mr_diffusing_liquid.py --output results\nano_mr_diffusion.png
+python examples\plot_nano_mr_realistic_noise.py --output results\nano_mr_realistic_noise.png
+python examples\plot_nano_mr_qdyne.py --output results\nano_mr_qdyne.png
+python examples\plot_nano_mr_chemical_shift_j.py --output results\nano_mr_chemical_shift_j.png
+python examples\plot_nano_mr_scan_reconstruction.py --output results\nano_mr_scan_reconstruction.png
+python examples\plot_nano_mr_scan_reconstruction.py --correlated-noise --output results\nano_mr_scan_gls.png
+python examples\nano_mr_experiment_facade.py --config examples\nano_mr_qdyne.toml --output results\nano_mr_qdyne.npz
+python examples\bayesian_design_nano_mr_qdyne.py --steps 3
+```
+
+Use `--field-mt` and the defect-depth options for ODMR, `--duration-us`,
+`--repetitions`, and `--pulse-width-ns` for XY8, and
+`--layer-thickness-nm` / `--depth-nm` for the statistical sample. Use
+`--proton-distance-nm` and `--broadening-khz` for resolved CW spectra, and
+`--mixing-us` / `--rf-flip-deg` for the two-block protocol. The trajectory
+example exposes `--diffusion-m2-s`, `--drift-mm-s`, `--dt-ns`, and
+`--motion-substeps` so the Brownian integration and recorded field interval
+can be converged separately. The imaging example exposes `--sensor-depth-nm`,
+`--noise-fraction`, and `--regularization` for the scan geometry, simulated
+measurement quality, and inverse smoothness penalty; `--correlated-noise`
+switches from scalar Gaussian errors to a spatial/temporal covariance and
+generalized least squares. The realistic-noise example exposes `--shots`,
+`--readout-ns`, `--detection-efficiency`, and
+`--afterpulse-probability`. For high-resolution acquisition,
+`plot_nano_mr_qdyne.py` exposes `--beat-hz`, `--shots`, separate sensor/sample/
+diffusion/memory coherence times, and `--clock-instability-ppb`.
+`plot_nano_mr_chemical_shift_j.py` exposes field and acquisition settings,
+sample/diffusion coherence, clock instability, scalar coupling, temperature,
+and `--dnp-enhancement`. These coherent examples do not replace the
+statistical-bath spectrum: use them only when the nuclear signal has a
+repeatable phase reference.
+
 ## NQR Examples
 
 These examples demonstrate the package's quadrupolar NQR models. Most of the

@@ -4,6 +4,9 @@ Use the printed or plotted signal to connect pulse timing, probe choice, and
 relaxation to the resulting acquisition. Run ``python
 examples/plot_radiation_damping_cpmg_train.py --help`` to see the adjustable
 inputs."""
+# Follow the example from physical inputs through simulation to plotted diagnostics.
+# Quantities use SI units unless a variable name or CLI help states otherwise.
+
 
 from __future__ import annotations
 
@@ -44,6 +47,7 @@ def main() -> None:
     parser.add_argument("--output", type=Path, default=None)
     args = parser.parse_args()
 
+    # Load Matplotlib only after choosing interactive or headless output mode.
     plt = load_matplotlib()
     runner = _runner(args.probe)
     common = {
@@ -74,6 +78,7 @@ def main() -> None:
         where=np.abs(clean.echo_integrals) > 0,
     )
 
+    # Assemble the observables and diagnostics for side-by-side interpretation.
     fig, axes = plt.subplots(2, 2, figsize=(11, 7.5), constrained_layout=True)
     axes[0, 0].plot(clean.del_w, np.abs(clean.mrx[echo_index]), label="clean")
     axes[0, 0].plot(clean.del_w, np.abs(damped.mrx[echo_index]), label="RD")
@@ -112,6 +117,7 @@ def main() -> None:
         f"Trd={damped.radiation_damping.probe.trd:.3g} s"
     )
 
+    # Save reproducibly for batch runs; otherwise keep the figure interactive.
     if args.output is not None:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(args.output, dpi=150)

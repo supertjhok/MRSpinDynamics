@@ -4,6 +4,9 @@ Read the setup, simulation, and reporting stages in order; each stage is kept
 explicit so the example can be adapted without hidden state. Run ``python
 examples/plot_nmr_maser.py --help`` to see the adjustable inputs.
 """
+# Follow the example from physical inputs through simulation to plotted diagnostics.
+# Quantities use SI units unless a variable name or CLI help states otherwise.
+
 
 from __future__ import annotations
 
@@ -89,6 +92,7 @@ def main() -> None:
     if args.points < 2:
         raise SystemExit("--points must be at least 2")
 
+    # Load Matplotlib only after choosing interactive or headless output mode.
     plt = load_matplotlib()
     probe = _build_probe(
         args.probe,
@@ -102,6 +106,7 @@ def main() -> None:
     pump_levels = -args.pump_multipliers * threshold
     time = np.linspace(0.0, args.duration_trd * probe.trd, args.points)
 
+    # Assemble the observables and diagnostics for side-by-side interpretation.
     fig, axes = plt.subplots(3, 1, figsize=(8.5, 8.0), constrained_layout=True)
     for pump_mz in pump_levels:
         result = simulate_nmr_maser(
@@ -139,6 +144,7 @@ def main() -> None:
         f"|mz| threshold={threshold:.3g}, model={args.model}"
     )
 
+    # Save reproducibly for batch runs; otherwise keep the figure interactive.
     if args.output is not None:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(args.output, dpi=150)

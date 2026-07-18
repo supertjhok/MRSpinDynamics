@@ -124,7 +124,8 @@ Simulation workflows for magnetic-resonance spin dynamics from experiment
 description to reproducible result: validated spin-1/2 Bloch kernels, small
 dense Hamiltonian models, an open sequence interchange layer, declarative
 experiment planning, and targeted models for NQR, ESR/EPR, relaxation,
-transport, fields, and instrument hardware.
+transport, fields, defect-spin nano-MR, optical detection, and instrument
+hardware.
 \end{minipage}
 \vfill
 {\large July 2026\par}
@@ -471,6 +472,9 @@ microscopic couplings are important but the bath itself is not being propagated.
   \item Use \code{spin\_dynamics.esr} for single-electron ESR spectra, pulsed
   ESR FID/echo simulations, static disorder studies, and simple isotropic
   electron-nuclear hyperfine doublets.
+  \item Use \code{spin\_dynamics.nano\_mr} for optically detected diamond-NV or
+  SiC-PL6 sensing, dynamical-decoupling filters, statistical nuclear baths, and
+  nanometre-scale layer or voxel geometries.
   \item Use \code{spin\_dynamics.nqr} when selective pulsed NQR of a small
   quadrupolar site is the phenomenon of interest.
   \item Use \code{spin\_dynamics.exchange} for Bloch-McConnell site exchange.
@@ -492,8 +496,9 @@ ESR workflows.
 sequence, experiment, and validation layers fit together.}
 
 Read the manual in layers. Chapters~\ref{chap:scope}--\ref{chap:conventions}
-define the model boundaries and shared conventions. Chapters~\ref{chap:jcoupling}, \ref{chap:esr}, and
-\ref{chap:nqr} introduce the explicitly quantum extensions. Chapter
+define the model boundaries and shared conventions. Chapters~\ref{chap:jcoupling},
+\ref{chap:esr}, \ref{chap:nano-mr}, and \ref{chap:nqr} introduce the explicitly
+quantum and defect-sensor extensions. Chapter
 \ref{chap:sequence-ir} describes the backend-neutral sequence representation,
 Pulseq interchange, compiler, and timeline visualizer. Chapter
 \ref{chap:experiment} presents the unified experiment facade -- the recommended
@@ -1986,6 +1991,8 @@ secular regime, with the quadrupole principal axis collinear with the static
 field. Anisotropic hyperfine \(A\) tensors with powder averaging, an arbitrary
 quadrupole-tensor orientation, and multiple coupled nuclei are the natural next
 extensions.
+
+\input{nano_mr_chapter.tex}
 
 \chapter{Pulsed NQR Models}
 \label{chap:nqr}
@@ -6242,7 +6249,7 @@ net = ThermalNetwork(
 steady = net.steady_state()          # {"coil": ..., "ambient": ...}
 \end{lstlisting}
 
-\textbf{Coupling loop (Option B, Phase 2).} \code{ThermalCoupling} closes the
+\textbf{Quasi-static coupling loop.} \code{ThermalCoupling} closes the
 feedback: coil resistance rises with coil temperature (skin-limited
 \(R\propto\sqrt{\rho}\) or DC-linear), sample SAR and \(M_0\) track the sample
 temperature, and the updated powers re-enter the thermal solve.
@@ -6313,7 +6320,7 @@ be passed as \code{additional\_power\_w}; multi-node or spatial temperature
 models remain available through \code{ThermalNetwork} and
 \code{Conduction1D}.
 
-\textbf{Conduction profiles (Option B, Phase 3).} \code{Conduction1D} solves
+\textbf{Conduction profiles.} \code{Conduction1D} solves
 the finite-volume heat equation on a slab, cylinder, or sphere with spatially
 varying properties, mixed boundary conditions, and an optional Pennes
 blood-perfusion sink \(w_b c_b (T_a - T)\) for biological tissue --- the

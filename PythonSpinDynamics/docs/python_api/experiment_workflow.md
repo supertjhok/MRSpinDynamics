@@ -15,14 +15,15 @@ The interface is called a *facade* because it coordinates existing
 If you already know which `run_*` function you want, calling it directly (see
 [Workflows](workflows.md)) remains fully supported. Reach for the facade when
 you want the surrounding scaffolding, a config-file-driven run, or a single
-interface across the NMR, diffusion, imaging, NQR, and ESR engines.
+interface across the NMR, diffusion, imaging, NQR, ESR, and selected nano-MR
+engines.
 
 ## The eight-step workflow
 
 The facade organizes an experiment into the same stages every example follows:
 
-1. **define the sample** — relaxation, a phantom, an NQR site, or an ESR system;
-2. **define transmitters/receivers** — probe, and optionally coil geometry;
+1. **define the sample** — relaxation, a phantom, an NQR/ESR system, or a nano-MR layer;
+2. **define transmitters/receivers** — probe, coil geometry, or a defect/optical sensor;
 3. **define the sequence** — CPMG, imaging, SLSE, ESR FID/echo, …;
 4. **define the acquisition** — offset grid, noise, rephasing policy;
 5. **plan** — resolve the workflow, check compatibility, estimate cost;
@@ -325,13 +326,15 @@ python -m spin_dynamics.experiment convert config.toml config.json
 
 A diffusion example is provided as
 [`examples/experiment_config_pgse.toml`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/examples/experiment_config_pgse.toml).
+A nested defect-sensor/optical example is
+[`examples/nano_mr_qdyne.toml`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/examples/nano_mr_qdyne.toml).
 
 `plan` exits non-zero if the config has plan errors; `run` refuses to execute
 one. In Python, `save_config` / `load_config` and `experiment_to_config` /
 `experiment_from_config` expose the same round-trip. This friendly form covers
 the spec fields with scalar or array values (including phantoms and coil
-geometry). Nested SequenceIR blocks round-trip through JSON; TOML is
-intentionally reserved for the flatter human-authored specs. A fully general
+geometry), plus arrays of nested component tables such as a multi-isotope
+nano-MR layer. Deep SequenceIR blocks remain clearer in JSON. A fully general
 result archive uses the NPZ/JSON form above.
 
 ## Scope
@@ -339,6 +342,9 @@ result archive uses the NPZ/JSON form above.
 The facade currently wraps deterministic and random-walker PGSE diffusion with
 uniform 2-D flow, the CPMG family, phase-encoded CPMG imaging, the principal
 one- and multidimensional NQR/ESR measurements, and general SequenceIR/Pulseq
-execution on the ideal moving-isochromat backend.
+execution on the ideal moving-isochromat backend. Nano-MR integration covers
+analytic planar statistical spectra and coherent-tone Qdyne with optional
+effective photon counting; exact clusters, trajectories, scan reconstruction,
+and coherent site inventories keep their expert `spin_dynamics.nano_mr` APIs.
 Design notes and the milestone roadmap are in
 [`docs/unified_workflow_plan.md`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/docs/unified_workflow_plan.md).

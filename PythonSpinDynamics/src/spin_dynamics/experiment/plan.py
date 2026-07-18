@@ -36,6 +36,11 @@ from spin_dynamics.experiment.specs import (
     NQRPopulationTransfer,
     NQRSLSE,
     NQRSORC,
+    NanoMRLayer,
+    NanoMROpticalReadout,
+    NanoMRQdyne,
+    NanoMRSensor,
+    NanoMRStatisticalSpectrum,
     PGSE,
     PGSEWalkers,
     SequenceDomain,
@@ -205,6 +210,44 @@ def _spec_sanity_errors(experiment: Experiment) -> list[str]:
             "sequence SequenceIRExecution requires sample.sequence_domain "
             "(a SequenceDomain)"
         )
+    if isinstance(sequence, (NanoMRStatisticalSpectrum, NanoMRQdyne)):
+        if not isinstance(hardware.nano_mr_sensor, NanoMRSensor):
+            errors.append(
+                f"sequence {type(sequence).__name__} requires "
+                "hardware.nano_mr_sensor (a NanoMRSensor)"
+            )
+    if isinstance(sequence, NanoMRStatisticalSpectrum) and not isinstance(
+        sample.nano_mr_layer, NanoMRLayer
+    ):
+        errors.append(
+            "sequence NanoMRStatisticalSpectrum requires sample.nano_mr_layer "
+            "(a NanoMRLayer)"
+        )
+    if isinstance(sequence, NanoMRQdyne):
+        pulse_count = sequence.xy_order * sequence.xy_repetitions
+        maximum_pulse = sequence.sensing_duration_seconds / pulse_count
+        if sequence.pulse_duration_seconds > maximum_pulse:
+            errors.append(
+                "sequence.pulse_duration_seconds makes adjacent XY pulses overlap"
+            )
+        optical = hardware.nano_mr_optical_readout
+        if optical is not None and not isinstance(optical, NanoMROpticalReadout):
+            errors.append(
+                "hardware.nano_mr_optical_readout must be a NanoMROpticalReadout "
+                "when set"
+            )
+        elif optical is not None:
+            cycle_seconds = (
+                optical.initialization_seconds
+                + sequence.sensing_duration_seconds
+                + optical.readout_seconds
+                + optical.dead_time_seconds
+            )
+            if sequence.repetition_interval_seconds < cycle_seconds:
+                errors.append(
+                    "sequence.repetition_interval_seconds is shorter than the "
+                    "initialization+sensing+readout+dead-time optical cycle"
+                )
     if isinstance(
         sequence,
         (

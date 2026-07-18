@@ -5,6 +5,9 @@ dependence is normalized to each compound's measured zero-field SLSE lifetime;
 the absolute ordering therefore reflects experiment rather than shared,
 uncalibrated bath amplitudes.
 """
+# Follow the example from physical inputs through simulation to plotted diagnostics.
+# Quantities use SI units unless a variable name or CLI help states otherwise.
+
 
 from __future__ import annotations
 
@@ -73,6 +76,7 @@ def _slowest_decay_rate(generator: np.ndarray) -> float:
     return float(np.min(decaying)) if decaying.size else np.nan
 
 
+# Keep orchestration in one entry point so helper functions remain reusable.
 def main() -> None:
     args = _parse_args()
     if args.points < 3:
@@ -87,7 +91,9 @@ def main() -> None:
     sites = (_nano2_site(), _naclo3_site())
     labels = (r"NaNO$_2$ $^{14}$N ($I=1$)", r"NaClO$_3$ $^{35}$Cl ($I=3/2$)")
     zero_field_slse = (NANO2_SLSE_SECONDS, NACLO3_SLSE_SECONDS)
+    # Load Matplotlib only after choosing interactive or headless output mode.
     plt = load_matplotlib(headless=args.output is not None)
+    # Assemble the observables and diagnostics for side-by-side interpretation.
     fig, axes = plt.subplots(2, 1, figsize=(8.4, 7.3), sharex=True, constrained_layout=True)
 
     for site, label, measured_lifetime in zip(

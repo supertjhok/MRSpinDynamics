@@ -8,6 +8,9 @@ the full ``(2I+1)`` density matrix for spin-3/2 -- and plots the resulting FID.
 A third case (the same spin-1 site under a broadband pulse) shows that the
 choice follows the physics, not the spin.
 """
+# Follow the example from physical inputs through simulation to plotted diagnostics.
+# Quantities use SI units unless a variable name or CLI help states otherwise.
+
 
 from __future__ import annotations
 
@@ -110,6 +113,7 @@ def main() -> None:
     parser.add_argument("--output", type=Path, default=None, help="Optional PNG.")
     args = parser.parse_args()
 
+    # Load Matplotlib only after choosing interactive or headless output mode.
     plt = load_matplotlib(headless=args.output is not None)
 
     spin1 = QuadrupolarSite(spin=1, isotope="14N",
@@ -131,6 +135,7 @@ def main() -> None:
     t2 = args.t2_us * 1e-6
     offset = args.offset_khz * 1e3
 
+    # Assemble the observables and diagnostics for side-by-side interpretation.
     fig, axes = plt.subplots(1, 3, figsize=(13.5, 4.4), constrained_layout=True)
     for ax, scenario in zip(axes, scenarios):
         choice, signal = run_auto(scenario, offset_hz=offset, t2_seconds=t2,
@@ -154,6 +159,7 @@ def main() -> None:
         ax.legend(fontsize=8)
     fig.suptitle("Auto-selected NQR model and resulting FID", fontsize=12)
 
+    # Save reproducibly for batch runs; otherwise keep the figure interactive.
     if args.output is not None:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(args.output, dpi=150)

@@ -6,6 +6,9 @@ to demonstrate interlock handling, then returns noisy CPMG-IR echo integrals.
 Replace ``SyntheticCPMGInstrument`` with a laboratory adapter while retaining
 the live session, atomic checkpoint, and audit workflow.
 """
+# Follow the example from physical inputs through simulation to reported observables.
+# Quantities use SI units unless a variable name or CLI help states otherwise.
+
 
 from __future__ import annotations
 
@@ -136,6 +139,7 @@ def _build(seed: int, checkpoint: Path, audit: Path, batch_size: int, latency: f
     return live
 
 
+# Keep orchestration in one entry point so helper functions remain reusable.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--batches", type=int, default=3)

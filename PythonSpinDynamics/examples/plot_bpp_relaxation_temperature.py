@@ -4,6 +4,9 @@ Read the setup, simulation, and reporting stages in order; each stage is kept
 explicit so the example can be adapted without hidden state. Run ``python
 examples/plot_bpp_relaxation_temperature.py --help`` to see the adjustable inputs.
 """
+# Follow the example from physical inputs through simulation to plotted diagnostics.
+# Quantities use SI units unless a variable name or CLI help states otherwise.
+
 
 from __future__ import annotations
 
@@ -51,10 +54,12 @@ def main() -> None:
     parser.add_argument("--output", type=Path, default=None)
     args = parser.parse_args()
 
+    # Load Matplotlib only after choosing interactive or headless output mode.
     plt = load_matplotlib(headless=args.output is not None)
     temperatures, rates = build_temperature_sweep(args)
     omega_tau = 2.0 * np.pi * args.larmor_mhz * 1e6 * rates.correlation_time_seconds
 
+    # Assemble the observables and diagnostics for side-by-side interpretation.
     fig, axes = plt.subplots(2, 2, figsize=(11.5, 8.0), constrained_layout=True)
     axes[0, 0].semilogy(temperatures, rates.t1_seconds, label="T1")
     axes[0, 0].semilogy(temperatures, rates.t2_seconds, label="T2")
@@ -100,6 +105,7 @@ def main() -> None:
         f"{rates.t2_seconds[t2_min_idx]:.6g} s at {temperatures[t2_min_idx]:.3g} K"
     )
 
+    # Save reproducibly for batch runs; otherwise keep the figure interactive.
     if args.output is not None:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(args.output, dpi=150)

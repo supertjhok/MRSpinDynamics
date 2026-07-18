@@ -5,6 +5,9 @@ This is the tuned-probe counterpart to
 absolute-phase-dependent rise/fall and quadrature transients, so it provides a
 useful contrast with the nearly phase-invariant matched-probe case.
 """
+# Follow the example from physical inputs through simulation to plotted diagnostics.
+# Quantities use SI units unless a variable name or CLI help states otherwise.
+
 
 from __future__ import annotations
 
@@ -242,6 +245,7 @@ def main() -> None:
     if args.dz_um <= 0:
         raise SystemExit("--dz-um must be positive")
 
+    # Load Matplotlib only after choosing interactive or headless output mode.
     plt = load_matplotlib(headless=args.output is not None)
     cases = _case_table(args)
     reference = cases[0][2]
@@ -257,6 +261,7 @@ def main() -> None:
     )
     echo_numbers = np.arange(1, args.num_echoes + 1)
 
+    # Assemble the observables and diagnostics for side-by-side interpretation.
     fig, axes = plt.subplots(2, 2, figsize=(11, 7.5), constrained_layout=True)
     for label, color, result in cases:
         norm = _normalized_integrals(result, reference)
@@ -327,6 +332,7 @@ def main() -> None:
     axes[1, 1].legend(fontsize="small")
 
     fig.suptitle("Tuned CPMG Echo Decays: Diffusion and Absolute-Phase Advance")
+    # Save reproducibly for batch runs; otherwise keep the figure interactive.
     if args.output is not None:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(args.output, dpi=150)

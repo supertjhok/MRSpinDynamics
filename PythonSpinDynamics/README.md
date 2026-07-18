@@ -40,6 +40,16 @@ Use PythonSpinDynamics when you want to:
   population-transfer examples;
 - model single-electron ESR/EPR spectra, anisotropic g tensors, hyperfine
   doublets, and pulsed FID/Hahn-echo responses;
+- model diamond NV-minus and 4H-SiC PL6 defect sensors, including
+  ZFS-plus-Zeeman ODMR, point-dipole coupling, phase-aware Ramsey/Hahn/CPMG/XY
+  control, ideal and finite-pulse filter functions, addressed-qubit
+  propagation, optical photon-count readout, analytic layers and half-spaces,
+  voxel isotope densities, multi-isotope statistical spectra, and Gaussian
+  filter-overlap coherence; clocked Qdyne and synchronized I/Q readout,
+  separately budgeted sensor/sample/diffusion/memory coherence, effective
+  sensor-memory correlation, coherent thermal chemical-shift/J spectra, and
+  optional explicit DNP build-up/decay; plus unified statistical-spectrum and
+  Qdyne experiment specs, nested TOML, result archives, and adaptive Qdyne;
 - design radio-frequency and gradient pulses with gradient-ascent optimal
   control (GRAPE), including robust/ensemble and NQR/quadrupolar targets;
 - design cylindrical MRI gradient-coil current distributions and stream
@@ -128,6 +138,29 @@ extensions.
   density-matrix model.
 - `spin_dynamics.esr` contains single-electron ESR/EPR spectrum and pulse
   response helpers.
+- `spin_dynamics.nano_mr` contains the defect-spin nanoscale-MR foundation:
+  explicit coordinate frames and surfaces, arbitrary-spin ZFS and Zeeman
+  Hamiltonians, ODMR transitions, point nuclei, diamond NV-minus and 4H-SiC
+  PL6 presets, dynamical-decoupling sequences and filter functions,
+  addressed-qubit control propagation, optical photon-count readout, explicit
+  statistical/thermal/fixed-polarization nuclear baths, analytic layers and
+  half-spaces, voxel densities, multi-isotope spectra, and Gaussian
+  filter-overlap coherence; exact small clusters with chemical shift, scalar
+  and nuclear dipolar coupling, anisotropic sensor-target coupling, nuclear RF,
+  CW transitions, and two-block 2-D correlation spectroscopy; plus strict
+  conversion of compatible spin-1/2 zero-ZFS models to and from the pure ESR
+  module; and seeded Brownian/advection trajectories with reflecting,
+  periodic, or clipping confinement, precessing nuclear dipolar field records,
+  autocorrelations, Welch spectra, and displacement diagnostics; plus raster,
+  arbitrary-path, and sensor-array nano-MRI scans, coherent-field and
+  statistical-variance dipolar forward operators, analytic depth profiling,
+  nonnegative regularized density reconstruction, bounded sparse point-source
+  localization, and local uncertainty estimates; plus correlated
+  target/sensor field processes, five-level-plus-charge optical cycling,
+  shot-resolved emission and SPAD transfer, and covariance-aware generalized
+  least-squares reconstruction. Calibration fitting, additional detector
+  types, high-resolution protocol refinements, and an experiment-level facade
+  remain staged in the linked implementation plan.
 - `spin_dynamics.exchange` and `spin_dynamics.susceptibility` add
   Bloch-McConnell exchange and internal-gradient field models.
 

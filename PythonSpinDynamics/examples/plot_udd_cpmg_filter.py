@@ -4,6 +4,9 @@ Use the printed or plotted signal to connect pulse timing, probe choice, and
 relaxation to the resulting acquisition. Run ``python
 examples/plot_udd_cpmg_filter.py --help`` to see the adjustable inputs.
 """
+# Follow the example from physical inputs through simulation to plotted diagnostics.
+# Quantities use SI units unless a variable name or CLI help states otherwise.
+
 
 from __future__ import annotations
 
@@ -82,6 +85,7 @@ def main() -> None:
     if args.points < 2:
         raise SystemExit("--points must be at least 2")
 
+    # Load Matplotlib only after choosing interactive or headless output mode.
     plt = load_matplotlib(headless=args.output is not None)
 
     cpmg_times = cpmg_pulse_times(args.pulses, args.duration)
@@ -105,6 +109,7 @@ def main() -> None:
     cpmg_cumulative = _cumulative_trapezoid(cpmg_response**2, omega_t)
     udd_cumulative = _cumulative_trapezoid(udd_response**2, omega_t)
 
+    # Assemble the observables and diagnostics for side-by-side interpretation.
     fig, axes = plt.subplots(1, 3, figsize=(13.5, 4.2), constrained_layout=True)
 
     axes[0].vlines(
@@ -158,6 +163,7 @@ def main() -> None:
         ratio = udd_filter[low_index] / cpmg_filter[low_index]
         print(f"UDD/CPMG filter ratio: {ratio:.12g}")
 
+    # Save reproducibly for batch runs; otherwise keep the figure interactive.
     if args.output is not None:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(args.output, dpi=150)

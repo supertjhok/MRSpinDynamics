@@ -311,11 +311,13 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `PGSEDesign` | Gradient amplitude and timing for one deterministic PGSE acquisition. |
 | class | `NQRFrequencyDesign` | NQR carrier selection with optional pulse duration and nutation rate. |
 | class | `ESRDelayDesign` | Hahn-echo delay with an optional explicitly selected ESR carrier. |
+| class | `NanoMRQdyneDesign` | Qdyne reference frequency with an optional sensing-window duration. |
 | class | `ExperimentDesignAdapter` | Contract implemented by experiment-facade design adapters. |
 | class | `CPMGIRAdapter` | Bind ``t1_seconds`` and ``t2_seconds`` to a ``CPMGIRTrain`` template. |
 | class | `PGSEAdapter` | Bind diffusion and T2 parameters to a deterministic ``PGSE`` template. |
 | class | `NQRFIDAdapter` | Bind NQR site properties to an ``NQRFID`` carrier/pulse action. |
 | class | `ESRHahnAdapter` | Bind ESR T2 or an isotropic g factor to a Hahn-echo delay action. |
+| class | `NanoMRQdyneAdapter` | Bind coherent signal frequency/amplitude to a Qdyne design action. |
 | class | `ExperimentPredictor` | Vectorize an experiment adapter over posterior particles. |
 | class | `ExperimentPlanConstraint` | Reject an action unless its nominal experiment plan has no errors. |
 | class | `ExperimentAdapterCost` | Expose an adapter's physical-duration model as a design cost. |
@@ -744,6 +746,16 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `LoadedRun` | A run loaded from disk: spec, raw arrays, and best-effort result. |
 | function | `load_run(path: str) -> LoadedRun` |  |
 
+## `spin_dynamics.experiment.nano_mr_adapter`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `build_sensor(spec: NanoMRSensor)` | Build a native defect sensor from a compact facade preset. |
+| function | `build_layer(spec: NanoMRLayer) -> UniformNuclearLayer` | Build a native uniform nuclear layer from a facade layer spec. |
+| function | `build_optical_readout(spec: NanoMROpticalReadout | None)` | Build the native effective optical model, or return ``None``. |
+| function | `statistical_kwargs(experiment: Experiment) -> dict[str, Any]` | Translate a statistical-spectrum experiment into native arguments. |
+| function | `qdyne_kwargs(experiment: Experiment) -> dict[str, Any]` | Translate a Qdyne experiment into native protocol arguments. |
+
 ## `spin_dynamics.experiment.nqr_adapter`
 
 | Kind | Name | Summary |
@@ -817,6 +829,10 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `UniformFlow2D` | Uniform ``(vx, vz)`` transport velocity in meters per second. |
 | class | `DEERDistribution` | Distance grid and non-negative weights for a DEER experiment. |
 | class | `SequenceDomain` | Spatial sample and field maps for general SequenceIR execution. |
+| class | `NanoMRSensor` | Compact diamond-NV or SiC-PL6 sensor preset for facade workflows. |
+| class | `NanoMRBathComponent` | One isotope in a uniform planar nano-MR sample layer. |
+| class | `NanoMRLayer` | Uniform planar nuclear layer or half-space above a defect sensor. |
+| class | `NanoMROpticalReadout` | Effective optical initialization and photon-count detector settings. |
 | class | `SampledB0` | A spatially-varying static field sampled on the imaging plane. |
 | class | `Sample` | Sample description. |
 | class | `Hardware` | Transmit/receive hardware description. |
@@ -841,6 +857,8 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `ESRDaviesENDOR` | One-dimensional Davies ENDOR radiofrequency sweep. |
 | class | `ESRMimsENDOR` | One-dimensional Mims ENDOR sweep with blind-spot weighting. |
 | class | `SequenceIRExecution` | Execute a backend-neutral :class:`SequenceIR` through the facade. |
+| class | `NanoMRStatisticalSpectrum` | Two-sided statistical field-noise spectrum of a uniform nuclear layer. |
+| class | `NanoMRQdyne` | Clocked coherent-tone Qdyne acquisition with explicit error budgets. |
 | class | `Experiment` | A complete declarative experiment description. |
 | function | `non_default_fields(experiment: Experiment) -> dict[str, Any]` | Return dotted spec-field names whose values differ from the defaults. |
 
@@ -1291,6 +1309,226 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `make_elliptical_reflector(center: tuple[float, float], semi_axes: tuple[float, float]) -> BoundaryFn` | Return a reflecting-wall boundary callback for an elliptical pore. |
 | function | `make_semipermeable_plane(interface: float, exchange_rate: float, *, axis: Literal['x', 'z'] = 'x', outer_boundary: BoundaryMode = 'reflect') -> BoundaryFn` | Return a stochastic semi-permeable internal plane boundary. |
 | function | `apply_boundary(positions: np.ndarray, bounds: tuple[tuple[float, float], tuple[float, float]], mode: Boundary, *, previous_positions: np.ndarray | None = None, rng: np.random.Generator | None = None, time: float = 0.0, dt: float = 0.0) -> np.ndarray` | Apply boundary conditions to two-dimensional positions. |
+
+## `spin_dynamics.nano_mr.baths`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `PolarizationScalingResult` | Coherent and statistical spin-projection scaling for ``N`` nuclei. |
+| class | `NuclearBathSpecies` | One isotope and its polarization/correlation model. |
+| class | `UniformBathComponent` | One uniformly distributed nuclear species. |
+| class | `UniformNuclearLayer` | Uniform layer or half-space above a planar sensor surface. |
+| class | `VoxelBathComponent` | One isotope with scalar or per-voxel number density. |
+| class | `VoxelNuclearSample` | Arbitrary voxel centers, volumes, and isotope densities. |
+
+## `spin_dynamics.nano_mr.compiler`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `CompiledQubitStep` | One free, finite-pulse, or instantaneous qubit operation. |
+| class | `CompiledQubitSequence` | Piecewise addressed-qubit representation of a sensing sequence. |
+| class | `QubitPropagationResult` | Final addressed-qubit density matrix and Bloch vector. |
+| function | `rotation_unitary(flip_angle_rad: float, phase_rad: float) -> np.ndarray` | Return an ideal transverse qubit rotation. |
+| function | `compile_qubit_sequence(sequence: SensingSequence) -> CompiledQubitSequence` | Compile microwave events into free and addressed-qubit control steps. |
+| function | `propagate_controlled_qubit(sequence: SensingSequence, detuning_rad_per_s: float | Callable[[float], float] = 0.0, *, initial_density: np.ndarray | None = None, max_step_seconds: float | None = None) -> QubitPropagationResult` | Propagate an addressed sensor qubit through control and detuning. |
+
+## `spin_dynamics.nano_mr.correlation`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `sensor_transition_rotation(cluster: ResolvedSpinCluster, b0_vector_tesla_lab, lower: int, upper: int, flip_angle_rad: float, *, phase_rad: float = 0.0) -> np.ndarray` | Return an ideal selective rotation on two bare sensor eigenstates. |
+| function | `ideal_nuclear_rotation(cluster: ResolvedSpinCluster, flip_angle_rad: float, *, phase_rad: float = 0.0, nuclear_indices: tuple[int, ...] | list[int] | None = None) -> np.ndarray` | Return an ideal resonant nuclear rotation for selected resolved spins. |
+| class | `TwoBlockCorrelationResult` | Population-detected two-block Hahn correlation surface. |
+| function | `simulate_two_block_correlation(cluster: ResolvedSpinCluster, b0_vector_tesla_lab, block1_times_seconds, block2_times_seconds, *, mixing_seconds: float = 0.0, sensor_transition: tuple[int, int] | None = None, nuclear_rf_flip_angle_rad: float = 0.0, nuclear_rf_phase_rad: float = 0.0, nuclear_rf_indices: tuple[int, ...] | list[int] | None = None) -> TwoBlockCorrelationResult` | Simulate two ideal Hahn sensing blocks separated by coherent mixing. |
+| class | `CorrelationSpectrum2D` | Two-dimensional Fourier magnitude of a correlation surface. |
+| function | `correlation_spectrum_2d(result: TwoBlockCorrelationResult, *, window: bool = True, remove_mean: bool = True) -> CorrelationSpectrum2D` | Fourier transform a uniformly sampled two-block correlation surface. |
+
+## `spin_dynamics.nano_mr.esr_bridge`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `defect_sensor_from_esr(system: ESRSpinSystem, *, frame: CoordinateFrame | None = None, depth_nm: float = 1.0, material: str = 'generic', defect: str = 'spin-1/2 ESR center') -> DefectSpinSensor` | Promote a pure spin-1/2 ESR model to a zero-ZFS defect sensor. |
+| function | `esr_system_from_defect(sensor: DefectSpinSensor, *, zfs_tolerance_hz: float = 1e-09) -> ESRSpinSystem` | Return the equivalent pure ESR model when spin and ZFS permit it. |
+
+## `spin_dynamics.nano_mr.exact`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `ResolvedNucleus` | One explicitly propagated target nucleus. |
+| class | `NuclearScalarCoupling` | Scalar coupling between two zero-based nuclear indices. |
+| class | `ResolvedSpinCluster` | A defect sensor and a deliberately small set of resolved nuclei. |
+| function | `nuclear_zeeman_hamiltonian(cluster: ResolvedSpinCluster, b0_vector_tesla_lab) -> np.ndarray` | Return nuclear Zeeman plus chemical-shift terms in radians per second. |
+| function | `sensor_nuclear_hyperfine_hamiltonian(cluster: ResolvedSpinCluster) -> np.ndarray` | Return the full point-dipole sensor-target interaction. |
+| function | `nuclear_scalar_coupling_hamiltonian(cluster: ResolvedSpinCluster, *, quantization_axis_lab = (0.0, 0.0, 1.0)) -> np.ndarray` | Return configured isotropic or field-secular scalar couplings. |
+| function | `nuclear_dipolar_hamiltonian(cluster: ResolvedSpinCluster, *, model: NuclearDipolarModel = 'full', quantization_axis_lab = (0.0, 0.0, 1.0)) -> np.ndarray` | Return pairwise nuclear point-dipole couplings. |
+| function | `resolved_cluster_hamiltonian(cluster: ResolvedSpinCluster, b0_vector_tesla_lab = (0.0, 0.0, 0.0), *, include_sensor_nuclear: bool = True, include_scalar: bool = True, include_nuclear_dipolar: bool = True, nuclear_dipolar_model: NuclearDipolarModel = 'full') -> np.ndarray` | Return the complete dense cluster Hamiltonian in radians per second. |
+| function | `nuclear_rf_hamiltonian(cluster: ResolvedSpinCluster, nutation_hz: float, *, phase_rad: float = 0.0, nuclear_indices: tuple[int, ...] | list[int] | None = None) -> np.ndarray` | Return a resonant rotating-frame nuclear-RF control Hamiltonian. |
+| class | `ResolvedClusterTransition` | One microwave-active eigenstate transition of a resolved cluster. |
+| class | `ResolvedClusterEigensystem` | Dense cluster levels and microwave-active transitions. |
+| function | `diagonalize_resolved_cluster(cluster: ResolvedSpinCluster, b0_vector_tesla_lab = (0.0, 0.0, 0.0), *, drive_direction_lab = (1.0, 0.0, 0.0), strength_tolerance: float = 1e-14) -> ResolvedClusterEigensystem` | Diagonalize a resolved cluster and inventory microwave transitions. |
+| class | `ResolvedClusterSpectrumResult` | Broadened fixed-field CW spectrum of a resolved cluster. |
+| function | `simulate_resolved_cw_spectrum(cluster: ResolvedSpinCluster, b0_vector_tesla_lab, *, frequencies_hz = None, broadening_hz: float = 50000.0, points: int = 2048, span_hz: float | None = None, drive_direction_lab = (1.0, 0.0, 0.0), lineshape: str = 'gaussian') -> ResolvedClusterSpectrumResult` | Return a broadened microwave transition-strength spectrum. |
+
+## `spin_dynamics.nano_mr.filter_functions`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `modulation_function(sequence: SensingSequence, times_seconds, *, pulse_model: PulseModel = 'ideal') -> np.ndarray` | Return the longitudinal toggling coefficient ``y(t)``. |
+| function | `toggling_integral(sequence: SensingSequence, angular_frequencies, *, pulse_model: PulseModel = 'ideal', samples_per_pulse: int = 64) -> complex | np.ndarray` | Return ``integral y(t) exp(i*omega*t) dt`` for a sensing sequence. |
+| function | `dephasing_filter_function(sequence: SensingSequence, angular_frequencies, *, pulse_model: PulseModel = 'ideal', samples_per_pulse: int = 64) -> float | np.ndarray` | Return the dimensionless pure-dephasing filter ``omega^2 |Y|^2``. |
+| function | `modulation_time_grid(sequence: SensingSequence, *, samples_per_pulse: int = 64, min_free_samples: int = 2049) -> np.ndarray` | Return an integration grid resolving every finite electron pulse. |
+
+## `spin_dynamics.nano_mr.frames`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `unit_vector(values, *, name: str = 'vector') -> np.ndarray` | Return a validated three-component unit vector. |
+| function | `as_rotation_matrix(values, *, name: str = 'rotation') -> np.ndarray` | Return a validated proper 3-D rotation matrix. |
+| function | `rotation_from_z(axis_lab) -> np.ndarray` | Return the minimum proper rotation that maps local ``z`` to ``axis_lab``. |
+| class | `CoordinateFrame` | A named local coordinate frame embedded in the laboratory frame. |
+
+## `spin_dynamics.nano_mr.geometry`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `SurfaceGeometry` | Planar sample interface. |
+| class | `NuclearSpin` | One target nucleus at a laboratory-frame position. |
+| function | `dipole_spatial_tensor_inverse_m3(displacement_lab_nm) -> np.ndarray` | Return ``(I - 3 rhat rhat^T) / r^3`` in inverse cubic metres. |
+| function | `point_dipolar_hyperfine_tensor_hz(sensor: DefectSpinSensor, target: NuclearSpin, *, sensor_position_lab_nm) -> np.ndarray` | Return the point-dipole electron-nuclear tensor in hertz. |
+
+## `spin_dynamics.nano_mr.hamiltonians`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `sensor_spin_operators(sensor: DefectSpinSensor) -> tuple[np.ndarray, ...]` | Return local ``(Sx, Sy, Sz)`` operators for the defect ground state. |
+| function | `zfs_hamiltonian(sensor: DefectSpinSensor) -> np.ndarray` | Return the zero-field-splitting Hamiltonian in radians per second. |
+| function | `zeeman_hamiltonian(sensor: DefectSpinSensor, b0_vector_tesla_lab) -> np.ndarray` | Return the electron Zeeman Hamiltonian in radians per second. |
+| function | `sensor_hamiltonian(sensor: DefectSpinSensor, b0_vector_tesla_lab = (0.0, 0.0, 0.0)) -> np.ndarray` | Return the ground-state ZFS plus Zeeman Hamiltonian. |
+| class | `DefectTransition` | One microwave-active transition of a defect ground state. |
+| class | `DefectEigensystem` | Defect energy levels and microwave-active transitions at one field. |
+| function | `drive_operator(sensor: DefectSpinSensor, drive_direction_lab = (1.0, 0.0, 0.0)) -> np.ndarray` | Return the dimensionless microwave magnetic-dipole drive operator. |
+| function | `diagonalize_sensor(sensor: DefectSpinSensor, b0_vector_tesla_lab = (0.0, 0.0, 0.0), *, drive_direction_lab = (1.0, 0.0, 0.0), frequency_tolerance_hz: float = 1e-09, strength_tolerance: float = 1e-14) -> DefectEigensystem` | Diagonalize a defect sensor and report microwave-active transitions. |
+
+## `spin_dynamics.nano_mr.high_resolution`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `ClockModel` | Effective timebase errors for a clocked acquisition. |
+| class | `HighResolutionBudget` | Independent coherence limits for high-resolution protocols. |
+| class | `QdyneProtocol` | One clocked Qdyne or synchronized-readout acquisition. |
+| class | `QdyneResult` | Clocked single-quadrature Qdyne record and baseband spectrum. |
+| class | `SynchronizedReadoutResult` | Two-quadrature synchronized-readout record. |
+| function | `simulate_qdyne(protocol: QdyneProtocol, *, signal_frequency_hz: float, field_amplitude_tesla: float, sensor_gamma_rad_s_t: float, shot_count: int, signal_phase_rad: float = 0.0, optical_model: OpticalReadoutModel | None = None, seed: int | None = None) -> QdyneResult` | Simulate a clocked coherent-field Qdyne record. |
+| function | `simulate_synchronized_readout(protocol: QdyneProtocol, *, signal_frequency_hz: float, field_amplitude_tesla: float, sensor_gamma_rad_s_t: float, shot_count: int, signal_phase_rad: float = 0.0, seed: int | None = None) -> SynchronizedReadoutResult` | Simulate phase-preserving two-quadrature synchronized readout. |
+| class | `MemoryCorrelationResult` | Effective sensor-memory correlation signal and separate envelopes. |
+| function | `sensor_memory_correlation(correlation_times_seconds, *, frequency_hz: float, sensing_seconds: float, budget: HighResolutionBudget, contrast: float = 1.0, transfer_fidelity: float = 1.0, retrieval_fidelity: float = 1.0, phase_rad: float = 0.0) -> MemoryCorrelationResult` | Return an effective two-block sensor-memory correlation signal. |
+| class | `CoherentNMRSite` | One first-order coherent nuclear resonance site. |
+| class | `CoherentNMRSpectrumResult` | Time-domain coherent signal and chemical-shift/J-resolved spectrum. |
+| function | `simulate_coherent_nmr_spectrum(sites: tuple[CoherentNMRSite, ...] | list[CoherentNMRSite], b0_tesla: float, times_seconds, *, reference_frequency_hz: float | None = None, diffusion_correlation_seconds: float = np.inf, clock: ClockModel | None = None, seed: int | None = None, window: bool = True) -> CoherentNMRSpectrumResult` | Simulate first-order coherent thermal or polarized NMR spectroscopy. |
+| class | `DNPModel` | Optional effective dynamic-nuclear-polarization preparation. |
+| class | `DNPPolarizationResult` | DNP build-up or relaxation record. |
+| function | `dnp_polarization(model: DNPModel, times_seconds, thermal_polarization: float, *, pumping: bool = True, initial_polarization: float | None = None) -> DNPPolarizationResult` | Return bounded DNP build-up or nuclear-T1 relaxation. |
+
+## `spin_dynamics.nano_mr.imaging`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `NanoMRScan` | Ordered scanning-sensor positions or a simultaneous sensor array. |
+| class | `PlanarVoxelGrid` | Rectilinear planar voxel centers and volumes. |
+| class | `DipolarForwardOperator` | Linear projected-field or transverse-variance nano-MRI operator. |
+| class | `DepthProfileOperator` | Analytic planar-slab field-variance operator. |
+| class | `DensityReconstructionResult` | Nonnegative regularized density estimate and linearized uncertainty. |
+| class | `PointLocalizationResult` | Nonlinear sparse point-source fit and local covariance estimate. |
+| function | `raster_scan(x_axis_nm, y_axis_nm, *, z_nm: float, sensor_axis_lab = (0.0, 0.0, 1.0), serpentine: bool = True, label: str = 'raster scan') -> NanoMRScan` | Return a planar raster with optional serpentine acquisition ordering. |
+| function | `arbitrary_scan(positions_lab_nm, *, sensor_axes_lab = (0.0, 0.0, 1.0), label: str = 'arbitrary scan') -> NanoMRScan` | Return an explicitly ordered scanning-sensor trajectory. |
+| function | `sensor_array(positions_lab_nm, *, sensor_axes_lab = (0.0, 0.0, 1.0), label: str = 'sensor array') -> NanoMRScan` | Return simultaneous sensor positions and independently oriented axes. |
+| function | `planar_voxel_grid(x_axis_nm, y_axis_nm, *, z_nm: float, thickness_nm: float) -> PlanarVoxelGrid` | Return planar voxel centers with midpoint-rule lateral volumes. |
+| function | `build_dipolar_forward_operator(scan: NanoMRScan, source_positions_lab_nm, *, source_shape: tuple[int, ...] | None = None, response_kind: ImagingResponse = 'transverse_variance', field_axis_lab = (0.0, 0.0, 1.0), moment_direction_lab = (0.0, 0.0, 1.0), minimum_distance_nm: float = 0.1) -> DipolarForwardOperator` | Build a scanning-sensor or sensor-array dipolar forward matrix. |
+| function | `build_voxel_density_forward_operator(scan: NanoMRScan, grid: PlanarVoxelGrid, species: NuclearBathSpecies, *, field_tesla: float, field_axis_lab = (0.0, 0.0, 1.0), minimum_distance_nm: float = 0.1) -> DipolarForwardOperator` | Build a planar number-density to statistical-field-variance operator. |
+| function | `nuclear_voxel_variance_amplitudes(species: NuclearBathSpecies, field_tesla: float, number_density_m3, voxel_volumes_nm3) -> np.ndarray` | Return per-voxel transverse moment variance in ``(J/T)^2``. |
+| function | `build_depth_profile_operator(sensor_depths_nm, layer_edges_nm, species: NuclearBathSpecies, *, field_tesla: float, sensor_axis_lab = (0.0, 0.0, 1.0), field_axis_lab = (0.0, 0.0, 1.0), surface_normal_lab = (0.0, 0.0, 1.0)) -> DepthProfileOperator` | Build an analytic planar-slab density-to-field-variance operator. |
+| function | `reconstruct_nonnegative_density(operator: DipolarForwardOperator | DepthProfileOperator | np.ndarray, measurements, *, source_shape: tuple[int, ...] | None = None, regularization: float = 0.001, regularization_order: int = 1, noise_std: float | None = None, noise_covariance = None, max_iterations: int = 10000, tolerance: float = 1e-08) -> DensityReconstructionResult` | Solve nonnegative dimensionless-Tikhonov density inversion. |
+| function | `localize_point_sources(scan: NanoMRScan, measurements, initial_positions_lab_nm, *, response_kind: ImagingResponse = 'transverse_variance', field_axis_lab = (0.0, 0.0, 1.0), moment_direction_lab = (0.0, 0.0, 1.0), initial_amplitudes = None, bounds_lab_nm = ((-np.inf, np.inf),) * 3, minimum_distance_nm: float = 0.1, noise_std: float | None = None, noise_covariance = None, max_evaluations: int = 2000) -> PointLocalizationResult` | Fit sparse point positions and amplitudes by bounded least squares. |
+
+## `spin_dynamics.nano_mr.motion`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `DipolarFieldTrajectory` | Seeded positions and magnetic field sampled at one defect sensor. |
+| class | `FieldCorrelationResult` | One-sided autocorrelation of a uniformly sampled field record. |
+| class | `FieldSpectrumResult` | One-sided power spectral density of a field record. |
+| class | `TrajectoryDisplacementResult` | Mean displacement and mean-squared displacement of the walkers. |
+| function | `simulate_diffusing_dipolar_field(initial_positions_lab_nm, species: NuclearBathSpecies, *, sensor_position_lab_nm = (0.0, 0.0, 0.0), sensor_axis_lab = (0.0, 0.0, 1.0), static_field_lab_tesla = (0.0, 0.0, 0.0), sample_interval_seconds: float, sample_count: int, motion_substeps_per_sample: int = 1, diffusion_coefficient_m2_s = 0.0, drift_velocity_m_s = (0.0, 0.0, 0.0), bounds_lab_nm = None, boundary: Boundary = 'reflect', seed: int | None = None, initial_phases_rad = None, spin_weights = None, minimum_distance_nm: float = 0.1, include_longitudinal_mean: bool = True) -> DipolarFieldTrajectory` | Simulate a seeded nuclear trajectory and its dipolar sensor field. |
+| function | `dipolar_field_from_moments(positions_m, moments_j_per_t, *, sensor_position_m = (0.0, 0.0, 0.0), weights = 1.0, minimum_distance_m: float = 0.0) -> np.ndarray` | Return the summed point-dipole magnetic field in tesla. |
+| function | `field_autocorrelation(record_or_values: DipolarFieldTrajectory | np.ndarray, *, sample_interval_seconds: float | None = None, component: FieldComponent = 'sensor_axis', max_lag: int | None = None, demean: bool = True, unbiased: bool = True, normalize: bool = False) -> FieldCorrelationResult` | Return the non-negative-lag field autocorrelation. |
+| function | `field_power_spectral_density(record_or_values: DipolarFieldTrajectory | np.ndarray, *, sample_interval_seconds: float | None = None, component: FieldComponent = 'sensor_axis', demean: bool = True, window: Literal['hann', 'rectangular'] = 'hann', segment_length: int | None = None, overlap_fraction: float = 0.5) -> FieldSpectrumResult` | Return a one-sided PSD in tesla squared per hertz. |
+| function | `trajectory_displacement_statistics(trajectory: DipolarFieldTrajectory) -> TrajectoryDisplacementResult` | Return ensemble displacement statistics relative to the initial sample. |
+| function | `free_diffusion_return_density(time_seconds, diffusion_coefficient_m2_s: float, *, spatial_dimension: int = 3) -> np.ndarray` | Return the Gaussian free-diffusion propagator at zero displacement. |
+
+## `spin_dynamics.nano_mr.noise`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `FieldNoiseComponent` | One stationary field-noise component. |
+| class | `CorrelatedFieldNoiseModel` | Sum of independent stationary magnetic-field noise components. |
+| class | `FieldNoiseRealization` | Seeded correlated field samples and their prescribed covariance. |
+| function | `sample_correlated_field_noise(model: CorrelatedFieldNoiseModel, times_seconds, *, positions_lab_nm = None, mean_field_tesla = 0.0, seed: int | None = None, rng: np.random.Generator | None = None) -> FieldNoiseRealization` | Draw a reproducible multivariate-normal field record. |
+| function | `linear_field_covariance(forward_matrix, source_variances) -> np.ndarray` | Map independent source-amplitude variances through a linear operator. |
+| function | `effective_sample_size(covariance) -> float` | Return ``trace(C)^2 / trace(C^2)`` for a covariance matrix. |
+
+## `spin_dynamics.nano_mr.presets`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `diamond_nv_minus(*, depth_nm: float = 5.0, axis_lab: Sequence[float] = (0.0, 0.0, 1.0), d_hz: float = DIAMOND_NV_ZFS_HZ, e_hz: float = 0.0, g_tensor: float | Sequence[float] | np.ndarray = 2.0028, label: str = 'NV-') -> DefectSpinSensor` | Return a spin-1 diamond NV-minus ground-state sensor preset. |
+| function | `sic_pl6(*, depth_nm: float = 2.0, axis_lab: Sequence[float] = (0.0, 0.0, 1.0), d_hz: float = SIC_PL6_ZFS_HZ, e_hz: float = 0.0, g_tensor: float | Sequence[float] | np.ndarray = 2.0, label: str = 'PL6') -> DefectSpinSensor` | Return a spin-1 4H-SiC PL6/divacancy-related sensor preset. |
+
+## `spin_dynamics.nano_mr.readout`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `OpticalReadoutModel` | Effective bright/dark initialization and fluorescence-count model. |
+| class | `OpticalReadoutResult` | Expected and sampled fluorescence counts with acquisition metadata. |
+| class | `OpticalCycleModel` | Room-temperature NV optical-cycle continuous-time rate model. |
+| class | `SPADDetectorModel` | Single-photon avalanche-detector transfer and nuisance counts. |
+| class | `TimeResolvedOpticalReadoutResult` | Shot-resolved optical emission and detector records. |
+| function | `sample_optical_readout(model: OpticalReadoutModel, bright_probability, *, repetitions: int = 1, sensing_seconds: float = 0.0, seed: int | None = None, rng: np.random.Generator | None = None) -> OpticalReadoutResult` | Draw reproducible Poisson photon counts from an effective readout model. |
+| function | `sample_time_resolved_optical_readout(optical_model: OpticalCycleModel, detector_model: SPADDetectorModel, bright_probability, *, repetitions: int = 1, readout_seconds: float = 3e-07, seed: int | None = None, rng: np.random.Generator | None = None) -> TimeResolvedOpticalReadoutResult` | Sample optical-state paths, photon emission, and SPAD transfer. |
+| function | `optical_contrast_trace(model: OpticalCycleModel, times_seconds) -> tuple[np.ndarray, np.ndarray, np.ndarray]` | Return bright/dark fluorescence rates and their transient contrast. |
+
+## `spin_dynamics.nano_mr.sequences`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `TimedControlPulse` | One ideal or finite rectangular control pulse. |
+| class | `SensingSequence` | A phase-aware control schedule over one coherent sensing window. |
+| function | `ramsey_sequence(evolution_seconds: float, *, preparation_phase_rad: float = 0.0, readout_phase_rad: float = 0.0) -> SensingSequence` | Return a free-evolution Ramsey sensing window. |
+| function | `hahn_echo_sequence(tau_seconds: float, *, pulse_duration_seconds: float = 0.0, refocus_phase_rad: float = 0.0) -> SensingSequence` | Return a Hahn window with a pi pulse at ``tau`` and duration ``2*tau``. |
+| function | `cpmg_sequence(num_pulses: int, total_duration_seconds: float, *, pulse_duration_seconds: float = 0.0, phase_rad: float = np.pi / 2.0) -> SensingSequence` | Return an equally spaced CPMG control sequence. |
+| function | `xy_sequence(order: Literal[4, 8, 16], repetitions: int, total_duration_seconds: float, *, pulse_duration_seconds: float = 0.0) -> SensingSequence` | Return an XY4, XY8, or phase-alternated XY16 sequence. |
+| function | `kdd_sequence(repetitions: int, total_duration_seconds: float, *, pulse_duration_seconds: float = 0.0, base_phase_rad: float = 0.0) -> SensingSequence` | Return repeated 20-pulse Knill dynamical-decoupling cycles. |
+| function | `phase_cycled_sequence(phases_rad: Sequence[float], total_duration_seconds: float, *, pulse_duration_seconds: float = 0.0, name: str = 'phase-cycled') -> SensingSequence` | Return equally spaced pi pulses with caller-supplied transverse phases. |
+| function | `with_nuclear_rf_pulses(sequence: SensingSequence, pulses: Sequence[TimedControlPulse]) -> SensingSequence` | Return a sequence augmented with target-nuclear RF events. |
+
+## `spin_dynamics.nano_mr.sensors`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `as_symmetric_tensor(values: float | np.ndarray | list[float] | tuple[float, ...], *, name: str) -> np.ndarray` | Return a finite symmetric 3x3 tensor from scalar, principal, or full input. |
+| function | `zfs_tensor_from_d_e(d_hz: float, e_hz: float = 0.0) -> np.ndarray` | Return the traceless principal-axis ZFS tensor for conventional ``D, E``. |
+| class | `DefectSpinSensor` | Ground-state spin model of an optically addressable point defect. |
+
+## `spin_dynamics.nano_mr.statistical`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `StatisticalSpectrumResult` | Two-sided magnetic-field PSD and per-component metadata. |
+| class | `GaussianCoherenceResult` | Filter-overlap dephasing exponent and remaining coherence. |
+| function | `simulate_statistical_spectrum(sensor: DefectSpinSensor, sample: NuclearBathSample, b0_vector_tesla_lab, angular_frequencies_rad_s, *, sensor_position_lab_nm = None) -> StatisticalSpectrumResult` | Return the multi-isotope Lorentzian field-noise spectrum. |
+| function | `rotating_lorentzian_psd(angular_frequencies_rad_s, field_variance_t2: float, larmor_angular_frequency_rad_s: float, correlation_time_seconds: float) -> np.ndarray` | Return a normalized two-sided rotating Lorentzian PSD. |
+| function | `gaussian_filter_coherence(sensor: DefectSpinSensor, sequence: SensingSequence, spectrum: StatisticalSpectrumResult, *, pulse_model: PulseModel = 'ideal', samples_per_pulse: int = 64) -> GaussianCoherenceResult` | Return Gaussian coherence from filter overlap with a two-sided PSD. |
+| function | `sensor_gyromagnetic_ratio_rad_s_t(sensor: DefectSpinSensor) -> float` | Return axial addressed-transition Zeeman slope in radians/s/T. |
+| function | `planar_transverse_variance_geometry(sensor_axis: np.ndarray, field_direction: np.ndarray, surface_normal: np.ndarray, inverse_cube_range: float) -> float` | Return the planar transverse dipolar geometry integral in inverse m3. |
 
 ## `spin_dynamics.noise`
 

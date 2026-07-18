@@ -4,6 +4,9 @@ Trace the coordinate and field conventions from model construction to the image 
 field diagnostic before changing the geometry. Run ``python
 examples/plot_earth_field_prepolarized_nmr.py --help`` to see the adjustable
 inputs."""
+# Follow the example from physical inputs through simulation to plotted diagnostics.
+# Quantities use SI units unless a variable name or CLI help states otherwise.
+
 
 from __future__ import annotations
 
@@ -187,9 +190,11 @@ def main() -> None:
     if args.field_spread_hz < 0.0:
         raise ValueError("field_spread_hz must be non-negative")
 
+    # Load Matplotlib only after choosing interactive or headless output mode.
     plt = load_matplotlib(headless=args.output is not None)
     case = build_earth_field_case(args)
 
+    # Assemble the observables and diagnostics for side-by-side interpretation.
     fig, axes = plt.subplots(2, 2, figsize=(12.0, 8.0), constrained_layout=True)
     axes[0, 0].plot(
         case.prep_times_seconds,
@@ -252,6 +257,7 @@ def main() -> None:
     print(f"prepared M0 before transfer: {case.prepared_m0:.6g}")
     print(f"detected M0 after transfer: {case.detected_m0:.6g}")
 
+    # Save reproducibly for batch runs; otherwise keep the figure interactive.
     if args.output is not None:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(args.output, dpi=150)

@@ -1,4 +1,7 @@
 """Closed-loop EPM particle imaging and magnetic-aggregate delivery."""
+# Follow the example from physical inputs through simulation to plotted diagnostics.
+# Quantities use SI units unless a variable name or CLI help states otherwise.
+
 
 from __future__ import annotations
 
@@ -68,6 +71,7 @@ def _validate(args: argparse.Namespace) -> None:
         raise ValueError("--particles must be at least 10")
 
 
+# Keep orchestration in one entry point so helper functions remain reusable.
 def main() -> None:
     args = _parser().parse_args()
     _validate(args)
@@ -136,6 +140,7 @@ def main() -> None:
     )
     x_grid, y_grid = np.meshgrid(phantom.x_m, phantom.y_m, indexing="xy")
     colors = plt.cm.viridis(np.linspace(0.12, 0.92, len(result.cycles)))
+    # Assemble the observables and diagnostics for side-by-side interpretation.
     fig, axes = plt.subplots(2, 3, figsize=(15.2, 8.8))
     fig.suptitle(
         "Closed-loop particle-state estimation and magnetic transport",

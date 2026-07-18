@@ -42,6 +42,16 @@ class TestSelectorTests(unittest.TestCase):
 
         self.assertEqual(modules, ("tests.test_motion",))
 
+    def test_nano_mr_source_change_selects_nano_mr_tests(self) -> None:
+        paths = ["src/spin_dynamics/nano_mr/hamiltonians.py"]
+
+        groups = select_groups(paths, self.config)
+        modules = select_test_modules(paths, groups, self.config)
+
+        self.assertEqual(groups, ("nano_mr",))
+        self.assertIn("tests.test_nano_mr", modules)
+        self.assertIn("tests.test_nano_mr_experiment", modules)
+
     def test_only_changed_examples_receive_cli_checks(self) -> None:
         examples = changed_examples(
             [

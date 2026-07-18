@@ -3,6 +3,9 @@
 This is a synthetic algorithm benchmark. It does not control an instrument or
 establish experimental performance.
 """
+# Follow the example from physical inputs through simulation to reported observables.
+# Quantities use SI units unless a variable name or CLI help states otherwise.
+
 
 from __future__ import annotations
 
@@ -33,6 +36,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+# Keep orchestration in one entry point so helper functions remain reusable.
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.trials <= 0:

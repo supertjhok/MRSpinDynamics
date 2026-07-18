@@ -25,6 +25,7 @@ __all__ = [
     "hyperpolarization",
     "interference",
     "motion",
+    "nano_mr",
     "noise",
     "nonresonant",
     "nqr",

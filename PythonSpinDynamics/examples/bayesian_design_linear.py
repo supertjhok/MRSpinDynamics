@@ -5,6 +5,9 @@ It demonstrates particle priors, a predictive likelihood, finite candidates,
 physical cost, a goal-oriented utility, stopping, and checkpoint output without
 requiring optional dependencies or instrument control.
 """
+# Follow the example from physical inputs through simulation to reported observables.
+# Quantities use SI units unless a variable name or CLI help states otherwise.
+
 
 from __future__ import annotations
 
@@ -52,6 +55,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+# Keep orchestration in one entry point so helper functions remain reusable.
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.particles <= 0 or args.utility_samples <= 0 or args.max_actions <= 0:

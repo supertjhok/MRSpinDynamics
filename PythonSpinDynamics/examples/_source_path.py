@@ -3,6 +3,9 @@
 This keeps examples runnable before the package is installed, even when the
 current working directory is `examples/`.
 """
+# Shared setup keeps source-tree imports and plotting backends consistent.
+# Example modules call these helpers before importing optional dependencies.
+
 
 from __future__ import annotations
 
@@ -19,6 +22,7 @@ def add_src_to_path() -> None:
         sys.path.insert(0, src_text)
 
 
+# Load Matplotlib only after choosing interactive or headless output mode.
 def load_matplotlib(
     *, required: bool = True, headless: bool = False
 ) -> ModuleType | None:

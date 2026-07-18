@@ -1,4 +1,7 @@
 """Inspect the four Phase 2 experiment-design adapters without scoring them."""
+# Follow the example from physical inputs through simulation to reported observables.
+# Quantities use SI units unless a variable name or CLI help states otherwise.
+
 
 from __future__ import annotations
 
@@ -33,6 +36,7 @@ from spin_dynamics.experiment import (  # noqa: E402
 from spin_dynamics.nqr import QuadrupolarSite  # noqa: E402
 
 
+# Keep orchestration in one entry point so helper functions remain reusable.
 def main() -> None:
     entries = [
         (

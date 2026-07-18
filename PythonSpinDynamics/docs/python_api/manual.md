@@ -8,7 +8,8 @@ task-to-model flow as the print edition:
 
 1. orientation and experiment planning;
 2. experiments, sequences, and imaging;
-3. coupled-spin, NQR, ESR, relaxation, and spatial physics;
+3. coupled-spin, NQR, ESR, defect-spin nano-MR, optical detection, relaxation,
+   and spatial physics;
 4. fields, hardware, and image-guided magnetic therapy;
 5. pulse design and optimization; and
 6. API and validation reference.
@@ -71,6 +72,68 @@ times and identifies the motional regime.
 
 Field- and frequency-swept views are built from the same weighted powder
 orientations, making the source of the broadened spectrum explicit.
+
+### Defect-spin nano-MR and optical detection
+
+![XY8 sensing filter and contrast-limited optical readout](../images/example_nano_mr_xy8_filter_readout.png)
+
+The dedicated [nano-MR and optical-detection chapter](nano_mr.md) connects
+diamond NV-minus and 4H-SiC PL6 ground-state physics to phase-aware sensing
+sequences, finite-pulse filters, effective optical photon counts, and
+statistical nuclear baths.
+
+![Multi-isotope statistical nano-NMR and depth scaling](../images/example_nano_mr_statistical_spectra.png)
+
+The statistical-spectrum example resolves proton and fluorine Larmor peaks and verifies the
+analytic \(d^{-3}\) half-space field-variance law. Reproduce it with
+`python examples/plot_nano_mr_statistical_spectra.py --output nano_mr.png`.
+
+![Seeded confined-liquid trajectories, field correlation, and spectrum](../images/example_nano_mr_diffusing_liquid.png)
+
+The diffusing-liquid trajectory workflow reuses the general Brownian/advection and
+boundary engine, then evaluates the precessing nuclear dipolar field at the
+sensor. It provides reproducible field records, correlations, periodogram or
+Welch spectra, and displacement checks for free diffusion, drift, and
+confinement.
+
+![Scanning nano-MRI truth, noisy measurement, density reconstruction, and uncertainty](../images/example_nano_mr_scan_reconstruction.png)
+
+The scanning nano-MRI workflow treats scanning probes and fixed sensor arrays
+through one geometry, builds coherent-field or statistical-variance dipolar
+operators, and supports analytic depth profiling, nonnegative regularized
+density inversion, bounded sparse point-source localization, and local
+uncertainty estimates.
+
+![Correlated spin noise, time-resolved NV optical cycling, and SPAD transfer](../images/example_nano_mr_realistic_noise.png)
+
+The stochastic-acquisition workflow keeps target nuclear
+fluctuations separate from sensor-surface noise, preserves temporal and
+cross-pixel covariance, follows the optical triplet/singlet/charge-state rate
+model shot by shot, and transfers emitted photons through an explicit SPAD.
+The imaging solver can use the resulting covariance through generalized least
+squares while retaining the original scalar-noise interface.
+
+![Clocked Qdyne, synchronized quadratures, independent coherence budgets, and sensor-memory correlation](../images/example_nano_mr_qdyne.png)
+
+The clocked-acquisition layer evaluates the coherent field through the
+actual sensing-sequence toggling integral. Qdyne exposes the beat-frequency
+record and Fourier-bin scaling, while synchronized I/Q readout retains the
+beat sign. Sensor coherence, sample coherence, diffusion, ancillary-memory
+coherence, and clock error remain separate reported parameters.
+
+![Coherent thermal chemical-shift/J spectroscopy and optional DNP preparation](../images/example_nano_mr_chemical_shift_j.png)
+
+The coherent-spectrum workflow uses thermally grounded amplitudes, sample and
+diffusion coherence, first-order chemical shifts and scalar couplings, and an
+explicit clock timebase. Optional DNP is shown as bounded polarization
+build-up followed by nuclear-T1 relaxation rather than as an unexplained
+readout gain.
+
+The experiment facade binds the analytic planar statistical-spectrum and coherent Qdyne
+engines to the unified experiment facade. Compact defect/layer/optical specs
+round-trip through TOML and provenance-bearing archives, while a
+planner-validated Bayesian adapter selects Qdyne reference frequency or
+sensing duration without double-counting photon noise.
 
 ### Sequence timing
 
@@ -144,6 +207,7 @@ to a Faraday coil as the precession field falls and the line narrows.
 ## Other useful entry points
 
 - [NQR-to-NMR crossover and powder relaxation](nqr.md)
+- [Defect-spin nano-MR and optical detection](nano_mr.md)
 - [Workflow catalog](workflows.md)
 - [Image-guided magnetic therapy](../image_guided_magnetic_therapy.md)
 - [Electropermanent hardware and field models](../electropermanent_magnets.md)

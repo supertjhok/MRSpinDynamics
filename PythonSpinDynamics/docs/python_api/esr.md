@@ -247,6 +247,21 @@ sweep = simulate_hyperfine_field_sweep(
 For a one-nucleus spin-1/2 example, see
 `examples/plot_esr_hyperfine_doublet.py`.
 
+## Boundary with defect-spin nano-MR
+
+The pure ESR and nano-MR modules share spin-1/2, zero-ZFS models through
+`defect_sensor_from_esr` and `esr_system_from_defect`. Use that bridge when a
+conventional ESR center also needs a surface position, point-dipole target
+geometry, or optical readout. The reverse conversion rejects higher-spin or
+finite-ZFS sensors.
+
+Use `spin_dynamics.nano_mr` directly for NV, PL6, optical detection,
+statistical surface layers, or exact position-dependent external nuclei.
+The [nano-MR guide](nano_mr.md#choosing-pure-esr-or-nano-mr) contains the full
+selection table. The additional examples
+`plot_esr_nano_mr_cw.py` and `plot_esr_nano_mr_pulsed.py` put the compatible
+and distinct CW/pulsed models side by side.
+
 ## Current Scope
 
 The first ESR surface intentionally covers:

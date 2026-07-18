@@ -238,6 +238,12 @@ class ExampleSmokeTests(unittest.TestCase):
             ),
             ("examples/experiment_imaging_with_coil.py", "--grid", "6", "--ny", "3"),
             ("examples/experiment_nqr_auto_model.py", "--num-echoes", "2"),
+            (
+                "examples/nano_mr_experiment_facade.py",
+                "--config",
+                "examples/nano_mr_qdyne.toml",
+            ),
+            ("examples/bayesian_design_nano_mr_qdyne.py", "--steps", "1"),
             ("examples/ideal_time_varying_cpmg.py", "--numpts", "17", "--num-echoes", "4"),
             ("examples/compare_cpmg_fid.py", "--numpts", "21"),
             ("examples/tuned_probe_cpmg.py", "--numpts", "21"),
@@ -406,6 +412,18 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_esr_eseem_hyscore.py",
             "examples/plot_esr_quadrupolar_eseem.py",
             "examples/plot_esr_inhomogeneous_echo.py",
+            "examples/plot_esr_nano_mr_cw.py",
+            "examples/plot_esr_nano_mr_pulsed.py",
+            "examples/plot_nano_mr_defect_odmr.py",
+            "examples/plot_nano_mr_chemical_shift_j.py",
+            "examples/plot_nano_mr_diffusing_liquid.py",
+            "examples/plot_nano_mr_qdyne.py",
+            "examples/plot_nano_mr_realistic_noise.py",
+            "examples/plot_nano_mr_scan_reconstruction.py",
+            "examples/plot_nano_mr_statistical_spectra.py",
+            "examples/plot_nano_mr_xy8_filter_readout.py",
+            "examples/nano_mr_experiment_facade.py",
+            "examples/bayesian_design_nano_mr_qdyne.py",
             "examples/plot_brill2002_field_reversal_echoes.py",
             "examples/plot_nqr_powder_nutation.py",
             "examples/plot_nqr_full_powder_nutation.py",
@@ -699,6 +717,58 @@ class ExampleSmokeTests(unittest.TestCase):
         result = run_example("examples/plot_esr_inhomogeneous_echo.py", "--help")
         self.assertIn("--b0-spread-mhz", result.stdout)
         self.assertIn("--b1-spread", result.stdout)
+        result = run_example("examples/plot_esr_nano_mr_cw.py", "--help")
+        self.assertIn("--proton-distance-nm", result.stdout)
+        self.assertIn("--broadening-khz", result.stdout)
+        result = run_example("examples/plot_esr_nano_mr_pulsed.py", "--help")
+        self.assertIn("--mixing-us", result.stdout)
+        self.assertIn("--rf-flip-deg", result.stdout)
+        result = run_example("examples/plot_nano_mr_defect_odmr.py", "--help")
+        self.assertIn("--field-mt", result.stdout)
+        self.assertIn("--pl6-depth-nm", result.stdout)
+        result = run_example(
+            "examples/plot_nano_mr_chemical_shift_j.py", "--help"
+        )
+        self.assertIn("--clock-instability-ppb", result.stdout)
+        self.assertIn("--dnp-enhancement", result.stdout)
+        result = run_example(
+            "examples/plot_nano_mr_diffusing_liquid.py", "--help"
+        )
+        self.assertIn("--diffusion-m2-s", result.stdout)
+        self.assertIn("--motion-substeps", result.stdout)
+        result = run_example("examples/plot_nano_mr_qdyne.py", "--help")
+        self.assertIn("--beat-hz", result.stdout)
+        self.assertIn("--memory-t2-s", result.stdout)
+        result = run_example(
+            "examples/plot_nano_mr_realistic_noise.py", "--help"
+        )
+        self.assertIn("--detection-efficiency", result.stdout)
+        self.assertIn("--afterpulse-probability", result.stdout)
+        result = run_example(
+            "examples/plot_nano_mr_scan_reconstruction.py", "--help"
+        )
+        self.assertIn("--sensor-depth-nm", result.stdout)
+        self.assertIn("--regularization", result.stdout)
+        self.assertIn("--correlated-noise", result.stdout)
+        result = run_example(
+            "examples/plot_nano_mr_statistical_spectra.py", "--help"
+        )
+        self.assertIn("--layer-thickness-nm", result.stdout)
+        self.assertIn("--depth-nm", result.stdout)
+        result = run_example(
+            "examples/plot_nano_mr_xy8_filter_readout.py", "--help"
+        )
+        self.assertIn("--duration-us", result.stdout)
+        self.assertIn("--pulse-width-ns", result.stdout)
+        self.assertIn("--rate-readout", result.stdout)
+        result = run_example("examples/nano_mr_experiment_facade.py", "--help")
+        self.assertIn("--config", result.stdout)
+        self.assertIn("--write-config", result.stdout)
+        result = run_example(
+            "examples/bayesian_design_nano_mr_qdyne.py", "--help"
+        )
+        self.assertIn("--steps", result.stdout)
+        self.assertIn("--seed", result.stdout)
         result = run_example("examples/plot_nqr_powder_nutation.py", "--help")
         self.assertIn("--max-angle", result.stdout)
         self.assertIn("supports spin=1 only", result.stdout)

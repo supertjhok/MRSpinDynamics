@@ -4,6 +4,9 @@ Read the setup, simulation, and reporting stages in order; each stage is kept
 explicit so the example can be adapted without hidden state. Run ``python
 examples/plot_radiation_damping_detuning.py --help`` to see the adjustable inputs.
 """
+# Follow the example from physical inputs through simulation to plotted diagnostics.
+# Quantities use SI units unless a variable name or CLI help states otherwise.
+
 
 from __future__ import annotations
 
@@ -43,6 +46,7 @@ def main() -> None:
     if args.num_detunings < 2:
         raise SystemExit("--num-detunings must be at least 2")
 
+    # Load Matplotlib only after choosing interactive or headless output mode.
     plt = load_matplotlib()
     detunings = np.linspace(-args.max_detuning, args.max_detuning, args.num_detunings)
     reference = run_radiation_damping_fid(
@@ -56,6 +60,7 @@ def main() -> None:
         num_points=args.points,
     )
 
+    # Assemble the observables and diagnostics for side-by-side interpretation.
     fig, axes = plt.subplots(2, 1, figsize=(8.5, 7.0), constrained_layout=True)
     for detuning in detunings:
         result = run_radiation_damping_fid(
@@ -91,6 +96,7 @@ def main() -> None:
         f"tau={reference.probe.resonator_time_constant:.3g} s"
     )
 
+    # Save reproducibly for batch runs; otherwise keep the figure interactive.
     if args.output is not None:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(args.output, dpi=150)

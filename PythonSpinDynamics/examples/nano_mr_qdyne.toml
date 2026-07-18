@@ -1,0 +1,20 @@
+[sequence]
+type = "NanoMRQdyne"
+signal_frequency_hz = 2000000.0
+field_amplitude_tesla = 2e-08
+shot_count = 1024
+sensing_duration_seconds = 2e-06
+repetition_interval_seconds = 2e-05
+reference_frequency_hz = 1999000.0
+sensor_coherence_seconds = 5e-05
+sample_coherence_seconds = 0.02
+seed = 11
+
+[hardware.nano_mr_sensor]
+type = "NanoMRSensor"
+depth_nm = 5.0
+
+[hardware.nano_mr_optical_readout]
+type = "NanoMROpticalReadout"
+bright_count_rate_hz = 2000000.0
+readout_contrast = 0.25

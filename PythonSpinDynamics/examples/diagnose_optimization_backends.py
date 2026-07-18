@@ -5,6 +5,9 @@ dependency-light pattern search against SciPy's bounded optimizer and a random
 phase baseline, then prints residual metrics for the inverse-excitation
 objective. A good inverse pulse should drive residual/target area below 1.
 """
+# Follow the example from physical inputs through simulation to reported observables.
+# Quantities use SI units unless a variable name or CLI help states otherwise.
+
 
 from __future__ import annotations
 

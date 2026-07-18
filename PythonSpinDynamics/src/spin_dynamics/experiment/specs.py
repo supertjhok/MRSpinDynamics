@@ -37,6 +37,13 @@ def _as_optional_map(value: Any, name: str) -> np.ndarray | None:
     return arr
 
 
+def _finite_tuple3(value: Iterable[float], name: str) -> tuple[float, float, float]:
+    values = tuple(float(item) for item in value)
+    if len(values) != 3 or not np.all(np.isfinite(values)):
+        raise ValueError(f"{name} must contain three finite values")
+    return values
+
+
 @register_serializable
 @dataclass(frozen=True, eq=False)
 class Phantom:
@@ -261,6 +268,140 @@ class SequenceDomain:
 
 
 @register_serializable
+@dataclass(frozen=True)
+class NanoMRSensor:
+    """Compact diamond-NV or SiC-PL6 sensor preset for facade workflows."""
+
+    preset: str = "diamond_nv_minus"
+    depth_nm: float = 5.0
+    axis_lab: tuple[float, float, float] = (0.0, 0.0, 1.0)
+    label: str = "sensor"
+
+    def __post_init__(self) -> None:
+        if self.preset not in ("diamond_nv_minus", "sic_pl6"):
+            raise ValueError("preset must be 'diamond_nv_minus' or 'sic_pl6'")
+        depth = float(self.depth_nm)
+        if depth <= 0.0 or not np.isfinite(depth):
+            raise ValueError("depth_nm must be positive and finite")
+        axis = _finite_tuple3(self.axis_lab, "axis_lab")
+        if np.linalg.norm(axis) <= 0.0:
+            raise ValueError("axis_lab must be non-zero")
+        object.__setattr__(self, "depth_nm", depth)
+        object.__setattr__(self, "axis_lab", axis)
+        object.__setattr__(self, "label", str(self.label))
+
+
+@register_serializable
+@dataclass(frozen=True)
+class NanoMRBathComponent:
+    """One isotope in a uniform planar nano-MR sample layer."""
+
+    isotope: str = "1H"
+    number_density_m3: float = 6.7e28
+    correlation_time_seconds: float = 100.0e-6
+    polarization_mode: str = "statistical"
+    temperature_kelvin: float = 300.0
+    polarization_fraction: float = 0.0
+    label: str = ""
+
+    def __post_init__(self) -> None:
+        if self.isotope not in ("1H", "13C", "19F", "29Si", "31P"):
+            raise ValueError("isotope must be a built-in nano-MR isotope preset")
+        density = float(self.number_density_m3)
+        correlation = float(self.correlation_time_seconds)
+        temperature = float(self.temperature_kelvin)
+        polarization = float(self.polarization_fraction)
+        if density < 0.0 or not np.isfinite(density):
+            raise ValueError("number_density_m3 must be finite and non-negative")
+        if correlation <= 0.0 or not np.isfinite(correlation):
+            raise ValueError("correlation_time_seconds must be positive and finite")
+        if self.polarization_mode not in ("statistical", "thermal", "fixed"):
+            raise ValueError(
+                "polarization_mode must be 'statistical', 'thermal', or 'fixed'"
+            )
+        if temperature <= 0.0 or not np.isfinite(temperature):
+            raise ValueError("temperature_kelvin must be positive and finite")
+        if not -1.0 <= polarization <= 1.0 or not np.isfinite(polarization):
+            raise ValueError("polarization_fraction must lie in [-1, 1]")
+        object.__setattr__(self, "number_density_m3", density)
+        object.__setattr__(self, "correlation_time_seconds", correlation)
+        object.__setattr__(self, "temperature_kelvin", temperature)
+        object.__setattr__(self, "polarization_fraction", polarization)
+        object.__setattr__(self, "label", str(self.label))
+
+
+@register_serializable
+@dataclass(frozen=True)
+class NanoMRLayer:
+    """Uniform planar nuclear layer or half-space above a defect sensor."""
+
+    components: tuple[NanoMRBathComponent, ...] = field(
+        default_factory=lambda: (NanoMRBathComponent(),)
+    )
+    surface_normal_lab: tuple[float, float, float] = (0.0, 0.0, 1.0)
+    thickness_nm: float | None = None
+    bottom_offset_nm: float = 0.0
+    label: str = "uniform nuclear layer"
+
+    def __post_init__(self) -> None:
+        components = tuple(self.components)
+        if not components or not all(
+            isinstance(item, NanoMRBathComponent) for item in components
+        ):
+            raise TypeError("components must contain NanoMRBathComponent values")
+        normal = _finite_tuple3(self.surface_normal_lab, "surface_normal_lab")
+        if np.linalg.norm(normal) <= 0.0:
+            raise ValueError("surface_normal_lab must be non-zero")
+        offset = float(self.bottom_offset_nm)
+        if offset < 0.0 or not np.isfinite(offset):
+            raise ValueError("bottom_offset_nm must be finite and non-negative")
+        thickness = self.thickness_nm
+        if thickness is not None:
+            thickness = float(thickness)
+            if thickness <= 0.0 or not np.isfinite(thickness):
+                raise ValueError("thickness_nm must be positive and finite when set")
+        object.__setattr__(self, "components", components)
+        object.__setattr__(self, "surface_normal_lab", normal)
+        object.__setattr__(self, "bottom_offset_nm", offset)
+        object.__setattr__(self, "thickness_nm", thickness)
+        object.__setattr__(self, "label", str(self.label))
+
+
+@register_serializable
+@dataclass(frozen=True)
+class NanoMROpticalReadout:
+    """Effective optical initialization and photon-count detector settings."""
+
+    initialization_fidelity: float = 1.0
+    initialization_seconds: float = 0.0
+    bright_count_rate_hz: float = 100.0e3
+    readout_contrast: float = 0.2
+    readout_seconds: float = 300.0e-9
+    background_count_rate_hz: float = 0.0
+    dead_time_seconds: float = 0.0
+
+    def __post_init__(self) -> None:
+        for name in ("initialization_fidelity", "readout_contrast"):
+            value = float(getattr(self, name))
+            if not 0.0 <= value <= 1.0 or not np.isfinite(value):
+                raise ValueError(f"{name} must lie in [0, 1]")
+            object.__setattr__(self, name, value)
+        for name in (
+            "initialization_seconds",
+            "bright_count_rate_hz",
+            "readout_seconds",
+            "background_count_rate_hz",
+            "dead_time_seconds",
+        ):
+            value = float(getattr(self, name))
+            if value < 0.0 or not np.isfinite(value):
+                raise ValueError(f"{name} must be finite and non-negative")
+            object.__setattr__(self, name, value)
+        if self.readout_seconds <= 0.0:
+            raise ValueError("readout_seconds must be positive")
+
+
+@register_serializable
 @dataclass(frozen=True, eq=False)
 class SampledB0:
     """A spatially-varying static field sampled on the imaging plane.
@@ -360,6 +501,8 @@ class Sample:
     """Electron-nuclear coupling used by ESEEM, HYSCORE, and ENDOR specs."""
     sequence_domain: SequenceDomain | None = None
     """Explicit spatial sample/field domain for :class:`SequenceIRExecution`."""
+    nano_mr_layer: NanoMRLayer | None = None
+    """Uniform planar nuclear layer for statistical nano-MR workflows."""
     label: str = ""
 
 
@@ -373,7 +516,8 @@ class Hardware:
     :mod:`spin_dynamics.experiment.hardware`) drive an automatic Biot-Savart
     field solve for imaging sequences: the transverse-B1 maps are computed on
     the phantom grid and passed to the workflow, replacing its synthetic
-    default. Non-inductive detectors join in a later milestone.
+    default. Nano-MR workflows use the explicit defect sensor and optional
+    optical photon-count model below rather than an inductive probe.
     """
 
     probe: str = "ideal"
@@ -385,6 +529,10 @@ class Hardware:
     tx_coil: Any | None = None
     rx_coil: Any | None = None
     plane: Any | None = None
+    nano_mr_sensor: NanoMRSensor | None = None
+    """Defect-spin sensor preset for nano-MR workflows."""
+    nano_mr_optical_readout: NanoMROpticalReadout | None = None
+    """Optional effective photon-count readout for Qdyne."""
 
 
 @register_serializable
@@ -887,6 +1035,136 @@ class SequenceIRExecution:
             raise ValueError("default_substeps must be a positive integer")
 
 
+@register_serializable
+@dataclass(frozen=True)
+class NanoMRStatisticalSpectrum:
+    """Two-sided statistical field-noise spectrum of a uniform nuclear layer."""
+
+    b0_vector_tesla_lab: tuple[float, float, float] = (0.0, 0.0, 0.05)
+    angular_frequency_min_rad_s: float = -2.0 * np.pi * 5.0e6
+    angular_frequency_max_rad_s: float = 2.0 * np.pi * 5.0e6
+    num_points: int = 2001
+
+    def __post_init__(self) -> None:
+        field_vector = _finite_tuple3(
+            self.b0_vector_tesla_lab, "b0_vector_tesla_lab"
+        )
+        if np.linalg.norm(field_vector) <= 0.0:
+            raise ValueError("b0_vector_tesla_lab must be non-zero")
+        lower = float(self.angular_frequency_min_rad_s)
+        upper = float(self.angular_frequency_max_rad_s)
+        if not np.isfinite(lower) or not np.isfinite(upper) or upper <= lower:
+            raise ValueError(
+                "angular_frequency_max_rad_s must exceed the finite minimum"
+            )
+        if not isinstance(self.num_points, int) or self.num_points < 2:
+            raise ValueError("num_points must be an integer of at least two")
+        object.__setattr__(self, "b0_vector_tesla_lab", field_vector)
+        object.__setattr__(self, "angular_frequency_min_rad_s", lower)
+        object.__setattr__(self, "angular_frequency_max_rad_s", upper)
+
+
+@register_serializable
+@dataclass(frozen=True)
+class NanoMRQdyne:
+    """Clocked coherent-tone Qdyne acquisition with explicit error budgets."""
+
+    signal_frequency_hz: float = 2.0e6
+    field_amplitude_tesla: float = 20.0e-9
+    signal_phase_rad: float = 0.0
+    shot_count: int = 1024
+    sensing_duration_seconds: float = 20.0e-6
+    repetition_interval_seconds: float = 100.0e-6
+    reference_frequency_hz: float = 1.999e6
+    xy_order: int = 8
+    xy_repetitions: int = 1
+    pulse_duration_seconds: float = 0.0
+    pulse_model: str = "ideal"
+    baseline_bright_probability: float = 0.5
+    analysis_contrast: float = 1.0
+    analysis_phase_rad: float = 0.0
+    sensor_coherence_seconds: float | None = None
+    sensor_stretch_exponent: float = 1.0
+    sample_coherence_seconds: float | None = None
+    diffusion_correlation_seconds: float | None = None
+    memory_coherence_seconds: float | None = None
+    fractional_frequency_offset: float = 0.0
+    interval_fractional_frequency_instability: float = 0.0
+    trigger_jitter_seconds: float = 0.0
+    seed: int | None = 0
+
+    def __post_init__(self) -> None:
+        for name in (
+            "signal_frequency_hz",
+            "sensing_duration_seconds",
+            "repetition_interval_seconds",
+            "sensor_stretch_exponent",
+        ):
+            value = float(getattr(self, name))
+            if value <= 0.0 or not np.isfinite(value):
+                raise ValueError(f"{name} must be positive and finite")
+            object.__setattr__(self, name, value)
+        amplitude = float(self.field_amplitude_tesla)
+        if amplitude < 0.0 or not np.isfinite(amplitude):
+            raise ValueError("field_amplitude_tesla must be finite and non-negative")
+        object.__setattr__(self, "field_amplitude_tesla", amplitude)
+        if self.repetition_interval_seconds < self.sensing_duration_seconds:
+            raise ValueError(
+                "repetition_interval_seconds cannot be shorter than sensing_duration_seconds"
+            )
+        if not isinstance(self.shot_count, int) or self.shot_count < 2:
+            raise ValueError("shot_count must be an integer of at least two")
+        if self.xy_order not in (4, 8, 16):
+            raise ValueError("xy_order must be 4, 8, or 16")
+        if not isinstance(self.xy_repetitions, int) or self.xy_repetitions <= 0:
+            raise ValueError("xy_repetitions must be a positive integer")
+        pulse_duration = float(self.pulse_duration_seconds)
+        if pulse_duration < 0.0 or not np.isfinite(pulse_duration):
+            raise ValueError("pulse_duration_seconds must be finite and non-negative")
+        object.__setattr__(self, "pulse_duration_seconds", pulse_duration)
+        if self.pulse_model not in ("ideal", "finite"):
+            raise ValueError("pulse_model must be 'ideal' or 'finite'")
+        for name in ("baseline_bright_probability", "analysis_contrast"):
+            value = float(getattr(self, name))
+            if not 0.0 <= value <= 1.0 or not np.isfinite(value):
+                raise ValueError(f"{name} must lie in [0, 1]")
+            object.__setattr__(self, name, value)
+        for name in (
+            "sensor_coherence_seconds",
+            "sample_coherence_seconds",
+            "diffusion_correlation_seconds",
+            "memory_coherence_seconds",
+        ):
+            value = getattr(self, name)
+            if value is not None:
+                value = float(value)
+                if value <= 0.0 or not np.isfinite(value):
+                    raise ValueError(f"{name} must be positive and finite when set")
+                object.__setattr__(self, name, value)
+        for name in (
+            "interval_fractional_frequency_instability",
+            "trigger_jitter_seconds",
+        ):
+            value = float(getattr(self, name))
+            if value < 0.0 or not np.isfinite(value):
+                raise ValueError(f"{name} must be finite and non-negative")
+            object.__setattr__(self, name, value)
+        for name in (
+            "signal_phase_rad",
+            "reference_frequency_hz",
+            "analysis_phase_rad",
+            "fractional_frequency_offset",
+        ):
+            value = float(getattr(self, name))
+            if not np.isfinite(value):
+                raise ValueError(f"{name} must be finite")
+            object.__setattr__(self, name, value)
+        if self.seed is not None and (
+            not isinstance(self.seed, int) or self.seed < 0
+        ):
+            raise ValueError("seed must be a non-negative integer when set")
+
+
 SEQUENCE_TYPES: tuple[type, ...] = (
     CPMG,
     CPMGTrain,
@@ -908,6 +1186,8 @@ SEQUENCE_TYPES: tuple[type, ...] = (
     ESRDaviesENDOR,
     ESRMimsENDOR,
     SequenceIRExecution,
+    NanoMRStatisticalSpectrum,
+    NanoMRQdyne,
 )
 
 

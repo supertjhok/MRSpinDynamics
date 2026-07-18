@@ -4,6 +4,9 @@ Follow how the quadrupolar site, pulse/acquisition settings, and orientation mod
 lead to the reported NQR response. Run ``python
 examples/plot_nqr_population_transfer.py --help`` to see the adjustable inputs.
 """
+# Follow the example from physical inputs through simulation to plotted diagnostics.
+# Quantities use SI units unless a variable name or CLI help states otherwise.
+
 
 from __future__ import annotations
 
@@ -67,6 +70,7 @@ def main() -> None:
     parser.add_argument("--output", type=Path, default=None, help="Optional output PNG path.")
     args = parser.parse_args()
 
+    # Load Matplotlib only after choosing interactive or headless output mode.
     plt = load_matplotlib(headless=args.output is not None)
 
     site = QuadrupolarSite(
@@ -107,6 +111,7 @@ def main() -> None:
             )
             matrix[row, col] = np.real(result.normalized_difference[0])
 
+    # Assemble the observables and diagnostics for side-by-side interpretation.
     fig, axes = plt.subplots(1, 2, figsize=(11, 4.8), constrained_layout=True)
     vmax = max(0.1, float(np.max(np.abs(matrix))))
     image = axes[0].imshow(matrix, cmap="coolwarm", vmin=-vmax, vmax=vmax)
@@ -134,6 +139,7 @@ def main() -> None:
     for idx, value in enumerate(frequencies_khz):
         axes[1].text(idx, value, f"{value:.1f}", ha="center", va="bottom")
 
+    # Save reproducibly for batch runs; otherwise keep the figure interactive.
     if args.output is not None:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(args.output, dpi=150)

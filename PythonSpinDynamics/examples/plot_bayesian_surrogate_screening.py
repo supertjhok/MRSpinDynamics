@@ -1,4 +1,7 @@
 """Plot exact versus surrogate CPMG-IR candidate screening time and fidelity."""
+# Follow the example from physical inputs through simulation to plotted diagnostics.
+# Quantities use SI units unless a variable name or CLI help states otherwise.
+
 
 from __future__ import annotations
 
@@ -56,6 +59,7 @@ def _score(model, posterior, actions, cost) -> np.ndarray:
     )
 
 
+# Keep orchestration in one entry point so helper functions remain reusable.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--particles", type=int, default=48)
@@ -65,6 +69,7 @@ def main() -> None:
     if args.particles < 16 or args.candidates < 6:
         parser.error("use at least 16 particles and 6 candidates")
 
+    # Load Matplotlib only after choosing interactive or headless output mode.
     plt = load_matplotlib(headless=args.output is not None)
     template = Experiment(
         CPMGIRTrain(num_echoes=2, echo_spacing_seconds=1e-3),
@@ -141,6 +146,7 @@ def main() -> None:
     exact_best = int(np.argmax(exact_rates))
     surrogate_best = int(np.argmax(surrogate_rates))
 
+    # Assemble the observables and diagnostics for side-by-side interpretation.
     fig, axes = plt.subplots(1, 2, figsize=(11.2, 4.5))
     labels = ["Exact\nscore", "One-time\nfit", "Surrogate\nscore"]
     durations = np.array([exact_time, training_time, surrogate_time])
@@ -208,6 +214,7 @@ def main() -> None:
         f"same_choice={exact_best == surrogate_best} "
         f"nrmse={validation.normalized_root_mean_square_error:.4f}"
     )
+    # Save reproducibly for batch runs; otherwise keep the figure interactive.
     if args.output is not None:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(args.output, dpi=170)

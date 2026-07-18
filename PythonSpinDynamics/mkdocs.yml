@@ -106,6 +106,9 @@ nav:
           - NQR models and workflows: python_api/nqr.md
           - Powder relaxation methods: nqr_powder_relaxation_methods.md
       - ESR and EPR: python_api/esr.md
+      - Defect-spin nanoscale MR:
+          - Nano-MR and optical detection: python_api/nano_mr.md
+          - Literature and implementation plan: nano_mr_plan.md
       - Relaxation and feedback:
           - Chemical and site exchange: python_api/exchange.md
           - Radiation damping: radiation_damping.md

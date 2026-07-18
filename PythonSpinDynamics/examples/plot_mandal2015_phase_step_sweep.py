@@ -5,6 +5,9 @@ probe waveform in the rotating frame for each refocusing pulse's absolute RF
 phase, discretize the waveform into half-RF-cycle-scale pulse segments, and
 feed those matrices through the usual finite CPMG machinery.
 """
+# Follow the example from physical inputs through simulation to plotted diagnostics.
+# Quantities use SI units unless a variable name or CLI help states otherwise.
+
 
 from __future__ import annotations
 
@@ -96,6 +99,7 @@ def main() -> None:
     parser.set_defaults(auto_refine_grid=True)
     args = parser.parse_args()
 
+    # Load Matplotlib only after choosing interactive or headless output mode.
     plt = load_matplotlib(headless=args.output is not None)
     baseline = run_phase_resolved_probe_case(
         probe=args.probe,
@@ -126,6 +130,7 @@ def main() -> None:
     ]
     print(f"effective num offsets: {baseline.result.del_w.size}")
 
+    # Assemble the observables and diagnostics for side-by-side interpretation.
     fig, axes = plt.subplots(2, 2, figsize=(11, 7.5), constrained_layout=True)
     axes[0, 0].plot(
         echo_numbers,
@@ -187,6 +192,7 @@ def main() -> None:
         f"{args.probe} probe pulse shapes"
     )
 
+    # Save reproducibly for batch runs; otherwise keep the figure interactive.
     if args.output is not None:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(args.output, dpi=150)
