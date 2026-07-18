@@ -119,11 +119,7 @@ class EndorQdyneProtocol:
             )
         if not isinstance(self.clock, ClockModel):
             raise TypeError("clock must be a ClockModel")
-        if (
-            self.repetition_interval_seconds
-            + 1.0e-15
-            < self.minimum_cycle_seconds
-        ):
+        if self.repetition_interval_seconds + 1.0e-15 < self.minimum_cycle_seconds:
             raise ValueError(
                 "repetition_interval_seconds is shorter than the modeled "
                 "free-precession, RF-control, sensing, and overhead times"
@@ -166,12 +162,7 @@ class EndorQdyneProtocol:
     def measurement_strength_rad(self) -> float:
         """Ramsey measurement strength ``alpha = 2*pi*Azz*tau_sens``."""
 
-        return (
-            2.0
-            * np.pi
-            * self.longitudinal_hyperfine_hz
-            * self.sensing_seconds
-        )
+        return 2.0 * np.pi * self.longitudinal_hyperfine_hz * self.sensing_seconds
 
     @property
     def sensor_contrast(self) -> float:
@@ -184,7 +175,11 @@ class EndorQdyneProtocol:
 
 @dataclass(frozen=True)
 class EndorQdyneResult:
-    """ENDOR-QDyne nuclear record, sensor signal, and baseband spectrum."""
+    """ENDOR-QDyne nuclear record, sensor signal, and baseband spectrum.
+
+    ``estimated_beat_frequency_hz`` is ``nan`` when the non-DC spectrum has no
+    positive peak.
+    """
 
     nominal_times_seconds: np.ndarray
     actual_times_seconds: np.ndarray
@@ -222,9 +217,13 @@ def initialization_infidelity_decay_rate(
 
     ``Gamma = 2*(1-f)*sin(2*pi*Azz*tau)**2/tau``.
 
-    ``Azz`` is accepted in Hz, so the phase contains ``2*pi``. This convention
-    reproduces the paper's approximately 1 kHz estimate for ``Azz=6 kHz``,
-    ``tau=105 us``, and ``f=0.9``.
+    ``Azz`` is accepted as a cyclic frequency in Hz, so the phase contains
+    ``2*pi``. This convention follows the paper's Hamiltonian
+    ``H_eff = 2*pi*Azz*Sz*Iz`` and reproduces its approximately 1 kHz numerical
+    estimate for ``Azz=6 kHz``, ``tau=105 us``, and ``f=0.9``. The paper's
+    nearby prose also labels ``Azz*tau=0.63`` as a phase, which is inconsistent
+    with that Hamiltonian and estimate; this implementation resolves the
+    ambiguity by making the spectroscopic-Hz convention explicit.
     """
 
     coupling = float(longitudinal_hyperfine_hz)
@@ -234,12 +233,9 @@ def initialization_infidelity_decay_rate(
     fidelity = _unit_interval(initialization_fidelity, "initialization_fidelity")
     phase = 2.0 * np.pi * coupling * interval
     if leading_order:
-        return float(
-            2.0 * (1.0 - fidelity) * np.sin(phase) ** 2 / interval
-        )
+        return float(2.0 * (1.0 - fidelity) * np.sin(phase) ** 2 / interval)
     coherence_squared = (
-        np.cos(phase) ** 2
-        + (2.0 * fidelity - 1.0) ** 2 * np.sin(phase) ** 2
+        np.cos(phase) ** 2 + (2.0 * fidelity - 1.0) ** 2 * np.sin(phase) ** 2
     )
     if coherence_squared <= 0.0:
         return np.inf
@@ -323,25 +319,13 @@ def simulate_endor_qdyne(
     # Only the free-precession fraction of the wall-clock record accumulates
     # target/reference detuning. Programmed RF phase cycling remains tied to
     # the nominal clock, as in a phase-coherent AWG implementation.
-    duty = (
-        protocol.free_precession_seconds
-        / protocol.repetition_interval_seconds
-    )
+    duty = protocol.free_precession_seconds / protocol.repetition_interval_seconds
     cycle_index = nominal / protocol.repetition_interval_seconds
     detuning = target - protocol.rf_reference_frequency_hz
     phase = (
-        2.0
-        * np.pi
-        * duty
-        * (
-            detuning * nominal
-            + target * (actual - nominal)
-        )
+        2.0 * np.pi * duty * (detuning * nominal + target * (actual - nominal))
         + cycle_index
-        * (
-            protocol.rf_phase_increment_rad
-            + protocol.residual_sensing_phase_rad
-        )
+        * (protocol.rf_phase_increment_rad + protocol.residual_sensing_phase_rad)
         + initial_phase
     )
     alpha = protocol.measurement_strength_rad
@@ -362,8 +346,7 @@ def simulate_endor_qdyne(
         leading_order=True,
     )
     total_intercycle_rate = (
-        exact_initialization_rate
-        + protocol.intrinsic_nuclear_decay_rate_per_second
+        exact_initialization_rate + protocol.intrinsic_nuclear_decay_rate_per_second
     )
     if np.isinf(total_intercycle_rate):
         # Preserve the initialized state at t=0 while representing complete
@@ -377,8 +360,7 @@ def simulate_endor_qdyne(
     sensor_z = -protocol.sensor_contrast * np.sin(alpha) * nuclear_z
     normalized = 2.0 * sensor_z
     probability = np.clip(
-        protocol.baseline_bright_probability
-        + protocol.analysis_contrast * sensor_z,
+        protocol.baseline_bright_probability + protocol.analysis_contrast * sensor_z,
         0.0,
         1.0,
     )
@@ -387,14 +369,9 @@ def simulate_endor_qdyne(
         protocol.repetition_interval_seconds,
     )
     raw_detuning = detuning
-    raw_cycle_frequency = (
-        raw_detuning * duty
-        + (
-            protocol.rf_phase_increment_rad
-            + protocol.residual_sensing_phase_rad
-        )
-        / (2.0 * np.pi * protocol.repetition_interval_seconds)
-    )
+    raw_cycle_frequency = raw_detuning * duty + (
+        protocol.rf_phase_increment_rad + protocol.residual_sensing_phase_rad
+    ) / (2.0 * np.pi * protocol.repetition_interval_seconds)
     signed_alias, alias_order = _aliased_frequency(
         raw_cycle_frequency,
         protocol.repetition_interval_seconds,
@@ -424,9 +401,7 @@ def simulate_endor_qdyne(
         measurement_strength_rad=alpha,
         sensor_contrast=protocol.sensor_contrast,
         initialization_decay_rate_per_second=exact_initialization_rate,
-        leading_initialization_decay_rate_per_second=(
-            leading_initialization_rate
-        ),
+        leading_initialization_decay_rate_per_second=(leading_initialization_rate),
         weak_measurement_backaction_rate_per_second=(
             alpha**2 / (4.0 * protocol.repetition_interval_seconds)
         ),
@@ -485,10 +460,7 @@ def _aliased_frequency(
     interval_seconds: float,
 ) -> tuple[float, int]:
     sample_rate = 1.0 / interval_seconds
-    alias = (
-        (float(frequency_hz) + 0.5 * sample_rate) % sample_rate
-        - 0.5 * sample_rate
-    )
+    alias = (float(frequency_hz) + 0.5 * sample_rate) % sample_rate - 0.5 * sample_rate
     order = int(np.rint((float(frequency_hz) - alias) / sample_rate))
     return float(alias), order
 
@@ -498,8 +470,11 @@ def _positive_peak_frequency(
     spectrum: np.ndarray,
 ) -> float:
     if spectrum.size <= 1:
-        return 0.0
-    return float(frequencies[1 + int(np.argmax(spectrum[1:]))])
+        return float("nan")
+    positive_spectrum = spectrum[1:]
+    if not np.any(positive_spectrum > 0.0):
+        return float("nan")
+    return float(frequencies[1 + int(np.argmax(positive_spectrum))])
 
 
 def _positive(value: float, name: str) -> float:

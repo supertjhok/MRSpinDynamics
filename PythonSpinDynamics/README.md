@@ -158,9 +158,8 @@ extensions.
   localization, and local uncertainty estimates; plus correlated
   target/sensor field processes, five-level-plus-charge optical cycling,
   shot-resolved emission and SPAD transfer, and covariance-aware generalized
-  least-squares reconstruction. Calibration fitting, additional detector
-  types, high-resolution protocol refinements, and an experiment-level facade
-  remain staged in the linked implementation plan.
+  least-squares reconstruction. Calibration fitting and additional detector
+  types remain staged in the linked implementation plan.
 - `spin_dynamics.exchange` and `spin_dynamics.susceptibility` add
   Bloch-McConnell exchange and internal-gradient field models.
 

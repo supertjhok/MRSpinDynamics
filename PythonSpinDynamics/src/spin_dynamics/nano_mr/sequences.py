@@ -105,10 +105,8 @@ class SensingSequence:
             if pulse.end_seconds > duration + 1.0e-15:
                 raise ValueError("a control pulse ends after the sensing window")
             previous_end = previous_end_by_channel[pulse.channel]
-            if pulse.duration_seconds > 0.0 and pulse.start_seconds < previous_end:
-                raise ValueError(
-                    "finite control pulses on the same channel must not overlap"
-                )
+            if pulse.start_seconds < previous_end:
+                raise ValueError("control pulses on the same channel must not overlap")
             previous_end_by_channel[pulse.channel] = max(
                 previous_end, pulse.end_seconds
             )
@@ -262,9 +260,7 @@ def kdd_sequence(
     base_phase = float(base_phase_rad)
     if not np.isfinite(base_phase):
         raise ValueError("base_phase_rad must be finite")
-    knill = base_phase + np.array(
-        [np.pi / 6.0, 0.0, np.pi / 2.0, 0.0, np.pi / 6.0]
-    )
+    knill = base_phase + np.array([np.pi / 6.0, 0.0, np.pi / 2.0, 0.0, np.pi / 6.0])
     cycle = np.concatenate((knill, knill + np.pi / 2.0) * 2)
     phases = np.tile(cycle, repetitions)
     centers = cpmg_pulse_times(phases.size, total_duration_seconds)

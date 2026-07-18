@@ -83,10 +83,12 @@ class ClockModel:
             accumulated = np.concatenate(([0.0], np.cumsum(interval_errors)))
         jitter = self.trigger_jitter_seconds * generator.standard_normal(count)
         actual = (
-            nominal * (1.0 + self.fractional_frequency_offset)
-            + accumulated
-            + jitter
+            nominal * (1.0 + self.fractional_frequency_offset) + accumulated + jitter
         )
+        if np.any(np.diff(actual) <= 0.0):
+            raise ValueError(
+                "clock perturbations produced non-increasing physical sample times"
+            )
         return nominal, actual
 
 
@@ -107,7 +109,9 @@ class HighResolutionBudget:
             "diffusion_correlation_seconds",
             "memory_coherence_seconds",
         ):
-            object.__setattr__(self, name, _positive_or_infinite(getattr(self, name), name))
+            object.__setattr__(
+                self, name, _positive_or_infinite(getattr(self, name), name)
+            )
         exponent = float(self.sensor_stretch_exponent)
         if exponent <= 0.0 or not np.isfinite(exponent):
             raise ValueError("sensor_stretch_exponent must be positive and finite")
@@ -122,9 +126,9 @@ class HighResolutionBudget:
         return float(
             np.exp(
                 -(
-                    sensing / self.sensor_coherence_seconds
+                    (sensing / self.sensor_coherence_seconds)
+                    ** self.sensor_stretch_exponent
                 )
-                ** self.sensor_stretch_exponent
             )
         )
 
@@ -177,7 +181,9 @@ class QdyneProtocol:
         reference = float(self.reference_frequency_hz)
         phase = float(self.analysis_phase_rad)
         if not np.isfinite(reference) or not np.isfinite(phase):
-            raise ValueError("reference_frequency_hz and analysis_phase_rad must be finite")
+            raise ValueError(
+                "reference_frequency_hz and analysis_phase_rad must be finite"
+            )
         baseline = _unit_interval(
             self.baseline_bright_probability,
             "baseline_bright_probability",
@@ -198,7 +204,11 @@ class QdyneProtocol:
 
 @dataclass(frozen=True)
 class QdyneResult:
-    """Clocked single-quadrature Qdyne record and baseband spectrum."""
+    """Clocked single-quadrature Qdyne record and baseband spectrum.
+
+    ``estimated_beat_frequency_hz`` is ``nan`` when the non-DC spectrum has no
+    positive peak.
+    """
 
     nominal_times_seconds: np.ndarray
     actual_times_seconds: np.ndarray
@@ -218,7 +228,11 @@ class QdyneResult:
 
 @dataclass(frozen=True)
 class SynchronizedReadoutResult:
-    """Two-quadrature synchronized-readout record."""
+    """Two-quadrature synchronized-readout record.
+
+    ``estimated_beat_frequency_hz`` is ``nan`` when the spectrum is identically
+    zero.
+    """
 
     nominal_times_seconds: np.ndarray
     actual_times_seconds: np.ndarray
@@ -292,9 +306,7 @@ def simulate_qdyne(
         * envelope
         * np.cos(beat_phase + np.angle(response))
     )
-    normalized = sensor_contrast * np.sin(
-        coherent_phase + protocol.analysis_phase_rad
-    )
+    normalized = sensor_contrast * np.sin(coherent_phase + protocol.analysis_phase_rad)
     probability = np.clip(
         protocol.baseline_bright_probability
         + 0.5 * protocol.analysis_contrast * normalized,
@@ -417,7 +429,7 @@ def simulate_synchronized_readout(
         raw_beat,
         protocol.repetition_interval_seconds,
     )
-    estimated = float(frequency_axis[int(np.argmax(spectrum))])
+    estimated = _peak_frequency(frequency_axis, spectrum)
     return SynchronizedReadoutResult(
         nominal_times_seconds=nominal,
         actual_times_seconds=actual,
@@ -631,11 +643,7 @@ def simulate_coherent_nmr_spectrum(
             complex_amplitude
             * envelope
             * modulation
-            * np.exp(
-                2j
-                * np.pi
-                * (carrier * actual - reference * times)
-            )
+            * np.exp(2j * np.pi * (carrier * actual - reference * times))
         )
         offsets, weights = _first_order_multiplet(site.scalar_couplings_hz)
         component_frequencies.extend(carrier + offsets)
@@ -644,9 +652,7 @@ def simulate_coherent_nmr_spectrum(
     if window:
         transform_values = transform_values * np.hanning(times.size)
     transform = np.fft.fftshift(np.fft.fft(transform_values))
-    offsets = np.fft.fftshift(
-        np.fft.fftfreq(times.size, d=float(times[1] - times[0]))
-    )
+    offsets = np.fft.fftshift(np.fft.fftfreq(times.size, d=float(times[1] - times[0])))
     return CoherentNMRSpectrumResult(
         times_seconds=times,
         actual_times_seconds=actual,
@@ -761,10 +767,7 @@ def _aliased_frequency(
     interval_seconds: float,
 ) -> tuple[float, int]:
     sample_rate = 1.0 / interval_seconds
-    alias = (
-        (float(frequency_hz) + 0.5 * sample_rate) % sample_rate
-        - 0.5 * sample_rate
-    )
+    alias = (float(frequency_hz) + 0.5 * sample_rate) % sample_rate - 0.5 * sample_rate
     order = int(np.rint((float(frequency_hz) - alias) / sample_rate))
     return float(alias), order
 
@@ -784,9 +787,7 @@ def _complex_spectrum(
     interval_seconds: float,
 ) -> tuple[np.ndarray, np.ndarray]:
     centered = np.asarray(values, dtype=np.complex128) - np.mean(values)
-    frequencies = np.fft.fftshift(
-        np.fft.fftfreq(centered.size, d=interval_seconds)
-    )
+    frequencies = np.fft.fftshift(np.fft.fftfreq(centered.size, d=interval_seconds))
     spectrum = np.abs(np.fft.fftshift(np.fft.fft(centered * np.hanning(centered.size))))
     return frequencies, spectrum
 
@@ -796,8 +797,20 @@ def _positive_peak_frequency(
     spectrum: np.ndarray,
 ) -> float:
     if spectrum.size <= 1:
-        return 0.0
-    return float(frequencies[1 + int(np.argmax(spectrum[1:]))])
+        return float("nan")
+    positive_spectrum = spectrum[1:]
+    if not np.any(positive_spectrum > 0.0):
+        return float("nan")
+    return float(frequencies[1 + int(np.argmax(positive_spectrum))])
+
+
+def _peak_frequency(
+    frequencies: np.ndarray,
+    spectrum: np.ndarray,
+) -> float:
+    if spectrum.size == 0 or not np.any(spectrum > 0.0):
+        return float("nan")
+    return float(frequencies[int(np.argmax(spectrum))])
 
 
 def _first_order_multiplet(

@@ -147,9 +147,7 @@ class NanoMRSensorTests(unittest.TestCase):
         result = diagonalize_sensor(sensor, [0.0, 0.0, field_tesla])
 
         shift = BOHR_MAGNETON_HZ_PER_T * 2.0028 * field_tesla
-        expected = np.array(
-            [DIAMOND_NV_ZFS_HZ - shift, DIAMOND_NV_ZFS_HZ + shift]
-        )
+        expected = np.array([DIAMOND_NV_ZFS_HZ - shift, DIAMOND_NV_ZFS_HZ + shift])
         observed = np.sort(
             [transition.frequency_hz for transition in result.transitions]
         )
@@ -216,7 +214,9 @@ class NanoMRSensorTests(unittest.TestCase):
         self.assertEqual(sensor.dimension, 4)
         self.assertEqual(len(result.transitions), 2)
         self.assertTrue(
-            all(np.isclose(item.frequency_hz, 2.0 * d_hz) for item in result.transitions)
+            all(
+                np.isclose(item.frequency_hz, 2.0 * d_hz) for item in result.transitions
+            )
         )
 
     def test_hamiltonian_terms_are_hermitian_and_zeeman_is_linear(self) -> None:
@@ -232,7 +232,9 @@ class NanoMRSensorTests(unittest.TestCase):
 
 
 class NanoMRGeometryTests(unittest.TestCase):
-    def test_surface_places_sensor_below_sample_and_reports_signed_distance(self) -> None:
+    def test_surface_places_sensor_below_sample_and_reports_signed_distance(
+        self,
+    ) -> None:
         surface = SurfaceGeometry([0.0, 0.0, 1.0], [0.0, 0.0, 1.0])
         sensor = diamond_nv_minus(depth_nm=4.5)
 
@@ -362,6 +364,15 @@ class NanoMRSequenceTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "same channel"):
             SensingSequence(10.0e-6, pulses)
 
+    def test_instantaneous_pulse_inside_finite_pulse_is_rejected(self) -> None:
+        pulses = (
+            TimedControlPulse(4.0e-6, np.pi, duration_seconds=4.0e-6),
+            TimedControlPulse(5.0e-6, np.pi),
+        )
+
+        with self.assertRaisesRegex(ValueError, "same channel"):
+            SensingSequence(10.0e-6, pulses)
+
 
 class NanoMRFilterFunctionTests(unittest.TestCase):
     def test_ideal_and_finite_width_modulation(self) -> None:
@@ -424,9 +435,7 @@ class NanoMRFilterFunctionTests(unittest.TestCase):
         amplitude = 2.0 * np.pi * 300.0
         phase = 0.37
         analytic_phase = np.real(
-            amplitude
-            * np.exp(1.0j * phase)
-            * toggling_integral(sequence, omega)
+            amplitude * np.exp(1.0j * phase) * toggling_integral(sequence, omega)
         )
 
         result = propagate_controlled_qubit(
@@ -469,8 +478,12 @@ class NanoMRCompilerTests(unittest.TestCase):
             hahn_echo_sequence(5.0e-6, pulse_duration_seconds=1.0e-6)
         )
 
-        self.assertEqual([step.kind for step in ideal.steps], ["free", "instantaneous", "free"])
-        self.assertEqual([step.kind for step in finite.steps], ["free", "pulse", "free"])
+        self.assertEqual(
+            [step.kind for step in ideal.steps], ["free", "instantaneous", "free"]
+        )
+        self.assertEqual(
+            [step.kind for step in finite.steps], ["free", "pulse", "free"]
+        )
 
     def test_ramsey_phase_and_hahn_static_detuning_cancellation(self) -> None:
         duration = 17.0e-6
@@ -491,6 +504,31 @@ class NanoMRCompilerTests(unittest.TestCase):
             places=12,
         )
         np.testing.assert_allclose(hahn.bloch_vector, [1.0, 0.0, 0.0], atol=1e-12)
+
+    def test_ramsey_preparation_and_readout_phases_set_analysis_frame(self) -> None:
+        duration = 17.0e-6
+        detuning = 2.0 * np.pi * 25.0e3
+        preparation = 0.4
+        readout = -0.2
+
+        result = propagate_controlled_qubit(
+            ramsey_sequence(
+                duration,
+                preparation_phase_rad=preparation,
+                readout_phase_rad=readout,
+            ),
+            detuning,
+        )
+        expected_phase = detuning * duration + preparation - readout
+
+        self.assertAlmostEqual(
+            np.angle(result.coherence), np.angle(np.exp(1j * expected_phase))
+        )
+        np.testing.assert_allclose(
+            result.bloch_vector,
+            [np.cos(expected_phase), np.sin(expected_phase), 0.0],
+            atol=1.0e-12,
+        )
 
 
 class NanoMROpticalReadoutTests(unittest.TestCase):
@@ -628,8 +666,7 @@ class NanoMRBathTests(unittest.TestCase):
             2.0,
         )
         self.assertAlmostEqual(
-            fixed_large.coherent_mean_projection
-            / fixed_small.coherent_mean_projection,
+            fixed_large.coherent_mean_projection / fixed_small.coherent_mean_projection,
             4.0,
         )
 
@@ -650,9 +687,7 @@ class NanoMRBathTests(unittest.TestCase):
             np.linspace(-3.0e7, 3.0e7, 101),
         )
         magnetic_moment_scale = (
-            MU0_OVER_4PI
-            * PLANCK_CONSTANT_J_S
-            * proton.gamma_hz_per_t
+            MU0_OVER_4PI * PLANCK_CONSTANT_J_S * proton.gamma_hz_per_t
         )
         expected = (
             density_m3
@@ -783,9 +818,9 @@ class NanoMRStatisticalSpectrumTests(unittest.TestCase):
             larmor,
             correlation,
         )
-        integrated = np.sum(
-            0.5 * (psd[1:] + psd[:-1]) * np.diff(frequencies)
-        ) / (2.0 * np.pi)
+        integrated = np.sum(0.5 * (psd[1:] + psd[:-1]) * np.diff(frequencies)) / (
+            2.0 * np.pi
+        )
 
         np.testing.assert_allclose(integrated, variance, rtol=5.0e-3)
 
@@ -816,13 +851,14 @@ class NanoMRStatisticalSpectrumTests(unittest.TestCase):
             [0.0, 0.0, field_tesla],
             2.0 * np.pi * frequencies_hz,
         )
-        peaks_hz = frequencies_hz[
-            np.argmax(result.component_psd_t2_s, axis=1)
-        ]
+        peaks_hz = frequencies_hz[np.argmax(result.component_psd_t2_s, axis=1)]
 
         np.testing.assert_allclose(
             peaks_hz,
-            [proton.gamma_hz_per_t * field_tesla, fluorine.gamma_hz_per_t * field_tesla],
+            [
+                proton.gamma_hz_per_t * field_tesla,
+                fluorine.gamma_hz_per_t * field_tesla,
+            ],
             atol=40.0,
         )
         self.assertEqual(result.polarization_modes, ("statistical", "fixed"))
@@ -859,7 +895,6 @@ class NanoMRStatisticalSpectrumTests(unittest.TestCase):
             coherence.phase_variance_rad2,
             2.0 * coherence.chi,
         )
-
 
     def test_filter_overlap_rejects_one_sided_frequency_grid(self) -> None:
         field_tesla = 0.01
@@ -974,8 +1009,7 @@ class NanoMRResolvedClusterTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "dimension 96"):
             ResolvedSpinCluster(
                 sensor,
-                four
-                + (ResolvedNucleus.from_isotope("1H", [5.0, 0.0, 4.0]),),
+                four + (ResolvedNucleus.from_isotope("1H", [5.0, 0.0, 4.0]),),
                 [0.0, 0.0, 0.0],
             )
 
@@ -1016,9 +1050,7 @@ class NanoMRResolvedClusterTests(unittest.TestCase):
                 diamond_nv_minus(),
                 (
                     ResolvedNucleus.from_isotope("1H", [0.0, 0.0, 4.0]),
-                    ResolvedNucleus.from_isotope(
-                        "1H", [separation_nm, 0.0, 4.0]
-                    ),
+                    ResolvedNucleus.from_isotope("1H", [separation_nm, 0.0, 4.0]),
                 ),
                 [0.0, 0.0, 0.0],
             )
@@ -1100,9 +1132,7 @@ class NanoMRMotionTests(unittest.TestCase):
         self.assertAlmostEqual(near[2] / far[2], 8.0)
 
     def test_seeded_diffusing_field_records_are_reproducible(self) -> None:
-        positions = np.array(
-            [[-4.0, 1.0, 5.0], [3.0, -2.0, 7.0], [1.0, 4.0, 9.0]]
-        )
+        positions = np.array([[-4.0, 1.0, 5.0], [3.0, -2.0, 7.0], [1.0, 4.0, 9.0]])
         kwargs = dict(
             sensor_position_lab_nm=[0.0, 0.0, -5.0],
             static_field_lab_tesla=[0.0, 0.0, 0.02],
@@ -1144,9 +1174,7 @@ class NanoMRMotionTests(unittest.TestCase):
         )
 
         statistics = trajectory_displacement_statistics(record)
-        expected_nm2 = (
-            6.0 * diffusion * record.times_seconds[-1] * 1.0e18
-        )
+        expected_nm2 = 6.0 * diffusion * record.times_seconds[-1] * 1.0e18
 
         self.assertAlmostEqual(
             statistics.mean_squared_displacement_nm2[-1] / expected_nm2,
@@ -1232,9 +1260,7 @@ class NanoMRMotionTests(unittest.TestCase):
 class NanoMRNoiseAndDetectorTests(unittest.TestCase):
     def test_correlated_field_covariance_and_seeded_sampling(self) -> None:
         times = np.arange(6) * 10.0e-6
-        positions = np.column_stack(
-            (np.arange(6, dtype=float), np.zeros((6, 2)))
-        )
+        positions = np.column_stack((np.arange(6, dtype=float), np.zeros((6, 2))))
         model = CorrelatedFieldNoiseModel(
             (
                 FieldNoiseComponent(
@@ -1561,7 +1587,9 @@ class NanoMRImagingTests(unittest.TestCase):
         )
 
         self.assertTrue(result.converged)
-        self.assertEqual(np.unravel_index(np.argmax(result.density), grid.shape), (2, 2))
+        self.assertEqual(
+            np.unravel_index(np.argmax(result.density), grid.shape), (2, 2)
+        )
         self.assertLess(np.linalg.norm(result.residual), 0.08 * np.linalg.norm(noisy))
         self.assertTrue(np.all(result.density >= 0.0))
         self.assertTrue(np.all(result.standard_deviation > 0.0))
@@ -1640,6 +1668,12 @@ class NanoMRHighResolutionTests(unittest.TestCase):
         np.testing.assert_array_equal(first, second)
         self.assertFalse(np.array_equal(first, ideal_times))
 
+    def test_clock_rejects_nonmonotonic_physical_timestamps(self) -> None:
+        clock = ClockModel(trigger_jitter_seconds=2.0e-3)
+
+        with self.assertRaisesRegex(ValueError, "non-increasing"):
+            clock.sample_times(16, 1.0e-3, seed=1)
+
     def test_qdyne_sensor_coherence_reduces_visibility_not_phase(self) -> None:
         sensing_seconds = 1.0e-3
         protocol = QdyneProtocol(
@@ -1660,6 +1694,33 @@ class NanoMRHighResolutionTests(unittest.TestCase):
         self.assertAlmostEqual(result.sensor_contrast, 0.5)
         self.assertAlmostEqual(result.normalized_signal[0], 0.5)
 
+    def test_zero_signal_has_no_estimated_qdyne_or_synchronized_peak(self) -> None:
+        protocol = QdyneProtocol(
+            ramsey_sequence(10.0e-6),
+            repetition_interval_seconds=1.0e-3,
+        )
+        kwargs = dict(
+            protocol=protocol,
+            signal_frequency_hz=123.0,
+            field_amplitude_tesla=0.0,
+            sensor_gamma_rad_s_t=1.0e9,
+            shot_count=16,
+        )
+
+        qdyne = simulate_qdyne(**kwargs)
+        synchronized = simulate_synchronized_readout(**kwargs)
+
+        np.testing.assert_array_equal(
+            qdyne.spectrum,
+            np.zeros_like(qdyne.spectrum),
+        )
+        np.testing.assert_array_equal(
+            synchronized.spectrum,
+            np.zeros_like(synchronized.spectrum),
+        )
+        self.assertTrue(np.isnan(qdyne.estimated_beat_frequency_hz))
+        self.assertTrue(np.isnan(synchronized.estimated_beat_frequency_hz))
+
     def test_qdyne_reports_raw_and_nyquist_aliased_beats(self) -> None:
         protocol = QdyneProtocol(
             ramsey_sequence(10.0e-6),
@@ -1674,8 +1735,7 @@ class NanoMRHighResolutionTests(unittest.TestCase):
         )
 
         resolution = 1.0 / (
-            result.nominal_times_seconds.size
-            * protocol.repetition_interval_seconds
+            result.nominal_times_seconds.size * protocol.repetition_interval_seconds
         )
         self.assertAlmostEqual(result.raw_beat_frequency_hz, 1200.0)
         self.assertAlmostEqual(result.expected_beat_frequency_hz, 200.0)
@@ -1704,8 +1764,7 @@ class NanoMRHighResolutionTests(unittest.TestCase):
         )
 
         resolution = 1.0 / (
-            result.nominal_times_seconds.size
-            * protocol.repetition_interval_seconds
+            result.nominal_times_seconds.size * protocol.repetition_interval_seconds
         )
         self.assertAlmostEqual(result.expected_beat_frequency_hz, 7.0)
         self.assertLess(abs(result.estimated_beat_frequency_hz - 7.0), resolution)
@@ -1728,8 +1787,7 @@ class NanoMRHighResolutionTests(unittest.TestCase):
         )
 
         resolution = 1.0 / (
-            result.nominal_times_seconds.size
-            * protocol.repetition_interval_seconds
+            result.nominal_times_seconds.size * protocol.repetition_interval_seconds
         )
         self.assertLess(
             abs(result.estimated_beat_frequency_hz + 5.0),
@@ -1776,10 +1834,7 @@ class NanoMRHighResolutionTests(unittest.TestCase):
             diffusion_correlation_seconds=1.0,
             window=False,
         )
-        center = (
-            abs(ISOTOPE_GAMMA_HZ_PER_T["1H"])
-            * (1.0 + 2.0e-6)
-        )
+        center = abs(ISOTOPE_GAMMA_HZ_PER_T["1H"]) * (1.0 + 2.0e-6)
 
         np.testing.assert_allclose(
             result.component_frequencies_hz - center,

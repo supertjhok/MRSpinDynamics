@@ -118,8 +118,8 @@ convention are important when comparing sensor orientations.
 
 A \code{SensingSequence} describes the coherent interval between effective
 optical preparation and readout. Microwave and nuclear-RF events occupy
-separate channels, so concurrent events are representable. Same-channel finite
-pulses cannot overlap. Zero-duration microwave pulses compile as exact
+separate channels, so concurrent events are representable. Same-channel control
+events cannot overlap in time. Zero-duration microwave pulses compile as exact
 rotations; finite rectangular pulses compile as piecewise Hamiltonian steps.
 
 \begin{lstlisting}[language=Python]
@@ -179,7 +179,11 @@ The addressed-qubit propagator uses
 \]
 in the rotating frame. It is the exact time-domain reference for the filter
 layer: in the weak longitudinal-field limit, the accumulated phase agrees with
-\(\operatorname{Re}[B_\mathrm{ac}e^{\ii\phi}Y(\omega)]\).
+\(\operatorname{Re}[B_\mathrm{ac}e^{\ii\phi}Y(\omega)]\). With the default
+initial density, the sequence preparation phase sets the initial equatorial
+Bloch phase. Returned density, Bloch-vector, and coherence values use the
+transverse frame selected by the readout phase, giving the Ramsey phase
+\(\delta T+\phi_\mathrm{prep}-\phi_\mathrm{readout}\).
 
 \section{Effective Optical Preparation and Detection}
 
@@ -967,7 +971,10 @@ Likewise the resolution budget does not hide unrelated physics in one
 ``effective \(T_2\).'' Sensor coherence acts within a sensing block. Sample
 transverse coherence and diffusion attenuate correlations across clocked
 shots. Ancillary-memory coherence applies only to stored correlations.
-The Fourier-bin spacing is \(1/T_{\rm record}\), but sample coherence, diffusion, clock stability, record duration, signal-to-noise, and the Nyquist alias remain physical resolution limits. Results report the raw detuning, Nyquist-folded beat, and alias order separately. Clock-perturbed coherent FIDs use one actual elapsed-time axis for carrier phase, relaxation, diffusion, and scalar-coupling modulation.
+The Fourier-bin spacing is \(1/T_{\rm record}\), but sample coherence,
+diffusion, clock stability, record duration, signal-to-noise, and the Nyquist
+alias remain physical resolution limits. Non-increasing physical timestamps
+are rejected, and a spectrum without a nonzero peak reports \code{nan}.
 
 \subsection{ENDOR Qdyne}
 \code{EndorQdyneProtocol} implements the high-field coherent-basis-mapping
@@ -1033,7 +1040,10 @@ main-text Eq.~3,
  \sin^2(2\pi A_{zz}T_{\rm rep}).
 \]
 For \(A_{zz}=6\)~kHz, \(T_{\rm rep}=105~\mu\)s, and \(f=0.9\), it gives
-1.012~kHz, matching the paper's approximately 1~kHz estimate. The paper's
+1.012~kHz, matching the paper's approximately 1~kHz estimate. This uses
+spectroscopic Hz consistently with the stated \(2\pi A_{zz}S_zI_z\)
+Hamiltonian. Nearby prose calls \(A_{zz}T_{\rm rep}=0.63\) a phase and omits
+the \(2\pi\) conversion; that convention ambiguity is explicit here. The paper's
 \(\pi/2\) phase cycle gives \(1/(4T_{\rm rep})=2.369668\)~kHz, within
 2~Hz of the reported 2.368~kHz carrier. Tests also compare the ideal result
 sample by sample with Eqs.~1--2 and the back-action result with Supplementary

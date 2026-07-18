@@ -94,7 +94,10 @@ For a rod, it uses the Tirado-Martinez-de la Torre finite-cylinder friction
 expressions, including separate mobility parallel and perpendicular to the rod.
 An optional internal moment-relaxation time exposes the important failure mode
 in which magnetization follows the inverted field faster than the body can
-rotate.
+rotate. Hardware feasibility combines this deterministic realignment/internal
+relaxation time with the free two-dimensional polar-orientation Brownian
+correlation time through independent decay rates. Small particles can therefore
+fail the timing check even when deterministic realignment alone appears slow.
 
 ## Nonlinear EPM imaging
 

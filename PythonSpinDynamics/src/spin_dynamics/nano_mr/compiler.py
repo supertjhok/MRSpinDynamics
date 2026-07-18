@@ -92,9 +92,7 @@ def compile_qubit_sequence(sequence: SensingSequence) -> CompiledQubitSequence:
             steps.append(_finite_pulse_step(pulse))
             cursor = pulse.end_seconds
     if cursor < sequence.total_duration_seconds:
-        steps.append(
-            _free_step(cursor, sequence.total_duration_seconds - cursor)
-        )
+        steps.append(_free_step(cursor, sequence.total_duration_seconds - cursor))
     return CompiledQubitSequence(source=sequence, steps=tuple(steps))
 
 
@@ -111,10 +109,14 @@ def propagate_controlled_qubit(
     ``H = detuning(t)*sigma_z/2 + H_control``. A callable detuning is sampled
     at substep midpoints. ``max_step_seconds`` controls time discretization;
     constant detuning and control need only one substep per compiled interval.
+    When ``initial_density`` is omitted, ``sequence.preparation_phase_rad``
+    sets the initial equatorial Bloch-vector phase. Returned density,
+    Bloch-vector, and coherence values are expressed in the transverse frame
+    selected by ``sequence.readout_phase_rad``.
     """
 
     density = (
-        0.5 * (_IDENTITY + _SIGMA_X)
+        _equatorial_density(sequence.preparation_phase_rad)
         if initial_density is None
         else _validated_density(initial_density)
     )
@@ -137,11 +139,11 @@ def propagate_controlled_qubit(
         for index in range(count):
             midpoint = step.start_seconds + (index + 0.5) * dt
             detuning = _detuning_value(detuning_rad_per_s, midpoint)
-            hamiltonian = (
-                step.control_hamiltonian_rad_s + 0.5 * detuning * _SIGMA_Z
-            )
+            hamiltonian = step.control_hamiltonian_rad_s + 0.5 * detuning * _SIGMA_Z
             unitary = _unitary_from_hermitian(hamiltonian, dt)
             density = unitary @ density @ unitary.conj().T
+    readout_frame = _z_rotation_unitary(-sequence.readout_phase_rad)
+    density = readout_frame @ density @ readout_frame.conj().T
     bloch = np.array(
         [
             np.real(np.trace(density @ _SIGMA_X)),
@@ -156,6 +158,17 @@ def propagate_controlled_qubit(
         coherence=complex(bloch[0] + 1.0j * bloch[1]),
         elapsed_seconds=sequence.total_duration_seconds,
     )
+
+
+def _equatorial_density(phase_rad: float) -> np.ndarray:
+    return 0.5 * (
+        _IDENTITY + np.cos(phase_rad) * _SIGMA_X + np.sin(phase_rad) * _SIGMA_Y
+    )
+
+
+def _z_rotation_unitary(angle_rad: float) -> np.ndarray:
+    half = 0.5 * float(angle_rad)
+    return np.cos(half) * _IDENTITY - 1.0j * np.sin(half) * _SIGMA_Z
 
 
 def _free_step(start: float, duration: float) -> CompiledQubitStep:

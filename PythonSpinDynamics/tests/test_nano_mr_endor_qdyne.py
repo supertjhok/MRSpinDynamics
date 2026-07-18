@@ -77,7 +77,9 @@ class EndorQdyneTests(unittest.TestCase):
         # Figure 3 reports the intended phase-cycled carrier as 2.368 kHz.
         self.assertLess(abs(expected - 2368.0), 2.0)
 
-    def test_initialization_linewidth_matches_main_text_equation_3(self) -> None:
+    def test_initialization_linewidth_uses_reported_hamiltonian_hz_convention(
+        self,
+    ) -> None:
         exact = initialization_infidelity_decay_rate(
             6.0e3,
             105.0e-6,
@@ -90,7 +92,9 @@ class EndorQdyneTests(unittest.TestCase):
             leading_order=True,
         )
 
-        # The paper states that these parameters give a rate near 1 kHz.
+        # The paper's 2*pi*Azz*Sz*Iz Hamiltonian and reported near-1-kHz
+        # estimate use spectroscopic Hz; nearby prose calling Azz*tau a phase
+        # omits the 2*pi conversion and is conventionally inconsistent.
         self.assertAlmostEqual(exact, 1011.0956901733897)
         self.assertAlmostEqual(leading, 1012.1814471707744)
         self.assertLess(abs(exact - leading) / exact, 0.002)
@@ -114,8 +118,7 @@ class EndorQdyneTests(unittest.TestCase):
 
         cosine_alpha = np.cos(protocol.measurement_strength_rad)
         expected_third = 0.5 * (
-            np.cos(phase_step) ** 2
-            - cosine_alpha * np.sin(phase_step) ** 2
+            np.cos(phase_step) ** 2 - cosine_alpha * np.sin(phase_step) ** 2
         )
         self.assertAlmostEqual(result.nuclear_z_expectation[0], 0.5)
         self.assertAlmostEqual(
@@ -124,10 +127,29 @@ class EndorQdyneTests(unittest.TestCase):
         )
         self.assertAlmostEqual(result.nuclear_z_expectation[2], expected_third)
 
-    def test_optical_record_and_input_validation(self) -> None:
-        protocol = meinel_2023_endor_qdyne_protocol(
-            sensor_initialization_fidelity=1.0
+    def test_zero_measurement_strength_has_no_estimated_peak(self) -> None:
+        protocol = EndorQdyneProtocol(
+            free_precession_seconds=10.0e-6,
+            sensing_seconds=15.0e-6,
+            repetition_interval_seconds=105.5e-6,
+            rf_reference_frequency_hz=0.0,
+            longitudinal_hyperfine_hz=0.0,
         )
+        result = simulate_endor_qdyne(
+            protocol,
+            target_frequency_hz=0.0,
+            shot_count=16,
+            include_measurement_backaction=False,
+        )
+
+        np.testing.assert_array_equal(
+            result.spectrum,
+            np.zeros_like(result.spectrum),
+        )
+        self.assertTrue(np.isnan(result.estimated_beat_frequency_hz))
+
+    def test_optical_record_and_input_validation(self) -> None:
+        protocol = meinel_2023_endor_qdyne_protocol(sensor_initialization_fidelity=1.0)
         result = simulate_endor_qdyne(
             protocol,
             target_frequency_hz=0.0,

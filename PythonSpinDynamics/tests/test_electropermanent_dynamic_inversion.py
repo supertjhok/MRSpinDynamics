@@ -79,6 +79,14 @@ class FerromagneticParticleTests(unittest.TestCase):
             particle.translational_drag_perpendicular_n_s_m,
         )
 
+    def test_brownian_orientation_correlation_matches_two_dimensional_sde(self) -> None:
+        particle = _rod(length_m=8e-6, diameter_m=1e-6)
+
+        self.assertAlmostEqual(
+            particle.brownian_orientation_correlation_time_s,
+            1.0 / particle.rotational_diffusion_rad2_s,
+        )
+
     def test_fast_internal_relaxation_shortens_orientation_memory(self) -> None:
         locked = _rod()
         relaxing = _rod(internal_relaxation_time_s=100e-9)
@@ -148,7 +156,9 @@ class DynamicInversionTests(unittest.TestCase):
             relaxing.stability.repulsive_gradient_fraction,
         )
 
-    def test_rigid_long_rod_contracts_while_fast_moment_relaxation_expands(self) -> None:
+    def test_rigid_long_rod_contracts_while_fast_moment_relaxation_expands(
+        self,
+    ) -> None:
         sequence = nacev_2015_sequence(
             polarizing_field_t=0.5,
             gradient_field_at_center_t=0.2,
@@ -243,6 +253,32 @@ class DynamicInversionHardwareTests(unittest.TestCase):
         self.assertFalse(epm.waveform_fidelity_feasible)
         self.assertTrue(coil.waveform_fidelity_feasible)
         self.assertTrue(hybrid.waveform_fidelity_feasible)
+
+    def test_brownian_diffusion_limits_small_particle_hardware_feasibility(
+        self,
+    ) -> None:
+        sequence = nacev_2015_sequence()
+        particle = _rod(
+            length_m=20e-9,
+            diameter_m=2e-9,
+        )
+        assessment = assess_dynamic_inversion_hardware(
+            sequence,
+            particle,
+            duration_s=1.0,
+            config=DynamicInversionHardwareConfig(architecture="coils"),
+        )
+        deterministic = particle.orientation_memory_time_s(
+            sequence.gradient_field_at_center_t,
+            polarizing_field_t=sequence.polarizing_field_t,
+        )
+        expected = 1.0 / (
+            1.0 / deterministic + 1.0 / particle.brownian_orientation_correlation_time_s
+        )
+
+        self.assertAlmostEqual(assessment.orientation_memory_s, expected)
+        self.assertLess(assessment.orientation_memory_s, sequence.gradient_duration_s)
+        self.assertFalse(assessment.orientation_memory_feasible)
 
 
 if __name__ == "__main__":

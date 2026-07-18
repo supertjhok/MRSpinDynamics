@@ -111,9 +111,7 @@ class FerromagneticParticle:
                 "remanent_magnetization_a_m",
             )
             if remanence > self.saturation_magnetization_a_m:
-                raise ValueError(
-                    "remanent_magnetization_a_m cannot exceed saturation"
-                )
+                raise ValueError("remanent_magnetization_a_m cannot exceed saturation")
         _positive(self.fluid_viscosity_pa_s, "fluid_viscosity_pa_s")
         _positive(self.temperature_k, "temperature_k")
         fraction = float(self.magnetic_volume_fraction)
@@ -172,10 +170,7 @@ class FerromagneticParticle:
             return float(np.pi * eta * self.diameter_m**3)
         p = self.aspect_ratio
         correction = -0.662 + 0.917 / p - 0.050 / p**2
-        return float(
-            np.pi * eta * self.length_m**3
-            / (3.0 * (np.log(p) + correction))
-        )
+        return float(np.pi * eta * self.length_m**3 / (3.0 * (np.log(p) + correction)))
 
     @property
     def rotational_diffusion_rad2_s(self) -> float:
@@ -185,24 +180,26 @@ class FerromagneticParticle:
 
     @property
     def brownian_orientation_correlation_time_s(self) -> float:
-        """Free 2-D director correlation time ``1/(2 D_r)``."""
+        """Free 2-D polar-orientation correlation time ``1/D_r``.
 
-        return float(1.0 / (2.0 * self.rotational_diffusion_rad2_s))
+        The simulated body angle obeys ``d theta = sqrt(2 D_r) dW``, for
+        which ``<cos(theta(t) - theta(0))> = exp(-D_r t)``. An apolar
+        second-rank director correlation would instead decay with time
+        constant ``1/(4 D_r)``.
+        """
+
+        return float(1.0 / self.rotational_diffusion_rad2_s)
 
     @property
     def translational_diffusion_parallel_m2_s(self) -> float:
         return float(
-            BOLTZMANN
-            * self.temperature_k
-            / self.translational_drag_parallel_n_s_m
+            BOLTZMANN * self.temperature_k / self.translational_drag_parallel_n_s_m
         )
 
     @property
     def translational_diffusion_perpendicular_m2_s(self) -> float:
         return float(
-            BOLTZMANN
-            * self.temperature_k
-            / self.translational_drag_perpendicular_n_s_m
+            BOLTZMANN * self.temperature_k / self.translational_drag_perpendicular_n_s_m
         )
 
     def polarized_magnetization_a_m(self, field_t: float) -> float:
@@ -220,7 +217,9 @@ class FerromagneticParticle:
         return float(min(linear, self.saturation_magnetization_a_m))
 
     def magnetic_moment_a_m2(self, polarizing_field_t: float) -> float:
-        return float(self.volume_m3 * self.polarized_magnetization_a_m(polarizing_field_t))
+        return float(
+            self.volume_m3 * self.polarized_magnetization_a_m(polarizing_field_t)
+        )
 
     def mechanical_alignment_time_s(
         self,
@@ -249,9 +248,7 @@ class FerromagneticParticle:
         )
         if self.internal_relaxation_time_s is None:
             return mechanical
-        return float(
-            1.0 / (1.0 / mechanical + 1.0 / self.internal_relaxation_time_s)
-        )
+        return float(1.0 / (1.0 / mechanical + 1.0 / self.internal_relaxation_time_s))
 
 
 @dataclass(frozen=True)
@@ -289,9 +286,7 @@ class DynamicInversionSequence:
         ):
             _positive(getattr(self, name), name)
         _positive(self.delay_s, "delay_s", allow_zero=True)
-        occupied = (
-            self.polarizing_duration_s + self.delay_s + self.gradient_duration_s
-        )
+        occupied = self.polarizing_duration_s + self.delay_s + self.gradient_duration_s
         if self.element_period_s < occupied:
             raise ValueError("element_period_s must contain all pulse segments")
         _unit_directions(self.directions)
@@ -470,7 +465,9 @@ def _advance_uniform_field(
     brownian: bool,
 ) -> tuple[np.ndarray, np.ndarray]:
     dt = duration_s / substeps
-    field_angle = np.full(body_angle.shape, np.arctan2(field_vector_t[1], field_vector_t[0]))
+    field_angle = np.full(
+        body_angle.shape, np.arctan2(field_vector_t[1], field_vector_t[0])
+    )
     field_magnitude = float(np.linalg.norm(field_vector_t))
     for _ in range(substeps):
         torque = moment_a_m2 * field_magnitude * np.sin(field_angle - moment_angle)
@@ -541,8 +538,7 @@ def _advance_gradient(
     source = -sequence.actuator_radius_m * direction
     exponent = sequence.field_decay_exponent
     coefficient = (
-        sequence.gradient_field_at_center_t
-        * sequence.actuator_radius_m**exponent
+        sequence.gradient_field_at_center_t * sequence.actuator_radius_m**exponent
     )
     repulsive = 0
     samples = 0
@@ -558,10 +554,7 @@ def _advance_gradient(
         moment_axis = np.column_stack((np.cos(moment_angle), np.sin(moment_angle)))
         alignment = moment_axis @ direction
         gradient_scalar = (
-            exponent
-            * coefficient
-            * offset
-            / radius[:, np.newaxis] ** (exponent + 2.0)
+            exponent * coefficient * offset / radius[:, np.newaxis] ** (exponent + 2.0)
         )
         force = moment_a_m2 * alignment[:, np.newaxis] * gradient_scalar
         velocity = _mobilized_velocity(force, body_angle, particle)
@@ -656,14 +649,18 @@ def simulate_dynamic_inversion(
     else:
         body_angle = np.asarray(initial_body_angles_rad, dtype=np.float64)
     if body_angle.shape != (count,) or np.any(~np.isfinite(body_angle)):
-        raise ValueError("initial_body_angles_rad must have one finite value per particle")
+        raise ValueError(
+            "initial_body_angles_rad must have one finite value per particle"
+        )
     body_angle = _wrap_angle(body_angle.copy())
     if initial_moment_angles_rad is None:
         moment_angle = body_angle.copy()
     else:
         moment_angle = np.asarray(initial_moment_angles_rad, dtype=np.float64)
     if moment_angle.shape != (count,) or np.any(~np.isfinite(moment_angle)):
-        raise ValueError("initial_moment_angles_rad must have one finite value per particle")
+        raise ValueError(
+            "initial_moment_angles_rad must have one finite value per particle"
+        )
     moment_angle = _wrap_angle(moment_angle.copy())
     velocity = np.asarray(background_velocity_m_s, dtype=np.float64)
     if velocity.shape != (2,) or np.any(~np.isfinite(velocity)):
@@ -678,7 +675,10 @@ def simulate_dynamic_inversion(
             or np.any(bounds[:, 1] <= bounds[:, 0])
         ):
             raise ValueError("bounds_m must contain increasing x and y pairs")
-    if int(save_every_full_cycles) != save_every_full_cycles or save_every_full_cycles < 1:
+    if (
+        int(save_every_full_cycles) != save_every_full_cycles
+        or save_every_full_cycles < 1
+    ):
         raise ValueError("save_every_full_cycles must be a positive integer")
 
     directions = _unit_directions(sequence.directions)
@@ -817,7 +817,9 @@ class DynamicInversionHardwareConfig:
         if not np.isfinite(fraction) or not 0.0 < fraction <= 1.0:
             raise ValueError("epm_changed_channel_fraction must be in (0, 1]")
         for name in ("epm_programming_pulse_s", "epm_settle_s", "coil_rise_time_s"):
-            _positive(getattr(self, name), name, allow_zero=name != "epm_programming_pulse_s")
+            _positive(
+                getattr(self, name), name, allow_zero=name != "epm_programming_pulse_s"
+            )
         if self.coil_energy_per_pulse_j is not None:
             _positive(self.coil_energy_per_pulse_j, "coil_energy_per_pulse_j")
         if self.epm_energy_per_channel_pulse_j is not None:
@@ -832,7 +834,10 @@ class DynamicInversionHardwareConfig:
 
 @dataclass(frozen=True)
 class DynamicInversionHardwareAssessment:
-    """Pulse-count, timing, energy, and orientation-memory consequences."""
+    """Pulse-count, timing, energy, and orientation-memory consequences.
+
+    ``orientation_memory_s`` combines deterministic and Brownian decay rates.
+    """
 
     config: DynamicInversionHardwareConfig
     duration_s: float
@@ -872,7 +877,11 @@ def assess_dynamic_inversion_hardware(
     duration_s: float,
     config: DynamicInversionHardwareConfig,
 ) -> DynamicInversionHardwareAssessment:
-    """Compare fast coils, EPM-only switching, or an EPM/coil hybrid."""
+    """Compare fast coils, EPM-only switching, or an EPM/coil hybrid.
+
+    The feasibility memory combines mechanical/internal realignment with the
+    free 2-D polar-orientation Brownian correlation through independent rates.
+    """
 
     duration = _positive(duration_s, "duration_s")
     elements = int(np.floor(duration / sequence.element_period_s))
@@ -881,13 +890,13 @@ def assess_dynamic_inversion_hardware(
         np.ceil(config.epm_channel_count * config.epm_changed_channel_fraction)
     )
     batches = int(np.ceil(changed_channels / config.epm_parallel_channels))
-    epm_state_time = batches * (
-        config.epm_programming_pulse_s + config.epm_settle_s
-    )
-    memory = particle.orientation_memory_time_s(
+    epm_state_time = batches * (config.epm_programming_pulse_s + config.epm_settle_s)
+    deterministic_memory = particle.orientation_memory_time_s(
         sequence.gradient_field_at_center_t,
         polarizing_field_t=sequence.polarizing_field_t,
     )
+    brownian_memory = particle.brownian_orientation_correlation_time_s
+    memory = 1.0 / (1.0 / deterministic_memory + 1.0 / brownian_memory)
 
     if config.architecture == "coils":
         coil_pulses = 2 * elements
@@ -985,9 +994,7 @@ def assess_dynamic_inversion_hardware(
         )
 
     timing_margin = sequence.element_period_s - minimum_period
-    memory_feasible = (
-        effective_delay + sequence.gradient_duration_s < memory
-    )
+    memory_feasible = effective_delay + sequence.gradient_duration_s < memory
     power = None if energy is None else energy / duration
     return DynamicInversionHardwareAssessment(
         config=config,

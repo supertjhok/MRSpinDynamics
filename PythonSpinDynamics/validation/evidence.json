@@ -326,13 +326,15 @@
       "component": "Dynamic-inversion ferromagnetic-particle trap",
       "claim": "The workflow executes the published polarize-delay-antialigned-gradient timing, recovers spherical Stokes and Tirado finite-cylinder diffusion limits, reproducibly couples rigid-body and magnetic-moment orientation to translation, distinguishes contraction from rapidly relaxing-moment expansion, and makes coil, EPM-only, and hybrid switching burdens explicit.",
       "evidence_types": ["A", "D", "R"],
-      "basis": "Closed-form Stokes and rotational Einstein limits, published Tirado finite-cylinder diffusion expressions, the Nacev 2015 pulse order and timing, seeded stochastic trajectory regression, and exact architecture pulse-count identities.",
+      "basis": "Closed-form Stokes and rotational Einstein limits, the two-dimensional polar-orientation correlation exp(-D_r*t), published Tirado finite-cylinder diffusion expressions, the Nacev 2015 pulse order and timing, seeded stochastic trajectory regression, and exact architecture pulse-count identities.",
       "parameter_range": "Two-dimensional dilute particles represented as spheres or rods with rod aspect ratio at least 2; rigid or finite internal moment relaxation; four-direction inverse-power source model; configurable polarizer, gradient, geometry, flow, Brownian motion, reflecting bounds, timing, EPM parallelism, and optional calibrated pulse energies.",
-      "metric": "Translational and rotational drag/diffusion, orientation-memory time, repulsive gradient fraction, RMS-radius concentration gain, target retention and escape, seeded repeatability, state/channel pulse count, timing margin, waveform fidelity, and average power when energy inputs are supplied",
-      "tolerance": "Floating-point analytical drag/diffusion identities; exact seeded trajectory equality; qualitative contraction for the compact rigid long-rod case and expansion for its 100 ns internal-relaxation control; exact integer hardware counts.",
+      "metric": "Translational and rotational drag/diffusion, deterministic and Brownian-limited effective orientation-memory time, repulsive gradient fraction, RMS-radius concentration gain, target retention and escape, seeded repeatability, state/channel pulse count, timing margin, waveform fidelity, and average power when energy inputs are supplied",
+      "tolerance": "Floating-point analytical drag/diffusion and two-dimensional polar-correlation identities; exact seeded trajectory equality; qualitative contraction for the compact rigid long-rod case and expansion for its 100 ns internal-relaxation control; exact integer hardware counts and a Brownian-dominated infeasibility regression.",
       "status": "partially_validated",
       "reproducers": [
         "tests/test_electropermanent_dynamic_inversion.py::test_sphere_drag_recovers_stokes_and_rotational_limits",
+        "tests/test_electropermanent_dynamic_inversion.py::test_brownian_orientation_correlation_matches_two_dimensional_sde",
+        "tests/test_electropermanent_dynamic_inversion.py::test_brownian_diffusion_limits_small_particle_hardware_feasibility",
         "tests/test_electropermanent_dynamic_inversion.py::test_rod_diffusion_matches_tirado_finite_cylinder_expressions",
         "tests/test_electropermanent_dynamic_inversion.py::test_seeded_dynamic_inversion_is_reproducible_and_nonsticky",
         "tests/test_electropermanent_dynamic_inversion.py::test_rigid_long_rod_contracts_while_fast_moment_relaxation_expands",
@@ -578,7 +580,7 @@
       "basis": "Main-text Eqs. 1-3, Supplementary Eqs. 14 and 23, the reported operation timings, and direct deterministic regressions against the corresponding closed-form expressions.",
       "parameter_range": "Spin-one-half target; finite signed longitudinal Azz coupling in Hz; configurable RF reference, free-precession and sensing intervals, RF phase cycling, residual sensing phase, clock errors, sensor T2*, intrinsic nuclear decay, initialization fidelity, optional optical counts, and exact or disabled weak-measurement back-action; paper preset at Azz=6 kHz and 105.5 us repetition.",
       "metric": "Samplewise Iz and Sz expectation values, RF operation and total cycle time, baseband carrier and FFT peak, exact and leading initialization decay rates, and discrete back-action recurrence.",
-      "tolerance": "Floating-point agreement for analytical identities; less than one Fourier bin for the simulated carrier; within 2 Hz of the reported 2.368 kHz phase-cycle target; the reported approximately 1 kHz Eq. 3 estimate is reproduced as 1.012 kHz.",
+      "tolerance": "Floating-point agreement for analytical identities; less than one Fourier bin for the simulated carrier; within 2 Hz of the reported 2.368 kHz phase-cycle target; the approximately 1 kHz Eq. 3 numerical estimate is reproduced as 1.012 kHz using the paper's 2*pi*Azz*Sz*Iz Hamiltonian and spectroscopic-Hz convention.",
       "status": "partially_validated",
       "reproducers": [
         "tests/test_nano_mr_endor_qdyne.py",
@@ -590,6 +592,7 @@
       ],
       "limitations": [
         "The comparison uses the authors' published equations, sequence timings, and reported carrier/linewidth targets rather than a refit of deposited raw photon-count traces.",
+        "The source's nearby statement Azz*tau=0.63 rad omits the 2*pi conversion implied by its Hamiltonian and approximately 1 kHz estimate; the implementation explicitly treats Azz as a cyclic frequency in Hz.",
         "RF basis mapping is ideal apart from an explicit residual sensing phase; off-resonant finite-pulse unitary errors, charge-state switching, excited-state hyperfine changes, and a microscopic optical reset channel are not propagated.",
         "The model covers one resolved spin-one-half target and an effective optical readout, not a many-spin ENDOR ensemble or a calibrated high-field instrument."
       ]

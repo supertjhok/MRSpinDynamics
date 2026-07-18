@@ -13,8 +13,8 @@ Matrix](../validation_matrix.md); for stable public signatures, use the
 
 ## 2026-07 Capability Audit
 
-PythonSpinDynamics now has about 65,000 source lines in 191 Python modules,
-25,000 test lines, and 165 example scripts. Its breadth has moved the
+PythonSpinDynamics now has about 86,000 source lines in 264 Python modules,
+31,000 test lines, and 214 example scripts. Its breadth has moved the
 main architectural risk from missing individual models to disconnected feature
 islands. The next stabilization phase should emphasize composition,
 validation, reproducibility, and API maturity.
@@ -66,7 +66,7 @@ items below.
    are now gated. Remaining maturity work is expanding static typing and the
    coverage floor and publishing artifacts to a package index. Optional
    Numba/JAX lanes and host-normalized benchmark regression gates are now in CI.
-7. **Discoverability.** The 165 examples are a major asset and the catalog is
+7. **Discoverability.** The 214 examples are a major asset and the catalog is
    grouped by capability, but many scripts still assume readers already know
    the physics and package conventions. The current documentation overhaul is
    adding stronger introductions, decision-point comments, and beginner-first

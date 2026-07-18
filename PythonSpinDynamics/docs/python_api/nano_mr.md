@@ -188,7 +188,11 @@ sensor_coherence = result.coherence
 The propagator uses the rotating-frame addressed-qubit Hamiltonian
 \(H(t)=\delta(t)\sigma_z/2+H_\mathrm{control}(t)\), in radians per second. It
 is intended for control/filter validation and compact sensing simulations, not
-as a replacement for the full spin-1 defect Hamiltonian.
+as a replacement for the full spin-1 defect Hamiltonian. With the default
+initial density, `preparation_phase_rad` sets the initial equatorial Bloch
+phase. Returned density, Bloch-vector, and coherence values are expressed in
+the transverse frame selected by `readout_phase_rad`, so the resulting Ramsey
+phase is `detuning * duration + preparation_phase_rad - readout_phase_rad`.
 
 ## Optical initialization and readout
 
@@ -806,7 +810,15 @@ Y(\omega)=\int_0^{T_s} y(t)e^{i\omega t}\,dt,
 \left[e^{i(\omega t_n+\phi)}Y(\omega)\right].
 \]
 
-Sensor coherence is a readout visibility, not a rescaling of the accumulated phase: \(s_n=C_s\sin(\Phi_n+\phi_a)\). `simulate_qdyne` returns nominal and perturbed timestamps, the complex filter response, expected bright probabilities, the baseband spectrum, the raw detuning, its Nyquist-folded beat, and alias order. `simulate_synchronized_readout` records bounded nonlinear responses for both analysis quadratures, so positive and negative aliased beats remain distinguishable.
+Sensor coherence is a readout visibility, not a rescaling of the accumulated
+phase: \(s_n=C_s\sin(\Phi_n+\phi_a)\). `simulate_qdyne` returns nominal and
+perturbed timestamps, the complex filter response, expected bright
+probabilities, the baseband spectrum, the raw detuning, its Nyquist-folded
+beat, and alias order. All physical timestamps must remain strictly increasing.
+`simulate_synchronized_readout` records bounded nonlinear responses for both
+analysis quadratures, so positive and negative aliased beats remain
+distinguishable. When no non-DC spectral peak exists, the estimated beat is
+`NaN`.
 
 ```python
 from spin_dynamics.nano_mr import (
@@ -894,7 +906,10 @@ Eqs. 1-2 using spin-one-half expectation values:
 \]
 
 where \(\alpha=2\pi A_{zz}\tau_\mathrm{sens}\), \(\Phi\) is an optional
-per-cycle RF phase increment, and \(A_{zz}\) is supplied in spectroscopic Hz.
+per-cycle RF phase increment, and \(A_{zz}\) is supplied as a cyclic frequency
+in spectroscopic Hz. This follows the paper's \(2\pi A_{zz}S_zI_z\)
+Hamiltonian and approximately 1 kHz estimate; nearby prose treating
+\(A_{zz}\tau\) itself as a phase omits the \(2\pi\) conversion.
 Only \(\tau_\mathrm{fid}\) accumulates target/reference detuning. The observed
 wall-clock carrier is therefore
 
