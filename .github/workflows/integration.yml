@@ -34,7 +34,7 @@ jobs:
           python -m pip install -e ./PythonSpinDynamics
           python -m pip install -e ./QuadrupolarDFT
           python -m pip install -e ./integration
-          python -m pip install ruff
+          python -m pip install ruff==0.15.21
       - name: Lint
         working-directory: integration
         run: python -m ruff check src tests examples
