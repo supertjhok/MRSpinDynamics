@@ -760,7 +760,7 @@ def test_single_rx_complex_map_preserves_legacy_imaging_magnitude() -> None:
 
 
 @pytest.mark.smoke
-def test_rx_array_round_trip_and_current_imaging_guard() -> None:
+def test_rx_array_round_trip_and_channel_resolved_imaging() -> None:
     phantom = _disc_phantom(4)
     receiver = RxCoil(
         SolenoidCoil(
@@ -771,7 +771,7 @@ def test_rx_array_round_trip_and_current_imaging_guard() -> None:
         )
     )
     experiment = Experiment(
-        sequence=CPMGImaging(ny=3),
+        sequence=CPMGImaging(num_echoes=1, ny=1, maxoffs=0.1),
         sample=Sample(phantom=phantom),
         hardware=Hardware(
             rx_coil=RxArray((receiver, receiver)),
@@ -780,8 +780,44 @@ def test_rx_array_round_trip_and_current_imaging_guard() -> None:
     )
 
     assert Experiment.from_json(experiment.to_json()) == experiment
-    with pytest.raises(ValueError, match="receiver-channel axis"):
-        solve_imaging_field_maps(phantom, experiment.hardware)
+    covariance_experiment = dataclasses.replace(
+        experiment,
+        acquisition=Acquisition(
+            receiver_noise_covariance=np.array(
+                [[1.0, 0.2j], [-0.2j, 1.5]], dtype=np.complex128
+            ),
+            receiver_noise_seed=3,
+        ),
+    )
+    assert Experiment.from_json(covariance_experiment.to_json()) == covariance_experiment
+    maps = solve_imaging_field_maps(phantom, experiment.hardware)
+    np.testing.assert_array_equal(maps.b1_rx_map, np.ones_like(phantom.rho))
+    plan = experiment.plan(estimate=False)
+    assert plan.ok
+    result = experiment.run().result
+    assert result.channel_kspace.shape == (2, 4, 4, 1)
+    np.testing.assert_allclose(result.channel_kspace[0], result.channel_kspace[1])
+
+    with pytest.raises(ValueError, match="either receiver_noise_std"):
+        Acquisition(
+            receiver_noise_std=0.1,
+            receiver_noise_covariance=np.eye(2),
+        )
+    tuned = dataclasses.replace(
+        experiment,
+        hardware=dataclasses.replace(experiment.hardware, probe="tuned"),
+    )
+    tuned_plan = tuned.plan(estimate=False)
+    assert not tuned_plan.ok
+    assert any("requires probe='ideal'" in error for error in tuned_plan.errors)
+    scalar_noise = dataclasses.replace(
+        experiment,
+        hardware=Hardware(),
+        acquisition=Acquisition(receiver_noise_std=0.1),
+    )
+    scalar_noise_plan = scalar_noise.plan(estimate=False)
+    assert not scalar_noise_plan.ok
+    assert any("require an RxArray" in error for error in scalar_noise_plan.errors)
 
 
 @pytest.mark.smoke

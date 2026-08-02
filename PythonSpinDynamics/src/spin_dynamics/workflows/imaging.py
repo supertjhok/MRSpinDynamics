@@ -43,8 +43,18 @@ from spin_dynamics.workflows.imaging_types import (
     ImagingNoiseStatistics,
     ProbeCPMGImagingResult,
     ProbePhaseEncodedCPMGImagingResult,  # noqa: F401
+    ReceiverArrayCPMGImagingResult,
 )
-
+from spin_dynamics.workflows.receiver_arrays import (
+    add_receiver_array_noise,
+    as_receiver_sensitivities,
+    centered_kspace_from_images,
+    receiver_noise_covariance,
+    reconstruct_receiver_images,
+    roemer_combine,
+    sensitivity_weighted_combine,
+    sum_of_squares,
+)
 
 def _as_map(value: Iterable[float] | np.ndarray, name: str) -> np.ndarray:
     arr = np.asarray(value, dtype=np.float64)
@@ -588,6 +598,103 @@ def _finish_imaging_result(
     )
 
 
+def _finish_receiver_array_result(
+    field_maps: ImagingFieldMaps,
+    receiver_sensitivities: np.ndarray,
+    channel_labels: tuple[str, ...],
+    channel_kspace: np.ndarray,
+    gradx: np.ndarray,
+    gradz: np.ndarray,
+    del_w: np.ndarray,
+    sequence_time: np.ndarray,
+    *,
+    noise_std: float = 0.0,
+    noise_covariance: Iterable[complex] | np.ndarray | None = None,
+    noise_seed: int | None = None,
+) -> ReceiverArrayCPMGImagingResult:
+    """Reconstruct and combine channel-resolved ideal CPMG data."""
+
+    n_channels = receiver_sensitivities.shape[0]
+    if len(channel_labels) != n_channels:
+        raise ValueError("channel_labels must contain one label per receiver channel")
+    covariance = receiver_noise_covariance(
+        n_channels,
+        noise_std=noise_std,
+        covariance=noise_covariance,
+    )
+    channel_image = reconstruct_receiver_images(channel_kspace)
+    sensitivity_image = sensitivity_weighted_combine(
+        channel_image, receiver_sensitivities
+    )
+    combination_covariance = (
+        np.eye(n_channels, dtype=np.complex128) if covariance is None else covariance
+    )
+    roemer_image = roemer_combine(
+        channel_image,
+        receiver_sensitivities,
+        combination_covariance,
+    )
+
+    channel_kspace_noisy = None
+    channel_image_noisy = None
+    channel_magnitude_noisy = None
+    rss_magnitude_noisy = None
+    sensitivity_kspace_noisy = None
+    sensitivity_image_noisy = None
+    roemer_kspace_noisy = None
+    roemer_image_noisy = None
+    if covariance is not None:
+        channel_kspace_noisy = add_receiver_array_noise(
+            channel_kspace,
+            covariance,
+            seed=noise_seed,
+        )
+        channel_image_noisy = reconstruct_receiver_images(channel_kspace_noisy)
+        channel_magnitude_noisy = np.abs(channel_image_noisy)
+        rss_magnitude_noisy = sum_of_squares(channel_image_noisy)
+        sensitivity_image_noisy = sensitivity_weighted_combine(
+            channel_image_noisy, receiver_sensitivities
+        )
+        sensitivity_kspace_noisy = centered_kspace_from_images(sensitivity_image_noisy)
+        roemer_image_noisy = roemer_combine(
+            channel_image_noisy,
+            receiver_sensitivities,
+            combination_covariance,
+        )
+        roemer_kspace_noisy = centered_kspace_from_images(roemer_image_noisy)
+
+    return ReceiverArrayCPMGImagingResult(
+        rho=field_maps.rho,
+        t1_map=field_maps.t1_map,
+        t2_map=field_maps.t2_map,
+        b0_map=field_maps.b0_map,
+        b1_tx_map=field_maps.b1_tx_map,
+        receiver_sensitivities=receiver_sensitivities,
+        channel_labels=channel_labels,
+        channel_kspace=channel_kspace,
+        channel_image=channel_image,
+        channel_magnitude=np.abs(channel_image),
+        rss_magnitude=sum_of_squares(channel_image),
+        sensitivity_combined_kspace=centered_kspace_from_images(sensitivity_image),
+        sensitivity_combined_image=sensitivity_image,
+        roemer_combined_kspace=centered_kspace_from_images(roemer_image),
+        roemer_combined_image=roemer_image,
+        gradx=gradx,
+        gradz=gradz,
+        del_w=del_w,
+        sequence_time=sequence_time,
+        probe="ideal",
+        noise_covariance=covariance,
+        channel_kspace_noisy=channel_kspace_noisy,
+        channel_image_noisy=channel_image_noisy,
+        channel_magnitude_noisy=channel_magnitude_noisy,
+        rss_magnitude_noisy=rss_magnitude_noisy,
+        sensitivity_combined_kspace_noisy=sensitivity_kspace_noisy,
+        sensitivity_combined_image_noisy=sensitivity_image_noisy,
+        roemer_combined_kspace_noisy=roemer_kspace_noisy,
+        roemer_combined_image_noisy=roemer_image_noisy,
+    )
+
 def _set_params_tuned_jmr() -> tuple[SimpleNamespace, SimpleNamespace]:
     gamma = 42.577e6 * 2 * np.pi
     f0 = 0.5e6
@@ -786,6 +893,56 @@ def run_ideal_phase_encoded_cpmg_imaging(
     )
 
 
+def run_ideal_receiver_array_cpmg_imaging(
+    rho: Iterable[float] | np.ndarray | ImagingFieldMaps,
+    *,
+    receiver_sensitivities: Iterable[complex] | np.ndarray,
+    channel_labels: Iterable[str] | None = None,
+    t1_map: Iterable[float] | np.ndarray | None = None,
+    t2_map: Iterable[float] | np.ndarray | None = None,
+    num_echoes: int = 2,
+    echo_spacing_seconds: float = 0.2e-3,
+    gradient_duration_seconds: float = 0.5e-3,
+    fov: tuple[float, float] | Iterable[float] = (20.0, 20.0),
+    ny: int = 9,
+    maxoffs: float = 5.0,
+    num_workers: int | None = 1,
+    phase_workers: int | None = 1,
+    density_normalization: Literal["legacy", "preserve"] = "legacy",
+    noise_std: float = 0.0,
+    noise_covariance: Iterable[complex] | np.ndarray | None = None,
+    noise_seed: int | None = None,
+) -> ReceiverArrayCPMGImagingResult:
+    """Run ideal CPMG once and project the response into every Rx channel.
+
+    ``receiver_sensitivities`` has shape ``(n_channels, px, pz)`` and may be
+    complex. Independent circular complex noise is selected with ``noise_std``;
+    alternatively, ``noise_covariance`` supplies the absolute channel
+    covariance ``E[n n^H]`` for each k-space sample.
+    """
+
+    return _ideal_phase_encoded_cpmg_imaging(
+        rho,
+        t1_map=t1_map,
+        t2_map=t2_map,
+        num_echoes=num_echoes,
+        echo_spacing_seconds=echo_spacing_seconds,
+        gradient_duration_seconds=gradient_duration_seconds,
+        fov=fov,
+        ny=ny,
+        maxoffs=maxoffs,
+        num_workers=num_workers,
+        phase_workers=phase_workers,
+        density_normalization=density_normalization,
+        inversion_time_seconds=None,
+        noise=None,
+        receiver_sensitivities=receiver_sensitivities,
+        channel_labels=channel_labels,
+        receiver_noise_std=noise_std,
+        receiver_noise_covariance=noise_covariance,
+        receiver_noise_seed=noise_seed,
+    )
+
 def run_t1_encoded_phase_encoded_cpmg_imaging(
     rho: Iterable[float] | np.ndarray | ImagingFieldMaps,
     *,
@@ -876,7 +1033,12 @@ def _ideal_phase_encoded_cpmg_imaging(
     density_normalization: Literal["legacy", "preserve"],
     inversion_time_seconds: float | None,
     noise: NoiseSpec | Mapping[str, object] | float | int | None,
-) -> IdealCPMGImagingResult:
+    receiver_sensitivities: Iterable[complex] | np.ndarray | None = None,
+    channel_labels: Iterable[str] | None = None,
+    receiver_noise_std: float = 0.0,
+    receiver_noise_covariance: Iterable[complex] | np.ndarray | None = None,
+    receiver_noise_seed: int | None = None,
+) -> IdealCPMGImagingResult | ReceiverArrayCPMGImagingResult:
     if inversion_time_seconds is not None and inversion_time_seconds <= 0:
         raise ValueError("inversion_time_seconds must be positive")
 
@@ -889,6 +1051,25 @@ def _ideal_phase_encoded_cpmg_imaging(
         fov,
     )
     rho_arr = field_maps.rho
+    receiver_maps = None
+    labels: tuple[str, ...] = ()
+    if receiver_sensitivities is not None:
+        receiver_maps = as_receiver_sensitivities(
+            receiver_sensitivities, rho_arr.shape
+        )
+        labels = (
+            tuple(str(label) for label in channel_labels)
+            if channel_labels is not None
+            else tuple(f"rx{index}" for index in range(receiver_maps.shape[0]))
+        )
+        if len(labels) != receiver_maps.shape[0]:
+            raise ValueError(
+                "channel_labels must contain one label per receiver channel"
+            )
+        if noise is not None:
+            raise ValueError(
+                "receiver-array imaging uses noise_std or noise_covariance, not noise"
+            )
 
     sp0, pp0 = set_params_ideal(numpts=1)
     t90 = float(pp0.T_90)
@@ -908,6 +1089,12 @@ def _ideal_phase_encoded_cpmg_imaging(
     )
     del_w = maps["del_w"]
     w_1 = maps["w_1"]
+    receiver_weights = None
+    if receiver_maps is not None:
+        receiver_weights = np.tile(
+            receiver_maps.reshape(receiver_maps.shape[0], -1),
+            (1, int(ny)),
+        )
     sp = {
         "del_w": del_w,
         "del_wg": np.zeros_like(del_w),
@@ -1020,10 +1207,24 @@ def _ideal_phase_encoded_cpmg_imaging(
         mrx2 = calc_macq_ideal_probe_relax4(sp_case, pp2, num_workers=num_workers)
         mrx3 = calc_macq_ideal_probe_relax4(sp_case, pp3, num_workers=num_workers)
         mrx4 = calc_macq_ideal_probe_relax4(sp_case, pp4, num_workers=num_workers)
-        echo_x = isoc @ (mrx1 - mrx2).T
-        echo_y = isoc @ (mrx3 - mrx4).T
-        echo_xy = np.real(echo_x) + 1j * np.imag(echo_y)
-        return trapezoid(echo_xy, tvect, axis=0)
+        delta_x = mrx1 - mrx2
+        delta_y = mrx3 - mrx4
+        if receiver_weights is None:
+            echo_x = isoc @ delta_x.T
+            echo_y = isoc @ delta_y.T
+            echo_xy = np.real(echo_x) + 1j * np.imag(echo_y)
+            return trapezoid(echo_xy, tvect, axis=0)
+
+        # Build each isochromat's complex phase-cycled contribution before
+        # summation, then apply every complex B1- map in one linear projection.
+        phase = isoc[:, np.newaxis, :]
+        contribution = np.real(phase * delta_x[np.newaxis, :, :]) + 1j * np.imag(
+            phase * delta_y[np.newaxis, :, :]
+        )
+        channel_echo = np.einsum(
+            "ci,tei->cte", receiver_weights, contribution, optimize=True
+        )
+        return trapezoid(channel_echo, tvect, axis=1)
 
     indices = [(ix, iz) for ix in range(px) for iz in range(pz)]
     workers = 1 if phase_workers is None else int(phase_workers)
@@ -1033,10 +1234,33 @@ def _ideal_phase_encoded_cpmg_imaging(
         with ThreadPoolExecutor(max_workers=workers) as executor:
             rows = list(executor.map(run_point, indices))
 
+    sequence_time = echo_spacing_seconds * (
+        np.arange(int(num_echoes), dtype=np.float64) + 1
+    )
+    if receiver_maps is not None:
+        channel_kspace = np.zeros(
+            (receiver_maps.shape[0], px, pz, int(num_echoes)),
+            dtype=np.complex128,
+        )
+        for (ix, iz), values in zip(indices, rows):
+            channel_kspace[:, ix, iz, :] = values
+        return _finish_receiver_array_result(
+            field_maps,
+            receiver_maps,
+            labels,
+            channel_kspace,
+            gradx,
+            gradz,
+            del_w,
+            sequence_time,
+            noise_std=receiver_noise_std,
+            noise_covariance=receiver_noise_covariance,
+            noise_seed=receiver_noise_seed,
+        )
+
     kspace = np.zeros((px, pz, int(num_echoes)), dtype=np.complex128)
     for (ix, iz), values in zip(indices, rows):
         kspace[ix, iz, :] = values
-    sequence_time = echo_spacing_seconds * (np.arange(int(num_echoes), dtype=np.float64) + 1)
     return _finish_imaging_result(
         IdealCPMGImagingResult,
         field_maps,

@@ -64,6 +64,13 @@ class ReceiveSensitivityMaps:
 
         return int(self.b1_minus_t_per_a.shape[0])
 
+    @property
+    def normalized_complex(self) -> np.ndarray:
+        """Complex B1- maps normalized by each channel's magnitude reference."""
+
+        shape = (self.n_channels,) + (1,) * (self.b1_minus_t_per_a.ndim - 1)
+        return self.b1_minus_t_per_a / self.normalization_t_per_a.reshape(shape)
+
 
 class _SolvedFields:
     """Cached solve: the B1 maps plus per-coil transmit-efficiency diagnostics."""
@@ -280,12 +287,6 @@ def solve_imaging_field_maps(
     """
 
     _validate_hardware(hardware)
-    if isinstance(hardware.rx_coil, RxArray):
-        raise ValueError(
-            "CPMG imaging does not yet carry a receiver-channel axis; use "
-            "solve_receive_sensitivities() to obtain the channel-resolved B1- "
-            "maps during this foundational phase"
-        )
 
     def t_map(map_arr: np.ndarray | None, scalar: float | None) -> np.ndarray | None:
         if map_arr is not None:
@@ -315,7 +316,13 @@ def solve_imaging_field_maps(
         t2_map=t2_map,
         b0_map=b0_map,
         b1_tx_map=solved.b1_tx_map,
-        b1_rx_map=solved.b1_rx_map,
+        # RxArray sensitivities are projected after spin propagation. A neutral
+        # scalar map prevents the legacy container from collapsing channels.
+        b1_rx_map=(
+            np.ones_like(phantom.rho)
+            if isinstance(hardware.rx_coil, RxArray)
+            else solved.b1_rx_map
+        ),
     )
 
 

@@ -154,12 +154,54 @@ def hardware_wiring_rule(
     """
 
     from spin_dynamics.experiment import wiring
+    from spin_dynamics.experiment.hardware import RxArray
     from spin_dynamics.experiment.specs import CPMGImaging
 
     if not isinstance(experiment.sequence, CPMGImaging):
         # Unused coil specs on other sequences are reported by the generic
         # ignored-field warnings via each entry's `honors` set.
         return []
+    is_receiver_array = isinstance(experiment.hardware.rx_coil, RxArray)
+    if is_receiver_array and experiment.hardware.probe != "ideal":
+        return [
+            RuleFinding(
+                rule="hardware_wiring",
+                severity="error",
+                message=(
+                    "RxArray CPMG imaging currently requires probe='ideal'; "
+                    "per-channel tuned/matched transfer functions are deferred "
+                    "to the multiport coupling phase"
+                ),
+            )
+        ]
+    if is_receiver_array and experiment.acquisition.noise is not None:
+        return [
+            RuleFinding(
+                rule="hardware_wiring",
+                severity="error",
+                message=(
+                    "RxArray imaging uses acquisition.receiver_noise_std or "
+                    "acquisition.receiver_noise_covariance instead of the "
+                    "single-channel acquisition.noise specification"
+                ),
+            )
+        ]
+    has_array_noise = (
+        experiment.acquisition.receiver_noise_std > 0.0
+        or experiment.acquisition.receiver_noise_covariance is not None
+        or experiment.acquisition.receiver_noise_seed is not None
+    )
+    if not is_receiver_array and has_array_noise:
+        return [
+            RuleFinding(
+                rule="hardware_wiring",
+                severity="error",
+                message=(
+                    "acquisition receiver-array noise fields require an "
+                    "RxArray imaging receiver"
+                ),
+            )
+        ]
     if not wiring.uses_hardware_fields(experiment.hardware):
         return []
     try:

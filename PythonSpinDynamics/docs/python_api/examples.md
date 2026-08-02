@@ -222,6 +222,18 @@ at least two echoes.
 Use `--t1-encoded --inversion-time 5e-4` with the ideal probe path to add an
 inversion-recovery preparation before phase encoding and CPMG.
 
+## Plot Receiver-array CPMG Imaging
+
+This Phase 2 example solves two orthogonal receive coils by reciprocity, carries
+their complex B1- maps through channel-resolved ideal CPMG, adds correlated
+k-space noise, and compares a raw channel, RSS, and Roemer combination:
+
+```powershell
+python examples\plot_receiver_array_cpmg.py --pixels 8 --ny 1 --output results\receiver_array_cpmg.png
+```
+
+See the [receiver-array CPMG guide](../receiver_array_imaging.md) for the array
+shapes, noise covariance convention, direct API, and present limitations.
 ## Plot Custom Imaging Fields
 
 This example builds a small synthetic phantom with custom B0, transmit-B1, and

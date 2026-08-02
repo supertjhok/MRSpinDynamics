@@ -15,6 +15,7 @@ import numpy as np
 
 from spin_dynamics.experiment.estimate import CostModel
 from spin_dynamics.experiment.io import register_result_type
+from spin_dynamics.experiment.hardware import RxArray
 from spin_dynamics.experiment.registry import WorkflowEntry, register_workflow
 from spin_dynamics.experiment.serialization import register_serializable
 from spin_dynamics.esr import ESRSpinSystem, ESRTransition
@@ -52,7 +53,10 @@ from spin_dynamics.experiment.specs import (
     PGSEWalkers,
     SequenceIRExecution,
 )
-from spin_dynamics.experiment.wiring import solve_for_experiment
+from spin_dynamics.experiment.wiring import (
+    solve_for_experiment,
+    solve_receive_sensitivities,
+)
 from spin_dynamics.nqr import QuadrupolarSite
 from spin_dynamics.nqr.full_dynamics import FullNQRFIDResult, FullNQRSLSEResult
 from spin_dynamics.nqr.simulation import PopulationTransferResult, SLSEResult, SORCResult
@@ -79,6 +83,7 @@ from spin_dynamics.phase_cycling import PhaseCycle, PhaseStep
 from spin_dynamics.workflows import (
     run_ideal_cpmg,
     run_ideal_cpmg_imaging,
+    run_ideal_receiver_array_cpmg_imaging,
     run_ideal_cpmg_ir_train,
     run_ideal_cpmg_train,
     run_matched_cpmg,
@@ -110,6 +115,7 @@ from spin_dynamics.workflows.cpmg_ir import (
 from spin_dynamics.workflows.imaging_types import (
     IdealCPMGImagingResult,
     ProbeCPMGImagingResult,
+    ReceiverArrayCPMGImagingResult,
 )
 from spin_dynamics.workflows.pgse import PGSEMomentResult, PGSEWalkerResult
 from spin_dynamics.nano_mr import (
@@ -124,6 +130,7 @@ register_result_type(CPMGIRTrainResult)
 register_result_type(MatchedCPMGIRTrainResult)
 register_result_type(IdealCPMGImagingResult)
 register_result_type(ProbeCPMGImagingResult)
+register_result_type(ReceiverArrayCPMGImagingResult)
 register_result_type(SLSEResult)
 register_result_type(SORCResult)
 register_result_type(FullNQRSLSEResult)
@@ -393,7 +400,18 @@ def _imaging_kwargs(experiment: Experiment) -> dict[str, Any]:
         "ny": sequence.ny,
         "maxoffs": sequence.maxoffs,
     }
-    if experiment.acquisition.noise is not None:
+    if isinstance(experiment.hardware.rx_coil, RxArray):
+        sensitivities = solve_receive_sensitivities(
+            experiment.sample.phantom, experiment.hardware
+        )
+        kwargs.update(
+            receiver_sensitivities=sensitivities.normalized_complex,
+            channel_labels=sensitivities.channel_labels,
+            noise_std=experiment.acquisition.receiver_noise_std,
+            noise_covariance=experiment.acquisition.receiver_noise_covariance,
+            noise_seed=experiment.acquisition.receiver_noise_seed,
+        )
+    elif experiment.acquisition.noise is not None:
         kwargs["noise"] = experiment.acquisition.noise
     return kwargs
 
@@ -408,8 +426,19 @@ _IMAGING_HONORS = frozenset(
         "hardware.rx_coil",
         "hardware.plane",
         "acquisition.noise",
+        "acquisition.receiver_noise_covariance",
+        "acquisition.receiver_noise_seed",
+        "acquisition.receiver_noise_std",
     }
 )
+
+def _resolve_imaging_func(experiment: Experiment) -> Any:
+    if (
+        isinstance(experiment.hardware.rx_coil, RxArray)
+        and experiment.hardware.probe == "ideal"
+    ):
+        return run_ideal_receiver_array_cpmg_imaging
+    return _IMAGING_FUNCS[experiment.hardware.probe]
 
 _IMAGING_FUNCS = {
     "ideal": run_ideal_cpmg_imaging,
@@ -426,6 +455,7 @@ for _probe, _func in _IMAGING_FUNCS.items():
             build_kwargs=_imaging_kwargs,
             honors=_IMAGING_HONORS,
             execution_kwargs=frozenset({"num_workers", "phase_workers"}),
+            resolve_func=_resolve_imaging_func,
         )
     )
 

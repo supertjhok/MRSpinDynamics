@@ -1,6 +1,6 @@
 # Receiver Arrays, Sensitivity Encoding, and Quadrature-Coil Plan
 
-**Status:** foundational phase started 2026-08-02
+**Status:** Phase 2 implemented 2026-08-02; Phase 3 is next
 
 This note records the repository assessment and staged implementation plan for
 multiple receiver coils, sensitivity encoding, mutual coupling, quadrature
@@ -113,6 +113,11 @@ python examples/plot_receiver_array_sensitivities.py \
 Validation gates: single-channel parity, channel phase reinforcement and
 cancellation, symmetry cases, and sqrt(N) SNR scaling for independent identical
 channels.
+
+Implemented in `workflows/imaging.py`, `workflows/receiver_arrays.py`, and
+the `Experiment` facade. See [Receiver-array CPMG imaging](receiver_array_imaging.md)
+and `examples/plot_receiver_array_cpmg.py`. Tuned/matched arrays remain deferred
+until the Phase 4 multiport transfer-function model.
 
 ### Phase 3: sensitivity encoding
 

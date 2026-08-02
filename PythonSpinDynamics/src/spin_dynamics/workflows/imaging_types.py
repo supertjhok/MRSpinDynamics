@@ -62,6 +62,96 @@ class ProbeCPMGImagingResult:
 
 
 @dataclass(frozen=True)
+class ReceiverArrayCPMGImagingResult:
+    """Channel-resolved ideal CPMG imaging result for an uncoupled Rx array.
+
+    ``channel_kspace`` and ``channel_image`` are channel-leading with shape
+    ``(n_channels, px, pz, num_echoes)``. The complex sensitivity maps retain
+    receive phase. Compatibility properties expose the noise-optimal Roemer
+    combination through the established single-image names.
+    """
+
+    rho: np.ndarray
+    t1_map: np.ndarray
+    t2_map: np.ndarray
+    b0_map: np.ndarray
+    b1_tx_map: np.ndarray
+    receiver_sensitivities: np.ndarray
+    channel_labels: tuple[str, ...]
+    channel_kspace: np.ndarray
+    channel_image: np.ndarray
+    channel_magnitude: np.ndarray
+    rss_magnitude: np.ndarray
+    sensitivity_combined_kspace: np.ndarray
+    sensitivity_combined_image: np.ndarray
+    roemer_combined_kspace: np.ndarray
+    roemer_combined_image: np.ndarray
+    gradx: np.ndarray
+    gradz: np.ndarray
+    del_w: np.ndarray
+    sequence_time: np.ndarray
+    probe: str
+    noise_covariance: np.ndarray | None = None
+    channel_kspace_noisy: np.ndarray | None = None
+    channel_image_noisy: np.ndarray | None = None
+    channel_magnitude_noisy: np.ndarray | None = None
+    rss_magnitude_noisy: np.ndarray | None = None
+    sensitivity_combined_kspace_noisy: np.ndarray | None = None
+    sensitivity_combined_image_noisy: np.ndarray | None = None
+    roemer_combined_kspace_noisy: np.ndarray | None = None
+    roemer_combined_image_noisy: np.ndarray | None = None
+
+    @property
+    def n_channels(self) -> int:
+        """Number of receiver channels."""
+
+        return int(self.channel_kspace.shape[0])
+
+    @property
+    def b1_rx_map(self) -> np.ndarray:
+        """Legacy-shaped root-sum-of-squares receive sensitivity view."""
+
+        return np.sqrt(np.sum(np.abs(self.receiver_sensitivities) ** 2, axis=0))
+
+    @property
+    def kspace(self) -> np.ndarray:
+        """Compatibility view: noise-optimal combined k-space."""
+
+        return self.roemer_combined_kspace
+
+    @property
+    def image(self) -> np.ndarray:
+        """Compatibility view: noise-optimal combined complex image."""
+
+        return self.roemer_combined_image
+
+    @property
+    def magnitude(self) -> np.ndarray:
+        """Compatibility view: magnitude of the noise-optimal combination."""
+
+        return np.abs(self.roemer_combined_image)
+
+    @property
+    def echo_integrals(self) -> np.ndarray:
+        """Compatibility view of combined echo integrals."""
+
+        return self.roemer_combined_kspace
+
+    @property
+    def kspace_noisy(self) -> np.ndarray | None:
+        return self.roemer_combined_kspace_noisy
+
+    @property
+    def image_noisy(self) -> np.ndarray | None:
+        return self.roemer_combined_image_noisy
+
+    @property
+    def magnitude_noisy(self) -> np.ndarray | None:
+        if self.roemer_combined_image_noisy is None:
+            return None
+        return np.abs(self.roemer_combined_image_noisy)
+
+@dataclass(frozen=True)
 class ImagingEchoFitResult:
     """Voxel-wise mono-exponential fit of reconstructed echo magnitudes."""
 

@@ -513,6 +513,13 @@ containers with:
   `(num_tau, num_echoes)`;
 - `sequence_time`: echo-center times in seconds.
 
+For multiple uncoupled receivers, use
+`run_ideal_receiver_array_cpmg_imaging` or supply an `RxArray` to an ideal
+`Experiment`. The channel-leading result preserves complex B1- phase and includes
+raw-channel, RSS, sensitivity-weighted, and noise-aware Roemer outputs. See the
+[receiver-array CPMG guide](../receiver_array_imaging.md) for covariance semantics,
+compatibility views, and the current ideal-probe boundary.
+
 The `tau_workers` option parallelizes independent inversion delays. The
 `num_workers` option is passed through to the chunked isochromat backend inside
 each finite acquisition. For long `tauvect` values, use the same rephasing
@@ -557,6 +564,13 @@ Finite sweep runners return `CPMGFiniteParameterSweepResult` with:
 - `echo_integrals`: trapezoidal integrals with shape
   `(num_values, num_echoes)`;
 - `sequence_time`: echo-center times in seconds.
+
+For multiple uncoupled receivers, use
+`run_ideal_receiver_array_cpmg_imaging` or supply an `RxArray` to an ideal
+`Experiment`. The channel-leading result preserves complex B1- phase and includes
+raw-channel, RSS, sensitivity-weighted, and noise-aware Roemer outputs. See the
+[receiver-array CPMG guide](../receiver_array_imaging.md) for covariance semantics,
+compatibility views, and the current ideal-probe boundary.
 
 Available wrappers:
 
@@ -1128,6 +1142,13 @@ from_npz = run_tuned_phase_encoded_cpmg_imaging(load_imaging_field_maps_npz("fie
 - `gradx`, `gradz`: phase-encoding gradient steps;
 - `del_w`: flattened normalized offset grid;
 - `sequence_time`: echo-center times in seconds.
+
+For multiple uncoupled receivers, use
+`run_ideal_receiver_array_cpmg_imaging` or supply an `RxArray` to an ideal
+`Experiment`. The channel-leading result preserves complex B1- phase and includes
+raw-channel, RSS, sensitivity-weighted, and noise-aware Roemer outputs. See the
+[receiver-array CPMG guide](../receiver_array_imaging.md) for covariance semantics,
+compatibility views, and the current ideal-probe boundary.
 
 The raw reconstruction stack is one image per echo. Image formation is a
 separate post-processing step:

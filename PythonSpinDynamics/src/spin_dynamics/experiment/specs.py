@@ -536,16 +536,49 @@ class Hardware:
 
 
 @register_serializable
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class Acquisition:
     """Offset grid, receiver noise, and rephasing-guard configuration."""
 
     numpts: int = 101
     maxoffs: float = 10.0
     noise: Mapping[str, Any] | float | Any | None = None
+    receiver_noise_std: float = 0.0
+    receiver_noise_covariance: np.ndarray | None = None
+    receiver_noise_seed: int | None = None
     auto_refine_grid: bool = False
     rephase_safety_factor: float = 1.25
     rephase_action: str = "warn"
+
+    def __post_init__(self) -> None:
+        std = float(self.receiver_noise_std)
+        if not np.isfinite(std) or std < 0.0:
+            raise ValueError("receiver_noise_std must be finite and non-negative")
+        object.__setattr__(self, "receiver_noise_std", std)
+        if self.receiver_noise_covariance is not None:
+            if std > 0.0:
+                raise ValueError(
+                    "provide either receiver_noise_std or "
+                    "receiver_noise_covariance, not both"
+                )
+            covariance = np.asarray(
+                self.receiver_noise_covariance, dtype=np.complex128
+            )
+            if covariance.ndim != 2 or covariance.shape[0] != covariance.shape[1]:
+                raise ValueError("receiver_noise_covariance must be a square matrix")
+            object.__setattr__(self, "receiver_noise_covariance", covariance)
+        if self.receiver_noise_seed is not None and (
+            not isinstance(self.receiver_noise_seed, int)
+            or self.receiver_noise_seed < 0
+        ):
+            raise ValueError(
+                "receiver_noise_seed must be a non-negative integer when set"
+            )
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Acquisition):
+            return NotImplemented
+        return bool(encode(self) == encode(other))
 
 
 @register_serializable
