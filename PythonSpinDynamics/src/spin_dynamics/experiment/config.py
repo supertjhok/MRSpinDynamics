@@ -40,6 +40,7 @@ from spin_dynamics.esr import ESRSpinSystem, HyperfineCoupling
 from spin_dynamics.experiment.hardware import (
     ImagingPlane,
     PlanarSpiralCoil,
+    RxArray,
     RxCoil,
     SolenoidCoil,
     TxCoil,
@@ -90,6 +91,7 @@ _SPEC_CLASSES: tuple[type, ...] = (
     PlanarSpiralCoil,
     TxCoil,
     RxCoil,
+    RxArray,
     UniformB0,
     ImagingPlane,
     QuadrupolarSite,
@@ -267,8 +269,10 @@ def _dump_toml(mapping: dict[str, Any], path: tuple[str, ...] = ()) -> list[str]
             table_lines.append("")
             table_lines.append(f"[{'.'.join(sub_path)}]")
             table_lines.extend(_dump_toml(value, sub_path))
-        elif isinstance(value, list) and value and all(
-            isinstance(item, dict) for item in value
+        elif (
+            isinstance(value, list)
+            and value
+            and all(isinstance(item, dict) for item in value)
         ):
             sub_path = path + (key,)
             for item in value:
@@ -314,7 +318,9 @@ def save_config(experiment: Experiment, path: str | Path) -> None:
     elif path.suffix == ".toml":
         text = dumps_toml(config)
     else:
-        raise ConfigError(f"config path must end in .toml or .json, got {path.suffix!r}")
+        raise ConfigError(
+            f"config path must end in .toml or .json, got {path.suffix!r}"
+        )
     path.write_text(text, encoding="utf-8")
 
 
@@ -328,5 +334,7 @@ def load_config(path: str | Path) -> Experiment:
     elif path.suffix == ".toml":
         data = _loads_toml(text)
     else:
-        raise ConfigError(f"config path must end in .toml or .json, got {path.suffix!r}")
+        raise ConfigError(
+            f"config path must end in .toml or .json, got {path.suffix!r}"
+        )
     return experiment_from_config(data)

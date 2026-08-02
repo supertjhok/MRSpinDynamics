@@ -31,6 +31,8 @@ from spin_dynamics.experiment import (
     SequenceDomain,
     SequenceIRExecution,
     SerializationError,
+    RxArray,
+    RxCoil,
     SolenoidCoil,
     TxCoil,
     TransportDomain2D,
@@ -39,6 +41,8 @@ from spin_dynamics.experiment import (
     experiment_fingerprint,
     load_run,
     result_fingerprint,
+    solve_imaging_field_maps,
+    solve_receive_sensitivities,
 )
 from spin_dynamics.noise import NoiseSpec
 from spin_dynamics.motion import (
@@ -80,7 +84,9 @@ def _assert_results_equal(facade_result, direct_result) -> None:
 
 @pytest.mark.smoke
 def test_ideal_cpmg_parity() -> None:
-    experiment = Experiment(sequence=CPMG(), acquisition=Acquisition(numpts=31, maxoffs=8.0))
+    experiment = Experiment(
+        sequence=CPMG(), acquisition=Acquisition(numpts=31, maxoffs=8.0)
+    )
     record = experiment.run()
     direct = workflows.run_ideal_cpmg(numpts=31, maxoffs=8.0)
     _assert_results_equal(record.result, direct)
@@ -167,9 +173,7 @@ def test_provenance_fingerprints_are_stable_and_specific(tmp_path) -> None:
     )
     assert first.provenance["source"]["package_source_sha256"]
     assert experiment_fingerprint(experiment) != experiment_fingerprint(
-        dataclasses.replace(
-            experiment, acquisition=Acquisition(numpts=33, maxoffs=8.0)
-        )
+        dataclasses.replace(experiment, acquisition=Acquisition(numpts=33, maxoffs=8.0))
     )
 
     path = tmp_path / "reproducible.npz"
@@ -212,9 +216,7 @@ def test_version_one_run_archive_remains_readable(tmp_path) -> None:
     with np.load(path, allow_pickle=False) as archive:
         meta = json.loads(str(archive["__meta__"]))
         arrays = {
-            key: archive[key].copy()
-            for key in archive.files
-            if key != "__meta__"
+            key: archive[key].copy() for key in archive.files if key != "__meta__"
         }
     meta["format_version"] = 1
     for key in (
@@ -246,9 +248,7 @@ def test_archive_fingerprints_detect_spec_and_result_tampering(tmp_path) -> None
     with np.load(original, allow_pickle=False) as archive:
         meta = json.loads(str(archive["__meta__"]))
         arrays = {
-            key: archive[key].copy()
-            for key in archive.files
-            if key != "__meta__"
+            key: archive[key].copy() for key in archive.files if key != "__meta__"
         }
 
     array_key = next(iter(arrays))
@@ -259,9 +259,7 @@ def test_archive_fingerprints_detect_spec_and_result_tampering(tmp_path) -> None
 
     with np.load(original, allow_pickle=False) as archive:
         arrays = {
-            key: archive[key].copy()
-            for key in archive.files
-            if key != "__meta__"
+            key: archive[key].copy() for key in archive.files if key != "__meta__"
         }
     meta["experiment"]["acquisition"]["numpts"] = 17
     changed_spec = tmp_path / "changed-spec.npz"
@@ -497,7 +495,9 @@ def test_plan_rephasing_matches_workflow(
 def test_noise_spec_rule_rejects_time_nonwhite() -> None:
     plan = Experiment(
         sequence=CPMG(),
-        acquisition=Acquisition(noise=NoiseSpec(domain="time", model="probe", sigma=0.1)),
+        acquisition=Acquisition(
+            noise=NoiseSpec(domain="time", model="probe", sigma=0.1)
+        ),
     ).plan()
     assert not plan.ok
     assert any("time-domain noise" in e for e in plan.errors)
@@ -655,9 +655,7 @@ def test_imaging_requires_phantom() -> None:
 
 @pytest.mark.smoke
 def test_imaging_relaxation_ambiguity_is_error() -> None:
-    phantom = Phantom(
-        rho=np.ones((4, 4)), t1_map=1e-3 * np.ones((4, 4))
-    )
+    phantom = Phantom(rho=np.ones((4, 4)), t1_map=1e-3 * np.ones((4, 4)))
     plan = Experiment(
         sequence=CPMGImaging(), sample=Sample(phantom=phantom, t1_seconds=2e-3)
     ).plan()
@@ -688,12 +686,102 @@ def test_tx_coil_replaces_synthetic_b1() -> None:
     assert not np.allclose(wired_result.b1_tx_map, base_result.b1_tx_map)
     # rho-weighted mean normalization: nominal flip calibrated at the sample
     weights = np.abs(phantom.rho)
-    mean_b1 = float(
-        np.sum(wired_result.b1_tx_map * weights) / np.sum(weights)
-    )
+    mean_b1 = float(np.sum(wired_result.b1_tx_map * weights) / np.sum(weights))
     assert mean_b1 == pytest.approx(1.0)
     # rx defaults to tx when no rx coil is given
     assert np.array_equal(wired_result.b1_rx_map, wired_result.b1_tx_map)
+
+
+@pytest.mark.smoke
+def test_receive_array_preserves_absolute_complex_channel_maps() -> None:
+    phantom = _disc_phantom(5)
+    receivers = RxArray(
+        channels=(
+            RxCoil(
+                SolenoidCoil(
+                    radius_m=0.015,
+                    length_m=0.03,
+                    turns=10,
+                    axis="x",
+                )
+            ),
+            RxCoil(
+                SolenoidCoil(
+                    radius_m=0.015,
+                    length_m=0.03,
+                    turns=10,
+                    axis="y",
+                )
+            ),
+        )
+    )
+    hardware = Hardware(rx_coil=receivers, plane=ImagingPlane())
+
+    sensitivity = solve_receive_sensitivities(phantom, hardware)
+
+    assert sensitivity.n_channels == 2
+    assert sensitivity.b1_vector_t_per_a.shape == (2, *phantom.rho.shape, 3)
+    assert sensitivity.b1_minus_t_per_a.shape == (2, *phantom.rho.shape)
+    assert np.iscomplexobj(sensitivity.b1_minus_t_per_a)
+    assert np.all(sensitivity.normalization_t_per_a > 0.0)
+    weights = np.abs(phantom.rho)
+    for channel in sensitivity.normalized_magnitude:
+        weighted_mean = float(np.sum(channel * weights) / np.sum(weights))
+        assert weighted_mean == pytest.approx(1.0)
+    assert sensitivity.channel_labels == ("rx0", "rx1")
+    center = tuple(size // 2 for size in phantom.rho.shape)
+    x_channel = sensitivity.b1_minus_t_per_a[(0, *center)]
+    y_channel = sensitivity.b1_minus_t_per_a[(1, *center)]
+    assert y_channel / x_channel == pytest.approx(1.0j, abs=1e-12)
+
+
+@pytest.mark.smoke
+def test_single_rx_complex_map_preserves_legacy_imaging_magnitude() -> None:
+    phantom = _disc_phantom(6)
+    receiver = RxCoil(
+        SolenoidCoil(
+            radius_m=0.015,
+            length_m=0.03,
+            turns=10,
+            axis="x",
+        )
+    )
+    hardware = Hardware(rx_coil=receiver, plane=ImagingPlane())
+
+    sensitivity = solve_receive_sensitivities(phantom, hardware)
+    maps = solve_imaging_field_maps(phantom, hardware)
+
+    np.testing.assert_allclose(
+        maps.b1_rx_map,
+        sensitivity.normalized_magnitude[0],
+        rtol=0.0,
+        atol=1e-14,
+    )
+
+
+@pytest.mark.smoke
+def test_rx_array_round_trip_and_current_imaging_guard() -> None:
+    phantom = _disc_phantom(4)
+    receiver = RxCoil(
+        SolenoidCoil(
+            radius_m=0.015,
+            length_m=0.03,
+            turns=8,
+            axis="x",
+        )
+    )
+    experiment = Experiment(
+        sequence=CPMGImaging(ny=3),
+        sample=Sample(phantom=phantom),
+        hardware=Hardware(
+            rx_coil=RxArray((receiver, receiver)),
+            plane=ImagingPlane(),
+        ),
+    )
+
+    assert Experiment.from_json(experiment.to_json()) == experiment
+    with pytest.raises(ValueError, match="receiver-channel axis"):
+        solve_imaging_field_maps(phantom, experiment.hardware)
 
 
 @pytest.mark.smoke
@@ -974,7 +1062,9 @@ from spin_dynamics.nqr import (  # noqa: E402
 )
 
 _SPIN1 = QuadrupolarSite(spin=1, quadrupole_frequency_hz=900e3, eta=0.3)
-_SPIN32 = QuadrupolarSite(spin=1.5, isotope="35Cl", quadrupole_frequency_hz=30e6, eta=0.1)
+_SPIN32 = QuadrupolarSite(
+    spin=1.5, isotope="35Cl", quadrupole_frequency_hz=30e6, eta=0.1
+)
 # Soft selective 90-degree pulse: nutation * duration = 0.25
 _SOFT_SLSE = NQRSLSE(
     pulse_duration_seconds=100e-6,
@@ -1119,7 +1209,9 @@ def test_nqr_population_transfer_parity_and_spin_guard() -> None:
         SLSESequence(SelectivePulse("y", 100e-6, 2.5e3), 1e-3, 3),
         orientations="single",
     )
-    assert np.array_equal(record.result.normalized_difference, direct.normalized_difference)
+    assert np.array_equal(
+        record.result.normalized_difference, direct.normalized_difference
+    )
     plan = Experiment(sequence=spec, sample=Sample(site=_SPIN32)).plan()
     assert not plan.ok
     assert any("spin-1" in error for error in plan.errors)
@@ -1176,13 +1268,9 @@ def test_nqr_json_and_save_round_trip(tmp_path) -> None:
     loaded = load_run(str(path))
     assert loaded.experiment == experiment
     assert loaded.unsaved_result_fields == ()
-    assert np.array_equal(
-        loaded.result.echo_amplitudes, record.result.echo_amplitudes
-    )
+    assert np.array_equal(loaded.result.echo_amplitudes, record.result.echo_amplitudes)
     rerun = loaded.experiment.run()
-    assert np.array_equal(
-        rerun.result.echo_amplitudes, record.result.echo_amplitudes
-    )
+    assert np.array_equal(rerun.result.echo_amplitudes, record.result.echo_amplitudes)
 
 
 from spin_dynamics.esr import (  # noqa: E402
@@ -1276,9 +1364,7 @@ def test_esr_cw_sweep_parity_without_fixed_b0() -> None:
         num_points=64,
     )
     record = Experiment(sequence=spec, sample=Sample(esr_system=_ESR_SYSTEM)).run()
-    direct = simulate_field_sweep(
-        _ESR_SYSTEM, 9.5e9, orientations="single", points=64
-    )
+    direct = simulate_field_sweep(_ESR_SYSTEM, 9.5e9, orientations="single", points=64)
     assert np.array_equal(record.result.spectrum, direct.spectrum)
 
 
@@ -1313,15 +1399,11 @@ _HYPERFINE = HyperfineCoupling(
 @pytest.mark.smoke
 def test_esr_two_and_three_pulse_eseem_parity() -> None:
     sample = Sample(hyperfine_coupling=_HYPERFINE)
-    two = ESRTwoPulseESEEM(
-        acquisition_seconds=2e-6, num_points=24, zero_fill=2
-    )
+    two = ESRTwoPulseESEEM(acquisition_seconds=2e-6, num_points=24, zero_fill=2)
     two_record = Experiment(sequence=two, sample=sample).run()
     times = np.linspace(0.0, 2e-6, 24)
     assert two_record.result.model == "analytic"
-    assert np.array_equal(
-        two_record.result.signal, two_pulse_eseem(times, _HYPERFINE)
-    )
+    assert np.array_equal(two_record.result.signal, two_pulse_eseem(times, _HYPERFINE))
 
     three = ESRThreePulseESEEM(
         acquisition_seconds=2e-6,
@@ -1346,9 +1428,7 @@ def test_esr_hyscore_parity_and_round_trip(tmp_path) -> None:
         num_points2=6,
         zero_fill=1,
     )
-    experiment = Experiment(
-        sequence=spec, sample=Sample(hyperfine_coupling=_HYPERFINE)
-    )
+    experiment = Experiment(sequence=spec, sample=Sample(hyperfine_coupling=_HYPERFINE))
     record = experiment.run()
     t1 = np.linspace(0.0, 1e-6, 5)
     t2 = np.linspace(0.0, 1.2e-6, 6)
@@ -1455,9 +1535,7 @@ def _general_ir(*, hardware_effects=None) -> SequenceIR:
             ),
         ),
         hardware_effects=(
-            HardwareEffectsPolicy()
-            if hardware_effects is None
-            else hardware_effects
+            HardwareEffectsPolicy() if hardware_effects is None else hardware_effects
         ),
     )
 
@@ -1485,9 +1563,7 @@ def test_sequence_ir_facade_matches_direct_motion_backend() -> None:
     record = experiment.run()
     compiled = compile_sequence(ir)
     domain = SpatialDomain(_general_domain().axes)
-    ensemble = initialize_ensemble_from_domain(
-        domain, _general_domain().density
-    )
+    ensemble = initialize_ensemble_from_domain(domain, _general_domain().density)
     fields = make_motion_field_maps(domain)
     direct = run_motion_sequence(
         ensemble,
@@ -1599,9 +1675,7 @@ def test_sequence_ir_facade_rejects_missing_domain_and_probe_effects() -> None:
 
     extended = Experiment(
         sequence=SequenceIRExecution(
-            ir=SequenceIR(
-                blocks=(SequenceBlock(1e-3, extensions=("custom",)),)
-            )
+            ir=SequenceIR(blocks=(SequenceBlock(1e-3, extensions=("custom",)),))
         ),
         sample=Sample(sequence_domain=_general_domain()),
     ).plan()

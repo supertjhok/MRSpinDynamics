@@ -31,6 +31,7 @@ from spin_dynamics.experiment.estimate import (
 from spin_dynamics.experiment.hardware import (
     ImagingPlane,
     PlanarSpiralCoil,
+    RxArray,
     RxCoil,
     SolenoidCoil,
     TxCoil,
@@ -105,8 +106,10 @@ from spin_dynamics.experiment.specs import (
     UniformFlow2D,
 )
 from spin_dynamics.experiment.wiring import (
+    ReceiveSensitivityMaps,
     sampled_b0_from_solution,
     solve_imaging_field_maps,
+    solve_receive_sensitivities,
 )
 
 from spin_dynamics.experiment import _catalog  # noqa: F401  (registers workflows)
@@ -137,6 +140,7 @@ __all__ = [
     "ImagingPlane",
     "LoadedRun",
     "ReproductionReport",
+    "ReceiveSensitivityMaps",
     "NQRSLSE",
     "NQRSORC",
     "NQRFID",
@@ -154,6 +158,7 @@ __all__ = [
     "RuleFinding",
     "RunRecord",
     "RuntimeEstimate",
+    "RxArray",
     "RxCoil",
     "Sample",
     "SampledB0",
@@ -184,4 +189,5 @@ __all__ = [
     "run_experiment",
     "run_rules",
     "solve_imaging_field_maps",
+    "solve_receive_sensitivities",
 ]

@@ -14,6 +14,7 @@ from spin_dynamics.motion import (
     apply_free_precession,
     apply_rf_rotation,
     advect_diffuse_positions,
+    circular_b1_component,
     circular_b1_component_magnitude,
     free_precession_with_motion_step,
     initialize_ensemble_from_density,
@@ -79,15 +80,26 @@ class MotionTests(unittest.TestCase):
         np.testing.assert_allclose(fields.b1_tx_map, 0.5 * transverse)
         np.testing.assert_allclose(fields.b1_rx_map, 0.5 * transverse)
 
+    def test_circular_b1_component_preserves_phase_and_handedness(self) -> None:
+        b0 = np.array([[[0.0, 0.0, 1.0]]])
+        field = np.array([[[2.0, 4.0, 0.0]]])
+
+        np.testing.assert_allclose(
+            circular_b1_component(b0, field, handedness=1),
+            1.0 + 2.0j,
+        )
+        np.testing.assert_allclose(
+            circular_b1_component(b0, field, handedness=-1),
+            1.0 - 2.0j,
+        )
+
     def test_circular_b1_distinguishes_linear_and_quadrature_drive(self) -> None:
         b0 = np.array([[[0.0, 0.0, 1.0]]])
         linear = np.array([[[2.0, 0.0, 0.0]]])
         co_rotating = np.array([[[2.0, -2.0j, 0.0]]])
         counter_rotating = np.array([[[2.0, 2.0j, 0.0]]])
 
-        np.testing.assert_allclose(
-            circular_b1_component_magnitude(b0, linear), 1.0
-        )
+        np.testing.assert_allclose(circular_b1_component_magnitude(b0, linear), 1.0)
         np.testing.assert_allclose(
             circular_b1_component_magnitude(b0, co_rotating), 2.0
         )

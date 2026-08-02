@@ -205,8 +205,12 @@ def make_motion_field_maps(
     domain = axes if isinstance(axes, SpatialDomain) else SpatialDomain(tuple(axes))
     shape = domain.shape
     b0 = np.zeros(shape) if b0_map is None else np.asarray(b0_map, dtype=np.float64)
-    b1_tx = np.ones(shape) if b1_tx_map is None else np.asarray(b1_tx_map, dtype=np.float64)
-    b1_rx = b1_tx.copy() if b1_rx_map is None else np.asarray(b1_rx_map, dtype=np.float64)
+    b1_tx = (
+        np.ones(shape) if b1_tx_map is None else np.asarray(b1_tx_map, dtype=np.float64)
+    )
+    b1_rx = (
+        b1_tx.copy() if b1_rx_map is None else np.asarray(b1_rx_map, dtype=np.float64)
+    )
     for name, arr in (("b0_map", b0), ("b1_tx_map", b1_tx), ("b1_rx_map", b1_rx)):
         if arr.shape != shape:
             raise ValueError(f"{name} must have the same shape as the domain")
@@ -243,18 +247,21 @@ def transverse_b1_magnitude(
     return np.sqrt(np.sum(np.abs(perpendicular) ** 2, axis=-1)).astype(np.float64)
 
 
-def circular_b1_component_magnitude(
+def circular_b1_component(
     b0_vector_map: Iterable[float] | np.ndarray,
     b1_vector_map: Iterable[float] | np.ndarray,
     *,
     handedness: int = 1,
 ) -> np.ndarray:
-    """Return the resonant circular B1 component for high-field NMR/MRI.
+    """Return the complex resonant circular B1 component for high-field NMR/MRI.
 
     The final axis contains Cartesian vector components. A real, linearly
-    polarized transverse field decomposes into equal counter-rotating parts, so
-    this function returns half its transverse magnitude. A complex quadrature
-    phasor with the selected handedness returns its full rotating amplitude.
+    polarized transverse field decomposes into equal counter-rotating parts.
+    For ``B0`` along +z, ``handedness=+1`` returns ``(Bx + 1j*By)/2`` and
+    ``handedness=-1`` returns ``(Bx - 1j*By)/2``. The former is the package's
+    transmit ``B1+`` convention and the latter its reciprocal receive ``B1-``
+    convention. The transverse basis is constructed deterministically from the
+    local ``B0`` direction, so every receiver channel uses the same phase gauge.
 
     This rotating-wave convention does not apply to zero-field NQR Hamiltonians,
     where the laboratory RF field is intentionally treated as linearly polarized.
@@ -282,8 +289,27 @@ def circular_b1_component_magnitude(
     e2 = np.cross(b0_hat, e1)
     b1_e1 = np.sum(b1 * e1, axis=-1)
     b1_e2 = np.sum(b1 * e2, axis=-1)
-    rotating = 0.5 * (b1_e1 + 1.0j * handedness * b1_e2)
-    return np.abs(rotating).astype(np.float64)
+    return np.asarray(
+        0.5 * (b1_e1 + 1.0j * handedness * b1_e2),
+        dtype=np.complex128,
+    )
+
+
+def circular_b1_component_magnitude(
+    b0_vector_map: Iterable[float] | np.ndarray,
+    b1_vector_map: Iterable[float] | np.ndarray,
+    *,
+    handedness: int = 1,
+) -> np.ndarray:
+    """Return the magnitude of :func:`circular_b1_component`."""
+
+    return np.abs(
+        circular_b1_component(
+            b0_vector_map,
+            b1_vector_map,
+            handedness=handedness,
+        )
+    ).astype(np.float64)
 
 
 def initialize_ensemble_from_density(
@@ -834,10 +860,7 @@ def _apply_matrix_elements(
     tmp = ensemble.magnetization
     mag = np.zeros_like(tmp)
     mag[0, :] = (
-        mat.R_00 * tmp[0, :]
-        + mat.R_0m * tmp[1, :]
-        + mat.R_0p * tmp[2, :]
-        + mlong
+        mat.R_00 * tmp[0, :] + mat.R_0m * tmp[1, :] + mat.R_0p * tmp[2, :] + mlong
     )
     mag[1, :] = mat.R_m0 * tmp[0, :] + mat.R_mm * tmp[1, :] + mat.R_mp * tmp[2, :]
     mag[2, :] = mat.R_p0 * tmp[0, :] + mat.R_pm * tmp[1, :] + mat.R_pp * tmp[2, :]

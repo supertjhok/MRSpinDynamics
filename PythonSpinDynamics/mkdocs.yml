@@ -127,6 +127,7 @@ nav:
           - Quasistatic field solvers: field_solvers_quasistatic.md
           - Coil properties: coil_properties.md
           - PEEC coil models: coil_peec.md
+          - Receiver arrays and birdcage plan: receiver_arrays_and_birdcage_plan.md
           - Thermal modeling: thermal_modeling.md
       - Detection and noise:
           - Non-inductive detection: non_inductive_detection.md

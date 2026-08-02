@@ -17,14 +17,21 @@ from __future__ import annotations
 
 import hashlib
 import json
+from dataclasses import dataclass
 
 import numpy as np
 
-from spin_dynamics.experiment.hardware import ImagingPlane, RxCoil, TxCoil, UniformB0
+from spin_dynamics.experiment.hardware import (
+    ImagingPlane,
+    RxArray,
+    RxCoil,
+    TxCoil,
+    UniformB0,
+)
 from spin_dynamics.experiment.serialization import encode
 from spin_dynamics.experiment.specs import Experiment, Hardware, Phantom, SampledB0
 from spin_dynamics.fields.magnetostatics import GAMMA_PROTON, biot_savart
-from spin_dynamics.motion import transverse_b1_magnitude
+from spin_dynamics.motion import circular_b1_component, transverse_b1_magnitude
 from spin_dynamics.workflows.imaging import make_imaging_field_maps
 from spin_dynamics.workflows.imaging_types import ImagingFieldMaps
 
@@ -33,19 +40,51 @@ _PLANE_AXES = {"xz": (0, 2), "xy": (0, 1), "yz": (1, 2)}
 _SOLVE_CACHE: dict[str, "_SolvedFields"] = {}
 
 
+@dataclass(frozen=True)
+class ReceiveSensitivityMaps:
+    """Absolute and normalized reciprocal sensitivity maps for receive channels.
+
+    Arrays are channel-leading. ``b1_vector_t_per_a`` has shape
+    ``(n_channels, *spatial_shape, 3)`` and preserves the unit-current Cartesian
+    Biot-Savart field. ``b1_minus_t_per_a`` has shape
+    ``(n_channels, *spatial_shape)`` and uses the package convention
+    ``B1-=(Bx-1j*By)/2`` for ``B0`` along +z. ``normalized_magnitude`` is the
+    legacy-compatible map ``abs(B1-)/rho_weighted_mean(abs(B1-))``.
+    """
+
+    b1_vector_t_per_a: np.ndarray
+    b1_minus_t_per_a: np.ndarray
+    normalization_t_per_a: np.ndarray
+    normalized_magnitude: np.ndarray
+    channel_labels: tuple[str, ...]
+
+    @property
+    def n_channels(self) -> int:
+        """Number of receive channels."""
+
+        return int(self.b1_minus_t_per_a.shape[0])
+
+
 class _SolvedFields:
     """Cached solve: the B1 maps plus per-coil transmit-efficiency diagnostics."""
 
-    __slots__ = ("b1_tx_map", "b1_rx_map", "diagnostics")
+    __slots__ = (
+        "b1_tx_map",
+        "b1_rx_map",
+        "receive_sensitivities",
+        "diagnostics",
+    )
 
     def __init__(
         self,
         b1_tx_map: np.ndarray | None,
         b1_rx_map: np.ndarray | None,
+        receive_sensitivities: ReceiveSensitivityMaps | None,
         diagnostics: dict[str, float],
     ) -> None:
         self.b1_tx_map = b1_tx_map
         self.b1_rx_map = b1_rx_map
+        self.receive_sensitivities = receive_sensitivities
         self.diagnostics = diagnostics
 
 
@@ -60,8 +99,10 @@ def _validate_hardware(hardware: Hardware) -> None:
         raise ValueError("hardware.b0 must be a UniformB0 or SampledB0 spec")
     if hardware.tx_coil is not None and not isinstance(hardware.tx_coil, TxCoil):
         raise ValueError("hardware.tx_coil must be a TxCoil spec")
-    if hardware.rx_coil is not None and not isinstance(hardware.rx_coil, RxCoil):
-        raise ValueError("hardware.rx_coil must be an RxCoil spec")
+    if hardware.rx_coil is not None and not isinstance(
+        hardware.rx_coil, (RxCoil, RxArray)
+    ):
+        raise ValueError("hardware.rx_coil must be an RxCoil or RxArray spec")
     if hardware.plane is not None and not isinstance(hardware.plane, ImagingPlane):
         raise ValueError("hardware.plane must be an ImagingPlane spec")
 
@@ -79,8 +120,13 @@ def grid_positions_m(shape: tuple[int, int], plane: ImagingPlane) -> np.ndarray:
     return points
 
 
-def sampled_b0_from_solution(solution, plane: ImagingPlane, shape: tuple[int, int],
-                             carrier_hz: float, nutation_rad_s: float = 1.0) -> SampledB0:
+def sampled_b0_from_solution(
+    solution,
+    plane: ImagingPlane,
+    shape: tuple[int, int],
+    carrier_hz: float,
+    nutation_rad_s: float = 1.0,
+) -> SampledB0:
     """Sample a solved 3-D field onto an imaging plane as a :class:`SampledB0`.
 
     ``solution`` is anything with ``sample(x, y, z) -> (Bx, By, Bz)`` (e.g. a
@@ -138,6 +184,65 @@ def _normalized_transverse_b1(
     return b1_perp / reference, fraction
 
 
+def _receive_sensitivity_maps(
+    receiver: RxCoil | RxArray,
+    points: np.ndarray,
+    b0_direction: np.ndarray,
+    rho: np.ndarray,
+) -> tuple[ReceiveSensitivityMaps, np.ndarray]:
+    """Solve absolute complex B1- and legacy normalized magnitudes per channel."""
+
+    channels = receiver.channels if isinstance(receiver, RxArray) else (receiver,)
+    b0_vector = np.broadcast_to(b0_direction, points.shape)
+    weights = np.abs(rho)
+    total_weight = float(np.sum(weights))
+    if total_weight <= 0:
+        raise ValueError("phantom rho must not be identically zero")
+
+    vectors: list[np.ndarray] = []
+    b1_minus: list[np.ndarray] = []
+    normalizations: list[float] = []
+    normalized: list[np.ndarray] = []
+    transverse_fractions: list[float] = []
+    for index, channel in enumerate(channels):
+        vector = biot_savart(
+            points.reshape(-1, 3), channel.geometry.segments(), 1.0
+        ).reshape(points.shape)
+        component = circular_b1_component(
+            b0_vector,
+            vector,
+            handedness=-1,
+        )
+        magnitude = np.abs(component)
+        normalization = float(np.sum(magnitude * weights)) / total_weight
+        transverse = transverse_b1_magnitude(b0_vector, vector)
+        transverse_reference = float(np.sum(transverse * weights)) / total_weight
+        total_field = np.linalg.norm(vector, axis=-1)
+        mean_total = float(np.sum(total_field * weights)) / total_weight
+        peak = float(np.max(transverse))
+        if normalization <= 0 or (peak > 0 and transverse_reference / peak < 1e-6):
+            raise ValueError(
+                f"receive channel {index} produces no transverse B1 over the sample "
+                "(is the coil axis parallel to B0?)"
+            )
+        vectors.append(np.asarray(vector, dtype=np.float64))
+        b1_minus.append(component)
+        normalizations.append(normalization)
+        normalized.append(magnitude / normalization)
+        transverse_fractions.append(
+            transverse_reference / mean_total if mean_total > 0 else 0.0
+        )
+
+    result = ReceiveSensitivityMaps(
+        b1_vector_t_per_a=np.stack(vectors, axis=0),
+        b1_minus_t_per_a=np.stack(b1_minus, axis=0),
+        normalization_t_per_a=np.asarray(normalizations, dtype=np.float64),
+        normalized_magnitude=np.stack(normalized, axis=0),
+        channel_labels=tuple(f"rx{index}" for index in range(len(channels))),
+    )
+    return result, np.asarray(transverse_fractions, dtype=np.float64)
+
+
 def _cache_key(phantom: Phantom, hardware: Hardware) -> str:
     digest = hashlib.sha256()
     for arr in (phantom.rho, phantom.t1_map, phantom.t2_map):
@@ -175,6 +280,12 @@ def solve_imaging_field_maps(
     """
 
     _validate_hardware(hardware)
+    if isinstance(hardware.rx_coil, RxArray):
+        raise ValueError(
+            "CPMG imaging does not yet carry a receiver-channel axis; use "
+            "solve_receive_sensitivities() to obtain the channel-resolved B1- "
+            "maps during this foundational phase"
+        )
 
     def t_map(map_arr: np.ndarray | None, scalar: float | None) -> np.ndarray | None:
         if map_arr is not None:
@@ -225,6 +336,7 @@ def _solve_coil_fields(phantom: Phantom, hardware: Hardware) -> _SolvedFields:
 
     diagnostics: dict[str, float] = {}
     b1_tx = b1_rx = None
+    receive_sensitivities = None
     tx = hardware.tx_coil
     if tx is not None:
         b1_tx, fraction = _normalized_transverse_b1(
@@ -238,14 +350,43 @@ def _solve_coil_fields(phantom: Phantom, hardware: Hardware) -> _SolvedFields:
         diagnostics["tx_transverse_fraction"] = fraction
     rx = hardware.rx_coil
     if rx is not None:
-        b1_rx, fraction = _normalized_transverse_b1(
-            rx.geometry.segments(), 1.0, points, direction, phantom.rho, "receive"
+        receive_sensitivities, fractions = _receive_sensitivity_maps(
+            rx, points, direction, phantom.rho
         )
-        diagnostics["rx_transverse_fraction"] = fraction
+        diagnostics["rx_transverse_fraction"] = float(np.min(fractions))
+        for index, fraction in enumerate(fractions):
+            diagnostics[f"rx_{index}_transverse_fraction"] = float(fraction)
+        if isinstance(rx, RxCoil):
+            b1_rx = receive_sensitivities.normalized_magnitude[0]
 
-    solved = _SolvedFields(b1_tx, b1_rx, diagnostics)
+    solved = _SolvedFields(
+        b1_tx,
+        b1_rx,
+        receive_sensitivities,
+        diagnostics,
+    )
     _SOLVE_CACHE[key] = solved
     return solved
+
+
+def solve_receive_sensitivities(
+    phantom: Phantom,
+    hardware: Hardware,
+) -> ReceiveSensitivityMaps:
+    """Return absolute complex reciprocal sensitivity maps for all Rx channels.
+
+    The returned arrays retain physical T/A scaling and channel phase. The
+    companion ``normalized_magnitude`` field reproduces the scalar sensitivity
+    convention consumed by existing single-channel imaging workflows.
+    """
+
+    _validate_hardware(hardware)
+    if hardware.rx_coil is None:
+        raise ValueError("hardware.rx_coil must be set")
+    result = _solve_coil_fields(phantom, hardware).receive_sensitivities
+    if result is None:  # Defensive: the condition above guarantees a solve.
+        raise RuntimeError("receive sensitivity solve produced no result")
+    return result
 
 
 def solve_diagnostics(phantom: Phantom, hardware: Hardware) -> dict[str, float]:

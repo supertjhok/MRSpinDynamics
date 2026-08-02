@@ -9,6 +9,11 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
 
 ### Added
 
+- Added the first receiver-array foundation to PythonSpinDynamics: ordered
+  `RxArray` hardware, absolute unit-current Cartesian B1 maps, complex
+  channel-leading reciprocal B1- sensitivities with explicit T/A normalization,
+  convention and legacy-parity tests, a rendered two-channel sensitivity example,
+  and a staged receiver-array/SENSE/mutual-coupling/birdcage implementation note.
 - Added paper-grounded ENDOR-QDyne to PythonSpinDynamics with explicit RF-basis
   mapping timing, Ramsey measurement strength, nuclear-state carryover, weak-
   measurement back-action, sensor-initialization-infidelity linewidths, a

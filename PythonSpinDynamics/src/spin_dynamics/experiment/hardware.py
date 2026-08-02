@@ -133,6 +133,27 @@ class RxCoil:
 
 @register_serializable
 @dataclass(frozen=True)
+class RxArray:
+    """Ordered uncoupled receive channels for reciprocity field solving.
+
+    Channel order is preserved in every returned sensitivity array. Electrical
+    mutual coupling and correlated noise are deliberately not implied by this
+    geometry-level container; those belong to the later multiport-network phase.
+    """
+
+    channels: tuple[RxCoil, ...]
+
+    def __post_init__(self) -> None:
+        channels = tuple(self.channels)
+        if not channels:
+            raise ValueError("RxArray.channels must not be empty")
+        if any(not isinstance(channel, RxCoil) for channel in channels):
+            raise ValueError("RxArray.channels must contain only RxCoil specs")
+        object.__setattr__(self, "channels", channels)
+
+
+@register_serializable
+@dataclass(frozen=True)
 class UniformB0:
     """Uniform static field.
 
