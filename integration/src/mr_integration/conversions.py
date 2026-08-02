@@ -27,7 +27,6 @@ This module owns that mapping in one place and builds the simulator site.
 from __future__ import annotations
 
 import numpy as np
-
 from spin_dynamics.nqr import QuadrupolarSite
 
 # Hamiltonian-scale denominators used by the simulator for each supported spin.

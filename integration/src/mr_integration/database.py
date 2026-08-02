@@ -7,9 +7,9 @@ exported ``nqr.sqlite`` file and its stable schema.
 
 from __future__ import annotations
 
+import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
-import sqlite3
 
 # Default location of the exported database relative to the repository root
 # (``integration/`` and ``NQRDatabase/`` are siblings).

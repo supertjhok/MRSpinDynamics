@@ -20,13 +20,12 @@ their source crops.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from pathlib import Path
 import re
 import sqlite3
+from dataclasses import dataclass
+from pathlib import Path
 
 import numpy as np
-
 from spin_dynamics.nqr import diagonalize_site
 
 from .conversions import ISOTOPE_SPINS, quadrupolar_site_from_cq

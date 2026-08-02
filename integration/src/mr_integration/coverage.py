@@ -15,7 +15,6 @@ from pathlib import Path
 from .database import MeasuredLine, measured_lines
 from .pipeline import ComparisonReport, compare_dft_to_measured
 
-
 _REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 _DEFAULT_STRUCTURES = _REPOSITORY_ROOT / "QuadrupolarDFT" / "structures"
 _DEFAULT_DFT_SUMMARY = (
@@ -198,7 +197,9 @@ def survey_integration_targets(
         "isotope-metadata-needed": 2,
         "measurement-needed": 3,
     }
-    targets.sort(key=lambda target: (order[target.status], target.spec.database_compound))
+    targets.sort(
+        key=lambda target: (order[target.status], target.spec.database_compound)
+    )
     return tuple(targets)
 
 
@@ -235,8 +236,10 @@ def format_target_survey(targets: tuple[IntegrationTargetCoverage, ...]) -> str:
 
     rows = [
         "compound                              structures  isotope lines  DFT rows  status",
-        "------------------------------------  ----------  -------------  --------  "
-        "-----------------------",
+        (
+            "------------------------------------  ----------  -------------  --------  "
+            "-----------------------"
+        ),
     ]
     for target in targets:
         isotope_counts = ",".join(

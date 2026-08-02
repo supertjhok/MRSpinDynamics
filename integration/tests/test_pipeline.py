@@ -7,7 +7,6 @@ import unittest
 from mr_integration import compare_dft_to_measured, measured_lines
 from mr_integration.database import default_database_path
 
-
 _HAS_DB = default_database_path().exists()
 
 

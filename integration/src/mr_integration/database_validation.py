@@ -19,7 +19,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
-
 from spin_dynamics.nqr import diagonalize_site
 
 from .conversions import (
@@ -176,9 +175,7 @@ def validate_database(
     ]
     reports.sort(
         key=lambda report: (
-            report.max_abs_diff_hz
-            if np.isfinite(report.max_abs_diff_hz)
-            else -1.0
+            report.max_abs_diff_hz if np.isfinite(report.max_abs_diff_hz) else -1.0
         ),
         reverse=True,
     )
@@ -197,9 +194,11 @@ def summarize(
     flagged = [r for r in reports if r.flagged(threshold_hz)]
     finite = [r.max_abs_diff_hz for r in reports if np.isfinite(r.max_abs_diff_hz)]
     lines = [
-        f"Checked {total} sites; "
-        f"{total - len(flagged)} consistent, {len(flagged)} flagged "
-        f"(> {threshold_hz / 1e3:g} kHz).",
+        (
+            f"Checked {total} sites; "
+            f"{total - len(flagged)} consistent, {len(flagged)} flagged "
+            f"(> {threshold_hz / 1e3:g} kHz)."
+        ),
     ]
     if finite:
         lines.append(
@@ -217,9 +216,7 @@ def summarize(
         for report in flagged[:worst]:
             stored = f"{report.site.qcc_hz / 1e3:.0f}/{report.site.eta:.3f}"
             if report.implied_qcc_hz is not None:
-                implied = (
-                    f"{report.implied_qcc_hz / 1e3:.0f}/{report.implied_eta:.3f}"
-                )
+                implied = f"{report.implied_qcc_hz / 1e3:.0f}/{report.implied_eta:.3f}"
             else:
                 implied = "-"
             lines.append(

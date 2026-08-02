@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 
 from mr_integration import (
     compare_available_dft,
@@ -13,7 +13,6 @@ from mr_integration import (
     survey_integration_targets,
 )
 from mr_integration.database import default_database_path
-
 
 _HAS_DB = default_database_path().exists()
 

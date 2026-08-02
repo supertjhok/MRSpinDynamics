@@ -9,6 +9,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from spin_dynamics.nqr import diagonalize_site
 
 from mr_integration import (
     LandoltSetRecord,
@@ -19,7 +20,6 @@ from mr_integration import (
 from mr_integration.conversions import quadrupolar_site_from_cq
 from mr_integration.database import default_database_path
 from mr_integration.landolt_review_export import FLAG_TABLE, ISSUE_FLAG
-from spin_dynamics.nqr import diagonalize_site
 
 
 def _strong_lines(qcc_hz: float, eta: float) -> tuple[float, float]:

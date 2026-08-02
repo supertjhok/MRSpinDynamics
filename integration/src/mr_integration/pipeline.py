@@ -54,13 +54,17 @@ class ComparisonReport:
 
         lines = [
             f"{self.compound} {self.isotope} (spin {self.spin:g})",
-            f"  C_Q = {self.predicted.cq_hz / 1e6:+.4f} MHz   "
-            f"eta = {self.predicted.eta:.4f}   "
-            f"nu_Q = {self.predicted.nu_q_hz / 1e6:.4f} MHz",
+            (
+                f"  C_Q = {self.predicted.cq_hz / 1e6:+.4f} MHz   "
+                f"eta = {self.predicted.eta:.4f}   "
+                f"nu_Q = {self.predicted.nu_q_hz / 1e6:.4f} MHz"
+            ),
             "  measured(MHz)  predicted(MHz)   diff(kHz)",
         ]
         for measured, predicted, diff in self.matches:
-            predicted_str = "      -   " if np.isnan(predicted) else f"{predicted / 1e6:9.4f}"
+            predicted_str = (
+                "      -   " if np.isnan(predicted) else f"{predicted / 1e6:9.4f}"
+            )
             diff_str = "    -   " if np.isnan(diff) else f"{diff / 1e3:+8.1f}"
             lines.append(f"  {measured / 1e6:11.4f}  {predicted_str}   {diff_str}")
         if np.isfinite(self.rms_difference_hz):

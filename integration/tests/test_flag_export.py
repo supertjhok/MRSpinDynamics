@@ -67,12 +67,13 @@ class FlagExportTests(unittest.TestCase):
 
 class DescribeTests(unittest.TestCase):
     def test_describe_verified_phrasing(self) -> None:
-        from mr_integration.database import SiteRecord
+        import numpy as np
+        from spin_dynamics.nqr import diagonalize_site
+
         from mr_integration import check_site
         from mr_integration.conversions import quadrupolar_site_from_cq
         from mr_integration.cross_validation import _unique_within
-        from spin_dynamics.nqr import diagonalize_site
-        import numpy as np
+        from mr_integration.database import SiteRecord
 
         site = quadrupolar_site_from_cq(cq_hz=3.5e6, eta=0.4, spin=1.0, isotope="14N")
         lines = _unique_within(

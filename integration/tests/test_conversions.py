@@ -6,7 +6,7 @@ import unittest
 
 import numpy as np
 
-from mr_integration import nu_q_from_cq_hz, cq_hz_from_nu_q, quadrupolar_site_from_cq
+from mr_integration import cq_hz_from_nu_q, nu_q_from_cq_hz, quadrupolar_site_from_cq
 from mr_integration.conversions import quadrupolar_site_from_efg_record
 
 

@@ -18,7 +18,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy as np
-
 from quadrupolar_dft import nqr_frequencies_hz
 from spin_dynamics.nqr import diagonalize_site
 

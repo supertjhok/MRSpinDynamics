@@ -5,6 +5,7 @@ from __future__ import annotations
 import unittest
 
 import numpy as np
+from spin_dynamics.nqr import diagonalize_site
 
 from mr_integration import (
     SiteRecord,
@@ -16,7 +17,6 @@ from mr_integration import (
 from mr_integration.conversions import quadrupolar_site_from_cq
 from mr_integration.cross_validation import _unique_within
 from mr_integration.database import default_database_path
-from spin_dynamics.nqr import diagonalize_site
 
 
 def _consistent_spin1_record(qcc_hz: float, eta: float) -> SiteRecord:

@@ -13,11 +13,12 @@ depend on the simulator.
 
 from __future__ import annotations
 
+import json
+import math
+import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timezone
-import json
 from pathlib import Path
-import sqlite3
 
 from .database import default_database_path
 from .database_validation import (
@@ -87,7 +88,7 @@ def _report_row(
 
 
 def _finite_or_none(value: float) -> float | None:
-    return float(value) if value == value and value not in (float("inf"),) else None
+    return float(value) if math.isfinite(value) else None
 
 
 def write_consistency_flags(

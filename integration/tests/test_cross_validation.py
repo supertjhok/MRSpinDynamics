@@ -6,7 +6,7 @@ import unittest
 
 import numpy as np
 
-from mr_integration import predicted_lines, match_lines
+from mr_integration import match_lines, predicted_lines
 
 
 class SelfConsistencyTests(unittest.TestCase):

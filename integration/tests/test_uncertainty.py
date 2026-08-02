@@ -14,7 +14,6 @@ from mr_integration import (
 )
 from mr_integration.database import default_database_path
 
-
 _HAS_DB = default_database_path().exists()
 
 
