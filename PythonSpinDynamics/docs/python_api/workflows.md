@@ -529,6 +529,10 @@ rank, condition-number, and g-factor maps. The reusable low-level surface is
 `reconstruct_cartesian_sense`; see the
 [Cartesian SENSE guide](../sense_imaging.md).
 
+Attach a Phase 4 `ReceiverNetwork` to derive loaded sensitivity maps and
+correlated noise from the same coupled multiport impedance model. See the
+[coupled receiver-network guide](../receiver_networks.md).
+
 The `tau_workers` option parallelizes independent inversion delays. The
 `num_workers` option is passed through to the chunked isochromat backend inside
 each finite acquisition. For long `tauvect` values, use the same rephasing
@@ -589,6 +593,10 @@ rank, condition-number, and g-factor maps. The reusable low-level surface is
 `CartesianSENSEEncoding`, `uniform_cartesian_mask`, and
 `reconstruct_cartesian_sense`; see the
 [Cartesian SENSE guide](../sense_imaging.md).
+
+Attach a Phase 4 `ReceiverNetwork` to derive loaded sensitivity maps and
+correlated noise from the same coupled multiport impedance model. See the
+[coupled receiver-network guide](../receiver_networks.md).
 
 Available wrappers:
 
@@ -1176,6 +1184,10 @@ rank, condition-number, and g-factor maps. The reusable low-level surface is
 `CartesianSENSEEncoding`, `uniform_cartesian_mask`, and
 `reconstruct_cartesian_sense`; see the
 [Cartesian SENSE guide](../sense_imaging.md).
+
+Attach a Phase 4 `ReceiverNetwork` to derive loaded sensitivity maps and
+correlated noise from the same coupled multiport impedance model. See the
+[coupled receiver-network guide](../receiver_networks.md).
 
 The raw reconstruction stack is one image per echo. Image formation is a
 separate post-processing step:

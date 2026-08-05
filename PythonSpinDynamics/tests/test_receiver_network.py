@@ -1,0 +1,354 @@
+"""Coupled receiver-network, multiport PEEC, and workflow tests."""
+
+from __future__ import annotations
+
+import dataclasses
+
+import numpy as np
+import pytest
+
+from spin_dynamics.experiment import (
+    Acquisition,
+    CPMGImaging,
+    Experiment,
+    Hardware,
+    ImagingPlane,
+    Phantom,
+    ReceiverNetwork,
+    RxArray,
+    RxCoil,
+    Sample,
+    SolenoidCoil,
+)
+from spin_dynamics.fields import (
+    Conductor,
+    extract_impedance,
+    extract_multiport_impedance,
+)
+from spin_dynamics.receiver_network import (
+    BOLTZMANN_J_PER_K,
+    coupled_resonant_modes,
+    covariance_to_correlation,
+    scale_noise_covariance,
+)
+from spin_dynamics.workflows import run_ideal_receiver_array_cpmg_imaging
+
+
+def _coupled_network(*, bandwidth_hz: float = 2.0) -> ReceiverNetwork:
+    return ReceiverNetwork(
+        frequency_hz=1.0e6,
+        coil_impedance_ohm=np.array(
+            [[2.0 + 20.0j, 0.4 + 6.0j], [0.4 + 6.0j, 2.5 + 20.0j]],
+            dtype=np.complex128,
+        ),
+        series_impedance_ohm=np.diag([-20.0j, -20.0j]),
+        load_impedance_ohm=np.array([50.0, 60.0]),
+        temperature_k=300.0,
+        noise_bandwidth_hz=bandwidth_hz,
+    )
+
+
+def _geometric_maps() -> np.ndarray:
+    return np.array(
+        [
+            [[1.0, 1.0], [0.2, 0.2]],
+            [[0.2j, 0.2j], [1.0j, 1.0j]],
+        ],
+        dtype=np.complex128,
+    )
+
+
+def test_matched_one_port_transfer_and_johnson_noise() -> None:
+    network = ReceiverNetwork(
+        frequency_hz=1.0e6,
+        coil_impedance_ohm=np.array([[50.0 + 3.0j]]),
+        series_impedance_ohm=np.array([[-3.0j]]),
+        load_impedance_ohm=50.0,
+        temperature_k=300.0,
+        noise_bandwidth_hz=2.0,
+    )
+    result = network.solve(np.ones((1, 2, 2), dtype=np.complex128))
+
+    np.testing.assert_allclose(result.transfer_matrix, [[0.5]])
+    np.testing.assert_allclose(result.effective_sensitivities, 0.5)
+    expected = 100.0 * BOLTZMANN_J_PER_K * 300.0 * 2.0
+    np.testing.assert_allclose(result.noise_covariance_v2, [[expected]])
+
+
+def test_unmatched_one_port_noise_uses_parallel_output_resistance() -> None:
+    network = ReceiverNetwork(
+        frequency_hz=1.0e6,
+        coil_impedance_ohm=np.array([[25.0]]),
+        load_impedance_ohm=75.0,
+        temperature_k=300.0,
+        noise_bandwidth_hz=2.0,
+    )
+    result = network.solve(np.ones((1, 1), dtype=np.complex128))
+
+    output_resistance = 25.0 * 75.0 / (25.0 + 75.0)
+    expected = (
+        4.0
+        * BOLTZMANN_J_PER_K
+        * 300.0
+        * 2.0
+        * output_resistance
+    )
+    np.testing.assert_allclose(result.noise_covariance_v2, [[expected]])
+
+
+def test_loaded_maps_and_noise_follow_same_transfer_matrix() -> None:
+    network = _coupled_network()
+    maps = _geometric_maps()
+    result = network.solve(maps)
+
+    expected = (
+        result.transfer_matrix @ maps.reshape(2, -1)
+    ).reshape(maps.shape)
+    np.testing.assert_allclose(result.effective_sensitivities, expected)
+    np.testing.assert_allclose(
+        result.noise_covariance_v2,
+        result.noise_covariance_v2.conj().T,
+    )
+    assert np.min(np.linalg.eigvalsh(result.noise_covariance_v2)) >= -1e-30
+    assert abs(result.noise_correlation[0, 1]) > 0.0
+
+
+def test_preamp_voltage_and_current_noise_are_added_at_output() -> None:
+    voltage_density = np.array([[4.0e-18, 0.5e-18], [0.5e-18, 3.0e-18]])
+    current_density = np.diag([2.0e-24, 3.0e-24])
+    base = _coupled_network(bandwidth_hz=5.0)
+    network = dataclasses.replace(
+        base,
+        preamp_voltage_noise_covariance_v2_per_hz=voltage_density,
+        preamp_current_noise_covariance_a2_per_hz=current_density,
+    )
+    result = network.solve(_geometric_maps())
+
+    np.testing.assert_allclose(
+        result.preamp_voltage_noise_covariance_v2,
+        5.0 * voltage_density,
+    )
+    expected_current = (
+        5.0
+        * result.output_impedance_ohm
+        @ current_density
+        @ result.output_impedance_ohm.conj().T
+    )
+    np.testing.assert_allclose(
+        result.preamp_current_noise_covariance_v2,
+        expected_current,
+    )
+    np.testing.assert_allclose(
+        result.noise_covariance_v2,
+        result.passive_noise_covariance_v2
+        + result.preamp_voltage_noise_covariance_v2
+        + result.preamp_current_noise_covariance_v2,
+    )
+
+
+def test_noise_scaling_preserves_correlation_shape() -> None:
+    covariance = _coupled_network().solve(_geometric_maps()).noise_covariance_v2
+    scaled = scale_noise_covariance(covariance, 0.03)
+
+    assert np.mean(np.real(np.diag(scaled))) == pytest.approx(0.03**2)
+    np.testing.assert_allclose(
+        covariance_to_correlation(scaled),
+        covariance_to_correlation(covariance),
+    )
+
+
+def test_two_loop_resonance_splitting_matches_analytic_modes() -> None:
+    inductance = 10.0e-6
+    mutual = 2.0e-6
+    capacitance = 100.0e-12
+    frequencies, modes = coupled_resonant_modes(
+        np.array([[inductance, mutual], [mutual, inductance]]),
+        capacitance,
+    )
+    expected = np.sort(
+        1.0
+        / (
+            2.0
+            * np.pi
+            * np.sqrt(capacitance * np.array([inductance + mutual, inductance - mutual]))
+        )
+    )
+
+    np.testing.assert_allclose(frequencies, expected)
+    np.testing.assert_allclose(np.abs(modes[0]), np.abs(modes[1]))
+    assert np.sign(modes[0, 0]) == np.sign(modes[1, 0])
+    assert np.sign(modes[0, 1]) != np.sign(modes[1, 1])
+
+
+def _parallel_wires() -> tuple[Conductor, Conductor]:
+    kwargs = dict(wire_radius=5.0e-4, n_radial=1, n_angular=4)
+    first = Conductor(
+        np.array([[0.0, 0.0, 0.0], [0.1, 0.0, 0.0]]),
+        **kwargs,
+    )
+    second = Conductor(
+        np.array([[0.0, 0.02, 0.0], [0.1, 0.02, 0.0]]),
+        **kwargs,
+    )
+    return first, second
+
+
+def test_multiport_peec_single_port_matches_scalar_extraction() -> None:
+    conductor, _ = _parallel_wires()
+    frequency = 1.0e6
+    scalar = extract_impedance(conductor, [frequency])
+    multiport = extract_multiport_impedance((conductor,), [frequency])
+
+    expected = scalar.resistance[0] + 1j * 2.0 * np.pi * frequency * scalar.inductance[0]
+    np.testing.assert_allclose(multiport.impedance[0, 0, 0], expected)
+    np.testing.assert_allclose(
+        multiport.dc_inductance[0, 0],
+        scalar.dc_inductance,
+    )
+    np.testing.assert_allclose(
+        multiport.dc_resistance[0, 0],
+        scalar.dc_resistance,
+    )
+
+
+def test_multiport_peec_is_reciprocal_passive_and_coupled() -> None:
+    result = extract_multiport_impedance(_parallel_wires(), [1.0e6])
+    impedance = result.impedance[0]
+
+    np.testing.assert_allclose(impedance, impedance.T)
+    assert np.min(np.linalg.eigvalsh(result.resistance[0])) >= -1e-12
+    assert abs(result.inductance[0, 0, 1]) > 0.0
+    np.testing.assert_allclose(
+        result.dc_inductance,
+        result.dc_inductance.T,
+    )
+
+
+def test_receiver_workflow_applies_network_and_scaled_correlated_noise() -> None:
+    network = _coupled_network()
+    maps = _geometric_maps()
+    expected = network.solve(maps)
+    result = run_ideal_receiver_array_cpmg_imaging(
+        np.ones((2, 2)),
+        receiver_sensitivities=maps,
+        receiver_network=network,
+        num_echoes=1,
+        ny=1,
+        maxoffs=0.1,
+        sense_acceleration=2,
+        sense_axis=0,
+        noise_std=0.02,
+        noise_seed=7,
+    )
+
+    np.testing.assert_allclose(
+        result.geometric_receiver_sensitivities,
+        maps,
+    )
+    np.testing.assert_allclose(
+        result.receiver_sensitivities,
+        expected.effective_sensitivities,
+    )
+    np.testing.assert_allclose(
+        result.receiver_transfer_matrix,
+        expected.transfer_matrix,
+    )
+    np.testing.assert_allclose(
+        result.receiver_network_noise_covariance_v2,
+        expected.noise_covariance_v2,
+    )
+    assert np.mean(np.real(np.diag(result.noise_covariance))) == pytest.approx(
+        0.02**2
+    )
+    assert result.channel_kspace_noisy is not None
+    assert result.sense_image is not None
+    assert result.sense_rank is not None
+    assert np.all(result.sense_rank == 2)
+
+    with pytest.raises(ValueError, match="derives channel covariance"):
+        run_ideal_receiver_array_cpmg_imaging(
+            np.ones((2, 2)),
+            receiver_sensitivities=maps,
+            receiver_network=network,
+            noise_covariance=np.eye(2),
+            num_echoes=1,
+            ny=1,
+            maxoffs=0.1,
+        )
+
+
+@pytest.mark.smoke
+def test_receiver_network_experiment_round_trip_plan_and_run() -> None:
+    network = _coupled_network()
+    receivers = RxArray(
+        (
+            RxCoil(
+                SolenoidCoil(
+                    radius_m=0.015,
+                    length_m=0.03,
+                    turns=8,
+                    axis="x",
+                )
+            ),
+            RxCoil(
+                SolenoidCoil(
+                    radius_m=0.015,
+                    length_m=0.03,
+                    turns=8,
+                    axis="y",
+                )
+            ),
+        ),
+        network=network,
+    )
+    experiment = Experiment(
+        sequence=CPMGImaging(num_echoes=1, ny=1, maxoffs=0.1),
+        sample=Sample(phantom=Phantom(np.ones((2, 2)))),
+        hardware=Hardware(
+            rx_coil=receivers,
+            plane=ImagingPlane(plane="xy"),
+        ),
+        acquisition=Acquisition(
+            receiver_noise_std=0.01,
+            receiver_noise_seed=4,
+        ),
+    )
+
+    assert Experiment.from_json(experiment.to_json()) == experiment
+    assert experiment.plan(estimate=False).ok
+    result = experiment.run().result
+    assert result.receiver_transfer_matrix.shape == (2, 2)
+    assert result.receiver_network_noise_covariance_v2.shape == (2, 2)
+    assert result.geometric_receiver_sensitivities.shape == (2, 2, 2)
+    assert result.channel_kspace_noisy is not None
+
+    invalid = dataclasses.replace(
+        experiment,
+        acquisition=Acquisition(receiver_noise_covariance=np.eye(2)),
+    )
+    plan = invalid.plan(estimate=False)
+    assert not plan.ok
+    assert any("derives receiver noise covariance" in error for error in plan.errors)
+
+
+def test_receiver_network_validation_rejects_nonphysical_inputs() -> None:
+    with pytest.raises(ValueError, match="reciprocal"):
+        ReceiverNetwork(
+            1.0e6,
+            np.array([[1.0, 1.0], [0.0, 1.0]]),
+            50.0,
+        )
+    with pytest.raises(ValueError, match="passive"):
+        ReceiverNetwork(
+            1.0e6,
+            np.array([[-1.0 + 1.0j]]),
+            50.0,
+        )
+    with pytest.raises(ValueError, match="port count"):
+        RxArray(
+            (
+                RxCoil(SolenoidCoil(0.01, 0.02, 2, axis="x")),
+                RxCoil(SolenoidCoil(0.01, 0.02, 2, axis="y")),
+            ),
+            network=ReceiverNetwork(1.0e6, np.array([[1.0 + 1.0j]]), 50.0),
+        )

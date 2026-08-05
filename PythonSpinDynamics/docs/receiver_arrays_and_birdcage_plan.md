@@ -1,6 +1,6 @@
 # Receiver Arrays, Sensitivity Encoding, and Quadrature-Coil Plan
 
-**Status:** Phase 3 implemented 2026-08-05; Phase 4 is next
+**Status:** Phase 4 implemented 2026-08-05; Phase 5 is next
 
 This note records the repository assessment and staged implementation plan for
 multiple receiver coils, sensitivity encoding, mutual coupling, quadrature
@@ -169,6 +169,18 @@ resonances, current modes, sensitivities, and noise covariance together.
 Validation gates: reciprocal/passive Z, positive-semidefinite noise covariance,
 uncoupled-limit parity, two-loop resonance splitting, and FastHenry or analytic
 coupled-resonator comparisons.
+
+Implemented in `fields/coil_peec.py`, `receiver_network.py`, and the
+receiver-array CPMG workflow. The first multiport layer provides one terminal
+port per simple conductor path, dense reciprocal series/load networks, loaded
+effective sensitivity maps, fluctuation-dissipation noise, preamplifier
+voltage/current noise, and `Experiment` serialization. See
+[Coupled receiver networks](receiver_networks.md) and
+`examples/plot_receiver_network_coupling.py`.
+
+The arbitrary node/branch graph and multi-conductor per-segment full PEEC solve
+remain extensions of this terminal API. The graph becomes necessary for the
+branched birdcage topology in Phase 5.
 
 ### Phase 5: ideal and circuit-accurate birdcage coils
 

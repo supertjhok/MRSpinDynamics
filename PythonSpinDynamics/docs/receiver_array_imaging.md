@@ -114,9 +114,10 @@ approximately 90 degrees.
 
 ## Current boundary
 
-This phase assumes uncoupled channels and ideal receiver transfer functions.
-`RxArray` with `probe="tuned"` or `probe="matched"` is rejected at planning
-time. Per-channel loaded transfer functions, mutual coupling, and circuit-derived
-correlated noise require the multiport impedance/noise model planned for Phase
-4. Cartesian sensitivity encoding and undersampling are implemented in Phase 3;
+The Phase 2 path remains the uncoupled default. An `RxArray.network` now enables
+Phase 4 loaded transfer functions, mutual coupling, and circuit-derived
+correlated noise; see [Coupled receiver networks](receiver_networks.md).
+Receiver arrays still use `probe="ideal"` because the explicit network owns the
+receive tuning/loading instead of the older scalar tuned/matched probe kernels.
+Cartesian sensitivity encoding and undersampling are implemented in Phase 3;
 see [Cartesian SENSE imaging](sense_imaging.md).

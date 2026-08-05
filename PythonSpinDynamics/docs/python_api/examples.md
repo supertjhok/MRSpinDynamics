@@ -248,6 +248,21 @@ python examples\plot_receiver_array_sense.py --pixels 8 --ny 1 --output results\
 
 See the [Cartesian SENSE guide](../sense_imaging.md) for the explicit `P F S`
 operator, whitening convention, alias-set solve, diagnostics, and limitations.
+
+## Plot Coupled Receiver Networks
+
+This Phase 4 example extracts a reciprocal two-port PEEC impedance for two
+offset solenoids, tunes and loads the ports, applies the resulting transfer to
+the reciprocal maps, derives thermal/preamp noise, and plots the electrical and
+image-domain effects:
+
+```powershell
+python examples\plot_receiver_network_coupling.py --pixels 6 --frequency-mhz 2 --output results\receiver_network_coupling.png
+```
+
+See the [coupled receiver-network guide](../receiver_networks.md) for the
+multiport reduction, loading convention, fluctuation-dissipation covariance,
+facade integration, and current graph-model boundary.
 ## Plot Custom Imaging Fields
 
 This example builds a small synthetic phantom with custom B0, transmit-B1, and

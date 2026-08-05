@@ -162,4 +162,7 @@ compressed-sensing prior. The existing compressed-sensing tools remain
 optional image priors rather than substitutes for coil encoding.
 
 Electrical mutual coupling, loaded channel transfer functions, and
-circuit-derived noise covariance remain Phase 4. Birdcage modes remain Phase 5.
+circuit-derived covariance are implemented by an optional Phase 4
+`ReceiverNetwork`; see [Coupled receiver networks](receiver_networks.md).
+SENSE automatically uses its loaded effective maps and covariance. Birdcage
+modes remain Phase 5.

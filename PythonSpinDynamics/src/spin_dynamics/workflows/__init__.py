@@ -86,6 +86,14 @@ from spin_dynamics.workflows.imaging import (
     run_tuned_phase_encoded_cpmg_imaging,
     summarize_imaging_noise_trials,
 )
+from spin_dynamics.receiver_network import (
+    ReceiverNetwork,
+    ReceiverNetworkSolution,
+    coupled_resonant_modes,
+    covariance_to_correlation,
+    scale_noise_covariance,
+)
+
 from spin_dynamics.workflows.receiver_arrays import (
     add_receiver_array_noise,
     centered_kspace_from_images,
@@ -384,6 +392,11 @@ EXTENDED_WORKFLOW_API = (
     "sensitivity_weighted_combine",
     "sum_of_squares",
     "validate_noise_covariance",
+    "ReceiverNetwork",
+    "ReceiverNetworkSolution",
+    "coupled_resonant_modes",
+    "covariance_to_correlation",
+    "scale_noise_covariance",
     "CartesianSENSEEncoding",
     "CartesianSENSEResult",
     "noise_whitener",
@@ -567,6 +580,11 @@ __all__ = [
     "sensitivity_weighted_combine",
     "sum_of_squares",
     "validate_noise_covariance",
+    "ReceiverNetwork",
+    "ReceiverNetworkSolution",
+    "coupled_resonant_modes",
+    "covariance_to_correlation",
+    "scale_noise_covariance",
     "CartesianSENSEEncoding",
     "CartesianSENSEResult",
     "noise_whitener",

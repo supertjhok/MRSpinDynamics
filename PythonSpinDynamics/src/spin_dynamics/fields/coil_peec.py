@@ -80,6 +80,7 @@ __all__ = [
     "self_partial_inductance",
     "filament_self_inductance",
     "extract_impedance",
+    "extract_multiport_impedance",
     "extract_impedance_surface",
     "current_distribution",
     "self_capacitance",
@@ -90,6 +91,7 @@ __all__ = [
     "radiation_resistance",
     "coil_properties_peec",
     "PEECImpedance",
+    "PEECMultiportImpedance",
     "PEECCoilProperties",
 ]
 
@@ -770,6 +772,164 @@ class PEECImpedance:
     resistance: np.ndarray     # (F,) R(w) = Re Z (ohm)
     dc_inductance: float       # L(0): all sub-filaments in parallel, no current crowding (H)
     dc_resistance: float       # R(0) = rho * length / total_area (ohm)
+
+
+@dataclass(frozen=True)
+class PEECMultiportImpedance:
+    """Frequency-swept terminal impedance matrices for coupled conductors."""
+
+    frequency: np.ndarray
+    impedance: np.ndarray
+    resistance: np.ndarray
+    inductance: np.ndarray
+    dc_inductance: np.ndarray
+    dc_resistance: np.ndarray
+
+
+def extract_multiport_impedance(
+    conductors: Sequence[Conductor],
+    frequencies: Sequence[float],
+    *,
+    ground_plane: GroundPlane | GroundedBox | None = None,
+) -> PEECMultiportImpedance:
+    """Extract reciprocal terminal ``Z(omega)`` for several coupled conductors.
+
+    Each :class:`Conductor` is one explicit port whose cross-section
+    sub-filaments share a terminal voltage. The solve assembles one global
+    branch matrix, including exact mutual partial inductances between every
+    pair of conductor filaments, and reduces it as
+
+    ``Z_port = (B.T @ inv(Z_branch) @ B)^-1``.
+
+    This is the multi-conductor analogue of the fast ``formulation="chain"``
+    single-port solve. It permits skin-current redistribution within and
+    between conductors while keeping current path-constant along each
+    sub-filament. Arbitrary branched node graphs and the per-segment ``full``
+    formulation are deliberately separate extensions.
+    """
+
+    ports = tuple(conductors)
+    if not ports or any(not isinstance(port, Conductor) for port in ports):
+        raise ValueError("conductors must contain at least one Conductor")
+    freqs = np.atleast_1d(np.asarray(frequencies, dtype=np.float64))
+    if freqs.ndim != 1 or freqs.size == 0:
+        raise ValueError("frequencies must be a non-empty one-dimensional array")
+    if not np.all(np.isfinite(freqs)) or np.any(freqs <= 0.0):
+        raise ValueError("frequencies must be finite and positive")
+
+    starts_by_port: list[list[np.ndarray]] = []
+    ends_by_port: list[list[np.ndarray]] = []
+    lens_by_port: list[list[np.ndarray]] = []
+    gmd_by_port: list[np.ndarray] = []
+    resistance_by_port: list[np.ndarray] = []
+    counts: list[int] = []
+    for conductor in ports:
+        filaments, areas, gmd = conductor.subfilaments()
+        starts, ends, lens = _filament_endpoints(filaments)
+        rho = conductor.material.resistivity_at(conductor.temperature)
+        starts_by_port.append(starts)
+        ends_by_port.append(ends)
+        lens_by_port.append(lens)
+        gmd_by_port.append(gmd)
+        resistance_by_port.append(rho * conductor.total_length / areas)
+        counts.append(len(filaments))
+
+    offsets = np.cumsum([0, *counts])
+    n_branches = int(offsets[-1])
+    n_ports = len(ports)
+    inductance_branch = np.zeros((n_branches, n_branches), dtype=np.float64)
+    for port_index in range(n_ports):
+        start = int(offsets[port_index])
+        stop = int(offsets[port_index + 1])
+        inductance_branch[start:stop, start:stop] = _chain_lmat_from_filaments(
+            starts_by_port[port_index],
+            ends_by_port[port_index],
+            lens_by_port[port_index],
+            gmd_by_port[port_index],
+            ground_plane,
+        )
+        for other_index in range(port_index + 1, n_ports):
+            other_start = int(offsets[other_index])
+            other_stop = int(offsets[other_index + 1])
+            block = np.empty((counts[port_index], counts[other_index]))
+            image_sets = (
+                ground_plane.magnetic_image_filaments(
+                    starts_by_port[other_index],
+                    ends_by_port[other_index],
+                )
+                if ground_plane is not None
+                else ()
+            )
+            for branch_index in range(counts[port_index]):
+                for other_branch in range(counts[other_index]):
+                    mutual = float(
+                        _mutualfil_matrix(
+                            starts_by_port[port_index][branch_index],
+                            ends_by_port[port_index][branch_index],
+                            starts_by_port[other_index][other_branch],
+                            ends_by_port[other_index][other_branch],
+                        ).sum()
+                    )
+                    for image_starts, image_ends in image_sets:
+                        mutual += float(
+                            _mutualfil_matrix(
+                                starts_by_port[port_index][branch_index],
+                                ends_by_port[port_index][branch_index],
+                                image_starts[other_branch],
+                                image_ends[other_branch],
+                            ).sum()
+                        )
+                    block[branch_index, other_branch] = mutual
+            inductance_branch[start:stop, other_start:other_stop] = block
+            inductance_branch[other_start:other_stop, start:stop] = block.T
+
+    branch_resistance = np.concatenate(resistance_by_port)
+    membership = np.zeros((n_branches, n_ports), dtype=np.float64)
+    for port_index in range(n_ports):
+        membership[offsets[port_index] : offsets[port_index + 1], port_index] = 1.0
+
+    impedance = np.empty(
+        (freqs.size, n_ports, n_ports),
+        dtype=np.complex128,
+    )
+    resistance = np.empty_like(impedance)
+    inductance = np.empty((freqs.size, n_ports, n_ports), dtype=np.float64)
+    for frequency_index, frequency in enumerate(freqs):
+        omega = 2.0 * np.pi * frequency
+        branch_impedance = 1j * omega * inductance_branch
+        branch_impedance[np.diag_indices(n_branches)] += branch_resistance
+        branch_response = np.linalg.solve(branch_impedance, membership)
+        port_admittance = membership.T @ branch_response
+        port_impedance = np.linalg.inv(port_admittance)
+        port_impedance = 0.5 * (port_impedance + port_impedance.T)
+        impedance[frequency_index] = port_impedance
+        resistance[frequency_index] = 0.5 * (
+            port_impedance + port_impedance.conj().T
+        )
+        inductance[frequency_index] = np.imag(port_impedance) / omega
+
+    dc_resistance = np.zeros((n_ports, n_ports), dtype=np.float64)
+    current_mapping = np.zeros((n_branches, n_ports), dtype=np.float64)
+    for port_index, branch_values in enumerate(resistance_by_port):
+        conductance = 1.0 / branch_values
+        start = int(offsets[port_index])
+        stop = int(offsets[port_index + 1])
+        dc_resistance[port_index, port_index] = 1.0 / float(
+            np.sum(conductance)
+        )
+        current_mapping[start:stop, port_index] = conductance / np.sum(
+            conductance
+        )
+    dc_inductance = current_mapping.T @ inductance_branch @ current_mapping
+    dc_inductance = 0.5 * (dc_inductance + dc_inductance.T)
+    return PEECMultiportImpedance(
+        frequency=freqs,
+        impedance=impedance,
+        resistance=resistance,
+        inductance=inductance,
+        dc_inductance=dc_inductance,
+        dc_resistance=dc_resistance,
+    )
 
 
 def extract_impedance(

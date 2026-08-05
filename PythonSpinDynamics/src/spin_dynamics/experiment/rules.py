@@ -162,6 +162,9 @@ def hardware_wiring_rule(
         # ignored-field warnings via each entry's `honors` set.
         return []
     is_receiver_array = isinstance(experiment.hardware.rx_coil, RxArray)
+    receiver_network = (
+        experiment.hardware.rx_coil.network if is_receiver_array else None
+    )
     if is_receiver_array and experiment.hardware.probe != "ideal":
         return [
             RuleFinding(
@@ -169,8 +172,23 @@ def hardware_wiring_rule(
                 severity="error",
                 message=(
                     "RxArray CPMG imaging currently requires probe='ideal'; "
-                    "per-channel tuned/matched transfer functions are deferred "
-                    "to the multiport coupling phase"
+                    "use RxArray.network for explicit multiport receive "
+                    "loading and coupling"
+                ),
+            )
+        ]
+    if (
+        receiver_network is not None
+        and experiment.acquisition.receiver_noise_covariance is not None
+    ):
+        return [
+            RuleFinding(
+                rule="hardware_wiring",
+                severity="error",
+                message=(
+                    "RxArray.network derives receiver noise covariance; use "
+                    "receiver_noise_std to scale it instead of supplying "
+                    "receiver_noise_covariance"
                 ),
             )
         ]

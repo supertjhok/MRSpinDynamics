@@ -17,11 +17,14 @@ from typing import Any, Sequence
 
 from spin_dynamics.experiment.serialization import register_serializable
 from spin_dynamics.fields.coils import planar_spiral, solenoid
+from spin_dynamics.receiver_network import ReceiverNetwork
 
 Segment = tuple[Sequence[float], Sequence[float]]
 
 _AXES = ("x", "y", "z")
 _PLANES = ("xz", "xy", "yz")
+
+register_serializable(ReceiverNetwork)
 
 
 def _as_vec3(value: Any, name: str) -> tuple[float, float, float]:
@@ -134,14 +137,16 @@ class RxCoil:
 @register_serializable
 @dataclass(frozen=True)
 class RxArray:
-    """Ordered uncoupled receive channels for reciprocity field solving.
+    """Ordered receive channels with an optional loaded multiport network.
 
     Channel order is preserved in every returned sensitivity array. Electrical
-    mutual coupling and correlated noise are deliberately not implied by this
-    geometry-level container; those belong to the later multiport-network phase.
+    coupling is explicit: when ``network`` is present, its port order must match
+    ``channels`` and Phase 4 applies its loaded transfer/noise model after the
+    unit-current reciprocity field solve.
     """
 
     channels: tuple[RxCoil, ...]
+    network: ReceiverNetwork | None = None
 
     def __post_init__(self) -> None:
         channels = tuple(self.channels)
@@ -149,6 +154,13 @@ class RxArray:
             raise ValueError("RxArray.channels must not be empty")
         if any(not isinstance(channel, RxCoil) for channel in channels):
             raise ValueError("RxArray.channels must contain only RxCoil specs")
+        if self.network is not None:
+            if not isinstance(self.network, ReceiverNetwork):
+                raise ValueError("RxArray.network must be a ReceiverNetwork")
+            if self.network.n_channels != len(channels):
+                raise ValueError(
+                    "RxArray.network port count must match RxArray.channels"
+                )
         object.__setattr__(self, "channels", channels)
 
 

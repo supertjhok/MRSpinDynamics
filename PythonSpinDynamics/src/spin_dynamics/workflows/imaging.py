@@ -27,6 +27,11 @@ from spin_dynamics.parameters import (
 )
 from spin_dynamics.probes.matched import matching_network_design2
 from spin_dynamics.probes.tuned import tuned_probe_lp, tuned_probe_rx_tf
+from spin_dynamics.receiver_network import (
+    ReceiverNetwork,
+    ReceiverNetworkSolution,
+    scale_noise_covariance,
+)
 from spin_dynamics.workflows.acquisition import (
     calc_macq_ideal_probe_relax4,
     calc_macq_matched_probe_relax4,
@@ -54,6 +59,7 @@ from spin_dynamics.workflows.receiver_arrays import (
     roemer_combine,
     sensitivity_weighted_combine,
     sum_of_squares,
+    validate_noise_covariance,
 )
 from spin_dynamics.workflows.sense import (
     CartesianSENSEEncoding,
@@ -621,6 +627,8 @@ def _finish_receiver_array_result(
     sense_reference_kspace: np.ndarray | None = None,
     sense_regularization: float = 0.0,
     sense_rank_tolerance: float | None = None,
+    combination_noise_covariance: np.ndarray | None = None,
+    network_solution: ReceiverNetworkSolution | None = None,
 ) -> ReceiverArrayCPMGImagingResult:
     """Reconstruct and combine channel-resolved ideal CPMG data."""
 
@@ -636,9 +644,17 @@ def _finish_receiver_array_result(
     sensitivity_image = sensitivity_weighted_combine(
         channel_image, receiver_sensitivities
     )
-    combination_covariance = (
-        np.eye(n_channels, dtype=np.complex128) if covariance is None else covariance
-    )
+    if combination_noise_covariance is not None:
+        combination_covariance = validate_noise_covariance(
+            combination_noise_covariance,
+            n_channels,
+        )
+    else:
+        combination_covariance = (
+            np.eye(n_channels, dtype=np.complex128)
+            if covariance is None
+            else covariance
+        )
     roemer_image = roemer_combine(
         channel_image,
         receiver_sensitivities,
@@ -786,6 +802,42 @@ def _finish_receiver_array_result(
         sense_offset=(None if sense_result is None else sense_result.offset),
         sense_regularization=(
             None if sense_result is None else sense_result.regularization
+        ),
+        geometric_receiver_sensitivities=(
+            None
+            if network_solution is None
+            else network_solution.geometric_sensitivities
+        ),
+        receiver_transfer_matrix=(
+            None if network_solution is None else network_solution.transfer_matrix
+        ),
+        receiver_source_impedance_ohm=(
+            None
+            if network_solution is None
+            else network_solution.source_impedance_ohm
+        ),
+        receiver_total_impedance_ohm=(
+            None
+            if network_solution is None
+            else network_solution.total_impedance_ohm
+        ),
+        receiver_output_impedance_ohm=(
+            None
+            if network_solution is None
+            else network_solution.output_impedance_ohm
+        ),
+        receiver_network_noise_covariance_v2=(
+            None
+            if network_solution is None
+            else network_solution.noise_covariance_v2
+        ),
+        receiver_network_noise_correlation=(
+            None
+            if network_solution is None
+            else network_solution.noise_correlation
+        ),
+        receiver_network_frequency_hz=(
+            None if network_solution is None else network_solution.frequency_hz
         ),
     )
 
@@ -1006,6 +1058,7 @@ def run_ideal_receiver_array_cpmg_imaging(
     noise_std: float = 0.0,
     noise_covariance: Iterable[complex] | np.ndarray | None = None,
     noise_seed: int | None = None,
+    receiver_network: ReceiverNetwork | None = None,
     sense_acceleration: int | None = None,
     sense_axis: Literal[0, 1, "x", "z"] = 0,
     sense_offset: int = 0,
@@ -1040,6 +1093,7 @@ def run_ideal_receiver_array_cpmg_imaging(
         receiver_noise_std=noise_std,
         receiver_noise_covariance=noise_covariance,
         receiver_noise_seed=noise_seed,
+        receiver_network=receiver_network,
         sense_acceleration=sense_acceleration,
         sense_axis=sense_axis,
         sense_offset=sense_offset,
@@ -1142,6 +1196,7 @@ def _ideal_phase_encoded_cpmg_imaging(
     receiver_noise_std: float = 0.0,
     receiver_noise_covariance: Iterable[complex] | np.ndarray | None = None,
     receiver_noise_seed: int | None = None,
+    receiver_network: ReceiverNetwork | None = None,
     sense_acceleration: int | None = None,
     sense_axis: Literal[0, 1, "x", "z"] = 0,
     sense_offset: int = 0,
@@ -1161,6 +1216,8 @@ def _ideal_phase_encoded_cpmg_imaging(
     )
     rho_arr = field_maps.rho
     receiver_maps = None
+    network_solution = None
+    combination_noise_covariance = None
     labels: tuple[str, ...] = ()
     if receiver_sensitivities is not None:
         receiver_maps = as_receiver_sensitivities(
@@ -1179,6 +1236,30 @@ def _ideal_phase_encoded_cpmg_imaging(
             raise ValueError(
                 "receiver-array imaging uses noise_std or noise_covariance, not noise"
             )
+        if receiver_network is not None:
+            if receiver_noise_covariance is not None:
+                raise ValueError(
+                    "receiver_network derives channel covariance; use noise_std "
+                    "to scale it instead of noise_covariance"
+                )
+            network_solution = receiver_network.solve(receiver_maps)
+            receiver_maps = network_solution.effective_sensitivities
+            # Roemer combination and SENSE only depend on covariance shape.
+            # Normalize physical V^2 values before generic numerical rank
+            # tolerances are applied, while retaining the physical covariance
+            # unchanged in the network diagnostics.
+            combination_noise_covariance = scale_noise_covariance(
+                network_solution.noise_covariance_v2,
+                1.0,
+            )
+            if receiver_noise_std > 0.0:
+                receiver_noise_covariance = scale_noise_covariance(
+                    network_solution.noise_covariance_v2,
+                    receiver_noise_std,
+                )
+                receiver_noise_std = 0.0
+    elif receiver_network is not None:
+        raise ValueError("receiver_network requires receiver_sensitivities")
     if sense_acceleration is None:
         if (
             sense_axis not in (0, "x")
@@ -1408,6 +1489,8 @@ def _ideal_phase_encoded_cpmg_imaging(
             sense_reference_kspace=sense_reference_kspace,
             sense_regularization=sense_regularization,
             sense_rank_tolerance=sense_rank_tolerance,
+            combination_noise_covariance=combination_noise_covariance,
+            network_solution=network_solution,
         )
 
     kspace = np.zeros((px, pz, int(num_echoes)), dtype=np.complex128)

@@ -80,7 +80,7 @@ class CartesianSENSEResult:
 
 @dataclass(frozen=True)
 class ReceiverArrayCPMGImagingResult:
-    """Channel-resolved ideal CPMG imaging result for an uncoupled Rx array.
+    """Channel-resolved ideal CPMG imaging result for an Rx array.
 
     ``channel_kspace`` and ``channel_image`` are channel-leading with shape
     ``(n_channels, px, pz, num_echoes)``. The complex sensitivity maps retain
@@ -132,6 +132,14 @@ class ReceiverArrayCPMGImagingResult:
     sense_axis: int | None = None
     sense_offset: int | None = None
     sense_regularization: float | None = None
+    geometric_receiver_sensitivities: np.ndarray | None = None
+    receiver_transfer_matrix: np.ndarray | None = None
+    receiver_source_impedance_ohm: np.ndarray | None = None
+    receiver_total_impedance_ohm: np.ndarray | None = None
+    receiver_output_impedance_ohm: np.ndarray | None = None
+    receiver_network_noise_covariance_v2: np.ndarray | None = None
+    receiver_network_noise_correlation: np.ndarray | None = None
+    receiver_network_frequency_hz: float | None = None
 
     @property
     def n_channels(self) -> int:

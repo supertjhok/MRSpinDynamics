@@ -129,6 +129,7 @@ nav:
           - PEEC coil models: coil_peec.md
           - Receiver-array CPMG imaging: receiver_array_imaging.md
           - Cartesian SENSE imaging: sense_imaging.md
+          - Coupled receiver networks: receiver_networks.md
           - Receiver arrays and birdcage plan: receiver_arrays_and_birdcage_plan.md
           - Thermal modeling: thermal_modeling.md
       - Detection and noise:

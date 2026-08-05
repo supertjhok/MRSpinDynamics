@@ -407,6 +407,7 @@ def _imaging_kwargs(experiment: Experiment) -> dict[str, Any]:
         kwargs.update(
             receiver_sensitivities=sensitivities.normalized_complex,
             channel_labels=sensitivities.channel_labels,
+            receiver_network=experiment.hardware.rx_coil.network,
             noise_std=experiment.acquisition.receiver_noise_std,
             noise_covariance=experiment.acquisition.receiver_noise_covariance,
             noise_seed=experiment.acquisition.receiver_noise_seed,
