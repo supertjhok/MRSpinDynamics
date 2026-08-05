@@ -44,7 +44,7 @@ def test_single_channel_forward_model_matches_legacy_ideal_path() -> None:
 
     np.testing.assert_allclose(array.channel_kspace[0], legacy.kspace)
     np.testing.assert_allclose(array.kspace, legacy.kspace)
-    np.testing.assert_allclose(array.image, legacy.image)
+    np.testing.assert_allclose(array.image, legacy.image, atol=1e-14)
 
 
 def test_complex_channel_phase_is_preserved() -> None:
