@@ -1,6 +1,6 @@
 # Receiver Arrays, Sensitivity Encoding, and Quadrature-Coil Plan
 
-**Status:** Phase 2 implemented 2026-08-02; Phase 3 is next
+**Status:** Phase 3 implemented 2026-08-05; Phase 4 is next
 
 This note records the repository assessment and staged implementation plan for
 multiple receiver coils, sensitivity encoding, mutual coupling, quadrature
@@ -140,6 +140,11 @@ Fourier operator.
 
 Validation gates: full-sampling parity, an analytic R=2 unfolding problem,
 rank-deficiency detection, and Monte Carlo agreement with predicted g-factor.
+
+Implemented in `workflows/sense.py` and integrated with the receiver-array
+CPMG workflow and `Experiment` facade. See
+[Cartesian SENSE imaging](sense_imaging.md) and
+`examples/plot_receiver_array_sense.py`.
 
 ### Phase 4: multiport coupling and correlated noise
 

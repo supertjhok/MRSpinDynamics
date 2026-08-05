@@ -821,6 +821,79 @@ def test_rx_array_round_trip_and_channel_resolved_imaging() -> None:
 
 
 @pytest.mark.smoke
+def test_rx_array_cartesian_sense_facade_and_planning() -> None:
+    phantom = _disc_phantom(4)
+    receivers = RxArray(
+        (
+            RxCoil(
+                SolenoidCoil(
+                    radius_m=0.015,
+                    length_m=0.03,
+                    turns=8,
+                    axis="x",
+                )
+            ),
+            RxCoil(
+                SolenoidCoil(
+                    radius_m=0.015,
+                    length_m=0.03,
+                    turns=8,
+                    axis="y",
+                )
+            ),
+        )
+    )
+    experiment = Experiment(
+        sequence=CPMGImaging(num_echoes=1, ny=1, maxoffs=0.1),
+        sample=Sample(phantom=phantom),
+        hardware=Hardware(rx_coil=receivers, plane=ImagingPlane()),
+        acquisition=Acquisition(
+            sense_acceleration=2,
+            sense_axis="x",
+            sense_regularization=1e-8,
+        ),
+    )
+
+    assert Experiment.from_json(experiment.to_json()) == experiment
+    assert experiment.plan(estimate=False).ok
+    result = experiment.run().result
+    assert result.channel_kspace.shape == (2, 4, 4, 1)
+    assert result.sampling_mask.shape == (4, 4)
+    assert np.count_nonzero(result.sampling_mask) == 8
+    assert result.sense_image.shape == (4, 4, 1)
+    assert result.sense_condition_number.shape == (4, 4)
+    assert result.sense_g_factor.shape == (4, 4)
+    assert result.sense_rank.shape == (4, 4)
+    assert result.sense_acceleration == 2
+
+    scalar_plan = dataclasses.replace(
+        experiment,
+        hardware=Hardware(),
+    ).plan(estimate=False)
+    assert not scalar_plan.ok
+    assert any("requires an RxArray" in error for error in scalar_plan.errors)
+
+    too_few_channels = dataclasses.replace(
+        experiment,
+        acquisition=Acquisition(sense_acceleration=3),
+    ).plan(estimate=False)
+    assert not too_few_channels.ok
+    assert any("number of receiver channels" in error for error in too_few_channels.errors)
+
+    odd_dimension = dataclasses.replace(
+        experiment,
+        sample=Sample(phantom=_disc_phantom(5)),
+    ).plan(estimate=False)
+    assert not odd_dimension.ok
+    assert any("must be divisible" in error for error in odd_dimension.errors)
+
+    with pytest.raises(ValueError, match="require sense_acceleration"):
+        Acquisition(sense_regularization=1e-3)
+    with pytest.raises(ValueError, match="smaller than sense_acceleration"):
+        Acquisition(sense_acceleration=2, sense_offset=2)
+
+
+@pytest.mark.smoke
 def test_axial_coil_warns_low_transverse_fraction() -> None:
     plan = Experiment(
         sequence=CPMGImaging(ny=5),

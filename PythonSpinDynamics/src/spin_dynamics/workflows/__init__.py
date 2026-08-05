@@ -95,6 +95,14 @@ from spin_dynamics.workflows.receiver_arrays import (
     sum_of_squares,
     validate_noise_covariance,
 )
+from spin_dynamics.workflows.imaging_types import CartesianSENSEResult
+from spin_dynamics.workflows.sense import (
+    CartesianSENSEEncoding,
+    noise_whitener,
+    reconstruct_cartesian_sense,
+    uniform_cartesian_mask,
+    whiten_receiver_channels,
+)
 from spin_dynamics.workflows.electropermanent_imaging import (
     EPMNonlinearImagingResult,
     NonlinearEPMEncoding,
@@ -376,6 +384,12 @@ EXTENDED_WORKFLOW_API = (
     "sensitivity_weighted_combine",
     "sum_of_squares",
     "validate_noise_covariance",
+    "CartesianSENSEEncoding",
+    "CartesianSENSEResult",
+    "noise_whitener",
+    "reconstruct_cartesian_sense",
+    "uniform_cartesian_mask",
+    "whiten_receiver_channels",
     "calc_macq_ideal_probe_relax4",
     "calc_macq_matched_probe_relax4",
     "calc_macq_tuned_probe_relax4",
@@ -553,6 +567,12 @@ __all__ = [
     "sensitivity_weighted_combine",
     "sum_of_squares",
     "validate_noise_covariance",
+    "CartesianSENSEEncoding",
+    "CartesianSENSEResult",
+    "noise_whitener",
+    "reconstruct_cartesian_sense",
+    "uniform_cartesian_mask",
+    "whiten_receiver_channels",
     "calc_macq_ideal_probe_relax4",
     "calc_macq_matched_probe_relax_diffusion",
     "calc_macq_matched_probe_relax4",

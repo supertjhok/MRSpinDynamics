@@ -118,4 +118,5 @@ This phase assumes uncoupled channels and ideal receiver transfer functions.
 `RxArray` with `probe="tuned"` or `probe="matched"` is rejected at planning
 time. Per-channel loaded transfer functions, mutual coupling, and circuit-derived
 correlated noise require the multiport impedance/noise model planned for Phase
-4. Cartesian sensitivity encoding and undersampling remain Phase 3.
+4. Cartesian sensitivity encoding and undersampling are implemented in Phase 3;
+see [Cartesian SENSE imaging](sense_imaging.md).

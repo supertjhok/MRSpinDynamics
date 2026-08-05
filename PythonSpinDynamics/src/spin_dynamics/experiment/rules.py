@@ -202,6 +202,45 @@ def hardware_wiring_rule(
                 ),
             )
         ]
+    sense_acceleration = experiment.acquisition.sense_acceleration
+    if not is_receiver_array and sense_acceleration is not None:
+        return [
+            RuleFinding(
+                rule="hardware_wiring",
+                severity="error",
+                message=(
+                    "Cartesian SENSE acquisition requires an RxArray imaging "
+                    "receiver"
+                ),
+            )
+        ]
+    if is_receiver_array and sense_acceleration is not None:
+        if len(experiment.hardware.rx_coil.channels) < sense_acceleration:
+            return [
+                RuleFinding(
+                    rule="hardware_wiring",
+                    severity="error",
+                    message=(
+                        "sense_acceleration cannot exceed the number of "
+                        "receiver channels"
+                    ),
+                )
+            ]
+        phantom = experiment.sample.phantom
+        if phantom is not None:
+            axis_index = 0 if experiment.acquisition.sense_axis == "x" else 1
+            encoded_size = phantom.rho.shape[axis_index]
+            if encoded_size % sense_acceleration != 0:
+                return [
+                    RuleFinding(
+                        rule="hardware_wiring",
+                        severity="error",
+                        message=(
+                            "the SENSE-encoded phantom dimension must be "
+                            "divisible by sense_acceleration"
+                        ),
+                    )
+                ]
     if not wiring.uses_hardware_fields(experiment.hardware):
         return []
     try:

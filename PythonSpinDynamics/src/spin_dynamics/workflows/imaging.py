@@ -55,6 +55,11 @@ from spin_dynamics.workflows.receiver_arrays import (
     sensitivity_weighted_combine,
     sum_of_squares,
 )
+from spin_dynamics.workflows.sense import (
+    CartesianSENSEEncoding,
+    reconstruct_cartesian_sense,
+    uniform_cartesian_mask,
+)
 
 def _as_map(value: Iterable[float] | np.ndarray, name: str) -> np.ndarray:
     arr = np.asarray(value, dtype=np.float64)
@@ -611,6 +616,11 @@ def _finish_receiver_array_result(
     noise_std: float = 0.0,
     noise_covariance: Iterable[complex] | np.ndarray | None = None,
     noise_seed: int | None = None,
+    sampling_mask: np.ndarray | None = None,
+    sense_axis: Literal[0, 1, "x", "z"] = 0,
+    sense_reference_kspace: np.ndarray | None = None,
+    sense_regularization: float = 0.0,
+    sense_rank_tolerance: float | None = None,
 ) -> ReceiverArrayCPMGImagingResult:
     """Reconstruct and combine channel-resolved ideal CPMG data."""
 
@@ -635,6 +645,41 @@ def _finish_receiver_array_result(
         combination_covariance,
     )
 
+    sense_result = None
+    sense_reference_image = None
+    sense_encoding = None
+    if sampling_mask is not None:
+        if sense_reference_kspace is None:
+            raise ValueError(
+                "sense_reference_kspace is required with a SENSE sampling mask"
+            )
+        reference = np.asarray(sense_reference_kspace, dtype=np.complex128)
+        if reference.shape != channel_kspace.shape[1:]:
+            raise ValueError(
+                "sense_reference_kspace must match the spatial and echo shape"
+            )
+        sense_reference_image = reconstruct_receiver_images(
+            reference[np.newaxis, ...]
+        )[0]
+        sense_encoding = CartesianSENSEEncoding(
+            receiver_sensitivities,
+            sampling_mask,
+            axis=sense_axis,
+            noise_covariance=combination_covariance,
+        )
+        sense_sampled_kspace = sense_encoding.forward(sense_reference_image)
+        sense_result = reconstruct_cartesian_sense(
+            sense_sampled_kspace,
+            receiver_sensitivities,
+            sampling_mask,
+            axis=sense_axis,
+            noise_covariance=combination_covariance,
+            regularization=sense_regularization,
+            rank_tolerance=sense_rank_tolerance,
+        )
+    else:
+        sense_sampled_kspace = None
+
     channel_kspace_noisy = None
     channel_image_noisy = None
     channel_magnitude_noisy = None
@@ -643,6 +688,8 @@ def _finish_receiver_array_result(
     sensitivity_image_noisy = None
     roemer_kspace_noisy = None
     roemer_image_noisy = None
+    sense_result_noisy = None
+    sense_sampled_kspace_noisy = None
     if covariance is not None:
         channel_kspace_noisy = add_receiver_array_noise(
             channel_kspace,
@@ -662,6 +709,24 @@ def _finish_receiver_array_result(
             combination_covariance,
         )
         roemer_kspace_noisy = centered_kspace_from_images(roemer_image_noisy)
+        if sense_sampled_kspace is not None:
+            sense_sampled_kspace_noisy = add_receiver_array_noise(
+                sense_sampled_kspace,
+                covariance,
+                seed=noise_seed,
+            )
+            sense_sampled_kspace_noisy *= sampling_mask[
+                np.newaxis, ..., np.newaxis
+            ]
+            sense_result_noisy = reconstruct_cartesian_sense(
+                sense_sampled_kspace_noisy,
+                receiver_sensitivities,
+                sampling_mask,
+                axis=sense_axis,
+                noise_covariance=combination_covariance,
+                regularization=sense_regularization,
+                rank_tolerance=sense_rank_tolerance,
+            )
 
     return ReceiverArrayCPMGImagingResult(
         rho=field_maps.rho,
@@ -693,6 +758,35 @@ def _finish_receiver_array_result(
         sensitivity_combined_image_noisy=sensitivity_image_noisy,
         roemer_combined_kspace_noisy=roemer_kspace_noisy,
         roemer_combined_image_noisy=roemer_image_noisy,
+        sampling_mask=(None if sense_result is None else sense_result.sampling_mask),
+        sense_reference_image=sense_reference_image,
+        sense_sampled_kspace=sense_sampled_kspace,
+        sense_sampled_kspace_noisy=sense_sampled_kspace_noisy,
+        sense_zero_filled_channel_image=(
+            None
+            if sense_result is None
+            else sense_result.zero_filled_channel_image
+        ),
+        sense_zero_filled_channel_image_noisy=(
+            None
+            if sense_result_noisy is None
+            else sense_result_noisy.zero_filled_channel_image
+        ),
+        sense_image=(None if sense_result is None else sense_result.image),
+        sense_image_noisy=(
+            None if sense_result_noisy is None else sense_result_noisy.image
+        ),
+        sense_condition_number=(
+            None if sense_result is None else sense_result.condition_number
+        ),
+        sense_g_factor=(None if sense_result is None else sense_result.g_factor),
+        sense_rank=(None if sense_result is None else sense_result.rank),
+        sense_acceleration=(None if sense_result is None else sense_result.acceleration),
+        sense_axis=(None if sense_result is None else sense_result.axis),
+        sense_offset=(None if sense_result is None else sense_result.offset),
+        sense_regularization=(
+            None if sense_result is None else sense_result.regularization
+        ),
     )
 
 def _set_params_tuned_jmr() -> tuple[SimpleNamespace, SimpleNamespace]:
@@ -912,6 +1006,11 @@ def run_ideal_receiver_array_cpmg_imaging(
     noise_std: float = 0.0,
     noise_covariance: Iterable[complex] | np.ndarray | None = None,
     noise_seed: int | None = None,
+    sense_acceleration: int | None = None,
+    sense_axis: Literal[0, 1, "x", "z"] = 0,
+    sense_offset: int = 0,
+    sense_regularization: float = 0.0,
+    sense_rank_tolerance: float | None = None,
 ) -> ReceiverArrayCPMGImagingResult:
     """Run ideal CPMG once and project the response into every Rx channel.
 
@@ -941,6 +1040,11 @@ def run_ideal_receiver_array_cpmg_imaging(
         receiver_noise_std=noise_std,
         receiver_noise_covariance=noise_covariance,
         receiver_noise_seed=noise_seed,
+        sense_acceleration=sense_acceleration,
+        sense_axis=sense_axis,
+        sense_offset=sense_offset,
+        sense_regularization=sense_regularization,
+        sense_rank_tolerance=sense_rank_tolerance,
     )
 
 def run_t1_encoded_phase_encoded_cpmg_imaging(
@@ -1038,6 +1142,11 @@ def _ideal_phase_encoded_cpmg_imaging(
     receiver_noise_std: float = 0.0,
     receiver_noise_covariance: Iterable[complex] | np.ndarray | None = None,
     receiver_noise_seed: int | None = None,
+    sense_acceleration: int | None = None,
+    sense_axis: Literal[0, 1, "x", "z"] = 0,
+    sense_offset: int = 0,
+    sense_regularization: float = 0.0,
+    sense_rank_tolerance: float | None = None,
 ) -> IdealCPMGImagingResult | ReceiverArrayCPMGImagingResult:
     if inversion_time_seconds is not None and inversion_time_seconds <= 0:
         raise ValueError("inversion_time_seconds must be positive")
@@ -1070,6 +1179,18 @@ def _ideal_phase_encoded_cpmg_imaging(
             raise ValueError(
                 "receiver-array imaging uses noise_std or noise_covariance, not noise"
             )
+    if sense_acceleration is None:
+        if (
+            sense_axis not in (0, "x")
+            or sense_offset != 0
+            or sense_regularization != 0.0
+            or sense_rank_tolerance is not None
+        ):
+            raise ValueError(
+                "SENSE settings require sense_acceleration to be specified"
+            )
+    elif receiver_maps is None:
+        raise ValueError("SENSE reconstruction requires receiver_sensitivities")
 
     sp0, pp0 = set_params_ideal(numpts=1)
     t90 = float(pp0.T_90)
@@ -1186,6 +1307,14 @@ def _ideal_phase_encoded_cpmg_imaging(
     wzmax = np.pi * pz**2 / (2 * fov_arr[1] * tgradn)
     gradx = wxmax * np.linspace(-1, 1, px)
     gradz = wzmax * np.linspace(-1, 1, pz)
+    sampling_mask = None
+    if sense_acceleration is not None:
+        sampling_mask = uniform_cartesian_mask(
+            (px, pz),
+            sense_acceleration,
+            axis=sense_axis,
+            offset=sense_offset,
+        )
 
     tacq = float((np.pi / 2) * tacq_seconds / t90)
     tdw = float((np.pi / 2) * pp0.tdw / t90)
@@ -1193,7 +1322,9 @@ def _ideal_phase_encoded_cpmg_imaging(
     tvect = np.linspace(-tacq / 2, tacq / 2, nacq)
     isoc = np.exp(1j * tvect[:, np.newaxis] * del_w[np.newaxis, :])
 
-    def run_point(index: tuple[int, int]) -> np.ndarray:
+    def run_point(
+        index: tuple[int, int],
+    ) -> np.ndarray | tuple[np.ndarray, np.ndarray]:
         ix, iz = index
         sp_case = {
             **sp,
@@ -1224,7 +1355,12 @@ def _ideal_phase_encoded_cpmg_imaging(
         channel_echo = np.einsum(
             "ci,tei->cte", receiver_weights, contribution, optimize=True
         )
-        return trapezoid(channel_echo, tvect, axis=1)
+        channel_values = trapezoid(channel_echo, tvect, axis=1)
+        if sampling_mask is None:
+            return channel_values
+        reference_echo = np.sum(contribution, axis=2)
+        reference_values = trapezoid(reference_echo, tvect, axis=0)
+        return channel_values, reference_values
 
     indices = [(ix, iz) for ix in range(px) for iz in range(pz)]
     workers = 1 if phase_workers is None else int(phase_workers)
@@ -1242,8 +1378,19 @@ def _ideal_phase_encoded_cpmg_imaging(
             (receiver_maps.shape[0], px, pz, int(num_echoes)),
             dtype=np.complex128,
         )
+        sense_reference_kspace = None
+        if sampling_mask is not None:
+            sense_reference_kspace = np.zeros(
+                (px, pz, int(num_echoes)),
+                dtype=np.complex128,
+            )
         for (ix, iz), values in zip(indices, rows):
-            channel_kspace[:, ix, iz, :] = values
+            if sense_reference_kspace is None:
+                channel_kspace[:, ix, iz, :] = values
+            else:
+                channel_values, reference_values = values
+                channel_kspace[:, ix, iz, :] = channel_values
+                sense_reference_kspace[ix, iz, :] = reference_values
         return _finish_receiver_array_result(
             field_maps,
             receiver_maps,
@@ -1256,6 +1403,11 @@ def _ideal_phase_encoded_cpmg_imaging(
             noise_std=receiver_noise_std,
             noise_covariance=receiver_noise_covariance,
             noise_seed=receiver_noise_seed,
+            sampling_mask=sampling_mask,
+            sense_axis=sense_axis,
+            sense_reference_kspace=sense_reference_kspace,
+            sense_regularization=sense_regularization,
+            sense_rank_tolerance=sense_rank_tolerance,
         )
 
     kspace = np.zeros((px, pz, int(num_echoes)), dtype=np.complex128)

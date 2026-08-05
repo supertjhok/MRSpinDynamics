@@ -348,6 +348,23 @@ class ExampleSmokeTests(unittest.TestCase):
         )
         self.assertIn("channel k-space shape", result.stdout)
         self.assertTrue(output.exists())
+
+    def test_receiver_array_sense_example_writes_png(self) -> None:
+        LOCAL_TMP.mkdir(exist_ok=True)
+        output = LOCAL_TMP / f"receiver_array_sense_{uuid.uuid4().hex}.png"
+        result = run_example(
+            "examples/plot_receiver_array_sense.py",
+            "--pixels",
+            "4",
+            "--ny",
+            "1",
+            "--noise-std",
+            "0",
+            "--output",
+            str(output),
+        )
+        self.assertIn("sampling fraction", result.stdout)
+        self.assertTrue(output.exists())
     def test_plot_examples_show_interactively_by_default(self) -> None:
         for script in sorted(EXAMPLES.glob("plot_*.py")):
             source = script.read_text(encoding="utf-8")
@@ -364,6 +381,7 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_ideal_workflows.py",
             "examples/plot_ideal_imaging.py",
             "examples/plot_receiver_array_cpmg.py",
+            "examples/plot_receiver_array_sense.py",
             "examples/plot_probe_cpmg.py",
             "examples/plot_probe_parameter_sweep.py",
             "examples/plot_optimization_workflows.py",

@@ -520,6 +520,15 @@ raw-channel, RSS, sensitivity-weighted, and noise-aware Roemer outputs. See the
 [receiver-array CPMG guide](../receiver_array_imaging.md) for covariance semantics,
 compatibility views, and the current ideal-probe boundary.
 
+For uniform Cartesian sensitivity encoding, set `sense_acceleration` on the
+direct array workflow or `Acquisition(sense_acceleration=...)` on an
+`Experiment`. The result adds the sampling mask, explicit sampled channel
+k-space, zero-filled aliased channels, unfolded clean/noisy images, and local
+rank, condition-number, and g-factor maps. The reusable low-level surface is
+`CartesianSENSEEncoding`, `uniform_cartesian_mask`, and
+`reconstruct_cartesian_sense`; see the
+[Cartesian SENSE guide](../sense_imaging.md).
+
 The `tau_workers` option parallelizes independent inversion delays. The
 `num_workers` option is passed through to the chunked isochromat backend inside
 each finite acquisition. For long `tauvect` values, use the same rephasing
@@ -571,6 +580,15 @@ For multiple uncoupled receivers, use
 raw-channel, RSS, sensitivity-weighted, and noise-aware Roemer outputs. See the
 [receiver-array CPMG guide](../receiver_array_imaging.md) for covariance semantics,
 compatibility views, and the current ideal-probe boundary.
+
+For uniform Cartesian sensitivity encoding, set `sense_acceleration` on the
+direct array workflow or `Acquisition(sense_acceleration=...)` on an
+`Experiment`. The result adds the sampling mask, explicit sampled channel
+k-space, zero-filled aliased channels, unfolded clean/noisy images, and local
+rank, condition-number, and g-factor maps. The reusable low-level surface is
+`CartesianSENSEEncoding`, `uniform_cartesian_mask`, and
+`reconstruct_cartesian_sense`; see the
+[Cartesian SENSE guide](../sense_imaging.md).
 
 Available wrappers:
 
@@ -1149,6 +1167,15 @@ For multiple uncoupled receivers, use
 raw-channel, RSS, sensitivity-weighted, and noise-aware Roemer outputs. See the
 [receiver-array CPMG guide](../receiver_array_imaging.md) for covariance semantics,
 compatibility views, and the current ideal-probe boundary.
+
+For uniform Cartesian sensitivity encoding, set `sense_acceleration` on the
+direct array workflow or `Acquisition(sense_acceleration=...)` on an
+`Experiment`. The result adds the sampling mask, explicit sampled channel
+k-space, zero-filled aliased channels, unfolded clean/noisy images, and local
+rank, condition-number, and g-factor maps. The reusable low-level surface is
+`CartesianSENSEEncoding`, `uniform_cartesian_mask`, and
+`reconstruct_cartesian_sense`; see the
+[Cartesian SENSE guide](../sense_imaging.md).
 
 The raw reconstruction stack is one image per echo. Image formation is a
 separate post-processing step:

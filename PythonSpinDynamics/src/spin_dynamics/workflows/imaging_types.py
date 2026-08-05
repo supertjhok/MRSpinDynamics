@@ -62,6 +62,23 @@ class ProbeCPMGImagingResult:
 
 
 @dataclass(frozen=True)
+class CartesianSENSEResult:
+    """Regularized Cartesian SENSE reconstruction and encoding diagnostics."""
+
+    image: np.ndarray
+    sampled_kspace: np.ndarray
+    zero_filled_channel_image: np.ndarray
+    sampling_mask: np.ndarray
+    acceleration: int
+    axis: int
+    offset: int
+    regularization: float
+    condition_number: np.ndarray
+    g_factor: np.ndarray
+    rank: np.ndarray
+
+
+@dataclass(frozen=True)
 class ReceiverArrayCPMGImagingResult:
     """Channel-resolved ideal CPMG imaging result for an uncoupled Rx array.
 
@@ -100,6 +117,21 @@ class ReceiverArrayCPMGImagingResult:
     sensitivity_combined_image_noisy: np.ndarray | None = None
     roemer_combined_kspace_noisy: np.ndarray | None = None
     roemer_combined_image_noisy: np.ndarray | None = None
+    sampling_mask: np.ndarray | None = None
+    sense_reference_image: np.ndarray | None = None
+    sense_sampled_kspace: np.ndarray | None = None
+    sense_sampled_kspace_noisy: np.ndarray | None = None
+    sense_zero_filled_channel_image: np.ndarray | None = None
+    sense_zero_filled_channel_image_noisy: np.ndarray | None = None
+    sense_image: np.ndarray | None = None
+    sense_image_noisy: np.ndarray | None = None
+    sense_condition_number: np.ndarray | None = None
+    sense_g_factor: np.ndarray | None = None
+    sense_rank: np.ndarray | None = None
+    sense_acceleration: int | None = None
+    sense_axis: int | None = None
+    sense_offset: int | None = None
+    sense_regularization: float | None = None
 
     @property
     def n_channels(self) -> int:

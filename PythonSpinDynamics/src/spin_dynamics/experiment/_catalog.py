@@ -410,6 +410,10 @@ def _imaging_kwargs(experiment: Experiment) -> dict[str, Any]:
             noise_std=experiment.acquisition.receiver_noise_std,
             noise_covariance=experiment.acquisition.receiver_noise_covariance,
             noise_seed=experiment.acquisition.receiver_noise_seed,
+            sense_acceleration=experiment.acquisition.sense_acceleration,
+            sense_axis=experiment.acquisition.sense_axis,
+            sense_offset=experiment.acquisition.sense_offset,
+            sense_regularization=experiment.acquisition.sense_regularization,
         )
     elif experiment.acquisition.noise is not None:
         kwargs["noise"] = experiment.acquisition.noise
@@ -429,6 +433,10 @@ _IMAGING_HONORS = frozenset(
         "acquisition.receiver_noise_covariance",
         "acquisition.receiver_noise_seed",
         "acquisition.receiver_noise_std",
+        "acquisition.sense_acceleration",
+        "acquisition.sense_axis",
+        "acquisition.sense_offset",
+        "acquisition.sense_regularization",
     }
 )
 

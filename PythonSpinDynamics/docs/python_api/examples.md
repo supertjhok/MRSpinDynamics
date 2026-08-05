@@ -234,6 +234,20 @@ python examples\plot_receiver_array_cpmg.py --pixels 8 --ny 1 --output results\r
 
 See the [receiver-array CPMG guide](../receiver_array_imaging.md) for the array
 shapes, noise covariance convention, direct API, and present limitations.
+
+## Plot Cartesian SENSE Imaging
+
+This Phase 3 example solves two offset receive coils by reciprocity, applies an
+R=2 Cartesian mask and correlated channel noise, and compares the reference,
+zero-filled RSS, clean/noisy SENSE reconstruction, g-factor, and local
+encoding condition number:
+
+```powershell
+python examples\plot_receiver_array_sense.py --pixels 8 --ny 1 --output results\receiver_array_sense.png
+```
+
+See the [Cartesian SENSE guide](../sense_imaging.md) for the explicit `P F S`
+operator, whitening convention, alias-set solve, diagnostics, and limitations.
 ## Plot Custom Imaging Fields
 
 This example builds a small synthetic phantom with custom B0, transmit-B1, and

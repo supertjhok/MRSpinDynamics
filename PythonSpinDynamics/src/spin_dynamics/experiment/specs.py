@@ -546,6 +546,10 @@ class Acquisition:
     receiver_noise_std: float = 0.0
     receiver_noise_covariance: np.ndarray | None = None
     receiver_noise_seed: int | None = None
+    sense_acceleration: int | None = None
+    sense_axis: str = "x"
+    sense_offset: int = 0
+    sense_regularization: float = 0.0
     auto_refine_grid: bool = False
     rephase_safety_factor: float = 1.25
     rephase_action: str = "warn"
@@ -574,6 +578,30 @@ class Acquisition:
             raise ValueError(
                 "receiver_noise_seed must be a non-negative integer when set"
             )
+        acceleration = self.sense_acceleration
+        if acceleration is not None and (
+            not isinstance(acceleration, int) or acceleration < 1
+        ):
+            raise ValueError("sense_acceleration must be a positive integer when set")
+        if self.sense_axis not in {"x", "z"}:
+            raise ValueError("sense_axis must be 'x' or 'z'")
+        if not isinstance(self.sense_offset, int) or self.sense_offset < 0:
+            raise ValueError("sense_offset must be a non-negative integer")
+        regularization = float(self.sense_regularization)
+        if not np.isfinite(regularization) or regularization < 0.0:
+            raise ValueError("sense_regularization must be finite and non-negative")
+        object.__setattr__(self, "sense_regularization", regularization)
+        if acceleration is None:
+            if (
+                self.sense_axis != "x"
+                or self.sense_offset != 0
+                or regularization != 0.0
+            ):
+                raise ValueError(
+                    "SENSE settings require sense_acceleration to be specified"
+                )
+        elif self.sense_offset >= acceleration:
+            raise ValueError("sense_offset must be smaller than sense_acceleration")
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Acquisition):
