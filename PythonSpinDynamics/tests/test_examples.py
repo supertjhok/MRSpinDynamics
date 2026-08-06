@@ -380,6 +380,20 @@ class ExampleSmokeTests(unittest.TestCase):
         )
         self.assertIn("mutual coupling coefficient", result.stdout)
         self.assertTrue(output.exists())
+
+    def test_receiver_resonant_cancellation_example_writes_png(self) -> None:
+        LOCAL_TMP.mkdir(exist_ok=True)
+        output = LOCAL_TMP / f"receiver_cancellation_{uuid.uuid4().hex}.png"
+        result = run_example(
+            "examples/plot_receiver_resonant_cancellation.py",
+            "--points",
+            "21",
+            "--output",
+            str(output),
+        )
+        self.assertIn("target isolation improvement", result.stdout)
+        self.assertTrue(output.exists())
+
     def test_plot_examples_show_interactively_by_default(self) -> None:
         for script in sorted(EXAMPLES.glob("plot_*.py")):
             source = script.read_text(encoding="utf-8")
@@ -391,6 +405,7 @@ class ExampleSmokeTests(unittest.TestCase):
             with self.subTest(script=script.name):
                 self.assertNotIn("matplotlib.use(", source)
                 self.assertIn("plt.show()", source)
+
     def test_plot_examples_expose_cli_without_matplotlib(self) -> None:
         scripts = [
             "examples/plot_ideal_workflows.py",
@@ -398,6 +413,7 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_receiver_array_cpmg.py",
             "examples/plot_receiver_array_sense.py",
             "examples/plot_receiver_network_coupling.py",
+            "examples/plot_receiver_resonant_cancellation.py",
             "examples/plot_probe_cpmg.py",
             "examples/plot_probe_parameter_sweep.py",
             "examples/plot_optimization_workflows.py",

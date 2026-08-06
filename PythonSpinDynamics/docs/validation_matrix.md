@@ -20,9 +20,9 @@ what supports the underlying scientific or numerical claim.
 
 ## Coverage Summary
 
-- 38 capability-level claims
+- 39 capability-level claims
 - 14 validated
-- 19 partially validated
+- 20 partially validated
 - 5 regression-only
 
 | Component | Claim | Evidence | Status |
@@ -45,6 +45,7 @@ what supports the underlying scientific or numerical claim.
 | Alternating image-guided EPM therapy controller | The controller executes contiguous image-program-transport-verification intervals, supports the calibrated direct-signal baseline and selectable susceptibility-aware spin echo, GRE, GRE phase-gradient, or radial short-TE acquisition, re-aims each affine transport objective from the reconstructed outside-target centroid, and stops reproducibly from verification imaging rather than simulator truth. | **A**, **R** | partially validated |
 | Dynamic-inversion ferromagnetic-particle trap | The workflow executes the published polarize-delay-antialigned-gradient timing, recovers spherical Stokes and Tirado finite-cylinder diffusion limits, reproducibly couples rigid-body and magnetic-moment orientation to translation, distinguishes contraction from rapidly relaxing-moment expansion, and makes coil, EPM-only, and hybrid switching burdens explicit. | **A**, **D**, **R** | partially validated |
 | PEEC coil impedance and parasitics | PEEC inductance/resistance trends agree with analytical kernels and selected independent QOIL, FastHenry, and FasterCap comparisons. | **C**, **A** | partially validated |
+| Coupled receiver networks and resonant cancellation | Loaded sensitivity, passive noise covariance, and shared-capacitor cancellation reduce to analytical multiport limits while mutual resistance remains after mutual reactance is cancelled. | **A**, **R** | partially validated |
 | Thermal networks, conduction, and electromagnets | Lumped, one-dimensional, axisymmetric, perfused, and advective thermal models reproduce closed-form limits; coupled electromagnets recover exact RL and electrothermal fixed points, and selected conduction cases are cross-checked with FEMM. | **A**, **C** | validated |
 | NQR Hamiltonians and pulse models | Spin-1 and spin-3/2 transition conventions, powder weights, selective pulses, and SORC/SLSE limits reproduce analytical and published theory results. | **A**, **D** | partially validated |
 | ESR/EPR spectra and pulsed dynamics | Zeeman resonance, lineshape, hyperfine splitting, relaxation, and Hahn-echo behavior reproduce analytical spin-1/2 limits. | **A**, **D** | partially validated |
@@ -283,6 +284,18 @@ what supports the underlying scientific or numerical claim.
 - **References:** QOIL; FastHenry; FasterCap
 - **Reproduce:** [`tests/test_coil_peec.py::test_coil_properties_peec_fields_and_helpers`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_coil_peec.py#L684); [`tests/test_coil_peec_fasthenry.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_coil_peec_fasthenry.py); [`tests/test_coil_peec_fastercap.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_coil_peec_fastercap.py)
 - **Limitations:** Live external-tool tests are optional and not run in ordinary CI. Validation is sparse for shields, complex windings, and high-frequency radiation.
+
+### Coupled receiver networks and resonant cancellation
+
+- **Claim:** Loaded sensitivity, passive noise covariance, and shared-capacitor cancellation reduce to analytical multiport limits while mutual resistance remains after mutual reactance is cancelled.
+- **Evidence:** A, R (partially validated)
+- **Basis:** Exact two-loop mesh equations, fluctuation-dissipation noise covariance, single-frequency agreement with the receiver-network solver, and reciprocal passive-matrix invariants.
+- **Tested range:** Reciprocal passive terminal-impedance matrices with two or more ports; analytical two-loop cases near 2 MHz; and a compact two-solenoid PEEC example.
+- **Metric:** Residual mutual reactance, induced-current isolation, loaded transfer-matrix agreement, output-noise covariance, and noise correlation
+- **Tolerance:** Machine-precision analytical identities and per-test numerical tolerances; the PEEC geometry and sample-loss values are illustrative rather than experimentally calibrated.
+- **References:** Hoult and Richards, Journal of Magnetic Resonance 24 (1976), 71-85, DOI 10.1016/0022-2364(76)90233-X; Roemer et al., Magnetic Resonance in Medicine 16 (1990), 192-225, DOI 10.1002/mrm.1910160203
+- **Reproduce:** [`tests/test_receiver_network.py::test_shared_capacitor_cancels_mutual_reactance_but_not_resistance`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_receiver_network.py#L240); [`tests/test_receiver_network.py::test_receiver_coupling_sweep_matches_single_frequency_network`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_receiver_network.py#L279); [`tests/test_receiver_network.py::test_shared_capacitor_mesh_orientation_and_loss_are_physical`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_receiver_network.py#L254); [`examples/plot_receiver_resonant_cancellation.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/examples/plot_receiver_resonant_cancellation.py)
+- **Limitations:** The current sweep is a passive, uniform-temperature terminal model; active LNA input impedance and amplifier noise parameters belong to the next study part. The sample-loss matrix and conductor geometry in the example are illustrative, and no scanner or bench measurement has yet been compared. The cancellation element removes mutual reactance at one design frequency but does not remove mutual resistance or guarantee robustness to loading and component tolerances.
 
 ### Thermal networks, conduction, and electromagnets
 

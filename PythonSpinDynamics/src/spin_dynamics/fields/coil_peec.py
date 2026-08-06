@@ -285,6 +285,11 @@ class Conductor:
     _cache: dict = field(default_factory=dict, repr=False, compare=False)
 
     def __post_init__(self) -> None:
+        # A dataclasses.replace() call carries init fields from the original,
+        # including this private cache. Geometry/material changes invalidate
+        # every cached discretization, so each constructed instance starts
+        # with an independent empty cache.
+        object.__setattr__(self, "_cache", {})
         pts = np.asarray(self.path_points, dtype=np.float64)
         if pts.ndim != 2 or pts.shape[1] != 3 or pts.shape[0] < 2:
             raise ValueError("path_points must be an (M+1, 3) array with M >= 1 segments")

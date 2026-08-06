@@ -213,13 +213,61 @@ loads the ports, adds an illustrative shared sample-loss matrix, solves the
 geometric and effective maps, runs CPMG imaging, and plots the transfer,
 sensitivity, noise-correlation, and image effects.
 
+## Resonant cancellation sweep
+
+Phase 4.5 adds a physical shared R-L-C mesh branch and a passive frequency
+sweep:
+
+```python
+from spin_dynamics.workflows import (
+    analyze_receiver_coupling_sweep,
+    mutual_cancellation_capacitance,
+    shared_capacitor_mesh_impedance,
+)
+
+cancellation_capacitance = mutual_cancellation_capacitance(
+    mutual_inductance_h,
+    target_frequency_hz,
+)
+branch = shared_capacitor_mesh_impedance(
+    frequencies_hz,
+    cancellation_capacitance,
+)
+result = analyze_receiver_coupling_sweep(
+    frequencies_hz,
+    source_impedance_before_ohm,
+    source_impedance_after_ohm + branch,
+    load_impedance_ohm=50.0,
+)
+```
+
+The branch contribution is \(Z_b q q^\mathsf{T}\), where \(q\) is its signed
+mesh-incidence vector. At the design frequency,
+\(C_d=1/(\omega_0^2|M|)\) cancels the mutual reactance. The sweep reports
+residual mutual impedance, induced-current coupling, isolation improvement,
+loaded transfer matrices, passive covariance, and noise correlation. Mutual
+resistance remains and can therefore leave correlated noise after reactive
+cancellation.
+
+Run the study example with:
+
+```bash
+python examples/plot_receiver_resonant_cancellation.py \
+  --frequency-mhz 2.0 --tolerance-percent 5 \
+  --output results/receiver_resonant_cancellation.png
+```
+
+See the
+[receiver decoupling and LNA study plan](receiver_decoupling_lna_study_plan.md)
+for the subsequent robustness and active-front-end comparisons.
 ## Current boundary
 
 The multiport PEEC extractor currently gives one terminal port per simple
 `Conductor` path and uses the path-constant chain formulation. `ReceiverNetwork`
-is a dense, single-frequency terminal model. It can represent reciprocal
-lumped series networks, loads, and preamplifier noise, but it does not yet
-provide:
+is a dense, single-frequency terminal model. The passive Phase 4.5 sweep
+compares frequency-leading terminal matrices and one physical shared mesh
+branch. These APIs can represent reciprocal lumped series networks, loads, and
+preamplifier noise, but they do not yet provide:
 
 - arbitrary node/branch graphs;
 - the per-segment full PEEC formulation across several conductors;

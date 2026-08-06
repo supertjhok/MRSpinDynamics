@@ -263,6 +263,20 @@ python examples\plot_receiver_network_coupling.py --pixels 6 --frequency-mhz 2 -
 See the [coupled receiver-network guide](../receiver_networks.md) for the
 multiport reduction, loading convention, fluctuation-dissipation covariance,
 facade integration, and current graph-model boundary.
+## Plot Resonant Receiver Decoupling
+
+This Phase 4.5 example extracts a swept two-port PEEC model, tunes both loops,
+adds a shared cancellation capacitor, and plots mutual impedance,
+induced-current isolation, loaded sensitivity mixing, capacitor-tolerance
+sensitivity, and the residual correlated noise:
+
+```powershell
+python examples\plot_receiver_resonant_cancellation.py --points 121 --frequency-mhz 2 --output results\receiver_resonant_cancellation.png
+```
+
+See the
+[receiver decoupling and LNA study plan](../receiver_decoupling_lna_study_plan.md)
+for the staged passive-decoupling and front-end comparison.
 ## Plot Custom Imaging Fields
 
 This example builds a small synthetic phantom with custom B0, transmit-B1, and

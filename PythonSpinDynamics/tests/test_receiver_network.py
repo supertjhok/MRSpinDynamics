@@ -27,9 +27,12 @@ from spin_dynamics.fields import (
 )
 from spin_dynamics.receiver_network import (
     BOLTZMANN_J_PER_K,
+    analyze_receiver_coupling_sweep,
     coupled_resonant_modes,
     covariance_to_correlation,
+    mutual_cancellation_capacitance,
     scale_noise_covariance,
+    shared_capacitor_mesh_impedance,
 )
 from spin_dynamics.workflows import run_ideal_receiver_array_cpmg_imaging
 
@@ -180,6 +183,162 @@ def test_two_loop_resonance_splitting_matches_analytic_modes() -> None:
     assert np.sign(modes[0, 1]) != np.sign(modes[1, 1])
 
 
+def _analytic_cancellation_case() -> tuple[
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    float,
+]:
+    target_frequency = 2.0e6
+    frequencies = np.array([1.8e6, target_frequency, 2.2e6])
+    omega = 2.0 * np.pi * frequencies
+    inductance = 10.0e-6
+    mutual = 2.0e-6
+    resistance = np.array([[2.0, 0.2], [0.2, 2.0]])
+    inductance_matrix = np.array(
+        [[inductance, mutual], [mutual, inductance]]
+    )
+    coil = (
+        resistance[np.newaxis, :, :]
+        + 1j * omega[:, np.newaxis, np.newaxis] * inductance_matrix
+    )
+
+    baseline_capacitance = 1.0 / (
+        (2.0 * np.pi * target_frequency) ** 2 * inductance
+    )
+    baseline_tuning = np.array(
+        [
+            np.diag([1.0 / (1j * value * baseline_capacitance)] * 2)
+            for value in omega
+        ]
+    )
+    branch_capacitance = mutual_cancellation_capacitance(
+        mutual,
+        target_frequency,
+    )
+    branch = shared_capacitor_mesh_impedance(
+        frequencies,
+        branch_capacitance,
+    )
+    cancelled_capacitance = 1.0 / (
+        (2.0 * np.pi * target_frequency) ** 2 * (inductance - mutual)
+    )
+    cancelled_tuning = np.array(
+        [
+            np.diag([1.0 / (1j * value * cancelled_capacitance)] * 2)
+            for value in omega
+        ]
+    )
+    return (
+        frequencies,
+        coil + baseline_tuning,
+        coil + cancelled_tuning + branch,
+        branch_capacitance,
+    )
+
+
+def test_shared_capacitor_cancels_mutual_reactance_but_not_resistance() -> None:
+    frequencies, before, after, capacitance = _analytic_cancellation_case()
+    target = 1
+
+    assert capacitance == pytest.approx(
+        1.0 / ((2.0 * np.pi * frequencies[target]) ** 2 * 2.0e-6)
+    )
+    assert np.imag(after[target, 0, 1]) == pytest.approx(0.0, abs=1e-14)
+    assert np.real(after[target, 0, 1]) == pytest.approx(0.2)
+    assert abs(after[0, 0, 1]) > abs(after[target, 0, 1])
+    np.testing.assert_allclose(before, before.transpose(0, 2, 1))
+    np.testing.assert_allclose(after, after.transpose(0, 2, 1))
+
+
+def test_shared_capacitor_mesh_orientation_and_loss_are_physical() -> None:
+    frequency = np.array([2.0e6])
+    same = shared_capacitor_mesh_impedance(
+        frequency,
+        3.0e-9,
+        n_ports=3,
+        ports=(0, 2),
+        series_resistance_ohm=0.1,
+    )
+    opposite = shared_capacitor_mesh_impedance(
+        frequency,
+        3.0e-9,
+        n_ports=3,
+        ports=(0, 2),
+        branch_signs=(1, -1),
+        series_resistance_ohm=0.1,
+    )
+
+    assert same.shape == (1, 3, 3)
+    np.testing.assert_allclose(same, same.transpose(0, 2, 1))
+    assert same[0, 0, 2] == -opposite[0, 0, 2]
+    assert np.min(np.linalg.eigvalsh(np.real(same[0]))) >= -1e-14
+
+
+@pytest.mark.smoke
+def test_receiver_coupling_sweep_matches_single_frequency_network() -> None:
+    frequencies, before, after, _ = _analytic_cancellation_case()
+    result = analyze_receiver_coupling_sweep(
+        frequencies,
+        before,
+        after,
+        load_impedance_ohm=50.0,
+        temperature_k=300.0,
+        noise_bandwidth_hz=2.0,
+    )
+    target = 1
+    network = ReceiverNetwork(
+        frequency_hz=frequencies[target],
+        coil_impedance_ohm=after[target],
+        load_impedance_ohm=50.0,
+        temperature_k=300.0,
+        noise_bandwidth_hz=2.0,
+    )
+    single = network.solve(np.ones((2, 1), dtype=np.complex128))
+
+    np.testing.assert_allclose(
+        result.transfer_matrix_after[target],
+        single.transfer_matrix,
+    )
+    np.testing.assert_allclose(
+        result.passive_noise_covariance_after_v2[target],
+        single.passive_noise_covariance_v2,
+    )
+    assert result.isolation_improvement_db[target] > 40.0
+    assert abs(result.noise_correlation_after[target, 0, 1]) > 0.0
+
+
+def test_receiver_cancellation_helpers_validate_inputs() -> None:
+    with pytest.raises(ValueError, match="non-zero"):
+        mutual_cancellation_capacitance(0.0, 1.0e6)
+    with pytest.raises(ValueError, match="branch_signs"):
+        shared_capacitor_mesh_impedance(
+            [1.0e6],
+            1.0e-9,
+            branch_signs=(1, 0),
+        )
+    with pytest.raises(ValueError, match="distinct valid"):
+        shared_capacitor_mesh_impedance(
+            [1.0e6],
+            1.0e-9,
+            ports=(0, 0),
+        )
+    with pytest.raises(ValueError, match="distinct valid"):
+        shared_capacitor_mesh_impedance(
+            [1.0e6],
+            1.0e-9,
+            ports=(0.0, 1.0),
+        )
+    with pytest.raises(ValueError, match="distinct valid"):
+        analyze_receiver_coupling_sweep(
+            [1.0e6],
+            np.eye(2),
+            np.eye(2),
+            drive_port=0,
+            victim_port=0,
+        )
+
+
 def _parallel_wires() -> tuple[Conductor, Conductor]:
     kwargs = dict(wire_radius=5.0e-4, n_radial=1, n_angular=4)
     first = Conductor(
@@ -222,6 +381,23 @@ def test_multiport_peec_is_reciprocal_passive_and_coupled() -> None:
         result.dc_inductance,
         result.dc_inductance.T,
     )
+
+
+def test_replaced_conductor_does_not_reuse_cached_geometry() -> None:
+    first, _ = _parallel_wires()
+    first.subfilaments()
+    translated = dataclasses.replace(
+        first,
+        path_points=first.path_points + np.array([0.0, 0.05, 0.0]),
+    )
+
+    first_start = first.subfilaments()[0][0][0][0]
+    translated_start = translated.subfilaments()[0][0][0][0]
+    np.testing.assert_allclose(
+        translated_start - first_start,
+        [0.0, 0.05, 0.0],
+    )
+    assert translated._cache is not first._cache
 
 
 def test_receiver_workflow_applies_network_and_scaled_correlated_noise() -> None:

@@ -2207,6 +2207,20 @@ No public classes or functions found.
 | function | `simulate_radiation_damping_fid(time: np.ndarray, probe: RadiationDampingProbe, *, flip_angle: float = np.pi / 2, pulse_phase: float = 0.0, t1: float = np.inf, t2: float = np.inf, equilibrium_mz: float = 1.0, model: str = 'instant', max_step: float | None = None) -> RadiationDampingResult` | Simulate an FID after an ideal hard pulse in the RD model. |
 | function | `simulate_nmr_maser(time: np.ndarray, probe: RadiationDampingProbe, *, seed_mxy: complex = -1e-06j, initial_mz: float = -1.0, pump_mz: float = -1.0, t1: float, t2: float, model: str = 'circuit', initial_feedback: complex | None = None, max_step: float | None = None) -> RadiationDampingResult` | Simulate an idealized pumped NMR maser in the RD feedback model. |
 
+## `spin_dynamics.receiver_network`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `covariance_to_correlation(covariance: np.ndarray) -> np.ndarray` | Return the complex correlation matrix of a channel covariance. |
+| function | `scale_noise_covariance(covariance: np.ndarray, noise_std: float) -> np.ndarray` | Scale a covariance shape to a requested mean per-channel RMS. |
+| class | `ReceiverNetworkSolution` | Loaded sensitivity maps and output-noise diagnostics. |
+| class | `ReceiverNetwork` | Reciprocal passive coil/load network at one receive frequency. |
+| class | `ReceiverCouplingSweep` | Passive frequency-sweep diagnostics for two selected receiver ports. |
+| function | `mutual_cancellation_capacitance(mutual_inductance_h: float, target_frequency_hz: float) -> float` | Return the shared capacitance that cancels ``j*omega*M`` at a target. |
+| function | `shared_capacitor_mesh_impedance(frequency_hz: Iterable[float] | np.ndarray, capacitance_f: float, *, n_ports: int = 2, ports: tuple[int, int] = (0, 1), branch_signs: tuple[int, int] = (1, 1), series_resistance_ohm: float = 0.0, series_inductance_h: float = 0.0) -> np.ndarray` | Return a frequency-leading mesh matrix for one shared R-L-C branch. |
+| function | `analyze_receiver_coupling_sweep(frequency_hz: Iterable[float] | np.ndarray, source_impedance_before_ohm: np.ndarray, source_impedance_after_ohm: np.ndarray, *, load_impedance_ohm: complex | Iterable[complex] | np.ndarray = 50.0, drive_port: int = 0, victim_port: int = 1, temperature_k: float = 293.15, noise_bandwidth_hz: float = 1.0) -> ReceiverCouplingSweep` | Compare two passive receiver networks over frequency. |
+| function | `coupled_resonant_modes(inductance_h: Iterable[float] | np.ndarray, capacitance_f: float | Iterable[float] | np.ndarray) -> tuple[np.ndarray, np.ndarray]` | Return lossless coupled-series-resonator frequencies and current modes. |
+
 ## `spin_dynamics.sequences.compiler`
 
 | Kind | Name | Summary |

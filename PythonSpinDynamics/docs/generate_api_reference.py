@@ -190,6 +190,7 @@ MODULES = [
     "pulse_diagnostics",
     "relaxation",
     "radiation_damping",
+    "receiver_network",
     "sequences.compiler",
     "sequences.ir",
     "sequences.motion",
