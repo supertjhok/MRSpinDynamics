@@ -299,8 +299,27 @@ python examples\plot_receiver_lna_architectures.py --frequency-mhz 2 --points 61
 The component values are illustrative rather than specifications for particular
 amplifiers. See the [coupled receiver-network guide](../receiver_networks.md)
 for the active-noise equations and the
-[Phase 4.5 study plan](../receiver_decoupling_lna_study_plan.md) for the pending
-cable, noise-parameter, robustness, and end-to-end imaging stages.
+[Phase 4.5 study plan](../receiver_decoupling_lna_study_plan.md) for the interconnect robustness implementation and the pending noise-parameter
+and end-to-end imaging stages.
+## Plot Preamplifier Decoupling and Cable Robustness
+
+This Phase 4.5 study adds a passive reciprocal two-port between each coil and
+its LNA. It compares remote matched 50-ohm reception, low-Z quarter-wave
+preamplifier decoupling, an on-coil high-Z input, and combined resonant plus
+preamplifier decoupling. Frequency and tolerance panels expose transformed
+coil-port loading, isolation, signal transfer, cable loss, and separated noise.
+
+```powershell
+python examples\plot_receiver_preamplifier_decoupling.py --frequency-mhz 2 --cable-loss-db 0.25 --output results\receiver_preamplifier_decoupling.png
+```
+
+The cable-only low-Z case is intentionally not presented as a complete MRI
+matching network: it demonstrates that a high transformed coil-port impedance
+can improve decoupling while badly degrading noise figure. See the
+[receiver-network guide](../receiver_networks.md) for the ABCD and passive-noise
+equations and the [Phase 4.5 study plan](../receiver_decoupling_lna_study_plan.md)
+for remaining noise-parameter and end-to-end imaging work.
+
 ## Plot Custom Imaging Fields
 
 This example builds a small synthetic phantom with custom B0, transmit-B1, and

@@ -201,6 +201,74 @@ The solution reports every noise contribution, the loaded maps, input and
 output transfer matrices, channel correlation, and per-channel noise figure.
 `optimal_channel_snr` evaluates the covariance-optimal array SNR for a channel
 vector or channel-leading map.
+
+## Passive interconnects and preamplifier decoupling
+
+A passive front end can now be placed independently between each coil port and
+its LNA. `PassiveTwoPort` uses the chain convention
+
+\[
+  \begin{bmatrix}V_1\\I_1\end{bmatrix}
+  =
+  \begin{bmatrix}A&B\\C&D\end{bmatrix}
+  \begin{bmatrix}V_2\\I_2\end{bmatrix},
+\]
+
+where `I2` flows into the LNA-side load. The factory functions cover through
+connections, series impedances, shunt admittances, ideal transformers, and
+uniform transmission lines. Two-ports may be cascaded; reciprocity and
+passivity are checked when they are constructed.
+
+For diagonal per-channel matrices \(A,B,C,D\), LNA admittance
+\(Y_L=Z_{in}^{-1}\), and coupled source matrix \(Z_s\), the loaded transfer and
+LNA-node transimpedance are
+
+\[
+  K=A+Z_sC+(B+Z_sD)Y_L,\qquad
+  H=K^{-1},\qquad
+  Z_p=H(B+Z_sD).
+\]
+
+Thus `H` maps coil open-circuit voltage to the LNA input. Each physical LNA
+load is also transformed back to its coil port as
+\((Az_L+B)/(Cz_L+D)\), which is the impedance used for induced-current and
+isolation calculations. The earlier direct-connection equations are recovered
+when the two-port is the identity.
+
+Loss before the LNA contributes thermal noise. At uniform temperature its
+input-node covariance density is obtained from fluctuation-dissipation balance:
+
+\[
+ C_{fe}=4k_BT\operatorname{Re}_H(Z_p)
+ -H[4k_BT\operatorname{Re}_H(Z_s)]H^H
+ -Z_p[4k_BT\operatorname{Re}_H(Y_L)]Z_p^H.
+\]
+
+The last term is a hypothetical passive-load contribution used only to isolate
+the two-port noise; the active LNA input resistance is still not assigned
+Johnson noise. Lossless networks contribute exactly zero. A matched lossy line
+recovers the Friis result: its noise figure equals its insertion loss in dB.
+
+Conventional preamplifier decoupling uses a low LNA input impedance transformed
+into a high impedance at the coil port. A quarter-wave 50-ohm line, for
+example, transforms 2 ohm to 1250 ohm in the ideal limit. This suppresses
+induced coil current, but it does not by itself noise-match the coil. Cable
+phase, loss, the complete matching network, and the LNA noise optimum must be
+designed together. The cable-only example intentionally exposes that tradeoff
+instead of implying that large isolation guarantees good SNR.
+
+```bash
+python examples/plot_receiver_preamplifier_decoupling.py \
+  --frequency-mhz 2.0 --cable-loss-db 0.25 \
+  --output results/receiver_preamplifier_decoupling.png
+```
+
+The example compares direct 50-ohm loading, an on-coil high-Z LNA, low-Z
+quarter-wave preamplifier decoupling, and combined passive cancellation plus
+preamplifier decoupling. It sweeps frequency, cable phase, input resistance,
+and cable loss, and reports transformed loading, isolation, voltage transfer,
+noise figure, and separated source/interconnect/LNA noise.
+
 ## Experiment facade
 
 Attach the network to the ordered `RxArray` ports:
@@ -329,11 +397,11 @@ universal ranking:
 | Matched 50 ohm | Standardized measurement and interconnect environment; predictable cable termination; low sensitivity to input capacitance; many low-noise devices are optimized near 50 ohm. | Resistive loading reduces open-circuit signal and loaded Q; matching components can add loss; a remote first stage incurs pre-LNA cable loss; loading alone is not the same as tuned preamplifier decoupling. |
 | On-coil high-Z | Preserves coil voltage; strongly suppresses terminal current in this voltage-mode model; removes most pre-LNA cable length; very low current-noise devices can suit high source impedance. | Voltage noise can dominate a low-resistance coil; input capacitance limits impedance and bandwidth; large RF voltage raises linearity/recovery concerns; stability, biasing, heating, and transmit protection move onto the coil. |
 
-A conventional MRI preamplifier-decoupling network is a third architecture:
+A conventional MRI preamplifier-decoupling network is the third architecture:
 a low device input impedance is transformed through a narrowband network into a
-high impedance at the coil port. That transformation, along with cable phase,
-is part of the next robustness stage rather than being approximated by either
-row above.
+high impedance at the coil port. The implemented two-port sweep makes cable
+phase, loss, isolation bandwidth, signal transfer, and the associated noise
+penalty explicit.
 Run the Phase 4.5 active-front-end study with:
 
 ```bash
@@ -363,7 +431,9 @@ preamplifier noise, but they do not yet provide:
 
 - arbitrary node/branch graphs;
 - the per-segment full PEEC formulation across several conductors;
-- distributed transmission lines, transformers, or measured S-parameter import;
+- measured S-parameter import or coupled multi-conductor transmission lines;
+  current passive front ends are independent reciprocal two-ports at one
+  uniform temperature;
 - automatic sample-loss impedance extraction;
 - standard LNA noise-parameter conversion, cross-channel active-noise
   covariance, stability, compression, and dynamic-range diagnostics;

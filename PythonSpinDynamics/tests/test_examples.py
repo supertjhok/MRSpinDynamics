@@ -423,6 +423,35 @@ class ExampleSmokeTests(unittest.TestCase):
         self.assertGreater(snr_ratio, 0.0)
         self.assertTrue(output.exists())
 
+    def test_receiver_preamplifier_decoupling_example_writes_png(self) -> None:
+        LOCAL_TMP.mkdir(exist_ok=True)
+        output = LOCAL_TMP / f"receiver_preamp_{uuid.uuid4().hex}.png"
+        result = run_example(
+            "examples/plot_receiver_preamplifier_decoupling.py",
+            "--points",
+            "5",
+            "--tolerance-points",
+            "5",
+            "--output",
+            str(output),
+        )
+        self.assertIn("low-Z preamplifier isolation improvement", result.stdout)
+        isolation = float(
+            result.stdout.split(
+                "low-Z preamplifier isolation improvement: ",
+                1,
+            )[1].split()[0]
+        )
+        transformed_load = float(
+            result.stdout.split(
+                "quarter-wave transformed load magnitude: ",
+                1,
+            )[1].split()[0]
+        )
+        self.assertGreater(isolation, 15.0)
+        self.assertGreater(transformed_load, 500.0)
+        self.assertTrue(output.exists())
+
     def test_receiver_resonant_cancellation_example_writes_png(self) -> None:
         LOCAL_TMP.mkdir(exist_ok=True)
         output = LOCAL_TMP / f"receiver_cancellation_{uuid.uuid4().hex}.png"
@@ -442,6 +471,7 @@ class ExampleSmokeTests(unittest.TestCase):
             "plot_receiver_array_sense.py",
             "plot_receiver_network_coupling.py",
             "plot_receiver_lna_architectures.py",
+            "plot_receiver_preamplifier_decoupling.py",
             "plot_receiver_resonant_cancellation.py",
         )
         for script in scripts:
@@ -476,6 +506,7 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_receiver_array_sense.py",
             "examples/plot_receiver_network_coupling.py",
             "examples/plot_receiver_lna_architectures.py",
+            "examples/plot_receiver_preamplifier_decoupling.py",
             "examples/plot_receiver_resonant_cancellation.py",
             "examples/plot_probe_cpmg.py",
             "examples/plot_probe_parameter_sweep.py",

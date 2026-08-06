@@ -2207,6 +2207,17 @@ No public classes or functions found.
 | function | `simulate_radiation_damping_fid(time: np.ndarray, probe: RadiationDampingProbe, *, flip_angle: float = np.pi / 2, pulse_phase: float = 0.0, t1: float = np.inf, t2: float = np.inf, equilibrium_mz: float = 1.0, model: str = 'instant', max_step: float | None = None) -> RadiationDampingResult` | Simulate an FID after an ideal hard pulse in the RD model. |
 | function | `simulate_nmr_maser(time: np.ndarray, probe: RadiationDampingProbe, *, seed_mxy: complex = -1e-06j, initial_mz: float = -1.0, pump_mz: float = -1.0, t1: float, t2: float, model: str = 'circuit', initial_feedback: complex | None = None, max_step: float | None = None) -> RadiationDampingResult` | Simulate an idealized pumped NMR maser in the RD feedback model. |
 
+## `spin_dynamics.receiver_frontend`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `PassiveTwoPort` | Reciprocal passive two-port using the chain-matrix convention. |
+| function | `identity_two_port(*, reference_impedance_ohm: float = 50.0, label: str = 'identity') -> PassiveTwoPort` | Return an ideal through connection. |
+| function | `series_impedance_two_port(impedance_ohm: complex, *, reference_impedance_ohm: float = 50.0, label: str = 'series impedance') -> PassiveTwoPort` | Return the two-port for a passive series impedance. |
+| function | `shunt_admittance_two_port(admittance_siemens: complex, *, reference_impedance_ohm: float = 50.0, label: str = 'shunt admittance') -> PassiveTwoPort` | Return the two-port for a passive shunt admittance. |
+| function | `ideal_transformer_two_port(turns_ratio_primary_to_secondary: float, *, reference_impedance_ohm: float = 50.0, label: str = 'ideal transformer') -> PassiveTwoPort` | Return an ideal transformer with ``V1/V2`` equal to the turns ratio. |
+| function | `transmission_line_two_port(characteristic_impedance_ohm: float, electrical_length_rad: float, *, attenuation_db: float = 0.0, reference_impedance_ohm: float = 50.0, label: str = 'transmission line') -> PassiveTwoPort` | Return a uniform reciprocal transmission line. |
+
 ## `spin_dynamics.receiver_network`
 
 | Kind | Name | Summary |
@@ -2219,6 +2230,8 @@ No public classes or functions found.
 | class | `ActiveReceiverNetworkSolution` | Loaded maps and separated active-front-end noise contributions. |
 | class | `ActiveReceiverNetwork` | Coupled passive source network terminated by active LNA inputs. |
 | function | `optimal_channel_snr(signal: Iterable[complex] | np.ndarray, covariance: np.ndarray) -> float | np.ndarray` | Return covariance-optimal SNR for channel-leading signal values. |
+| class | `ActiveReceiverFrontEndSweep` | Frequency-sweep diagnostics for active receiver front ends. |
+| function | `analyze_active_receiver_front_end_sweep(frequency_hz: Iterable[float] | np.ndarray, source_impedance_ohm: np.ndarray, *, lna_input_models: LNAInputModel | Iterable[LNAInputModel], front_end_two_ports: PassiveTwoPort | Iterable[PassiveTwoPort] | Iterable[Iterable[PassiveTwoPort]] | None = None, drive_port: int = 0, victim_port: int = 1, temperature_k: float = 293.15, noise_bandwidth_hz: float = 1.0) -> ActiveReceiverFrontEndSweep` | Sweep loading, coupling, and noise through passive front-end two-ports. |
 | class | `ReceiverCouplingSweep` | Passive frequency-sweep diagnostics for two selected receiver ports. |
 | function | `mutual_cancellation_capacitance(mutual_inductance_h: float, target_frequency_hz: float) -> float` | Return the shared capacitance that cancels ``j*omega*M`` at a target. |
 | function | `shared_capacitor_mesh_impedance(frequency_hz: Iterable[float] | np.ndarray, capacitance_f: float, *, n_ports: int = 2, ports: tuple[int, int] = (0, 1), branch_signs: tuple[int, int] = (1, 1), series_resistance_ohm: float = 0.0, series_inductance_h: float = 0.0) -> np.ndarray` | Return a frequency-leading mesh matrix for one shared R-L-C branch. |

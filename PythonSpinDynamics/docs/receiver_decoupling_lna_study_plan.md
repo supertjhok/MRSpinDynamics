@@ -1,6 +1,6 @@
 # Receiver Decoupling and LNA Architecture Study
 
-**Status:** Part 1 and the active-LNA core are implemented; robustness, cable, and noise-parameter studies are next
+**Status:** Passive cancellation, active-LNA loading/noise, and the first preamplifier-decoupling/interconnect robustness study are implemented; noise-parameter conversion and end-to-end imaging are next
 
 This note defines the study inserted between the coupled receiver-network work
 and Phase 5 birdcage coils. It separates two questions that are often mixed:
@@ -67,11 +67,20 @@ Compare:
 - conventional preamplifier decoupling;
 - combined passive and preamplifier decoupling.
 
-Sweep coil spacing and orientation, sample loading, capacitor tolerance,
-frequency detuning, cable electrical length, and preamplifier input impedance.
-Report \(Z_{21}\), induced-current coupling, an S21-equivalent isolation
-metric, mode splitting, isolation bandwidth, loaded Q, sensitivity mixing, and
-noise correlation.
+The first implemented robustness slice compares no cancellation, resonant
+capacitive cancellation, a low-Z LNA behind a quarter-wave line, and combined
+passive plus preamplifier decoupling. It sweeps frequency, cable electrical
+length, cable loss, and preamplifier input resistance. The reusable result
+reports the transformed coil-port load, voltage transfer, induced-current
+coupling/isolation, separated passive-front-end noise, and noise figure.
+
+The nominal cable-only 2-ohm example deliberately produces strong isolation but
+poor noise figure. This is a diagnostic, not a recommended circuit: a complete
+MRI front end must co-design the coil matching network, transformed preamplifier
+impedance, and LNA optimum noise impedance. Remaining robustness axes are coil
+spacing/orientation, sample loading, geometric overlap, explicit matching
+networks, component Monte Carlo, mode splitting, loaded Q, and measured network
+comparison.
 
 ## Part 3: active LNA models
 
@@ -97,10 +106,18 @@ figure, and covariance-optimal array SNR. The matched-50-ohm versus on-coil
 high-Z example uses identical PEEC coils and reciprocal maps so loading and
 noise trade-offs remain visible.
 
-Still pending in this part are standard noise-parameter conversion, cable and
-transformer loss, output impedance, stability, compression, and dynamic-range
-diagnostics. The principal comparison remains the Pareto surface between noise
-figure, decoupling, bandwidth, and robustness rather than a single nominal SNR.
+The passive-front-end layer now supports reciprocal ABCD cascades, series and
+shunt elements, ideal transformers, and uniform lossy transmission lines. It
+propagates coupled-source signal transfer and derives pre-LNA thermal noise from
+fluctuation-dissipation balance. Lossless networks add exactly zero noise, and
+a matched lossy line recovers the Friis limit in which noise figure equals
+insertion loss.
+
+Still pending in this part are standard noise-parameter conversion, measured
+S-parameter import, output impedance, cross-channel amplifier noise, stability,
+compression, and dynamic-range diagnostics. The principal comparison remains
+the Pareto surface between noise figure, decoupling, bandwidth, and robustness
+rather than a single nominal SNR.
 
 ## Part 4: end-to-end array imaging
 
