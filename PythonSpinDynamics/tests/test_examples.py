@@ -394,6 +394,35 @@ class ExampleSmokeTests(unittest.TestCase):
         self.assertLess(shape_error, 0.05)
         self.assertTrue(output.exists())
 
+    def test_receiver_lna_architecture_example_writes_png(self) -> None:
+        LOCAL_TMP.mkdir(exist_ok=True)
+        output = LOCAL_TMP / f"receiver_lna_{uuid.uuid4().hex}.png"
+        result = run_example(
+            "examples/plot_receiver_lna_architectures.py",
+            "--points",
+            "5",
+            "--pixels",
+            "7",
+            "--output",
+            str(output),
+        )
+        self.assertIn("matched 50-ohm mean noise figure", result.stdout)
+        isolation = float(
+            result.stdout.split(
+                "high-Z induced-current isolation improvement: ",
+                1,
+            )[1].split()[0]
+        )
+        snr_ratio = float(
+            result.stdout.split(
+                "median in-object high-Z/matched SNR ratio: ",
+                1,
+            )[1].splitlines()[0]
+        )
+        self.assertGreater(isolation, 20.0)
+        self.assertGreater(snr_ratio, 0.0)
+        self.assertTrue(output.exists())
+
     def test_receiver_resonant_cancellation_example_writes_png(self) -> None:
         LOCAL_TMP.mkdir(exist_ok=True)
         output = LOCAL_TMP / f"receiver_cancellation_{uuid.uuid4().hex}.png"
@@ -412,6 +441,7 @@ class ExampleSmokeTests(unittest.TestCase):
             "plot_receiver_array_cpmg.py",
             "plot_receiver_array_sense.py",
             "plot_receiver_network_coupling.py",
+            "plot_receiver_lna_architectures.py",
             "plot_receiver_resonant_cancellation.py",
         )
         for script in scripts:
@@ -445,6 +475,7 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_receiver_array_cpmg.py",
             "examples/plot_receiver_array_sense.py",
             "examples/plot_receiver_network_coupling.py",
+            "examples/plot_receiver_lna_architectures.py",
             "examples/plot_receiver_resonant_cancellation.py",
             "examples/plot_probe_cpmg.py",
             "examples/plot_probe_parameter_sweep.py",

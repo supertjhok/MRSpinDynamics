@@ -1,6 +1,6 @@
 # Receiver Decoupling and LNA Architecture Study
 
-**Status:** Part 1 implemented 2026-08-06; Part 2 robustness study is next
+**Status:** Part 1 and the active-LNA core are implemented; robustness, cable, and noise-parameter studies are next
 
 This note defines the study inserted between the coupled receiver-network work
 and Phase 5 birdcage coils. It separates two questions that are often mixed:
@@ -90,8 +90,17 @@ Add:
 - passive cable and transformer loss before or after the first gain stage;
 - optional stability, input-voltage, and dynamic-range diagnostics.
 
-The principal comparison is the Pareto surface between noise figure,
-decoupling, bandwidth, and robustness rather than a single nominal SNR.
+The implemented active-LNA foundation now provides complex R-X||C input
+impedance, input-referred voltage/current noise and their complex cross
+spectrum, gain, downstream noise, separated covariance contributions, noise
+figure, and covariance-optimal array SNR. The matched-50-ohm versus on-coil
+high-Z example uses identical PEEC coils and reciprocal maps so loading and
+noise trade-offs remain visible.
+
+Still pending in this part are standard noise-parameter conversion, cable and
+transformer loss, output impedance, stability, compression, and dynamic-range
+diagnostics. The principal comparison remains the Pareto surface between noise
+figure, decoupling, bandwidth, and robustness rather than a single nominal SNR.
 
 ## Part 4: end-to-end array imaging
 

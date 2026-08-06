@@ -27,10 +27,13 @@ from spin_dynamics.fields import (
 )
 from spin_dynamics.receiver_network import (
     BOLTZMANN_J_PER_K,
+    ActiveReceiverNetwork,
+    LNAInputModel,
     analyze_receiver_coupling_sweep,
     coupled_resonant_modes,
     covariance_to_correlation,
     mutual_cancellation_capacitance,
+    optimal_channel_snr,
     scale_noise_covariance,
     shared_capacitor_mesh_impedance,
 )
@@ -147,6 +150,161 @@ def test_preamp_voltage_and_current_noise_are_added_at_output() -> None:
         + result.preamp_voltage_noise_covariance_v2
         + result.preamp_current_noise_covariance_v2,
     )
+
+
+def test_active_lna_excludes_input_resistance_johnson_noise() -> None:
+    model = LNAInputModel(
+        input_resistance_ohm=75.0,
+        voltage_gain_v_per_v=2.0,
+    )
+    network = ActiveReceiverNetwork(
+        frequency_hz=1.0e6,
+        coil_impedance_ohm=np.array([[25.0]]),
+        lna_input_models=model,
+        temperature_k=300.0,
+        noise_bandwidth_hz=2.0,
+    )
+    result = network.solve(np.ones((1, 2), dtype=np.complex128))
+
+    input_transfer = 75.0 / 100.0
+    expected = (
+        2.0**2
+        * input_transfer**2
+        * 4.0
+        * BOLTZMANN_J_PER_K
+        * 300.0
+        * 25.0
+        * 2.0
+    )
+    np.testing.assert_allclose(result.input_transfer_matrix, [[input_transfer]])
+    np.testing.assert_allclose(result.transfer_matrix, [[1.5]])
+    np.testing.assert_allclose(result.source_noise_covariance_v2, [[expected]])
+    np.testing.assert_allclose(result.noise_covariance_v2, [[expected]])
+    np.testing.assert_allclose(result.noise_figure_db, [0.0], atol=1.0e-12)
+
+
+def test_active_lna_voltage_current_cross_and_downstream_noise() -> None:
+    model = LNAInputModel(
+        input_resistance_ohm=80.0,
+        voltage_noise_density_v_per_sqrt_hz=1.0e-9,
+        current_noise_density_a_per_sqrt_hz=2.0e-12,
+        voltage_current_noise_correlation=0.25 + 0.1j,
+        voltage_gain_v_per_v=10.0,
+        output_noise_density_v_per_sqrt_hz=3.0e-9,
+    )
+    bandwidth = 5.0
+    network = ActiveReceiverNetwork(
+        frequency_hz=1.0e6,
+        coil_impedance_ohm=np.array([[20.0]]),
+        lna_input_models=model,
+        temperature_k=300.0,
+        noise_bandwidth_hz=bandwidth,
+    )
+    result = network.solve(np.ones((1, 1), dtype=np.complex128))
+
+    node_impedance = 20.0 * 80.0 / (20.0 + 80.0)
+    gain_squared = 10.0**2
+    voltage = gain_squared * bandwidth * (1.0e-9) ** 2
+    current = (
+        gain_squared * bandwidth * node_impedance**2 * (2.0e-12) ** 2
+    )
+    cross_spectrum = (0.25 + 0.1j) * 1.0e-9 * 2.0e-12
+    cross = (
+        gain_squared
+        * bandwidth
+        * 2.0
+        * np.real(cross_spectrum * node_impedance)
+    )
+    downstream = bandwidth * (3.0e-9) ** 2
+    np.testing.assert_allclose(result.input_node_impedance_ohm, [[node_impedance]])
+    np.testing.assert_allclose(result.lna_voltage_noise_covariance_v2, [[voltage]])
+    np.testing.assert_allclose(result.lna_current_noise_covariance_v2, [[current]])
+    np.testing.assert_allclose(result.lna_cross_noise_covariance_v2, [[cross]])
+    np.testing.assert_allclose(result.downstream_noise_covariance_v2, [[downstream]])
+    np.testing.assert_allclose(
+        result.noise_covariance_v2,
+        result.source_noise_covariance_v2
+        + voltage
+        + current
+        + cross
+        + downstream,
+    )
+
+
+def test_active_lna_multichannel_maps_covariance_and_model_count() -> None:
+    passive = _coupled_network(bandwidth_hz=10.0)
+    models = (
+        LNAInputModel(
+            input_resistance_ohm=50.0,
+            voltage_noise_density_v_per_sqrt_hz=0.5e-9,
+            current_noise_density_a_per_sqrt_hz=1.0e-12,
+            voltage_gain_v_per_v=4.0,
+        ),
+        LNAInputModel(
+            input_resistance_ohm=1.0e5,
+            input_capacitance_f=2.0e-12,
+            voltage_noise_density_v_per_sqrt_hz=0.8e-9,
+            current_noise_density_a_per_sqrt_hz=5.0e-15,
+            voltage_current_noise_correlation=-0.2j,
+            voltage_gain_v_per_v=3.0,
+        ),
+    )
+    network = ActiveReceiverNetwork(
+        frequency_hz=passive.frequency_hz,
+        coil_impedance_ohm=passive.coil_impedance_ohm,
+        series_impedance_ohm=passive.series_impedance_ohm,
+        lna_input_models=models,
+        noise_bandwidth_hz=passive.noise_bandwidth_hz,
+    )
+    result = network.solve(_geometric_maps())
+
+    assert result.effective_sensitivities.shape == _geometric_maps().shape
+    assert result.noise_covariance_v2.shape == (2, 2)
+    np.testing.assert_allclose(
+        result.noise_covariance_v2,
+        result.noise_covariance_v2.conj().T,
+    )
+    assert np.min(np.linalg.eigvalsh(result.noise_covariance_v2)) >= -1.0e-30
+    snr = optimal_channel_snr(
+        result.effective_sensitivities,
+        result.noise_covariance_v2,
+    )
+    assert isinstance(snr, np.ndarray)
+    assert snr.shape == _geometric_maps().shape[1:]
+    assert np.all(snr > 0.0)
+
+    with pytest.raises(ValueError, match="must contain 2"):
+        ActiveReceiverNetwork(
+            frequency_hz=1.0e6,
+            coil_impedance_ohm=np.eye(2),
+            lna_input_models=(models[0],),
+        )
+
+def test_lna_parallel_input_capacitance_and_validation() -> None:
+    model = LNAInputModel(
+        input_resistance_ohm=1.0e6,
+        input_capacitance_f=5.0e-12,
+    )
+    frequency = 10.0e6
+    expected = 1.0 / (1.0 / 1.0e6 + 1j * 2.0 * np.pi * frequency * 5.0e-12)
+    assert model.input_impedance_ohm(frequency) == pytest.approx(expected)
+
+    with pytest.raises(ValueError, match="magnitude <= 1"):
+        LNAInputModel(
+            input_resistance_ohm=50.0,
+            voltage_current_noise_correlation=1.01,
+        )
+    with pytest.raises(ValueError, match="finite and positive"):
+        LNAInputModel(input_resistance_ohm=0.0)
+
+
+def test_optimal_channel_snr_matches_quadratic_form() -> None:
+    signal = np.array([1.0 + 0.5j, -0.25j])
+    covariance = np.array([[2.0, 0.25j], [-0.25j, 1.0]])
+    expected = np.sqrt(
+        np.real(signal.conj() @ np.linalg.solve(covariance, signal))
+    )
+    assert optimal_channel_snr(signal, covariance) == pytest.approx(expected)
 
 
 def test_noise_scaling_preserves_correlation_shape() -> None:

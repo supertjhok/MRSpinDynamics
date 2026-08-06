@@ -284,6 +284,23 @@ See the
 [receiver decoupling and LNA study plan](../receiver_decoupling_lna_study_plan.md)
 for the staged passive-decoupling and front-end comparison.
 
+## Compare Matched and High-Impedance LNAs
+
+This Phase 4.5 example keeps the two-coil PEEC source and reciprocal maps fixed
+while changing the active input model. It compares a directly matched 50-ohm
+front end with an on-coil high-input-impedance front end across frequency,
+showing loading, induced-current isolation, separated noise, noise figure, and
+covariance-optimal array SNR:
+
+```powershell
+python examples\plot_receiver_lna_architectures.py --frequency-mhz 2 --points 61 --pixels 31 --output results\receiver_lna_architectures.png
+```
+
+The component values are illustrative rather than specifications for particular
+amplifiers. See the [coupled receiver-network guide](../receiver_networks.md)
+for the active-noise equations and the
+[Phase 4.5 study plan](../receiver_decoupling_lna_study_plan.md) for the pending
+cable, noise-parameter, robustness, and end-to-end imaging stages.
 ## Plot Custom Imaging Fields
 
 This example builds a small synthetic phantom with custom B0, transmit-B1, and

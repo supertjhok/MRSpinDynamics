@@ -2215,6 +2215,10 @@ No public classes or functions found.
 | function | `scale_noise_covariance(covariance: np.ndarray, noise_std: float) -> np.ndarray` | Scale a covariance shape to a requested mean per-channel RMS. |
 | class | `ReceiverNetworkSolution` | Loaded sensitivity maps and output-noise diagnostics. |
 | class | `ReceiverNetwork` | Reciprocal passive coil/load network at one receive frequency. |
+| class | `LNAInputModel` | One active LNA input and its input-referred noise model. |
+| class | `ActiveReceiverNetworkSolution` | Loaded maps and separated active-front-end noise contributions. |
+| class | `ActiveReceiverNetwork` | Coupled passive source network terminated by active LNA inputs. |
+| function | `optimal_channel_snr(signal: Iterable[complex] | np.ndarray, covariance: np.ndarray) -> float | np.ndarray` | Return covariance-optimal SNR for channel-leading signal values. |
 | class | `ReceiverCouplingSweep` | Passive frequency-sweep diagnostics for two selected receiver ports. |
 | function | `mutual_cancellation_capacitance(mutual_inductance_h: float, target_frequency_hz: float) -> float` | Return the shared capacitance that cancels ``j*omega*M`` at a target. |
 | function | `shared_capacitor_mesh_impedance(frequency_hz: Iterable[float] | np.ndarray, capacitance_f: float, *, n_ports: int = 2, ports: tuple[int, int] = (0, 1), branch_signs: tuple[int, int] = (1, 1), series_resistance_ohm: float = 0.0, series_inductance_h: float = 0.0) -> np.ndarray` | Return a frequency-leading mesh matrix for one shared R-L-C branch. |

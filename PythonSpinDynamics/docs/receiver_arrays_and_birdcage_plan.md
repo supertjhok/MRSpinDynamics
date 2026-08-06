@@ -1,7 +1,7 @@
 # Receiver Arrays, Sensitivity Encoding, and Quadrature-Coil Plan
 
-**Status:** Phase 4 implemented 2026-08-05; Phase 4.5 receiver decoupling/LNA
-study precedes Phase 5
+**Status:** Phase 4 implemented 2026-08-05; Phase 4.5 passive cancellation and
+active-LNA foundations implemented, with robustness studies preceding Phase 5
 
 This note records the repository assessment and staged implementation plan for
 multiple receiver coils, sensitivity encoding, mutual coupling, quadrature

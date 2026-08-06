@@ -146,6 +146,61 @@ induced volts. Consequently:
 An explicitly supplied `receiver_noise_covariance` is rejected when a network
 is present because it would bypass the circuit-derived covariance.
 
+## Active LNA inputs
+
+`ActiveReceiverNetwork` separates active input loading from amplifier noise.
+For source impedance matrix \(Z_s\), diagonal active input impedance \(Z_{in}\),
+and gain matrix \(G\),
+
+\[
+  H=Z_{in}(Z_s+Z_{in})^{-1},\qquad
+  Z_p=(Z_s^{-1}+Z_{in}^{-1})^{-1}.
+\]
+
+Only the passive coil, sample, tuning, and matching network generates source
+thermal noise:
+
+\[
+  \Psi_s=G H\,[4k_B T\Delta f\,\operatorname{Re}_H(Z_s)]\,H^H G^H.
+\]
+
+The LNA input resistance is not assigned a physical temperature. Instead an
+`LNAInputModel` supplies voltage-noise spectrum \(C_{ee}\), current-noise
+spectrum \(C_{ii}\), and their complex cross spectrum \(C_{ei}\). Their
+input-node contribution is
+
+\[
+  C_{ee}+Z_pC_{ii}Z_p^H+C_{ei}Z_p^H+Z_pC_{ei}^H,
+\]
+
+which is then propagated through gain. Optional output-referred downstream
+noise is added after gain. This prevents the common error of counting both the
+active input resistance's Johnson noise and the LNA's specified noise.
+
+```python
+from spin_dynamics.workflows import ActiveReceiverNetwork, LNAInputModel
+
+high_z = LNAInputModel(
+    input_resistance_ohm=1.0e6,
+    input_capacitance_f=5.0e-12,
+    voltage_noise_density_v_per_sqrt_hz=1.2e-9,
+    current_noise_density_a_per_sqrt_hz=5.0e-15,
+    voltage_gain_v_per_v=100.0,
+)
+network = ActiveReceiverNetwork(
+    frequency_hz=2.0e6,
+    coil_impedance_ohm=z_coil,
+    series_impedance_ohm=z_tuning,
+    lna_input_models=high_z,
+    noise_bandwidth_hz=10.0e3,
+)
+solution = network.solve(reciprocal_maps)
+```
+
+The solution reports every noise contribution, the loaded maps, input and
+output transfer matrices, channel correlation, and per-channel noise figure.
+`optimal_channel_snr` evaluates the covariance-optimal array SNR for a channel
+vector or channel-leading map.
 ## Experiment facade
 
 Attach the network to the ordered `RxArray` ports:
@@ -263,6 +318,40 @@ python examples/plot_receiver_resonant_cancellation.py \
 See the
 [receiver decoupling and LNA study plan](receiver_decoupling_lna_study_plan.md)
 for the subsequent robustness and active-front-end comparisons.
+
+## Matched versus high-impedance active front ends
+
+The comparison should be interpreted as an architecture trade rather than a
+universal ranking:
+
+| Architecture | Main advantages | Main costs and risks |
+| --- | --- | --- |
+| Matched 50 ohm | Standardized measurement and interconnect environment; predictable cable termination; low sensitivity to input capacitance; many low-noise devices are optimized near 50 ohm. | Resistive loading reduces open-circuit signal and loaded Q; matching components can add loss; a remote first stage incurs pre-LNA cable loss; loading alone is not the same as tuned preamplifier decoupling. |
+| On-coil high-Z | Preserves coil voltage; strongly suppresses terminal current in this voltage-mode model; removes most pre-LNA cable length; very low current-noise devices can suit high source impedance. | Voltage noise can dominate a low-resistance coil; input capacitance limits impedance and bandwidth; large RF voltage raises linearity/recovery concerns; stability, biasing, heating, and transmit protection move onto the coil. |
+
+A conventional MRI preamplifier-decoupling network is a third architecture:
+a low device input impedance is transformed through a narrowband network into a
+high impedance at the coil port. That transformation, along with cable phase,
+is part of the next robustness stage rather than being approximated by either
+row above.
+Run the Phase 4.5 active-front-end study with:
+
+```bash
+python examples/plot_receiver_lna_architectures.py \
+  --frequency-mhz 2.0 --points 61 --pixels 31 \
+  --output results/receiver_lna_architectures.png
+```
+
+The example uses the same two-coil PEEC source and reciprocal maps for both
+front ends. It compares input impedance, signal transfer, induced-current
+coupling, noise figure, separated noise components, spatial array SNR, and the
+high-Z/matched SNR ratio. Device noise values are deliberately illustrative.
+The important result is the trade-off: a high input impedance can suppress
+coil current and preserve open-circuit voltage while a larger voltage-noise
+density can still reduce SNR. A high-Z LNA by itself is not a model of a
+high-impedance-coil topology; the coil resonance and matching network remain
+explicit parts of `source_impedance_ohm`.
+
 ## Current boundary
 
 The multiport PEEC extractor currently gives one terminal port per simple
@@ -274,9 +363,11 @@ preamplifier noise, but they do not yet provide:
 
 - arbitrary node/branch graphs;
 - the per-segment full PEEC formulation across several conductors;
-- distributed transmission lines or measured S-parameter import;
+- distributed transmission lines, transformers, or measured S-parameter import;
 - automatic sample-loss impedance extraction;
-- correlated preamplifier voltage/current cross spectra.
+- standard LNA noise-parameter conversion, cross-channel active-noise
+  covariance, stability, compression, and dynamic-range diagnostics;
+- direct `Experiment`/Roemer/SENSE integration for `ActiveReceiverNetwork`.
 
 Those extensions can build on the same terminal API. Phase 5 adds the explicit
 branched graph and prescribed-current reference model needed for birdcage

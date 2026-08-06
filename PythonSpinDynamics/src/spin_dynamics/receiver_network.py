@@ -327,6 +327,405 @@ class ReceiverNetwork:
 
 
 @dataclass(frozen=True)
+class LNAInputModel:
+    """One active LNA input and its input-referred noise model.
+
+    ``input_resistance_ohm + 1j * input_reactance_ohm`` is placed in parallel
+    with ``input_capacitance_f``. Voltage and current noise densities are
+    amplitude spectral densities. Their complex correlation coefficient sets
+    the cross spectrum ``rho * en * in``. The input impedance is an active
+    termination and therefore does not generate Johnson noise automatically.
+    """
+
+    input_resistance_ohm: float
+    input_reactance_ohm: float = 0.0
+    input_capacitance_f: float = 0.0
+    voltage_noise_density_v_per_sqrt_hz: float = 0.0
+    current_noise_density_a_per_sqrt_hz: float = 0.0
+    voltage_current_noise_correlation: complex = 0.0j
+    voltage_gain_v_per_v: complex = 1.0
+    output_noise_density_v_per_sqrt_hz: float = 0.0
+
+    def __post_init__(self) -> None:
+        resistance = float(self.input_resistance_ohm)
+        reactance = float(self.input_reactance_ohm)
+        capacitance = float(self.input_capacitance_f)
+        voltage_noise = float(self.voltage_noise_density_v_per_sqrt_hz)
+        current_noise = float(self.current_noise_density_a_per_sqrt_hz)
+        correlation = complex(self.voltage_current_noise_correlation)
+        gain = complex(self.voltage_gain_v_per_v)
+        output_noise = float(self.output_noise_density_v_per_sqrt_hz)
+        if not np.isfinite(resistance) or resistance <= 0.0:
+            raise ValueError("input_resistance_ohm must be finite and positive")
+        if not np.isfinite(reactance):
+            raise ValueError("input_reactance_ohm must be finite")
+        if not np.isfinite(capacitance) or capacitance < 0.0:
+            raise ValueError("input_capacitance_f must be finite and non-negative")
+        if not np.isfinite(voltage_noise) or voltage_noise < 0.0:
+            raise ValueError(
+                "voltage_noise_density_v_per_sqrt_hz must be finite and non-negative"
+            )
+        if not np.isfinite(current_noise) or current_noise < 0.0:
+            raise ValueError(
+                "current_noise_density_a_per_sqrt_hz must be finite and non-negative"
+            )
+        if not np.isfinite(correlation) or abs(correlation) > 1.0 + 1.0e-12:
+            raise ValueError(
+                "voltage_current_noise_correlation must be finite with magnitude <= 1"
+            )
+        if not np.isfinite(gain) or gain == 0.0:
+            raise ValueError("voltage_gain_v_per_v must be finite and non-zero")
+        if not np.isfinite(output_noise) or output_noise < 0.0:
+            raise ValueError(
+                "output_noise_density_v_per_sqrt_hz must be finite and non-negative"
+            )
+        object.__setattr__(self, "input_resistance_ohm", resistance)
+        object.__setattr__(self, "input_reactance_ohm", reactance)
+        object.__setattr__(self, "input_capacitance_f", capacitance)
+        object.__setattr__(
+            self,
+            "voltage_noise_density_v_per_sqrt_hz",
+            voltage_noise,
+        )
+        object.__setattr__(
+            self,
+            "current_noise_density_a_per_sqrt_hz",
+            current_noise,
+        )
+        object.__setattr__(
+            self,
+            "voltage_current_noise_correlation",
+            correlation,
+        )
+        object.__setattr__(self, "voltage_gain_v_per_v", gain)
+        object.__setattr__(
+            self,
+            "output_noise_density_v_per_sqrt_hz",
+            output_noise,
+        )
+
+    def input_impedance_ohm(self, frequency_hz: float) -> complex:
+        """Return the parallel R-X-C input impedance at ``frequency_hz``."""
+
+        frequency = float(frequency_hz)
+        if not np.isfinite(frequency) or frequency <= 0.0:
+            raise ValueError("frequency_hz must be finite and positive")
+        base = self.input_resistance_ohm + 1j * self.input_reactance_ohm
+        admittance = 1.0 / base + 1j * 2.0 * np.pi * frequency * self.input_capacitance_f
+        return complex(1.0 / admittance)
+
+    @property
+    def voltage_noise_spectrum_v2_per_hz(self) -> float:
+        return self.voltage_noise_density_v_per_sqrt_hz**2
+
+    @property
+    def current_noise_spectrum_a2_per_hz(self) -> float:
+        return self.current_noise_density_a_per_sqrt_hz**2
+
+    @property
+    def voltage_current_cross_spectrum_v_a_per_hz(self) -> complex:
+        return (
+            self.voltage_current_noise_correlation
+            * self.voltage_noise_density_v_per_sqrt_hz
+            * self.current_noise_density_a_per_sqrt_hz
+        )
+
+
+def _as_lna_models(
+    value: LNAInputModel | Iterable[LNAInputModel],
+    n_channels: int,
+) -> tuple[LNAInputModel, ...]:
+    if isinstance(value, LNAInputModel):
+        return (value,) * n_channels
+    models = tuple(value)
+    if len(models) != n_channels or not all(
+        isinstance(model, LNAInputModel) for model in models
+    ):
+        raise ValueError(
+            f"lna_input_models must contain {n_channels} LNAInputModel values"
+        )
+    return models
+
+
+@dataclass(frozen=True)
+class ActiveReceiverNetworkSolution:
+    """Loaded maps and separated active-front-end noise contributions."""
+
+    geometric_sensitivities: np.ndarray
+    effective_sensitivities: np.ndarray
+    input_transfer_matrix: np.ndarray
+    gain_matrix: np.ndarray
+    transfer_matrix: np.ndarray
+    source_impedance_ohm: np.ndarray
+    input_impedance_ohm: np.ndarray
+    total_impedance_ohm: np.ndarray
+    input_node_impedance_ohm: np.ndarray
+    source_noise_covariance_v2: np.ndarray
+    lna_voltage_noise_covariance_v2: np.ndarray
+    lna_current_noise_covariance_v2: np.ndarray
+    lna_cross_noise_covariance_v2: np.ndarray
+    downstream_noise_covariance_v2: np.ndarray
+    noise_covariance_v2: np.ndarray
+    noise_correlation: np.ndarray
+    noise_figure_db: np.ndarray
+    frequency_hz: float
+
+
+@dataclass(frozen=True, eq=False)
+class ActiveReceiverNetwork:
+    """Coupled passive source network terminated by active LNA inputs.
+
+    Coil and series impedances are passive and generate thermal noise at
+    ``temperature_k``. LNA input resistance controls loading only; amplifier
+    voltage/current noise is supplied separately by ``lna_input_models``. This
+    avoids treating an active input impedance as a same-temperature resistor.
+    """
+
+    frequency_hz: float
+    coil_impedance_ohm: np.ndarray
+    lna_input_models: LNAInputModel | Iterable[LNAInputModel]
+    series_impedance_ohm: complex | np.ndarray | None = None
+    temperature_k: float = 293.15
+    noise_bandwidth_hz: float = 1.0
+
+    def __post_init__(self) -> None:
+        frequency = float(self.frequency_hz)
+        temperature = float(self.temperature_k)
+        bandwidth = float(self.noise_bandwidth_hz)
+        if not np.isfinite(frequency) or frequency <= 0.0:
+            raise ValueError("frequency_hz must be finite and positive")
+        if not np.isfinite(temperature) or temperature <= 0.0:
+            raise ValueError("temperature_k must be finite and positive")
+        if not np.isfinite(bandwidth) or bandwidth <= 0.0:
+            raise ValueError("noise_bandwidth_hz must be finite and positive")
+        coil = np.asarray(self.coil_impedance_ohm, dtype=np.complex128)
+        if coil.ndim != 2 or coil.shape[0] == 0 or coil.shape[0] != coil.shape[1]:
+            raise ValueError("coil_impedance_ohm must be a non-empty square matrix")
+        coil = _validate_passive_reciprocal(coil, "coil_impedance_ohm")
+        n_channels = int(coil.shape[0])
+        series = (
+            np.zeros_like(coil)
+            if self.series_impedance_ohm is None
+            else _validate_passive_reciprocal(
+                _as_impedance_matrix(
+                    self.series_impedance_ohm,
+                    n_channels,
+                    "series_impedance_ohm",
+                ),
+                "series_impedance_ohm",
+            )
+        )
+        models = _as_lna_models(self.lna_input_models, n_channels)
+        input_impedance = np.diag(
+            [model.input_impedance_ohm(frequency) for model in models]
+        )
+        total = coil + series + input_impedance
+        if np.linalg.matrix_rank(total) < n_channels:
+            raise ValueError("the active receiver impedance matrix must be nonsingular")
+        object.__setattr__(self, "frequency_hz", frequency)
+        object.__setattr__(self, "temperature_k", temperature)
+        object.__setattr__(self, "noise_bandwidth_hz", bandwidth)
+        object.__setattr__(self, "coil_impedance_ohm", coil)
+        object.__setattr__(self, "series_impedance_ohm", series)
+        object.__setattr__(self, "lna_input_models", models)
+
+    @property
+    def n_channels(self) -> int:
+        return int(self.coil_impedance_ohm.shape[0])
+
+    @property
+    def source_impedance_ohm(self) -> np.ndarray:
+        return self.coil_impedance_ohm + self.series_impedance_ohm
+
+    @property
+    def input_impedance_ohm(self) -> np.ndarray:
+        return np.diag(
+            [
+                model.input_impedance_ohm(self.frequency_hz)
+                for model in self.lna_input_models
+            ]
+        )
+
+    @property
+    def total_impedance_ohm(self) -> np.ndarray:
+        return self.source_impedance_ohm + self.input_impedance_ohm
+
+    @property
+    def input_transfer_matrix(self) -> np.ndarray:
+        """Map open-circuit coil voltage to the voltage at each LNA input."""
+
+        return self.input_impedance_ohm @ np.linalg.inv(self.total_impedance_ohm)
+
+    @property
+    def input_node_impedance_ohm(self) -> np.ndarray:
+        """Source/input parallel impedance driven by LNA current noise."""
+
+        return np.linalg.pinv(
+            np.linalg.pinv(self.source_impedance_ohm, hermitian=False)
+            + np.linalg.pinv(self.input_impedance_ohm, hermitian=False),
+            hermitian=False,
+        )
+
+    @property
+    def gain_matrix(self) -> np.ndarray:
+        return np.diag(
+            [model.voltage_gain_v_per_v for model in self.lna_input_models]
+        )
+
+    @property
+    def transfer_matrix(self) -> np.ndarray:
+        """Map open-circuit coil voltage to LNA output voltage."""
+
+        return self.gain_matrix @ self.input_transfer_matrix
+
+    def solve(
+        self,
+        geometric_sensitivities: Iterable[complex] | np.ndarray,
+    ) -> ActiveReceiverNetworkSolution:
+        """Load reciprocal maps and propagate passive plus active noise."""
+
+        sensitivities = np.asarray(geometric_sensitivities, dtype=np.complex128)
+        if sensitivities.ndim < 2 or sensitivities.shape[0] != self.n_channels:
+            raise ValueError(
+                "geometric_sensitivities must be channel-leading with one "
+                "map per network port"
+            )
+        if not np.all(np.isfinite(sensitivities)):
+            raise ValueError("geometric_sensitivities must be finite")
+
+        transfer_input = self.input_transfer_matrix
+        gain = self.gain_matrix
+        transfer = gain @ transfer_input
+        flat = sensitivities.reshape(self.n_channels, -1)
+        effective = (transfer @ flat).reshape(sensitivities.shape)
+        bandwidth = self.noise_bandwidth_hz
+        node_impedance = self.input_node_impedance_ohm
+
+        source_open_density = (
+            4.0
+            * BOLTZMANN_J_PER_K
+            * self.temperature_k
+            * _dissipative_part(self.source_impedance_ohm)
+        )
+        source_input = (
+            bandwidth
+            * transfer_input
+            @ source_open_density
+            @ transfer_input.conj().T
+        )
+        voltage_density = np.diag(
+            [
+                model.voltage_noise_spectrum_v2_per_hz
+                for model in self.lna_input_models
+            ]
+        )
+        current_density = np.diag(
+            [
+                model.current_noise_spectrum_a2_per_hz
+                for model in self.lna_input_models
+            ]
+        )
+        cross_density = np.diag(
+            [
+                model.voltage_current_cross_spectrum_v_a_per_hz
+                for model in self.lna_input_models
+            ]
+        )
+        voltage_input = bandwidth * voltage_density
+        current_input = (
+            bandwidth
+            * node_impedance
+            @ current_density
+            @ node_impedance.conj().T
+        )
+        cross_input = bandwidth * (
+            cross_density @ node_impedance.conj().T
+            + node_impedance @ cross_density.conj().T
+        )
+
+        def output_covariance(value: np.ndarray) -> np.ndarray:
+            return _dissipative_part(gain @ value @ gain.conj().T)
+
+        source_output = output_covariance(source_input)
+        voltage_output = output_covariance(voltage_input)
+        current_output = output_covariance(current_input)
+        cross_output = output_covariance(cross_input)
+        downstream_output = bandwidth * np.diag(
+            [
+                model.output_noise_density_v_per_sqrt_hz**2
+                for model in self.lna_input_models
+            ]
+        )
+        covariance = _dissipative_part(
+            source_output
+            + voltage_output
+            + current_output
+            + cross_output
+            + downstream_output
+        )
+        eigenvalues, eigenvectors = np.linalg.eigh(covariance)
+        covariance_scale = max(
+            float(np.max(np.abs(covariance))),
+            np.finfo(np.float64).tiny,
+        )
+        tolerance = 1.0e-12 * covariance_scale
+        if float(np.min(eigenvalues)) < -tolerance:
+            raise ValueError("active receiver noise covariance is not physical")
+        covariance = (
+            eigenvectors * np.clip(eigenvalues, 0.0, None)[np.newaxis, :]
+        ) @ eigenvectors.conj().T
+        source_variance = np.real(np.diag(source_output))
+        total_variance = np.real(np.diag(covariance))
+        with np.errstate(divide="ignore", invalid="ignore"):
+            noise_figure = 10.0 * np.log10(total_variance / source_variance)
+
+        return ActiveReceiverNetworkSolution(
+            geometric_sensitivities=sensitivities,
+            effective_sensitivities=effective,
+            input_transfer_matrix=transfer_input,
+            gain_matrix=gain,
+            transfer_matrix=transfer,
+            source_impedance_ohm=self.source_impedance_ohm,
+            input_impedance_ohm=self.input_impedance_ohm,
+            total_impedance_ohm=self.total_impedance_ohm,
+            input_node_impedance_ohm=node_impedance,
+            source_noise_covariance_v2=source_output,
+            lna_voltage_noise_covariance_v2=voltage_output,
+            lna_current_noise_covariance_v2=current_output,
+            lna_cross_noise_covariance_v2=cross_output,
+            downstream_noise_covariance_v2=downstream_output,
+            noise_covariance_v2=covariance,
+            noise_correlation=covariance_to_correlation(covariance),
+            noise_figure_db=noise_figure,
+            frequency_hz=self.frequency_hz,
+        )
+
+
+def optimal_channel_snr(
+    signal: Iterable[complex] | np.ndarray,
+    covariance: np.ndarray,
+) -> float | np.ndarray:
+    """Return covariance-optimal SNR for channel-leading signal values."""
+
+    values = np.asarray(signal, dtype=np.complex128)
+    matrix = np.asarray(covariance, dtype=np.complex128)
+    if values.ndim == 0:
+        raise ValueError("signal must have a leading channel dimension")
+    n_channels = int(values.shape[0])
+    if matrix.shape != (n_channels, n_channels):
+        raise ValueError(
+            f"covariance must have shape ({n_channels}, {n_channels})"
+        )
+    matrix = _validate_covariance(matrix, n_channels, "covariance")
+    flat = values.reshape(n_channels, -1)
+    weighted = np.linalg.pinv(matrix, hermitian=True) @ flat
+    snr_squared = np.real(np.sum(flat.conj() * weighted, axis=0))
+    result = np.sqrt(np.clip(snr_squared, 0.0, None)).reshape(values.shape[1:])
+    if result.ndim == 0:
+        return float(result)
+    return result
+
+@dataclass(frozen=True)
 class ReceiverCouplingSweep:
     """Passive frequency-sweep diagnostics for two selected receiver ports."""
 
