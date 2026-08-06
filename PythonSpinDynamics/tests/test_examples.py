@@ -338,7 +338,7 @@ class ExampleSmokeTests(unittest.TestCase):
         result = run_example(
             "examples/plot_receiver_array_cpmg.py",
             "--pixels",
-            "4",
+            "5",
             "--ny",
             "1",
             "--noise-std",
@@ -347,6 +347,11 @@ class ExampleSmokeTests(unittest.TestCase):
             str(output),
         )
         self.assertIn("channel k-space shape", result.stdout)
+        shape_error = float(
+            result.stdout.split("clean reconstruction shape error: ", 1)[1]
+            .splitlines()[0]
+        )
+        self.assertLess(shape_error, 0.05)
         self.assertTrue(output.exists())
 
     def test_receiver_array_sense_example_writes_png(self) -> None:
@@ -356,16 +361,18 @@ class ExampleSmokeTests(unittest.TestCase):
             "examples/plot_receiver_array_sense.py",
             "--pixels",
             "4",
-            "--ny",
-            "1",
             "--noise-std",
             "0",
             "--output",
             str(output),
         )
         self.assertIn("sampling fraction", result.stdout)
+        shape_error = float(
+            result.stdout.split("clean reconstruction shape error: ", 1)[1]
+            .splitlines()[0]
+        )
+        self.assertLess(shape_error, 1e-5)
         self.assertTrue(output.exists())
-
     def test_receiver_network_coupling_example_writes_png(self) -> None:
         LOCAL_TMP.mkdir(exist_ok=True)
         output = LOCAL_TMP / f"receiver_network_{uuid.uuid4().hex}.png"
@@ -394,6 +401,24 @@ class ExampleSmokeTests(unittest.TestCase):
         self.assertIn("target isolation improvement", result.stdout)
         self.assertTrue(output.exists())
 
+    def test_receiver_examples_bootstrap_source_tree(self) -> None:
+        scripts = (
+            "plot_receiver_array_cpmg.py",
+            "plot_receiver_array_sense.py",
+            "plot_receiver_network_coupling.py",
+            "plot_receiver_resonant_cancellation.py",
+        )
+        for script in scripts:
+            with self.subTest(script=script):
+                source = (EXAMPLES / script).read_text(encoding="utf-8")
+                self.assertIn(
+                    "from _source_path import add_src_to_path",
+                    source,
+                )
+                self.assertLess(
+                    source.index("add_src_to_path()"),
+                    source.index("def main()"),
+                )
     def test_plot_examples_show_interactively_by_default(self) -> None:
         for script in sorted(EXAMPLES.glob("plot_*.py")):
             source = script.read_text(encoding="utf-8")

@@ -145,15 +145,18 @@ channel count, and image dimensions not divisible by the acceleration.
 
 ```bash
 python examples/plot_receiver_array_sense.py \
-  --pixels 8 --ny 1 --noise-std 0.015 \
+  --pixels 8 --noise-std 0.20 \
   --output results/receiver_array_sense.png
 ```
 
-The example solves two offset receive coils by reciprocity, applies R=2
-sampling with correlated noise, and plots the reference, zero-filled RSS,
-clean/noisy SENSE images, g-factor, and encoding condition number.
-
-## Current boundary
+The example solves two offset receive coils by reciprocity, then uses the direct
+Cartesian `P F S` operator to generate an exact R=2 acquisition from the spin
+density. This keeps the SENSE demonstration on its natural even matrix without
+inheriting the legacy compact CPMG phase-encode grid. It plots the reference,
+clean and noisy SENSE reconstructions on one intensity scale, the zero-filled
+RSS image, an independently scaled `Re(noisy - clean)` residual, and g-factor.
+A printed scale-independent shape error verifies that the clean reconstruction
+recovers the reference.
 
 This phase implements uniform single-axis Cartesian SENSE with supplied or
 simulated sensitivity maps. It does not estimate maps from calibration data,

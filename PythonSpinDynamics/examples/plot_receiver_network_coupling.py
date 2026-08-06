@@ -6,8 +6,11 @@ import argparse
 import dataclasses
 from pathlib import Path
 
-import matplotlib.pyplot as plt
 import numpy as np
+
+from _source_path import add_src_to_path, load_matplotlib
+
+add_src_to_path()
 
 from spin_dynamics.experiment import (
     Acquisition,
@@ -113,6 +116,8 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
+    plt = load_matplotlib(headless=args.output is not None)
+    assert plt is not None
     if args.pixels < 2:
         raise ValueError("--pixels must be at least 2")
     if args.frequency_mhz <= 0.0:

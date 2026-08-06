@@ -12,14 +12,23 @@ from pathlib import Path
 
 import numpy as np
 
+from _source_path import add_src_to_path, load_matplotlib
+
+add_src_to_path()
+
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Plot a two-channel reciprocal Rx-array CPMG simulation."
     )
-    parser.add_argument("--pixels", type=int, default=8)
+    parser.add_argument("--pixels", type=int, default=9)
     parser.add_argument("--ny", type=int, default=1)
-    parser.add_argument("--noise-std", type=float, default=0.02)
+    parser.add_argument(
+        "--noise-std",
+        type=float,
+        default=0.25,
+        help="Per-channel complex k-space noise standard deviation.",
+    )
     parser.add_argument("--correlation", type=float, default=0.35)
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument(
@@ -42,14 +51,16 @@ def _phantom(pixels: int) -> np.ndarray:
 
 def main() -> None:
     args = _parse_args()
-    if args.pixels < 2 or args.ny < 1:
-        raise ValueError("pixels must be at least two and ny must be positive")
+    if args.pixels < 3 or args.pixels % 2 == 0:
+        raise ValueError("pixels must be an odd integer of at least three")
+    if args.ny < 1:
+        raise ValueError("ny must be positive")
     if args.noise_std < 0.0:
         raise ValueError("noise-std must be non-negative")
     if not -1.0 < args.correlation < 1.0:
         raise ValueError("correlation must lie strictly between -1 and 1")
-
-    import matplotlib.pyplot as plt
+    plt = load_matplotlib(headless=args.output is not None)
+    assert plt is not None
 
     from spin_dynamics.experiment import (
         Acquisition,
@@ -75,8 +86,16 @@ def main() -> None:
         [[1.0, args.correlation], [args.correlation, 1.0]],
         dtype=np.complex128,
     )
+    # The legacy phase-encode gradients are symmetric about k=0. For an odd
+    # matrix, this FOV makes their phase increments exactly match the DFT grid.
+    dft_matched_fov = args.pixels**3 / (args.pixels - 1) ** 2
     experiment = Experiment(
-        sequence=CPMGImaging(num_echoes=1, ny=args.ny, maxoffs=0.5),
+        sequence=CPMGImaging(
+            num_echoes=1,
+            ny=args.ny,
+            maxoffs=0.5,
+            fov=(dft_matched_fov, dft_matched_fov),
+        ),
         sample=Sample(phantom=Phantom(rho)),
         hardware=Hardware(
             rx_coil=receivers,
@@ -90,28 +109,69 @@ def main() -> None:
     result = experiment.run().result
 
     echo = 0
-    noisy_channels = (
-        result.channel_image_noisy
-        if result.channel_image_noisy is not None
-        else result.channel_image
-    )
-    noisy_roemer = (
-        result.roemer_combined_image_noisy
+    clean_reconstruction = result.roemer_combined_image[:, :, echo]
+    noisy_reconstruction = (
+        result.roemer_combined_image_noisy[:, :, echo]
         if result.roemer_combined_image_noisy is not None
-        else result.roemer_combined_image
+        else clean_reconstruction
+    )
+    noise_residual = noisy_reconstruction - clean_reconstruction
+    reconstruction_limit = max(
+        float(np.max(np.abs(clean_reconstruction))),
+        float(np.max(np.abs(noisy_reconstruction))),
+    )
+    residual_component = np.real(noise_residual)
+    residual_limit = max(
+        float(np.max(np.abs(residual_component))),
+        np.finfo(np.float64).eps,
     )
     panels = (
-        (rho, "Spin density", "gray"),
-        (np.abs(result.receiver_sensitivities[0]), "|B1-| rx0", "viridis"),
-        (np.abs(result.receiver_sensitivities[1]), "|B1-| rx1", "viridis"),
-        (np.abs(noisy_channels[0, :, :, echo]), "Raw rx0", "magma"),
-        (result.rss_magnitude[:, :, echo], "RSS (clean)", "magma"),
-        (np.abs(noisy_roemer[:, :, echo]), "Roemer (with noise)", "magma"),
+        (rho, "Spin density", "gray", None, None),
+        (
+            np.abs(result.receiver_sensitivities[0]),
+            "Receive sensitivity |B1-|: rx0",
+            "viridis",
+            None,
+            None,
+        ),
+        (
+            np.abs(result.receiver_sensitivities[1]),
+            "Receive sensitivity |B1-|: rx1",
+            "viridis",
+            None,
+            None,
+        ),
+        (
+            np.abs(clean_reconstruction),
+            "Roemer reconstruction (clean)",
+            "magma",
+            0.0,
+            reconstruction_limit,
+        ),
+        (
+            np.abs(noisy_reconstruction),
+            "Roemer reconstruction (noisy)",
+            "magma",
+            0.0,
+            reconstruction_limit,
+        ),
+        (
+            residual_component,
+            "Image-space noise: Re(noisy - clean)",
+            "coolwarm",
+            -residual_limit,
+            residual_limit,
+        ),
     )
-
     fig, axes = plt.subplots(2, 3, figsize=(10.2, 6.5), constrained_layout=True)
-    for axis, (image, title, cmap) in zip(axes.flat, panels):
-        handle = axis.imshow(image, origin="lower", cmap=cmap)
+    for axis, (image, title, cmap, vmin, vmax) in zip(axes.flat, panels):
+        handle = axis.imshow(
+            image,
+            origin="lower",
+            cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
+        )
         axis.set_title(title)
         axis.set_xticks([])
         axis.set_yticks([])
@@ -131,6 +191,15 @@ def main() -> None:
         result.receiver_sensitivities[(1, *center)]
         / result.receiver_sensitivities[(0, *center)]
     )
+    clean_magnitude = np.abs(clean_reconstruction)
+    shape_scale = float(np.vdot(rho, clean_magnitude).real / np.vdot(rho, rho).real)
+    shape_error = float(
+        np.linalg.norm(clean_magnitude - shape_scale * rho)
+        / np.linalg.norm(clean_magnitude)
+    )
+    image_noise_rms = float(np.sqrt(np.mean(np.abs(noise_residual) ** 2)))
+    print(f"clean reconstruction shape error: {shape_error:.4f}")
+    print(f"image-space complex noise RMS: {image_noise_rms:.6g}")
     print(f"channel k-space shape: {result.channel_kspace.shape}")
     print(f"central rx1/rx0 phase: {np.degrees(phase):.1f} deg")
     print(f"noise covariance:\n{result.noise_covariance}")

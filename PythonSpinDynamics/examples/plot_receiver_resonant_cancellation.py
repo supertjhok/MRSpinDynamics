@@ -6,8 +6,11 @@ import argparse
 import dataclasses
 from pathlib import Path
 
-import matplotlib.pyplot as plt
 import numpy as np
+
+from _source_path import add_src_to_path, load_matplotlib
+
+add_src_to_path()
 
 from spin_dynamics.fields import extract_multiport_impedance, helical_solenoid
 from spin_dynamics.workflows import (
@@ -58,6 +61,8 @@ def main() -> None:
     parser.add_argument("--load-ohm", type=float, default=50.0)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
+    plt = load_matplotlib(headless=args.output is not None)
+    assert plt is not None
     if args.frequency_mhz <= 0.0:
         raise ValueError("--frequency-mhz must be positive")
     if not 0.0 < args.span_percent < 100.0:

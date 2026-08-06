@@ -103,16 +103,22 @@ The standalone combination helpers `sum_of_squares`,
 
 ```bash
 python examples/plot_receiver_array_cpmg.py \
-  --pixels 8 --ny 1 --noise-std 0.02 --correlation 0.35 \
+  --pixels 9 --ny 1 --noise-std 0.25 --correlation 0.35 \
   --output results/receiver_array_cpmg.png
 ```
 
-The figure shows the phantom, both reciprocal sensitivities, a raw channel,
-RSS, and the noise-aware Roemer reconstruction. The two orthogonal solenoids
-provide a useful convention check: their central receive phases differ by
-approximately 90 degrees.
+The compact CPMG phase-encode model uses a symmetric gradient grid. The example
+therefore requires an odd image matrix and selects the matching FOV so that
+k=0 is sampled and the gradient phases lie on the discrete Fourier grid. It
+prints a scale-independent clean-reconstruction shape error as a guard against
+spatial-encoding regressions.
 
-## Current boundary
+The figure shows the phantom and both reciprocal sensitivities on the top row.
+The bottom row compares clean and noisy Roemer reconstructions on one intensity
+scale, then displays `Re(noisy - clean)` on its own symmetric scale so the
+image-space noise cannot be mistaken for anatomy. The two orthogonal solenoids
+also provide a convention check: their central receive phases differ by
+approximately 90 degrees.
 
 The Phase 2 path remains the uncoupled default. An `RxArray.network` now enables
 Phase 4 loaded transfer functions, mutual coupling, and circuit-derived

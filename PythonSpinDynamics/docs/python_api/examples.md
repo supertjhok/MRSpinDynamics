@@ -226,30 +226,29 @@ inversion-recovery preparation before phase encoding and CPMG.
 
 This Phase 2 example solves two orthogonal receive coils by reciprocity, carries
 their complex B1- maps through channel-resolved ideal CPMG, adds correlated
-k-space noise, and compares a raw channel, RSS, and Roemer combination:
+k-space noise, and compares clean/noisy Roemer reconstructions with an
+independently scaled image-space noise residual. Its odd DFT-matched matrix
+keeps the compact phase-encode reconstruction spatially faithful.
 
 ```powershell
-python examples\plot_receiver_array_cpmg.py --pixels 8 --ny 1 --output results\receiver_array_cpmg.png
+python examples\plot_receiver_array_cpmg.py --pixels 9 --ny 1 --noise-std 0.25 --output results\receiver_array_cpmg.png
 ```
 
 See the [receiver-array CPMG guide](../receiver_array_imaging.md) for the array
-shapes, noise covariance convention, direct API, and present limitations.
+shapes, phase-encode grid, noise covariance convention, direct API, and present
+limitations. SENSE Imaging
 
-## Plot Cartesian SENSE Imaging
-
-This Phase 3 example solves two offset receive coils by reciprocity, applies an
-R=2 Cartesian mask and correlated channel noise, and compares the reference,
-zero-filled RSS, clean/noisy SENSE reconstruction, g-factor, and local
-encoding condition number:
+This Phase 3 example solves two offset receive coils by reciprocity and uses the
+direct Cartesian `P F S` operator for an exact R=2 acquisition. It compares the
+spin-density reference, clean/noisy SENSE reconstructions, zero-filled RSS,
+image-space noise residual, and g-factor.
 
 ```powershell
-python examples\plot_receiver_array_sense.py --pixels 8 --ny 1 --output results\receiver_array_sense.png
+python examples\plot_receiver_array_sense.py --pixels 8 --noise-std 0.20 --output results\receiver_array_sense.png
 ```
 
-See the [Cartesian SENSE guide](../sense_imaging.md) for the explicit `P F S`
-operator, whitening convention, alias-set solve, diagnostics, and limitations.
-
-## Plot Coupled Receiver Networks
+See the [Cartesian SENSE guide](../sense_imaging.md) for the encoding equations,
+noise whitening, rank and g-factor diagnostics, and current limitations. Receiver Networks
 
 This Phase 4 example extracts a reciprocal two-port PEEC impedance for two
 offset solenoids, tunes and loads the ports, applies the resulting transfer to
