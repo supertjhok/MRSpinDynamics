@@ -236,7 +236,9 @@ python examples\plot_receiver_array_cpmg.py --pixels 9 --ny 1 --noise-std 0.25 -
 
 See the [receiver-array CPMG guide](../receiver_array_imaging.md) for the array
 shapes, phase-encode grid, noise covariance convention, direct API, and present
-limitations. SENSE Imaging
+limitations.
+
+## Plot Cartesian SENSE Imaging
 
 This Phase 3 example solves two offset receive coils by reciprocity and uses the
 direct Cartesian `P F S` operator for an exact R=2 acquisition. It compares the
@@ -248,20 +250,25 @@ python examples\plot_receiver_array_sense.py --pixels 8 --noise-std 0.20 --outpu
 ```
 
 See the [Cartesian SENSE guide](../sense_imaging.md) for the encoding equations,
-noise whitening, rank and g-factor diagnostics, and current limitations. Receiver Networks
+noise whitening, rank and g-factor diagnostics, and current limitations.
+
+## Plot Coupled Receiver Networks
 
 This Phase 4 example extracts a reciprocal two-port PEEC impedance for two
 offset solenoids, tunes and loads the ports, applies the resulting transfer to
-the reciprocal maps, derives thermal/preamp noise, and plots the electrical and
-image-domain effects:
+the reciprocal maps, and derives thermal/preamp noise. Its odd DFT-matched CPMG
+grid keeps the clean reconstruction faithful to the spin density; the plot
+compares clean/noisy reconstructions on one normalized scale alongside the
+electrical diagnostics.
 
 ```powershell
-python examples\plot_receiver_network_coupling.py --pixels 6 --frequency-mhz 2 --output results\receiver_network_coupling.png
+python examples\plot_receiver_network_coupling.py --pixels 7 --frequency-mhz 2 --noise-std 0.25 --output results\receiver_network_coupling.png
 ```
 
 See the [coupled receiver-network guide](../receiver_networks.md) for the
 multiport reduction, loading convention, fluctuation-dissipation covariance,
 facade integration, and current graph-model boundary.
+
 ## Plot Resonant Receiver Decoupling
 
 This Phase 4.5 example extracts a swept two-port PEEC model, tunes both loops,
@@ -276,6 +283,7 @@ python examples\plot_receiver_resonant_cancellation.py --points 121 --frequency-
 See the
 [receiver decoupling and LNA study plan](../receiver_decoupling_lna_study_plan.md)
 for the staged passive-decoupling and front-end comparison.
+
 ## Plot Custom Imaging Fields
 
 This example builds a small synthetic phantom with custom B0, transmit-B1, and

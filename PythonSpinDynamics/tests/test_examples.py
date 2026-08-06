@@ -373,19 +373,25 @@ class ExampleSmokeTests(unittest.TestCase):
         )
         self.assertLess(shape_error, 1e-5)
         self.assertTrue(output.exists())
+
     def test_receiver_network_coupling_example_writes_png(self) -> None:
         LOCAL_TMP.mkdir(exist_ok=True)
         output = LOCAL_TMP / f"receiver_network_{uuid.uuid4().hex}.png"
         result = run_example(
             "examples/plot_receiver_network_coupling.py",
             "--pixels",
-            "4",
+            "5",
             "--noise-std",
             "0",
             "--output",
             str(output),
         )
         self.assertIn("mutual coupling coefficient", result.stdout)
+        shape_error = float(
+            result.stdout.split("clean reconstruction shape error: ", 1)[1]
+            .splitlines()[0]
+        )
+        self.assertLess(shape_error, 0.05)
         self.assertTrue(output.exists())
 
     def test_receiver_resonant_cancellation_example_writes_png(self) -> None:
@@ -419,6 +425,7 @@ class ExampleSmokeTests(unittest.TestCase):
                     source.index("add_src_to_path()"),
                     source.index("def main()"),
                 )
+
     def test_plot_examples_show_interactively_by_default(self) -> None:
         for script in sorted(EXAMPLES.glob("plot_*.py")):
             source = script.read_text(encoding="utf-8")

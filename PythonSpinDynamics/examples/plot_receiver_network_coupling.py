@@ -109,17 +109,17 @@ def _receiver_array(
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--pixels", type=int, default=6)
+    parser.add_argument("--pixels", type=int, default=7)
     parser.add_argument("--frequency-mhz", type=float, default=2.0)
     parser.add_argument("--noise-bandwidth-khz", type=float, default=10.0)
-    parser.add_argument("--noise-std", type=float, default=0.015)
+    parser.add_argument("--noise-std", type=float, default=0.25)
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     plt = load_matplotlib(headless=args.output is not None)
     assert plt is not None
-    if args.pixels < 2:
-        raise ValueError("--pixels must be at least 2")
+    if args.pixels < 3 or args.pixels % 2 == 0:
+        raise ValueError("--pixels must be an odd integer of at least 3")
     if args.frequency_mhz <= 0.0:
         raise ValueError("--frequency-mhz must be positive")
     if args.noise_bandwidth_khz <= 0.0:
@@ -131,9 +131,17 @@ def main() -> None:
         args.frequency_mhz * 1.0e6,
         args.noise_bandwidth_khz * 1.0e3,
     )
+    phantom = _phantom(args.pixels)
+    rho = phantom.rho
+    dft_matched_fov = args.pixels**3 / (args.pixels - 1) ** 2
     experiment = Experiment(
-        sequence=CPMGImaging(num_echoes=1, ny=1, maxoffs=0.1),
-        sample=Sample(phantom=_phantom(args.pixels)),
+        sequence=CPMGImaging(
+            num_echoes=1,
+            ny=1,
+            maxoffs=0.1,
+            fov=(dft_matched_fov, dft_matched_fov),
+        ),
+        sample=Sample(phantom=phantom),
         hardware=Hardware(
             rx_coil=receivers,
             plane=ImagingPlane(
@@ -154,30 +162,67 @@ def main() -> None:
     loaded_rss = np.sqrt(
         np.sum(np.abs(result.receiver_sensitivities) ** 2, axis=0)
     )
-    image = (
-        result.magnitude_noisy[..., 0]
-        if result.magnitude_noisy is not None
-        else result.magnitude[..., 0]
+    clean_reconstruction = np.abs(result.roemer_combined_image[:, :, 0])
+    noisy_reconstruction = (
+        np.abs(result.roemer_combined_image_noisy[:, :, 0])
+        if result.roemer_combined_image_noisy is not None
+        else clean_reconstruction
+    )
+    shape_scale = float(
+        np.vdot(rho, clean_reconstruction).real / np.vdot(rho, rho).real
+    )
+    clean_display = clean_reconstruction / shape_scale
+    noisy_display = noisy_reconstruction / shape_scale
+    reconstruction_limit = max(
+        float(np.max(rho)),
+        float(np.max(clean_display)),
+        float(np.max(noisy_display)),
+    )
+    shape_error = float(
+        np.linalg.norm(clean_reconstruction - shape_scale * rho)
+        / np.linalg.norm(clean_reconstruction)
     )
 
-    figure, axes = plt.subplots(2, 3, figsize=(12, 7), constrained_layout=True)
+    figure, axes = plt.subplots(2, 4, figsize=(15, 7), constrained_layout=True)
     panels = (
-        (np.abs(z_coil), r"$|Z_\mathrm{coil}|$ (ohm)", "magma"),
-        (np.abs(result.receiver_transfer_matrix), r"$|H|$", "viridis"),
-        (geometric_rss, "Geometric sensitivity RSS", "viridis"),
-        (loaded_rss, "Loaded sensitivity RSS", "viridis"),
+        (np.abs(z_coil), r"$|Z_\mathrm{coil}|$ (ohm)", "magma", None, None),
+        (np.abs(result.receiver_transfer_matrix), r"$|H|$", "viridis", None, None),
         (
             np.abs(result.receiver_network_noise_correlation),
             "Noise correlation magnitude",
             "magma",
+            None,
+            None,
         ),
-        (image, "Noise-aware Roemer image", "gray"),
+        (geometric_rss, "Geometric sensitivity RSS", "viridis", None, None),
+        (loaded_rss, "Loaded sensitivity RSS", "viridis", None, None),
+        (rho, "Spin density", "gray", 0.0, reconstruction_limit),
+        (
+            clean_display,
+            "Roemer reconstruction (clean)",
+            "gray",
+            0.0,
+            reconstruction_limit,
+        ),
+        (
+            noisy_display,
+            "Roemer reconstruction (noisy)",
+            "gray",
+            0.0,
+            reconstruction_limit,
+        ),
     )
-    for axis, (values, title, cmap) in zip(axes.flat, panels):
-        artist = axis.imshow(values, origin="lower", cmap=cmap)
+    for axis, (values, title, cmap, vmin, vmax) in zip(axes.flat, panels):
+        artist = axis.imshow(
+            values,
+            origin="lower",
+            cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
+        )
         axis.set_title(title)
-        axis.set_xlabel("channel / x")
-        axis.set_ylabel("channel / y")
+        axis.set_xticks([])
+        axis.set_yticks([])
         figure.colorbar(artist, ax=axis, shrink=0.8)
 
     coupling = inductance[0, 1] / np.sqrt(inductance[0, 0] * inductance[1, 1])
@@ -192,6 +237,7 @@ def main() -> None:
         figure.savefig(args.output, dpi=160)
         plt.close(figure)
 
+    print(f"clean reconstruction shape error: {shape_error:.4f}")
     print(f"mutual coupling coefficient: {coupling:.6f}")
     print(
         "maximum off-diagonal loaded transfer: "

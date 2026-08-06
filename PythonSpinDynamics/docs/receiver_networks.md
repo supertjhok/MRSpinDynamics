@@ -204,14 +204,17 @@ frequency-domain simulation.
 
 ```bash
 python examples/plot_receiver_network_coupling.py \
-  --pixels 6 --frequency-mhz 2.0 --noise-std 0.015 \
+  --pixels 7 --frequency-mhz 2.0 --noise-std 0.25 \
   --output results/receiver_network_coupling.png
 ```
 
 The example extracts a two-port PEEC matrix for two offset solenoids, tunes and
-loads the ports, adds an illustrative shared sample-loss matrix, solves the
-geometric and effective maps, runs CPMG imaging, and plots the transfer,
-sensitivity, noise-correlation, and image effects.
+loads the ports, adds an illustrative shared sample-loss matrix, and solves the
+geometric and effective maps plus circuit-derived covariance. Its compact CPMG
+acquisition uses an odd DFT-matched grid. The figure includes the spin density
+and clean/noisy Roemer reconstructions on one normalized intensity scale, along
+with impedance, transfer, sensitivity, and noise-correlation diagnostics. A
+printed scale-independent shape error guards the reconstruction.
 
 ## Resonant cancellation sweep
 
