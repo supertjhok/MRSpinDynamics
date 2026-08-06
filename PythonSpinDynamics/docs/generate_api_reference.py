@@ -88,6 +88,7 @@ MODULES = [
     "experiment.serialization",
     "experiment.specs",
     "experiment.wiring",
+    "fields.birdcage",
     "fields.coil_peec",
     "fields.coil_properties",
     "fields.fasthenry_interop",

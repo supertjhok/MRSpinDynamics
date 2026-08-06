@@ -16,6 +16,17 @@ spatial structure is factored here so imaging and diffusion share one
 representation and one gradient-coupling rule.
 """
 
+from spin_dynamics.fields.birdcage import (
+    BirdcageCurrentMode,
+    BirdcageFieldMetrics,
+    BirdcageFieldSolution,
+    BirdcageGeometry,
+    birdcage_current_mode,
+    birdcage_field_metrics,
+    birdcage_linear_mode,
+    birdcage_quadrature_mode,
+    solve_birdcage_field,
+)
 from spin_dynamics.fields.coils import (
     conducting_ring,
     cylindrical_shield,
@@ -239,6 +250,16 @@ __all__ = [
     "sample_halbach_dipole_field",
     "sample_magnet_field",
     "segment_field_sensitivity",
+    # prescribed-current birdcage reference model
+    "BirdcageGeometry",
+    "BirdcageCurrentMode",
+    "BirdcageFieldSolution",
+    "BirdcageFieldMetrics",
+    "birdcage_current_mode",
+    "birdcage_linear_mode",
+    "birdcage_quadrature_mode",
+    "solve_birdcage_field",
+    "birdcage_field_metrics",
     # coils
     "solenoid",
     "planar_spiral",

@@ -394,6 +394,37 @@ class ExampleSmokeTests(unittest.TestCase):
         self.assertLess(shape_error, 0.05)
         self.assertTrue(output.exists())
 
+    def test_birdcage_quadrature_example_writes_png(self) -> None:
+        LOCAL_TMP.mkdir(exist_ok=True)
+        output = LOCAL_TMP / f"birdcage_quadrature_{uuid.uuid4().hex}.png"
+        result = run_example(
+            "examples/plot_birdcage_quadrature.py",
+            "--grid",
+            "17",
+            "--ring-segments",
+            "4",
+            "--output",
+            str(output),
+        )
+        self.assertIn("maximum end-ring KCL residual", result.stdout)
+        kcl = float(
+            result.stdout.split("maximum end-ring KCL residual: ", 1)[1]
+            .split()[0]
+        )
+        variation = float(
+            result.stdout.split(
+                "central-ROI B1+ coefficient of variation: ",
+                1,
+            )[1].split()[0]
+        )
+        isolation = float(
+            result.stdout.split("central-ROI circular isolation: ", 1)[1]
+            .split()[0]
+        )
+        self.assertLess(kcl, 1.0e-12)
+        self.assertLess(variation, 2.0)
+        self.assertGreater(isolation, 35.0)
+        self.assertTrue(output.exists())
     def test_receiver_lna_architecture_example_writes_png(self) -> None:
         LOCAL_TMP.mkdir(exist_ok=True)
         output = LOCAL_TMP / f"receiver_lna_{uuid.uuid4().hex}.png"
@@ -502,6 +533,7 @@ class ExampleSmokeTests(unittest.TestCase):
         scripts = [
             "examples/plot_ideal_workflows.py",
             "examples/plot_ideal_imaging.py",
+            "examples/plot_birdcage_quadrature.py",
             "examples/plot_receiver_array_cpmg.py",
             "examples/plot_receiver_array_sense.py",
             "examples/plot_receiver_network_coupling.py",

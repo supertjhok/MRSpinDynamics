@@ -301,6 +301,7 @@ amplifiers. See the [coupled receiver-network guide](../receiver_networks.md)
 for the active-noise equations and the
 [Phase 4.5 study plan](../receiver_decoupling_lna_study_plan.md) for the interconnect robustness implementation and the pending noise-parameter
 and end-to-end imaging stages.
+
 ## Plot Preamplifier Decoupling and Cable Robustness
 
 This Phase 4.5 study adds a passive reciprocal two-port between each coil and
@@ -319,6 +320,23 @@ can improve decoupling while badly degrading noise figure. See the
 [receiver-network guide](../receiver_networks.md) for the ABCD and passive-noise
 equations and the [Phase 4.5 study plan](../receiver_decoupling_lna_study_plan.md)
 for remaining noise-parameter and end-to-end imaging work.
+
+## Plot Birdcage Quadrature Modes
+
+This first Phase 5 example builds explicit cylindrical rungs and segmented end
+rings, completes the branch currents by KCL, and compares the degenerate cosine
+and sine fundamental modes with their 90-degree quadrature combination. The
+figure shows the geometry, current pattern, center-field polarization, B1+
+magnitude, uniformity error, and co-/counter-rotating isolation.
+
+```powershell
+python examples\plot_birdcage_quadrature.py --rungs 16 --radius-cm 15 --length-cm 30 --output results\birdcage_quadrature.png
+```
+
+See the [birdcage coil guide](../birdcage_coils.md) for the branch orientation,
+mode equations, quadrature convention, metrics, validation gates, and boundary
+between this prescribed-current reference and the pending resonant circuit
+solver.
 
 ## Plot Custom Imaging Fields
 

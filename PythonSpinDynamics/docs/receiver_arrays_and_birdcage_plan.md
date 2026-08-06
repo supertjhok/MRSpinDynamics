@@ -1,8 +1,8 @@
 # Receiver Arrays, Sensitivity Encoding, and Quadrature-Coil Plan
 
-**Status:** Phase 4 implemented 2026-08-05; Phase 4.5 passive cancellation,
-active-LNA models, and preamplifier-decoupling/interconnect robustness implemented,
-with noise-parameter and imaging studies preceding Phase 5
+**Status:** Phases 4 and 4.5 implemented; Phase 5 prescribed-current
+birdcage geometry, degenerate modes, quadrature fields, and field metrics
+implemented, with the resonant node/branch circuit model next
 
 This note records the repository assessment and staged implementation plan for
 multiple receiver coils, sensitivity encoding, mutual coupling, quadrature
@@ -198,6 +198,12 @@ First add a fast prescribed-current reference model:
 - sinusoidal fundamental current modes;
 - cosine/sine degenerate modes and +/-90-degree circular combinations;
 - field uniformity and circularity metrics.
+
+Implemented in `fields/birdcage.py` with analytical/regression tests and
+`examples/plot_birdcage_quadrature.py`. The model keeps each branch current
+explicit, completes end-ring currents by KCL, evaluates complex Biot-Savart
+fields, and reports B1+/B1- uniformity, circularity, and transverse fraction.
+See [Birdcage coil reference model](birdcage_coils.md).
 
 Then connect the same topology to the multiport solver:
 

@@ -131,6 +131,7 @@ nav:
           - Cartesian SENSE imaging: sense_imaging.md
           - Coupled receiver networks: receiver_networks.md
           - Receiver decoupling and LNA study: receiver_decoupling_lna_study_plan.md
+          - Birdcage coil reference model: birdcage_coils.md
           - Receiver arrays and birdcage plan: receiver_arrays_and_birdcage_plan.md
           - Thermal modeling: thermal_modeling.md
       - Detection and noise:

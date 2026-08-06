@@ -876,6 +876,20 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `solve_diagnostics(phantom: Phantom, hardware: Hardware) -> dict[str, float]` | Return the per-coil transmit-efficiency diagnostics (cached solve). |
 | function | `solve_for_experiment(experiment: Experiment) -> ImagingFieldMaps` | Solve field maps for an experiment's sample + hardware specs. |
 
+## `spin_dynamics.fields.birdcage`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `BirdcageGeometry` | Cylindrical rungs and segmented end rings. |
+| class | `BirdcageCurrentMode` | Complex branch-current phasors consistent with the geometry orientation. |
+| function | `birdcage_current_mode(rung_currents_a: Iterable[complex] | np.ndarray, *, label: str = 'prescribed') -> BirdcageCurrentMode` | Complete zero-sum rung currents with minimum-norm end-ring currents. |
+| function | `birdcage_linear_mode(geometry: BirdcageGeometry, *, mode_index: int = 1, azimuthal_phase_rad: float = 0.0, current_amplitude_a: complex = 1.0, label: str = '') -> BirdcageCurrentMode` | Return one real sinusoidal cage mode. |
+| function | `birdcage_quadrature_mode(geometry: BirdcageGeometry, *, mode_index: int = 1, handedness: int = 1, current_amplitude_a: complex = 1.0, label: str = '') -> BirdcageCurrentMode` | Return equal-amplitude cosine/sine modes in temporal quadrature. |
+| class | `BirdcageFieldSolution` | Complex field and circular components for one prescribed current mode. |
+| function | `solve_birdcage_field(geometry: BirdcageGeometry, mode: BirdcageCurrentMode, points_m: np.ndarray, *, b0_direction: Sequence[float] | np.ndarray | None = None) -> BirdcageFieldSolution` | Evaluate one complex birdcage mode and its B1+/B1- components. |
+| class | `BirdcageFieldMetrics` | ROI field-uniformity and polarization diagnostics. |
+| function | `birdcage_field_metrics(solution: BirdcageFieldSolution, *, roi_mask: np.ndarray | None = None, target_handedness: int | None = None) -> BirdcageFieldMetrics` | Summarize B1 uniformity, circularity, and transverse field in an ROI. |
+
 ## `spin_dynamics.fields.coil_peec`
 
 | Kind | Name | Summary |
