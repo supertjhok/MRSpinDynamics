@@ -95,6 +95,7 @@ def test_band_pass_components_follow_same_uniform_modal_formula() -> None:
             rel=1.0e-12,
         )
 
+
 def test_component_tolerance_splits_fundamental_pair() -> None:
     ideal = tuned_low_pass_birdcage(
         _geometry(),
@@ -117,6 +118,50 @@ def test_component_tolerance_splits_fundamental_pair() -> None:
 
     assert ideal.modal_analysis().splitting_hz(1) < 1.0e-4
     assert perturbed.modal_analysis().splitting_hz(1) > 10.0e3
+
+
+def test_split_pair_midpoint_can_reverse_quadrature_handedness() -> None:
+    geometry = _geometry()
+    target_hz = 63.87e6
+    ideal = tuned_low_pass_birdcage(
+        geometry,
+        target_hz,
+        rung_inductance_h=180.0e-9,
+        end_ring_inductance_h=35.0e-9,
+        rung_resistance_ohm=0.08,
+        end_ring_resistance_ohm=0.015,
+    )
+    capacitance = np.array(ideal.rung_capacitance_f, copy=True)
+    capacitance[0] *= 1.03
+    perturbed = BirdcageCircuit(
+        geometry=geometry,
+        rung_inductance_h=ideal.rung_inductance_h,
+        end_ring_inductance_h=ideal.end_ring_inductance_h,
+        rung_capacitance_f=capacitance,
+        rung_resistance_ohm=ideal.rung_resistance_ohm,
+        end_ring_resistance_ohm=ideal.end_ring_resistance_ohm,
+    )
+    source = birdcage_quadrature_port_voltages(geometry, handedness=1)
+    perturbed_family = perturbed.modal_analysis().azimuthal_modes(1)
+    midpoint_hz = np.mean([mode.frequency_hz for mode in perturbed_family])
+    ideal_field = solve_birdcage_field(
+        geometry,
+        ideal.solve_drive(target_hz, source).currents,
+        geometry.center,
+    )
+    perturbed_field = solve_birdcage_field(
+        geometry,
+        perturbed.solve_drive(midpoint_hz, source).currents,
+        geometry.center,
+    )
+    perturbed_metrics = birdcage_field_metrics(
+        perturbed_field,
+        target_handedness=1,
+    )
+
+    amplitude_ratio = abs(perturbed_field.b1_plus_t) / abs(ideal_field.b1_plus_t)
+    assert 0.20 < amplitude_ratio < 0.35
+    assert perturbed_metrics.circularity_db < 0.0
 
 
 def test_driven_solution_conserves_real_power_and_drives_circular_field() -> None:

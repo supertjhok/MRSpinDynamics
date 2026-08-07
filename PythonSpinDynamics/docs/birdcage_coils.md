@@ -249,7 +249,12 @@ python examples\plot_birdcage_circuit.py --output results\birdcage_circuit.png
 
 The figure compares low- and high-pass modal spectra, shows the split driven
 response after one capacitor is shifted, and compares balanced and perturbed
-B1 maps and circular isolation.
+B1 maps and circular isolation. Field panels show the central 70%-radius bore
+so the ideal filament singularity near a rung does not set the color scale.
+Each B1+ map is normalized to its own ROI mean to expose spatial structure,
+while its title reports the ROI amplitude relative to the balanced cage.
+Isolation limits use robust percentiles within the displayed bore; negative
+values mean that B1- is stronger than the intended B1+ component.
 
 ### Present circuit-model boundary
 

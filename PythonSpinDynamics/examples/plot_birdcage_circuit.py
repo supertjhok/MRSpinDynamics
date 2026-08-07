@@ -119,7 +119,7 @@ def main() -> None:
     xx, yy = np.meshgrid(coordinate, coordinate, indexing="ij")
     points = np.stack((xx, yy, np.zeros_like(xx)), axis=-1)
     roi = xx**2 + yy**2 <= (0.4 * geometry.radius) ** 2
-    outside = xx**2 + yy**2 >= (0.98 * geometry.radius) ** 2
+    display_bore = xx**2 + yy**2 <= (0.70 * geometry.radius) ** 2
     ideal_field = solve_birdcage_field(geometry, ideal_drive.currents, points)
     perturbed_field = solve_birdcage_field(
         geometry,
@@ -209,7 +209,15 @@ def main() -> None:
             coordinate[-1],
         )
     )
-    field_scale = np.mean(np.abs(ideal_field.b1_plus_t)[roi])
+    normalized_fields = (
+        np.abs(ideal_field.b1_plus_t) / ideal_metrics.mean_b1_t,
+        np.abs(perturbed_field.b1_plus_t) / perturbed_metrics.mean_b1_t,
+    )
+    displayed_values = np.concatenate(
+        [normalized[display_bore] for normalized in normalized_fields]
+    )
+    lower, upper = np.percentile(displayed_values, (1.0, 99.0))
+    normalized_span = max(abs(lower - 1.0), abs(upper - 1.0), 0.02)
     for axis, field, metrics, title in (
         (axes[1, 0], ideal_field, ideal_metrics, "Balanced circuit B1+"),
         (
@@ -219,17 +227,15 @@ def main() -> None:
             "Tolerance-perturbed B1+",
         ),
     ):
-        normalized = np.ma.masked_where(
-            outside,
-            np.abs(field.b1_plus_t) / field_scale,
-        )
+        normalized = np.abs(field.b1_plus_t) / metrics.mean_b1_t
+        normalized = np.ma.masked_where(~display_bore, normalized)
         artist = axis.imshow(
             normalized.T,
             origin="lower",
             extent=extent_cm,
             cmap="viridis",
-            vmin=0.8,
-            vmax=1.2,
+            vmin=1.0 - normalized_span,
+            vmax=1.0 + normalized_span,
         )
         axis.contour(
             xx.T * 100.0,
@@ -243,53 +249,70 @@ def main() -> None:
             xlabel="x (cm)",
             ylabel="y (cm)",
             title=(
-                f"{title}\nCV={100 * metrics.coefficient_of_variation:.2f}%, "
+                f"{title}\nROI mean="
+                f"{100 * metrics.mean_b1_t / ideal_metrics.mean_b1_t:.1f}% "
+                "of balanced, "
+                f"CV={100 * metrics.coefficient_of_variation:.2f}%, "
                 f"isolation={metrics.circularity_db:.1f} dB"
             ),
         )
-        figure.colorbar(artist, ax=axis, label="B1+ / balanced ROI mean")
+        figure.colorbar(artist, ax=axis, label="B1+ / own ROI mean")
 
     ratio = np.abs(perturbed_field.b1_minus_t) / np.maximum(
         np.abs(perturbed_field.b1_plus_t),
         np.finfo(np.float64).tiny,
     )
-    isolation = np.ma.masked_where(
-        outside,
-        -20.0 * np.log10(np.maximum(ratio, 1.0e-6)),
+    isolation_values = -20.0 * np.log10(np.maximum(ratio, 1.0e-6))
+    isolation_lower, isolation_upper = np.percentile(
+        isolation_values[display_bore],
+        (1.0, 99.0),
     )
+    isolation_padding = max(
+        0.05 * (isolation_upper - isolation_lower),
+        0.05,
+    )
+    isolation = np.ma.masked_where(~display_bore, isolation_values)
     artist = axes[1, 2].imshow(
         isolation.T,
         origin="lower",
         extent=extent_cm,
         cmap="magma",
-        vmin=20.0,
-        vmax=60.0,
+        vmin=isolation_lower - isolation_padding,
+        vmax=isolation_upper + isolation_padding,
     )
     axes[1, 2].set(
         xlabel="x (cm)",
         ylabel="y (cm)",
-        title="Perturbed circular-component isolation",
+        title=(
+            "Perturbed circular-component isolation\n"
+            f"ROI aggregate={perturbed_metrics.circularity_db:.1f} dB"
+        ),
     )
-    figure.colorbar(artist, ax=axes[1, 2], label="B1+ / B1- (dB)")
+    figure.colorbar(
+        artist,
+        ax=axes[1, 2],
+        label=r"$20\log_{10}(|B_1^+|/|B_1^-|)$ (dB)",
+    )
     figure.suptitle(
         "Birdcage circuit layer: modes → tolerance splitting → driven B1",
         fontsize=14,
     )
 
-    print(
-        "Low-pass rung capacitance: "
-        f"{low_pass.rung_capacitance_f[0] * 1e12:.3f} pF"
-    )
+    print(f"Low-pass rung capacitance: {low_pass.rung_capacitance_f[0] * 1e12:.3f} pF")
     print(
         "High-pass end-ring capacitance: "
         f"{high_pass.end_ring_capacitance_f[0] * 1e12:.3f} pF"
     )
     print(f"Perturbed m=1 splitting: {split_khz:.3f} kHz")
     print(
-        "Balanced circuit Q: "
-        f"{low_analysis.azimuthal_modes(1)[0].quality_factor:.1f}"
+        f"Balanced circuit Q: {low_analysis.azimuthal_modes(1)[0].quality_factor:.1f}"
     )
     print(f"Balanced circular isolation: {ideal_metrics.circularity_db:.2f} dB")
+    print(
+        "Perturbed desired B1+ amplitude: "
+        f"{100.0 * perturbed_metrics.mean_b1_t / ideal_metrics.mean_b1_t:.2f}% "
+        "of balanced"
+    )
     print(f"Perturbed circular isolation: {perturbed_metrics.circularity_db:.2f} dB")
 
     if args.output is None:
