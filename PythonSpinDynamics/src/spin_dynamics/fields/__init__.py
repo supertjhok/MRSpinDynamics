@@ -36,6 +36,20 @@ from spin_dynamics.fields.birdcage_circuit import (
     tuned_high_pass_birdcage,
     tuned_low_pass_birdcage,
 )
+from spin_dynamics.fields.birdcage_multiport import (
+    BirdcageBranchLoading,
+    BirdcageLMatch,
+    BirdcageLoadedCircuit,
+    BirdcageMultiport,
+    BirdcageReceiveSensitivityMaps,
+    birdcage_branch_mutual_inductance_matrix,
+    birdcage_conductive_loading_resistance,
+    calibrate_birdcage_conductor_quality_factor,
+    design_independent_l_match,
+    impedance_to_scattering,
+    retune_loaded_birdcage,
+    solve_birdcage_receive_sensitivities,
+)
 from spin_dynamics.fields.coils import (
     conducting_ring,
     cylindrical_shield,
@@ -277,6 +291,19 @@ __all__ = [
     "tuned_low_pass_birdcage",
     "tuned_high_pass_birdcage",
     "birdcage_quadrature_port_voltages",
+    # loaded, matched, reciprocal birdcage multiport
+    "BirdcageBranchLoading",
+    "BirdcageLoadedCircuit",
+    "BirdcageMultiport",
+    "BirdcageLMatch",
+    "BirdcageReceiveSensitivityMaps",
+    "birdcage_branch_mutual_inductance_matrix",
+    "birdcage_conductive_loading_resistance",
+    "calibrate_birdcage_conductor_quality_factor",
+    "retune_loaded_birdcage",
+    "impedance_to_scattering",
+    "design_independent_l_match",
+    "solve_birdcage_receive_sensitivities",
     # coils
     "solenoid",
     "planar_spiral",

@@ -390,13 +390,13 @@
       "limitations": ["The passive cancellation and interconnect sweeps remain uniform-temperature terminal models.", "Passive front ends are independent per-channel reciprocal two-ports; coupled transmission lines and measured S-parameter import are pending.", "The active model separates diagonal LNA R-X||C loading, voltage/current/cross noise, gain, and downstream noise, but standard noise-parameter conversion, cross-channel amplifier noise, stability, compression, and direct Experiment integration remain pending.", "The sample-loss matrices, conductor geometry, cable, and LNA values are illustrative, with no scanner or bench comparison yet.", "Cancellation removes mutual reactance at one frequency but not mutual resistance or sensitivity to loading and tolerances; transformed low input impedance can improve isolation without providing a noise match."]
     },    {
       "id": "birdcage_prescribed_current",
-      "component": "Prescribed-current birdcage geometry and quadrature fields",
-      "claim": "Explicit rung and end-ring branch currents satisfy KCL; the ideal fundamental cosine and sine modes are center-field degenerate and orthogonal; and their quadrature combinations select opposite B1 circular components with convergent central-field and ROI metrics.",
+      "component": "Birdcage geometry, resonant circuits, and reciprocal multiport reception",
+      "claim": "Explicit branch currents satisfy KCL; ideal and resonant fundamental modes reproduce analytical symmetry and frequency limits; full branch mutual inductance and conductive loss give reciprocal passive ports, calibrated unloaded and reduced loaded Q, 50-ohm matching, reciprocal B1- sensitivities, thermal covariance, and exact noiseless array combination.",
       "evidence_types": ["A", "R"],
-      "basis": "Discrete end-ring KCL identities, sinusoidal mode orthogonality, finite-segment Biot-Savart superposition, the package B1+/B1- convention, mode-handedness reversal, and end-ring segmentation convergence.",
-      "parameter_range": "Cylindrical cages with at least four rungs; tested reference geometry has 16 rungs, 0.15 m radius, 0.30 m length, fundamental m=1 modes, 4-16 chords per end-ring section, and a central midplane ROI through 40 percent of the cage radius.",
-      "metric": "KCL residual, center-field mode degeneracy and inner product, desired/counter-rotating B1 ratio, coefficient of variation, peak-to-peak nonuniformity, transverse fraction, and segmentation convergence",
-      "tolerance": "KCL below 1e-12 A; center degeneracy and orthogonality at numerical precision; central-ROI coefficient of variation below 1 percent, peak-to-peak nonuniformity below 3 percent, circular isolation above 40 dB, and 4-versus-16-section center B1 agreement within 5e-4 relative.",
+      "basis": "Discrete end-ring KCL and sinusoidal-mode identities; analytical uniform-ladder frequencies; generalized loaded RLC eigenmodes; reciprocal filament mutual partial inductance; positive-semidefinite Born conductive loss; passive impedance, power, scattering, fluctuation-dissipation, and Roemer-combination identities.",
+      "parameter_range": "Cylindrical low- and high-pass cages with 8 or 16 rungs; tested radii 0.12-0.15 m, lengths 0.24-0.30 m, 42.58-63.87 MHz fundamental modes, 3-16 chords per end-ring section, one- and two-port feeds, a default explicitly calibrated unloaded Q of 180, and compact conductive samples through 0.06 m radius.",
+      "metric": "KCL and power residual, modal frequency and splitting, Q calibration and loading reduction, mutual-matrix reciprocity, loss-matrix eigenvalues and frequency scaling, port impedance symmetry, realized port current, matched impedance and S parameters, B1 circularity/uniformity, noise covariance, and reconstruction equality",
+      "tolerance": "Analytical circuit and reciprocal-network identities at per-test floating-point tolerances; KCL below 1e-12 A; calibrated fundamental Q within 1e-12 relative; conductive loss positive semidefinite and proportional to frequency squared; noiseless Roemer reconstruction within 1e-12 absolute; prescribed-current central-ROI uniformity and circularity thresholds retained from the reference model.",
       "status": "partially_validated",
       "reproducers": [
         "tests/test_birdcage.py::test_prescribed_mode_enforces_end_ring_kcl",
@@ -404,10 +404,22 @@
         "tests/test_birdcage.py::test_quadrature_modes_select_opposite_circular_components",
         "tests/test_birdcage.py::test_quadrature_field_is_uniform_and_circular_in_central_roi",
         "tests/test_birdcage.py::test_end_ring_segmentation_converges_at_center",
-        "examples/plot_birdcage_quadrature.py"
+        "tests/test_birdcage_circuit.py::test_tuned_uniform_cages_match_analytical_frequencies",
+        "tests/test_birdcage_circuit.py::test_component_tolerance_splits_fundamental_pair",
+        "tests/test_birdcage_circuit.py::test_driven_solution_conserves_real_power_and_drives_circular_field",
+        "tests/test_birdcage_multiport.py::test_geometry_mutual_matrix_is_reciprocal_and_cyclic",
+        "tests/test_birdcage_multiport.py::test_conductive_loading_is_psd_and_scales_as_frequency_squared",
+        "tests/test_birdcage_multiport.py::test_loading_reduces_q_and_retuning_restores_target_frequency",
+        "tests/test_birdcage_multiport.py::test_conductor_loss_calibration_sets_explicit_unloaded_q",
+        "tests/test_birdcage_multiport.py::test_port_impedance_is_reciprocal_and_realizes_requested_currents",
+        "tests/test_birdcage_multiport.py::test_single_port_l_match_transforms_to_fifty_ohms",
+        "tests/test_birdcage_multiport.py::test_receive_maps_noise_and_roemer_reconstruction_share_channel_basis",
+        "examples/plot_birdcage_quadrature.py",
+        "examples/plot_birdcage_circuit.py",
+        "examples/plot_birdcage_loaded_receive.py"
       ],
-      "references": ["Hayes et al., Journal of Magnetic Resonance 63 (1985), 622-628, DOI 10.1016/0022-2364(85)90257-4", "Jin, Electromagnetic Analysis and Design in Magnetic Resonance Imaging, CRC Press (1999)"],
-      "limitations": ["This layer prescribes ideal branch currents and does not solve capacitor placement, resonance frequency, port matching, loaded Q, conductor/sample loss, mode splitting, or component tolerances.", "The field model uses free-space filamentary Biot-Savart segments without shields, dielectric loading, radiation, or measured-coil comparison.", "Only the fundamental reference geometry and central midplane ROI have quantitative regression thresholds; broader aspect ratios, rung counts, higher modes, and three-dimensional ROIs remain to be validated."]
+      "references": ["Hayes et al., Journal of Magnetic Resonance 63 (1985), 622-628, DOI 10.1016/0022-2364(85)90257-4", "Jin, Electromagnetic Analysis and Design in Magnetic Resonance Imaging, CRC Press (1999)", "Hoult and Richards, Journal of Magnetic Resonance 24 (1976), 71-85, DOI 10.1016/0022-2364(76)90233-X", "Roemer et al., Magnetic Resonance in Medicine 16 (1990), 192-225, DOI 10.1002/mrm.1910160203"],
+      "limitations": ["The explicit unloaded Q is assumed or measured and calibrated by scaling supplied branch resistances because the centerline geometry does not define conductor cross-section, joints, capacitors, or shield loss.", "Mutual inductance is filamentary and sample loss uses a first-order magnetic Born approximation without charge correction, skin-effect shielding, dielectric displacement current, radiation, or full-wave propagation.", "Matching is an ideal lossless independent per-port L network; hybrids, matching-component tolerances/loss, transmit-amplifier protection, SAR, and measured S-parameter comparison remain future layers.", "Quantitative field regression is concentrated on the fundamental mode and central midplane; broader aspect ratios, higher modes, three-dimensional ROIs, shields, and bench/scanner validation remain pending."]
     },    {
       "id": "thermal_models",
       "component": "Thermal networks, conduction, and electromagnets",

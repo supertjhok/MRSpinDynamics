@@ -17,6 +17,10 @@ from spin_dynamics.fields.birdcage_circuit import tuned_low_pass_birdcage
 from tests.test_birdcage_circuit import (
     test_tuned_uniform_cages_match_analytical_frequencies,
 )
+from tests.test_birdcage_multiport import (
+    test_conductor_loss_calibration_sets_explicit_unloaded_q,
+    test_single_port_l_match_transforms_to_fifty_ohms,
+)
 from tests.test_composition import (
     test_compiled_timeline_aligns_channels_and_applies_typed_hardware,
     test_flow_field_interpolates_space_and_time_in_si_units,
@@ -131,6 +135,14 @@ def load_tests(
                 tuned_low_pass_birdcage,
                 "low_pass",
             )
+        )
+    )
+    suite.addTest(
+        unittest.FunctionTestCase(test_single_port_l_match_transforms_to_fifty_ohms)
+    )
+    suite.addTest(
+        unittest.FunctionTestCase(
+            test_conductor_loss_calibration_sets_explicit_unloaded_q
         )
     )
     for name in FAST_FIXTURE_TESTS:

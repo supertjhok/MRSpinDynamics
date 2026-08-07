@@ -1,11 +1,10 @@
 # Birdcage Coil Reference Model
 
-Phase 5 begins with a prescribed-current reference model for cylindrical
-birdcage coils. It is deliberately separate from the later resonant circuit
-solver: the reference model states the expected rung currents, completes the
-end-ring currents by Kirchhoff's current law, and computes the resulting
-complex magnetic field. This gives the circuit implementation an independent
-field and mode benchmark.
+Phase 5 proceeds from a prescribed-current reference model to resonant ladder
+circuits and a loaded/matched reciprocal multiport layer. The reference model
+states the expected rung currents, completes the end-ring currents by
+Kirchhoff's current law, and computes the resulting complex magnetic field.
+This gives the circuit implementations an independent field and mode benchmark.
 
 ## Geometry and branch orientation
 
@@ -182,6 +181,13 @@ series-loss estimate
        {I^\mathrm{H}R_\mathrm{eff}I}.
 \]
 
+The branch resistances are inputs, not predictions from the centerline
+geometry: `BirdcageGeometry` does not specify conductor cross-section,
+plating, joints, capacitors, or shield loss. Consequently an example Q must be
+identified as assumed/measured or supplied by a separate conductor-loss model.
+Both Phase 5 circuit examples default to an explicit unloaded Q of 180 via
+`--unloaded-q`; they do not claim that value follows from the filament model.
+
 For uniform branch values and \(s_m=\sin(\pi m/N)\), the implemented analytical
 check is
 
@@ -244,7 +250,7 @@ B1 nonuniformity and counter-rotating contamination.
 Run the circuit example with:
 
 ```powershell
-python examples\plot_birdcage_circuit.py --output results\birdcage_circuit.png
+python examples\plot_birdcage_circuit.py --unloaded-q 180 --output results\birdcage_circuit.png
 ```
 
 The figure compares low- and high-pass modal spectra, shows the split driven
@@ -256,14 +262,156 @@ while its title reports the ROI amplitude relative to the balanced cage.
 Isolation limits use robust percentiles within the displayed bore; negative
 values mean that B1- is stronger than the intended B1+ component.
 
-### Present circuit-model boundary
+## Loaded and matched multiport layer
 
-This layer is a lumped, quasistatic series-branch model. It does not yet
-include mutual inductance between physical branches, conductor/sample-derived
-loss matrices, shield coupling, explicit matching networks, or full-wave
-effects. Its rung sources describe ideal series feeds; matching to a 50-ohm
-transmitter is a subsequent port-network layer. Those additions can reuse the
-same mode, KCL, drive, and field interfaces introduced here.
+`birdcage_multiport` completes the lumped Phase 5 path by retaining the same
+KCL-constrained rung coordinates while adding branch mutual inductance,
+conductive loading, physical ports, matching, reciprocity, and passive noise.
+The branch order is all rungs, positive end-ring sections, then negative
+end-ring sections. The transform
+
+\[
+  B = \begin{bmatrix}I & T & -T\end{bmatrix}^{\mathsf T}
+\]
+
+maps a closed-cage rung-current vector into those \(3N\) physical branches.
+A full branch coupling or loss matrix therefore reduces as
+\(B^\mathsf{T}X_\mathrm{branch}B\).
+
+### Mutual inductance and conductive loading
+
+`birdcage_branch_mutual_inductance_matrix` evaluates the exact filament mutual
+partial inductance between every pair of explicit rung and end-ring paths. Its
+diagonal is zero because the self inductances remain the values supplied to
+`BirdcageCircuit`. `BirdcageBranchLoading` combines that symmetric coupling
+matrix with an additive positive-semidefinite resistance matrix.
+
+`birdcage_conductive_loading_resistance` evaluates the first-order magnetic
+loss matrix
+
+\[
+  R_{ij}(\omega)=\omega^2\int_V\sigma(\mathbf r)
+  \mathbf A_i(\mathbf r)\mathbin{\cdot}\mathbf A_j(\mathbf r)\,dV,
+\]
+
+where \(\mathbf A_i\) is the unit-current vector potential of branch \(i\).
+This is the multi-branch form of reflected sample resistance. It produces
+correlated physical loss and decreases loaded Q. It can also represent a
+voxelized conductive shield, subject to the same approximation boundary.
+
+`BirdcageLoadedCircuit` solves the resulting loaded modes and driven response.
+`retune_loaded_birdcage` uniformly rescales the installed capacitors to restore
+a selected loaded resonance. This scaling is exact for the frequency-independent
+lumped inductance and resistance matrices used by this layer.
+`calibrate_birdcage_conductor_quality_factor` scales only the explicit rung and
+end-ring resistances to a selected modal Q while retaining mutual inductance and
+fixed loading loss. This is the appropriate bridge to a measured or assumed
+unloaded Q. The unloaded state must already include mutual coupling; sample
+resistance is then added to the same model to obtain loaded Q.
+
+### Physical ports, matching, and S parameters
+
+`BirdcageMultiport` places series feeds in selected rung branches. If \(P\)
+selects those branches and \(Q\) spans the zero-sum rung subspace, the physical
+port admittance is
+
+\[
+  Y_\mathrm{port}=(Q^\mathsf{T}P)^\mathsf{T}
+  (Q^\mathsf{T}ZQ)^{-1}(Q^\mathsf{T}P).
+\]
+
+The inverse gives the reciprocal port impedance matrix. Equal-reference
+scattering parameters follow from
+
+\[
+  S=(Z-Z_0I)(Z+Z_0I)^{-1}.
+\]
+
+`design_independent_l_match` returns a lossless series-then-shunt L match for
+each port diagonal. The full coupled matrix is retained when the matched input
+impedance and S parameters are evaluated, so residual coupling remains visible
+as S21 rather than being silently removed by an ideal decoupler. The helper
+currently covers ports with \(0<\operatorname{Re}Z\le Z_0\), the normal
+low-resistance birdcage-feed case.
+
+### Receive reciprocity and passive noise
+
+`solve_birdcage_receive_sensitivities` imposes one ampere at each unmatched or
+matched input port, solves all physical branch currents, and returns the complex
+B1- field per input ampere. Its result follows the same channel-leading
+`normalized_complex` convention as the receiver-array imaging code.
+
+For a passive network at temperature \(T\), the open-circuit voltage-noise
+spectral density is
+
+\[
+  \Psi_v=4k_\mathrm{B}T\,\frac{Z_\mathrm{in}+Z_\mathrm{in}^{\mathrm H}}{2}.
+\]
+
+The result exposes both this absolute covariance and its dimensionless
+correlation matrix for covariance-aware Roemer or SENSE reconstruction.
+
+```python
+from spin_dynamics.fields import (
+    BirdcageBranchLoading,
+    BirdcageMultiport,
+    birdcage_branch_mutual_inductance_matrix,
+    calibrate_birdcage_conductor_quality_factor,
+    design_independent_l_match,
+    retune_loaded_birdcage,
+    solve_birdcage_receive_sensitivities,
+)
+
+mutual = birdcage_branch_mutual_inductance_matrix(cage)
+mutual_only = BirdcageBranchLoading(
+    3 * cage.n_rungs,
+    inductance_coupling_h=mutual,
+)
+unloaded = calibrate_birdcage_conductor_quality_factor(
+    retune_loaded_birdcage(circuit, mutual_only, 63.87e6),
+    180.0,
+)
+loading = BirdcageBranchLoading(
+    3 * cage.n_rungs,
+    inductance_coupling_h=mutual,
+    resistance_ohm=sample_loss_matrix,
+)
+loaded = retune_loaded_birdcage(unloaded.circuit, loading, 63.87e6)
+ports = BirdcageMultiport(loaded, (0, cage.n_rungs // 4))
+match = design_independent_l_match(
+    ports.impedance_matrix_ohm(63.87e6),
+    63.87e6,
+)
+receive = solve_birdcage_receive_sensitivities(
+    ports,
+    63.87e6,
+    points_m,
+    matching=match,
+    normalization_weights=rho,
+)
+```
+
+Run the complete loaded receive example with:
+
+```powershell
+python examples\plot_birdcage_loaded_receive.py --unloaded-q 180 --output results\birdcage_loaded_receive.png
+```
+
+It shows the branch mutual-inductance matrix, calibrated unloaded and
+sample-loaded Q, matched S parameters, reciprocal I/Q-port phase, the
+spin-density reference, and a
+covariance-aware Roemer reconstruction.
+
+### Phase 5 completion boundary
+
+Phase 5 now covers the planned lumped, quasistatic birdcage workflow from
+explicit geometry through loaded/matched transmit and receive ports. The
+remaining higher-fidelity extensions are not prerequisites for this phase:
+frequency-dependent PEEC branch resistance, charge-corrected sample currents,
+finite-thickness shield currents, matching-component loss and tolerances,
+transmit-amplifier/hybrid models, SAR, and full-wave propagation. Those should
+be treated as later RF-engineering or full-wave layers rather than folded into
+the validated lumped reference model.
 
 ## References
 

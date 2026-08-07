@@ -902,6 +902,23 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `tuned_high_pass_birdcage(geometry: BirdcageGeometry, resonance_frequency_hz: float, *, rung_inductance_h: RealArrayInput, end_ring_inductance_h: RealArrayInput, mode_index: int = 1, rung_resistance_ohm: RealArrayInput = 0.0, end_ring_resistance_ohm: RealArrayInput = 0.0) -> BirdcageCircuit` | Create a uniform high-pass cage tuned at one azimuthal mode. |
 | function | `birdcage_quadrature_port_voltages(geometry: BirdcageGeometry, *, voltage_v: complex = 1.0, first_rung: int = 0, handedness: int = 1) -> np.ndarray` | Two equal rung sources separated by 90 degrees in spatial and RF phase. |
 
+## `spin_dynamics.fields.birdcage_multiport`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `birdcage_branch_mutual_inductance_matrix(geometry: BirdcageGeometry) -> np.ndarray` | Return the full off-diagonal branch mutual-partial-inductance matrix. |
+| function | `birdcage_conductive_loading_resistance(geometry: BirdcageGeometry, frequency_hz: float, sample_points_m: np.ndarray, *, conductivity_s_per_m: float | np.ndarray, cell_volume_m3: float) -> np.ndarray` | Return the first-order conductive-loss resistance matrix. |
+| class | `BirdcageBranchLoading` | Additive branch coupling inductance and dissipative resistance. |
+| class | `BirdcageLoadedCircuit` | Birdcage RLC circuit augmented by mutual inductance and loading loss. |
+| function | `retune_loaded_birdcage(circuit: BirdcageCircuit, loading: BirdcageBranchLoading, resonance_frequency_hz: float, *, mode_index: int = 1) -> BirdcageLoadedCircuit` | Scale all installed capacitors to retune one loaded mode family. |
+| function | `calibrate_birdcage_conductor_quality_factor(circuit: BirdcageLoadedCircuit, quality_factor: float, *, mode_index: int = 1) -> BirdcageLoadedCircuit` | Scale explicit branch resistances to a selected loaded-mode Q. |
+| class | `BirdcageMultiport` | Physical series-feed ports placed in selected rung branches. |
+| function | `impedance_to_scattering(impedance_ohm: np.ndarray, *, reference_impedance_ohm: float = 50.0) -> np.ndarray` | Convert a square impedance matrix to equal-reference S parameters. |
+| class | `BirdcageLMatch` | Lossless series-then-shunt L match for equal-reference input ports. |
+| function | `design_independent_l_match(port_impedance_ohm: np.ndarray, frequency_hz: float, *, reference_impedance_ohm: float = 50.0, solution_sign: int = 1) -> BirdcageLMatch` | Match each uncoupled port diagonal with a series-then-shunt L network. |
+| class | `BirdcageReceiveSensitivityMaps` | Per-input-current reciprocal fields and passive noise covariance. |
+| function | `solve_birdcage_receive_sensitivities(multiport: BirdcageMultiport, frequency_hz: float, points_m: np.ndarray | Sequence[float], *, matching: BirdcageLMatch | None = None, normalization_weights: np.ndarray | None = None, temperature_k: float = 290.0) -> BirdcageReceiveSensitivityMaps` | Solve B1- per unit input current and equilibrium voltage-noise PSD. |
+
 ## `spin_dynamics.fields.coil_peec`
 
 | Kind | Name | Summary |

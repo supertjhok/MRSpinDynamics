@@ -1,8 +1,10 @@
 # Receiver Arrays, Sensitivity Encoding, and Quadrature-Coil Plan
 
-**Status:** Phases 4 and 4.5 implemented; Phase 5 prescribed-current
-birdcage geometry, degenerate modes, quadrature fields, and field metrics
-implemented, with the resonant node/branch circuit model next
+**Status:** Phases 4, 4.5, and 5 implemented. Phase 5 now includes the
+prescribed-current reference, resonant low/high/band-pass circuits, mutual and
+conductive loading matrices, retuning, physical multiport Z/S analysis,
+lossless L matching, reciprocal B1- maps, passive noise covariance, and an
+end-to-end receive reconstruction example.
 
 This note records the repository assessment and staged implementation plan for
 multiple receiver coils, sensitivity encoding, mutual coupling, quadrature
@@ -216,6 +218,14 @@ Then connect the same topology to the multiport solver:
 Validation gates: expected azimuthal current pattern, fundamental-mode
 degeneracy, central-field uniformity, correct helicity, analytic ladder
 frequencies, energy/Q consistency, and segmentation convergence.
+
+Implemented across `fields/birdcage.py`, `fields/birdcage_circuit.py`, and
+`fields/birdcage_multiport.py`, with the staged examples
+`plot_birdcage_quadrature.py`, `plot_birdcage_circuit.py`, and
+`plot_birdcage_loaded_receive.py`. The final layer retains full branch mutual
+and loss matrices, exposes physical port impedance/scattering and matching,
+and feeds reciprocal sensitivities plus thermal correlation into the existing
+receiver-array reconstruction helpers.
 
 ## Implementation priorities
 

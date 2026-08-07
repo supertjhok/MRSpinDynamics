@@ -90,6 +90,7 @@ MODULES = [
     "experiment.wiring",
     "fields.birdcage",
     "fields.birdcage_circuit",
+    "fields.birdcage_multiport",
     "fields.coil_peec",
     "fields.coil_properties",
     "fields.fasthenry_interop",

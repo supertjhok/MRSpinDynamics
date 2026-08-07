@@ -32,6 +32,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--frequency-mhz", type=float, default=63.87)
     parser.add_argument("--rungs", type=int, default=16)
     parser.add_argument("--cap-tolerance-percent", type=float, default=3.0)
+    parser.add_argument("--unloaded-q", type=float, default=180.0)
     parser.add_argument("--grid", type=int, default=51)
     parser.add_argument("--output", type=Path)
     return parser.parse_args()
@@ -65,6 +66,8 @@ def main() -> None:
         raise ValueError("--rungs must be at least 8 and divisible by four")
     if args.cap_tolerance_percent < 0.0:
         raise ValueError("--cap-tolerance-percent must be non-negative")
+    if args.unloaded_q <= 0.0:
+        raise ValueError("--unloaded-q must be positive")
     if args.grid < 21:
         raise ValueError("--grid must be at least 21")
 
@@ -86,6 +89,11 @@ def main() -> None:
         "rung_resistance_ohm": 0.08,
         "end_ring_resistance_ohm": 0.015,
     }
+    loss_reference = tuned_low_pass_birdcage(**circuit_arguments)
+    reference_q = loss_reference.modal_analysis().azimuthal_modes(1)[0].quality_factor
+    resistance_scale = reference_q / args.unloaded_q
+    circuit_arguments["rung_resistance_ohm"] *= resistance_scale
+    circuit_arguments["end_ring_resistance_ohm"] *= resistance_scale
     low_pass = tuned_low_pass_birdcage(**circuit_arguments)
     high_pass = tuned_high_pass_birdcage(**circuit_arguments)
 
@@ -305,7 +313,7 @@ def main() -> None:
     )
     print(f"Perturbed m=1 splitting: {split_khz:.3f} kHz")
     print(
-        f"Balanced circuit Q: {low_analysis.azimuthal_modes(1)[0].quality_factor:.1f}"
+        f"Calibrated balanced circuit Q: {low_analysis.azimuthal_modes(1)[0].quality_factor:.1f}"
     )
     print(f"Balanced circular isolation: {ideal_metrics.circularity_db:.2f} dB")
     print(

@@ -333,10 +333,38 @@ magnitude, uniformity error, and co-/counter-rotating isolation.
 python examples\plot_birdcage_quadrature.py --rungs 16 --radius-cm 15 --length-cm 30 --output results\birdcage_quadrature.png
 ```
 
-See the [birdcage coil guide](../birdcage_coils.md) for the branch orientation,
-mode equations, quadrature convention, metrics, validation gates, and boundary
-between this prescribed-current reference and the pending resonant circuit
-solver.
+See the [birdcage coil guide](../birdcage_coils.md) for branch orientation,
+mode equations, quadrature convention, metrics, and validation gates.
+
+## Plot Birdcage Circuit Modes
+
+This second Phase 5 example adds low-, high-, and band-pass lumped circuits,
+loss/Q (calibrated to an explicit assumed/measured unloaded value), dual-port
+excitation, capacitor-tolerance mode splitting, and the resulting B1
+polarization. Field panels show the central bore, normalize each
+spatial profile to its own ROI mean, and report the absolute desired-component
+loss separately.
+
+```powershell
+python examples\plot_birdcage_circuit.py --unloaded-q 180 --output results\birdcage_circuit.png
+```
+
+## Plot Loaded and Matched Birdcage Reception
+
+The final Phase 5 example derives all branch mutual partial inductances from
+the explicit geometry, calibrates the mutually coupled conductor-loss-only cage
+to an explicit unloaded Q, adds first-order conductive sample loading,
+retunes the loaded fundamental, matches two orthogonal physical ports to 50 ohms, and
+solves reciprocal B1- maps and thermal-noise correlation. It finishes with a
+covariance-aware Roemer reconstruction using the existing receiver-array
+pipeline.
+
+```powershell
+python examples\plot_birdcage_loaded_receive.py --unloaded-q 180 --output results\birdcage_loaded_receive.png
+```
+
+The figure reports the mutual matrix, calibrated unloaded/sample-loaded Q
+reduction, matched S parameters, I/Q receive phase, reference spin density, and noisy reconstructed image.
 
 ## Plot Custom Imaging Fields
 
