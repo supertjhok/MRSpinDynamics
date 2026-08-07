@@ -890,6 +890,18 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `BirdcageFieldMetrics` | ROI field-uniformity and polarization diagnostics. |
 | function | `birdcage_field_metrics(solution: BirdcageFieldSolution, *, roi_mask: np.ndarray | None = None, target_handedness: int | None = None) -> BirdcageFieldMetrics` | Summarize B1 uniformity, circularity, and transverse field in an ROI. |
 
+## `spin_dynamics.fields.birdcage_circuit`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `BirdcageCircuitMode` | One lossless resonant mode with a series-loss Q estimate. |
+| class | `BirdcageModalAnalysis` | Complete rung-current modal solution, ordered by frequency. |
+| class | `BirdcageDriveSolution` | Finite-loss response to series voltage sources placed in rung branches. |
+| class | `BirdcageCircuit` | Series-branch RLC model of a symmetric two-end-ring birdcage. |
+| function | `tuned_low_pass_birdcage(geometry: BirdcageGeometry, resonance_frequency_hz: float, *, rung_inductance_h: RealArrayInput, end_ring_inductance_h: RealArrayInput, mode_index: int = 1, rung_resistance_ohm: RealArrayInput = 0.0, end_ring_resistance_ohm: RealArrayInput = 0.0) -> BirdcageCircuit` | Create a uniform low-pass cage tuned at one azimuthal mode. |
+| function | `tuned_high_pass_birdcage(geometry: BirdcageGeometry, resonance_frequency_hz: float, *, rung_inductance_h: RealArrayInput, end_ring_inductance_h: RealArrayInput, mode_index: int = 1, rung_resistance_ohm: RealArrayInput = 0.0, end_ring_resistance_ohm: RealArrayInput = 0.0) -> BirdcageCircuit` | Create a uniform high-pass cage tuned at one azimuthal mode. |
+| function | `birdcage_quadrature_port_voltages(geometry: BirdcageGeometry, *, voltage_v: complex = 1.0, first_rung: int = 0, handedness: int = 1) -> np.ndarray` | Two equal rung sources separated by 90 degrees in spatial and RF phase. |
+
 ## `spin_dynamics.fields.coil_peec`
 
 | Kind | Name | Summary |

@@ -27,6 +27,15 @@ from spin_dynamics.fields.birdcage import (
     birdcage_quadrature_mode,
     solve_birdcage_field,
 )
+from spin_dynamics.fields.birdcage_circuit import (
+    BirdcageCircuit,
+    BirdcageCircuitMode,
+    BirdcageDriveSolution,
+    BirdcageModalAnalysis,
+    birdcage_quadrature_port_voltages,
+    tuned_high_pass_birdcage,
+    tuned_low_pass_birdcage,
+)
 from spin_dynamics.fields.coils import (
     conducting_ring,
     cylindrical_shield,
@@ -260,6 +269,14 @@ __all__ = [
     "birdcage_quadrature_mode",
     "solve_birdcage_field",
     "birdcage_field_metrics",
+    # resonant birdcage circuit model
+    "BirdcageCircuit",
+    "BirdcageCircuitMode",
+    "BirdcageModalAnalysis",
+    "BirdcageDriveSolution",
+    "tuned_low_pass_birdcage",
+    "tuned_high_pass_birdcage",
+    "birdcage_quadrature_port_voltages",
     # coils
     "solenoid",
     "planar_spiral",

@@ -13,6 +13,10 @@ import unittest
 
 from tests.test_basic_octave_fixtures import OctaveFixtureTests
 from tests.test_bloch_siegert import BlochSiegertWorkflowTests
+from spin_dynamics.fields.birdcage_circuit import tuned_low_pass_birdcage
+from tests.test_birdcage_circuit import (
+    test_tuned_uniform_cages_match_analytical_frequencies,
+)
 from tests.test_composition import (
     test_compiled_timeline_aligns_channels_and_applies_typed_hardware,
     test_flow_field_interpolates_space_and_time_in_si_units,
@@ -121,6 +125,14 @@ def load_tests(
     _pattern: str | None,
 ) -> unittest.TestSuite:
     suite = unittest.TestSuite()
+    suite.addTest(
+        unittest.FunctionTestCase(
+            lambda: test_tuned_uniform_cages_match_analytical_frequencies(
+                tuned_low_pass_birdcage,
+                "low_pass",
+            )
+        )
+    )
     for name in FAST_FIXTURE_TESTS:
         suite.addTest(OctaveFixtureTests(name))
     for name in FAST_EXAMPLE_TESTS:

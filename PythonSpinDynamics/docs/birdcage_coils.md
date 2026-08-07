@@ -139,11 +139,126 @@ The analytical and regression checks require:
   for the reference 16-rung cage;
 - convergence as each end-ring arc is segmented more finely.
 
-This first Phase 5 layer does **not** yet predict resonance frequency, capacitor
-values, port matching, loaded Q, mode splitting, conductor/sample loss, or
-current imbalance. Those require the explicit node/branch circuit solver. The
-prescribed-current modes and field metrics are the acceptance reference for
-that next layer, not a substitute for it.
+## Resonant circuit layer
+
+`BirdcageCircuit` adds series resistance, inductance, and optional capacitance
+to every rung and end-ring section. Component arguments may be scalars for a
+uniform cage or length-\(N\) arrays for tolerance and fault studies. End-ring
+values describe one section and are applied to the matching section on both
+rings.
+
+The conventional architectures are represented directly:
+
+- low-pass: capacitors in the rungs and continuous end rings;
+- high-pass: capacitors in the end-ring sections and continuous rungs;
+- band-pass: capacitors in both branch families.
+
+For a closed cage, the rung-current vector has zero sum. If \(T\) completes
+those currents into the positive end ring, the negative-ring currents are
+\(-T I\). A branch quantity \(X\), such as resistance or inductance, therefore
+reduces to
+
+\[
+  X_\mathrm{eff}
+  = \operatorname{diag}(X_\mathrm{rung})
+  + 2T^\mathsf{T}\operatorname{diag}(X_\mathrm{ring})T.
+\]
+
+The lossless modes follow from
+
+\[
+  C_\mathrm{eff}^{-1} I
+  = \omega^2 L_\mathrm{eff} I,
+\]
+
+solved in an orthonormal zero-sum basis. This produces \(N-1\) rung-current
+modes, including the two orientations of each degenerate azimuthal family.
+The returned modes include complete KCL-consistent branch currents and the
+series-loss estimate
+
+\[
+  Q = \omega
+  \frac{I^\mathrm{H}L_\mathrm{eff}I}
+       {I^\mathrm{H}R_\mathrm{eff}I}.
+\]
+
+For uniform branch values and \(s_m=\sin(\pi m/N)\), the implemented analytical
+check is
+
+\[
+  \omega_m^2 =
+  \frac{C_\mathrm{rung}^{-1}
+       +(2s_m^2 C_\mathrm{ring})^{-1}}
+       {L_\mathrm{rung}+L_\mathrm{ring}/(2s_m^2)},
+\]
+
+with absent capacitor terms set to zero. This is also used by the tuned
+low-pass and high-pass factories.
+
+```python
+from spin_dynamics.fields import tuned_low_pass_birdcage
+
+circuit = tuned_low_pass_birdcage(
+    cage,
+    63.87e6,
+    rung_inductance_h=180e-9,
+    end_ring_inductance_h=35e-9,
+    rung_resistance_ohm=0.08,
+    end_ring_resistance_ohm=0.015,
+)
+analysis = circuit.modal_analysis()
+fundamental_pair = analysis.azimuthal_modes(1)
+print(fundamental_pair[0].frequency_hz)
+print(fundamental_pair[0].quality_factor)
+```
+
+### Tolerances, splitting, and driven quadrature
+
+Nonuniform component arrays break rotational symmetry. The modal solver then
+predicts the frequency splitting of the nominal cosine/sine pair:
+
+```python
+import numpy as np
+from spin_dynamics.fields import BirdcageCircuit
+
+capacitors = np.array(circuit.rung_capacitance_f)
+capacitors[0] *= 1.03
+perturbed = BirdcageCircuit(
+    geometry=cage,
+    rung_inductance_h=circuit.rung_inductance_h,
+    end_ring_inductance_h=circuit.end_ring_inductance_h,
+    rung_capacitance_f=capacitors,
+    rung_resistance_ohm=circuit.rung_resistance_ohm,
+    end_ring_resistance_ohm=circuit.end_ring_resistance_ohm,
+)
+print(perturbed.modal_analysis().splitting_hz(1))
+```
+
+`solve_drive` solves the complex finite-loss impedance matrix for series
+voltage sources inserted into rung branches. The quadrature helper places two
+equal sources one quarter-cage apart and drives them 90 degrees apart in RF
+phase. Its returned `BirdcageCurrentMode` passes directly to
+`solve_birdcage_field`, so capacitor imbalance can be followed all the way to
+B1 nonuniformity and counter-rotating contamination.
+
+Run the circuit example with:
+
+```powershell
+python examples\plot_birdcage_circuit.py --output results\birdcage_circuit.png
+```
+
+The figure compares low- and high-pass modal spectra, shows the split driven
+response after one capacitor is shifted, and compares balanced and perturbed
+B1 maps and circular isolation.
+
+### Present circuit-model boundary
+
+This layer is a lumped, quasistatic series-branch model. It does not yet
+include mutual inductance between physical branches, conductor/sample-derived
+loss matrices, shield coupling, explicit matching networks, or full-wave
+effects. Its rung sources describe ideal series feeds; matching to a 50-ohm
+transmitter is a subsequent port-network layer. Those additions can reuse the
+same mode, KCL, drive, and field interfaces introduced here.
 
 ## References
 
@@ -154,3 +269,10 @@ that next layer, not a substitute for it.
 - J.-M. Jin, *Electromagnetic Analysis and Design in Magnetic Resonance
   Imaging*, CRC Press, 1999,
   <https://www.routledge.com/Electromagnetic-Analysis-and-Design-in-MagneticResonance-Imaging/Jin/p/book/9780849396939>.
+- C.-L. Chin, C. M. Collins, S. Li, B. J. Dardzinski, and M. B. Smith,
+  “BirdcageBuilder: Design of specified-geometry birdcage coils with desired
+  current pattern and resonant frequency,” *Concepts in Magnetic Resonance*
+  **15** (2002), 156–163, <https://doi.org/10.1002/cmr.10030>.
+- S. F. Ahmad et al., “Recent progress in birdcage RF coil technology for MRI
+  systems,” *Diagnostics* **10** (2020), 1017,
+  <https://doi.org/10.3390/diagnostics10121017>.
