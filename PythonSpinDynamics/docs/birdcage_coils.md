@@ -1,4 +1,4 @@
-# Birdcage Coil Reference Model
+# Birdcage Coils: Quadrature, Circuits, and Loaded Reception
 
 Phase 5 proceeds from a prescribed-current reference model to resonant ladder
 circuits and a loaded/matched reciprocal multiport layer. The reference model
@@ -396,6 +396,8 @@ Run the complete loaded receive example with:
 ```powershell
 python examples\plot_birdcage_loaded_receive.py --unloaded-q 180 --output results\birdcage_loaded_receive.png
 ```
+
+![Mutual inductance, unloaded and loaded Q, matched ports, reciprocal phase, and Roemer reconstruction](images/example_birdcage_loaded_receive.png)
 
 It shows the branch mutual-inductance matrix, calibrated unloaded and
 sample-loaded Q, matched S parameters, reciprocal I/Q-port phase, the

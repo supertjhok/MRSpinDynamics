@@ -149,6 +149,8 @@ python examples/plot_receiver_array_sense.py \
   --output results/receiver_array_sense.png
 ```
 
+![Reciprocal sensitivity maps, clean and noisy SENSE images, aliased RSS, residual, and g-factor](images/example_receiver_array_sense.png)
+
 The example solves two offset receive coils by reciprocity, then uses the direct
 Cartesian `P F S` operator to generate an exact R=2 acquisition from the spin
 density. This keeps the SENSE demonstration on its natural even matrix without
@@ -167,5 +169,8 @@ optional image priors rather than substitutes for coil encoding.
 Electrical mutual coupling, loaded channel transfer functions, and
 circuit-derived covariance are implemented by an optional Phase 4
 `ReceiverNetwork`; see [Coupled receiver networks](receiver_networks.md).
-SENSE automatically uses its loaded effective maps and covariance. Birdcage
-modes remain Phase 5.
+SENSE automatically uses its loaded effective maps and covariance. The Phase 5
+[birdcage model](birdcage_coils.md) now supplies matched-input reciprocal B1-
+maps and passive covariance in the same channel-leading convention, so those
+maps can be passed to this encoding layer without a separate reconstruction
+convention.

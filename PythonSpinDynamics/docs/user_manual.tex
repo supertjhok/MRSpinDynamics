@@ -124,11 +124,11 @@ Simulation workflows for magnetic-resonance spin dynamics from experiment
 description to reproducible result: validated spin-1/2 Bloch kernels, small
 dense Hamiltonian models, an open sequence interchange layer, declarative
 experiment planning, and targeted models for NQR, ESR/EPR, relaxation,
-transport, fields, defect-spin nano-MR, optical detection, and instrument
-hardware.
+transport, fields, receiver arrays, RF-coil circuits, defect-spin nano-MR,
+optical detection, and instrument hardware.
 \end{minipage}
 \vfill
-{\large July 2026\par}
+{\large August 2026\par}
 \end{titlepage}
 \nopagecolor
 \clearpage
@@ -511,7 +511,10 @@ runnable examples, validation status, API tables, and known gaps.
 
 The supported surface includes ideal, tuned, untuned, and matched-probe CPMG
 workflows; finite echo trains; FID; phase-encoded and frequency-encoded
-imaging; deterministic PGSE and seeded random-walker diffusion/flow;
+imaging; channel-resolved reciprocal receiver arrays, covariance-aware Roemer
+combination, Cartesian SENSE, coupled multiport receiver networks, resonant
+cancellation, active/passive LNA front ends, and loaded/matched quadrature
+birdcage coils; deterministic PGSE and seeded random-walker diffusion/flow;
 moving-isochromat simulations; Pulseq 1.4/1.5 interchange; WURST and UDD timing
 helpers; radiation damping; receiver noise; inverse-Laplace analysis; compact
 optimization scaffolds; small spin-1/2 scalar-coupling models; pulsed NQR;
@@ -535,6 +538,8 @@ Path & Purpose \\
 \code{docs/spin\_noise.md} & Spin-noise physics analysis and model options. \\
 \code{docs/thermal\_modeling.md} & Coupled thermal-modeling options and work plan. \\
 \code{docs/flow\_modeling.md} & Flowing-sample model design and validation. \\
+\code{docs/receiver\_array\_imaging.md} and \code{docs/sense\_imaging.md} & Complex receiver-array imaging, optimal combination, and SENSE. \\
+\code{docs/receiver\_networks.md} and \code{docs/birdcage\_coils.md} & Coupled receive circuits, LNAs, and resonant quadrature birdcages. \\
 \code{validation/femm/} & FEMM cross-validation scripts (thermal). \\
 \bottomrule
 \end{longtable}
@@ -4369,7 +4374,7 @@ macq, fid, tvect = sim_fid_ideal(sp, pp)
 \chapter{Imaging and Integrated MRI}
 \label{chap:imaging}
 
-\chapterpath{Move from k-space acquisition and reconstruction through
+\chapterpath{Move from channel-resolved receiver arrays and SENSE through
 frequency encoding, steady-state and slice-selective imaging, then close the
 loop in a portable MRI system study.}
 
@@ -4409,6 +4414,76 @@ preparation through \code{run\_t1\_encoded\_phase\_encoded\_cpmg\_imaging}.
 When \code{noise} is supplied, clean k-space and image fields remain in the
 result while noisy counterparts are stored in \code{kspace\_noisy},
 \code{image\_noisy}, and \code{magnitude\_noisy}.
+
+\section{Receiver Arrays, Optimal Combination, and Cartesian SENSE}
+\label{sec:receiver-arrays-sense}
+
+Receiver sensitivity is a complex field, not an intensity correction. For
+channel \(c\), reciprocity supplies \(s_c(\mathbf r)=B_{1,c}^{-}(\mathbf r)/I_c\),
+including the phase that distinguishes spatial encoding from simple coverage.
+The channel-preserving forward model is
+\[
+  y_c = P F\{s_c(\mathbf r)m(\mathbf r)\}+n_c,
+\]
+where \(P\) is the Cartesian sampling mask and
+\(\Psi=E[\mathbf n\mathbf n^{\mathrm H}]\) is the receiver-noise covariance.
+The geometry solver retains absolute T/A fields; experiment workflows expose
+the consistently normalized complex maps used by reconstruction.
+
+Fully sampled arrays can be combined as root-sum-of-squares for display, by
+sensitivity weighting, or by the covariance-optimal Roemer estimator
+\[
+  \widehat m =
+  \frac{\mathbf s^{\mathrm H}\Psi^{-1}\mathbf y}
+       {\mathbf s^{\mathrm H}\Psi^{-1}\mathbf s}.
+\]
+For uniformly undersampled Cartesian data,
+\code{CartesianSENSEEncoding} and \code{reconstruct\_cartesian\_sense} whiten
+the channels and solve each folded alias set with an optional Tikhonov term.
+The result reports rank, condition number, and the unregularized geometry
+factor so a visually plausible but ill-conditioned reconstruction is not
+mistaken for a robust encoding.
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.workflows import (
+    CartesianSENSEEncoding, reconstruct_cartesian_sense,
+    uniform_cartesian_mask,
+)
+
+mask = uniform_cartesian_mask((64, 64), 2, axis="x")
+encoding = CartesianSENSEEncoding(sensitivities, mask,
+                                   noise_covariance=psi)
+sampled = encoding.forward(reference_image)
+sense = reconstruct_cartesian_sense(
+    sampled, sensitivities, mask, axis="x",
+    noise_covariance=psi, regularization=1e-6,
+)
+\end{lstlisting}
+
+An \code{RxArray} can be supplied through the experiment facade for
+channel-resolved CPMG imaging. Its optional \code{ReceiverNetwork} transforms
+both sensitivity and covariance through the same coupled electrical solve, so
+Roemer and SENSE use the loaded effective maps rather than uncoupled maps with
+an unrelated noise matrix. The implemented SENSE path uses uniform
+single-axis Cartesian masks and supplied or simulated maps; calibration-map
+estimation, arbitrary-density sampling, and joint compressed-sensing priors
+remain separate extensions.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.98\linewidth]{images/example_receiver_array_sense.png}
+\caption{Two reciprocal receive sensitivities provide an \(R=2\) Cartesian
+SENSE encoding. The example places the spin-density reference, clean and
+noisy unfolded images, zero-filled aliased RSS image, image-space noise
+residual, and geometry-factor map on interpretable independent scales.}
+\label{fig:receiver-array-sense-example}
+\end{figure}
+
+Run \code{python examples/plot\_receiver\_array\_sense.py --pixels 8
+--noise-std 0.20 --output receiver\_array\_sense.png} to reproduce
+Figure~\ref{fig:receiver-array-sense-example}. The detailed conventions and
+limits are recorded in \code{docs/receiver\_array\_imaging.md} and
+\code{docs/sense\_imaging.md}.
 
 \section{Frequency-Encoded Imaging: Spin-Warp and RARE}
 
@@ -6035,6 +6110,127 @@ The FasterCap capacitance and PEEC \code{capacitance\_to\_ground} also both sit 
 below the crude analytic \(2\pi\varepsilon_0 L/(\ln(L/a)-1)\), confirming the thin-wire
 kernel against the reference rather than the approximation; the coil self-capacitance is
 additionally validated against the Medhurst formula. Design note: \code{docs/coil\_peec.md}.
+
+\section{Coupled Receiver Networks, Decoupling, and LNA Architecture}
+\label{sec:receiver-networks}
+
+A receive array is not completely described by independent \(B_1^-/I\) maps.
+\code{extract\_multiport\_impedance} evaluates the reciprocal terminal
+\(Z_{\mathrm{coil}}(\omega)=R(\omega)+j\omega L(\omega)\) of several explicit
+conductors. \code{ReceiverNetwork} then combines coil, series tuning or
+matching, and load impedances. For open-circuit coil voltage \(\mathbf e\),
+\[
+ \mathbf i=(Z_c+Z_s+Z_L)^{-1}\mathbf e,
+ \qquad
+ H=Z_L(Z_c+Z_s+Z_L)^{-1}.
+\]
+The same transfer \(H\) maps geometric sensitivities to loaded effective maps
+and propagates thermal noise. At a uniform passive temperature,
+fluctuation--dissipation gives the Hermitian voltage-noise covariance from the
+dissipative part of the network impedance. This keeps signal mixing, unequal
+channel gain, and correlated noise in one basis for Roemer combination and
+SENSE.
+
+\code{ActiveReceiverNetwork} separates passive source loss from active LNA
+loading and specified voltage, current, and cross-spectral noise. In particular,
+it does not count both an active input resistance's Johnson noise and the
+LNA's explicit noise model. Independent reciprocal \code{PassiveTwoPort}
+front ends add transformers, series/shunt elements, and lossy or lossless
+transmission lines before the LNA; the matched lossy-line limit recovers the
+Friis insertion-loss noise figure.
+
+Resonant cancellation uses a shared mesh impedance to cancel mutual
+\emph{reactance} at one design frequency. If \(M\) is the mutual inductance,
+\(C_d=1/(\omega_0^2|M|)\) gives the ideal cancellation value, but mutual
+resistance and its correlated thermal noise remain. Component tolerance,
+sample loading, cable phase, and bandwidth therefore matter even when the
+single-frequency isolation is excellent.
+
+The implemented architecture studies separate three choices:
+\begin{description}
+ \item[Matched 50-ohm LNA.] Standard interconnects and predictable termination,
+ but resistive loading, matching loss, and pre-LNA cable loss can reduce SNR.
+ \item[On-coil high-input-impedance LNA.] Preserves open-circuit voltage and
+ suppresses coil current, but voltage noise, input capacitance, stability,
+ recovery, and local heating become central.
+ \item[Conventional preamplifier decoupling.] A low device impedance is
+ transformed to a high coil-port impedance over a narrow band. This can suppress
+ induced current without automatically providing a noise match.
+\end{description}
+
+The examples \code{plot\_receiver\_network\_coupling.py},
+\code{plot\_receiver\_resonant\_cancellation.py},
+\code{plot\_receiver\_lna\_architectures.py}, and
+\code{plot\_receiver\_preamplifier\_decoupling.py} expose the loaded maps,
+residual coupling, isolation, signal transfer, separated noise sources, and
+array SNR. Device values and sample-loss matrices are illustrative; measured
+S-parameter import, standard noise-parameter conversion, coupled transmission
+lines, compression/stability analysis, and active-network integration into the
+experiment facade remain future work. See \code{docs/receiver\_networks.md}.
+
+\section{Birdcage Coils: Quadrature, Resonance, and Loaded Reception}
+\label{sec:birdcage-coils}
+
+The birdcage model progresses through three independently checkable layers.
+\code{BirdcageGeometry} defines explicit rungs and segmented positive and
+negative end rings. Prescribed sinusoidal rung currents are completed around the
+rings by KCL; degenerate cosine and sine fundamental modes combine with a
+90-degree phase shift into opposite circular polarizations. Complex Biot--Savart
+fields expose \(B_1^+\), \(B_1^-\), ROI uniformity, transverse fraction, and
+circular isolation.
+
+\code{BirdcageCircuit} places series RLC elements in every branch and supports
+low-pass, high-pass, and mixed capacitor placement. If \(T\) completes rung
+currents into one ring, the complete branch-current transform is
+\[
+ B=\begin{bmatrix}I&T&-T\end{bmatrix}^{\mathsf T},
+ \qquad X_{\mathrm{eff}}=B^{\mathsf T}X_{\mathrm{branch}}B.
+\]
+The zero-sum generalized eigenproblem gives modal frequencies and the
+series-loss estimate
+\[
+ Q=\omega\frac{\mathbf i^{\mathrm H}L_{\mathrm{eff}}\mathbf i}
+                    {\mathbf i^{\mathrm H}R_{\mathrm{eff}}\mathbf i}.
+\]
+The branch resistances are inputs rather than predictions from a centerline
+filament geometry. \code{calibrate\_birdcage\_conductor\_quality\_factor}
+therefore scales the explicit conductor loss to an assumed or measured modal Q;
+the examples use 180. Mutual coupling is already part of this unloaded state,
+and conductive sample loss is added afterward to produce loaded Q.
+
+The multiport layer evaluates every off-diagonal branch mutual partial
+inductance and the first-order conductive-loss matrix
+\[
+ R_{ij}(\omega)=\omega^2\int_V\sigma(\mathbf r)
+ \mathbf A_i(\mathbf r)\!\cdot\!\mathbf A_j(\mathbf r)\,dV.
+\]
+\code{retune\_loaded\_birdcage} restores the selected resonance after loading.
+\code{BirdcageMultiport} exposes physical rung-feed \(Z\) and equal-reference
+\(S\) matrices; \code{design\_independent\_l\_match} supplies an ideal
+series-then-shunt 50-ohm match while retaining residual inter-port coupling.
+Finally, \code{solve\_birdcage\_receive\_sensitivities} drives one ampere at
+each unmatched or matched input, evaluates reciprocal \(B_1^-\), and returns
+the passive \(4k_BT\operatorname{Re}_H(Z_{\mathrm{in}})\) covariance in the same
+channel basis.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.98\linewidth]{images/example_birdcage_loaded_receive.png}
+\caption{The complete lumped birdcage path: geometry-derived branch mutual
+inductance, calibrated unloaded and sample-loaded Q, matched two-port scattering,
+reciprocal I/Q receive phase, spin density, and covariance-aware Roemer
+reconstruction. The default example gives \(Q_u=180.0\), \(Q_l\simeq99.3\), and
+retunes the fundamental to 63.87~MHz.}
+\label{fig:birdcage-loaded-receive-example}
+\end{figure}
+
+Run \code{python examples/plot\_birdcage\_loaded\_receive.py --unloaded-q 180
+--output birdcage\_loaded\_receive.png} to reproduce
+Figure~\ref{fig:birdcage-loaded-receive-example}. The lumped quasistatic layer
+does not yet include frequency-dependent PEEC branch resistance,
+charge-corrected sample currents, finite-thickness shield currents, matching
+component loss/tolerance, transmit-amplifier or hybrid models, SAR, radiation,
+or full-wave dielectric propagation. See \code{docs/birdcage\_coils.md}.
 
 \section{Nonlinear Magnetostatics: Ferrites and Saturable Iron}
 \label{sec:fields-nonlinear-magnetostatics}
@@ -8386,10 +8582,13 @@ full command list.
 \begin{description}
   \item[First simulation.] Run \code{experiment\_facade\_quickstart.py}, then
   \code{ideal\_cpmg\_train.py}, and compare the high-level and direct workflows.
-  \item[Fields and imaging.] Continue with \code{plot\_ideal\_imaging.py},
-  \code{experiment\_imaging\_with\_coil.py}, and
-  \code{plot\_imaging\_inhomogeneity.py}. Then run the complete system study
-  \code{plot\_portable\_halbach\_adaptive\_mri.py}.
+  \item[Fields, receive arrays, and imaging.] Continue with
+  \code{experiment\_imaging\_with\_coil.py},
+  \code{plot\_receiver\_array\_cpmg.py}, and
+  \code{plot\_receiver\_array\_sense.py}. Then inspect coupled front ends with
+  \code{plot\_receiver\_network\_coupling.py} and finish the RF-coil path with
+  \code{plot\_birdcage\_loaded\_receive.py} before running the complete system
+  study \code{plot\_portable\_halbach\_adaptive\_mri.py}.
   \item[Diffusion and transport.] Start with \code{plot\_bipolar\_pgste.py},
   then \code{plot\_pgse\_qspace\_walkers.py} and
   \code{plot\_cpmg\_pipe\_flow.py}.
@@ -8435,6 +8634,15 @@ python examples\plot_sequence_timeline.py --export-pulseq results\demo.seq --out
 python examples\plot_ideal_workflows.py --numpts 201 --output results\ideal_workflows.png
 python examples\plot_ideal_imaging.py --pixels 6 --ny 7 --output results\ideal_imaging.png
 python examples\plot_custom_imaging_fields.py --pixels 8 --ny 7 --output results\custom_imaging_fields.png
+python examples\plot_receiver_array_cpmg.py --pixels 9 --ny 1 --output results\receiver_array_cpmg.png
+python examples\plot_receiver_array_sense.py --pixels 8 --output results\receiver_array_sense.png
+python examples\plot_receiver_network_coupling.py --pixels 7 --output results\receiver_network_coupling.png
+python examples\plot_receiver_resonant_cancellation.py --output results\receiver_resonant_cancellation.png
+python examples\plot_receiver_lna_architectures.py --output results\receiver_lna_architectures.png
+python examples\plot_receiver_preamplifier_decoupling.py --output results\receiver_preamplifier_decoupling.png
+python examples\plot_birdcage_quadrature.py --output results\birdcage_quadrature.png
+python examples\plot_birdcage_circuit.py --unloaded-q 180 --output results\birdcage_circuit.png
+python examples\plot_birdcage_loaded_receive.py --unloaded-q 180 --output results\birdcage_loaded_receive.png
 python examples\plot_inverse_laplace.py --output results\inverse_laplace.png
 python examples\plot_pgse_d_t2.py --output results\pgse_d_t2.png
 python examples\plot_phase_cycled_stimulated_echo.py --output results\phase_cycled_ste.png
@@ -8606,6 +8814,18 @@ add selected QOIL regressions and optional FastHenry/FasterCap comparisons
 (level C); their status remains partial because live external tools are not part
 of ordinary CI and complex/high-frequency geometries are sparsely sampled.
 
+Receiver-network evidence checks reciprocity, passive dissipation and
+fluctuation--dissipation covariance, resonant cancellation limits, active-noise
+source separation, two-port transformations, and Friis insertion loss. Birdcage
+evidence adds rung/end-ring KCL, fundamental-mode degeneracy and helicity,
+analytical uniform-ladder frequencies, power balance, tolerance splitting,
+mutual-matrix symmetry, conductive-loss positive semidefiniteness and
+frequency-squared scaling, explicit Q calibration, 50-ohm matching, reciprocal
+port fields, and exact noiseless Roemer combination. These are analytical and
+regression references rather than scanner or bench validation; the illustrative
+geometry, conductor loss, sample, matching components, cables, and LNAs must be
+replaced with measured design data for quantitative hardware conclusions.
+
 Thermal networks and conduction solvers are checked against RC exponentials,
 energy conservation, uniform-source slab/cylinder/sphere solutions, perfusion
 limits, and advection--diffusion solutions. FEMM scripts provide an independent
@@ -8707,6 +8927,9 @@ spin_dynamics.coupling
 spin_dynamics.nqr
 spin_dynamics.noise
 spin_dynamics.motion
+spin_dynamics.fields
+spin_dynamics.receiver_network
+spin_dynamics.receiver_frontend
 spin_dynamics.experiment
 spin_dynamics.design
 spin_dynamics.sequences
@@ -8738,6 +8961,8 @@ with \code{plan()}, \code{run()}, JSON conversion, and result provenance. \\
 and imaging sequence specifications supported by the facade. \\
 \code{PGSE}, \code{PGSEWalkers} & Deterministic and explicit-particle
 diffusion specifications. \\
+\code{RxCoil}, \code{RxArray}, \code{ReceiverNetwork} & Ordered reciprocal
+receive channels and an optional coupled passive circuit used by array imaging. \\
 \code{TransportDomain2D}, \code{UniformFlow2D} & Physical density/axis domain
 and optional uniform velocity for walker transport. \\
 \code{NQRSLSE}, \code{NQRSORC}, \code{ESRFID}, \code{ESRHahnEcho} & NQR and
@@ -9035,6 +9260,12 @@ from spin_dynamics.workflows import (
     form_imaging_image,
     fit_imaging_echo_decay,
     summarize_imaging_noise_trials,
+    run_ideal_receiver_array_cpmg_imaging,
+    sum_of_squares, sensitivity_weighted_combine, roemer_combine,
+    add_receiver_array_noise,
+    CartesianSENSEEncoding, CartesianSENSEResult,
+    uniform_cartesian_mask, noise_whitener, whiten_receiver_channels,
+    reconstruct_cartesian_sense,
     TissuePhantom2D,
     NonlinearEPMEncoding,
     EPMNonlinearImagingResult,
@@ -9189,6 +9420,44 @@ from spin_dynamics.core.isochromats import (
 
 Core functions are intended for validation, debugging, and continued porting.
 They are closer to MATLAB's array contracts than the workflow layer.
+
+\section{Receiver Networks and Birdcage APIs}
+
+\begin{lstlisting}
+from spin_dynamics.fields import (
+    extract_multiport_impedance,
+    BirdcageGeometry, BirdcageCurrentMode,
+    birdcage_linear_mode, birdcage_quadrature_mode,
+    solve_birdcage_field, birdcage_field_metrics,
+    BirdcageCircuit, tuned_low_pass_birdcage, tuned_high_pass_birdcage,
+    BirdcageBranchLoading, BirdcageLoadedCircuit, BirdcageMultiport,
+    birdcage_branch_mutual_inductance_matrix,
+    birdcage_conductive_loading_resistance,
+    retune_loaded_birdcage,
+    calibrate_birdcage_conductor_quality_factor,
+    BirdcageLMatch, design_independent_l_match,
+    BirdcageReceiveSensitivityMaps,
+    solve_birdcage_receive_sensitivities,
+)
+from spin_dynamics.receiver_network import (
+    ReceiverNetwork, ReceiverNetworkSolution,
+    LNAInputModel, ActiveReceiverNetwork, ActiveReceiverNetworkSolution,
+    optimal_channel_snr, coupled_resonant_modes,
+    mutual_cancellation_capacitance, shared_capacitor_mesh_impedance,
+    analyze_receiver_coupling_sweep,
+)
+from spin_dynamics.receiver_frontend import (
+    PassiveTwoPort, identity_two_port,
+    series_impedance_two_port, shunt_admittance_two_port,
+    ideal_transformer_two_port, transmission_line_two_port,
+    analyze_active_receiver_front_end_sweep,
+)
+\end{lstlisting}
+
+The birdcage API intentionally distinguishes prescribed currents, the closed
+RLC circuit, and the loaded physical-port model. The receiver-network API
+similarly distinguishes passive equilibrium networks from active LNA models;
+use the generated Markdown reference for complete signatures and result fields.
 
 \section{Probe and Pulse API}
 
@@ -9805,6 +10074,13 @@ specific extensions that remain future work.}
   explicit absolute time axes. It validates channel units and performs spatial
   and time resampling. Backend-specific execution adapters and richer two-way
   feedback loops remain future work.
+  \item[Receiver and RF-coil hardware.] Receiver arrays, passive/active terminal
+  networks, resonant cancellation, LNA/interconnect studies, and the dedicated
+  lumped birdcage topology are implemented. General arbitrary circuit graphs,
+  measured S-parameter and standard LNA noise-parameter import, coupled
+  transmission lines, component tolerance/loss propagation, full-wave
+  dielectric/shield modeling, SAR, compression, recovery, and scanner/bench
+  validation remain outside the quantitative reference layer.
   \item[Validation evidence.] Broader high-Q matched-probe fixtures, historical
   MATLAB \code{.mat} parity, optimization comparisons, paper-level
   scalar-coupling checks, and experimental NQR/ESR fixtures remain valuable.

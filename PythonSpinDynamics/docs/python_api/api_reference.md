@@ -4,6 +4,19 @@ Generated from public class and function docstrings by `docs/generate_api_refere
 
 This reference is an inventory, not a substitute for the user manual. For numerical assumptions, equations, and workflow guidance, see `docs/user_manual.tex`.
 
+## `spin_dynamics.analysis.compressed_sensing`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `AdaptiveCSResult` | Progressive compressed-sensing reconstruction and stopping history. |
+| function | `centered_fft2(image: np.ndarray) -> np.ndarray` | Return the centered orthonormal 2-D Fourier transform. |
+| function | `centered_ifft2(kspace: np.ndarray) -> np.ndarray` | Return the centered orthonormal inverse 2-D Fourier transform. |
+| function | `reconstruct_wavelet_fista(kspace: np.ndarray, mask: np.ndarray, *, regularization: float = 0.0005, iterations: int = 80, initial: np.ndarray | None = None) -> np.ndarray` | Reconstruct undersampled Cartesian MRI with L1-Haar FISTA. |
+| function | `reconstruct_tv_pocs(kspace: np.ndarray, mask: np.ndarray, *, regularization: float = 0.08, iterations: int = 10, denoise_iterations: int = 25, final_denoise_iterations: int = 100, initial: np.ndarray | None = None) -> np.ndarray` | Reconstruct undersampled MRI with finite-difference TV and data consistency. |
+| function | `variable_density_order(shape: tuple[int, int], *, seed: int = 0, density_power: float = 2.0) -> np.ndarray` | Return an incoherent variable-density Cartesian acquisition order. |
+| function | `adaptive_cs_reconstruction(full_kspace: np.ndarray, *, order: np.ndarray | None = None, batch_size: int | None = None, validation_fraction: float = 0.04, min_sampling_fraction: float = 0.2, patience: int = 3, min_quality_improvement: float = 0.002, regularization: float = 0.0005, iterations: int = 50, seed: int = 0) -> AdaptiveCSResult` | Acquire k-space progressively and stop when held-out quality plateaus. |
+| function | `normalized_root_mean_square_error(reference: np.ndarray, estimate: np.ndarray) -> float` | Return magnitude-image NRMSE, useful for synthetic validation only. |
+
 ## `spin_dynamics.analysis.ilt`
 
 | Kind | Name | Summary |
@@ -713,6 +726,24 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `deer_kwargs(experiment: Any) -> dict[str, Any]` |  |
 | function | `run_deer(**kwargs) -> ESRDEERResult` | Adapt the array-returning DEER engine to a persistable facade result. |
 
+## `spin_dynamics.experiment.esr_multidim_adapter`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `ESRESEEMResult` | Time-domain ESEEM trace and its one-sided magnitude spectrum. |
+| class | `ESRHYSCOREResult` | HYSCORE time plane, 2-D spectrum, and predicted cross-peaks. |
+| function | `require_coupling(experiment: Any) -> HyperfineCoupling` |  |
+| function | `resolved_eseem_model(requested: str, coupling: HyperfineCoupling, *, electron_offset_hz: float = 0.0) -> str` |  |
+| function | `eseem_kwargs(experiment: Any) -> dict[str, Any]` |  |
+| function | `two_pulse_kwargs(experiment: Any) -> dict[str, Any]` |  |
+| function | `three_pulse_kwargs(experiment: Any) -> dict[str, Any]` |  |
+| function | `run_two_pulse_eseem(times_seconds: np.ndarray, coupling: HyperfineCoupling, *, model: str, electron_offset_hz: float, zero_fill: int) -> ESRESEEMResult` |  |
+| function | `run_three_pulse_eseem(times_seconds: np.ndarray, coupling: HyperfineCoupling, *, model: str, tau_seconds: float, zero_fill: int) -> ESRESEEMResult` |  |
+| function | `hyscore_kwargs(experiment: Any) -> dict[str, Any]` |  |
+| function | `run_hyscore(t1_seconds: np.ndarray, t2_seconds: np.ndarray, coupling: HyperfineCoupling, *, tau_seconds: float, zero_fill: int) -> ESRHYSCOREResult` |  |
+| function | `endor_kwargs(experiment: Any) -> dict[str, Any]` |  |
+| function | `mims_endor_kwargs(experiment: Any) -> dict[str, Any]` |  |
+
 ## `spin_dynamics.experiment.estimate`
 
 | Kind | Name | Summary |
@@ -779,6 +810,19 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `ExperimentPlan` | Resolved execution plan for an :class:`Experiment`. |
 | function | `plan_experiment(experiment: Experiment, *, estimate: bool = True) -> ExperimentPlan` | Resolve, validate, and (optionally) cost a declarative experiment. |
 
+## `spin_dynamics.experiment.provenance`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `experiment_fingerprint(experiment: Any) -> str` | Return a canonical SHA-256 identity for a complete experiment spec. |
+| function | `result_fingerprint(result: Any) -> str` | Return a content fingerprint for a native result dataclass. |
+| function | `callable_identity(func: Callable[..., Any]) -> dict[str, Any]` | Describe and fingerprint the resolved workflow implementation. |
+| function | `environment_identity() -> dict[str, Any]` | Return numerical-runtime versions and their canonical fingerprint. |
+| function | `package_source_fingerprint() -> str` | Fingerprint every Python source file in the installed package tree. |
+| function | `source_revision() -> dict[str, Any]` | Return Git revision/dirty state when running from a checkout. |
+| function | `randomness_identity(experiment: Any) -> dict[str, Any]` | Classify stochastic facade inputs and record their seeds. |
+| function | `build_provenance(experiment: Any, result: Any, func: Callable[..., Any], *, package_version: str, elapsed_seconds: float, execution: Mapping[str, Any], plan_warnings: tuple[str, ...], timestamp_utc: str) -> dict[str, Any]` | Build the versioned provenance record for one completed run. |
+
 ## `spin_dynamics.experiment.registry`
 
 | Kind | Name | Summary |
@@ -820,6 +864,17 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `registered_types() -> Mapping[str, type]` |  |
 | function | `encode(value: Any, *, path: str = '$') -> Any` | Encode a value into JSON-representable form. |
 | function | `decode(value: Any) -> Any` | Decode a value produced by :func:`encode`. |
+
+## `spin_dynamics.experiment.sequence_adapter`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `SequenceIRResult` | General IR execution result with compiled receive metadata. |
+| function | `require_domain(experiment: Any)` |  |
+| function | `compile_for_experiment(experiment: Any) -> CompiledSequence` |  |
+| function | `prepare_for_experiment(experiment: Any) -> tuple[CompiledSequence, Any]` | Validate backend compatibility and return compiled IR motion steps. |
+| function | `sequence_kwargs(experiment: Any) -> dict[str, Any]` |  |
+| function | `run_sequence_ir(*, compiled: CompiledSequence, ensemble: Any, fields: Any, steps: Any, velocity: Any, rng: np.random.Generator, t1: float, t2: float, boundary: str, default_substeps: int, noise: Any) -> SequenceIRResult` | Execute compiled IR steps and apply nominal receiver demodulation. |
 
 ## `spin_dynamics.experiment.specs`
 
@@ -1202,6 +1257,19 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | --- | --- | --- |
 | class | `ScalarPotentialSolution` | Result of a 3D reduced-scalar-potential magnetostatic solve. |
 | class | `ReducedScalarPotential3D` | 3D nonlinear magnetostatics via the reduced scalar potential ``psi``. |
+
+## `spin_dynamics.flow`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `FlowModel` | Pipe flow through a cylindrical sensitive region. |
+| function | `washout_fraction(flow: FlowModel, time: np.ndarray) -> np.ndarray` | Fraction ``W(t)`` of originally-excited spins still in the volume. |
+| function | `washout_density(flow: FlowModel, time: np.ndarray) -> np.ndarray` | Remaining-residence density ``E(t) = -dW/dt`` (1/s), normalized to 1. |
+| function | `apply_washout(flow: FlowModel, time: np.ndarray, signal: np.ndarray) -> np.ndarray` | Multiply an acquired signal by the flow washout factor ``W(t)``. |
+| function | `flow_enhanced_rate(flow: FlowModel, t2_seconds: float) -> float` | Effective early-time decay rate ``1/T2 + 1/tau``. |
+| function | `mean_transit_time(flow: FlowModel, length_meters: float) -> float` | Mean transit time ``L / v_mean`` through an upstream region (s). |
+| function | `transit_time_distribution(flow: FlowModel, length_meters: float, time: np.ndarray) -> np.ndarray` | Flux-weighted exit-age RTD ``E(t)`` for transit through a length (1/s). |
+| function | `inflow_polarization(flow: FlowModel, *, polarizing_field_tesla: float, detection_field_tesla: float, prepolarizer_length_meters: float, t1_seconds: float, initial_magnetization: float = 0.0, detection_equilibrium_magnetization: float = 1.0, quadrature_points: int = 2000) -> float` | Flux-averaged longitudinal magnetization of spins entering the detector. |
 
 ## `spin_dynamics.hyperpolarization.singlet`
 
@@ -1742,6 +1810,17 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `sorc_mask_from_metadata(num_samples: int, sample_rate_hz: float, *, half_spacing_seconds: float, detection_duration_seconds: float, num_pulses: int, ringdown_seconds: float = 0.0, start_offset_seconds: float = 0.0, post_baseline_seconds: float = 0.0, baseline_intervals: Sequence[Interval] | None = None, initial_gap_is_baseline: bool = True) -> AcquisitionMask` | Reconstruct a SORC acquisition mask over a window of ``num_samples`` ADC samples. |
 | function | `nqr_recording_from_samples(primary: np.ndarray, references: np.ndarray | None, sample_rate_hz: float, *, sequence: str = 'slse', **timing) -> RFIRecording` | Pair measured ADC windows with a mask reconstructed from sequence timing. |
 
+## `spin_dynamics.nqr.isotopes`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `NuclearIsotope` | Nuclear spin and gyromagnetic ratio for one isotope. |
+| function | `nu_q_over_cq(spin: float) -> float` | Return the ratio ``nu_Q / C_Q = d / (4 I (2I-1))`` for a given spin. |
+| function | `nu_q_from_cq_hz(cq_hz: float, spin: float) -> float` | Return the fundamental line ``nu_Q`` (Hz) for a coupling constant ``C_Q``. |
+| function | `cq_hz_from_nu_q(nu_q_hz: float, spin: float) -> float` | Return ``C_Q`` (Hz) for a fundamental line ``nu_Q`` (inverse of above). |
+| function | `quadrupolar_isotope(isotope: str) -> NuclearIsotope` | Return the registry entry for ``isotope`` (e.g. ``"27Al"``). |
+| function | `quadrupolar_site(isotope: str, *, cq_hz: float | None = None, nu_q_hz: float | None = None, eta: float = 0.0, spin: float | None = None, gamma_hz_per_t: float | None = None, label: str | None = None) -> QuadrupolarSite` | Build a :class:`QuadrupolarSite` for a named nucleus. |
+
 ## `spin_dynamics.nqr.lab_frame`
 
 | Kind | Name | Summary |
@@ -2155,6 +2234,39 @@ No public classes or functions found.
 | function | `prepolarized_flow_state(polarizing_field_tesla: float | Iterable[float] | np.ndarray, detection_field_tesla: float, path_length_meters: float | Iterable[float] | np.ndarray, speed_meters_per_second: float | Iterable[float] | np.ndarray, t1_seconds: float | Iterable[float] | np.ndarray, *, initial_magnetization: float | Iterable[float] | np.ndarray = 0.0, detection_equilibrium_magnetization: float | Iterable[float] | np.ndarray = 1.0) -> PrepolarizedMagnetization` | Return a prepolarized state for flow through a finite polarizer. |
 | function | `apply_prepolarization_to_parameters(params: Mapping[str, Any] | Any, prepared: PrepolarizedMagnetization) -> dict[str, Any]` | Return a shallow parameter copy with ``m0`` and ``mth`` replaced. |
 
+## `spin_dynamics.probes.matched`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `matching_network_design2(L: float, Q: float, f0: float, R0: float) -> tuple[float, float]` | Design the two-capacitor matching network. |
+| function | `find_coil_current(sp: Mapping[str, Any] | Any, pp: Mapping[str, Any] | Any) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]` | Find rotating-frame current in a tuned-and-matched probe. |
+| function | `find_coil_current_wurst(sp: Mapping[str, Any] | Any, pp: Mapping[str, Any] | Any) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]` | Find matched-probe current for a frequency-swept WURST RF block. |
+| function | `calc_rot_axis_matched_probe(sp: Mapping[str, Any] | Any, pp: Mapping[str, Any] | Any) -> np.ndarray` | Calculate matched-probe refocusing rotation axis. |
+| function | `matched_probe_rx(sp: Mapping[str, Any] | Any, pp: Mapping[str, Any] | Any, macq: np.ndarray, tf1: np.ndarray, tf2: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray, float]` | Apply matched-probe receiver filtering and estimate SNR. |
+| function | `calc_masy_matched_probe_orig(sp: Mapping[str, Any] | Any, pp: Mapping[str, Any] | Any) -> tuple[np.ndarray, np.ndarray, float]` | Calculate matched-probe CPMG asymptotic and received spectra. |
+| function | `calc_masy_matched_nut(sp: Mapping[str, Any] | Any, pp: Mapping[str, Any] | Any) -> tuple[np.ndarray, np.ndarray]` | Calculate matched-probe excitation/nutation z magnetization. |
+
+## `spin_dynamics.probes.tuned`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `tuned_probe_lp_orig(sp: Mapping[str, Any] | Any, pp: Mapping[str, Any] | Any) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]` | Calculate tuned-probe coil current for the original/reference path. |
+| function | `tuned_probe_lp(sp: Mapping[str, Any] | Any, pp: Mapping[str, Any] | Any) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]` | Calculate tuned-probe coil current for the newer half-cycle path. |
+| function | `tuned_probe_rx_tf(sp: Mapping[str, Any] | Any, pp: Mapping[str, Any] | Any) -> np.ndarray` | Return tuned-probe receiver transfer function. |
+| function | `tuned_probe_rx(sp: Mapping[str, Any] | Any, pp: Mapping[str, Any] | Any, macq: np.ndarray) -> tuple[np.ndarray, float, complex]` | Apply tuned-probe receiver filtering and matched-filter SNR. |
+| function | `calc_rot_axis_tuned_probe_lp_orig2(params: Mapping[str, Any] | Any, sp: Mapping[str, Any] | Any, pp: Mapping[str, Any] | Any) -> np.ndarray` | Calculate tuned-probe refocusing rotation axis for the Orig path. |
+| function | `calc_masy_tuned_probe_lp_orig(params: Mapping[str, Any] | Any, sp: Mapping[str, Any] | Any, pp: Mapping[str, Any] | Any) -> tuple[np.ndarray, np.ndarray, float]` | Calculate tuned-probe CPMG asymptotic and received spectra. |
+
+## `spin_dynamics.probes.untuned`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `untuned_probe_lp(sp: Mapping[str, Any] | Any, pp: Mapping[str, Any] | Any) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]` | Calculate untuned-probe coil current. |
+| function | `untuned_probe_rx(sp: Mapping[str, Any] | Any, pp: Mapping[str, Any] | Any, macq: np.ndarray) -> tuple[np.ndarray, float, np.ndarray]` | Apply untuned-probe receiver filtering and matched-filter SNR. |
+| function | `untuned_probe_rx_tf(sp: Mapping[str, Any] | Any, pp: Mapping[str, Any] | Any) -> np.ndarray` | Return untuned-probe receiver transfer function. |
+| function | `calc_rot_axis_untuned_probe_lp(params: Mapping[str, Any] | Any, sp: Mapping[str, Any] | Any, pp: Mapping[str, Any] | Any) -> np.ndarray` | Calculate untuned-probe refocusing rotation axis. |
+| function | `calc_masy_untuned_probe_lp(params: Mapping[str, Any] | Any, sp: Mapping[str, Any] | Any, pp: Mapping[str, Any] | Any) -> tuple[np.ndarray, np.ndarray, float]` | Calculate untuned-probe CPMG asymptotic and received spectra. |
+
 ## `spin_dynamics.pulses`
 
 | Kind | Name | Summary |
@@ -2281,6 +2393,27 @@ No public classes or functions found.
 | function | `analyze_receiver_coupling_sweep(frequency_hz: Iterable[float] | np.ndarray, source_impedance_before_ohm: np.ndarray, source_impedance_after_ohm: np.ndarray, *, load_impedance_ohm: complex | Iterable[complex] | np.ndarray = 50.0, drive_port: int = 0, victim_port: int = 1, temperature_k: float = 293.15, noise_bandwidth_hz: float = 1.0) -> ReceiverCouplingSweep` | Compare two passive receiver networks over frequency. |
 | function | `coupled_resonant_modes(inductance_h: Iterable[float] | np.ndarray, capacitance_f: float | Iterable[float] | np.ndarray) -> tuple[np.ndarray, np.ndarray]` | Return lossless coupled-series-resonator frequencies and current modes. |
 
+## `spin_dynamics.sample`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `SampleGeometry` | Sample shape and dimensions in meters. |
+| function | `cylinder_geometry(radius: float, length: float) -> SampleGeometry` | Cylindrical sample of the given radius and length (meters). |
+| function | `sphere_geometry(radius: float) -> SampleGeometry` | Spherical sample of the given radius (meters). |
+| function | `cuboid_geometry(x: float, y: float, z: float) -> SampleGeometry` | Rectangular-cuboid sample with the given edge lengths (meters). |
+| class | `Sample` | Physical sample description, distinct from the detector/coil. |
+| function | `water_sample(geometry: SampleGeometry, *, temperature: float = 300.0, t1: float = 2.0, t2: float = 2.0, polarization_scale: float = 1.0) -> Sample` | Liquid-water proton sample (~111 mol/L of protons) with the given shape. |
+
+## `spin_dynamics.sequences.cpmg`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `cpmg_pulse_times(num_pulses: int, total_duration: float) -> np.ndarray` | Return ideal CPMG refocusing pulse centers in ``[0, total_duration]``. |
+| function | `udd_pulse_times(num_pulses: int, total_duration: float) -> np.ndarray` | Return Uhrig dynamical decoupling pulse centers. |
+| function | `interval_durations(pulse_times: np.ndarray | list[float] | tuple[float, ...], total_duration: float) -> np.ndarray` | Return free-precession intervals between sequence endpoints and pulses. |
+| function | `toggling_frame_integral(angular_frequencies: float | np.ndarray, pulse_times: np.ndarray | list[float] | tuple[float, ...], total_duration: float) -> complex | np.ndarray` | Return ``int y(t) exp(i omega t) dt`` for an ideal pi-pulse train. |
+| function | `dephasing_filter_function(angular_frequencies: float | np.ndarray, pulse_times: np.ndarray | list[float] | tuple[float, ...], total_duration: float) -> float | np.ndarray` | Return the dimensionless pure-dephasing filter ``omega^2 |Y|^2``. |
+
 ## `spin_dynamics.sequences.compiler`
 
 | Kind | Name | Summary |
@@ -2342,6 +2475,21 @@ No public classes or functions found.
 | function | `make_susceptibility_field_maps(field: SusceptibilityField, *, b1_tx_map: Iterable[float] | np.ndarray | None = None, b1_rx_map: Iterable[float] | np.ndarray | None = None) -> MotionFieldMaps2D` | Wrap a ``SusceptibilityField`` as motion field maps. |
 | function | `internal_gradient_maps(field: SusceptibilityField) -> tuple[np.ndarray, np.ndarray, np.ndarray]` | Return ``(g_x, g_z, g_magnitude)`` internal-gradient maps in tesla/metre. |
 | function | `internal_gradient_distribution(field: SusceptibilityField, *, weights: Iterable[float] | np.ndarray | None = None, restrict_to_pore_space: bool = True, bins: int = 64, range_max: float | None = None) -> InternalGradientDistribution` | Summarize the pore-space internal-gradient magnitude (T/m). |
+
+## `spin_dynamics.spin_noise`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `SampleCoupling` | Sample impedance parameters for the receiver noise model. |
+| function | `sample_resistance_on_resonance(*, fill_factor: float, gamma: float, magnetization_density: float, t2: float, omega0: float, inductance: float) -> float` | On-resonance sample resistance ``R_n0 = mu0*eta*gamma*M0*T2*w0*L / 4``. |
+| function | `sample_coupling_from_sample(sample: Sample, *, field_tesla: float, fill_factor: float, inductance: float, omega0: float | None = None, offset: float = 0.0) -> SampleCoupling` | Build the receiver-circuit coupling for ``sample`` in a given coil. |
+| function | `sample_coupling_from_radiation_damping(*, trd: float, coil_resistance: float, t2: float, temperature: float, offset: float = 0.0) -> SampleCoupling` | Build a coupling from the radiation-damping identity ``R_n0 = R*T2/(2*Trd)``. |
+| class | `SpinNoiseSource` | Stochastic spin-noise drive in normalized magnetization units. |
+| function | `spin_noise_source_from_sample(sample: Sample, *, field_tesla: float, coil_temperature: float | None = None, spin_offset: float = 0.0) -> SpinNoiseSource` | Build the normalized stochastic source for ``sample`` at ``field_tesla``. |
+| class | `SpinNoiseResult` | Stochastic magnetization trajectory and receiver-node signal. |
+| function | `simulate_spin_noise(time: np.ndarray, probe: RadiationDampingProbe, source: SpinNoiseSource, *, initial_mxy: complex = 0.0 + 0j, initial_mz: float = 1.0, t1: float = np.inf, equilibrium_mz: float = 1.0, model: str = 'instant', max_step: float | None = None, seed: int | None = None, rng: np.random.Generator | None = None) -> SpinNoiseResult` | Integrate the stochastic Bloch equations with probe back-action. |
+| function | `spin_noise_output_psd(frequencies_hz: np.ndarray, *, source: SpinNoiseSource, trd: float) -> np.ndarray` | Analytic linear-regime PSD of the receiver-node signal ``emf``. |
+| function | `estimate_spin_noise_spectrum(signal: np.ndarray, dt: float, *, block_samples: int) -> tuple[np.ndarray, np.ndarray]` | Bartlett-averaged two-sided PSD of a complex time series. |
 
 ## `spin_dynamics.thermal.conduction`
 
@@ -2412,6 +2560,13 @@ No public classes or functions found.
 | function | `calc_macq_untuned_probe_relax4(sp: Mapping[str, Any] | Any, pp: Mapping[str, Any] | Any, *, num_workers: int | None = 1, rephase_max_time: float | None = None, rephase_safety_factor: float = 1.25, rephase_action: str = 'ignore', radiation_damping: RadiationDampingSpec | None = None) -> tuple[np.ndarray, np.ndarray]` | Calculate finite acquisition for an untuned probe. |
 | function | `calc_macq_matched_probe_relax4(sp: Mapping[str, Any] | Any, pp: Mapping[str, Any] | Any, *, num_workers: int | None = 1, rephase_max_time: float | None = None, rephase_safety_factor: float = 1.25, rephase_action: str = 'ignore', radiation_damping: RadiationDampingSpec | None = None) -> tuple[np.ndarray, np.ndarray]` | Calculate finite acquisition for a tuned-and-matched probe. |
 
+## `spin_dynamics.workflows.batched_sweeps`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `CPMGRelaxationSweepResult` | Array-returning result for a batched ideal CPMG (T1, T2) sweep. |
+| function | `run_ideal_cpmg_relaxation_sweep(t1_seconds: np.ndarray | list[float], t2_seconds: np.ndarray | list[float], *, numpts: int = 101, maxoffs: float = 10.0, num_echoes: int = 8, auto_refine_grid: bool = False, rephase_safety_factor: float = 1.25, rephase_action: str = 'warn') -> CPMGRelaxationSweepResult` | Evaluate the ideal finite CPMG echo train over a (T1, T2) grid in one batch. |
+
 ## `spin_dynamics.workflows.bipolar`
 
 | Kind | Name | Summary |
@@ -2426,6 +2581,30 @@ No public classes or functions found.
 | function | `run_monopolar_pgste_moment(*, gradient_amplitude: float = 0.05, gradient_duration: float = 0.002, half_echo_time: float = 0.006, storage_time: float = 0.04, diffusion_coefficient: float = 2.3e-09, background_gradient: float = 0.0, initial_signal: complex = 1.0 + 0j, gamma: float = GAMMA) -> BipolarPGSTEResult` | Run an ordinary monopolar PGSTE moment model for comparison. |
 | class | `BipolarPGSTEWalkerResult` | Random-walker result for the bipolar 13-interval PGSTE. |
 | function | `run_cotts_thirteen_interval_walkers(*, rho: Iterable[float] | np.ndarray | None = None, x_axis: Iterable[float] | np.ndarray | None = None, z_axis: Iterable[float] | np.ndarray | None = None, fields: MotionFieldMaps2D | None = None, gradient_amplitude: float = 0.05, gradient_duration: float = 0.002, half_echo_time: float = 0.006, storage_time: float = 0.04, diffusion_coefficient: float = 2.3e-09, gamma: float = GAMMA, gradient_axis: GradientAxis = 'x', background_gradient: float = 0.0, walkers_per_cell: int = 128, seed: int | None = None, jitter: bool = False, excitation_duration: float = 0.0001, refocusing_duration: float = 0.0002, spoiler_gradient: float = 0.2, spoiler_axis: GradientAxis = 'x', t1_seconds: float = np.inf, t2_seconds: float = np.inf, velocity: Velocity = None, boundary: Boundary = 'reflect', substeps_per_interval: int = 8) -> BipolarPGSTEWalkerResult` | Run the bipolar 13-interval PGSTE with explicit random-walker diffusion. |
+
+## `spin_dynamics.workflows.bloch_siegert`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `BlochSiegertPhaseSweep` | Exact and perturbative paired-offset Bloch-Siegert phases. |
+| class | `MultisliceBlochSiegertCorrection` | Mandal-2014 phase and timing corrections for interleaved slices. |
+| function | `bloch_siegert_pair_second_order(durations_s: np.ndarray | float, *, larmor_hz: float, offset_hz: float, nutation_hz: float) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]` | Return second-order lower/upper, differential, and common phases. |
+| function | `simulate_bloch_siegert_phase_sweep(durations_s: np.ndarray, *, larmor_hz: float, offset_hz: float, nutation_hz: float, steps_per_cycle: int = 48) -> BlochSiegertPhaseSweep` | Simulate paired off-resonant pulses with the exact lab-frame field. |
+| function | `estimate_nutation_hz(differential_phase_rad: np.ndarray | float, durations_s: np.ndarray | float, *, offset_hz: float) -> np.ndarray` | Estimate co-rotating nutation from the Mandal-2014 differential phase. |
+| function | `estimate_larmor_hz_from_counter_rotating_phase(common_mode_phase_rad: np.ndarray | float, durations_s: np.ndarray | float, *, offset_hz: float, nutation_hz: float) -> np.ndarray` | Invert the paired-pulse common phase to estimate low-frequency B0. |
+| function | `counter_rotating_common_phase(larmor_hz: np.ndarray | float, durations_s: np.ndarray | float, *, offset_hz: float, nutation_hz: float) -> np.ndarray` | Return the vectorized second-order common phase of a paired-offset scan. |
+| function | `mandal_multislice_correction(num_slices: int, *, nutation_hz: float, slice_spacing_hz: float, t90_s: float) -> MultisliceBlochSiegertCorrection` | Return Eqs. 14-16 of Mandal et al. for interleaved CPMG slices. |
+
+## `spin_dynamics.workflows.bssfp`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `BSSFPImagingResult` | Result of a balanced SSFP imaging simulation. |
+| function | `bssfp_optimal_flip_deg(t1: float, t2: float) -> float` | Return the flip angle that maximizes on-resonance bSSFP signal. |
+| function | `bssfp_band_spacing_hz(tr: float) -> float` | Return the off-resonance spacing ``1/TR`` between bSSFP dark bands. |
+| function | `bssfp_transient(off_resonance_hz: float | np.ndarray, *, flip_angle_deg: float, tr: float, t1: float, t2: float, num_tr: int, te: float | None = None, excitation_duration: float = 0.0005, phase_increment_deg: float = 180.0, b1_scale: float = 1.0, catalyze: bool = True, m0: float = 1.0) -> np.ndarray` | Return the transverse magnetization at TE after each of ``num_tr`` TRs. |
+| function | `bssfp_steady_state_signal(off_resonance_hz: float | np.ndarray, *, flip_angle_deg: float, tr: float, t1: float, t2: float, te: float | None = None, excitation_duration: float = 0.0005, phase_increment_deg: float = 180.0, b1_scale: float = 1.0, num_tr: int | None = None, catalyze: bool = True, m0: float = 1.0) -> np.ndarray` | Return the steady-state transverse magnetization vs off-resonance. |
+| function | `run_bssfp_imaging(rho, *, t1_map = None, t2_map = None, b0_map = None, b1_tx_map = None, b1_rx_map = None, fov: tuple[float, float] = (0.02, 0.02), flip_angle_deg: float = 40.0, excitation_duration: float = 0.0005, readout_time: float = 0.002, phase_time: float = 0.0006, phase_increment_deg: float = 180.0, num_dummy_tr: int = 60, catalyze: bool = True, num_offsets: int = 1, offset_spread: float = 0.0, substeps_per_interval: int = 1) -> BSSFPImagingResult` | Simulate a balanced SSFP image of a phantom in given B0/B1 fields. |
 
 ## `spin_dynamics.workflows.cpmg`
 
@@ -2603,6 +2782,41 @@ No public classes or functions found.
 | class | `ImagingNoiseStatistics` | Repeated-trial image-domain noise summary. |
 | class | `ImagingFieldMaps` | Spatial sample and field maps for CPMG imaging workflows. |
 
+## `spin_dynamics.workflows.receiver_arrays`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `as_receiver_sensitivities(sensitivities: Iterable[complex] | np.ndarray, spatial_shape: tuple[int, int] | None = None) -> np.ndarray` | Return finite complex sensitivity maps with shape ``(channel, x, z)``. |
+| function | `reconstruct_receiver_images(channel_kspace: np.ndarray) -> np.ndarray` | Reconstruct centered Cartesian k-space for every channel and echo. |
+| function | `centered_kspace_from_images(channel_images: np.ndarray) -> np.ndarray` | Transform channel-leading image stacks to centered Cartesian k-space. |
+| function | `sum_of_squares(channel_images: np.ndarray) -> np.ndarray` | Return the conventional root-sum-of-squares magnitude image. |
+| function | `sensitivity_weighted_combine(channel_images: np.ndarray, receiver_sensitivities: Iterable[complex] | np.ndarray) -> np.ndarray` | Combine channels with normalized complex sensitivity weighting. |
+| function | `validate_noise_covariance(covariance: Iterable[complex] | np.ndarray, n_channels: int) -> np.ndarray` | Validate a Hermitian positive-semidefinite channel covariance matrix. |
+| function | `roemer_combine(channel_images: np.ndarray, receiver_sensitivities: Iterable[complex] | np.ndarray, noise_covariance: Iterable[complex] | np.ndarray) -> np.ndarray` | Apply the noise-optimal Roemer channel combination voxel by voxel. |
+| function | `receiver_noise_covariance(n_channels: int, *, noise_std: float = 0.0, covariance: Iterable[complex] | np.ndarray | None = None) -> np.ndarray | None` | Resolve independent noise or a supplied absolute channel covariance. |
+| function | `add_receiver_array_noise(channel_data: np.ndarray, noise_covariance: Iterable[complex] | np.ndarray, *, seed: int | None = None) -> np.ndarray` | Add circular complex Gaussian noise with covariance ``E[n n^H]``. |
+
+## `spin_dynamics.workflows.relaxation`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `QuadrupolarRelaxationWorkflowResult` | Transition-resolved initial decay rates from an EFG Redfield model. |
+| class | `NMRDWorkflowResult` | Field-cycling/NMRD grid with temperature rows and frequency columns. |
+| function | `run_quadrupolar_relaxation(site: QuadrupolarSite, correlation_time_seconds: float | Iterable[float] | np.ndarray, *, fluctuation_amplitude_hz: float, b0_vector_tesla_pas: Iterable[float] | np.ndarray | None = None, vibration_frequency_hz: float = 0.0, temperature_kelvin: Iterable[float] | np.ndarray | None = None) -> QuadrupolarRelaxationWorkflowResult` | Calculate transition-resolved quadrupolar relaxation for one NQR site. |
+| function | `run_arrhenius_quadrupolar_relaxation(site: QuadrupolarSite, temperature_kelvin: float | Iterable[float] | np.ndarray, *, tau_ref_seconds: float, reference_temperature_kelvin: float, activation_energy_j_per_mol: float, fluctuation_amplitude_hz: float, b0_vector_tesla_pas: Iterable[float] | np.ndarray | None = None, vibration_frequency_hz: float = 0.0) -> QuadrupolarRelaxationWorkflowResult` | Run the transition workflow with one Arrhenius correlation-time law. |
+| function | `run_nmrd(larmor_frequency_hz: float | Iterable[float] | np.ndarray, correlation_time_seconds: float | Iterable[float] | np.ndarray, *, coupling_scale_per_second2: float, temperature_kelvin: Iterable[float] | np.ndarray | None = None, field_tesla: Iterable[float] | np.ndarray | None = None, baseline_r1_per_second: float = 0.0, baseline_r2_per_second: float = 0.0) -> NMRDWorkflowResult` | Run a BPP NMRD sweep over frequency for one or more conditions. |
+| function | `run_field_cycling_nmrd(field_tesla: float | Iterable[float] | np.ndarray, temperature_kelvin: float | Iterable[float] | np.ndarray, *, gamma_hz_per_t: float, tau_ref_seconds: float, reference_temperature_kelvin: float, activation_energy_j_per_mol: float, coupling_scale_per_second2: float, baseline_r1_per_second: float = 0.0, baseline_r2_per_second: float = 0.0) -> NMRDWorkflowResult` | Run an Arrhenius BPP field-cycling experiment on a field grid. |
+
+## `spin_dynamics.workflows.sense`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `uniform_cartesian_mask(spatial_shape: tuple[int, int], acceleration: int, *, axis: SenseAxis = 0, offset: int = 0) -> np.ndarray` | Return a centered, uniformly undersampled Cartesian line mask. |
+| function | `noise_whitener(noise_covariance: np.ndarray, n_channels: int) -> np.ndarray` | Return the Hermitian inverse square root of a channel covariance. |
+| function | `whiten_receiver_channels(channel_data: np.ndarray, noise_covariance: np.ndarray) -> np.ndarray` | Whiten channel-leading data with a supplied noise covariance. |
+| class | `CartesianSENSEEncoding` | Reusable Cartesian ``P F S`` operator for supplied sensitivity maps. |
+| function | `reconstruct_cartesian_sense(channel_kspace: np.ndarray, receiver_sensitivities: np.ndarray, sampling_mask: np.ndarray, *, axis: SenseAxis = 0, noise_covariance: np.ndarray | None = None, regularization: float = 0.0, rank_tolerance: float | None = None, raise_on_rank_deficiency: bool = False) -> CartesianSENSEResult` | Reconstruct uniformly undersampled Cartesian data by alias-set SENSE. |
+
 ## `spin_dynamics.workflows.pgse`
 
 | Kind | Name | Summary |
@@ -2620,6 +2834,23 @@ No public classes or functions found.
 | function | `run_dde_walkers(*, rho: Iterable[float] | np.ndarray | None = None, x_axis: Iterable[float] | np.ndarray | None = None, z_axis: Iterable[float] | np.ndarray | None = None, fields: MotionFieldMaps2D | None = None, gradient_amplitude: float = 0.05, gradient_duration: float = 0.002, diffusion_time: float = 0.02, mixing_time: float = 0.0, angle1: float = 0.0, angle2: float = 0.0, diffusion_coefficient: float = 2.3e-09, gamma: float = 267500000.0, walkers_per_cell: int = 128, seed: int | None = None, jitter: bool = False, excitation_duration: float = 0.0001, refocusing_duration: float = 0.0002, t1_seconds: float = np.inf, t2_seconds: float = np.inf, velocity: Velocity = None, boundary: Boundary = 'reflect', substeps_per_interval: int = 8) -> DDEWalkerResult` | Run a double diffusion encoding (DDE / double-PGSE) walker simulation. |
 | function | `run_ogse_walkers(*, rho: Iterable[float] | np.ndarray | None = None, x_axis: Iterable[float] | np.ndarray | None = None, z_axis: Iterable[float] | np.ndarray | None = None, fields: MotionFieldMaps2D | None = None, gradient_amplitude: float = 0.05, oscillation_frequency: float = 100.0, num_periods: int = 2, samples_per_period: int = 16, diffusion_coefficient: float = 2.3e-09, gamma: float = 267500000.0, gradient_axis: PGSEAxis = 'x', walkers_per_cell: int = 128, seed: int | None = None, jitter: bool = False, excitation_duration: float = 0.0001, refocusing_duration: float = 0.0002, t1_seconds: float = np.inf, t2_seconds: float = np.inf, velocity: Velocity = None, boundary: Boundary = 'reflect', substeps_per_interval: int = 4) -> OGSEWalkerResult` | Run an oscillating-gradient spin-echo (OGSE) walker simulation. |
 | function | `run_pgse(*, backend: PGSEBackend = 'moment', **kwargs) -> PGSEMomentResult | PGSEWalkerResult` | Dispatch to the moment or random-walker PGSE backend. |
+
+## `spin_dynamics.workflows.portable_halbach`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `PortableHalbachMRIConfig` | Book-calibrated system, thermal, receiver, and CS parameters. |
+| class | `PortableHalbachMRIResult` | Fields, thermal trajectory, noisy acquisition, and adaptive image. |
+| class | `RFPulseLengthSweep` | RF power, sensitivity, and active-volume trade-off versus 90-degree pulse. |
+| class | `EchoWindowSweep` | Detected signal, noise, and SNR versus single-echo acquisition window. |
+| class | `RFCoilDesignMetrics` | Electrical and field metrics for the transmit and receive coils. |
+| class | `GradientCoilDesignMetrics` | Gradient efficiency, electrical load, and peak driver requirements. |
+| class | `ReceiverDesignMetrics` | Receiver signal/noise levels and required ADC gain. |
+| class | `SystemWeightMetrics` | Book Table 10.12 mass budget. |
+| class | `PortableHalbachDesignSummary` | Designer-facing capstone metrics derived from one end-to-end run. |
+| function | `portable_phantom(matrix_size: int = 64) -> np.ndarray` | Return a sparse, asymmetric low-field resolution phantom. |
+| function | `simulate_portable_halbach_mri(config: PortableHalbachMRIConfig | None = None) -> PortableHalbachMRIResult` | Simulate thermal drift, noisy acquisition, CS, and automatic stopping. |
+| function | `summarize_portable_halbach_design(result: PortableHalbachMRIResult, *, pulse_lengths_s: np.ndarray | None = None, acquisition_windows_s: np.ndarray | None = None) -> PortableHalbachDesignSummary` | Derive RF, gradient, ADC, mass, volume, and slice design metrics. |
 
 ## `spin_dynamics.workflows.qspace`
 

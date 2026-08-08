@@ -62,6 +62,22 @@ FIGURES: dict[str, tuple[str, ...]] = {
         "--output",
         "example_bssfp_field_inhomogeneity.png",
     ),
+    "receiver-array-sense": (
+        "plot_receiver_array_sense.py",
+        "--pixels",
+        "8",
+        "--noise-std",
+        "0.20",
+        "--output",
+        "example_receiver_array_sense.png",
+    ),
+    "birdcage-loaded-receive": (
+        "plot_birdcage_loaded_receive.py",
+        "--unloaded-q",
+        "180",
+        "--output",
+        "example_birdcage_loaded_receive.png",
+    ),
     "radiation-damping": (
         "plot_radiation_damping.py",
         "--output",

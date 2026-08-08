@@ -12,6 +12,7 @@ SRC = ROOT / "src" / "spin_dynamics"
 OUTPUT = ROOT / "docs" / "python_api" / "api_reference.md"
 
 MODULES = [
+    "analysis.compressed_sensing",
     "analysis.ilt",
     "analysis.regularization",
     "absolute_phase",
@@ -76,16 +77,19 @@ MODULES = [
     "experiment.cli",
     "experiment.config",
     "experiment.esr_adapter",
+    "experiment.esr_multidim_adapter",
     "experiment.estimate",
     "experiment.hardware",
     "experiment.io",
     "experiment.nano_mr_adapter",
     "experiment.nqr_adapter",
     "experiment.plan",
+    "experiment.provenance",
     "experiment.registry",
     "experiment.rules",
     "experiment.runner",
     "experiment.serialization",
+    "experiment.sequence_adapter",
     "experiment.specs",
     "experiment.wiring",
     "fields.birdcage",
@@ -114,9 +118,10 @@ MODULES = [
     "fields.positions",
     "fields.quasistatic",
     "fields.scalar_potential_3d",
-      "hyperpolarization.singlet",
-      "hyperpolarization.lls",
-      "hyperpolarization.phip",
+    "flow",
+    "hyperpolarization.singlet",
+    "hyperpolarization.lls",
+    "hyperpolarization.phip",
     "interference.active",
     "interference.cancellers",
     "interference.coils",
@@ -156,6 +161,7 @@ MODULES = [
     "nqr.hamiltonians",
     "nqr.inhomogeneity",
     "nqr.interference",
+    "nqr.isotopes",
     "nqr.lab_frame",
     "nqr.model_selection",
     "nqr.operators",
@@ -189,18 +195,24 @@ MODULES = [
     "optimization.results",
     "optimization.spa",
     "prepolarization",
+    "probes.matched",
+    "probes.tuned",
+    "probes.untuned",
     "pulses",
     "pulse_diagnostics",
     "relaxation",
     "radiation_damping",
     "receiver_frontend",
     "receiver_network",
+    "sample",
+    "sequences.cpmg",
     "sequences.compiler",
     "sequences.ir",
     "sequences.motion",
     "sequences.plotting",
     "sequences.pulseq",
     "susceptibility",
+    "spin_noise",
     "thermal.conduction",
     "thermal.coupling",
     "thermal.electromagnet",
@@ -208,7 +220,10 @@ MODULES = [
     "thermal.network",
     "thermal.sources",
     "workflows.acquisition",
+    "workflows.batched_sweeps",
     "workflows.bipolar",
+    "workflows.bloch_siegert",
+    "workflows.bssfp",
     "workflows.cpmg",
     "workflows.cpmg_ir",
     "workflows.diffusion",
@@ -223,7 +238,11 @@ MODULES = [
     "workflows.imaging_3d",
     "workflows.imaging_frequency",
     "workflows.imaging_types",
+    "workflows.receiver_arrays",
+    "workflows.relaxation",
+    "workflows.sense",
     "workflows.pgse",
+    "workflows.portable_halbach",
     "workflows.qspace",
     "workflows.single_sided",
     "workflows.slice_selective",
@@ -319,6 +338,21 @@ def _module_symbols(path: Path) -> list[Symbol]:
     return symbols
 
 
+def _unlisted_public_modules() -> list[str]:
+    """Return public source modules omitted from the generated inventory."""
+
+    missing = []
+    for path in SRC.rglob("*.py"):
+        relative = path.relative_to(SRC)
+        if path.name == "__init__.py" or any(
+            part.startswith("_") for part in relative.parts
+        ):
+            continue
+        module = ".".join(relative.with_suffix("").parts)
+        if module not in MODULES and _module_symbols(path):
+            missing.append(module)
+    return sorted(missing)
+
 def _render_module(module: str, symbols: list[Symbol]) -> str:
     lines = [f"## `spin_dynamics.{module}`", ""]
     if not symbols:
@@ -333,6 +367,12 @@ def _render_module(module: str, symbols: list[Symbol]) -> str:
 
 
 def main() -> None:
+    missing = _unlisted_public_modules()
+    if missing:
+        raise SystemExit(
+            "public modules missing from API inventory: " + ", ".join(missing)
+        )
+
     parts = [
         "# API Reference",
         "",

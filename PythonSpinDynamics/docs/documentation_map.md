@@ -19,6 +19,7 @@ model references.
 | Import or construct a pulse sequence | [Sequence IR and Pulseq](python_api/sequence_ir.md) | [Phase Cycling](python_api/phase_cycling.md) |
 | Simulate NQR, ESR, coupled spins, or exchange | The matching page under Physical Models | Its linked examples and validation records |
 | Design a magnet, coil, or detector | The matching page under Fields and Hardware | Engineering, thermal, and validation pages |
+| Model receiver arrays, SENSE, coupling, LNAs, or a birdcage | [Receiver-array imaging](receiver_array_imaging.md) | [SENSE](sense_imaging.md), [receiver networks](receiver_networks.md), and [birdcage coils](birdcage_coils.md) |
 | Study a complete imaging system | [Portable Halbach MRI](portable_halbach_adaptive_mri.md) | [Q-space robustness](qspace_imaging_robustness.md) or [magnetic therapy](image_guided_magnetic_therapy.md) |
 | Decide whether a result is trustworthy | [Validation guide](python_api/validation.md) | [Evidence matrix](validation_matrix.md) and [known gaps](python_api/known_gaps.md) |
 | Look up a class or function | [Generated API reference](python_api/api_reference.md) | The narrative page for that model or workflow |

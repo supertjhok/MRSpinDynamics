@@ -429,16 +429,20 @@ compares frequency-leading terminal matrices and one physical shared mesh
 branch. These APIs can represent reciprocal lumped series networks, loads, and
 preamplifier noise, but they do not yet provide:
 
-- arbitrary node/branch graphs;
+- arbitrary node/branch graphs beyond the dedicated birdcage topology;
 - the per-segment full PEEC formulation across several conductors;
 - measured S-parameter import or coupled multi-conductor transmission lines;
   current passive front ends are independent reciprocal two-ports at one
   uniform temperature;
-- automatic sample-loss impedance extraction;
+- automatic sample-loss impedance extraction for general receive arrays (the
+  dedicated birdcage layer has first-order conductive-volume loading);
 - standard LNA noise-parameter conversion, cross-channel active-noise
   covariance, stability, compression, and dynamic-range diagnostics;
 - direct `Experiment`/Roemer/SENSE integration for `ActiveReceiverNetwork`.
 
-Those extensions can build on the same terminal API. Phase 5 adds the explicit
-branched graph and prescribed-current reference model needed for birdcage
-resonators.
+Those extensions can build on the same terminal API. The dedicated Phase 5
+[birdcage layer](birdcage_coils.md) now implements its explicit rung/end-ring
+branch topology, resonant modes, mutual and conductive loading, physical
+matched ports, reciprocal B1- maps, and passive covariance. It complements this
+general terminal API rather than claiming to be an arbitrary circuit-graph
+solver.

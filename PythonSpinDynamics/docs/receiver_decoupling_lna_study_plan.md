@@ -1,6 +1,6 @@
 # Receiver Decoupling and LNA Architecture Study
 
-**Status:** Passive cancellation, active-LNA loading/noise, and the first preamplifier-decoupling/interconnect robustness study are implemented; noise-parameter conversion and end-to-end imaging are next
+**Status:** Passive cancellation, active-LNA loading/noise, preamplifier-decoupling/interconnect robustness, and the Phase 5 birdcage handoff are implemented; standard noise-parameter conversion, measured front ends, and active-network end-to-end imaging remain extensions
 
 This note defines the study inserted between the coupled receiver-network work
 and Phase 5 birdcage coils. It separates two questions that are often mixed:
@@ -159,8 +159,10 @@ Feed each front end into the Phase 4 array workflow and compare:
 
 ## Boundary with Phase 5
 
-Phase 4.5 starts with a two-loop mesh branch and a terminal frequency sweep.
-The eventual arbitrary node/branch graph remains a Phase 5 dependency for
-birdcage rungs, end-ring sections, and distributed capacitor placement. The
-noise-source separation and sweep diagnostics developed here should be reused
-by that graph solver.
+Phase 4.5 uses two-loop mesh branches and terminal frequency sweeps. Phase 5
+now provides a dedicated birdcage rung/end-ring topology with distributed
+capacitors, full branch mutual and loss matrices, physical ports, matching,
+reciprocal B1- maps, and passive noise covariance. It reuses the same
+noise-source separation and covariance-aware reconstruction conventions. A
+fully generic arbitrary circuit graph remains a later extension rather than a
+prerequisite for the implemented birdcage model.

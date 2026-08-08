@@ -37,6 +37,10 @@ original workflows; it is not the organizing principle for new user code.
 - [Phase Cycling Findings](phase_cycling.md)
 - [Sequence IR and Pulseq Import](sequence_ir.md)
 - [Cross-Component Composition](composition.md)
+- [Receiver Arrays and CPMG Imaging](../receiver_array_imaging.md)
+- [Cartesian SENSE Imaging](../sense_imaging.md)
+- [Coupled Receiver Networks and LNA Front Ends](../receiver_networks.md)
+- [Birdcage Coils](../birdcage_coils.md)
 - [Image-Guided Magnetic Therapy](../image_guided_magnetic_therapy.md)
 - [Analysis](analysis.md)
 
@@ -77,6 +81,17 @@ The validated Python API currently covers:
   gradient-moment and explicit random-walker backends;
 - fixture-validated ideal, tuned, and matched CPMG imaging, k-space
   reconstruction, and arbitrary B0/B1 field-map loading helpers;
+- reciprocal multi-coil sensitivity maps, channel-preserving CPMG imaging,
+  covariance-aware Roemer combination, and regularized Cartesian SENSE with
+  rank, conditioning, and g-factor diagnostics;
+- coupled passive receiver networks with multiport PEEC impedance, loaded
+  sensitivity, fluctuation-dissipation covariance, resonant cancellation,
+  active LNA voltage/current/cross noise, passive two-port interconnects, and
+  matched, high-Z, and preamplifier-decoupling architecture studies;
+- prescribed-current and resonant low/high/band-pass birdcage coils with
+  quadrature fields, component-tolerance mode splitting, branch mutual and
+  conductive loading, explicit unloaded-Q calibration, physical Z/S ports,
+  ideal 50-ohm matching, reciprocal B1- maps, and noise-aware reconstruction;
 - frequency-encoded (spin-warp and RARE) imaging, slice-selective excitation
   with gradient-shaped pulses, and true-3D slice-selective multi-slice imaging in
   spatially varying `(B0, B1)` fields (`run_multislice_imaging`), with a fast

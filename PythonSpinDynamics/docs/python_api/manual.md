@@ -149,6 +149,24 @@ window before simulation or hardware compilation.
 The example connects the steady-state frequency and flip-angle responses to
 B0 banding and B1 shading in images, then shows the phase-cycled correction.
 
+### Receiver arrays and Cartesian SENSE
+
+![Reciprocal sensitivity maps, clean and noisy SENSE images, aliased RSS, residual, and g-factor](../images/example_receiver_array_sense.png)
+
+The [receiver-array](../receiver_array_imaging.md) and
+[Cartesian SENSE](../sense_imaging.md) guides preserve complex B1- channel
+phase, combine correlated-noise channels with Roemer weighting, and unfold an
+R=2 acquisition while reporting encoding rank, conditioning, and g-factor.
+
+### Loaded and matched birdcage reception
+
+![Mutual inductance, unloaded and loaded Q, matched ports, reciprocal phase, and Roemer reconstruction](../images/example_birdcage_loaded_receive.png)
+
+The [birdcage guide](../birdcage_coils.md) connects explicit rung/end-ring
+geometry to quadrature fields, resonant circuits, branch mutual and conductive
+loading, measured/assumed unloaded-Q calibration, physical 50-ohm ports,
+reciprocal B1- maps, passive covariance, and noise-aware reconstruction.
+
 ### Coil geometry to RF performance
 
 ![Solenoid inductance, resistance, quality factor, and form-factor sweep](../images/example_solenoid_coil_properties.png)
@@ -212,5 +230,9 @@ to a Faraday coil as the precession field falls and the line narrows.
 - [Image-guided magnetic therapy](../image_guided_magnetic_therapy.md)
 - [Electropermanent hardware and field models](../electropermanent_magnets.md)
 - [Coils and quasistatic field solvers](../field_solvers_quasistatic.md)
+- [Receiver arrays and CPMG imaging](../receiver_array_imaging.md)
+- [Cartesian SENSE imaging](../sense_imaging.md)
+- [Coupled receiver networks and LNA front ends](../receiver_networks.md)
+- [Birdcage coils and loaded reception](../birdcage_coils.md)
 - [Known gaps](known_gaps.md)
 - [Validation results](../validation_results.md)

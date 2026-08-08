@@ -23,7 +23,7 @@ evidence before you encounter the detailed APIs.
 | Sequences and acquisitions | [Workflow catalog](python_api/workflows.md) and [runnable examples](python_api/examples.md) |
 | NQR to quadrupolar NMR | [NQR models and crossover methods](python_api/nqr.md) |
 | ESR/EPR | [ESR models](python_api/esr.md) |
-| Fields, coils, and hardware | [Gradient-coil design](gradient_coil_design.md), [engineering](gradient_coil_engineering.md), and [quasistatic solvers](field_solvers_quasistatic.md) |
+| Fields, coils, and hardware | [Gradient-coil design](gradient_coil_design.md), [receiver arrays and SENSE](receiver_array_imaging.md), [coupled receiver networks](receiver_networks.md), and [birdcage coils](birdcage_coils.md) |
 | Electropermanent hardware | [AlNiCo rods, retained states, programming, and array synthesis](electropermanent_magnets.md) |
 | Thermal and electromagnet B0 | [Coupled thermal modeling](thermal_modeling.md) |
 | Analysis and inversion | [Analysis tools](python_api/analysis.md) |
