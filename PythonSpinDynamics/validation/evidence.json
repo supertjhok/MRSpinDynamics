@@ -827,6 +827,20 @@
       ],
       "references": ["Synthetic clean/reference-channel mixtures"],
       "limitations": ["Field recordings and hardware-loop comparisons are not yet a routine validation dataset."]
+    },
+    {
+      "id": "fullwave_openems_phase4",
+      "component": "Full-wave openEMS fields and validation",
+      "claim": "Full-wave field maps expose time termination, mesh change, E/J loss consistency, reciprocity, and low-frequency analytical-limit evidence before quantitative promotion.",
+      "evidence_types": ["A", "C", "R"],
+      "basis": "Live openEMS mesh series, volume E/J work integration, source/receiver port interchange, and an independent Biot-Savart loop-center comparison.",
+      "parameter_range": "A resolved 65 mm mean-radius by 6 mm wide strip loop at 32 and 128 MHz, an epsilon-r 80 and 0.5 S/m non-intersecting cylindrical load, 3 to 2 mm meshes, and a two-loop reciprocal pair.",
+      "metric": "Energy residual, complex-field relative RMS change, conductive/accepted power fraction, transfer-impedance mismatch, and loop-center B/I error",
+      "tolerance": "1e-5 energy ratio, 5% mesh and Biot-Savart error, 10% conductive-power excess, and 2% reciprocity mismatch.",
+      "status": "partially_validated",
+      "reproducers": ["tests/test_fullwave_validation.py", "examples/validate_openems_fullwave.py"],
+      "references": ["Biot-Savart circular-loop center field", "openEMS Python interface and MRI loop tutorial"],
+      "limitations": ["The passing mesh claim is limited to the loaded-sample interior with a 3 mm dielectric-interface exclusion; interface E and fields outside that region are not covered.", "An independent published or cross-solver high-frequency field benchmark remains required before generalizing beyond the reference geometry."]
     }
   ]
 }

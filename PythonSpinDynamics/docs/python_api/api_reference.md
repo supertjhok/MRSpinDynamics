@@ -941,7 +941,7 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `birdcage_linear_mode(geometry: BirdcageGeometry, *, mode_index: int = 1, azimuthal_phase_rad: float = 0.0, current_amplitude_a: complex = 1.0, label: str = '') -> BirdcageCurrentMode` | Return one real sinusoidal cage mode. |
 | function | `birdcage_quadrature_mode(geometry: BirdcageGeometry, *, mode_index: int = 1, handedness: int = 1, current_amplitude_a: complex = 1.0, label: str = '') -> BirdcageCurrentMode` | Return equal-amplitude cosine/sine modes in temporal quadrature. |
 | class | `BirdcageFieldSolution` | Complex field and circular components for one prescribed current mode. |
-| function | `solve_birdcage_field(geometry: BirdcageGeometry, mode: BirdcageCurrentMode, points_m: np.ndarray, *, b0_direction: Sequence[float] | np.ndarray | None = None) -> BirdcageFieldSolution` | Evaluate one complex birdcage mode and its B1+/B1- components. |
+| function | `solve_birdcage_field(geometry: BirdcageGeometry, mode: BirdcageCurrentMode, points_m: np.ndarray, *, b0_direction: Sequence[float] | np.ndarray | None = None, frequency_hz: float | None = None, validity_regions: Sequence[QuasistaticRegion] | None = None, validity_policy: ValidityPolicy = 'warn') -> BirdcageFieldSolution` | Evaluate one complex birdcage mode and its B1+/B1- components. |
 | class | `BirdcageFieldMetrics` | ROI field-uniformity and polarization diagnostics. |
 | function | `birdcage_field_metrics(solution: BirdcageFieldSolution, *, roi_mask: np.ndarray | None = None, target_handedness: int | None = None) -> BirdcageFieldMetrics` | Summarize B1 uniformity, circularity, and transverse field in an ROI. |
 
@@ -972,7 +972,7 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `BirdcageLMatch` | Lossless series-then-shunt L match for equal-reference input ports. |
 | function | `design_independent_l_match(port_impedance_ohm: np.ndarray, frequency_hz: float, *, reference_impedance_ohm: float = 50.0, solution_sign: int = 1) -> BirdcageLMatch` | Match each uncoupled port diagonal with a series-then-shunt L network. |
 | class | `BirdcageReceiveSensitivityMaps` | Per-input-current reciprocal fields and passive noise covariance. |
-| function | `solve_birdcage_receive_sensitivities(multiport: BirdcageMultiport, frequency_hz: float, points_m: np.ndarray | Sequence[float], *, matching: BirdcageLMatch | None = None, normalization_weights: np.ndarray | None = None, temperature_k: float = 290.0) -> BirdcageReceiveSensitivityMaps` | Solve B1- per unit input current and equilibrium voltage-noise PSD. |
+| function | `solve_birdcage_receive_sensitivities(multiport: BirdcageMultiport, frequency_hz: float, points_m: np.ndarray | Sequence[float], *, matching: BirdcageLMatch | None = None, normalization_weights: np.ndarray | None = None, temperature_k: float = 290.0, validity_regions: Sequence[QuasistaticRegion] | None = None, validity_policy: ValidityPolicy = 'warn') -> BirdcageReceiveSensitivityMaps` | Solve B1- per unit input current and equilibrium voltage-noise PSD. |
 
 ## `spin_dynamics.fields.coil_peec`
 
@@ -994,9 +994,9 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `capacitance_to_ground(conductor: Conductor, *, shield: GroundedBox | GroundPlane | None = None, relative_permittivity: float = 1.0) -> float` | Isolated self-capacitance to ground (F): the charge held at unit potential,. |
 | function | `helical_solenoid(*, diameter: float, length: float, turns: int, wire_radius: float, material: ConductorMaterial = ANNEALED_COPPER, n_per_turn: int = 16, n_radial: int = 6, n_angular: int = 8, temperature: float | None = None, axis: str = 'z') -> Conductor` | Build a :class:`Conductor` for a helical single-layer solenoid. |
 | function | `self_resonant_frequency(conductor: Conductor) -> float` | First self-resonant frequency (Hz) ``1 / (2 pi sqrt(L C))``. |
-| function | `radiation_resistance(conductor: Conductor, frequency: float, *, shield: GroundedBox | GroundPlane | None = None) -> float` | First-order (magnetic-dipole) radiation resistance (ohm) of the coil. |
+| function | `radiation_resistance(conductor: Conductor, frequency: float, *, shield: GroundedBox | GroundPlane | None = None, validity_policy: ValidityPolicy = 'warn') -> float` | First-order (magnetic-dipole) radiation resistance (ohm) of the coil. |
 | class | `PEECCoilProperties` | Lumped RF properties of an arbitrary coil from the PEEC solve. |
-| function | `coil_properties_peec(conductor: Conductor, frequency: float, *, formulation: str = 'full', include_radiation: bool = True, shield: GroundedBox | GroundPlane | None = None, relative_permittivity: float = 1.0) -> PEECCoilProperties` | Extract lumped RF properties of an arbitrary coil at ``frequency`` via PEEC. |
+| function | `coil_properties_peec(conductor: Conductor, frequency: float, *, formulation: str = 'full', include_radiation: bool = True, shield: GroundedBox | GroundPlane | None = None, relative_permittivity: float = 1.0, validity_regions: Sequence[QuasistaticRegion] | None = None, validity_policy: ValidityPolicy = 'warn') -> PEECCoilProperties` | Extract lumped RF properties of an arbitrary coil at ``frequency`` via PEEC. |
 
 ## `spin_dynamics.fields.coil_properties`
 
@@ -1180,6 +1180,62 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `stream_function_contours(surface: CylindricalWindingSurface, stream_function_a: np.ndarray, levels_a: Sequence[float], *, z_coordinates: np.ndarray | None = None, require_closed: bool = True) -> tuple[WindingContour, ...]` | Contour a periodic cylindrical stream-function grid without Matplotlib. |
 | function | `winding_segments(contours: Sequence[WindingContour]) -> tuple[Segment, ...]` | Flatten several winding contours into straight source segments. |
 
+## `spin_dynamics.fields.fullwave_validation`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `FullWaveValidationCheck` | One auditable validation metric and its pass/fail threshold. |
+| class | `FullWaveValidationReport` | Collection of validation checks for one model or convergence series. |
+| function | `sample_harmonic_vector(solution: HarmonicEMSolution, positions_m: Sequence[Sequence[float]] | np.ndarray, *, field_name: str = 'B') -> np.ndarray` | Trilinearly sample canonical complex E or B without boundary clamping. |
+| function | `numerical_termination_check(solution: HarmonicEMSolution) -> FullWaveValidationCheck` | Check that time stepping reached the requested energy-decay criterion. |
+| function | `mesh_convergence_check(coarse: HarmonicEMSolution, fine: HarmonicEMSolution, positions_m: Sequence[Sequence[float]] | np.ndarray, *, relative_tolerance: float = 0.05, name: str = 'mesh_convergence') -> FullWaveValidationCheck` | Compare normalized complex E and B on common physical probe points. |
+| function | `low_frequency_loop_check(solution: HarmonicEMSolution, *, center_m: Sequence[float] = (0.0, 0.0, 0.0), normal: Sequence[float] = (1.0, 0.0, 0.0), radius_m: float, turns: int = 1, relative_tolerance: float = 0.05) -> FullWaveValidationCheck` | Compare the loop-center B/I magnitude with the Biot--Savart limit. |
+| function | `reciprocity_check(drive_port_a: HarmonicEMSolution, drive_port_b: HarmonicEMSolution, *, port_a: int, port_b: int, relative_tolerance: float = 0.02, orientation_invariant: bool = True) -> FullWaveValidationCheck` | Compare reciprocal transfer impedances from two port-excitation runs. |
+| function | `integrate_conductive_loss(electric_field: np.ndarray, current_density: np.ndarray, axes_m: Sequence[np.ndarray]) -> float` | Integrate ``0.5 Re(E dot conj(J))`` over a rectilinear volume. |
+| function | `openems_conductive_loss_check(directory: str | Path, *, relative_tolerance: float = 0.1) -> FullWaveValidationCheck` | Compare openEMS volume E/J loss with accepted feed-port power. |
+| function | `apply_validation_report(solution: HarmonicEMSolution, report: FullWaveValidationReport) -> HarmonicEMSolution` | Return a copy whose convergence record includes a validation report. |
+
+## `spin_dynamics.fields.harmonic`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `HarmonicFieldNormalization` | Describe the excitation normalization applied to stored field arrays. |
+| class | `HarmonicPort` | Frequency-domain voltage, current, and accepted-power port metadata. |
+| class | `HarmonicMaterial` | Solver-neutral material properties and backend region identity. |
+| class | `HarmonicSolverProvenance` | Identify the backend and model that produced a field solution. |
+| class | `HarmonicConvergence` | Numerical convergence and mesh provenance for a harmonic solve. |
+| class | `HarmonicEMSolution` | Complex electromagnetic phasors sampled on a rectilinear spatial grid. |
+| function | `save_harmonic_em_npz(path: str | Path, solution: HarmonicEMSolution) -> None` | Write the versioned harmonic-field interchange schema to NPZ. |
+| function | `load_harmonic_em_npz(path: str | Path) -> HarmonicEMSolution` | Load and validate a versioned harmonic-field NPZ archive. |
+| function | `save_harmonic_em_hdf5(path: str | Path, solution: HarmonicEMSolution) -> None` | Write the versioned harmonic-field interchange schema to HDF5. |
+| function | `load_harmonic_em_hdf5(path: str | Path) -> HarmonicEMSolution` | Load and validate a versioned harmonic-field HDF5 file. |
+| function | `save_harmonic_em(path: str | Path, solution: HarmonicEMSolution) -> None` | Save NPZ or HDF5 interchange data based on the file extension. |
+| function | `load_harmonic_em(path: str | Path) -> HarmonicEMSolution` | Load NPZ or HDF5 interchange data based on the file extension. |
+
+## `spin_dynamics.fields.openems`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `segments_to_polylines(segments: Sequence[tuple[Sequence[float], Sequence[float]]], *, tolerance_m: float = 1e-12) -> tuple[np.ndarray, ...]` | Join ordered, contiguous straight segments into open or closed polylines. |
+| class | `OpenEMSWire` | One PEC wire property containing one or more piecewise-linear paths. |
+| class | `OpenEMSPlanarConductor` | Axis-aligned planar PEC polygon with a mesh-resolved strip width. |
+| class | `OpenEMSCylindricalSample` | Homogeneous lossy cylindrical material region. |
+| class | `OpenEMSLumpedPort` | Curve-based or box-based lumped excitation and measurement port. |
+| class | `OpenEMSSettings` | FDTD excitation, termination, boundary, and mesh settings. |
+| class | `OpenEMSProject` | Complete solver-neutral description consumed by the openEMS driver. |
+| function | `loaded_loop_openems_reference(*, frequency_hz: float = 128000000.0, loop_radius_m: float = 0.065, wire_radius_m: float = 0.0015, strip_width_m: float | None = 0.006, feed_gap_m: float = 0.005, sample_radius_m: float = 0.045, sample_length_m: float = 0.1, relative_permittivity: float = 80.0, conductivity_s_per_m: float = 0.5, port_resistance_ohm: float = 50.0, n_wire_points: int = 96) -> OpenEMSProject` | Return the Phase 3 high-permittivity, lossy loaded-loop reference case. |
+| function | `unloaded_loop_openems_reference(*, frequency_hz: float = 32000000.0, loop_radius_m: float = 0.065, wire_radius_m: float = 0.0015, strip_width_m: float | None = 0.006, feed_gap_m: float = 0.005, port_resistance_ohm: float = 50.0, n_wire_points: int = 96, max_cell_size_m: float = 0.005, max_timesteps: int = 250000) -> OpenEMSProject` | Return an unloaded loop for the Phase 4 Biot--Savart benchmark. |
+| function | `write_openems_project(project: OpenEMSProject, directory: str | Path) -> tuple[Path, Path]` | Write project JSON and a standalone external openEMS Python driver. |
+| function | `load_openems_project(path: str | Path) -> OpenEMSProject` | Load and validate a versioned openEMS project JSON file. |
+| class | `OpenEMSAvailability` | Result of probing an external Python environment for openEMS. |
+| function | `check_openems_python(python_executable: str | Path = sys.executable, *, timeout: float = 15.0) -> OpenEMSAvailability` | Check whether an external Python can import openEMS and CSXCAD. |
+| class | `OpenEMSExecutionError` | Raised when the external openEMS driver fails or times out. |
+| class | `OpenEMSRunResult` | External process result and optional imported harmonic solution. |
+| function | `run_openems(project: OpenEMSProject, *, directory: str | Path | None = None, python_executable: str | Path = sys.executable, timeout: float = 3600.0, setup_only: bool = False, normalization: NormalizationKind = 'per_ampere', save_interchange: bool = True) -> OpenEMSRunResult` | Generate and run an openEMS project in an external Python environment. |
+| class | `OpenEMSFieldDump` | One complex frequency-domain vector field read from openEMS HDF5. |
+| function | `load_openems_field_dump(path: str | Path, *, frequency_hz: float | None = None) -> OpenEMSFieldDump` | Read a current or legacy Cartesian openEMS frequency-domain HDF5 dump. |
+| function | `load_openems_solution(directory: str | Path, *, normalization: NormalizationKind = 'per_ampere', frequency_hz: float | None = None, electric_filename: str = 'E_fd.h5', magnetic_filename: str = 'B_fd.h5') -> HarmonicEMSolution` | Import and normalize openEMS E/B dumps and port metadata. |
+
 ## `spin_dynamics.fields.interpolate`
 
 | Kind | Name | Summary |
@@ -1246,10 +1302,10 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `EddyResult` | Induced E-field, eddy current and deposited power in a conductive sample. |
 | function | `eddy_currents(grid_points: np.ndarray, segments: Sequence[Segment], dcurrent_dt: float, *, conductivity: float, mask: np.ndarray, spacing: Sequence[float], charge_correction: bool = True, time_average: bool = True) -> EddyResult` | First-order eddy currents and power for a conductive sample on a grid. |
 | function | `geometric_loss_integral(grid_points: np.ndarray, segments: Sequence[Segment], *, conductivity: float, mask: np.ndarray, spacing: Sequence[float], charge_correction: bool = False) -> float` | ``G = integral sigma |A_unit|^2 dV`` (ohm/(rad/s)^2) over the conductor. |
-| function | `reflected_resistance(grid_points: np.ndarray, segments: Sequence[Segment], *, conductivity: float, mask: np.ndarray, spacing: Sequence[float], frequency: float, charge_correction: bool = False) -> float` | Reflected series resistance ``R = omega^2 integral sigma |A_unit|^2 dV`` (ohm). |
+| function | `reflected_resistance(grid_points: np.ndarray, segments: Sequence[Segment], *, conductivity: float, mask: np.ndarray, spacing: Sequence[float], frequency: float, charge_correction: bool = False, relative_permittivity: float = 1.0, relative_permeability: float = 1.0, validity_length_m: float | None = None, validity_policy: ValidityPolicy = 'warn') -> float` | Reflected series resistance ``R = omega^2 integral sigma |A_unit|^2 dV`` (ohm). |
 | function | `coil_inductance(radii: Sequence[float], centers: np.ndarray, *, wire_radius: float, axis: str = 'z', n_segments: int = 120) -> float` | Series inductance (H) of coaxial circular turns carrying the same current. |
 | class | `CoilLoading` | Frequency-swept sample loading of a coil by a conductive medium. |
-| function | `coil_loading(grid_points: np.ndarray, segments: Sequence[Segment], *, conductivity: float, mask: np.ndarray, spacing: Sequence[float], frequencies: Sequence[float], inductance: float, coil_resistance: float | np.ndarray, charge_correction: bool = False) -> CoilLoading` | Sweep the sample-loading effect of a conductive medium across frequency. |
+| function | `coil_loading(grid_points: np.ndarray, segments: Sequence[Segment], *, conductivity: float, mask: np.ndarray, spacing: Sequence[float], frequencies: Sequence[float], inductance: float, coil_resistance: float | np.ndarray, charge_correction: bool = False, relative_permittivity: float = 1.0, relative_permeability: float = 1.0, validity_length_m: float | None = None, validity_policy: ValidityPolicy = 'warn') -> CoilLoading` | Sweep the sample-loading effect of a conductive medium across frequency. |
 
 ## `spin_dynamics.fields.scalar_potential_3d`
 
@@ -1257,6 +1313,20 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | --- | --- | --- |
 | class | `ScalarPotentialSolution` | Result of a 3D reduced-scalar-potential magnetostatic solve. |
 | class | `ReducedScalarPotential3D` | 3D nonlinear magnetostatics via the reduced scalar potential ``psi``. |
+
+## `spin_dynamics.fields.validity`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `QuasistaticValidityWarning` | Visible warning that a quasistatic result may be outside its regime. |
+| class | `QuasistaticValidityError` | Raised when ``validity_policy='error'`` rejects a quasistatic solve. |
+| class | `QuasistaticThresholds` | Dimensionless warning thresholds used by the screening assessment. |
+| class | `QuasistaticRegion` | One homogeneous material span relevant to field propagation. |
+| class | `QuasistaticRegionMetrics` | Propagation and conductive-response scales for one material region. |
+| class | `QuasistaticFinding` | One actionable reason a quasistatic result needs caution. |
+| class | `QuasistaticAssessment` | Structured validity result for a quasistatic field calculation. |
+| function | `assess_quasistatic_validity(frequency_hz: float | None, *, coil_extent_m: float | None = None, regions: Sequence[QuasistaticRegion] | None = None, self_resonant_frequency_hz: float | None = None, thresholds: QuasistaticThresholds = DEFAULT_QUASISTATIC_THRESHOLDS) -> QuasistaticAssessment` | Screen wavelength, attenuation, MQS, Born, and resonance assumptions. |
+| function | `apply_validity_policy(assessment: QuasistaticAssessment, *, solver_name: str, policy: ValidityPolicy = 'warn', stacklevel: int = 2) -> None` | Warn, raise, or deliberately ignore actionable assessment findings. |
 
 ## `spin_dynamics.flow`
 

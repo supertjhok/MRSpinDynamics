@@ -24,8 +24,61 @@ from dataclasses import dataclass
 import numpy as np
 
 from spin_dynamics.fields.magnetostatics import MU0, circular_loop
+from spin_dynamics.fields.validity import (
+    QuasistaticAssessment,
+    QuasistaticRegion,
+    ValidityPolicy,
+    apply_validity_policy,
+    assess_quasistatic_validity,
+)
 
 Segment = tuple[Sequence[float], Sequence[float]]
+
+
+def _characteristic_extent(points: np.ndarray, minimum: float = 0.0) -> float:
+    values = np.asarray(points, dtype=np.float64).reshape(-1, 3)
+    if values.size == 0:
+        return float(minimum)
+    return float(max(np.linalg.norm(np.ptp(values, axis=0)), minimum))
+
+
+def _conductive_validity_assessment(
+    grid_points: np.ndarray,
+    segments: Sequence[Segment],
+    *,
+    mask: np.ndarray,
+    spacing: Sequence[float],
+    conductivity: float,
+    frequency: float,
+    relative_permittivity: float,
+    relative_permeability: float,
+    validity_length_m: float | None,
+) -> QuasistaticAssessment:
+    segment_points = np.asarray(
+        [point for segment in segments for point in segment],
+        dtype=np.float64,
+    )
+    minimum = float(np.max(np.asarray(spacing, dtype=np.float64)))
+    masked_points = np.asarray(grid_points, dtype=np.float64)[np.asarray(mask, dtype=bool)]
+    length = (
+        _characteristic_extent(masked_points, minimum)
+        if validity_length_m is None
+        else float(validity_length_m)
+    )
+    region = QuasistaticRegion(
+        name="conductive sample",
+        characteristic_length_m=length,
+        relative_permittivity=relative_permittivity,
+        conductivity_s_per_m=conductivity,
+        relative_permeability=relative_permeability,
+        born_approximation=True,
+    )
+    coil_extent = _characteristic_extent(segment_points)
+    return assess_quasistatic_validity(
+        frequency,
+        coil_extent_m=coil_extent if coil_extent > 0.0 else None,
+        regions=(region,),
+    )
 
 
 def vector_potential(
@@ -290,6 +343,10 @@ def reflected_resistance(
     spacing: Sequence[float],
     frequency: float,
     charge_correction: bool = False,
+    relative_permittivity: float = 1.0,
+    relative_permeability: float = 1.0,
+    validity_length_m: float | None = None,
+    validity_policy: ValidityPolicy = "warn",
 ) -> float:
     """Reflected series resistance ``R = omega^2 integral sigma |A_unit|^2 dV`` (ohm).
 
@@ -302,6 +359,23 @@ def reflected_resistance(
     over-estimates loss once the skin depth drops below the sample size.
     """
 
+    assessment = _conductive_validity_assessment(
+        grid_points,
+        segments,
+        mask=mask,
+        spacing=spacing,
+        conductivity=conductivity,
+        frequency=float(frequency),
+        relative_permittivity=relative_permittivity,
+        relative_permeability=relative_permeability,
+        validity_length_m=validity_length_m,
+    )
+    apply_validity_policy(
+        assessment,
+        solver_name="reflected_resistance",
+        policy=validity_policy,
+        stacklevel=3,
+    )
     omega = 2.0 * np.pi * float(frequency)
     return omega**2 * geometric_loss_integral(
         grid_points, segments, conductivity=conductivity, mask=mask,
@@ -346,6 +420,7 @@ class CoilLoading:
     q_unloaded: np.ndarray            # omega L / R_coil
     q_loaded: np.ndarray              # omega L / (R_coil + R_reflected)
     noise_penalty: np.ndarray         # sqrt(R_total / R_coil) -- SNR / noise-floor degradation
+    validity: QuasistaticAssessment | None = None
 
 
 def coil_loading(
@@ -359,6 +434,10 @@ def coil_loading(
     inductance: float,
     coil_resistance: float | np.ndarray,
     charge_correction: bool = False,
+    relative_permittivity: float = 1.0,
+    relative_permeability: float = 1.0,
+    validity_length_m: float | None = None,
+    validity_policy: ValidityPolicy = "warn",
 ) -> CoilLoading:
     """Sweep the sample-loading effect of a conductive medium across frequency.
 
@@ -371,6 +450,23 @@ def coil_loading(
     """
 
     freqs = np.atleast_1d(np.asarray(frequencies, dtype=np.float64))
+    assessment = _conductive_validity_assessment(
+        grid_points,
+        segments,
+        mask=mask,
+        spacing=spacing,
+        conductivity=conductivity,
+        frequency=float(np.max(freqs)),
+        relative_permittivity=relative_permittivity,
+        relative_permeability=relative_permeability,
+        validity_length_m=validity_length_m,
+    )
+    apply_validity_policy(
+        assessment,
+        solver_name="coil_loading",
+        policy=validity_policy,
+        stacklevel=3,
+    )
     g = geometric_loss_integral(
         grid_points, segments, conductivity=conductivity, mask=mask,
         spacing=spacing, charge_correction=charge_correction,
@@ -385,6 +481,7 @@ def coil_loading(
         q_unloaded=omega * inductance / r_coil,
         q_loaded=omega * inductance / r_total,
         noise_penalty=np.sqrt(r_total / r_coil),
+        validity=assessment,
     )
 
 

@@ -64,6 +64,13 @@ import numpy as np
 
 from spin_dynamics.fields.coil_properties import ANNEALED_COPPER, ConductorMaterial
 from spin_dynamics.fields.magnetostatics import MU0
+from spin_dynamics.fields.validity import (
+    QuasistaticAssessment,
+    QuasistaticRegion,
+    ValidityPolicy,
+    apply_validity_policy,
+    assess_quasistatic_validity,
+)
 
 EPS0 = 8.8541878128e-12  # vacuum permittivity (F/m)
 MUOVER4PI = 1.0e-7  # mu0 / 4pi
@@ -1455,7 +1462,11 @@ def self_resonant_frequency(conductor: Conductor) -> float:
 
 
 def radiation_resistance(
-    conductor: Conductor, frequency: float, *, shield: GroundedBox | GroundPlane | None = None
+    conductor: Conductor,
+    frequency: float,
+    *,
+    shield: GroundedBox | GroundPlane | None = None,
+    validity_policy: ValidityPolicy = "warn",
 ) -> float:
     """First-order (magnetic-dipole) radiation resistance (ohm) of the coil.
 
@@ -1480,8 +1491,8 @@ def radiation_resistance(
     cutoff, where the closed-cavity approximation no longer holds.
 
     First-order means: magnetic-dipole term only, valid for coils small compared with the
-    wavelength (a ``UserWarning`` is emitted when the coil extent exceeds ~lambda/12, where
-    higher multipoles and the electric-dipole/antenna term start to matter). Common-mode
+    wavelength. The shared quasistatic screen emits ``QuasistaticValidityWarning`` when
+    the free-space phase span across the coil reaches its configured threshold. Common-mode
     ("antenna-effect") radiation via the feed leads is a property of the installation, not
     the coil, and is not modelled.
     """
@@ -1512,16 +1523,17 @@ def radiation_resistance(
     a_vec = 0.5 * (np.cross(pts[:-1], pts[1:]).sum(axis=0) + np.cross(pts[-1], pts[0]))
     k = 2.0 * np.pi * f / C0
     extent = float(np.linalg.norm(pts.max(axis=0) - pts.min(axis=0)))
-    if k * extent > 0.5:
-        import warnings
-
-        warnings.warn(
-            f"coil extent {extent:.3g} m is not small vs the wavelength "
-            f"({2 * np.pi / k:.3g} m): the magnetic-dipole radiation model is first-order "
-            "and under-predicts radiation here",
-            UserWarning,
-            stacklevel=2,
-        )
+    assessment = assess_quasistatic_validity(
+        f,
+        coil_extent_m=extent,
+        regions=(),
+    )
+    apply_validity_policy(
+        assessment,
+        solver_name="radiation_resistance",
+        policy=validity_policy,
+        stacklevel=3,
+    )
     return float(ETA0 * k**4 * float(a_vec @ a_vec) / (6.0 * np.pi))
 
 
@@ -1543,6 +1555,7 @@ class PEECCoilProperties:
     dc_inductance: float       # L(0) (H)
     dc_resistance: float       # R(0) (ohm)
     radiation_resistance: float = 0.0  # first-order magnetic-dipole R_rad (ohm)
+    validity: QuasistaticAssessment | None = None
 
     @property
     def total_resistance(self) -> float:
@@ -1566,6 +1579,8 @@ def coil_properties_peec(
     conductor: Conductor, frequency: float, *, formulation: str = "full",
     include_radiation: bool = True, shield: GroundedBox | GroundPlane | None = None,
     relative_permittivity: float = 1.0,
+    validity_regions: Sequence[QuasistaticRegion] | None = None,
+    validity_policy: ValidityPolicy = "warn",
 ) -> PEECCoilProperties:
     """Extract lumped RF properties of an arbitrary coil at ``frequency`` via PEEC.
 
@@ -1600,7 +1615,35 @@ def coil_properties_peec(
     f_res = float(1.0 / (2.0 * np.pi * np.sqrt(imp.dc_inductance * c)))
     ind = float(imp.inductance[0])
     res = float(imp.resistance[0])
-    r_rad = radiation_resistance(conductor, f, shield=shield) if include_radiation else 0.0
+    extent = float(np.linalg.norm(
+        conductor.path_points.max(axis=0) - conductor.path_points.min(axis=0)
+    ))
+    regions = tuple(validity_regions or ())
+    if relative_permittivity != 1.0:
+        regions = regions + (
+            QuasistaticRegion(
+                name="coil dielectric environment",
+                characteristic_length_m=extent,
+                relative_permittivity=relative_permittivity,
+            ),
+        )
+    assessment = assess_quasistatic_validity(
+        f,
+        coil_extent_m=extent,
+        regions=regions,
+        self_resonant_frequency_hz=f_res,
+    )
+    apply_validity_policy(
+        assessment,
+        solver_name="coil_properties_peec",
+        policy=validity_policy,
+        stacklevel=3,
+    )
+    r_rad = (
+        radiation_resistance(conductor, f, shield=shield, validity_policy="ignore")
+        if include_radiation
+        else 0.0
+    )
     r_total = res + r_rad
     q = float(2.0 * np.pi * f * ind / r_total) if r_total > 0 else float("inf")
     return PEECCoilProperties(
@@ -1613,4 +1656,5 @@ def coil_properties_peec(
         dc_inductance=float(imp.dc_inductance),
         dc_resistance=float(imp.dc_resistance),
         radiation_resistance=float(r_rad),
+        validity=assessment,
     )

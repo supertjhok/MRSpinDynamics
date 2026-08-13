@@ -126,6 +126,10 @@ nav:
       - Coils and electromagnetics:
           - Gradient-coil engineering: gradient_coil_engineering.md
           - Quasistatic field solvers: field_solvers_quasistatic.md
+          - Quasistatic validity and full-wave strategy: full_wave_field_solver_strategy.md
+          - Harmonic full-wave field interchange: harmonic_em_fields.md
+          - openEMS full-wave backend: openems_backend.md
+          - Full-wave validation: full_wave_validation.md
           - Coil properties: coil_properties.md
           - PEEC coil models: coil_peec.md
           - Receiver-array CPMG imaging: receiver_array_imaging.md

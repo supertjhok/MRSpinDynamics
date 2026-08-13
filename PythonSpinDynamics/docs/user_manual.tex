@@ -5825,6 +5825,107 @@ the same frequency where \(B_0\) is \(\sim\)3.8\(\times\) higher, with non-optim
 flip angles from the proton-calibrated pulses) to estimate its fractional signal
 contribution. Design note: \code{docs/field\_solvers\_quasistatic.md}.
 
+\section{Quasistatic Validity and Optional Full-Wave Modeling}
+\label{sec:fields-fullwave}
+
+Every native field solver in PythonSpinDynamics remains quasistatic. This is
+usually appropriate for compact NMR and NQR probes, but it can fail when the
+coil or loaded sample is electrically large, displacement current competes with
+conduction current, reaction fields become strong, or operation approaches a
+distributed self-resonance. RF-specific entry points therefore screen the
+available frequency, geometry, material, and resonance context before returning
+a result. The structured \code{QuasistaticAssessment} records the phase and
+attenuation across each region, \(\omega\epsilon/\sigma\), the Born reaction-field
+indicator \(L/\delta\), the free-space phase across the coil, and
+\(f/f_{\mathrm{res}}\). Missing frequency or material context is reported rather
+than being silently treated as valid.
+
+The default \code{validity\_policy="warn"} emits a visible
+\code{QuasistaticValidityWarning}. Use \code{"error"} to reject a suspect solve
+in an automated study or \code{"ignore"} only after deliberately accepting the
+model boundary; the assessment is still retained by structured results. Generic
+DC Biot--Savart calls remain quiet because they do not claim an RF operating
+frequency or a loaded-material model.
+
+\begin{lstlisting}[language=Python]
+from spin_dynamics.fields import (
+    QuasistaticRegion, assess_quasistatic_validity,
+)
+
+sample = QuasistaticRegion(
+    "sample", length_m=0.09,
+    relative_permittivity=80.0, conductivity_s_per_m=0.5,
+    born_approximation=True,
+)
+assessment = assess_quasistatic_validity(
+    128e6, coil_extent_m=0.13, regions=(sample,),
+)
+print(assessment.summary("loaded RF coil"))
+\end{lstlisting}
+
+The screening thresholds are conservative decision aids, not universal error
+bounds. A finding that recommends \code{full\_wave} means that the quasistatic
+answer should not be presented as quantitatively reliable without a more
+appropriate electromagnetic solution. A conductive, displacement-current-poor
+case with a large reaction-field indicator may instead call for a
+self-consistent magnetoquasistatic solver.
+
+PythonSpinDynamics does not implement a general Maxwell solver. Instead,
+\code{HarmonicEMSolution} is the solver-neutral boundary for complex E and B/H
+fields on a rectilinear SI grid. It records frequency, phasor convention,
+normalization, ports, material properties, backend and model provenance, and
+numerical convergence. Versioned NPZ files require only NumPy; HDF5 support is
+provided by the optional \code{fullwave} extra. The object preserves complex
+phase for \(B_1^+\) and \(B_1^-\), while
+\code{to\_spatial\_field\_maps()} supplies magnitude maps to the existing spin
+simulation interface.
+
+The first optional backend is openEMS, kept in a separate Linux environment
+rather than made a package dependency. The adapter converts contiguous coil
+segments or mesh-resolved planar conductors, lossy cylindrical samples, explicit
+lumped ports, boundaries, and sampling grids into a standalone CSXCAD/openEMS
+project. It imports current-, voltage-, or accepted-power-normalized frequency-
+domain fields into \code{HarmonicEMSolution}. A process exit code is not treated
+as convergence: \code{FullWaveValidationReport} separately gates energy
+termination, successive-mesh agreement, accepted-power/conductive-loss
+consistency, two-port reciprocity, and the low-frequency Biot--Savart limit.
+
+The Phase~4 reference is a 65\,mm mean-radius, 6\,mm wide planar PEC annular
+strip with a mesh-resolved 5\,mm feed gap. It surrounds, without intersecting, a
+45\,mm-radius by 100\,mm-long sample cylinder with
+\(\epsilon_r=80\) and \(\sigma=0.5\,\mathrm{S/m}\). The corrected geometry passes
+all implemented checks in the declared sample-interior region:
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{@{}lll@{}}
+\toprule
+Check & Reference result & Criterion \\
+\midrule
+FDTD termination & requested \(-50\)\,dB reached & pass \\
+E/J loss consistency & 94.83\% of accepted power & pass \\
+Two-port reciprocity & 0.527\% difference & \(<5\)\% \\
+Loaded mesh convergence & E 1.19\%, B 0.81\% & \(<5\)\% \\
+32\,MHz Biot--Savart limit & B/I difference 1.88\% & \(<5\)\% \\
+\bottomrule
+\end{tabular}
+\caption{openEMS resolved-strip reference result (2026-08-13). Mesh convergence
+uses 3,363 common probes with a 3\,mm exclusion from the staircased dielectric
+boundary.}
+\label{tab:openems-fullwave-validation}
+\end{table}
+
+This claim is intentionally regional: dielectric-interface E and points outside
+the stated sample interior are not covered. An independent published or
+cross-solver high-frequency benchmark is still required before generalizing the
+quantitative claim beyond this reference geometry. Reproduce the live suite with
+\code{examples/validate\_openems\_fullwave.py}; the online notes
+\code{docs/full\_wave\_field\_solver\_strategy.md},
+\code{docs/harmonic\_em\_fields.md}, \code{docs/openems\_backend.md}, and
+\code{docs/full\_wave\_validation.md} give the interchange schema, installation
+boundary, and complete validation protocol.
+
 \section{Coil Property Extraction: Inductance, Resistance, \texorpdfstring{$Q$}{Q}, and Self-Resonance}
 \label{sec:fields-coil-properties}
 
@@ -9421,6 +9522,31 @@ from spin_dynamics.core.isochromats import (
 Core functions are intended for validation, debugging, and continued porting.
 They are closer to MATLAB's array contracts than the workflow layer.
 
+\section{Electromagnetic Validity and Full-Wave APIs}
+
+\begin{lstlisting}
+from spin_dynamics.fields import (
+    QuasistaticRegion, QuasistaticAssessment,
+    QuasistaticValidityWarning, QuasistaticValidityError,
+    assess_quasistatic_validity, apply_validity_policy,
+    HarmonicEMSolution, HarmonicFieldNormalization,
+    save_harmonic_em, load_harmonic_em,
+    OpenEMSProject, OpenEMSSettings, OpenEMSWire,
+    OpenEMSPlanarConductor, OpenEMSCylindricalSample,
+    OpenEMSLumpedPort, loaded_loop_openems_reference,
+    check_openems_python, write_openems_project,
+    run_openems, load_openems_solution,
+    FullWaveValidationReport, apply_validation_report,
+)
+\end{lstlisting}
+
+The validity API screens native quasistatic solvers; the harmonic API is the
+backend-neutral field contract; and the openEMS API generates and executes an
+optional external full-wave project. Imported fields are not promoted to a
+converged result until a complete validation report passes. See
+Section~\ref{sec:fields-fullwave} for the model boundary and validated scope;
+the generated Markdown API reference contains complete signatures.
+
 \section{Receiver Networks and Birdcage APIs}
 
 \begin{lstlisting}
@@ -10076,11 +10202,14 @@ specific extensions that remain future work.}
   feedback loops remain future work.
   \item[Receiver and RF-coil hardware.] Receiver arrays, passive/active terminal
   networks, resonant cancellation, LNA/interconnect studies, and the dedicated
-  lumped birdcage topology are implemented. General arbitrary circuit graphs,
+  lumped birdcage topology are implemented. A solver-neutral complex-field
+  interchange and an optional openEMS adapter now provide a validated loaded-loop
+  reference in the declared sample interior. General arbitrary circuit graphs,
   measured S-parameter and standard LNA noise-parameter import, coupled
-  transmission lines, component tolerance/loss propagation, full-wave
-  dielectric/shield modeling, SAR, compression, recovery, and scanner/bench
-  validation remain outside the quantitative reference layer.
+  transmission lines, component tolerance/loss propagation, general full-wave
+  dielectric/shield modeling, interface-field validation, SAR, compression,
+  recovery, and scanner/bench validation remain outside the quantitative
+  reference layer.
   \item[Validation evidence.] Broader high-Q matched-probe fixtures, historical
   MATLAB \code{.mat} parity, optimization comparisons, paper-level
   scalar-coupling checks, and experimental NQR/ESR fixtures remain valuable.

@@ -20,9 +20,9 @@ what supports the underlying scientific or numerical claim.
 
 ## Coverage Summary
 
-- 40 capability-level claims
+- 41 capability-level claims
 - 14 validated
-- 21 partially validated
+- 22 partially validated
 - 5 regression-only
 
 | Component | Claim | Evidence | Status |
@@ -67,6 +67,7 @@ what supports the underlying scientific or numerical claim.
 | Inverse-excitation cancellation diagnostics | Excitation/inverse spectrum pairs report broadband and peak residuals, inverse coherence, and SNR mismatch with correct analytical limiting behavior. | **A**, **R** | validated |
 | Numba and JAX acceleration | Accelerated kernels reproduce the NumPy reference for supported batched rotations, propagation, and optimization primitives. | **C**, **R** | validated |
 | RFI synthesis and rejection | Reference-channel cancellers preserve protected acquisition windows and suppress known synthetic coherent, colored, and impulsive interference. | **R** | regression only |
+| Full-wave openEMS fields and validation | Full-wave field maps expose time termination, mesh change, E/J loss consistency, reciprocity, and low-frequency analytical-limit evidence before quantitative promotion. | **A**, **C**, **R** | partially validated |
 
 ## Detailed Evidence
 
@@ -549,3 +550,15 @@ what supports the underlying scientific or numerical claim.
 - **References:** Synthetic clean/reference-channel mixtures
 - **Reproduce:** [`tests/test_interference.py::test_sparse_canceller_removes_coherent_rfi_and_impulses`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_interference.py#L555); [`tests/test_interference.py::test_nqr_mask_accepts_absolute_baseline_windows`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_interference.py#L1128)
 - **Limitations:** Field recordings and hardware-loop comparisons are not yet a routine validation dataset.
+
+### Full-wave openEMS fields and validation
+
+- **Claim:** Full-wave field maps expose time termination, mesh change, E/J loss consistency, reciprocity, and low-frequency analytical-limit evidence before quantitative promotion.
+- **Evidence:** A, C, R (partially validated)
+- **Basis:** Live openEMS mesh series, volume E/J work integration, source/receiver port interchange, and an independent Biot-Savart loop-center comparison.
+- **Tested range:** A resolved 65 mm mean-radius by 6 mm wide strip loop at 32 and 128 MHz, an epsilon-r 80 and 0.5 S/m non-intersecting cylindrical load, 3 to 2 mm meshes, and a two-loop reciprocal pair.
+- **Metric:** Energy residual, complex-field relative RMS change, conductive/accepted power fraction, transfer-impedance mismatch, and loop-center B/I error
+- **Tolerance:** 1e-5 energy ratio, 5% mesh and Biot-Savart error, 10% conductive-power excess, and 2% reciprocity mismatch.
+- **References:** Biot-Savart circular-loop center field; openEMS Python interface and MRI loop tutorial
+- **Reproduce:** [`tests/test_fullwave_validation.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_fullwave_validation.py); [`examples/validate_openems_fullwave.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/examples/validate_openems_fullwave.py)
+- **Limitations:** The passing mesh claim is limited to the loaded-sample interior with a 3 mm dielectric-interface exclusion; interface E and fields outside that region are not covered. An independent published or cross-solver high-frequency field benchmark remains required before generalizing beyond the reference geometry.

@@ -34,6 +34,13 @@ from spin_dynamics.fields.birdcage_circuit import (
 )
 from spin_dynamics.fields.coil_peec import _mutualfil_matrix
 from spin_dynamics.fields.quasistatic import vector_potential
+from spin_dynamics.fields.validity import (
+    QuasistaticAssessment,
+    QuasistaticRegion,
+    ValidityPolicy,
+    apply_validity_policy,
+    assess_quasistatic_validity,
+)
 
 _BOLTZMANN_J_PER_K = 1.380649e-23
 
@@ -788,6 +795,7 @@ class BirdcageReceiveSensitivityMaps:
     channel_labels: tuple[str, ...]
     input_impedance_ohm: np.ndarray
     noise_covariance_v2_per_hz: np.ndarray
+    validity: QuasistaticAssessment | None = None
 
     @property
     def n_channels(self) -> int:
@@ -818,8 +826,15 @@ def solve_birdcage_receive_sensitivities(
     matching: BirdcageLMatch | None = None,
     normalization_weights: np.ndarray | None = None,
     temperature_k: float = 290.0,
+    validity_regions: Sequence[QuasistaticRegion] | None = None,
+    validity_policy: ValidityPolicy = "warn",
 ) -> BirdcageReceiveSensitivityMaps:
-    """Solve B1- per unit input current and equilibrium voltage-noise PSD."""
+    """Solve B1- per unit input current and equilibrium voltage-noise PSD.
+
+    Circuit currents are frequency dependent, but their spatial fields are
+    quasistatic. ``validity_regions`` supplies the material spans used to
+    assess dielectric propagation and attenuation.
+    """
 
     frequency = float(frequency_hz)
     temperature = float(temperature_k)
@@ -837,6 +852,19 @@ def solve_birdcage_receive_sensitivities(
         input_impedance = matching.input_impedance_ohm(coil_impedance)
         input_to_coil = matching.input_to_coil_current_matrix(coil_impedance)
 
+    geometry = multiport.circuit.geometry
+    validity = assess_quasistatic_validity(
+        frequency,
+        coil_extent_m=max(2.0 * geometry.radius, geometry.length),
+        regions=validity_regions,
+    )
+    apply_validity_policy(
+        validity,
+        solver_name="solve_birdcage_receive_sensitivities",
+        policy=validity_policy,
+        stacklevel=3,
+    )
+
     field_solutions: list[BirdcageFieldSolution] = []
     for channel in range(multiport.n_ports):
         driven = multiport.solve_port_currents(
@@ -849,6 +877,9 @@ def solve_birdcage_receive_sensitivities(
                 multiport.circuit.geometry,
                 driven.currents,
                 points_m,
+                frequency_hz=frequency,
+                validity_regions=validity_regions,
+                validity_policy="ignore",
             )
         )
     vector = np.stack([solution.field_t for solution in field_solutions], axis=0)
@@ -892,4 +923,5 @@ def solve_birdcage_receive_sensitivities(
         channel_labels=tuple(multiport.labels),
         input_impedance_ohm=_freeze(input_impedance),
         noise_covariance_v2_per_hz=_freeze(noise),
+        validity=validity,
     )

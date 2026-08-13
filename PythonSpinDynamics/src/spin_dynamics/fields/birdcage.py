@@ -14,6 +14,13 @@ from typing import Iterable, Sequence
 import numpy as np
 
 from spin_dynamics.fields.magnetostatics import biot_savart
+from spin_dynamics.fields.validity import (
+    QuasistaticAssessment,
+    QuasistaticRegion,
+    ValidityPolicy,
+    apply_validity_policy,
+    assess_quasistatic_validity,
+)
 
 Segment = tuple[np.ndarray, np.ndarray]
 
@@ -347,6 +354,7 @@ class BirdcageFieldSolution:
     b1_plus_t: np.ndarray
     b1_minus_t: np.ndarray
     mode: BirdcageCurrentMode
+    validity: QuasistaticAssessment | None = None
 
 
 def solve_birdcage_field(
@@ -355,8 +363,19 @@ def solve_birdcage_field(
     points_m: np.ndarray,
     *,
     b0_direction: Sequence[float] | np.ndarray | None = None,
+    frequency_hz: float | None = None,
+    validity_regions: Sequence[QuasistaticRegion] | None = None,
+    validity_policy: ValidityPolicy = "warn",
 ) -> BirdcageFieldSolution:
-    """Evaluate one complex birdcage mode and its B1+/B1- components."""
+    """Evaluate one complex birdcage mode and its B1+/B1- components.
+
+    The spatial field is quasistatic even when the mode contains complex RF
+    current phasors. Supply the frequency and relevant material spans to screen
+    propagation and loading assumptions. With the default warning policy,
+    missing frequency or material context is reported instead of silently
+    treating the field as valid. Pass an empty region sequence to explicitly
+    assess an unloaded air/vacuum calculation.
+    """
 
     if mode.n_rungs != geometry.n_rungs:
         raise ValueError("mode and geometry must have the same number of rungs")
@@ -365,6 +384,17 @@ def solve_birdcage_field(
         raise ValueError("points_m must have shape (..., 3)")
     if not np.all(np.isfinite(points)):
         raise ValueError("points_m must be finite")
+    validity = assess_quasistatic_validity(
+        frequency_hz,
+        coil_extent_m=max(2.0 * geometry.radius, geometry.length),
+        regions=validity_regions,
+    )
+    apply_validity_policy(
+        validity,
+        solver_name="solve_birdcage_field",
+        policy=validity_policy,
+        stacklevel=3,
+    )
     field = np.zeros(points.shape, dtype=np.complex128)
     for segments, current in zip(
         geometry.rung_segments(),
@@ -415,6 +445,7 @@ def solve_birdcage_field(
         b1_plus_t=b1_plus,
         b1_minus_t=b1_minus,
         mode=mode,
+        validity=validity,
     )
 
 

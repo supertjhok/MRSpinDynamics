@@ -27,6 +27,21 @@ field decay** that pre-emphasis must correct. None of this is visible from B
 alone. This note adds the E-field and eddy machinery and wires the gradient
 eddy time constants into the M5 `GradientDriverResponse`.
 
+## Runtime validity screening
+
+RF and conductive-loading entry points use `fields.validity` to report the
+dimensionless assumptions that can invalidate these models. The structured
+`QuasistaticAssessment` includes propagation phase and attenuation, the
+displacement/conduction-current ratio, the Born skin-depth ratio, and (when
+available) the operating-frequency/self-resonance ratio. A
+`QuasistaticValidityWarning` is visible by default; `validity_policy="error"`
+turns the same finding into an exception for automated studies, while
+`"ignore"` records the assessment without emitting it.
+
+Thresholds are conservative screening heuristics, not universal error bounds.
+See [Quasistatic validity and a path to full-wave field modeling](full_wave_field_solver_strategy.md)
+for the decision criteria and recommended backend roadmap.
+
 ## Physics and the first-order (Born) approximation
 
 MQS assumptions: quasistatic (displacement current negligible, `sigma >> omega*eps`),
