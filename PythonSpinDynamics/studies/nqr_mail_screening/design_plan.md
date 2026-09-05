@@ -1,10 +1,10 @@
 # 14N NQR mail-screening system design study
 
-> **Status (2026-09-05): Phase 0 complete for numerical study.** User choices and
-> delegated provisional defaults are frozen in `phase0/`; `--require-ready`
-> checks the snapshot. No missing study requirements remain. Hardware approval
-> and experimental validation are subsequent-phase work. This document makes
-> no detection-limit or scanner-performance claim.
+> **Status (2026-09-05): Phase 1 numerical reference implemented; Gate 1 passed
+> for the declared ideal single-line model.** Phase 0 remains frozen. The
+> spin-to-ADC budget, independent checks, canonical result record and seeded
+> Monte Carlo verification live in `phase1/`. No measured calibration, scanner
+> performance, pre-polarization gain or detection-limit claim is made.
 
 ## Purpose and reference concept
 
@@ -256,6 +256,10 @@ visible. Formal hardware/facility sign-off is not a Phase 0 prerequisite.
 
 ### Phase 1: absolute 14N signal-chain reference
 
+> **Implementation status:** numerical gate passed; see `phase1/README.md` and
+> `phase1/reference_report.json`. The reference uses a selective-pulse FID plus
+> an SLSE normalization audit. Experimental calibration remains Phase 6.
+
 1. Implement or audit the high-temperature spin-1 equilibrium population
    scale for a specified isotope count and temperature.
 2. Convert the simulated density-matrix observable into magnetic moment per
@@ -265,7 +269,7 @@ visible. Formal hardware/facility sign-off is not a Phase 0 prerequisite.
 4. Compute coil Johnson noise and receiver noise in the same units and verify
    matched-filter SNR analytically and with seeded Monte Carlo trials.
 5. Add limiting checks: signal linearity with target amount, inverse-
-   temperature population scaling, reciprocity consistency, âˆšaverages SNR,
+   temperature population scaling, reciprocity consistency, sqrt(averages) SNR,
    and unit invariance between field- and voltage-referred calculations.
 
 6. Define an optional pre-polarization branch with explicit state preparation,
