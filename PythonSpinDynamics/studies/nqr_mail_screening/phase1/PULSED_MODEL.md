@@ -1,7 +1,8 @@
 # Moving-sample Phase 1 engineering model
 
 The previous ideal reference is a normalization regression. It does not establish
-scanner feasibility or close the engineering gate. `pulsed_study.py` is the
+scanner feasibility. The subsequent `gate1_audit.py` closes the specified
+absolute-reference gate using the finite-pulse output; see `GATE1.md`. `pulsed_study.py` is the
 working comparison; `geometry.py` constrains inline magnet/coil placement.
 
 ## Geometry and motion
@@ -96,7 +97,7 @@ thermal cases are explicit controls, not a claim that passage through a magnet
 produces exactly no polarization.
 
 The temperature setting controls thermal polarization/noise only; temperature-dependent
-line shifts are currently explored as detuning scenarios, not a validated 0–50 C
+line shifts are currently explored as detuning scenarios, not a validated 0â€“50 C
 material model.
 
 Fentanyl-specific proton T1, dipolar coupling and linewidth are not established by
@@ -124,7 +125,8 @@ The convergence script independently refines powder, disorder, receive time,
 RF envelope and magnet/spectral resolution and requires each change below 3%.
 Its pulse tests use a three-cycle baseline; this does not certify every candidate.
 
-Next engineering closure requires joint geometry/speed/sequence optimization,
+Later phases require joint geometry/speed/sequence optimization,
 material-specific relaxation/transfer evidence, receiver/RFI integration and
-held-out H0/H1 decision statistics. The present result is a more useful physical
+held-out H0/H1 decision statistics. These are not prerequisites for the narrower
+absolute-reference Gate 1; they remain required for scanner validation. The present result is a more useful physical
 comparison with explicit rejection rules, not a validated mail-screening design.

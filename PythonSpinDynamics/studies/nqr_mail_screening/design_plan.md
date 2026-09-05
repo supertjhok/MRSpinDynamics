@@ -1,10 +1,12 @@
 # 14N NQR mail-screening system design study
 
-> **Status (2026-09-05): Phase 1 engineering model in progress.** The ideal
-> absolute reference passes its regression checks but does not close engineering
-> Gate 1. `phase1/PULSED_MODEL.md` describes finite pulses, moving-sample geometry,
-> pre-polarization transport, and a quadrupole-plus-Zeeman spacing constraint.
-> No validated scanner ROC or detection-limit claim is made.
+> **Status (2026-09-05): Gate 1 passed for the declared absolute single-line
+> reference; Phase 2 is in progress.** `phase1/gate1_report.json` closes the
+> finite-pulse moment/flux/receiver/ADC budget with independent SNR calculations
+> and seeded noise checks. `phase2/` adds material voxels, moving poses, aperture
+> candidates, field maps and initial PEEC/loading sensitivity cases. Gate 2 remains
+> open pending spatial/network convergence and voxel-dependent loading. No
+> validated scanner ROC or detection-limit claim is made.
 
 ### User geometry amendment (supersedes the stop-and-scan study default)
 
@@ -27,7 +29,7 @@ which coil, resonator, pulse/acquisition schedule, receiver, RFI mitigation,
 and decision rule gives the best screening performance within time, power,
 thermal, voltage, current, and size constraints?
 
-The user scope is typical USPS/UPS/FedEx envelopes at 0â€“50 degrees C,
+The user scope is typical USPS/UPS/FedEx envelopes at 0Ã¢â‚¬â€œ50 degrees C,
 approximately 5 mm access clearance, and illicit pharmaceuticals with synthetic
 opioids prioritized. Pulsed SLSE/SORC and a pre-polarization comparison are
 required study branches. See `phase0/user_requirements.md` and
@@ -62,7 +64,7 @@ Let \(d\) contain controllable design choices:
   reference layout;
 - signal features, multi-line fusion, threshold, and adaptive stopping policy.
 
-Let ÃŽÂ¾ collect nuisance variables that the system cannot control exactly:
+Let ÃƒÅ½Ã‚Â¾ collect nuisance variables that the system cannot control exactly:
 
 - target identity, mass, morphology, crystalline fraction, location, and pose;
 - parcel size and contents, dielectric and conductive loading, and temperature;
@@ -269,9 +271,11 @@ visible. Formal hardware/facility sign-off is not a Phase 0 prerequisite.
 
 ### Phase 1: absolute 14N signal-chain reference
 
-> **Implementation status:** normalization regression passed; engineering gate open. See `phase1/README.md` and
-> `phase1/reference_report.json`. The reference uses a selective-pulse FID plus
-> an SLSE normalization audit. Experimental calibration remains Phase 6.
+> **Implementation status:** Gate 1 passed under the declared reference
+> assumptions; see `phase1/gate1_report.json` and `phase1/GATE1.md`. The ideal
+> reference remains an independent normalization fixture; the finite-pulse model
+> now has its own closed reference receiver/ADC budget. Experimental calibration
+> remains Phase 6; realistic receiver/RFI processing remains Phase 3.
 
 1. Implement or audit the high-temperature spin-1 equilibrium population
    scale for a specified isotope count and temperature.
@@ -294,6 +298,11 @@ and noise with a closed budget; two independent calculation paths agree within
 a declared tolerance. No system optimization begins before this gate passes.
 
 ### Phase 2: parcel and aperture model
+
+> **Implementation status:** started; see `phase2/README.md` and
+> `phase2/aperture_report.json`. Material voxels, pose transforms, three candidate
+> geometries, reciprocity maps, initial PEEC spectra and coarse surrogate errors
+> are implemented. Voxel-dependent loading and convergence remain open.
 
 1. Add parcel regions or voxels with material identity, density or amount,
    crystalline fraction, pose, temperature, and loading properties.

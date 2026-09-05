@@ -264,7 +264,7 @@ def prepared_density(cfg):
     }
 
 
-def simulate(cfg=Config()):
+def simulate(cfg=Config(), *, return_details=False):
     eig, line, values = material_reference()
     properties, segments = hardware(
         cfg.coil_radius_m, cfg.coil_length_m, cfg.coil_turns, cfg.wire_diameter_m
@@ -480,6 +480,19 @@ def simulate(cfg=Config()):
             np.max(np.abs(state[:, [0, 4, 8]].sum(axis=1)))
         ),
     }
+    if return_details:
+        return (
+            row,
+            times,
+            voltage,
+            valid,
+            {
+                "moment_am2": moment,
+                "receive_beta_t_per_a": np.asarray(receive_beta),
+                "exposure_s": np.asarray(exposure),
+                "noise_psd_one_sided_v2_hz": psd,
+            },
+        )
     return row, times, voltage, valid
 
 

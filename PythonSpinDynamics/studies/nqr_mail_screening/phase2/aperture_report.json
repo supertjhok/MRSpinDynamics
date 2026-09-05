@@ -1,0 +1,570 @@
+{
+  "phase": 2,
+  "gate2_passed": false,
+  "regions": [
+    {
+      "material": "fentanyl-HCl aniline",
+      "size_m": [
+        0.1,
+        0.002,
+        0.1
+      ],
+      "centre_m": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "mass_kg": 0.001,
+      "crystalline_fraction": 1.0,
+      "temperature_k": 293.15,
+      "relative_permittivity": 3.0,
+      "conductivity_s_m": 1e-08
+    },
+    {
+      "material": "paper surrogate",
+      "size_m": [
+        0.33,
+        0.001,
+        0.42
+      ],
+      "centre_m": [
+        0.0,
+        -0.01,
+        0.0
+      ],
+      "mass_kg": 0.02,
+      "crystalline_fraction": 0.0,
+      "temperature_k": 293.15,
+      "relative_permittivity": 3.0,
+      "conductivity_s_m": 1e-08
+    }
+  ],
+  "loading_evidence": "assumed region properties; lumped R/C sensitivity only",
+  "remaining_gate_items": [
+    "voxel-dependent dielectric/conductive loading",
+    "PEEC path and surface-current convergence",
+    "spatial and pose convergence",
+    "surrogate error acceptance across candidates"
+  ],
+  "candidates": {
+    "enclosing_helix": {
+      "wire_vertices": 97,
+      "surrogate_normalized_rms_error": 0.053868327781493246,
+      "field_path_refinement_error": 0.008686867687487438,
+      "frequencies_hz": [
+        3102400.0,
+        3304300.0
+      ],
+      "inductance_h": [
+        1.0410064866911058e-05,
+        1.0409539755162442e-05
+      ],
+      "resistance_ohm": [
+        0.3298322887218161,
+        0.3403961082285666
+      ],
+      "self_capacitance_f": 9.984166031584423e-12,
+      "peec_scope": "coarse 8-perimeter chain SIBC; resistance and proximity not converged",
+      "region_pose_metrics": [
+        {
+          "material": "fentanyl-HCl aniline",
+          "translation_z_m": -0.1,
+          "mass_kg": 0.0010000000000000002,
+          "density_kg_m3": 50.0,
+          "minimum_beta_t_a": 1.1009450806233097e-05,
+          "median_beta_t_a": 1.20918903535711e-05,
+          "mass_weighted_beta_squared_t2_a2": 1.4467087321826922e-10,
+          "interpretation": "same-port small-tip coupling proxy, not finite-pulse SNR or optimized receive weights"
+        },
+        {
+          "material": "paper surrogate",
+          "translation_z_m": -0.1,
+          "mass_kg": 0.020000000000000004,
+          "density_kg_m3": 144.30014430014432,
+          "minimum_beta_t_a": 5.005814978200784e-06,
+          "median_beta_t_a": 1.2347521931179852e-05,
+          "mass_weighted_beta_squared_t2_a2": 1.2893764084653657e-10,
+          "interpretation": "same-port small-tip coupling proxy, not finite-pulse SNR or optimized receive weights"
+        },
+        {
+          "material": "fentanyl-HCl aniline",
+          "translation_z_m": 0.0,
+          "mass_kg": 0.0010000000000000002,
+          "density_kg_m3": 50.0,
+          "minimum_beta_t_a": 1.2815226817268403e-05,
+          "median_beta_t_a": 1.2957931721704273e-05,
+          "mass_weighted_beta_squared_t2_a2": 1.674467495667622e-10,
+          "interpretation": "same-port small-tip coupling proxy, not finite-pulse SNR or optimized receive weights"
+        },
+        {
+          "material": "paper surrogate",
+          "translation_z_m": 0.0,
+          "mass_kg": 0.020000000000000004,
+          "density_kg_m3": 144.30014430014432,
+          "minimum_beta_t_a": 9.701723221221086e-06,
+          "median_beta_t_a": 1.2375940696259821e-05,
+          "mass_weighted_beta_squared_t2_a2": 1.4898016518205883e-10,
+          "interpretation": "same-port small-tip coupling proxy, not finite-pulse SNR or optimized receive weights"
+        },
+        {
+          "material": "fentanyl-HCl aniline",
+          "translation_z_m": 0.1,
+          "mass_kg": 0.0010000000000000002,
+          "density_kg_m3": 50.0,
+          "minimum_beta_t_a": 1.1009450806233098e-05,
+          "median_beta_t_a": 1.2091890353571101e-05,
+          "mass_weighted_beta_squared_t2_a2": 1.4467087321826922e-10,
+          "interpretation": "same-port small-tip coupling proxy, not finite-pulse SNR or optimized receive weights"
+        },
+        {
+          "material": "paper surrogate",
+          "translation_z_m": 0.1,
+          "mass_kg": 0.020000000000000004,
+          "density_kg_m3": 144.30014430014432,
+          "minimum_beta_t_a": 5.079150634542299e-06,
+          "median_beta_t_a": 1.2372989154221467e-05,
+          "mass_weighted_beta_squared_t2_a2": 1.3022424840967716e-10,
+          "interpretation": "same-port small-tip coupling proxy, not finite-pulse SNR or optimized receive weights"
+        }
+      ],
+      "loading_sweep": [
+        {
+          "added_c_f": 0.0,
+          "added_r_ohm": 0.0,
+          "resonant_frequency_hz": 3304299.9999999995,
+          "q": 634.9013942006922,
+          "ringdown_s": 6.116133236266452e-05,
+          "current_per_drive_volt_a": 2.9377539161773485,
+          "johnson_psd_v2_hz": 5.510839449434219e-21,
+          "positive_external_tuning_capacitance": true
+        },
+        {
+          "added_c_f": 0.0,
+          "added_r_ohm": 0.5,
+          "resonant_frequency_hz": 3304299.9999999995,
+          "q": 257.16202345385915,
+          "ringdown_s": 2.4772936602727124e-05,
+          "current_per_drive_volt_a": 1.1899150771983646,
+          "johnson_psd_v2_hz": 1.360558453643422e-20,
+          "positive_external_tuning_capacitance": true
+        },
+        {
+          "added_c_f": 0.0,
+          "added_r_ohm": 2.0,
+          "resonant_frequency_hz": 3304299.9999999995,
+          "q": 92.34247268441457,
+          "ringdown_s": 8.895536715826593e-06,
+          "current_per_drive_volt_a": 0.42727809898679703,
+          "johnson_psd_v2_hz": 3.788981979743422e-20,
+          "positive_external_tuning_capacitance": true
+        },
+        {
+          "added_c_f": 1e-12,
+          "added_r_ohm": 0.0,
+          "resonant_frequency_hz": 3296911.756717832,
+          "q": 633.4817876393805,
+          "ringdown_s": 6.116133236266452e-05,
+          "current_per_drive_volt_a": 0.9769140145905584,
+          "johnson_psd_v2_hz": 5.510839449434219e-21,
+          "positive_external_tuning_capacitance": true
+        },
+        {
+          "added_c_f": 1e-12,
+          "added_r_ohm": 0.5,
+          "resonant_frequency_hz": 3296911.756717832,
+          "q": 256.58702251804476,
+          "ringdown_s": 2.4772936602727124e-05,
+          "current_per_drive_volt_a": 0.7812934807421594,
+          "johnson_psd_v2_hz": 1.360558453643422e-20,
+          "positive_external_tuning_capacitance": true
+        },
+        {
+          "added_c_f": 1e-12,
+          "added_r_ohm": 2.0,
+          "resonant_frequency_hz": 3296911.756717832,
+          "q": 92.13599970875579,
+          "ringdown_s": 8.895536715826593e-06,
+          "current_per_drive_volt_a": 0.3949945557823744,
+          "johnson_psd_v2_hz": 3.788981979743422e-20,
+          "positive_external_tuning_capacitance": true
+        },
+        {
+          "added_c_f": 5e-12,
+          "added_r_ohm": 0.0,
+          "resonant_frequency_hz": 3267846.744493798,
+          "q": 627.8971201505026,
+          "ringdown_s": 6.116133236266452e-05,
+          "current_per_drive_volt_a": 0.2103335361534655,
+          "johnson_psd_v2_hz": 5.510839449434219e-21,
+          "positive_external_tuning_capacitance": true
+        },
+        {
+          "added_c_f": 5e-12,
+          "added_r_ohm": 0.5,
+          "resonant_frequency_hz": 3267846.744493798,
+          "q": 254.32499505224453,
+          "ringdown_s": 2.4772936602727124e-05,
+          "current_per_drive_volt_a": 0.2076393247830051,
+          "johnson_psd_v2_hz": 1.360558453643422e-20,
+          "positive_external_tuning_capacitance": true
+        },
+        {
+          "added_c_f": 5e-12,
+          "added_r_ohm": 2.0,
+          "resonant_frequency_hz": 3267846.744493798,
+          "q": 91.32374443612012,
+          "ringdown_s": 8.895536715826593e-06,
+          "current_per_drive_volt_a": 0.1890988979894163,
+          "johnson_psd_v2_hz": 3.788981979743422e-20,
+          "positive_external_tuning_capacitance": true
+        }
+      ]
+    },
+    "split_rectangular_pair": {
+      "wire_vertices": 34,
+      "surrogate_normalized_rms_error": 0.06249266184201551,
+      "field_path_refinement_error": 3.307982707303622e-16,
+      "frequencies_hz": [
+        3102400.0,
+        3304300.0
+      ],
+      "inductance_h": [
+        4.141016286894407e-06,
+        4.140757130296012e-06
+      ],
+      "resistance_ohm": [
+        0.16278622298876808,
+        0.16799974176914442
+      ],
+      "self_capacitance_f": 7.99500053917169e-12,
+      "peec_scope": "coarse 8-perimeter chain SIBC; resistance and proximity not converged",
+      "region_pose_metrics": [
+        {
+          "material": "fentanyl-HCl aniline",
+          "translation_z_m": -0.1,
+          "mass_kg": 0.0010000000000000002,
+          "density_kg_m3": 50.0,
+          "minimum_beta_t_a": 5.64904690609421e-06,
+          "median_beta_t_a": 6.107977582415556e-06,
+          "mass_weighted_beta_squared_t2_a2": 3.9392835526988504e-11,
+          "interpretation": "same-port small-tip coupling proxy, not finite-pulse SNR or optimized receive weights"
+        },
+        {
+          "material": "paper surrogate",
+          "translation_z_m": -0.1,
+          "mass_kg": 0.020000000000000004,
+          "density_kg_m3": 144.30014430014432,
+          "minimum_beta_t_a": 3.1376772485068998e-06,
+          "median_beta_t_a": 7.583140971415482e-06,
+          "mass_weighted_beta_squared_t2_a2": 5.325799654357072e-11,
+          "interpretation": "same-port small-tip coupling proxy, not finite-pulse SNR or optimized receive weights"
+        },
+        {
+          "material": "fentanyl-HCl aniline",
+          "translation_z_m": 0.0,
+          "mass_kg": 0.0010000000000000002,
+          "density_kg_m3": 50.0,
+          "minimum_beta_t_a": 5.4840635084070534e-06,
+          "median_beta_t_a": 5.61722056031892e-06,
+          "mass_weighted_beta_squared_t2_a2": 3.150800594144441e-11,
+          "interpretation": "same-port small-tip coupling proxy, not finite-pulse SNR or optimized receive weights"
+        },
+        {
+          "material": "paper surrogate",
+          "translation_z_m": 0.0,
+          "mass_kg": 0.020000000000000004,
+          "density_kg_m3": 144.30014430014432,
+          "minimum_beta_t_a": 5.467625000954461e-06,
+          "median_beta_t_a": 8.447883561035818e-06,
+          "mass_weighted_beta_squared_t2_a2": 6.462322895363093e-11,
+          "interpretation": "same-port small-tip coupling proxy, not finite-pulse SNR or optimized receive weights"
+        },
+        {
+          "material": "fentanyl-HCl aniline",
+          "translation_z_m": 0.1,
+          "mass_kg": 0.0010000000000000002,
+          "density_kg_m3": 50.0,
+          "minimum_beta_t_a": 5.649170209952803e-06,
+          "median_beta_t_a": 6.107903238478411e-06,
+          "mass_weighted_beta_squared_t2_a2": 3.939428569920943e-11,
+          "interpretation": "same-port small-tip coupling proxy, not finite-pulse SNR or optimized receive weights"
+        },
+        {
+          "material": "paper surrogate",
+          "translation_z_m": 0.1,
+          "mass_kg": 0.020000000000000004,
+          "density_kg_m3": 144.30014430014432,
+          "minimum_beta_t_a": 3.128224537130616e-06,
+          "median_beta_t_a": 7.574867963868461e-06,
+          "mass_weighted_beta_squared_t2_a2": 5.3607188518309215e-11,
+          "interpretation": "same-port small-tip coupling proxy, not finite-pulse SNR or optimized receive weights"
+        }
+      ],
+      "loading_sweep": [
+        {
+          "added_c_f": 0.0,
+          "added_r_ohm": 0.0,
+          "resonant_frequency_hz": 3304299.9999999995,
+          "q": 511.71775152140185,
+          "ringdown_s": 4.929480351209113e-05,
+          "current_per_drive_volt_a": 5.952390101730885,
+          "johnson_psd_v2_hz": 2.719830168606101e-21,
+          "positive_external_tuning_capacitance": true
+        },
+        {
+          "added_c_f": 0.0,
+          "added_r_ohm": 0.5,
+          "resonant_frequency_hz": 3304299.9999999995,
+          "q": 128.69533435237875,
+          "ringdown_s": 1.2397481230545223e-05,
+          "current_per_drive_volt_a": 1.4970065667264767,
+          "johnson_psd_v2_hz": 1.0814575255606101e-20,
+          "positive_external_tuning_capacitance": true
+        },
+        {
+          "added_c_f": 0.0,
+          "added_r_ohm": 2.0,
+          "resonant_frequency_hz": 3304299.9999999995,
+          "q": 39.65334887177165,
+          "ringdown_s": 3.819887106552002e-06,
+          "current_per_drive_volt_a": 0.4612546674862488,
+          "johnson_psd_v2_hz": 3.5098810516606095e-20,
+          "positive_external_tuning_capacitance": true
+        },
+        {
+          "added_c_f": 1e-12,
+          "added_r_ohm": 0.0,
+          "resonant_frequency_hz": 3301355.1239018952,
+          "q": 511.2616956622393,
+          "ringdown_s": 4.929480351209113e-05,
+          "current_per_drive_volt_a": 4.398683613229834,
+          "johnson_psd_v2_hz": 2.719830168606101e-21,
+          "positive_external_tuning_capacitance": true
+        },
+        {
+          "added_c_f": 1e-12,
+          "added_r_ohm": 0.5,
+          "resonant_frequency_hz": 3301355.1239018952,
+          "q": 128.58063780119642,
+          "ringdown_s": 1.2397481230545223e-05,
+          "current_per_drive_volt_a": 1.4591412080934878,
+          "johnson_psd_v2_hz": 1.0814575255606101e-20,
+          "positive_external_tuning_capacitance": true
+        },
+        {
+          "added_c_f": 1e-12,
+          "added_r_ohm": 2.0,
+          "resonant_frequency_hz": 3301355.1239018952,
+          "q": 39.61800879995545,
+          "ringdown_s": 3.819887106552002e-06,
+          "current_per_drive_volt_a": 0.46010784435609003,
+          "johnson_psd_v2_hz": 3.5098810516606095e-20,
+          "positive_external_tuning_capacitance": true
+        },
+        {
+          "added_c_f": 5e-12,
+          "added_r_ohm": 0.0,
+          "resonant_frequency_hz": 3289653.8679670165,
+          "q": 509.44959010978556,
+          "ringdown_s": 4.929480351209113e-05,
+          "current_per_drive_volt_a": 1.2841103377552388,
+          "johnson_psd_v2_hz": 2.719830168606101e-21,
+          "positive_external_tuning_capacitance": true
+        },
+        {
+          "added_c_f": 5e-12,
+          "added_r_ohm": 0.5,
+          "resonant_frequency_hz": 3289653.8679670165,
+          "q": 128.12489920455508,
+          "ringdown_s": 1.2397481230545223e-05,
+          "current_per_drive_volt_a": 0.9879946163521254,
+          "johnson_psd_v2_hz": 1.0814575255606101e-20,
+          "positive_external_tuning_capacitance": true
+        },
+        {
+          "added_c_f": 5e-12,
+          "added_r_ohm": 2.0,
+          "resonant_frequency_hz": 3289653.8679670165,
+          "q": 39.47758753559578,
+          "ringdown_s": 3.819887106552002e-06,
+          "current_per_drive_volt_a": 0.4352580563335229,
+          "johnson_psd_v2_hz": 3.5098810516606095e-20,
+          "positive_external_tuning_capacitance": true
+        }
+      ]
+    },
+    "axial_gradiometer": {
+      "wire_vertices": 100,
+      "surrogate_normalized_rms_error": 0.09294261859972734,
+      "field_path_refinement_error": 0.01681507899979964,
+      "frequencies_hz": [
+        3102400.0,
+        3304300.0
+      ],
+      "inductance_h": [
+        8.46461178984038e-06,
+        8.4640623777386e-06
+      ],
+      "resistance_ohm": [
+        0.34510234699649484,
+        0.35615501487087076
+      ],
+      "self_capacitance_f": 1.007176098898445e-11,
+      "peec_scope": "coarse 8-perimeter chain SIBC; resistance and proximity not converged",
+      "region_pose_metrics": [
+        {
+          "material": "fentanyl-HCl aniline",
+          "translation_z_m": -0.1,
+          "mass_kg": 0.0010000000000000002,
+          "density_kg_m3": 50.0,
+          "minimum_beta_t_a": 4.126687266951182e-06,
+          "median_beta_t_a": 6.394829144662054e-06,
+          "mass_weighted_beta_squared_t2_a2": 3.9383237014382666e-11,
+          "interpretation": "same-port small-tip coupling proxy, not finite-pulse SNR or optimized receive weights"
+        },
+        {
+          "material": "paper surrogate",
+          "translation_z_m": -0.1,
+          "mass_kg": 0.020000000000000004,
+          "density_kg_m3": 144.30014430014432,
+          "minimum_beta_t_a": 1.7522484560277902e-06,
+          "median_beta_t_a": 6.704265542377923e-06,
+          "mass_weighted_beta_squared_t2_a2": 4.8397953039314444e-11,
+          "interpretation": "same-port small-tip coupling proxy, not finite-pulse SNR or optimized receive weights"
+        },
+        {
+          "material": "fentanyl-HCl aniline",
+          "translation_z_m": 0.0,
+          "mass_kg": 0.0010000000000000002,
+          "density_kg_m3": 50.0,
+          "minimum_beta_t_a": 4.479438971080451e-07,
+          "median_beta_t_a": 2.290422116824281e-06,
+          "mass_weighted_beta_squared_t2_a2": 6.264034331880862e-12,
+          "interpretation": "same-port small-tip coupling proxy, not finite-pulse SNR or optimized receive weights"
+        },
+        {
+          "material": "paper surrogate",
+          "translation_z_m": 0.0,
+          "mass_kg": 0.020000000000000004,
+          "density_kg_m3": 144.30014430014432,
+          "minimum_beta_t_a": 8.472545298762876e-07,
+          "median_beta_t_a": 7.791742801913503e-06,
+          "mass_weighted_beta_squared_t2_a2": 6.032455652142141e-11,
+          "interpretation": "same-port small-tip coupling proxy, not finite-pulse SNR or optimized receive weights"
+        },
+        {
+          "material": "fentanyl-HCl aniline",
+          "translation_z_m": 0.1,
+          "mass_kg": 0.0010000000000000002,
+          "density_kg_m3": 50.0,
+          "minimum_beta_t_a": 4.2295644697309495e-06,
+          "median_beta_t_a": 6.464746584124961e-06,
+          "mass_weighted_beta_squared_t2_a2": 4.048213780707112e-11,
+          "interpretation": "same-port small-tip coupling proxy, not finite-pulse SNR or optimized receive weights"
+        },
+        {
+          "material": "paper surrogate",
+          "translation_z_m": 0.1,
+          "mass_kg": 0.020000000000000004,
+          "density_kg_m3": 144.30014430014432,
+          "minimum_beta_t_a": 1.7702159010992223e-06,
+          "median_beta_t_a": 6.808103858262926e-06,
+          "mass_weighted_beta_squared_t2_a2": 4.977938654788786e-11,
+          "interpretation": "same-port small-tip coupling proxy, not finite-pulse SNR or optimized receive weights"
+        }
+      ],
+      "loading_sweep": [
+        {
+          "added_c_f": 0.0,
+          "added_r_ohm": 0.0,
+          "resonant_frequency_hz": 3304299.9999999995,
+          "q": 493.39998303474874,
+          "ringdown_s": 4.753021591346886e-05,
+          "current_per_drive_volt_a": 2.8077661642994545,
+          "johnson_psd_v2_hz": 5.765968113672786e-21,
+          "positive_external_tuning_capacitance": true
+        },
+        {
+          "added_c_f": 0.0,
+          "added_r_ohm": 0.5,
+          "resonant_frequency_hz": 3304299.9999999995,
+          "q": 205.25123983713655,
+          "ringdown_s": 1.977226607500556e-05,
+          "current_per_drive_volt_a": 1.1680127811326604,
+          "johnson_psd_v2_hz": 1.3860713200672785e-20,
+          "positive_external_tuning_capacitance": true
+        },
+        {
+          "added_c_f": 0.0,
+          "added_r_ohm": 2.0,
+          "resonant_frequency_hz": 3304299.9999999995,
+          "q": 74.58205304232031,
+          "ringdown_s": 7.184639655979912e-06,
+          "current_per_drive_volt_a": 0.4244202922509345,
+          "johnson_psd_v2_hz": 3.814494846167279e-20,
+          "positive_external_tuning_capacitance": true
+        },
+        {
+          "added_c_f": 1e-12,
+          "added_r_ohm": 0.0,
+          "resonant_frequency_hz": 3298288.807394597,
+          "q": 492.5023882856267,
+          "ringdown_s": 4.753021591346886e-05,
+          "current_per_drive_volt_a": 1.3673103605679908,
+          "johnson_psd_v2_hz": 5.765968113672786e-21,
+          "positive_external_tuning_capacitance": true
+        },
+        {
+          "added_c_f": 1e-12,
+          "added_r_ohm": 0.5,
+          "resonant_frequency_hz": 3298288.807394597,
+          "q": 204.8778461576406,
+          "ringdown_s": 1.977226607500556e-05,
+          "current_per_drive_volt_a": 0.9361561689386931,
+          "johnson_psd_v2_hz": 1.3860713200672785e-20,
+          "positive_external_tuning_capacitance": true
+        },
+        {
+          "added_c_f": 1e-12,
+          "added_r_ohm": 2.0,
+          "resonant_frequency_hz": 3298288.807394597,
+          "q": 74.44637314468883,
+          "ringdown_s": 7.184639655979912e-06,
+          "current_per_drive_volt_a": 0.40963274195238947,
+          "johnson_psd_v2_hz": 3.814494846167279e-20,
+          "positive_external_tuning_capacitance": true
+        },
+        {
+          "added_c_f": 5e-12,
+          "added_r_ohm": 0.0,
+          "resonant_frequency_hz": 3274567.981951495,
+          "q": 488.96038094028984,
+          "ringdown_s": 4.753021591346886e-05,
+          "current_per_drive_volt_a": 0.3156338720715628,
+          "johnson_psd_v2_hz": 5.765968113672786e-21,
+          "positive_external_tuning_capacitance": true
+        },
+        {
+          "added_c_f": 5e-12,
+          "added_r_ohm": 0.5,
+          "resonant_frequency_hz": 3274567.981951495,
+          "q": 203.40439373741333,
+          "ringdown_s": 1.977226607500556e-05,
+          "current_per_drive_volt_a": 0.3065146195242542,
+          "johnson_psd_v2_hz": 1.3860713200672785e-20,
+          "positive_external_tuning_capacitance": true
+        },
+        {
+          "added_c_f": 5e-12,
+          "added_r_ohm": 2.0,
+          "resonant_frequency_hz": 3274567.981951495,
+          "q": 73.91096538467764,
+          "ringdown_s": 7.184639655979912e-06,
+          "current_per_drive_volt_a": 0.25430982024403465,
+          "johnson_psd_v2_hz": 3.814494846167279e-20,
+          "positive_external_tuning_capacitance": true
+        }
+      ]
+    }
+  }
+}
