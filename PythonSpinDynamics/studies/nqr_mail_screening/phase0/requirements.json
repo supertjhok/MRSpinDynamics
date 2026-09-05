@@ -1,8 +1,8 @@
 {
   "schema_version": "0.1.0",
-  "requirements_version": "0.3.0",
+  "requirements_version": "0.4.0",
   "study_id": "nqr-mail-screening",
-  "status": "draft",
+  "status": "study_ready",
   "reference_concept": {
     "isotope": "14N",
     "operating_mode": "stop_and_scan",
@@ -14,30 +14,34 @@
       "id": "req.parcel.max_outer_dimensions",
       "label": "Maximum parcel outer dimensions",
       "value_type": "vector3",
-      "value": null,
+      "value": [
+        0.42,
+        0.33,
+        0.025
+      ],
       "units": "m",
-      "status": "unresolved",
+      "status": "provisional",
       "blocking_gate_0": true,
       "origin": {
-        "owner": "study requester",
+        "owner": "study designer (delegated by requester)",
         "evidence_class": null,
-        "reference": "User requirements in this Codex task, 2026-09-05; see user_requirements.md",
-        "notes": "Typical USPS/UPS/FedEx envelopes requested. Carrier sources mix dimensions and internal/external conventions; see envelope_scope.md. Exact loaded maximum dimensions remain unresolved."
+        "reference": "study_defaults.md; user instruction to infer reasonable values, 2026-09-05",
+        "notes": "Axis order length, width, loaded thickness. Rounded study envelope covering referenced carrier examples with margin; not universal carrier coverage. Stress-test thickness up to 50 mm separately."
       }
     },
     {
       "id": "req.operation.mode",
       "label": "Approved operating mode",
       "value_type": "string",
-      "value": null,
+      "value": "stop_and_scan",
       "units": null,
-      "status": "unresolved",
+      "status": "provisional",
       "blocking_gate_0": true,
       "origin": {
-        "owner": null,
+        "owner": "study designer (delegated by requester)",
         "evidence_class": null,
-        "reference": null,
-        "notes": "Confirm stop-and-scan, indexed conveyor, or continuous conveyor."
+        "reference": "study_defaults.md; user instruction to infer reasonable values, 2026-09-05",
+        "notes": "Stationary indexed envelope during all RF shots and any pre-polarization cycle. Budget 2 s total handling/decision overhead initially; sensitivity 0.5\u20135 s."
       }
     },
     {
@@ -46,7 +50,7 @@
       "value_type": "number",
       "value": null,
       "units": "s",
-      "status": "unresolved",
+      "status": "not_applicable",
       "blocking_gate_0": false,
       "origin": {
         "owner": "study requester",
@@ -61,7 +65,7 @@
       "value_type": "probability",
       "value": null,
       "units": "1",
-      "status": "unresolved",
+      "status": "not_applicable",
       "blocking_gate_0": false,
       "origin": {
         "owner": "study requester",
@@ -76,7 +80,7 @@
       "value_type": "probability",
       "value": null,
       "units": "1",
-      "status": "unresolved",
+      "status": "not_applicable",
       "blocking_gate_0": false,
       "origin": {
         "owner": "study requester",
@@ -89,30 +93,30 @@
       "id": "req.performance.confidence_level",
       "label": "Confidence level for PD and PFA bounds",
       "value_type": "probability",
-      "value": null,
+      "value": 0.95,
       "units": "1",
-      "status": "unresolved",
+      "status": "provisional",
       "blocking_gate_0": true,
       "origin": {
-        "owner": null,
+        "owner": "study designer (delegated by requester)",
         "evidence_class": null,
-        "reference": null,
-        "notes": "Used to size Monte Carlo and blind validation sets."
+        "reference": "study_defaults.md; user instruction to infer reasonable values, 2026-09-05",
+        "notes": "Two-sided 95% pointwise AUC intervals from 2000 stratified parcel-level bootstrap replicates; paired replicates for design differences. No simultaneous or deployment guarantee."
       }
     },
     {
       "id": "req.material.minimum_target_amount",
       "label": "Minimum target amount in scope",
       "value_type": "number",
-      "value": null,
+      "value": 1e-06,
       "units": "kg",
-      "status": "unresolved",
+      "status": "provisional",
       "blocking_gate_0": true,
       "origin": {
-        "owner": null,
+        "owner": "study designer (delegated by requester)",
         "evidence_class": null,
-        "reference": null,
-        "notes": "Define separately by target material if one common value is inappropriate."
+        "reference": "study_defaults.md; user instruction to infer reasonable values, 2026-09-05",
+        "notes": "Exploratory lower mass 1 mg of target salt, not fentanyl-base equivalent or total tablet mass. Sweep 1, 10, 100 mg, 1 and 10 g. This is not a predicted detection limit."
       }
     },
     {
@@ -139,7 +143,7 @@
       "value_type": "number",
       "value": null,
       "units": "W",
-      "status": "unresolved",
+      "status": "not_applicable",
       "blocking_gate_0": false,
       "origin": {
         "owner": "study requester",
@@ -154,7 +158,7 @@
       "value_type": "number",
       "value": null,
       "units": "W",
-      "status": "unresolved",
+      "status": "not_applicable",
       "blocking_gate_0": false,
       "origin": {
         "owner": "study requester",
@@ -167,75 +171,75 @@
       "id": "req.hardware.max_coil_current",
       "label": "Maximum peak RF coil current",
       "value_type": "number",
-      "value": null,
+      "value": 50.0,
       "units": "A",
-      "status": "unresolved",
+      "status": "provisional",
       "blocking_gate_0": true,
       "origin": {
-        "owner": null,
+        "owner": "study designer (delegated by requester)",
         "evidence_class": null,
-        "reference": null,
-        "notes": "Define peak or RMS convention."
+        "reference": "study_defaults.md; user instruction to infer reasonable values, 2026-09-05",
+        "notes": "Provisional 50 A peak RF winding-current ceiling. Sweep ceiling at 25/50/100 A; replace with selected conductor/component ratings in hardware phase. Not a measured rating."
       }
     },
     {
       "id": "req.hardware.max_terminal_voltage",
       "label": "Maximum peak RF terminal voltage",
       "value_type": "number",
-      "value": null,
+      "value": 2000.0,
       "units": "V",
-      "status": "unresolved",
+      "status": "provisional",
       "blocking_gate_0": true,
       "origin": {
-        "owner": null,
+        "owner": "study designer (delegated by requester)",
         "evidence_class": null,
-        "reference": null,
-        "notes": "Include capacitor, cable, switch, and insulation limits."
+        "reference": "study_defaults.md; user instruction to infer reasonable values, 2026-09-05",
+        "notes": "Provisional 2 kV peak across coil terminals. Test 1/2/5 kV ceilings; network model must additionally report local component stress. Not insulation certification."
       }
     },
     {
       "id": "req.receiver.max_recovery_time",
       "label": "Maximum receiver recovery time after transmit",
       "value_type": "number",
-      "value": null,
+      "value": 0.0001,
       "units": "s",
-      "status": "unresolved",
+      "status": "provisional",
       "blocking_gate_0": true,
       "origin": {
-        "owner": null,
+        "owner": "study designer (delegated by requester)",
         "evidence_class": null,
-        "reference": null,
-        "notes": "Measure at a declared residual-artifact threshold."
+        "reference": "study_defaults.md; user instruction to infer reasonable values, 2026-09-05",
+        "notes": "Initial 100 us budget after RF ends. Valid window additionally requires no clipping and residual coherent artifact below 0.1 times input-referred RMS noise over the matched receiver bandwidth. Sensitivity 50/100/250 us; budget is not a measured capability."
       }
     },
     {
       "id": "req.thermal.max_component_temperature",
       "label": "Maximum component temperature",
       "value_type": "number",
-      "value": null,
+      "value": 353.15,
       "units": "K",
-      "status": "unresolved",
+      "status": "provisional",
       "blocking_gate_0": true,
       "origin": {
-        "owner": null,
+        "owner": "study designer (delegated by requester)",
         "evidence_class": null,
-        "reference": null,
-        "notes": "May need separate limits for coil, capacitors, switch, shield, and amplifier."
+        "reference": "study_defaults.md; user instruction to infer reasonable values, 2026-09-05",
+        "notes": "80 C internal component screening ceiling; leaves 30 K headroom at 50 C ambient. Apply lower actual ratings once parts are chosen. Not an accessible-surface limit."
       }
     },
     {
       "id": "req.thermal.max_parcel_temperature_rise",
       "label": "Maximum permitted parcel temperature rise",
       "value_type": "number",
-      "value": null,
+      "value": 2.0,
       "units": "K",
-      "status": "unresolved",
+      "status": "provisional",
       "blocking_gate_0": true,
       "origin": {
-        "owner": null,
+        "owner": "study designer (delegated by requester)",
         "evidence_class": null,
-        "reference": null,
-        "notes": "Define measurement location, averaging, and conservative material assumptions."
+        "reference": "study_defaults.md; user instruction to infer reasonable values, 2026-09-05",
+        "notes": "2 K maximum modeled local parcel rise over full repeated operating cycles. Sensitivity 1/2/5 K; does not assert pharmaceutical stability or exposure compliance."
       }
     },
     {
@@ -244,13 +248,13 @@
       "value_type": "list",
       "value": null,
       "units": null,
-      "status": "unresolved",
-      "blocking_gate_0": true,
+      "status": "not_applicable",
+      "blocking_gate_0": false,
       "origin": {
-        "owner": null,
+        "owner": "study designer (delegated by requester)",
         "evidence_class": null,
-        "reference": null,
-        "notes": "Resolve with the intended jurisdiction, installation, operator access, and parcel contents."
+        "reference": "study_defaults.md",
+        "notes": "Deferred to hardware/installation design. US installation is the working scenario; applicable standards and exposure limits must be established before construction/operation. Not required to freeze a numerical study."
       }
     },
     {
@@ -259,58 +263,58 @@
       "value_type": "string",
       "value": null,
       "units": null,
-      "status": "unresolved",
-      "blocking_gate_0": true,
+      "status": "not_applicable",
+      "blocking_gate_0": false,
       "origin": {
-        "owner": null,
+        "owner": "study designer (delegated by requester)",
         "evidence_class": null,
-        "reference": null,
-        "notes": "Target entries remain simulation-only until an authorized protocol exists."
+        "reference": "study_defaults.md",
+        "notes": "Deferred to physical calibration/testing in Phase 6. Current work is simulation and literature only; no controlled-material handling protocol is inferred or needed for Phase 0."
       }
     },
     {
       "id": "req.population.target_scope",
       "label": "Target-present population definition",
       "value_type": "string",
-      "value": "Illicit pharmaceuticals, prioritizing synthetic opioids. Initial candidates: fentanyl hydrochloride and fentanyl citrate; forms and amounts remain to be frozen.",
+      "value": "Fentanyl HCl reference branch; fentanyl citrate candidate branch pending spectroscopy. Salt mass grid 1 mg\u201310 g; crystalline fractions 0.1/0.5/1; uniform in-envelope centers conditioned on inclusion, isotropic powder, temperature 273.15\u2013323.15 K. See test_set_policy.md.",
       "units": null,
       "status": "provisional",
       "blocking_gate_0": true,
       "origin": {
-        "owner": "study requester",
+        "owner": "study designer (delegated by requester)",
         "evidence_class": null,
-        "reference": "User requirements in this Codex task, 2026-09-05; see user_requirements.md",
-        "notes": "User supplied class; assistant selected evidence-backed candidate salt forms. Approval of this detailed population remains pending."
+        "reference": "study_defaults.md; user instruction to infer reasonable values, 2026-09-05",
+        "notes": "Freeze a synthetic comparison population, not operational prevalence. Report mass/fraction strata. Do not impute citrate spectroscopy from HCl or pool an unevaluated citrate branch into AUC."
       }
     },
     {
       "id": "req.population.benign_scope",
       "label": "Target-absent population definition",
       "value_type": "string",
-      "value": null,
+      "value": "Equal-weight synthetic target-absent strata: paper/cardboard only, polymer packing only, glycine, paracetamol, melamine in ordinary envelope packing. Empty aperture is a separate control; mixtures/conductive contents are stress tests. See test_set_policy.md.",
       "units": null,
-      "status": "unresolved",
+      "status": "provisional",
       "blocking_gate_0": true,
       "origin": {
-        "owner": null,
+        "owner": "study designer (delegated by requester)",
         "evidence_class": null,
-        "reference": null,
-        "notes": "Specify benign material/parcel classes, loading and RFI strata, mixture weights or worst-case convention, hard negatives and out-of-scope handling. Empty aperture alone is not the mail population."
+        "reference": "study_defaults.md; user instruction to infer reasonable values, 2026-09-05",
+        "notes": "20% each is a declared design-study prior, not measured mail prevalence. Sweep class weights and report per-class ROC; material identity is not legal status."
       }
     },
     {
       "id": "req.validation.test_set_policy",
       "label": "Approved test-set and statistical evaluation policy",
       "value_type": "string",
-      "value": null,
+      "value": "test_set_policy.md@0.2.0: fixed-time ROC/AUC; independent development and held-out synthetic parent parcels, 3000 H1 + 3000 H0 each; paired 2000-replicate bootstrap; full outcome accounting.",
       "units": null,
-      "status": "unresolved",
+      "status": "provisional",
       "blocking_gate_0": true,
       "origin": {
-        "owner": null,
+        "owner": "study designer (delegated by requester)",
         "evidence_class": null,
-        "reference": null,
-        "notes": "Approve test_set_policy.md with sampling weights, confidence-bound method, per-stratum counts, freeze/access rules, and treatment of indeterminate decisions."
+        "reference": "study_defaults.md; user instruction to infer reasonable values, 2026-09-05",
+        "notes": "Pilot 200 per class is debugging only. Final blind experimental protocol belongs to Phase 6. No additional requester sign-off is needed to use these delegated simulation defaults."
       }
     },
     {
@@ -322,10 +326,10 @@
       "status": "provisional",
       "blocking_gate_0": true,
       "origin": {
-        "owner": "study requester",
+        "owner": "study designer (delegated by requester)",
         "evidence_class": null,
-        "reference": "User requirements in this Codex task, 2026-09-05; see user_requirements.md",
-        "notes": "Approximate user value. Provisional interpretation: 5 mm per side; confirm against loaded envelope outer dimensions."
+        "reference": "study_defaults.md; user instruction to infer reasonable values, 2026-09-05",
+        "notes": "Choose 5 mm per side on each axis. Baseline clear internal opening is 430 x 340 x 35 mm; coil/shield structural thickness is additional. Sensitivity 3/5/10 mm per side."
       }
     },
     {

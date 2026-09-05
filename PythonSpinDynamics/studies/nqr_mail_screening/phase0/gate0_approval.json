@@ -1,19 +1,22 @@
 {
   "schema_version": "0.1.0",
-  "status": "pending",
+  "status": "study_ready",
   "approved_by": null,
   "approved_utc": null,
   "approval_reference": null,
   "artifact_sha256": {
-    "requirements.json": null,
-    "materials.json": null,
-    "evidence_classes.json": null,
-    "test_set_policy.md": null,
-    "requirements.schema.json": null,
-    "materials.schema.json": null,
-    "result_record.schema.json": null,
-    "literature_supplement.json": null,
-    "user_requirements.md": null,
-    "envelope_scope.md": null
-  }
+    "requirements.json": "c476e056721eb67a351a18de459ddec0954a11b4bbd028d69fa160bf183144fb",
+    "materials.json": "f3f6214348ed1115cf22a5c7b4c7e0da921f26add42af05b547031bd50f6dc10",
+    "evidence_classes.json": "9b1047929b3a13e59dcc7392a6214d279e15fc3b2d1b28646296e9ccd655b314",
+    "test_set_policy.md": "30dfc6d90952a47d2dfda075a90070b23f01fdbd38083d21f79ac61a9f968fc4",
+    "requirements.schema.json": "eb754e89f1279388f0dcdf6e4108f506e8bf552379a6ee3846e279f187f57b30",
+    "materials.schema.json": "33f14cf8d47c0f22432bfab5c0f7ccef7de4ea38492510b4f87a60978ba74bbe",
+    "result_record.schema.json": "c0e4f242fd230d2476fcd772ed43ee0a0e7607f2607116b81c5057a40ab1b95c",
+    "literature_supplement.json": "bbcddbdb4112df1fef94aad060a218e854d2692dbe6e647b4ef328514929eb5e",
+    "user_requirements.md": "94e3aeb3b7c80127efd48a8bd180ce719d3b756a8a67da2b60488b59f97aaf62",
+    "envelope_scope.md": "262f764407f5e858c8ecb67ef58f5bdadd5c3050ef560ecb297e5475532cff63",
+    "study_defaults.md": "8a6fadf8f6ba900936f62236157dfb059deadb61316acb96d45476569bef1d89"
+  },
+  "study_basis": "Requester delegated reasonable engineering defaults on 2026-09-05; assumptions selected by study designer, see study_defaults.md. No formal hardware sign-off claimed.",
+  "hash_convention": "SHA-256 of UTF-8 file bytes after CRLF-to-LF normalization"
 }

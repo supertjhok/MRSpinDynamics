@@ -1,69 +1,41 @@
-# Phase 0 completion audit — 2026-09-05
+# Phase 0 completion audit â€” 2026-09-05
 
-## What was missing
+**Gate 0 is complete for the numerical design study.** The earlier 15-item blocker
+list incorrectly treated routine engineering assumptions and later experimental
+approvals as information the requester had to supply. The requester delegated
+reasonable choices; requirements version 0.4.0 now records them explicitly.
 
-The four planned artifacts existed, but the readiness gate only counted 17
-unresolved worksheet entries. It did not check material/test-set approval,
-worksheet/reference-concept approval, document/schema conformance or an immutable
-approval reference. Regex patterns in the schemas were over-escaped. Negative
-hardware limits and malformed provisional values could pass semantic checks.
-Population scope and validation policy lived only in prose rather than blocking
-requirements. The README's escaped Markdown made its commands hard to use.
+## Completed
 
-## Technical work completed
+- Frozen the envelope and handling baseline: 420 x 330 x 25 mm loaded outer size,
+  5 mm per-side clearance, stop-and-scan, 2 s initial handling/decision overhead.
+- Defined time and amount sweeps, synthetic H1/H0 populations, 95% AUC confidence
+  reporting, partitioning, counts, seeds and score-failure treatment.
+- Chosen provisional electrical, receiver and thermal search limits with
+  sensitivity ranges. No user-imposed RF power cap was introduced.
+- Preserved SLSE/SORC and pre-polarization comparison requirements, with complete
+  physical-time accounting and no assumed enhancement factor.
+- Validated worksheet/library/example schemas, provenance references and source
+  consistency; protected mandatory requirement identities, types and units.
+- Frozen the study snapshot using platform-independent text hashes. Readiness
+  accepts documented provisional defaults. Formal sign-off remains separate.
 
-- Validate each worksheet/library/example against Draft 2020-12 JSON Schema,
-  including dates, required fields, unknown properties and numeric bounds.
-- Correct schema patterns; reject invalid provisional values, nonpositive
-  physical limits and degenerate probability/confidence requirements.
-- Protect mandatory requirement IDs, units, types and blocking flags.
-- Add target-population, benign-population and test-policy requirements. The
-  worksheet is now version 0.2.0 with 20 blocking entries, all initially unresolved.
-- Supply a test-set policy covering parcel-level evaluation, data separation,
-  replay, freeze/access rules, missing evidence and statistical decisions.
-- Require stakeholder approval of the exact artifact set, detected with hashes;
-  changed artifacts invalidate an existing approval. No approval is fabricated.
-- Add regression checks for rejection paths as well as the valid draft.
+The worksheet has 25 entries: 5 explicit user choices, 13 documented provisional
+choices, and 7 fields inapplicable to the current phase/objective. There are **zero
+missing study requirements**. See study_defaults.md for values and rationale.
 
-## User inputs incorporated
+## Work belonging to subsequent phases
 
-See user_requirements.md. Requirements version 0.3.0 captures AUC/time objectives,
-273.15–323.15 K, SLSE/SORC, pre-polarization comparison and no user-imposed RF cap.
-Five previous scalar caps/operating-point fields are retained as optional nulls;
-they are not blockers for the exploratory AUC/time question. Clearance and detailed
-target scope are provisional. Exact envelope geometry remains unresolved.
+Fentanyl HCl has direct-NQR literature inputs in literature_supplement.json.
+Fentanyl citrate is a selected candidate with incomplete pulsed-response evidence;
+its spectroscopy cannot be borrowed from HCl. Proceed with the HCl Phase 1
+reference; expand the material model when citrate evidence is resolved. Known
+missing temperatures/relaxation/normalization remain unknown, not invented data.
 
-## What still prevents Gate 0
+Model-dependent loading, absolute transduction, current/voltage feasibility,
+receiver recovery, thermal behavior and pre-polarization gain need implementation
+and validation in Phases 1â€“3. Facility/material protocols and installation-specific
+standards apply before physical work, not before a numerical requirement freeze.
 
-The worksheet currently has 25 entries: 5 approved user choices, 2 provisional
-interpretations and 18 unresolved entries (5 of those deliberately nonblocking).
-Thus 15 blocking requirements still need resolution or approval. These cover
-geometry/clearance, handling, amounts/populations, statistical policy, component
-and thermal limits, and installation/test protocol. The entire artifact set also
-needs stakeholder sign-off.
-
-The two target candidates now match the pharmaceutical scope. Fentanyl HCl has
-room-temperature direct-NQR evidence in Malone et al., Table 2:
-https://doi.org/10.1093/pnasnexus/pgaf190 . Literature_supplement.json preserves the
-reported uncertainties and keeps effective CPMG decay distinct from intrinsic T2.
-Exact reference temperature and applicability across 0–50 C remain unresolved.
-
-Fentanyl citrate has a published proton-T1-dispersion/DFT source:
-https://doi.org/10.1016/j.ssnmr.2020.101697 . The inspected abstract supports a
-candidate selection, not an imported direct-NQR pulse-response model. This spectroscopy gap must be resolved before using citrate in a quantitative
-forward model; Phase 0 may approve an explicitly incomplete candidate library. Do not borrow HCl frequencies or
-relaxation values for citrate. Salt-form candidates do not prove broad opioid
-coverage. A second fully characterized target or additional source/calibration
-work is still needed before running an executable two-target development set.
-
-Benign records retain their local NQR database traceability. Missing linewidths,
-relaxation, temperature references and uncertainty remain null; no values are
-invented. Material-scale normalization, loading, RFI and pre-polarization gains
-are subsequent-phase work. These literature observations are not scanner
-performance claims for the requested envelope population.
-
-## Completion boundary
-
-The technical audit, user-scope revision, policy and validation repairs are
-complete. **Phase 0 / Gate 0 is still open** for the listed requirement decisions,
-approval. Second-target spectroscopy remains a later-model input gap. No model or scanner has been built.
+`--require-ready` now passes with the frozen study defaults. This is not a claim
+of scanner performance, certified ratings or permission to operate hardware.

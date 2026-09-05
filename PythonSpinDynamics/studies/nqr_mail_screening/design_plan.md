@@ -1,11 +1,10 @@
 # 14N NQR mail-screening system design study
 
-> **Status (2026-09-05): Phase 0 revised for pharmaceutical envelopes; Gate 0 open.** The
-> versioned requirements, evidence classes, development material library,
-> result-record schema, test-set policy, approval record, and validator live in `phase0/`.
-> Fifteen blocking requirements and stakeholder sign-off remain pending;
-> second-target spectroscopy is incomplete for subsequent modeling. This document
-> does not claim a scanner design, detection limit, or screening performance.
+> **Status (2026-09-05): Phase 0 complete for numerical study.** User choices and
+> delegated provisional defaults are frozen in `phase0/`; `--require-ready`
+> checks the snapshot. No missing study requirements remain. Hardware approval
+> and experimental validation are subsequent-phase work. This document makes
+> no detection-limit or scanner-performance claim.
 
 ## Purpose and reference concept
 
@@ -15,13 +14,14 @@ which coil, resonator, pulse/acquisition schedule, receiver, RFI mitigation,
 and decision rule gives the best screening performance within time, power,
 thermal, voltage, current, and size constraints?
 
-The user scope is typical USPS/UPS/FedEx envelopes at 0�50 degrees C,
+The user scope is typical USPS/UPS/FedEx envelopes at 0–50 degrees C,
 approximately 5 mm access clearance, and illicit pharmaceuticals with synthetic
 opioids prioritized. Pulsed SLSE/SORC and a pre-polarization comparison are
 required study branches. See `phase0/user_requirements.md` and
-`phase0/envelope_scope.md` for exact inputs and unresolved interpretations.
+`phase0/envelope_scope.md` for explicit inputs and delegated study assumptions.
 
-The provisional reference concept is a stop-and-scan envelope station. A
+The frozen study baseline is a stop-and-scan envelope station with a
+420 x 330 x 25 mm loaded-envelope limit and 5 mm clearance per side. A
 parcel is placed inside or passed through a shielded RF aperture; an inductive
 transmit/receive resonator applies one or more pulsed NQR interrogations, and a
 receiver combines echo-train evidence across selected 14N lines. External
@@ -49,7 +49,7 @@ Let \(d\) contain controllable design choices:
   reference layout;
 - signal features, multi-line fusion, threshold, and adaptive stopping policy.
 
-Let ξ collect nuisance variables that the system cannot control exactly:
+Let Î¾ collect nuisance variables that the system cannot control exactly:
 
 - target identity, mass, morphology, crystalline fraction, location, and pose;
 - parcel size and contents, dielectric and conductive loading, and temperature;
@@ -198,9 +198,10 @@ uncertainty-aware sweeps.
 - numerical-resolution and model-validity checks, including powder, spatial,
   EFG, and time-step convergence.
 
-Requirement values are deliberately not invented here. A checked-in study
-configuration should fail clearly when a required operational or safety limit
-has not been supplied.
+The requester delegated reasonable numerical defaults. `phase0/study_defaults.md`
+records provisional limits and sensitivity ranges; these are distinct from
+measured component ratings or certification. A missing required modeling input
+still fails validation, while later installation approvals do not block study setup.
 
 ## Statistical study design
 
@@ -233,10 +234,9 @@ on synthetic data.
 
 ### Phase 0: freeze the question and evidence rules
 
-> **Implementation status:** the four artifacts below are present in `phase0/`
-> with the test-set policy and hash-bound approval record; see
-> `phase0/completion_audit.md`. Gate 0 remains open until stakeholder values
-> and approvals replace the explicit unresolved requirements.
+> **Implementation status:** complete for numerical study. The worksheet, evidence
+> labels, result schema, candidate library and synthetic test policy are frozen
+> with explicit delegated defaults. See `phase0/completion_audit.md`.
 
 1. Add a versioned requirement worksheet covering parcel dimensions, scan
    mode, AUC/time objectives, target and benign populations, environmental range,
@@ -249,8 +249,10 @@ on synthetic data.
 4. Select a small development library with at least two 14N target materials,
    representative benign nitrogenous crystalline materials, and null parcels.
 
-**Gate 0:** stakeholders approve the requirement worksheet and material/test
-set; every numerical claim can identify its evidence class.
+**Gate 0:** the numerical question and test policy are frozen using explicit user
+choices plus documented engineering defaults selected under delegation. Every
+claim identifies its evidence class; uncertainty and missing spectroscopy remain
+visible. Formal hardware/facility sign-off is not a Phase 0 prerequisite.
 
 ### Phase 1: absolute 14N signal-chain reference
 
@@ -263,7 +265,7 @@ set; every numerical claim can identify its evidence class.
 4. Compute coil Johnson noise and receiver noise in the same units and verify
    matched-filter SNR analytically and with seeded Monte Carlo trials.
 5. Add limiting checks: signal linearity with target amount, inverse-
-   temperature population scaling, reciprocity consistency, √averages SNR,
+   temperature population scaling, reciprocity consistency, âˆšaverages SNR,
    and unit invariance between field- and voltage-referred calculations.
 
 6. Define an optional pre-polarization branch with explicit state preparation,

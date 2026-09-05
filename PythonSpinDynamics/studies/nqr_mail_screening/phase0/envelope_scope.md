@@ -1,6 +1,7 @@
 # Envelope scope — source check 2026-09-05
 
-Carrier examples below bound a review discussion; they are not a frozen aperture.
+Carrier examples below motivate the chosen 420 x 330 x 25 mm loaded study envelope;
+it is a rounded assumption, not an assertion of universal carrier coverage.
 Dimensions can be internal, nominal or postal eligibility limits. Loaded outer
 thickness, seams and bulging must be measured before geometric acceptance.
 
@@ -20,5 +21,5 @@ Use the relevant regional carrier products when freezing scope; the FedEx source
 is Canadian and does not by itself freeze a US product set. Under the provisional
 5 mm-per-side interpretation, an approved loaded outer dimension D needs D +
 10 mm clear span on that axis. This is a geometric allowance, not coil/shield
-wall thickness. Leave max_outer_dimensions unresolved until the loaded product
-set and clearance convention are confirmed.
+wall thickness. Use 5 mm per side and the chosen outer envelope for the initial numerical
+study: 430 x 340 x 35 mm clear span. Measured mailers refine this in Phase 2.

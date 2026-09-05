@@ -27,7 +27,8 @@
       "enum": [
         "draft",
         "approved",
-        "retired"
+        "retired",
+        "study_ready"
       ]
     },
     "reference_concept": {
@@ -116,7 +117,8 @@
           "enum": [
             "unresolved",
             "provisional",
-            "approved"
+            "approved",
+            "not_applicable"
           ]
         },
         "blocking_gate_0": {

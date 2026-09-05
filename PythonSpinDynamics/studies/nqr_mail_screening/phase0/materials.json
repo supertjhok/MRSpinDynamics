@@ -1,8 +1,8 @@
 {
   "schema_version": "0.1.0",
-  "library_version": "0.2.0",
+  "library_version": "0.3.0",
   "study_id": "nqr-mail-screening",
-  "status": "development",
+  "status": "frozen",
   "source_database": {
     "path": "NQRDatabase/data/exports/nqr.sqlite",
     "sha256": "f8f4858910777f49a3d4929a13402d4e920f834bcdd7a21248ebb44afd3af98e",

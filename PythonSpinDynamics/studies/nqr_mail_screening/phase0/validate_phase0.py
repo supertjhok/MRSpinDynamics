@@ -36,8 +36,8 @@ REQUIREMENT_CONTRACT = {
     "req.receiver.max_recovery_time": ["number", "s", True],
     "req.thermal.max_component_temperature": ["number", "K", True],
     "req.thermal.max_parcel_temperature_rise": ["number", "K", True],
-    "req.rf.applicable_safety_and_emc_standards": ["list", None, True],
-    "req.validation.approved_material_and_facility_protocol": ["string", None, True],
+    "req.rf.applicable_safety_and_emc_standards": ["list", None, False],
+    "req.validation.approved_material_and_facility_protocol": ["string", None, False],
     "req.population.target_scope": ["string", None, True],
     "req.population.benign_scope": ["string", None, True],
     "req.validation.test_set_policy": ["string", None, True],
@@ -192,7 +192,7 @@ def validate_requirements(require_ready: bool) -> list[str]:
         require(identifier.startswith("req."), f"invalid requirement id {identifier}")
         status = record.get("status")
         require(
-            status in {"unresolved", "provisional", "approved"},
+            status in {"unresolved", "provisional", "approved", "not_applicable"},
             f"invalid status for {identifier}",
         )
         origin = record.get("origin")
@@ -203,22 +203,36 @@ def validate_requirements(require_ready: bool) -> list[str]:
             f"{identifier} has invalid evidence class",
         )
         has_value = _valid_value(record)
-        if status == "unresolved":
+        if status in {"unresolved", "not_applicable"}:
             require(
                 record["value"] is None, f"{identifier}: unresolved value must be null"
             )
         else:
             require(has_value, f"{identifier}: invalid requirement value")
-        if status == "approved":
-            require(has_value, f"approved requirement {identifier} has no valid value")
+        if status == "not_applicable":
             require(
-                origin.get("owner"), f"approved requirement {identifier} needs an owner"
+                not record["blocking_gate_0"],
+                f"{identifier}: required input cannot be inapplicable",
+            )
+            require(
+                origin.get("reference") and origin.get("notes"),
+                f"{identifier}: explain inapplicability",
+            )
+        if status in {"approved", "provisional"}:
+            require(
+                origin.get("notes"), f"{identifier}: resolved input needs rationale"
+            )
+            require(has_value, f"resolved requirement {identifier} has no valid value")
+            require(
+                origin.get("owner"), f"resolved requirement {identifier} needs an owner"
             )
             require(
                 origin.get("reference"),
-                f"approved requirement {identifier} needs a reference",
+                f"resolved requirement {identifier} needs a reference",
             )
-        if record.get("blocking_gate_0") and (status != "approved" or not has_value):
+        if record.get("blocking_gate_0") and (
+            status not in {"approved", "provisional"} or not has_value
+        ):
             unresolved.append(identifier)
     if require_ready and unresolved:
         joined = "\n  - ".join(unresolved)
@@ -232,7 +246,10 @@ def validate_approval(require_ready: bool = False) -> list[str]:
     """Bind stakeholder sign-off to artifact bytes; never infer approval."""
     data = load_json("gate0_approval.json")
     require(data.get("schema_version") == "0.1.0", "approval schema mismatch")
-    require(data.get("status") in {"pending", "approved"}, "invalid approval status")
+    require(
+        data.get("status") in {"pending", "study_ready", "approved"},
+        "invalid approval status",
+    )
     expected = {
         "requirements.json",
         "materials.json",
@@ -244,6 +261,7 @@ def validate_approval(require_ready: bool = False) -> list[str]:
         "literature_supplement.json",
         "user_requirements.md",
         "envelope_scope.md",
+        "study_defaults.md",
     }
     require(
         set(data.get("artifact_sha256", {})) == expected,
@@ -263,7 +281,9 @@ def validate_approval(require_ready: bool = False) -> list[str]:
         stamp = datetime.fromisoformat(data["approved_utc"].replace("Z", "+00:00"))
         require(stamp.utcoffset() is not None, "approval timestamp needs timezone")
         for name, digest in data["artifact_sha256"].items():
-            require(digest == _sha256(PHASE0 / name), f"approval stale for {name}")
+            require(
+                digest == _artifact_sha256(PHASE0 / name), f"approval stale for {name}"
+            )
         worksheet = load_json("requirements.json")
         require(worksheet["status"] == "approved", "worksheet is not approved")
         require(
@@ -275,9 +295,46 @@ def validate_approval(require_ready: bool = False) -> list[str]:
             "material set is not frozen",
         )
         validate_requirements(require_ready=True)
+        require(
+            all(
+                r["status"] == "approved"
+                for r in worksheet["requirements"]
+                if r["blocking_gate_0"]
+            ),
+            "formal approval still has provisional inputs",
+        )
     if require_ready and pending:
         raise ValidationError("Gate 0 is not ready; " + "; ".join(pending))
     return pending
+
+
+def _artifact_sha256(path: Path) -> str:
+    """Hash text snapshots identically on CRLF and LF checkouts."""
+    return hashlib.sha256(path.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
+
+
+def validate_study_readiness() -> None:
+    """Accept documented delegated defaults; do not imply hardware approval."""
+    validate_requirements(require_ready=True)
+    validate_approval(False)  # Also require the complete snapshot artifact set.
+    data = load_json("gate0_approval.json")
+    require(
+        data.get("status") in {"study_ready", "approved"}, "study snapshot is not ready"
+    )
+    require(data.get("study_basis"), "study snapshot needs delegated-default rationale")
+    require(
+        load_json("requirements.json")["status"] in {"study_ready", "approved"},
+        "worksheet is not study-ready",
+    )
+    require(
+        load_json("materials.json")["status"] == "frozen",
+        "study material set is not frozen",
+    )
+    for name, digest in data["artifact_sha256"].items():
+        require(
+            digest == _artifact_sha256(PHASE0 / name),
+            f"study snapshot stale for {name}",
+        )
 
 
 def _load_jsonl(path: Path) -> dict[str, dict[str, Any]]:
@@ -457,7 +514,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--require-ready",
         action="store_true",
-        help="Fail unless all Gate-0-blocking requirements are approved.",
+        help="Require a frozen simulation study with sourced or documented provisional inputs.",
+    )
+    parser.add_argument(
+        "--require-approved",
+        action="store_true",
+        help="Additionally require explicit formal stakeholder sign-off.",
     )
     args = parser.parse_args(argv)
     try:
@@ -467,10 +529,10 @@ def main(argv: list[str] | None = None) -> int:
         validate_materials()
         validate_result_example()
         pending = validate_approval(False)
-        if args.require_ready and (unresolved or pending):
-            raise ValidationError(
-                "Gate 0 is not ready:\n  - " + "\n  - ".join(unresolved + pending)
-            )
+        if args.require_ready or args.require_approved or not unresolved:
+            validate_study_readiness()
+        if args.require_approved:
+            validate_approval(True)
     except (
         ImportError,
         OSError,
@@ -482,14 +544,16 @@ def main(argv: list[str] | None = None) -> int:
         parser.exit(1, f"Phase 0 validation failed: {exc}\n")
 
     print("Phase 0 artifacts are structurally valid.")
-    if unresolved or pending:
+    if unresolved:
         print(
             f"Gate 0 remains open: {len(unresolved)} blocking requirements unresolved."
         )
-        for item in pending:
-            print(f"Pending: {item}")
     else:
-        print("Gate 0 passed: requirements and material/test set approved.")
+        print(
+            "Gate 0 study-ready: documented defaults frozen; no missing study requirements."
+        )
+        if pending:
+            print("Formal hardware/experimental approval is separate and not claimed.")
     return 0
 
 

@@ -2,10 +2,11 @@
 
 Source: the study requester in the current Codex task. This is requirement origin,
 not scientific evidence. Exact explicit choices are recorded as approved inputs;
-the complete worksheet and Gate 0 remain unapproved.
+the requester subsequently delegated selection of reasonable study defaults.
+The study is now ready; formal hardware sign-off is separate.
 
 - Screen typical USPS/UPS/FedEx envelopes; allow approximately 5 mm clearance.
-  Per-side clearance is a provisional interpretation, not an approved aperture.
+  Use 5 mm per side as the delegated study interpretation.
 - Minimize time per envelope and maximize ROC AUC. Retain a Pareto frontier;
   evaluate AUC at matched full physical times. No fixed scan-time cap supplied.
 - Target illicit pharmaceuticals, with synthetic opioids prioritized. Fentanyl
@@ -37,6 +38,8 @@ an SNR-improvement approach; this motivates evaluating the branch, not assigning
 a gain for fentanyl salts:
 https://pmc.ncbi.nlm.nih.gov/articles/PMC10073136/
 
-Remaining scope details: loaded outer envelope dimensions/thickness, clearance
-convention, exact target forms and amounts, benign prevalence/mixtures, confidence
-method, stop/indexed handling, hardware/thermal limits and installation protocol.
+The requester subsequently instructed: infer reasonable numbers rather than
+requiring every value to be supplied. study_defaults.md resolves the numerical
+scope, statistical policy and provisional hardware limits under that delegation.
+Missing experimental material evidence remains unknown; it is not user homework
+and will be addressed in the relevant modeling/calibration phase.

@@ -22,19 +22,50 @@ SPEC.loader.exec_module(VALIDATOR)
 
 
 class NQRMailScreeningPhase0Tests(unittest.TestCase):
-    def test_draft_artifacts_are_valid_and_gate_remains_open(self) -> None:
+    def test_study_defaults_are_valid_and_ready(self) -> None:
         VALIDATOR.validate_schemas()
         VALIDATOR.validate_evidence()
         unresolved = VALIDATOR.validate_requirements(require_ready=False)
         VALIDATOR.validate_materials()
         VALIDATOR.validate_result_example()
 
-        self.assertEqual(len(unresolved), 15)
+        self.assertEqual(unresolved, [])
+        VALIDATOR.validate_study_readiness()
         self.assertTrue(VALIDATOR.validate_approval())
 
     def test_readiness_check_rejects_unresolved_requirements(self) -> None:
-        with self.assertRaisesRegex(VALIDATOR.ValidationError, "Gate 0 is not ready"):
-            VALIDATOR.validate_requirements(require_ready=True)
+        docs = self._documents()
+        docs["requirements.json"]["requirements"][0].update(
+            status="unresolved", value=None
+        )
+        with patch.object(VALIDATOR, "load_json", side_effect=self._loader(docs)):
+            with self.assertRaisesRegex(
+                VALIDATOR.ValidationError, "Gate 0 is not ready"
+            ):
+                VALIDATOR.validate_requirements(require_ready=True)
+
+    def test_provisional_input_requires_provenance(self):
+        docs = self._documents()
+        docs["requirements.json"]["requirements"][0]["origin"]["reference"] = None
+        with patch.object(VALIDATOR, "load_json", side_effect=self._loader(docs)):
+            with self.assertRaises(VALIDATOR.ValidationError):
+                VALIDATOR.validate_requirements(True)
+
+    def test_study_snapshot_rejects_changed_artifact(self):
+        with patch.object(VALIDATOR, "_artifact_sha256", return_value="0" * 64):
+            with self.assertRaisesRegex(
+                VALIDATOR.ValidationError, "study snapshot stale"
+            ):
+                VALIDATOR.validate_study_readiness()
+
+    def test_study_snapshot_requires_complete_artifact_set(self):
+        docs = self._documents()
+        docs["gate0_approval.json"]["artifact_sha256"] = {}
+        with patch.object(VALIDATOR, "load_json", side_effect=self._loader(docs)):
+            with self.assertRaisesRegex(
+                VALIDATOR.ValidationError, "artifact set mismatch"
+            ):
+                VALIDATOR.validate_study_readiness()
 
     def _documents(self):
         names = [
@@ -150,9 +181,9 @@ class NQRMailScreeningPhase0Tests(unittest.TestCase):
             name: "a" * 64 for name in approval["artifact_sha256"]
         }
         with patch.object(VALIDATOR, "load_json", side_effect=self._loader(docs)):
-            with patch.object(VALIDATOR, "_sha256", return_value="a" * 64):
+            with patch.object(VALIDATOR, "_artifact_sha256", return_value="a" * 64):
                 self.assertEqual(VALIDATOR.validate_approval(True), [])
-            with patch.object(VALIDATOR, "_sha256", return_value="b" * 64):
+            with patch.object(VALIDATOR, "_artifact_sha256", return_value="b" * 64):
                 with self.assertRaisesRegex(
                     VALIDATOR.ValidationError, "approval stale"
                 ):
