@@ -1,0 +1,56 @@
+{
+  "schema_version": "0.1.0",
+  "study_id": "nqr-mail-screening",
+  "record_id": "phase0-schema-example",
+  "record_kind": "simulation",
+  "created_utc": "2026-09-05T00:00:00Z",
+  "evidence_class": "predicted",
+  "requirements_version": "0.3.0",
+  "material_library_version": "0.2.0",
+  "model_fidelity": "level_a",
+  "scenario": {
+    "scenario_id": "phase0.empty-aperture.placeholder",
+    "hypothesis": "target_absent",
+    "material_ids": [
+      "material.null.empty_aperture"
+    ],
+    "parcel_class": "empty_aperture",
+    "random_seed": 0,
+    "parameters": []
+  },
+  "design": {
+    "design_id": "pending-phase1",
+    "hardware_id": "pending-phase1",
+    "protocol_id": "pending-phase1",
+    "decision_rule_id": "pending-phase4"
+  },
+  "acquisition": {
+    "physical_time_s": null,
+    "shot_count": null,
+    "carrier_frequencies_hz": [],
+    "stopping_reason": "not_evaluated"
+  },
+  "signal": {
+    "domain": "relative",
+    "units": "1",
+    "data_reference": null,
+    "components": []
+  },
+  "constraints": [],
+  "decision": {
+    "status": "not_evaluated",
+    "score": null,
+    "threshold": null,
+    "predicted_label": null,
+    "truth_label": "target_absent"
+  },
+  "provenance": {
+    "repository_commit": "4a9351ab015177c8f9df997f2c96ab3d5bc8e0e5",
+    "input_records": [
+      "requirements.json@0.3.0",
+      "materials.json@0.2.0"
+    ],
+    "model_versions": {},
+    "notes": "Schema-shaped placeholder only; no signal, constraint, or performance claim."
+  }
+}

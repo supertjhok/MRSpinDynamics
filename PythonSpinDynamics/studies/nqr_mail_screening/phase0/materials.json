@@ -1,0 +1,195 @@
+{
+  "schema_version": "0.1.0",
+  "library_version": "0.2.0",
+  "study_id": "nqr-mail-screening",
+  "status": "development",
+  "source_database": {
+    "path": "NQRDatabase/data/exports/nqr.sqlite",
+    "sha256": "f8f4858910777f49a3d4929a13402d4e920f834bcdd7a21248ebb44afd3af98e",
+    "repository_commit": "4a9351ab015177c8f9df997f2c96ab3d5bc8e0e5"
+  },
+  "materials": [
+    {
+      "id": "material.target.fentanyl_hcl",
+      "name": "Fentanyl hydrochloride",
+      "role": "target",
+      "isotope": "14N",
+      "database_compound_id": null,
+      "physical_test_status": "simulation_only",
+      "candidate_lines": [
+        {
+          "line_id": "malone2025:aniline:nu_x",
+          "site_id": "malone2025:aniline:14N",
+          "frequency_hz": 3304300.0,
+          "fwhm_hz": null,
+          "t1_s": 0.039,
+          "t2_s": null,
+          "t2_star_s": 0.00061,
+          "dnu_dt_hz_per_k": -43.0,
+          "reference_temperature_k": null,
+          "evidence_class": "literature"
+        },
+        {
+          "line_id": "malone2025:aniline:nu_y",
+          "site_id": "malone2025:aniline:14N",
+          "frequency_hz": 3102400.0,
+          "fwhm_hz": null,
+          "t1_s": 0.042,
+          "t2_s": null,
+          "t2_star_s": 0.00025,
+          "dnu_dt_hz_per_k": -72.0,
+          "reference_temperature_k": null,
+          "evidence_class": "literature"
+        }
+      ],
+      "source_reference": "malone2025",
+      "notes": "Direct-NQR literature candidate; exact solid form, amount and operational scope pending."
+    },
+    {
+      "id": "material.target.fentanyl_citrate",
+      "name": "Fentanyl citrate",
+      "role": "target",
+      "isotope": "14N",
+      "database_compound_id": null,
+      "physical_test_status": "simulation_only",
+      "candidate_lines": [],
+      "source_reference": "fentanyl_citrate2020",
+      "notes": "Candidate only: published proton-relaxation/DFT evidence. No direct-NQR line imported; quantitative SLSE/SORC model blocked pending line and relaxation evidence. Different salt forms are distinct materials, not independent opioid molecules."
+    },
+    {
+      "id": "material.benign.glycine",
+      "name": "Glycine",
+      "role": "benign_confuser",
+      "isotope": "14N",
+      "database_compound_id": "compound:glycine",
+      "physical_test_status": "candidate_pending_safety_review",
+      "candidate_lines": [
+        {
+          "line_id": "line:nrl-site-summary-pdf-glycine-default-1-amine-14n-1193-0-528-nrl-line-summary-pdf-737-1191",
+          "site_id": "site:nrl-site-summary-pdf-glycine-default-1-amine-14n-1193-0-528",
+          "frequency_hz": 737000.0,
+          "fwhm_hz": 800.0,
+          "t1_s": 50.0,
+          "t2_s": 17.1,
+          "t2_star_s": null,
+          "dnu_dt_hz_per_k": -205.0,
+          "reference_temperature_k": null,
+          "evidence_class": "literature"
+        },
+        {
+          "line_id": "line:nrl-site-summary-pdf-glycine-default-1-amine-14n-1193-0-528-nrl-line-summary-pdf-1052-1190",
+          "site_id": "site:nrl-site-summary-pdf-glycine-default-1-amine-14n-1193-0-528",
+          "frequency_hz": 1052000.0,
+          "fwhm_hz": 2800.0,
+          "t1_s": 43.4,
+          "t2_s": 12.5,
+          "t2_star_s": null,
+          "dnu_dt_hz_per_k": -195.0,
+          "reference_temperature_k": null,
+          "evidence_class": "literature"
+        }
+      ],
+      "notes": "Benign 14N-bearing crystalline material for confuser and calibration development."
+    },
+    {
+      "id": "material.benign.paracetamol",
+      "name": "Paracetamol",
+      "role": "benign_confuser",
+      "isotope": "14N",
+      "database_compound_id": "compound:paracetamol",
+      "physical_test_status": "candidate_pending_safety_review",
+      "candidate_lines": [
+        {
+          "line_id": "line:kcl-paracetamol-pdf-paracetamol-default-1-14n-kcl-paracetamol-pdf-2563-7-10",
+          "site_id": "site:kcl-paracetamol-pdf-paracetamol-default-1-14n",
+          "frequency_hz": 2563700.0,
+          "fwhm_hz": null,
+          "t1_s": 9.0,
+          "t2_s": null,
+          "t2_star_s": 0.000202,
+          "dnu_dt_hz_per_k": 70.0,
+          "reference_temperature_k": 297.0,
+          "evidence_class": "literature"
+        }
+      ],
+      "notes": "Benign pharmaceutical candidate near one development frequency region."
+    },
+    {
+      "id": "material.benign.melamine",
+      "name": "Melamine",
+      "role": "benign_confuser",
+      "isotope": "14N",
+      "database_compound_id": "compound:melamine",
+      "physical_test_status": "candidate_pending_safety_review",
+      "candidate_lines": [
+        {
+          "line_id": "line:kcl-melamine-update-pdf-melamine-default-2-ring-n-2588-0-99-kcl-melamine-update-pdf-nu-2581-21",
+          "site_id": "site:kcl-melamine-update-pdf-melamine-default-2-ring-n-2588-0-99",
+          "frequency_hz": 2581000.0,
+          "fwhm_hz": null,
+          "t1_s": null,
+          "t2_s": null,
+          "t2_star_s": null,
+          "dnu_dt_hz_per_k": null,
+          "reference_temperature_k": null,
+          "evidence_class": "literature"
+        },
+        {
+          "line_id": "line:kcl-melamine-update-pdf-melamine-default-1-ring-n-2605-0-96-kcl-melamine-update-pdf-nu-2582-11",
+          "site_id": "site:kcl-melamine-update-pdf-melamine-default-1-ring-n-2605-0-96",
+          "frequency_hz": 2582000.0,
+          "fwhm_hz": null,
+          "t1_s": null,
+          "t2_s": null,
+          "t2_star_s": null,
+          "dnu_dt_hz_per_k": null,
+          "reference_temperature_k": null,
+          "evidence_class": "literature"
+        },
+        {
+          "line_id": "line:kcl-melamine-update-pdf-melamine-default-4-amino-n-3313-0-39-kcl-melamine-update-pdf-nu-2809-41",
+          "site_id": "site:kcl-melamine-update-pdf-melamine-default-4-amino-n-3313-0-39",
+          "frequency_hz": 2809000.0,
+          "fwhm_hz": null,
+          "t1_s": null,
+          "t2_s": null,
+          "t2_star_s": null,
+          "dnu_dt_hz_per_k": null,
+          "reference_temperature_k": null,
+          "evidence_class": "literature"
+        }
+      ],
+      "notes": "Benign multi-site 14N material used to exercise spectral-confuser handling and missing-data priors."
+    },
+    {
+      "id": "material.null.empty_aperture",
+      "name": "Empty aperture",
+      "role": "null",
+      "isotope": null,
+      "database_compound_id": null,
+      "physical_test_status": "candidate_pending_safety_review",
+      "candidate_lines": [],
+      "notes": "Receiver-noise, ringdown, leakage, and ambient-RFI control."
+    },
+    {
+      "id": "material.null.paper_cardboard",
+      "name": "Paper and cardboard parcel",
+      "role": "null",
+      "isotope": null,
+      "database_compound_id": null,
+      "physical_test_status": "candidate_pending_safety_review",
+      "candidate_lines": [],
+      "notes": "Null parcel class; loading properties must be measured rather than assumed negligible."
+    },
+    {
+      "id": "material.null.polymer_packing",
+      "name": "Polymer packing parcel",
+      "role": "null",
+      "isotope": null,
+      "database_compound_id": null,
+      "physical_test_status": "candidate_pending_safety_review",
+      "candidate_lines": [],
+      "notes": "Null parcel class for dielectric loading and triboelectric or motion-artifact checks."
+    }
+  ]
+}

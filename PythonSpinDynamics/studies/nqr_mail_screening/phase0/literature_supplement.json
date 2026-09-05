@@ -1,0 +1,72 @@
+{
+  "schema_version": "0.1.0",
+  "study_id": "nqr-mail-screening",
+  "sources": [
+    {
+      "id": "malone2025",
+      "url": "https://doi.org/10.1093/pnasnexus/pgaf190",
+      "locator": "Table 2, aniline 14N; room-temperature direct NQR",
+      "evidence_class": "literature",
+      "accessed": "2026-09-05"
+    },
+    {
+      "id": "fentanyl_citrate2020",
+      "url": "https://doi.org/10.1016/j.ssnmr.2020.101697",
+      "locator": "Abstract; proton T1 dispersion and DFT estimates, not direct pulsed NQR confirmation",
+      "evidence_class": "literature",
+      "accessed": "2026-09-05"
+    }
+  ],
+  "materials": [
+    {
+      "line_id": "malone2025:aniline:nu_x",
+      "source_id": "malone2025",
+      "values": {
+        "line_id": "malone2025:aniline:nu_x",
+        "site_id": "malone2025:aniline:14N",
+        "frequency_hz": 3304300.0,
+        "fwhm_hz": null,
+        "t1_s": 0.039,
+        "t2_s": null,
+        "t2_star_s": 0.00061,
+        "dnu_dt_hz_per_k": -43.0,
+        "reference_temperature_k": null,
+        "evidence_class": "literature"
+      },
+      "reported_uncertainty": {
+        "frequency_hz": 200.0,
+        "t1_s": 0.006,
+        "t2_star_s": 9e-05,
+        "dnu_dt_hz_per_k": 3.0
+      },
+      "t2_effective_s": 0.0144,
+      "t2_effective_uncertainty_s": 0.0008,
+      "notes": "Reported effective CPMG decay is not intrinsic T2 or validated SLSE/SORC decay. Uncertainty convention and exact reference temperature require source-method review; do not extrapolate over 0\u201350 C without validation."
+    },
+    {
+      "line_id": "malone2025:aniline:nu_y",
+      "source_id": "malone2025",
+      "values": {
+        "line_id": "malone2025:aniline:nu_y",
+        "site_id": "malone2025:aniline:14N",
+        "frequency_hz": 3102400.0,
+        "fwhm_hz": null,
+        "t1_s": 0.042,
+        "t2_s": null,
+        "t2_star_s": 0.00025,
+        "dnu_dt_hz_per_k": -72.0,
+        "reference_temperature_k": null,
+        "evidence_class": "literature"
+      },
+      "reported_uncertainty": {
+        "frequency_hz": 100.0,
+        "t1_s": 0.003,
+        "t2_star_s": 3e-05,
+        "dnu_dt_hz_per_k": 8.0
+      },
+      "t2_effective_s": 0.0148,
+      "t2_effective_uncertainty_s": 0.0003,
+      "notes": "Reported effective CPMG decay is not intrinsic T2 or validated SLSE/SORC decay. Uncertainty convention and exact reference temperature require source-method review; do not extrapolate over 0\u201350 C without validation."
+    }
+  ]
+}

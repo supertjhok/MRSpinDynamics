@@ -1,0 +1,395 @@
+{
+  "schema_version": "0.1.0",
+  "requirements_version": "0.3.0",
+  "study_id": "nqr-mail-screening",
+  "status": "draft",
+  "reference_concept": {
+    "isotope": "14N",
+    "operating_mode": "stop_and_scan",
+    "detector_baseline": "shielded_inductive_tx_rx_with_external_rfi_references",
+    "status": "provisional"
+  },
+  "requirements": [
+    {
+      "id": "req.parcel.max_outer_dimensions",
+      "label": "Maximum parcel outer dimensions",
+      "value_type": "vector3",
+      "value": null,
+      "units": "m",
+      "status": "unresolved",
+      "blocking_gate_0": true,
+      "origin": {
+        "owner": "study requester",
+        "evidence_class": null,
+        "reference": "User requirements in this Codex task, 2026-09-05; see user_requirements.md",
+        "notes": "Typical USPS/UPS/FedEx envelopes requested. Carrier sources mix dimensions and internal/external conventions; see envelope_scope.md. Exact loaded maximum dimensions remain unresolved."
+      }
+    },
+    {
+      "id": "req.operation.mode",
+      "label": "Approved operating mode",
+      "value_type": "string",
+      "value": null,
+      "units": null,
+      "status": "unresolved",
+      "blocking_gate_0": true,
+      "origin": {
+        "owner": null,
+        "evidence_class": null,
+        "reference": null,
+        "notes": "Confirm stop-and-scan, indexed conveyor, or continuous conveyor."
+      }
+    },
+    {
+      "id": "req.operation.max_scan_time",
+      "label": "Maximum physical time to decision per parcel",
+      "value_type": "number",
+      "value": null,
+      "units": "s",
+      "status": "unresolved",
+      "blocking_gate_0": false,
+      "origin": {
+        "owner": "study requester",
+        "evidence_class": null,
+        "reference": "User requirements in this Codex task, 2026-09-05; see user_requirements.md",
+        "notes": "No hard user-imposed cap for this exploratory AUC/time study. Remains null; not zero or infinity. Engineering feasibility still applies. PD/PFA operating-point criteria are deferred to deployment evaluation."
+      }
+    },
+    {
+      "id": "req.performance.minimum_probability_detection",
+      "label": "Minimum probability of detection",
+      "value_type": "probability",
+      "value": null,
+      "units": "1",
+      "status": "unresolved",
+      "blocking_gate_0": false,
+      "origin": {
+        "owner": "study requester",
+        "evidence_class": null,
+        "reference": "User requirements in this Codex task, 2026-09-05; see user_requirements.md",
+        "notes": "No hard user-imposed cap for this exploratory AUC/time study. Remains null; not zero or infinity. Engineering feasibility still applies. PD/PFA operating-point criteria are deferred to deployment evaluation."
+      }
+    },
+    {
+      "id": "req.performance.maximum_probability_false_alarm",
+      "label": "Maximum probability of false alarm",
+      "value_type": "probability",
+      "value": null,
+      "units": "1",
+      "status": "unresolved",
+      "blocking_gate_0": false,
+      "origin": {
+        "owner": "study requester",
+        "evidence_class": null,
+        "reference": "User requirements in this Codex task, 2026-09-05; see user_requirements.md",
+        "notes": "No hard user-imposed cap for this exploratory AUC/time study. Remains null; not zero or infinity. Engineering feasibility still applies. PD/PFA operating-point criteria are deferred to deployment evaluation."
+      }
+    },
+    {
+      "id": "req.performance.confidence_level",
+      "label": "Confidence level for PD and PFA bounds",
+      "value_type": "probability",
+      "value": null,
+      "units": "1",
+      "status": "unresolved",
+      "blocking_gate_0": true,
+      "origin": {
+        "owner": null,
+        "evidence_class": null,
+        "reference": null,
+        "notes": "Used to size Monte Carlo and blind validation sets."
+      }
+    },
+    {
+      "id": "req.material.minimum_target_amount",
+      "label": "Minimum target amount in scope",
+      "value_type": "number",
+      "value": null,
+      "units": "kg",
+      "status": "unresolved",
+      "blocking_gate_0": true,
+      "origin": {
+        "owner": null,
+        "evidence_class": null,
+        "reference": null,
+        "notes": "Define separately by target material if one common value is inappropriate."
+      }
+    },
+    {
+      "id": "req.environment.temperature_range",
+      "label": "Parcel and instrument ambient temperature range",
+      "value_type": "range",
+      "value": [
+        273.15,
+        323.15
+      ],
+      "units": "K",
+      "status": "approved",
+      "blocking_gate_0": true,
+      "origin": {
+        "owner": "study requester",
+        "evidence_class": null,
+        "reference": "User requirements in this Codex task, 2026-09-05; see user_requirements.md",
+        "notes": "User specified 0\u201350 degrees C; exact conversion to kelvin."
+      }
+    },
+    {
+      "id": "req.hardware.max_peak_rf_power",
+      "label": "Maximum delivered peak RF power",
+      "value_type": "number",
+      "value": null,
+      "units": "W",
+      "status": "unresolved",
+      "blocking_gate_0": false,
+      "origin": {
+        "owner": "study requester",
+        "evidence_class": null,
+        "reference": "User requirements in this Codex task, 2026-09-05; see user_requirements.md",
+        "notes": "No hard user-imposed cap for this exploratory AUC/time study. Remains null; not zero or infinity. Engineering feasibility still applies. PD/PFA operating-point criteria are deferred to deployment evaluation."
+      }
+    },
+    {
+      "id": "req.hardware.max_average_rf_power",
+      "label": "Maximum time-averaged delivered RF power",
+      "value_type": "number",
+      "value": null,
+      "units": "W",
+      "status": "unresolved",
+      "blocking_gate_0": false,
+      "origin": {
+        "owner": "study requester",
+        "evidence_class": null,
+        "reference": "User requirements in this Codex task, 2026-09-05; see user_requirements.md",
+        "notes": "No hard user-imposed cap for this exploratory AUC/time study. Remains null; not zero or infinity. Engineering feasibility still applies. PD/PFA operating-point criteria are deferred to deployment evaluation."
+      }
+    },
+    {
+      "id": "req.hardware.max_coil_current",
+      "label": "Maximum peak RF coil current",
+      "value_type": "number",
+      "value": null,
+      "units": "A",
+      "status": "unresolved",
+      "blocking_gate_0": true,
+      "origin": {
+        "owner": null,
+        "evidence_class": null,
+        "reference": null,
+        "notes": "Define peak or RMS convention."
+      }
+    },
+    {
+      "id": "req.hardware.max_terminal_voltage",
+      "label": "Maximum peak RF terminal voltage",
+      "value_type": "number",
+      "value": null,
+      "units": "V",
+      "status": "unresolved",
+      "blocking_gate_0": true,
+      "origin": {
+        "owner": null,
+        "evidence_class": null,
+        "reference": null,
+        "notes": "Include capacitor, cable, switch, and insulation limits."
+      }
+    },
+    {
+      "id": "req.receiver.max_recovery_time",
+      "label": "Maximum receiver recovery time after transmit",
+      "value_type": "number",
+      "value": null,
+      "units": "s",
+      "status": "unresolved",
+      "blocking_gate_0": true,
+      "origin": {
+        "owner": null,
+        "evidence_class": null,
+        "reference": null,
+        "notes": "Measure at a declared residual-artifact threshold."
+      }
+    },
+    {
+      "id": "req.thermal.max_component_temperature",
+      "label": "Maximum component temperature",
+      "value_type": "number",
+      "value": null,
+      "units": "K",
+      "status": "unresolved",
+      "blocking_gate_0": true,
+      "origin": {
+        "owner": null,
+        "evidence_class": null,
+        "reference": null,
+        "notes": "May need separate limits for coil, capacitors, switch, shield, and amplifier."
+      }
+    },
+    {
+      "id": "req.thermal.max_parcel_temperature_rise",
+      "label": "Maximum permitted parcel temperature rise",
+      "value_type": "number",
+      "value": null,
+      "units": "K",
+      "status": "unresolved",
+      "blocking_gate_0": true,
+      "origin": {
+        "owner": null,
+        "evidence_class": null,
+        "reference": null,
+        "notes": "Define measurement location, averaging, and conservative material assumptions."
+      }
+    },
+    {
+      "id": "req.rf.applicable_safety_and_emc_standards",
+      "label": "Applicable RF safety, emissions, immunity, and EMC standards",
+      "value_type": "list",
+      "value": null,
+      "units": null,
+      "status": "unresolved",
+      "blocking_gate_0": true,
+      "origin": {
+        "owner": null,
+        "evidence_class": null,
+        "reference": null,
+        "notes": "Resolve with the intended jurisdiction, installation, operator access, and parcel contents."
+      }
+    },
+    {
+      "id": "req.validation.approved_material_and_facility_protocol",
+      "label": "Approved material-handling and test-facility protocol",
+      "value_type": "string",
+      "value": null,
+      "units": null,
+      "status": "unresolved",
+      "blocking_gate_0": true,
+      "origin": {
+        "owner": null,
+        "evidence_class": null,
+        "reference": null,
+        "notes": "Target entries remain simulation-only until an authorized protocol exists."
+      }
+    },
+    {
+      "id": "req.population.target_scope",
+      "label": "Target-present population definition",
+      "value_type": "string",
+      "value": "Illicit pharmaceuticals, prioritizing synthetic opioids. Initial candidates: fentanyl hydrochloride and fentanyl citrate; forms and amounts remain to be frozen.",
+      "units": null,
+      "status": "provisional",
+      "blocking_gate_0": true,
+      "origin": {
+        "owner": "study requester",
+        "evidence_class": null,
+        "reference": "User requirements in this Codex task, 2026-09-05; see user_requirements.md",
+        "notes": "User supplied class; assistant selected evidence-backed candidate salt forms. Approval of this detailed population remains pending."
+      }
+    },
+    {
+      "id": "req.population.benign_scope",
+      "label": "Target-absent population definition",
+      "value_type": "string",
+      "value": null,
+      "units": null,
+      "status": "unresolved",
+      "blocking_gate_0": true,
+      "origin": {
+        "owner": null,
+        "evidence_class": null,
+        "reference": null,
+        "notes": "Specify benign material/parcel classes, loading and RFI strata, mixture weights or worst-case convention, hard negatives and out-of-scope handling. Empty aperture alone is not the mail population."
+      }
+    },
+    {
+      "id": "req.validation.test_set_policy",
+      "label": "Approved test-set and statistical evaluation policy",
+      "value_type": "string",
+      "value": null,
+      "units": null,
+      "status": "unresolved",
+      "blocking_gate_0": true,
+      "origin": {
+        "owner": null,
+        "evidence_class": null,
+        "reference": null,
+        "notes": "Approve test_set_policy.md with sampling weights, confidence-bound method, per-stratum counts, freeze/access rules, and treatment of indeterminate decisions."
+      }
+    },
+    {
+      "id": "req.parcel.clearance",
+      "label": "Mechanical clearance",
+      "value_type": "number",
+      "value": 0.005,
+      "units": "m",
+      "status": "provisional",
+      "blocking_gate_0": true,
+      "origin": {
+        "owner": "study requester",
+        "evidence_class": null,
+        "reference": "User requirements in this Codex task, 2026-09-05; see user_requirements.md",
+        "notes": "Approximate user value. Provisional interpretation: 5 mm per side; confirm against loaded envelope outer dimensions."
+      }
+    },
+    {
+      "id": "req.objective.design",
+      "label": "Design objectives",
+      "value_type": "string",
+      "value": "maximize_roc_auc_and_minimize_physical_time",
+      "units": null,
+      "status": "approved",
+      "blocking_gate_0": true,
+      "origin": {
+        "owner": "study requester",
+        "evidence_class": null,
+        "reference": "User requirements in this Codex task, 2026-09-05; see user_requirements.md",
+        "notes": "User-directed Pareto objectives. Compare AUC at matched full physical acquisition times and retain the AUC-versus-time frontier."
+      }
+    },
+    {
+      "id": "req.hardware.rf_power_policy",
+      "label": "RF power policy",
+      "value_type": "string",
+      "value": "no_user_imposed_power_cap",
+      "units": null,
+      "status": "approved",
+      "blocking_gate_0": true,
+      "origin": {
+        "owner": "study requester",
+        "evidence_class": null,
+        "reference": "User requirements in this Codex task, 2026-09-05; see user_requirements.md",
+        "notes": "Do not impose an arbitrary RF power budget. Component voltage/current, heating, exposure and duty-cycle limits remain mandatory."
+      }
+    },
+    {
+      "id": "req.protocol.pulse_families",
+      "label": "Pulsed acquisition families",
+      "value_type": "list",
+      "value": [
+        "SLSE",
+        "SORC"
+      ],
+      "units": null,
+      "status": "approved",
+      "blocking_gate_0": true,
+      "origin": {
+        "owner": "study requester",
+        "evidence_class": null,
+        "reference": "User requirements in this Codex task, 2026-09-05; see user_requirements.md",
+        "notes": "User specified pulsed SLSE / SORC measurements."
+      }
+    },
+    {
+      "id": "req.protocol.prepolarization",
+      "label": "Pre-polarization comparison",
+      "value_type": "string",
+      "value": "compare_with_and_without_prepolarization",
+      "units": null,
+      "status": "approved",
+      "blocking_gate_0": true,
+      "origin": {
+        "owner": "study requester",
+        "evidence_class": null,
+        "reference": "User requirements in this Codex task, 2026-09-05; see user_requirements.md",
+        "notes": "User requested consideration of SNR improvement. No enhancement factor assumed; include polarization, transfer, settling and recovery time in the objective."
+      }
+    }
+  ]
+}

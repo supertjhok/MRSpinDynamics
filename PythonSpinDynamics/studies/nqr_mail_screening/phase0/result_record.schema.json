@@ -1,0 +1,436 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mrspindynamics.local/nqr-mail-screening/result_record.schema.json",
+  "title": "14N NQR mail-screening canonical result record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "study_id",
+    "record_id",
+    "record_kind",
+    "created_utc",
+    "evidence_class",
+    "requirements_version",
+    "material_library_version",
+    "model_fidelity",
+    "scenario",
+    "design",
+    "acquisition",
+    "signal",
+    "constraints",
+    "decision",
+    "provenance"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "0.1.0"
+    },
+    "study_id": {
+      "const": "nqr-mail-screening"
+    },
+    "record_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "record_kind": {
+      "enum": [
+        "simulation",
+        "calibration",
+        "validation"
+      ]
+    },
+    "created_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "evidence_class": {
+      "enum": [
+        "predicted",
+        "literature",
+        "measured_calibration",
+        "fitted",
+        "held_out_validation"
+      ]
+    },
+    "requirements_version": {
+      "type": "string"
+    },
+    "material_library_version": {
+      "type": "string"
+    },
+    "model_fidelity": {
+      "enum": [
+        "level_a",
+        "level_b",
+        "level_c",
+        "not_applicable"
+      ]
+    },
+    "scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scenario_id",
+        "hypothesis",
+        "material_ids",
+        "parcel_class",
+        "random_seed",
+        "parameters"
+      ],
+      "properties": {
+        "scenario_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "hypothesis": {
+          "enum": [
+            "target_present",
+            "target_absent",
+            "not_applicable"
+          ]
+        },
+        "material_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "parcel_class": {
+          "type": "string"
+        },
+        "random_seed": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "parameters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/quantity"
+          }
+        }
+      }
+    },
+    "design": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "design_id",
+        "hardware_id",
+        "protocol_id",
+        "decision_rule_id"
+      ],
+      "properties": {
+        "design_id": {
+          "type": "string"
+        },
+        "hardware_id": {
+          "type": "string"
+        },
+        "protocol_id": {
+          "type": "string"
+        },
+        "decision_rule_id": {
+          "type": "string"
+        }
+      }
+    },
+    "acquisition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "physical_time_s",
+        "shot_count",
+        "carrier_frequencies_hz",
+        "stopping_reason"
+      ],
+      "properties": {
+        "physical_time_s": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "shot_count": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "carrier_frequencies_hz": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          }
+        },
+        "stopping_reason": {
+          "enum": [
+            "not_evaluated",
+            "decision_reached",
+            "time_limit",
+            "constraint_violation",
+            "operator_stop",
+            "sequence_complete"
+          ]
+        }
+      }
+    },
+    "signal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "domain",
+        "units",
+        "data_reference",
+        "components"
+      ],
+      "properties": {
+        "domain": {
+          "enum": [
+            "adc_voltage",
+            "receiver_voltage",
+            "pickup_field",
+            "relative"
+          ]
+        },
+        "units": {
+          "type": "string"
+        },
+        "data_reference": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "components": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "data_reference",
+              "evidence_class"
+            ],
+            "properties": {
+              "name": {
+                "enum": [
+                  "clean_nqr",
+                  "receiver_noise",
+                  "rfi",
+                  "ringdown",
+                  "total"
+                ]
+              },
+              "data_reference": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "evidence_class": {
+                "enum": [
+                  "predicted",
+                  "literature",
+                  "measured_calibration",
+                  "fitted",
+                  "held_out_validation"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "constraints": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "requirement_id",
+          "value",
+          "limit",
+          "units",
+          "comparison",
+          "margin",
+          "passed",
+          "evidence_class"
+        ],
+        "properties": {
+          "requirement_id": {
+            "type": "string"
+          },
+          "value": {
+            "type": "number"
+          },
+          "limit": {
+            "type": "number"
+          },
+          "units": {
+            "type": "string"
+          },
+          "comparison": {
+            "enum": [
+              "<=",
+              ">=",
+              "=="
+            ]
+          },
+          "margin": {
+            "type": "number"
+          },
+          "passed": {
+            "type": "boolean"
+          },
+          "evidence_class": {
+            "enum": [
+              "predicted",
+              "literature",
+              "measured_calibration",
+              "fitted",
+              "held_out_validation"
+            ]
+          }
+        }
+      }
+    },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "score",
+        "threshold",
+        "predicted_label",
+        "truth_label"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "not_evaluated",
+            "alarm",
+            "clear",
+            "indeterminate"
+          ]
+        },
+        "score": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "threshold": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "predicted_label": {
+          "enum": [
+            "target_present",
+            "target_absent",
+            "indeterminate",
+            null
+          ]
+        },
+        "truth_label": {
+          "enum": [
+            "target_present",
+            "target_absent",
+            "not_applicable",
+            null
+          ]
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository_commit",
+        "input_records",
+        "model_versions",
+        "notes"
+      ],
+      "properties": {
+        "repository_commit": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "input_records": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "model_versions": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "quantity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "value",
+        "units",
+        "evidence_class",
+        "uncertainty"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "value": {
+          "type": [
+            "number",
+            "string",
+            "array",
+            "null"
+          ]
+        },
+        "units": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "evidence_class": {
+          "enum": [
+            "predicted",
+            "literature",
+            "measured_calibration",
+            "fitted",
+            "held_out_validation"
+          ]
+        },
+        "uncertainty": {
+          "type": [
+            "object",
+            "null"
+          ]
+        }
+      }
+    }
+  }
+}

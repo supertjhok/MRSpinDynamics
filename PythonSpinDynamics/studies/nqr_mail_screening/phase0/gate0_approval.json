@@ -1,0 +1,19 @@
+{
+  "schema_version": "0.1.0",
+  "status": "pending",
+  "approved_by": null,
+  "approved_utc": null,
+  "approval_reference": null,
+  "artifact_sha256": {
+    "requirements.json": null,
+    "materials.json": null,
+    "evidence_classes.json": null,
+    "test_set_policy.md": null,
+    "requirements.schema.json": null,
+    "materials.schema.json": null,
+    "result_record.schema.json": null,
+    "literature_supplement.json": null,
+    "user_requirements.md": null,
+    "envelope_scope.md": null
+  }
+}
