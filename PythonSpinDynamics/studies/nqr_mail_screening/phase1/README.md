@@ -1,9 +1,13 @@
 # Phase 1: absolute 14N reference
 
-**Numerical Gate 1 passed.** This study-local reference closes a declared
+**Absolute-normalization regression passed; engineering Phase 1 remains open.** This study-local reference closes a declared
 spin-to-ADC budget and checks two independent calculation paths. It is an
 analytic calibration fixture, not measured instrument calibration or a scanner.
 The reusable package physics is unchanged.
+
+The working finite-pulse and inline-transport model is documented in
+[PULSED_MODEL.md](PULSED_MODEL.md). The ideal reference below is retained only
+as an absolute-normalization regression, not evidence of scanner feasibility.
 
 ## Run
 

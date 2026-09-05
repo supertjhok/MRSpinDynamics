@@ -1,10 +1,23 @@
 # 14N NQR mail-screening system design study
 
-> **Status (2026-09-05): Phase 1 numerical reference implemented; Gate 1 passed
-> for the declared ideal single-line model.** Phase 0 remains frozen. The
-> spin-to-ADC budget, independent checks, canonical result record and seeded
-> Monte Carlo verification live in `phase1/`. No measured calibration, scanner
-> performance, pre-polarization gain or detection-limit claim is made.
+> **Status (2026-09-05): Phase 1 engineering model in progress.** The ideal
+> absolute reference passes its regression checks but does not close engineering
+> Gate 1. `phase1/PULSED_MODEL.md` describes finite pulses, moving-sample geometry,
+> pre-polarization transport, and a quadrupole-plus-Zeeman spacing constraint.
+> No validated scanner ROC or detection-limit claim is made.
+
+### User geometry amendment (supersedes the stop-and-scan study default)
+
+The magnet and coil are inline; the sample moves through both at a controllable
+rate. Speed, magnet geometry, coil geometry and centre-to-centre spacing are
+optimization variables, not approved dimensions. Magnet stray field constrains
+coil placement through the resulting NQR Zeeman shifts/splitting across the
+receive volume. The provisional implementation allocates 10% of the smallest
+of native linewidth, inverse pulse duration and loaded bandwidth to that
+perturbation. This allocation is an engineering assumption, not a supplied
+requirement. Changes in magnet size must trigger a new field/spectrum calculation.
+Phase 0's frozen snapshot is retained as historical input; this amendment governs
+the working model.
 
 ## Purpose and reference concept
 
@@ -14,7 +27,7 @@ which coil, resonator, pulse/acquisition schedule, receiver, RFI mitigation,
 and decision rule gives the best screening performance within time, power,
 thermal, voltage, current, and size constraints?
 
-The user scope is typical USPS/UPS/FedEx envelopes at 0–50 degrees C,
+The user scope is typical USPS/UPS/FedEx envelopes at 0â€“50 degrees C,
 approximately 5 mm access clearance, and illicit pharmaceuticals with synthetic
 opioids prioritized. Pulsed SLSE/SORC and a pre-polarization comparison are
 required study branches. See `phase0/user_requirements.md` and
@@ -49,7 +62,7 @@ Let \(d\) contain controllable design choices:
   reference layout;
 - signal features, multi-line fusion, threshold, and adaptive stopping policy.
 
-Let Î¾ collect nuisance variables that the system cannot control exactly:
+Let ÃŽÂ¾ collect nuisance variables that the system cannot control exactly:
 
 - target identity, mass, morphology, crystalline fraction, location, and pose;
 - parcel size and contents, dielectric and conductive loading, and temperature;
@@ -256,7 +269,7 @@ visible. Formal hardware/facility sign-off is not a Phase 0 prerequisite.
 
 ### Phase 1: absolute 14N signal-chain reference
 
-> **Implementation status:** numerical gate passed; see `phase1/README.md` and
+> **Implementation status:** normalization regression passed; engineering gate open. See `phase1/README.md` and
 > `phase1/reference_report.json`. The reference uses a selective-pulse FID plus
 > an SLSE normalization audit. Experimental calibration remains Phase 6.
 
