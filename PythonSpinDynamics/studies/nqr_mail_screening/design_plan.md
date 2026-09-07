@@ -338,6 +338,7 @@ thermal and receiver constraint margins are reported for every trial.
 > [phase3/phase3_report.json](phase3/phase3_report.json). The numerical gate covers
 > the declared synthetic, retuned candidate domain: stateful FID/SLSE/SORC,
 > x/y carrier handoff, mapped spatial and temperature ensembles, causal receiver,
+> adjustable stationary magnet/coil dwells with polarization transfer in between,
 > protected cancellation, explicit overload/leaky-reference rejection tests, and
 > pulse-energy thermal accounting. It does not establish site performance or
 > select hardware. Fine convergence is established for the enclosing-coil packet;

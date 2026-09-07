@@ -10,7 +10,7 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[1] / "studies/nqr_mail_screening"
 sys.path[:0] = [str(ROOT / "phase1"), str(ROOT / "phase3")]
 from pulsed_study import Config, simulate  # noqa: E402
-from acquisition import Receiver, receiver  # noqa: E402
+from acquisition import Receiver, receiver, motion_timeline, disorder_grid_points  # noqa: E402
 from environment import cancellation_trial  # noqa: E402
 from spin_dynamics.interference.cancellers import adaptive_lms_canceller  # noqa: E402
 
@@ -112,3 +112,71 @@ class Phase3Tests(unittest.TestCase):
         self.assertGreater(passive["reference_clipped_samples"], 0)
         self.assertTrue(passive["receiver_feasible"])
         self.assertFalse(active["receiver_feasible"])
+
+    def test_stopped_acquisition_has_constant_position_and_coupling(self):
+        cfg = self.config(
+            motion_mode="stop_transfer_stop", preparation_s=0.7, coil_dwell_s=0.03
+        )
+        row, _, _, _, details = simulate(
+            cfg, return_details=True, post_acquisition_s=0.002
+        )
+        self.assertAlmostEqual(row["record_duration_s"] - row["rf_train_s"], 0.002)
+        self.assertEqual(
+            row["readout_start_z_relative_coil_m"], row["readout_end_z_relative_coil_m"]
+        )
+        np.testing.assert_allclose(
+            details["receive_beta_t_per_a"], row["beta_t_per_a"], rtol=1e-14
+        )
+        timeline = motion_timeline(cfg, 0.01, 0.015)
+        self.assertAlmostEqual(timeline["cycle_s"], row["cycle_s"])
+        for stage in timeline["stages"]:
+            if stage["stage"] in ("magnet_dwell", "coil_dwell"):
+                self.assertEqual(stage["start_z_m"], stage["end_z_m"])
+        with self.assertRaises(ValueError):
+            simulate(replace(cfg, coil_dwell_s=0.0001))
+
+    def test_dwell_builds_polarization_then_relaxes_at_coil_stop(self):
+        from pulsed_study import prepared_density
+
+        cfg = self.config(
+            motion_mode="stop_transfer_stop",
+            prepolarization=True,
+            preparation_s=0.0,
+            settling_s=0.0,
+        )
+        _, short = prepared_density(cfg)
+        _, long = prepared_density(replace(cfg, preparation_s=1.0))
+        _, relaxed = prepared_density(replace(cfg, preparation_s=1.0, settling_s=0.02))
+        self.assertGreater(
+            long["after_magnet_dwell_proton_polarization_fraction"],
+            short["after_magnet_dwell_proton_polarization_fraction"],
+        )
+        stop = (
+            cfg.magnet_coil_spacing_m
+            + (cfg.readout_start_fraction - 0.5) * cfg.coil_length_m
+        )
+        self.assertAlmostEqual(long["transfer_stop_z_relative_magnet_m"], stop)
+        self.assertAlmostEqual(relaxed["transfer_stop_z_relative_magnet_m"], stop)
+        self.assertAlmostEqual(
+            long["transfer_time_s"], stop / cfg.transport_velocity_m_s
+        )
+        self.assertAlmostEqual(
+            relaxed["enhancement"] - 1,
+            (long["enhancement"] - 1) * np.exp(-0.02 / 0.039),
+            places=12,
+        )
+
+    def test_disorder_grid_has_no_spurious_revival_during_dwell(self):
+        sigma = 360.0
+        for duration in (0.015, 0.070):
+            offsets = np.linspace(
+                -4 * sigma, 4 * sigma, disorder_grid_points(sigma, duration)
+            )
+            weights = np.exp(-0.5 * (offsets / sigma) ** 2)
+            weights /= weights.sum()
+            t = np.linspace(0, duration, 1001)
+            discrete = weights @ np.exp(2j * np.pi * offsets[:, None] * t)
+            analytic = np.exp(-2 * np.pi**2 * sigma**2 * t**2)
+            # The normalized +/-4 sigma truncation alone permits twice the
+            # omitted Gaussian tail probability (~1.27e-4).
+            self.assertLess(np.max(abs(discrete - analytic)), 1.3e-4)

@@ -81,6 +81,7 @@ def run(root, output, quick=False):
             "trials": trials,
             "thermal": thermal,
             "samples": len(record["time_s"]),
+            "motion": record["motion"],
         }
         summaries.append(summary)
         records.append(record)
@@ -117,6 +118,15 @@ def run(root, output, quick=False):
     overload_test = margin["adc_clipped_samples"] > 0 and not mask[30] and mask[-1]
     all_trials = [t for s in summaries for t in s["trials"]]
     checks = {
+        "stationary_acquisition": all(
+            b["readout_start_z_relative_coil_m"] == b["readout_end_z_relative_coil_m"]
+            for r in records
+            for b in r["blocks"]
+        ),
+        "motion_cycle_accounting": all(
+            abs(r["motion"]["cycle_s"] - r["blocks"][0]["cycle_s"]) < 1e-12
+            for r in records
+        ),
         "time_monotonic": all(np.all(np.diff(r["time_s"]) > 0) for r in records),
         "protected_windows": all(
             t["fit_signal_overlap_samples"] == 0 for t in all_trials
@@ -168,7 +178,7 @@ def run(root, output, quick=False):
         "records": summaries,
         "receiver": cfg.__dict__,
         "site_data_status": "synthetic, unmeasured",
-        "supported_scope": "Synthetic retuned Q=30 candidates; central moving 1 g packet, 0-50 C, x/y full-density schedules; overload and leaky-reference scenarios are rejection tests.",
+        "supported_scope": "Synthetic retuned Q=30 candidates; 1 g packet with magnet dwell, moving transfer, and stationary coil dwell, 0-50 C, x/y full-density schedules; overload and leaky-reference scenarios are rejection tests.",
         "outside_validated_scope": [
             "Hardware selection, empirical ROC/AUC and detection mass claims.",
             "Installed site spectra, reference pickup, shielding-induced coil changes and actual thermal contacts.",

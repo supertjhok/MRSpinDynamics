@@ -83,11 +83,25 @@ class Config:
     preparation_s: float = 0.0
     prepolarization: bool = False
     transport_velocity_m_s: float = 5.0
+    motion_mode: str = "continuous"
+    coil_dwell_s: float = 0.025
     proton_t1_s: float = 1.0
     coupling_hz: float = 1000.0
     settling_s: float = 0.005
 
+    @property
+    def measurement_velocity_m_s(self):
+        return (
+            0.0
+            if self.motion_mode == "stop_transfer_stop"
+            else self.transport_velocity_m_s
+        )
+
     def __post_init__(self):
+        if self.motion_mode not in ("continuous", "stop_transfer_stop"):
+            raise ValueError("unknown motion mode")
+        if not np.isfinite(self.coil_dwell_s) or self.coil_dwell_s <= 0:
+            raise ValueError("coil dwell must be finite and positive")
         for name in (
             "coil_radius_m",
             "coil_length_m",
@@ -196,12 +210,14 @@ def magnet_profile(radius=0.23, length=0.46, width=0.08, remanence=1.15, stop=1.
 def prepared_density(cfg):
     eig, line, values = material_reference()
     equilibrium = thermal_deviation(eig.levels_hz, cfg.temperature_k)
-    if not cfg.prepolarization and cfg.preparation_s == 0:
+    if not cfg.prepolarization and (
+        cfg.preparation_s == 0 or cfg.motion_mode == "stop_transfer_stop"
+    ):
         return equilibrium, {"enhancement": 1.0, "preparation_and_transport_s": 0.0}
     stop = (
         cfg.magnet_coil_spacing_m
         + (cfg.readout_start_fraction - 0.5) * cfg.coil_length_m
-        - cfg.transport_velocity_m_s * cfg.settling_s
+        - cfg.measurement_velocity_m_s * cfg.settling_s
     )
     if stop <= 0:
         raise ValueError("settling distance extends before the magnet centre")
@@ -224,6 +240,7 @@ def prepared_density(cfg):
             -step / cfg.proton_t1_s
         )
     centre_field = float(np.interp(0.0, z, field))
+    arrival_fraction = polarized_field / centre_field
     polarized_field = centre_field + (polarized_field - centre_field) * np.exp(
         -cfg.preparation_s / cfg.proton_t1_s
     )
@@ -265,12 +282,20 @@ def prepared_density(cfg):
         + result.travel_time_seconds
         + cfg.settling_s,
         "max_field_t": float(field.max()),
-        "incoming_proton_polarization_fraction": float(fraction),
+        "incoming_proton_polarization_fraction": float(arrival_fraction),
+        "after_magnet_dwell_proton_polarization_fraction": float(fraction),
         "effective_preparation_s": float(effective_preparation),
         "end_field_t": float(np.interp(stop, z, field)),
         "mean_transfer_efficiency": float(np.mean(result.transfer_efficiency)),
         "crossing_positions_m": result.crossing_positions.tolist(),
-        "model": "built-in adiabatic transfer; single-line population embedding",
+        "magnet_dwell_s": cfg.preparation_s,
+        "transfer_time_s": float(result.travel_time_seconds),
+        "transfer_start_z_relative_magnet_m": 0.0,
+        "transfer_stop_z_relative_magnet_m": stop,
+        "stationary_coil_relaxation_s": cfg.settling_s
+        if cfg.motion_mode == "stop_transfer_stop"
+        else 0.0,
+        "model": "built-in adiabatic transfer during transit; single-line population embedding",
     }
 
 
@@ -282,15 +307,19 @@ def simulate(
     recovery_s=0.0,
     field_profile=None,
     electrical=None,
+    post_acquisition_s=0.0,
 ):
     """Propagate a train, optionally retaining the powder/disorder state.
 
     ``initial_state`` is the previous details["history"] in the same
     temperature and ensemble, expressed in the laboratory frame at block end. Recovery evolves that state with the free affine
-    generator. Motion continues when the caller advances readout_start_fraction.
+    generator. Motion during acquisition follows Config.motion_mode; stopped protocols keep
+    the same readout_start_fraction across blocks.
     A field_profile callable takes positions (m), returning signed axial T/A or lab-frame vectors (N,3).
     Vector profiles include the third powder Euler angle and receive projection.
     """
+    if not np.isfinite(post_acquisition_s) or post_acquisition_s < 0:
+        raise ValueError("post_acquisition_s must be finite and nonnegative")
     if not np.isfinite(recovery_s) or recovery_s < 0:
         raise ValueError("recovery_s must be finite and nonnegative")
     eig, line, values = material_reference()
@@ -321,9 +350,11 @@ def simulate(
         reactance = 2 * np.pi * line.frequency_hz * inductance
         self_resonance = 1 / (2 * np.pi * np.sqrt(inductance * capacitance))
     start_z = (cfg.readout_start_fraction - 0.5) * cfg.coil_length_m
-    path_times = np.linspace(0.0, cfg.echoes * cfg.spacing_s + cfg.excitation_s, 101)
+    path_times = np.linspace(
+        0.0, cfg.echoes * cfg.spacing_s + cfg.excitation_s + post_acquisition_s, 101
+    )
     path_positions = np.tile(np.asarray(cfg.position_m), (101, 1))
-    path_positions[:, 2] += start_z + cfg.transport_velocity_m_s * path_times
+    path_positions[:, 2] += start_z + cfg.measurement_velocity_m_s * path_times
     path_beta = (
         np.linalg.norm(biot_savart(path_positions, segments, current=1.0), axis=1)
         if field_profile is None
@@ -355,9 +386,11 @@ def simulate(
         * cfg.coil_length_m
         / cfg.transport_velocity_m_s
     )
-    if requested_train > residence:
+    if cfg.motion_mode == "stop_transfer_stop":
+        residence = cfg.coil_dwell_s - cfg.settling_s
+    if requested_train + post_acquisition_s > residence:
         raise ValueError(
-            "pulse train extends past the coil exit; shorten train or reduce speed"
+            "pulse train extends past the coil exit or available stationary dwell"
         )
     equilibrium = thermal_deviation(eig.levels_hz, cfg.temperature_k)
     initial, preparation = prepared_density(cfg)
@@ -555,6 +588,9 @@ def simulate(
         for _ in range(cfg.echoes):
             pulse(pulse_x, cfg.pulse_s, "sorc")
             acquire(cfg.spacing_s - cfg.pulse_s)
+    sequence_duration = time
+    if post_acquisition_s:
+        acquire(post_acquisition_s)
     times, valid = np.array(times), np.array(valid)
     moment = 2 * nuclei_count(ReferenceConfig()) * H * GAMMA_HZ_T * np.array(signal)
     voltage = 1j * 2 * np.pi * line.frequency_hz * np.asarray(receive_beta) * moment
@@ -566,7 +602,12 @@ def simulate(
     path_time = (
         cfg.magnet_length_m / 2 + cfg.magnet_coil_spacing_m + cfg.coil_length_m / 2
     ) / cfg.transport_velocity_m_s
-    cycle = cfg.preparation_s + path_time + 2.0
+    cycle = (
+        cfg.preparation_s
+        + path_time
+        + 2.0
+        + (cfg.coil_dwell_s if cfg.motion_mode == "stop_transfer_stop" else 0.0)
+    )
     voltage_peak = cfg.current_peak_a * reactance
     geometry_check = for_config(cfg)
     row = {
@@ -589,15 +630,17 @@ def simulate(
             cfg.current_peak_a <= 50 and voltage_peak <= 2000
         ),
         "rf_energy_j": 0.5 * cfg.current_peak_a**2 * resistance * rf_on_s,
-        "rf_train_s": time,
+        "rf_train_s": sequence_duration,
+        "record_duration_s": time,
         "reference_five_t1_recovery_s": recovery,
         "cycle_s": cycle,
         "coil_residence_remaining_s": residence,
         "readout_start_z_relative_coil_m": start_z,
-        "readout_end_z_relative_coil_m": start_z + time * cfg.transport_velocity_m_s,
+        "readout_end_z_relative_coil_m": start_z + time * cfg.measurement_velocity_m_s,
         "beta_end_t_per_a": float(receive_beta[-1]),
         "geometry_status": "design variables; not selected hardware",
-        "timing_model": "serial path from magnet entrance through coil exit plus 2 s handling; optional preparation dwell",
+        "timing_model": cfg.motion_mode
+        + "; magnet entrance to coil exit travel + magnet dwell + stationary coil dwell (when selected) + 2 s handling",
         "single_shot_snr_1g": np.sqrt(snr2),
         "snr_per_sqrt_second_1g": np.sqrt(snr2 / cycle),
         "gaussian_oracle_auc_1g_single_shot": float(ndtr(np.sqrt(snr2 / 2))),

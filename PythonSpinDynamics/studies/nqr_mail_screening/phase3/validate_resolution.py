@@ -28,6 +28,7 @@ def packet(root, order):
                 out["signal_v"] += (
                     r["signal_v"] * weights[i] * weights[j] * weights[k] / 8
                 )
+        print(f"packet order {order}: slab {i + 1}/{order} complete", flush=True)
     return out
 
 
