@@ -51,6 +51,7 @@ from reference import (
 @dataclass(frozen=True)
 class Config:
     sequence: str = "SLSE"
+    line_id: str = "x"
     coil_radius_m: float = 0.18
     coil_length_m: float = 0.46
     coil_turns: int = 6
@@ -76,6 +77,7 @@ class Config:
     temperature_k: float = 293.15
     powder_theta: int = 4
     powder_phi: int = 8
+    powder_roll: int = 4
     offset_points: int = 41
     position_m: tuple = (0.0, 0.0, 0.0)
     preparation_s: float = 0.0
@@ -105,15 +107,23 @@ class Config:
         if not 0 <= self.readout_start_fraction < 1:
             raise ValueError("readout start fraction must be in [0,1)")
         if (
-            min(self.pulse_steps, self.coil_turns, self.powder_theta, self.powder_phi)
+            min(
+                self.pulse_steps,
+                self.coil_turns,
+                self.powder_theta,
+                self.powder_phi,
+                self.powder_roll,
+            )
             < 1
             or self.offset_points < 3
         ):
             raise ValueError(
                 "integration counts must be positive; offsets need >=3 points"
             )
-        if self.sequence not in ("SLSE", "SORC"):
-            raise ValueError("sequence must be SLSE or SORC")
+        if self.line_id not in ("x", "y"):
+            raise ValueError("line_id must be x or y")
+        if self.sequence not in ("FID", "SLSE", "SORC"):
+            raise ValueError("sequence must be FID, SLSE or SORC")
         for name in (
             "excitation_s",
             "pulse_s",
@@ -264,25 +274,81 @@ def prepared_density(cfg):
     }
 
 
-def simulate(cfg=Config(), *, return_details=False):
+def simulate(
+    cfg=Config(),
+    *,
+    return_details=False,
+    initial_state=None,
+    recovery_s=0.0,
+    field_profile=None,
+    electrical=None,
+):
+    """Propagate a train, optionally retaining the powder/disorder state.
+
+    ``initial_state`` is the previous details["history"] in the same
+    temperature and ensemble, expressed in the laboratory frame at block end. Recovery evolves that state with the free affine
+    generator. Motion continues when the caller advances readout_start_fraction.
+    A field_profile callable takes positions (m), returning signed axial T/A or lab-frame vectors (N,3).
+    Vector profiles include the third powder Euler angle and receive projection.
+    """
+    if not np.isfinite(recovery_s) or recovery_s < 0:
+        raise ValueError("recovery_s must be finite and nonnegative")
     eig, line, values = material_reference()
+    if cfg.line_id == "y":
+        line = min(eig.transitions, key=lambda item: abs(item.frequency_hz - 3102400.0))
+    # Measured temperature coefficients enter the EFG energies, not a signal multiplier.
+    # The common static-disorder and homogeneous relaxation prior stays anchored to x.
+    from dataclasses import replace as replace_dataclass
+
+    levels = eig.levels_hz.copy()
+    for frequency, slope in ((3304300.0, -43.0), (3102400.0, -72.0)):
+        transition = min(
+            eig.transitions, key=lambda item: abs(item.frequency_hz - frequency)
+        )
+        levels[transition.upper] += slope * (cfg.temperature_k - 293.15)
+    eig = replace_dataclass(eig, levels_hz=levels)
     properties, segments = hardware(
         cfg.coil_radius_m, cfg.coil_length_m, cfg.coil_turns, cfg.wire_diameter_m
     )
+    inductance = properties.inductance_effective
+    wire_r = properties.ac_resistance
+    reactance = properties.reactance_effective
+    self_resonance = properties.self_resonant_frequency
+    if electrical is not None:
+        inductance, wire_r, capacitance = electrical
+        if min(inductance, wire_r, capacitance) <= 0:
+            raise ValueError("electrical L/R/C must be positive")
+        reactance = 2 * np.pi * line.frequency_hz * inductance
+        self_resonance = 1 / (2 * np.pi * np.sqrt(inductance * capacitance))
     start_z = (cfg.readout_start_fraction - 0.5) * cfg.coil_length_m
     path_times = np.linspace(0.0, cfg.echoes * cfg.spacing_s + cfg.excitation_s, 101)
     path_positions = np.tile(np.asarray(cfg.position_m), (101, 1))
     path_positions[:, 2] += start_z + cfg.transport_velocity_m_s * path_times
-    path_beta = np.linalg.norm(
-        biot_savart(path_positions, segments, current=1.0), axis=1
+    path_beta = (
+        np.linalg.norm(biot_savart(path_positions, segments, current=1.0), axis=1)
+        if field_profile is None
+        else np.asarray(field_profile(path_positions), float)
     )
+    vector_field = path_beta.shape == (101, 3)
+    path_vectors = path_beta.copy() if vector_field else None
+    if vector_field:
+        path_beta = np.linalg.norm(path_vectors, axis=1)
+    if path_beta.shape != (101,) or not np.all(np.isfinite(path_beta)):
+        raise ValueError("field profile must return 101 finite axial couplings")
+    if abs(path_beta[0]) < 1e-15:
+        raise ValueError("initial coupling cannot be zero")
 
     def beta_at(time):
         return float(np.interp(time, path_times, path_beta))
 
+    def vector_at(time):
+        return np.array(
+            [np.interp(time, path_times, path_vectors[:, k]) for k in range(3)]
+        )
+
     beta = beta_at(0.0)
     requested_train = cfg.echoes * cfg.spacing_s + (
-        cfg.excitation_s if cfg.sequence == "SLSE" else 0.0
+        cfg.excitation_s if cfg.sequence in ("SLSE", "FID") else 0.0
     )
     residence = (
         (1 - cfg.readout_start_fraction)
@@ -295,12 +361,14 @@ def simulate(cfg=Config(), *, return_details=False):
         )
     equilibrium = thermal_deviation(eig.levels_hz, cfg.temperature_k)
     initial, preparation = prepared_density(cfg)
+    original_eig, _, _ = material_reference()
+    initial += equilibrium - thermal_deviation(
+        original_eig.levels_hz, cfg.temperature_k
+    )
     relaxation = NQRRelaxationModel(t1_seconds=values["t1_s"], t2_seconds=cfg.t2_s)
     carrier = line.frequency_hz + cfg.detuning_hz
-    resistance = max(
-        properties.ac_resistance, properties.reactance_effective / cfg.loaded_q
-    )
-    tau = properties.inductance_effective * 2 / resistance
+    resistance = max(wire_r, reactance / cfg.loaded_q)
+    tau = inductance * 2 / resistance
     if 8 * tau >= min(cfg.blank_s, (cfg.spacing_s - cfg.pulse_s) / 2):
         raise ValueError("ringdown exceeds the allocated blanking/free interval")
     # Gaussian static disorder: its envelope reaches 1/e at the measured T2*.
@@ -314,41 +382,79 @@ def simulate(cfg=Config(), *, return_details=False):
     weights = np.exp(-0.5 * (offsets / sigma) ** 2)
     weights /= weights.sum()
     free, pulse_x, pulse_y, detectors, ensemble_weights = [], [], [], [], []
-    for orientation in powder_average_grid(cfg.powder_theta, cfg.powder_phi):
-        for offset, weight in zip(offsets, weights):
-            # Shift both upper-band transitions by a common static disorder offset.
-            disorder = np.diag(
-                2
-                * np.pi
-                * offset
-                * np.round((eig.levels_hz - eig.levels_hz.min()) / carrier)
-            )
-            h0 = static_hamiltonian_rotating(eig, carrier) + disorder
-            free.append(affine_generator(h0, relaxation, equilibrium))
-            for phase, output in ((0.0, pulse_x), (np.pi / 2, pulse_y)):
-                # B_peak cos(wt) has co-rotating field B_peak/2.
-                hp = (
-                    pulse_hamiltonian(
-                        eig,
-                        nutation_hz=GAMMA_HZ_T * beta * cfg.current_peak_a / 2,
-                        rf_frequency_hz=carrier,
-                        phase=phase,
-                        b1_direction_pas=orientation.b1_direction_pas,
-                    )
-                    + disorder
-                )
-                output.append(affine_generator(hp, relaxation, equilibrium))
-            from spin_dynamics.nqr.full_dynamics import rf_operator_eigenbasis
+    from spin_dynamics.nqr.full_dynamics import rf_operator_eigenbasis
 
-            op = rf_operator_eigenbasis(eig, orientation.b1_direction_pas)
-            detector = np.zeros(10, complex)
-            detector[line.upper + 3 * line.lower] = op[line.lower, line.upper]
-            detectors.append(detector)
-            ensemble_weights.append(orientation.weight * weight)
+    for orientation in powder_average_grid(cfg.powder_theta, cfg.powder_phi):
+        n = np.asarray(orientation.b1_direction_pas)
+        seed = np.eye(3)[np.argmin(abs(n))]
+        u = np.cross(seed, n)
+        u /= np.linalg.norm(u)
+        v = np.cross(n, u)
+        rolls = (
+            np.linspace(0, 2 * np.pi, cfg.powder_roll, endpoint=False)
+            if vector_field
+            else [0.0]
+        )
+        for roll in rolls:
+            directions = (
+                (
+                    np.cos(roll) * u + np.sin(roll) * v,
+                    -np.sin(roll) * u + np.cos(roll) * v,
+                    n,
+                )
+                if vector_field
+                else (n,)
+            )
+            for offset, weight in zip(offsets, weights):
+                disorder = np.diag(
+                    2
+                    * np.pi
+                    * offset
+                    * np.round((eig.levels_hz - eig.levels_hz.min()) / carrier)
+                )
+                h0 = static_hamiltonian_rotating(eig, carrier) + disorder
+                free.append(affine_generator(h0, relaxation, equilibrium))
+                for phase, output in ((0.0, pulse_x), (np.pi / 2, pulse_y)):
+                    axes = []
+                    for direction in directions:
+                        hp = (
+                            pulse_hamiltonian(
+                                eig,
+                                nutation_hz=GAMMA_HZ_T * beta * cfg.current_peak_a / 2,
+                                rf_frequency_hz=carrier,
+                                phase=phase,
+                                b1_direction_pas=direction,
+                            )
+                            + disorder
+                        )
+                        axes.append(affine_generator(hp, relaxation, equilibrium))
+                    output.append(axes)
+                axes = []
+                for direction in directions:
+                    op = rf_operator_eigenbasis(eig, direction)
+                    detector = np.zeros(10, complex)
+                    detector[line.upper + 3 * line.lower] = op[line.lower, line.upper]
+                    axes.append(detector)
+                detectors.append(axes)
+                ensemble_weights.append(orientation.weight * weight / len(rolls))
     free = np.array(free)
     pulse_x, pulse_y = np.array(pulse_x), np.array(pulse_y)
     detectors, ensemble_weights = np.array(detectors), np.array(ensemble_weights)
     state = np.tile(np.r_[initial.reshape(9, order="F"), 1.0], (len(free), 1))
+    signature = (
+        cfg.temperature_k,
+        cfg.t2_s,
+        cfg.powder_theta,
+        cfg.powder_phi,
+        cfg.offset_points,
+        cfg.powder_roll if vector_field else 1,
+    )
+    if initial_state is not None:
+        if tuple(initial_state["signature"]) != signature:
+            raise ValueError("history requires identical temperature and ensemble")
+        state = np.array(initial_state["state"], complex, copy=True)
+        if state.shape != (len(free), 10) or not np.all(np.isfinite(state)):
+            raise ValueError("invalid history state")
     cache = {}
 
     def advance(generator, duration, key):
@@ -361,6 +467,20 @@ def simulate(cfg=Config(), *, return_details=False):
             matrix = expm(generator * duration)
         state = np.einsum("nij,nj->ni", matrix, state)
 
+    winding = np.round((eig.levels_hz - eig.levels_hz.min()) / carrier)
+
+    def to_lab(states, duration):
+        phases = np.exp(-2j * np.pi * carrier * winding * duration)
+        factors = (phases[:, None] * phases.conj()[None, :]).reshape(9, order="F")
+        result = states.copy()
+        result[:, :9] *= factors
+        return result
+
+    if recovery_s:
+        advance(free, recovery_s, ("free", recovery_s))
+        state = to_lab(state, recovery_s)
+    start_state = state.copy()
+    rf_events = []
     times, signal, valid, receive_beta, exposure = [], [], [], [], []
     time = 0.0
     last_pulse_end = -np.inf
@@ -370,14 +490,18 @@ def simulate(cfg=Config(), *, return_details=False):
     def pulse(generator, duration, key):
         nonlocal time, last_pulse_end, rf_on_s, pending_tail
         # Delivered current follows a first-order resonator, including its RF tail.
-        field_scale = beta_at(time) / beta
-        key = (key, round(field_scale, 12))
+        rf_events.append((time, time + duration))
+        components = (
+            vector_at(time) / beta if vector_field else np.array([beta_at(time) / beta])
+        )
+        # Each lab RF component is rotated into the same crystallite PAS. This
+        # preserves orientation and phase history while the field direction changes.
+        drive = np.einsum("a,naij->nij", components, generator - free[:, None])
+        key = (key, tuple(np.round(components, 12)))
         for k in range(cfg.pulse_steps):
-            fraction = field_scale * (
-                1 - np.exp(-(k + 0.5) * duration / (cfg.pulse_steps * tau))
-            )
+            fraction = 1 - np.exp(-(k + 0.5) * duration / (cfg.pulse_steps * tau))
             advance(
-                free + fraction * (generator - free),
+                free + fraction * drive,
                 duration / cfg.pulse_steps,
                 (key, "rise", k),
             )
@@ -385,11 +509,9 @@ def simulate(cfg=Config(), *, return_details=False):
         last_pulse_end = time
         end_fraction = 1 - np.exp(-duration / tau)
         for k in range(cfg.pulse_steps):
-            fraction = (
-                field_scale * end_fraction * np.exp(-(k + 0.5) * 8 / cfg.pulse_steps)
-            )
+            fraction = end_fraction * np.exp(-(k + 0.5) * 8 / cfg.pulse_steps)
             advance(
-                free + fraction * (generator - free),
+                free + fraction * drive,
                 8 * tau / cfg.pulse_steps,
                 (key, "tail", k),
             )
@@ -406,20 +528,23 @@ def simulate(cfg=Config(), *, return_details=False):
         nonlocal time, pending_tail
         duration -= pending_tail
         pending_tail = 0.0
-        count = int(round(duration / cfg.dt_s))
+        count = max(1, int(round(duration / cfg.dt_s)))
         step = duration / count
         for _ in range(count):
             advance(free, step, ("free", step))
             time += step
             times.append(time)
             receive_beta.append(beta_at(time))
-            signal.append(
-                np.sum(ensemble_weights * np.einsum("ni,ni->n", detectors, state))
-            )
+            direction = vector_at(time) / beta_at(time) if vector_field else np.ones(1)
+            observed = np.einsum("a,nai,ni->n", direction, detectors, state)
+            signal.append(np.sum(ensemble_weights * observed))
             exposure.append(min(step, max(0.0, time - last_pulse_end - cfg.blank_s)))
             valid.append(exposure[-1] > 0.0)
 
-    if cfg.sequence == "SLSE":
+    if cfg.sequence == "FID":
+        pulse(pulse_x, cfg.excitation_s, "excitation")
+        acquire(cfg.echoes * cfg.spacing_s)
+    elif cfg.sequence == "SLSE":
         pulse(pulse_x, cfg.excitation_s, "excitation")
         for _ in range(cfg.echoes):
             acquire((cfg.spacing_s - cfg.pulse_s) / 2)
@@ -442,7 +567,7 @@ def simulate(cfg=Config(), *, return_details=False):
         cfg.magnet_length_m / 2 + cfg.magnet_coil_spacing_m + cfg.coil_length_m / 2
     ) / cfg.transport_velocity_m_s
     cycle = cfg.preparation_s + path_time + 2.0
-    voltage_peak = cfg.current_peak_a * properties.reactance_effective
+    voltage_peak = cfg.current_peak_a * reactance
     geometry_check = for_config(cfg)
     row = {
         "eligible_for_comparison": bool(
@@ -454,11 +579,11 @@ def simulate(cfg=Config(), *, return_details=False):
         "prepolarization": preparation,
         "zeeman_spacing_constraint": geometry_check,
         "beta_t_per_a": beta,
-        "coil_ac_resistance_ohm": properties.ac_resistance,
+        "coil_ac_resistance_ohm": wire_r,
         "loaded_equivalent_resistance_ohm": resistance,
         "rf_envelope_time_constant_s": tau,
-        "coil_inductance_h": properties.inductance_effective,
-        "coil_self_resonance_hz": properties.self_resonant_frequency,
+        "coil_inductance_h": inductance,
+        "coil_self_resonance_hz": self_resonance,
         "coil_reactive_voltage_peak_v": voltage_peak,
         "within_provisional_current_voltage_limits": bool(
             cfg.current_peak_a <= 50 and voltage_peak <= 2000
@@ -487,6 +612,12 @@ def simulate(cfg=Config(), *, return_details=False):
             voltage,
             valid,
             {
+                "history": {"state": to_lab(state, time), "signature": signature},
+                "start_state": start_state,
+                "equilibrium_state": np.tile(
+                    np.r_[equilibrium.reshape(9, order="F"), 1.0], (len(free), 1)
+                ),
+                "rf_events_s": np.asarray(rf_events),
                 "moment_am2": moment,
                 "receive_beta_t_per_a": np.asarray(receive_beta),
                 "exposure_s": np.asarray(exposure),

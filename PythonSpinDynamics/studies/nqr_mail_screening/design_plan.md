@@ -334,6 +334,16 @@ predicts the engineering model over the declared parcel envelope.
 units; injected signals are not spuriously learned or removed by cancellers;
 thermal and receiver constraint margins are reported for every trial.
 
+> Phase 3 implementation: see [phase3/README.md](phase3/README.md) and
+> [phase3/phase3_report.json](phase3/phase3_report.json). The numerical gate covers
+> the declared synthetic, retuned candidate domain: stateful FID/SLSE/SORC,
+> x/y carrier handoff, mapped spatial and temperature ensembles, causal receiver,
+> protected cancellation, explicit overload/leaky-reference rejection tests, and
+> pulse-energy thermal accounting. It does not establish site performance or
+> select hardware. Fine convergence is established for the enclosing-coil packet;
+> vector gradiometer results remain an engineering comparison. See the report's
+> `gate3_passed`, validation results and `outside_validated_scope` before reuse.
+
 ### Phase 4: detector and adaptive protocol
 
 1. Implement the matched-filter/likelihood baseline and calibrate thresholds on
