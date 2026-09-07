@@ -20,7 +20,7 @@ def main():
     axes[0].plot(t, abs(data["signal_v"]) * 1e12, color="C0")
     axes[0].set(
         ylabel="1 g source |EMF| (pV)",
-        title="Moving packet: retained spin state across x/y-line acquisitions",
+        title="Stationary coil dwell: retained spin state across x/y-line acquisitions",
     )
     for b in record["blocks"]:
         axes[0].axvline(b["block_start_s"] * 1000, color="0.7", lw=0.7)
@@ -83,6 +83,31 @@ def main():
     target = Path(__file__).resolve().parent / "phase3_records.png"
     fig.savefig(target, dpi=160)
     fig.savefig(root / target.name, dpi=160)
+    motion = record["motion"]
+    stages = motion["stages"]
+    fig2, axis = plt.subplots(figsize=(10, 3.5), layout="constrained")
+    for stage in stages[:-1]:
+        axis.plot(
+            [stage["start_s"], stage["end_s"]],
+            [stage["start_z_m"], stage["end_z_m"]],
+            linewidth=3,
+        )
+        if stage["stage"] in ("magnet_dwell", "coil_dwell"):
+            axis.annotate(
+                stage["stage"].replace("_", " ")
+                + f" ({stage['end_s'] - stage['start_s']:.3f} s)",
+                ((stage["start_s"] + stage["end_s"]) / 2, stage["start_z_m"]),
+                xytext=(0, 16),
+                textcoords="offset points",
+                ha="center",
+            )
+    axis.set(
+        xlabel="Physical time from magnet entrance (s)",
+        ylabel="Position from magnet centre (m)",
+        title="Stop, polarize, transfer, stop, measure — ideal stops",
+    )
+    axis.set_ylim(-0.3, 1.65)
+    fig2.savefig(target.parent / "motion_schedule.png", dpi=160)
     print(target)
 
 
