@@ -1,0 +1,1277 @@
+{
+  "phase": 2,
+  "gate2_passed": true,
+  "numerical_domain_passed": true,
+  "limits": {
+    "field_rms": 0.01,
+    "field_max_normalized": 0.05,
+    "field_path": 0.01,
+    "peec_path": 0.01,
+    "peec_surface": 0.01,
+    "peec_full_discrepancy": 0.01,
+    "peec_full_path": 0.02,
+    "spectral_interpolation": 0.001,
+    "voxel_electric": 0.03,
+    "voxel_coupling": 0.03,
+    "voxel_inductive_field": 0.05,
+    "material_surrogate": 0.03,
+    "material_solver_residual": 1e-10,
+    "pose_integral": 0.03
+  },
+  "supported_domain": {
+    "mail_clear_m": [
+      0.34,
+      0.035,
+      0.43
+    ],
+    "map_x_y_z_m": [
+      [
+        -0.17,
+        0.17
+      ],
+      [
+        -0.0175,
+        0.0175
+      ],
+      [
+        -0.315,
+        0.315
+      ]
+    ],
+    "material": "uniform contrasts for analytic envelopes; explicit heterogeneous packet/paper cases for reduced-vs-fine voxel validation; 1.5<=epsilon_r<=6, 0<=sigma<=1e-4 S/m",
+    "limitations": "no shielding foil or magnetic contents; no full-wave validation; numerical gate applies to reported geometry/material/pose family",
+    "frequencies_hz": [
+      3102400.0,
+      3203350.0,
+      3304300.0
+    ],
+    "temperature_k": [
+      273.15,
+      323.15
+    ],
+    "component_tolerances": {
+      "L_fraction": 0.05,
+      "R_fraction": 0.05,
+      "tuning_C_fraction": 0.02
+    }
+  },
+  "analytic_loading": {
+    "cases": 108,
+    "maximum_normalized_bound_violation": 2.060697874863051e-16
+  },
+  "outside_validated_scope": [
+    "conductive shielding foils, metal or magnetic contents",
+    "full-wave/skin-effect regime",
+    "material/pose families outside the reported validation cases"
+  ],
+  "source_sha256": {
+    "validate_phase2.py": "9bd5275517bbdc3182687dfc7262cfa2ee1a5c0919f3834ed3f0f5583ccf238f",
+    "spatial_loading.py": "d105582d8c5c52cad225957142768df418acca385c44ad898395dc196552a50d",
+    "aperture.py": "bc619acfc98180096a21153374939f3fe9f0feadac253cfe2838fe320fbe620b",
+    "material_validation.py": "aa0c3dcf84499b6774bb52d30f602b74cdc8b909b961aecf674547036ac8fe5d"
+  },
+  "software": {
+    "python": "3.12.3",
+    "numpy": "2.5.2",
+    "scipy": "1.18.1",
+    "magpylib": "5.2.1"
+  },
+  "full_report_sha256": "694f0e98f1df5afb3ff2c17ea26c082d1d00d253c5282df9569efc86b883336e",
+  "full_report_path": ".tmp/nqr_phase2_gate/gate2_report.json",
+  "candidates": {
+    "enclosing_helix": {
+      "passed": true,
+      "checks": {
+        "peec_path": 0.0028906436073874056,
+        "peec_surface": 0.0029081861715035337,
+        "peec_full_discrepancy": 0.002206527130190104,
+        "peec_full_path": 0.012619556517087311,
+        "spectral_interpolation": 0.00012418992238338866,
+        "field_rms": 0.0012638800725092983,
+        "field_max_normalized": 0.03482667850567697,
+        "field_path": 0.002473773044210668,
+        "voxel_electric": 0.015469260612477716,
+        "voxel_coupling": 4.235029947571889e-06,
+        "voxel_inductive_field": 0.002367393536135814,
+        "pose_integral": 0.00021735266647173652,
+        "material_surrogate": 0.00761900691740927,
+        "material_solver_residual": 5.741440790442376e-16
+      },
+      "network_refinements": [
+        {
+          "path": 16,
+          "perimeter": 8,
+          "formulation": "chain",
+          "L": [
+            1.0410064866911058e-05,
+            1.0409796104788528e-05,
+            1.0409539755162442e-05
+          ],
+          "R": [
+            0.3298322887218161,
+            0.3351558195238212,
+            0.3403961082285666
+          ],
+          "C": 9.984166031584423e-12
+        },
+        {
+          "path": 32,
+          "perimeter": 8,
+          "formulation": "chain",
+          "L": [
+            1.0543080666850407e-05,
+            1.0542810589788198e-05,
+            1.0542552985950152e-05
+          ],
+          "R": [
+            0.3314450656257378,
+            0.33679464283951877,
+            0.3420605706881117
+          ],
+          "C": 1.0079449822711466e-11
+        },
+        {
+          "path": 64,
+          "perimeter": 8,
+          "formulation": "chain",
+          "L": [
+            1.0573644422729618e-05,
+            1.0573374015326993e-05,
+            1.0573116096404388e-05
+          ],
+          "R": [
+            0.33185015305561166,
+            0.337206273769946,
+            0.3424786428050505
+          ],
+          "C": 1.0103706034557026e-11
+        },
+        {
+          "path": 64,
+          "perimeter": 16,
+          "formulation": "chain",
+          "L": [
+            1.0483394644570152e-05,
+            1.0483124164943275e-05,
+            1.0482866177117098e-05
+          ],
+          "R": [
+            0.33193292536081787,
+            0.33729048333136047,
+            0.34256426726705635
+          ],
+          "C": 1.0103706034557026e-11
+        },
+        {
+          "path": 64,
+          "perimeter": 32,
+          "formulation": "chain",
+          "L": [
+            1.0452997045103064e-05,
+            1.0452726501718858e-05,
+            1.0452468452904285e-05
+          ],
+          "R": [
+            0.33199880993550224,
+            0.3373577127125754,
+            0.34263282263333417
+          ],
+          "C": 1.0103706034557026e-11
+        },
+        {
+          "path": 16,
+          "perimeter": 8,
+          "formulation": "full",
+          "L": [
+            1.0407699938780096e-05,
+            1.0407430548329379e-05,
+            1.0407173599346907e-05
+          ],
+          "R": [
+            0.33057260977027547,
+            0.3359086071508849,
+            0.3411611678448105
+          ],
+          "C": 9.984166031584423e-12
+        },
+        {
+          "path": 32,
+          "perimeter": 8,
+          "formulation": "full",
+          "L": [
+            1.0540714967706552e-05,
+            1.0540444269520292e-05,
+            1.0540186073198249e-05
+          ],
+          "R": [
+            0.33217704611735144,
+            0.33753894677651963,
+            0.34281700571190554
+          ],
+          "C": 1.0079449822711466e-11
+        }
+      ],
+      "field_refinements": [
+        {
+          "shape": [
+            33,
+            5,
+            65
+          ],
+          "rms": 0.005509302879063639,
+          "max": 0.1777088778948689
+        },
+        {
+          "shape": [
+            65,
+            9,
+            129
+          ],
+          "rms": 0.0012638800725092983,
+          "max": 0.03482667850567697
+        }
+      ],
+      "circuit_case_count": 54,
+      "circuit_corner_envelope": {
+        "resonance_hz": [
+          2998912.5824493687,
+          3422964.5712342695
+        ],
+        "loaded_q_during_drive": [
+          149.76423064288937,
+          185.67960999364308
+        ],
+        "drive_ringdown_s": [
+          1.509077631770682e-05,
+          1.8153325813327154e-05
+        ],
+        "coil_current_a_per_source_v": [
+          0.06302563700827575,
+          0.151821206803778
+        ],
+        "receiver_port_johnson_psd_v2_hz": [
+          4.738237683414886e-21,
+          7.944610335848122e-21
+        ],
+        "series_tuning_capacitance_f": [
+          2.076130539535262e-10,
+          2.464995728301276e-10
+        ],
+        "coil_port_voltage_v_per_source_v": [
+          12.993312380579896,
+          32.48184029272839
+        ]
+      },
+      "range_scope": "evaluated corners; not certified extrema",
+      "spatial_refinements": [
+        {
+          "translation_m": [
+            0.0,
+            0.0,
+            -0.1
+          ],
+          "refinements": [
+            {
+              "shape": [
+                9,
+                3,
+                11
+              ],
+              "electric_integral_m": 0.00020122696056317855,
+              "a_squared": 4.57919559846486e-17,
+              "e_dot_a": -3.1294487642572416e-11,
+              "mass_coupling": 1.4322598813961467e-13
+            },
+            {
+              "shape": [
+                17,
+                5,
+                21
+              ],
+              "electric_integral_m": 0.00020269004817858154,
+              "a_squared": 4.618854587609241e-17,
+              "e_dot_a": -3.123037726222099e-11,
+              "mass_coupling": 1.4322548755042e-13
+            },
+            {
+              "shape": [
+                33,
+                7,
+                41
+              ],
+              "electric_integral_m": 0.00020327066498132545,
+              "a_squared": 4.6297682427480405e-17,
+              "e_dot_a": -3.120921527277531e-11,
+              "mass_coupling": 1.4322542557730974e-13
+            }
+          ]
+        },
+        {
+          "translation_m": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "refinements": [
+            {
+              "shape": [
+                9,
+                3,
+                11
+              ],
+              "electric_integral_m": 0.00023123173425965404,
+              "a_squared": 5.272983411368998e-17,
+              "e_dot_a": -2.9402690544794456e-11,
+              "mass_coupling": 1.6584284484712397e-13
+            },
+            {
+              "shape": [
+                17,
+                5,
+                21
+              ],
+              "electric_integral_m": 0.00023566870564335052,
+              "a_squared": 5.3126600157123203e-17,
+              "e_dot_a": -2.934077184104517e-11,
+              "mass_coupling": 1.658401127030115e-13
+            },
+            {
+              "shape": [
+                33,
+                7,
+                41
+              ],
+              "electric_integral_m": 0.00023794360882445573,
+              "a_squared": 5.325041216973919e-17,
+              "e_dot_a": -2.932804579234821e-11,
+              "mass_coupling": 1.658394103681421e-13
+            }
+          ]
+        },
+        {
+          "translation_m": [
+            0.0,
+            0.0,
+            0.1
+          ],
+          "refinements": [
+            {
+              "shape": [
+                9,
+                3,
+                11
+              ],
+              "electric_integral_m": 0.0002584237116433086,
+              "a_squared": 4.67850192973276e-17,
+              "e_dot_a": -1.199539514236373e-11,
+              "mass_coupling": 1.4322598813961478e-13
+            },
+            {
+              "shape": [
+                17,
+                5,
+                21
+              ],
+              "electric_integral_m": 0.00026750048651671157,
+              "a_squared": 4.719049994518718e-17,
+              "e_dot_a": -1.1847050728088336e-11,
+              "mass_coupling": 1.4322548755041998e-13
+            },
+            {
+              "shape": [
+                33,
+                7,
+                41
+              ],
+              "electric_integral_m": 0.00027170353937666175,
+              "a_squared": 4.730248353896049e-17,
+              "e_dot_a": -1.1819827075124562e-11,
+              "mass_coupling": 1.4322542557730974e-13
+            }
+          ]
+        }
+      ]
+    },
+    "split_rectangular_pair": {
+      "passed": true,
+      "checks": {
+        "peec_path": 0.0025582920866955242,
+        "peec_surface": 0.0035681830703498205,
+        "peec_full_discrepancy": 0.003676217354059077,
+        "peec_full_path": 0.002463075023265153,
+        "spectral_interpolation": 0.0001241796439143128,
+        "field_rms": 0.0024073251462425438,
+        "field_max_normalized": 0.04579964991128913,
+        "field_path": 5.923046153690352e-16,
+        "voxel_electric": 0.020094868619959877,
+        "voxel_coupling": 0.00015713355383545013,
+        "voxel_inductive_field": 0.004981153333531767,
+        "pose_integral": 0.0004090278102684395,
+        "material_surrogate": 0.026783805268404983,
+        "material_solver_residual": 5.098778068073227e-16
+      },
+      "network_refinements": [
+        {
+          "path": 16,
+          "perimeter": 8,
+          "formulation": "chain",
+          "L": [
+            4.13154030434009e-06,
+            4.131408046267558e-06,
+            4.131281896402775e-06
+          ],
+          "R": [
+            0.16231582402543893,
+            0.1649355347691827,
+            0.1675142820021017
+          ],
+          "C": 7.97683487692437e-12
+        },
+        {
+          "path": 32,
+          "perimeter": 8,
+          "formulation": "chain",
+          "L": [
+            4.122129525263048e-06,
+            4.121997284381653e-06,
+            4.121871150915527e-06
+          ],
+          "R": [
+            0.16229560915939237,
+            0.16491497873150748,
+            0.16749339011660414
+          ],
+          "C": 7.994407330989518e-12
+        },
+        {
+          "path": 64,
+          "perimeter": 8,
+          "formulation": "chain",
+          "L": [
+            4.117153128654681e-06,
+            4.117020893680795e-06,
+            4.116894765849787e-06
+          ],
+          "R": [
+            0.1622886470242861,
+            0.16490789938527275,
+            0.16748619538875603
+          ],
+          "C": 8.014911816465143e-12
+        },
+        {
+          "path": 64,
+          "perimeter": 16,
+          "formulation": "chain",
+          "L": [
+            4.073724851344809e-06,
+            4.07359261466504e-06,
+            4.0734664852066e-06
+          ],
+          "R": [
+            0.1622905966927164,
+            0.16490988299213774,
+            0.1674882124059115
+          ],
+          "C": 8.014911816465143e-12
+        },
+        {
+          "path": 64,
+          "perimeter": 32,
+          "formulation": "chain",
+          "L": [
+            4.059241657252242e-06,
+            4.059109419874048e-06,
+            4.058983289749284e-06
+          ],
+          "R": [
+            0.16229139115606633,
+            0.1649106913592719,
+            0.16748903446061614
+          ],
+          "C": 8.014911816465143e-12
+        },
+        {
+          "path": 16,
+          "perimeter": 8,
+          "formulation": "full",
+          "L": [
+            4.130603956618256e-06,
+            4.130471409689133e-06,
+            4.13034498428167e-06
+          ],
+          "R": [
+            0.16265492842074095,
+            0.16528037259632122,
+            0.16786476380876297
+          ],
+          "C": 7.97683487692437e-12
+        },
+        {
+          "path": 32,
+          "perimeter": 8,
+          "formulation": "full",
+          "L": [
+            4.120456000342111e-06,
+            4.12032325016007e-06,
+            4.120196630869235e-06
+          ],
+          "R": [
+            0.16289356423980067,
+            0.16552304216305327,
+            0.16811140417805875
+          ],
+          "C": 7.994407330989518e-12
+        }
+      ],
+      "field_refinements": [
+        {
+          "shape": [
+            33,
+            5,
+            65
+          ],
+          "rms": 0.011232589854119412,
+          "max": 0.20294150014773307
+        },
+        {
+          "shape": [
+            65,
+            9,
+            129
+          ],
+          "rms": 0.0024073251462425438,
+          "max": 0.04579964991128913
+        }
+      ],
+      "circuit_case_count": 54,
+      "circuit_corner_envelope": {
+        "resonance_hz": [
+          2998099.0777683123,
+          3424065.033874711
+        ],
+        "loaded_q_during_drive": [
+          65.45544887510893,
+          78.00164609714658
+        ],
+        "drive_ringdown_s": [
+          6.593083014238662e-06,
+          7.6321751603106e-06
+        ],
+        "coil_current_a_per_source_v": [
+          0.16365242148411074,
+          0.37791916830803995
+        ],
+        "receiver_port_johnson_psd_v2_hz": [
+          2.1941921677810203e-21,
+          3.6242736224601846e-21
+        ],
+        "series_tuning_capacitance_f": [
+          5.522770960613422e-10,
+          6.53126990205231e-10
+        ],
+        "coil_port_voltage_v_per_source_v": [
+          13.086171025387651,
+          31.652960526132976
+        ]
+      },
+      "range_scope": "evaluated corners; not certified extrema",
+      "spatial_refinements": [
+        {
+          "translation_m": [
+            0.0,
+            0.0,
+            -0.1
+          ],
+          "refinements": [
+            {
+              "shape": [
+                9,
+                3,
+                11
+              ],
+              "electric_integral_m": 0.0006122382861193764,
+              "a_squared": 3.981965982463114e-17,
+              "e_dot_a": 6.008238902963649e-12,
+              "mass_coupling": 3.9344367974933947e-14
+            },
+            {
+              "shape": [
+                17,
+                5,
+                21
+              ],
+              "electric_integral_m": 0.000661349237731494,
+              "a_squared": 4.0225128900089457e-17,
+              "e_dot_a": 5.470759806435464e-12,
+              "mass_coupling": 3.9366242042381996e-14
+            },
+            {
+              "shape": [
+                33,
+                7,
+                41
+              ],
+              "electric_integral_m": 0.0006681395676230664,
+              "a_squared": 4.029741285586014e-17,
+              "e_dot_a": 5.409028792462752e-12,
+              "mass_coupling": 3.937242877203808e-14
+            }
+          ]
+        },
+        {
+          "translation_m": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "refinements": [
+            {
+              "shape": [
+                9,
+                3,
+                11
+              ],
+              "electric_integral_m": 0.00039604639506164187,
+              "a_squared": 3.362376629145241e-17,
+              "e_dot_a": -1.071250618343185e-12,
+              "mass_coupling": 3.1505246389656904e-14
+            },
+            {
+              "shape": [
+                17,
+                5,
+                21
+              ],
+              "electric_integral_m": 0.0004253097056249519,
+              "a_squared": 3.427368709011018e-17,
+              "e_dot_a": -1.3697656951514742e-12,
+              "mass_coupling": 3.1518574711385846e-14
+            },
+            {
+              "shape": [
+                33,
+                7,
+                41
+              ],
+              "electric_integral_m": 0.0004340315118321413,
+              "a_squared": 3.4445264232868114e-17,
+              "e_dot_a": -1.4649984070096618e-12,
+              "mass_coupling": 3.152237258019676e-14
+            }
+          ]
+        },
+        {
+          "translation_m": [
+            0.0,
+            0.0,
+            0.1
+          ],
+          "refinements": [
+            {
+              "shape": [
+                9,
+                3,
+                11
+              ],
+              "electric_integral_m": 0.0005418801042767295,
+              "a_squared": 3.9711145683810486e-17,
+              "e_dot_a": -1.5086938243628326e-11,
+              "mass_coupling": 3.9429077492295266e-14
+            },
+            {
+              "shape": [
+                17,
+                5,
+                21
+              ],
+              "electric_integral_m": 0.0005667995718652381,
+              "a_squared": 4.011134054230635e-17,
+              "e_dot_a": -1.5219303913983885e-11,
+              "mass_coupling": 3.945099112723386e-14
+            },
+            {
+              "shape": [
+                33,
+                7,
+                41
+              ],
+              "electric_integral_m": 0.0005709400617507431,
+              "a_squared": 4.0181792290865404e-17,
+              "e_dot_a": -1.5230630148954814e-11,
+              "mass_coupling": 3.945718894616795e-14
+            }
+          ]
+        }
+      ]
+    },
+    "axial_gradiometer": {
+      "passed": true,
+      "checks": {
+        "peec_path": 0.0033538812414357386,
+        "peec_surface": 0.003835036830678004,
+        "peec_full_discrepancy": 0.0023611962385246656,
+        "peec_full_path": 0.010407390580158292,
+        "spectral_interpolation": 0.00012419596633073127,
+        "field_rms": 0.002182689160895408,
+        "field_max_normalized": 0.04839984875055745,
+        "field_path": 0.003433346497413948,
+        "voxel_electric": 0.009762236020313632,
+        "voxel_coupling": 0.0017199488590426103,
+        "voxel_inductive_field": 0.004744321330741847,
+        "pose_integral": 0.00047156956217640463,
+        "material_surrogate": 0.011130541789275908,
+        "material_solver_residual": 5.367772419136391e-16
+      },
+      "network_refinements": [
+        {
+          "path": 16,
+          "perimeter": 8,
+          "formulation": "chain",
+          "L": [
+            8.46461178984038e-06,
+            8.46433059033254e-06,
+            8.4640623777386e-06
+          ],
+          "R": [
+            0.34510234699649484,
+            0.3506722280630445,
+            0.35615501487087076
+          ],
+          "C": 1.007176098898445e-11
+        },
+        {
+          "path": 32,
+          "perimeter": 8,
+          "formulation": "chain",
+          "L": [
+            8.542240567701497e-06,
+            8.541958068788087e-06,
+            8.541688616800062e-06
+          ],
+          "R": [
+            0.3466968421421203,
+            0.3522924613950476,
+            0.35780058393212105
+          ],
+          "C": 1.017768412285245e-11
+        },
+        {
+          "path": 64,
+          "perimeter": 8,
+          "formulation": "chain",
+          "L": [
+            8.57098552937984e-06,
+            8.570702647745197e-06,
+            8.570432830701938e-06
+          ],
+          "R": [
+            0.34716263686697635,
+            0.3527658411819056,
+            0.3582814302509557
+          ],
+          "C": 1.0204164519793199e-11
+        },
+        {
+          "path": 64,
+          "perimeter": 16,
+          "formulation": "chain",
+          "L": [
+            8.47361816607772e-06,
+            8.47333522813605e-06,
+            8.473065357309174e-06
+          ],
+          "R": [
+            0.34722138614616566,
+            0.35282574047838294,
+            0.35834246232031175
+          ],
+          "C": 1.0204164519793199e-11
+        },
+        {
+          "path": 64,
+          "perimeter": 32,
+          "formulation": "chain",
+          "L": [
+            8.44124806755005e-06,
+            8.440964987924853e-06,
+            8.440694981179831e-06
+          ],
+          "R": [
+            0.34735131728295354,
+            0.35295884154834634,
+            0.35847869368493696
+          ],
+          "C": 1.0204164519793199e-11
+        },
+        {
+          "path": 16,
+          "perimeter": 8,
+          "formulation": "full",
+          "L": [
+            8.462465041437126e-06,
+            8.462183214257747e-06,
+            8.461914402914882e-06
+          ],
+          "R": [
+            0.3458386635707418,
+            0.3514210066440149,
+            0.3569160611005336
+          ],
+          "C": 1.007176098898445e-11
+        },
+        {
+          "path": 32,
+          "perimeter": 8,
+          "formulation": "full",
+          "L": [
+            8.53987809579844e-06,
+            8.539594898624022e-06,
+            8.539324780555959e-06
+          ],
+          "R": [
+            0.3475161733532767,
+            0.3531256535860956,
+            0.3586474208732435
+          ],
+          "C": 1.017768412285245e-11
+        }
+      ],
+      "field_refinements": [
+        {
+          "shape": [
+            33,
+            5,
+            65
+          ],
+          "rms": 0.008134904174558592,
+          "max": 0.20529225659721992
+        },
+        {
+          "shape": [
+            65,
+            9,
+            129
+          ],
+          "rms": 0.002182689160895408,
+          "max": 0.04839984875055745
+        }
+      ],
+      "circuit_case_count": 54,
+      "circuit_corner_envelope": {
+        "resonance_hz": [
+          2998703.783352712,
+          3423257.3202613
+        ],
+        "loaded_q_during_drive": [
+          118.0806538578874,
+          146.29352781261625
+        ],
+        "drive_ringdown_s": [
+          1.1878773733237149e-05,
+          1.4314925676931746e-05
+        ],
+        "coil_current_a_per_source_v": [
+          0.07837100133797213,
+          0.1883091957857195
+        ],
+        "receiver_port_johnson_psd_v2_hz": [
+          4.885660005194591e-21,
+          8.150740957378893e-21
+        ],
+        "series_tuning_capacitance_f": [
+          2.5935753608308455e-10,
+          3.0759990468778744e-10
+        ],
+        "coil_port_voltage_v_per_source_v": [
+          13.047218441100888,
+          32.53462636699703
+        ]
+      },
+      "range_scope": "evaluated corners; not certified extrema",
+      "spatial_refinements": [
+        {
+          "translation_m": [
+            0.0,
+            0.0,
+            -0.1
+          ],
+          "refinements": [
+            {
+              "shape": [
+                9,
+                3,
+                11
+              ],
+              "electric_integral_m": 0.0002622135090070638,
+              "a_squared": 1.471562122235404e-17,
+              "e_dot_a": -2.0053969289326015e-11,
+              "mass_coupling": 3.811240766082555e-14
+            },
+            {
+              "shape": [
+                17,
+                5,
+                21
+              ],
+              "electric_integral_m": 0.00026749741887080165,
+              "a_squared": 1.4935124182805052e-17,
+              "e_dot_a": -1.9938032450022267e-11,
+              "mass_coupling": 3.811996511135993e-14
+            },
+            {
+              "shape": [
+                33,
+                7,
+                41
+              ],
+              "electric_integral_m": 0.0002698071436705709,
+              "a_squared": 1.499939151745546e-17,
+              "e_dot_a": -1.9915781061063867e-11,
+              "mass_coupling": 3.8122207975158504e-14
+            }
+          ]
+        },
+        {
+          "translation_m": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "refinements": [
+            {
+              "shape": [
+                9,
+                3,
+                11
+              ],
+              "electric_integral_m": 0.0002844508651388548,
+              "a_squared": 1.774620039609063e-17,
+              "e_dot_a": -1.6104837004728606e-11,
+              "mass_coupling": 6.130720493432209e-15
+            },
+            {
+              "shape": [
+                17,
+                5,
+                21
+              ],
+              "electric_integral_m": 0.0002908486445542926,
+              "a_squared": 1.7999358243654897e-17,
+              "e_dot_a": -1.606707335794184e-11,
+              "mass_coupling": 6.168475338598579e-15
+            },
+            {
+              "shape": [
+                33,
+                7,
+                41
+              ],
+              "electric_integral_m": 0.00029356556035572333,
+              "a_squared": 1.807273261053491e-17,
+              "e_dot_a": -1.6054250782583183e-11,
+              "mass_coupling": 6.1791030798907436e-15
+            }
+          ]
+        },
+        {
+          "translation_m": [
+            0.0,
+            0.0,
+            0.1
+          ],
+          "refinements": [
+            {
+              "shape": [
+                9,
+                3,
+                11
+              ],
+              "electric_integral_m": 0.00026027722296235843,
+              "a_squared": 1.4348294131151138e-17,
+              "e_dot_a": -6.526230154037255e-12,
+              "mass_coupling": 3.9186394380748904e-14
+            },
+            {
+              "shape": [
+                17,
+                5,
+                21
+              ],
+              "electric_integral_m": 0.0002654167850571848,
+              "a_squared": 1.4585659977097755e-17,
+              "e_dot_a": -6.5073534865839004e-12,
+              "mass_coupling": 3.91943131369052e-14
+            },
+            {
+              "shape": [
+                33,
+                7,
+                41
+              ],
+              "electric_integral_m": 0.00026803339027436804,
+              "a_squared": 1.4655188902413527e-17,
+              "e_dot_a": -6.495438260994007e-12,
+              "mass_coupling": 3.9196662907690344e-14
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "material_benchmark_cases": 18,
+  "material_benchmark_specifications": [
+    {
+      "materials": [
+        [
+          3.0,
+          0.0001
+        ],
+        [
+          3.0,
+          0.0001
+        ]
+      ],
+      "translation_z_m": -0.1,
+      "frequency_hz": 3102400.0
+    },
+    {
+      "materials": [
+        [
+          3.0,
+          0.0001
+        ],
+        [
+          3.0,
+          0.0001
+        ]
+      ],
+      "translation_z_m": -0.1,
+      "frequency_hz": 3304300.0
+    },
+    {
+      "materials": [
+        [
+          3.0,
+          0.0001
+        ],
+        [
+          3.0,
+          0.0001
+        ]
+      ],
+      "translation_z_m": 0.0,
+      "frequency_hz": 3102400.0
+    },
+    {
+      "materials": [
+        [
+          3.0,
+          0.0001
+        ],
+        [
+          3.0,
+          0.0001
+        ]
+      ],
+      "translation_z_m": 0.0,
+      "frequency_hz": 3304300.0
+    },
+    {
+      "materials": [
+        [
+          3.0,
+          0.0001
+        ],
+        [
+          3.0,
+          0.0001
+        ]
+      ],
+      "translation_z_m": 0.1,
+      "frequency_hz": 3102400.0
+    },
+    {
+      "materials": [
+        [
+          3.0,
+          0.0001
+        ],
+        [
+          3.0,
+          0.0001
+        ]
+      ],
+      "translation_z_m": 0.1,
+      "frequency_hz": 3304300.0
+    },
+    {
+      "materials": [
+        [
+          6.0,
+          1e-05
+        ],
+        [
+          2.0,
+          0.0001
+        ]
+      ],
+      "translation_z_m": -0.1,
+      "frequency_hz": 3102400.0
+    },
+    {
+      "materials": [
+        [
+          6.0,
+          1e-05
+        ],
+        [
+          2.0,
+          0.0001
+        ]
+      ],
+      "translation_z_m": -0.1,
+      "frequency_hz": 3304300.0
+    },
+    {
+      "materials": [
+        [
+          6.0,
+          1e-05
+        ],
+        [
+          2.0,
+          0.0001
+        ]
+      ],
+      "translation_z_m": 0.0,
+      "frequency_hz": 3102400.0
+    },
+    {
+      "materials": [
+        [
+          6.0,
+          1e-05
+        ],
+        [
+          2.0,
+          0.0001
+        ]
+      ],
+      "translation_z_m": 0.0,
+      "frequency_hz": 3304300.0
+    },
+    {
+      "materials": [
+        [
+          6.0,
+          1e-05
+        ],
+        [
+          2.0,
+          0.0001
+        ]
+      ],
+      "translation_z_m": 0.1,
+      "frequency_hz": 3102400.0
+    },
+    {
+      "materials": [
+        [
+          6.0,
+          1e-05
+        ],
+        [
+          2.0,
+          0.0001
+        ]
+      ],
+      "translation_z_m": 0.1,
+      "frequency_hz": 3304300.0
+    },
+    {
+      "materials": [
+        [
+          2.0,
+          0.0001
+        ],
+        [
+          6.0,
+          1e-08
+        ]
+      ],
+      "translation_z_m": -0.1,
+      "frequency_hz": 3102400.0
+    },
+    {
+      "materials": [
+        [
+          2.0,
+          0.0001
+        ],
+        [
+          6.0,
+          1e-08
+        ]
+      ],
+      "translation_z_m": -0.1,
+      "frequency_hz": 3304300.0
+    },
+    {
+      "materials": [
+        [
+          2.0,
+          0.0001
+        ],
+        [
+          6.0,
+          1e-08
+        ]
+      ],
+      "translation_z_m": 0.0,
+      "frequency_hz": 3102400.0
+    },
+    {
+      "materials": [
+        [
+          2.0,
+          0.0001
+        ],
+        [
+          6.0,
+          1e-08
+        ]
+      ],
+      "translation_z_m": 0.0,
+      "frequency_hz": 3304300.0
+    },
+    {
+      "materials": [
+        [
+          2.0,
+          0.0001
+        ],
+        [
+          6.0,
+          1e-08
+        ]
+      ],
+      "translation_z_m": 0.1,
+      "frequency_hz": 3102400.0
+    },
+    {
+      "materials": [
+        [
+          2.0,
+          0.0001
+        ],
+        [
+          6.0,
+          1e-08
+        ]
+      ],
+      "translation_z_m": 0.1,
+      "frequency_hz": 3304300.0
+    }
+  ]
+}
