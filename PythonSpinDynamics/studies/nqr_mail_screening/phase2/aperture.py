@@ -58,7 +58,7 @@ def candidates(resolution=16):
     enclosing = helical_solenoid(
         diameter=0.36, length=0.46, turns=6, wire_radius=0.0015, n_per_turn=resolution
     )
-    # Two open rectangular loops in series, normal to y; 1 mm feed gaps.
+    # Two open rectangular loops in series, normal to y; 6 mm feed gaps.
     paths = []
     for y in (-0.03, 0.03):
         corners = np.array(
@@ -67,7 +67,7 @@ def candidates(resolution=16):
                 [0.18, y, -0.23],
                 [0.18, y, 0.23],
                 [-0.18, y, 0.23],
-                [-0.18, y, -0.229],
+                [-0.18, y, -0.224],
             ]
         )
         paths.append(

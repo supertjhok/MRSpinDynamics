@@ -1,12 +1,11 @@
 # 14N NQR mail-screening system design study
 
-> **Status (2026-09-05): Gate 1 passed for the declared absolute single-line
-> reference; Phase 2 is in progress.** `phase1/gate1_report.json` closes the
-> finite-pulse moment/flux/receiver/ADC budget with independent SNR calculations
-> and seeded noise checks. `phase2/` adds material voxels, moving poses, aperture
-> candidates, field maps and initial PEEC/loading sensitivity cases. Gate 2 remains
-> open pending spatial/network convergence and voxel-dependent loading. No
-> validated scanner ROC or detection-limit claim is made.
+> **Status (2026-09-07): Gates 1 and 2 passed for their declared numerical
+> reference domains.** Phase 2 now includes spatial dielectric/conductive loading,
+> converged field and PEEC maps, and reduced/fine material-solver comparisons.
+> `phase2/gate2_report.json` records the limits and validation family. Metal/foil,
+> magnetic contents and full-wave regimes remain outside that validation. No
+> measured scanner ROC, detection limit or optimal geometry is claimed.
 
 ### User geometry amendment (supersedes the stop-and-scan study default)
 
@@ -29,7 +28,7 @@ which coil, resonator, pulse/acquisition schedule, receiver, RFI mitigation,
 and decision rule gives the best screening performance within time, power,
 thermal, voltage, current, and size constraints?
 
-The user scope is typical USPS/UPS/FedEx envelopes at 0Ã¢â‚¬â€œ50 degrees C,
+The user scope is typical USPS/UPS/FedEx envelopes at 0ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“50 degrees C,
 approximately 5 mm access clearance, and illicit pharmaceuticals with synthetic
 opioids prioritized. Pulsed SLSE/SORC and a pre-polarization comparison are
 required study branches. See `phase0/user_requirements.md` and
@@ -64,7 +63,7 @@ Let \(d\) contain controllable design choices:
   reference layout;
 - signal features, multi-line fusion, threshold, and adaptive stopping policy.
 
-Let ÃƒÅ½Ã‚Â¾ collect nuisance variables that the system cannot control exactly:
+Let ÃƒÆ’Ã…Â½Ãƒâ€šÃ‚Â¾ collect nuisance variables that the system cannot control exactly:
 
 - target identity, mass, morphology, crystalline fraction, location, and pose;
 - parcel size and contents, dielectric and conductive loading, and temperature;
@@ -299,10 +298,12 @@ a declared tolerance. No system optimization begins before this gate passes.
 
 ### Phase 2: parcel and aperture model
 
-> **Implementation status:** started; see `phase2/README.md` and
-> `phase2/aperture_report.json`. Material voxels, pose transforms, three candidate
-> geometries, reciprocity maps, initial PEEC spectra and coarse surrogate errors
-> are implemented. Voxel-dependent loading and convergence remain open.
+> **Implementation status:** numerical Gate 2 passed for the documented
+> nonmetallic packet/paper family; see `phase2/README.md` and `phase2/gate2_report.json`.
+> Spatial loading, field/network convergence, component tolerance propagation and
+> material-mesh comparisons are complete for that family. Additional material,
+> rotated-pose or full-wave regimes require a new validation domain, not automatic
+> extrapolation from this gate.
 
 1. Add parcel regions or voxels with material identity, density or amount,
    crystalline fraction, pose, temperature, and loading properties.
