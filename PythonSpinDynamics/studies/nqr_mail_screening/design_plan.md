@@ -361,6 +361,15 @@ thermal and receiver constraint margins are reported for every trial.
 subsequently declared false-alarm bound is checked), and adaptive acquisition is compared
 with fixed schedules under identical physical-time accounting.
 
+> Phase 4 implementation: see [phase4/README.md](phase4/README.md) and
+> [phase4/phase4_report.json](phase4/phase4_report.json). The finite action tree
+> retains spin history, fuses correlated early/late x/y evidence, and uses Bayesian
+> decision-risk reduction per physical second. Thresholds are fitted on separate
+> target-absent calibration records; held-out ROC and paired adaptive/fixed
+> comparisons include uncertainty. The software amplitude diagnostic is explicitly
+> separate from physical 1 g results. Gate scope is the declared synthetic feature
+> model, not installed-site calibration or a demonstrated detection limit.
+
 ### Phase 5: robust co-design optimization
 
 1. Screen broad hardware and acquisition combinations with Level A.
