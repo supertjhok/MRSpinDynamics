@@ -128,7 +128,7 @@ transport, fields, receiver arrays, RF-coil circuits, defect-spin nano-MR,
 optical detection, and instrument hardware.
 \end{minipage}
 \vfill
-{\large August 2026\par}
+{\large October 2026\par}
 \end{titlepage}
 \nopagecolor
 \clearpage
@@ -1613,6 +1613,8 @@ not fits to a particular catalyst or experiment.}
 
 Run \code{python examples/plot\_lls\_phip\_workflows.py} to reproduce the
 figure and vary \(T_S\), para enrichment, and pairwise yield.
+
+\input{overhauser_dnp_chapter.tex}
 
 \chapter{Electron Spin Resonance Models}
 \label{chap:esr}
@@ -3334,6 +3336,8 @@ The diagnostic plotting example constructs a compact \(3\times3\) map over the
 spin-1 \code{x}, \code{y}, and \code{z} transitions. Off-diagonal features
 indicate that perturbation and detection frequencies are connected through the
 same quadrupolar site.
+
+\input{nqr_screening_chapter.tex}
 
 \part{Sequences and Experiment Planning}
 \label{part:sequences}
@@ -8693,6 +8697,11 @@ full command list.
   \item[Diffusion and transport.] Start with \code{plot\_bipolar\_pgste.py},
   then \code{plot\_pgse\_qspace\_walkers.py} and
   \code{plot\_cpmg\_pipe\_flow.py}.
+  \item[Liquid-state DNP.] Read Chapter~\ref{chap:overhauser}, then run
+  \code{plot\_overhauser\_tempol\_water.py} and
+  \code{plot\_overhauser\_tempol\_saturation.py}. Use
+  \code{plot\_tempol\_published\_benchmarks.py} to compare the model stages
+  with the retained published observations.
   \item[NQR or ESR.] Use \code{experiment\_nqr\_auto\_model.py} or
   \code{plot\_esr\_pulsed\_echo.py} before moving to the optimization and
   statistical studies.
@@ -9533,9 +9542,11 @@ from spin_dynamics.fields import (
     save_harmonic_em, load_harmonic_em,
     OpenEMSProject, OpenEMSSettings, OpenEMSWire,
     OpenEMSPlanarConductor, OpenEMSCylindricalSample,
+    OpenEMSMaterialBox, OpenEMSPortSweep,
     OpenEMSLumpedPort, loaded_loop_openems_reference,
     check_openems_python, write_openems_project,
     run_openems, load_openems_solution,
+    load_openems_port_sweep,
     FullWaveValidationReport, apply_validation_report,
 )
 \end{lstlisting}
@@ -9546,6 +9557,30 @@ optional external full-wave project. Imported fields are not promoted to a
 converged result until a complete validation report passes. See
 Section~\ref{sec:fields-fullwave} for the model boundary and validated scope;
 the generated Markdown API reference contains complete signatures.
+
+Material boxes and finite-conductivity planar sheets support substrates,
+coatings and conducting enclosures. Explicit mesh lines resolve strip edges
+and feed gaps. Port-frequency sweeps retain incident/reflected waves and S11;
+multi-frequency E/J/B dumps are selected with an explicit import frequency.
+These additional geometry and import capabilities do not expand the validated
+loaded-loop region automatically. Interface fields, SAR and a new geometry's
+mesh convergence still require independent checks.
+
+\section{Overhauser DNP APIs}
+\begin{lstlisting}[language=Python]
+from spin_dynamics.dnp import (
+    OverhauserRates, cw_overhauser, overhauser_from_factors,
+    TranslationalDiffusionModel, translational_relaxation_rates,
+    MotionBasedCWModel, RotationalDipolarModel, ScalarContactModel,
+    NitroxideSaturationModel, NitroxideRelaxationMatrix,
+    CoupledElectronNuclearModel, ElectronNuclearTransitionRates,
+    MicrowaveDrive, polarization_buildup,
+)
+from spin_dynamics.workflows.dnp import run_overhauser_power_sweep
+\end{lstlisting}
+See Chapter~\ref{chap:overhauser} for units, line ordering and ensemble versus
+pair assumptions. The generated web reference includes class factories,
+methods, properties and declared dataclass fields, not only module functions.
 
 \section{Receiver Networks and Birdcage APIs}
 
@@ -10206,8 +10241,8 @@ specific extensions that remain future work.}
   interchange and an optional openEMS adapter now provide a validated loaded-loop
   reference in the declared sample interior. General arbitrary circuit graphs,
   measured S-parameter and standard LNA noise-parameter import, coupled
-  transmission lines, component tolerance/loss propagation, general full-wave
-  dielectric/shield modeling, interface-field validation, SAR, compression,
+  transmission lines, component tolerance/loss propagation, validated general
+  full-wave material/interface modeling, SAR, compression,
   recovery, and scanner/bench validation remain outside the quantitative
   reference layer.
   \item[Validation evidence.] Broader high-Q matched-probe fixtures, historical
@@ -10215,9 +10250,19 @@ specific extensions that remain future work.}
   scalar-coupling checks, and experimental NQR/ESR fixtures remain valuable.
   Validation should be reported by level: unit invariant, analytical limit,
   reference-code parity, external solver, or experimental comparison.
-  \item[Provenance and reproducibility.] Saved facade runs capture specifications
-  and results, but richer environment, fixture, calibration, input-file digest,
-  and backend metadata would make long-lived studies easier to audit.
+  \item[Provenance and reproducibility.] Saved facade runs retain canonical
+  experiment/result hashes, callable and package identities, Git state,
+  numerical environment and input identities, random-seed classification,
+  archive-integrity checks and rerun verification. Backend device metadata,
+  convergence tolerances and intentionally omitted result fields remain gaps.
+  \item[Overhauser DNP.] Liquid CW motion rates, nitroxide saturation and full
+  nitrogen relaxation are implemented. Published TEMPOL comparison is partial,
+  not an independent calibration of the entire microscopic chain. General
+  finite-temperature ensemble dynamics and matched ELDOR data remain gaps.
+  \item[NQR screening.] The staged system study reaches calibrated synthetic
+  fixed/adaptive comparisons, but its physical reference does not demonstrate
+  useful discrimination. Hardware sensitivity and installed-site robustness
+  remain unresolved (Chapter~\ref{chap:nqr-screening}).
   \item[Performance and scale.] NumPy, Numba, JAX, batching, and benchmark tools
   exist, but coverage is uneven. Large sparse coupled-spin systems, full 3-D
   transport/thermal solves, CFD-derived flow, and multi-GPU execution are not

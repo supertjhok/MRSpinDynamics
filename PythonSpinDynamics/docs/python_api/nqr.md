@@ -1,5 +1,9 @@
 # NQR Models
 
+For the integrated spatial, receiver and calibrated-decision research pipeline,
+see the [NQR mail-screening study](../nqr_mail_screening.md). Its Phase 0–4 gates
+are distinct from validation of an installed screening system.
+
 Nuclear quadrupole resonance (NQR) detects nuclei with spin greater than one
 half through their interaction with the local electric-field gradient. Unlike
 ordinary NMR, a static applied field is not required: the material's local

@@ -105,6 +105,7 @@ nav:
           - Hyperpolarization and singlets: python_api/hyperpolarization.md
       - NQR and quadrupolar NMR:
           - NQR models and workflows: python_api/nqr.md
+          - NQR mail-screening study: nqr_mail_screening.md
           - Powder relaxation methods: nqr_powder_relaxation_methods.md
       - ESR and EPR: python_api/esr.md
       - Defect-spin nanoscale MR:
@@ -156,6 +157,7 @@ nav:
   - Validation:
       - Validation guide: python_api/validation.md
       - Evidence matrix: validation_matrix.md
+      - Published TEMPOL benchmarks: tempol_published_benchmarks.md
       - Validation results: validation_results.md
       - Known gaps: python_api/known_gaps.md
       - Performance: python_api/performance.md

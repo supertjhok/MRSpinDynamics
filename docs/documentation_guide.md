@@ -1,6 +1,6 @@
 # Documentation Guide
 
-_Audited: 2026-07-11_
+_Audited: 2026-10-24_
 
 MRSpinDynamics contains user guides, generated references, validation records,
 engineering design records, and future roadmaps. They serve different purposes;
@@ -11,6 +11,8 @@ confusion. Use this map to choose the right starting point.
 
 - New Python user: the [PythonSpinDynamics installation guide](../PythonSpinDynamics/docs/python_api/installation.md), then the [experiment workflow](../PythonSpinDynamics/docs/python_api/experiment_workflow.md).
 - Learning by running code: the [organized examples catalog](../PythonSpinDynamics/docs/python_api/examples.md).
+- Liquid-state DNP: the [Overhauser guide](../PythonSpinDynamics/docs/overhauser_dnp.md) and [published TEMPOL benchmarks](../PythonSpinDynamics/docs/tempol_published_benchmarks.md).
+- System-level NQR screening: the [study guide](../PythonSpinDynamics/docs/nqr_mail_screening.md), including the physical sensitivity limitations.
 - Checking scientific support: the [validation matrix](../PythonSpinDynamics/docs/validation_matrix.md) and [known gaps](../PythonSpinDynamics/docs/python_api/known_gaps.md).
 - Whole-workspace orientation: the [repository README](../README.md) and [roadmap](roadmap.md).
 - Detailed reading or offline use: the [Python user manual](../PythonSpinDynamics/docs/user_manual.pdf).
@@ -31,6 +33,9 @@ describe current behavior. Commands in these documents are expected to run.
 - `PythonSpinDynamics/docs/generated/validation_summary.tex`
 
 Regenerate them with the scripts documented in the development guide.
+The API inventory includes public methods, properties, and declared class
+attributes as well as top-level functions and classes. Inherited members and
+synthesized constructors are not expanded.
 
 ### Engineering records -- implemented design history
 

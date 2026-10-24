@@ -1,5 +1,10 @@
 # Hyperpolarization and Long-Lived Singlet Workflows
 
+For liquid-state electron-to-nuclear Overhauser DNP, use the separate
+[CW Overhauser guide](../overhauser_dnp.md). It covers motion-derived rates,
+nitroxide saturation and coupled electron–nuclear dynamics; the singlet/PHIP
+models below describe a different source of spin order.
+
 Ordinary thermal polarization stores excess population along the magnetic
 field. Hyperpolarization and long-lived singlet experiments can instead store
 order in correlated two-spin states, where independent Bloch vectors cannot

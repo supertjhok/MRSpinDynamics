@@ -1,0 +1,71 @@
+\chapter{NQR Mail-Screening System Study}
+\label{chap:nqr-screening}
+
+A successful spin simulation is only one part of an NQR screening instrument.
+The signal must survive spatially varying excitation, polarization transport,
+coil loading, receiver dynamics and interference before a calibrated detector
+can identify it. The versioned study in
+\code{studies/nqr\_mail\_screening} composes these layers with explicit physical
+time and retained spin histories. These scripts are reproducible research
+entry points, not a new installed package API or a validated screening product.
+
+\chapterpath{Locate the staged reference calculations, understand their
+numerical gates, and distinguish a matched synthetic detector test from
+demonstrated physical sensitivity.}
+
+\section{Implemented Stages}
+
+\begin{description}
+\item[Phase 0: requirements and evidence.] Versioned target/material inputs,
+requirements, literature provenance and a frozen test-set policy.
+\item[Phase 1: absolute reference.] Three-level pulse propagation and an
+absolute signal-chain reference, including coil geometry, thermal populations,
+reciprocal reception, noise and convergence checks. Motion-aware pulse histories
+and a Zeeman-spectral spacing constraint replace an instantaneous transfer gain.
+\item[Phase 2: spatial and material loading.] Voxel-resolved transmit/receive
+coupling, circuit parameters, conservative loading bounds and an independent
+quasistatic material audit. Validation-only dependencies are isolated in
+the phase's requirements file. This is not a general full-wave validation.
+\item[Phase 3: complete acquisition records.] Spin density matrices survive
+successive SLSE-x, FID-y, SORC-x and repeated-SLSE blocks. Carrier-frame handoffs,
+finite RF tails, receiver filtering, ADC clipping/recovery, RFI cancellation and
+thermal accounting share one physical clock. Magnet and coil dwells are
+stationary, with explicit transfer motion between them.
+\item[Phase 4: calibrated decisions.] A three-action adaptive tree, matched-filter
+features and correlated likelihood compare fixed and adaptive schedules under
+the same complete cycle-time budget. Development, threshold calibration,
+held-out evaluation and shifted-interference data use separate records.
+\end{description}
+
+\section{Results and Boundaries}
+
+The checked-in Phase 4 report's physical 1 g reference gives ROC AUC 0.509
+for the fixed schedule and 0.468 for the adaptive schedule at a 3.354 s budget.
+The reported intervals overlap chance, and the paired comparison does not
+establish adaptive benefit. Software amplitude multipliers of 10000 and 100000
+are explicitly diagnostic positive controls, not extra hardware gain or an
+achievable sensitivity claim. Untrained RFI drift raises false alarms far above
+the illustrative 5\% matched-domain calibration setting.
+
+Numerical gates therefore establish their declared synthetic domains, not
+fentanyl sensitivity, installed-site robustness, blind benign-material
+discrimination or optimal hardware. Subsequent work must address physical
+signal strength and robustness before site calibration. The study's report
+files and phase READMEs preserve these restrictions and provenance.
+
+\section{Reproduce Without Confusing Studies and APIs}
+
+From \code{PythonSpinDynamics}, first read the study README and the chosen
+phase's prerequisites. Full spatial and receiver stages can be expensive;
+they should not be treated as installation smoke examples.
+\begin{lstlisting}[language=bash]
+python -m unittest tests.test_nqr_mail_screening_phase4
+# After generating the Phase 2 maps and Phase 3 dependencies:
+python studies/nqr_mail_screening/phase4/evaluate.py
+python studies/nqr_mail_screening/phase4/plot_phase4.py
+\end{lstlisting}
+
+The underlying public physics, field, receiver and Bayesian-design APIs are
+documented in their respective chapters. Phase scripts, their schemas and
+large cached artifacts are study-specific. Numerical test success does not
+promote them to a general production workflow.

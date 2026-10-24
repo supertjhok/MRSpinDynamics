@@ -22,6 +22,14 @@ For absolute translational, rotational, scalar-contact and mixed-channel rates,
 run `plot_overhauser_motion_models.py`.
 For coupled electron–nuclear microwave pumping, thermal recovery and detuning,
 run `plot_overhauser_coupled_dynamics.py`.
+For concentration-dependent nitrogen populations and exchange, run
+`plot_overhauser_tempol_saturation.py`. For full nitrogen relaxation versus
+published data, run `plot_tempol_published_benchmarks.py` and read the
+[benchmark provenance and limitations](../tempol_published_benchmarks.md).
+
+The [NQR mail-screening study](../nqr_mail_screening.md) has separate phase
+scripts and prerequisites. It is not a quick example or an established
+screening-sensitivity result.
 
 | Goal | First example | Then try |
 |---|---|---|

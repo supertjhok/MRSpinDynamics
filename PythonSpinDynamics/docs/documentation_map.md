@@ -18,6 +18,8 @@ model references.
 | Understand units and model choices | [Concepts and Units](python_api/concepts.md) | The relevant page under Physical Models |
 | Import or construct a pulse sequence | [Sequence IR and Pulseq](python_api/sequence_ir.md) | [Phase Cycling](python_api/phase_cycling.md) |
 | Simulate NQR, ESR, coupled spins, or exchange | The matching page under Physical Models | Its linked examples and validation records |
+| Predict liquid-state DNP | [Overhauser DNP](overhauser_dnp.md) | [Published TEMPOL comparisons](tempol_published_benchmarks.md) |
+| Study a complete NQR screening chain | [Mail-screening study](nqr_mail_screening.md) | Phase-specific source READMEs and numerical gate reports |
 | Design a magnet, coil, or detector | The matching page under Fields and Hardware | Engineering, thermal, and validation pages |
 | Model receiver arrays, SENSE, coupling, LNAs, or a birdcage | [Receiver-array imaging](receiver_array_imaging.md) | [SENSE](sense_imaging.md), [receiver networks](receiver_networks.md), and [birdcage coils](birdcage_coils.md) |
 | Study a complete imaging system | [Portable Halbach MRI](portable_halbach_adaptive_mri.md) | [Q-space robustness](qspace_imaging_robustness.md) or [magnetic therapy](image_guided_magnetic_therapy.md) |

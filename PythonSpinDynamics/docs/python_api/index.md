@@ -25,7 +25,9 @@ original workflows; it is not the organizing principle for new user code.
 
 - [J-Coupling Models](j_coupling.md)
 - [Hyperpolarization and Singlet States](hyperpolarization.md)
+- [Liquid-state Overhauser DNP and nitroxide saturation](../overhauser_dnp.md)
 - [NQR Models](nqr.md)
+- [NQR mail-screening system study](../nqr_mail_screening.md)
 - [ESR Models](esr.md)
 - [Defect-Spin Nanoscale MR](nano_mr.md)
 - [Chemical / Site Exchange](exchange.md)
@@ -41,6 +43,7 @@ original workflows; it is not the organizing principle for new user code.
 - [Cartesian SENSE Imaging](../sense_imaging.md)
 - [Coupled Receiver Networks and LNA Front Ends](../receiver_networks.md)
 - [Birdcage Coils](../birdcage_coils.md)
+- [openEMS materials, ports and multi-frequency fields](../openems_backend.md)
 - [Image-Guided Magnetic Therapy](../image_guided_magnetic_therapy.md)
 - [Analysis](analysis.md)
 
