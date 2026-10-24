@@ -1,0 +1,79 @@
+{
+  "evidence_type": "published_theory_and_independent_quadrature",
+  "doi": "10.1063/1.431841",
+  "source_url": "https://www.acert.cornell.edu/PDFs/JChemPhys63_4017_1975.pdf",
+  "source_location": "Appendix A Eq. A6; Table I analytic zero-frequency entry",
+  "method": "SciPy adaptive quadrature of the diffusion eigenmode integral; not the production rational expression",
+  "normalized_one_sided_j0_over_tau": 0.4444444444444444,
+  "table_i_half_two_sided_j0_dD_over_density": 0.14814814814814814,
+  "gamma_e_hz_per_t": 28024951424.2,
+  "gamma_n_hz_per_t": 42577478.92,
+  "transition_convention": "Positive magnitudes; H_Z=+omega_e*S_z-omega_n*I_z; dipolar DQ at difference, ZQ at sum",
+  "diffusion_curve": [
+    {
+      "field_tesla": 0.1,
+      "tau_d_seconds": 3e-11,
+      "coupling_factor": 0.4283839206892851
+    },
+    {
+      "field_tesla": 0.35,
+      "tau_d_seconds": 3e-11,
+      "coupling_factor": 0.340476520206967
+    },
+    {
+      "field_tesla": 1.0,
+      "tau_d_seconds": 3e-11,
+      "coupling_factor": 0.20222496424448444
+    },
+    {
+      "field_tesla": 0.1,
+      "tau_d_seconds": 5.4e-11,
+      "coupling_factor": 0.3962729243654984
+    },
+    {
+      "field_tesla": 0.35,
+      "tau_d_seconds": 5.4e-11,
+      "coupling_factor": 0.2694026579867223
+    },
+    {
+      "field_tesla": 1.0,
+      "tau_d_seconds": 5.4e-11,
+      "coupling_factor": 0.11857819717812494
+    },
+    {
+      "field_tesla": 0.1,
+      "tau_d_seconds": 1e-10,
+      "coupling_factor": 0.3454321756114072
+    },
+    {
+      "field_tesla": 0.35,
+      "tau_d_seconds": 1e-10,
+      "coupling_factor": 0.17922344079264962
+    },
+    {
+      "field_tesla": 1.0,
+      "tau_d_seconds": 1e-10,
+      "coupling_factor": 0.05518846307240681
+    },
+    {
+      "field_tesla": 0.1,
+      "tau_d_seconds": 3e-10,
+      "coupling_factor": 0.20222496424448444
+    },
+    {
+      "field_tesla": 0.35,
+      "tau_d_seconds": 3e-10,
+      "coupling_factor": 0.05154583615524316
+    },
+    {
+      "field_tesla": 1.0,
+      "tau_d_seconds": 3e-10,
+      "coupling_factor": 0.009918832822329388
+    }
+  ],
+  "limitations": [
+    "Theory reference only; no independently measured enhancement-vs-power dataset is asserted.",
+    "The original paper's density/radial and two-sided conventions are converted explicitly.",
+    "Absolute rate prefactor is independently checked by spatial and Poisson integrals in tests/test_dnp_spectral.py."
+  ]
+}

@@ -512,6 +512,33 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `warn_deprecated(name: str, *, since: str, removal: str, alternative: str, stacklevel: int = 2) -> None` | Emit the standard visible warning for a deprecated public API. |
 | function | `deprecated(*, since: str, removal: str, alternative: str) -> Callable[[Callable[P, R]], Callable[P, R]]` | Mark a callable deprecated while preserving its signature and metadata. |
 
+## `spin_dynamics.dnp.overhauser`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `OverhauserRates` | Nuclear background, paramagnetic self and cross rates in s^-1. |
+| function | `translational_relaxation_rates(field_tesla, model: TranslationalDiffusionModel, concentration_molar, *, background_r1_per_second = 0.0, scalar_self_rate_per_second = 0.0, gamma_n_hz_per_t = PROTON_GAMMA_HZ_PER_T, gamma_e_hz_per_t = ELECTRON_GAMMA_HZ_PER_T) -> OverhauserRates` | Compute absolute FFHS dipolar rates and add an optional scalar rate. |
+| class | `OverhauserResult` | CW observables on a broadcast condition grid; E includes the baseline 1. |
+| function | `cw_overhauser(rates: OverhauserRates, *, field_tesla, saturation_factor, temperature_kelvin = 298.15, gamma_n_hz_per_t = PROTON_GAMMA_HZ_PER_T, gamma_e_hz_per_t = ELECTRON_GAMMA_HZ_PER_T) -> OverhauserResult` | Calculate E=1-xi*f*s*|gamma_e|/gamma_n and absolute polarization. |
+| function | `overhauser_from_factors(*, coupling_factor, leakage_factor, t1_seconds, field_tesla, saturation_factor, temperature_kelvin = 298.15, gamma_n_hz_per_t = PROTON_GAMMA_HZ_PER_T, gamma_e_hz_per_t = ELECTRON_GAMMA_HZ_PER_T) -> OverhauserResult` | Calculate CW DNP from measured xi/f/s and a finite nuclear T1. |
+| class | `OverhauserBuildup` | Time-leading polarization with shape (n_times, *condition_shape). |
+| function | `polarization_buildup(result: OverhauserResult, times_seconds, *, initial_polarization = None, pumping = True, off_t1_seconds = None) -> OverhauserBuildup` | Evolve toward the CW steady state or the microwave-off thermal state. |
+
+## `spin_dynamics.dnp.saturation`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `power_saturation(power_watts, half_saturation_power_watts, *, maximum = 1.0)` | Return effective s_max*p/(p+p_half) with explicitly calibrated powers. |
+| function | `bloch_saturation(nutation_rad_per_s, t1e_seconds, t2e_seconds, *, detuning_rad_per_s = 0.0, maximum = 1.0)` | Return homogeneous-line CW Bloch saturation, optionally scaled by s_max. |
+
+## `spin_dynamics.dnp.spectral`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| function | `ffhs_spectral_density(angular_frequency_rad_per_s, diffusion_time_seconds)` | Return the FFHS spectrum in seconds, with J(0) = 4*tau_D/9. |
+| function | `rotational_spectral_density(angular_frequency_rad_per_s, correlation_time_seconds)` | Return the one-sided exponential-correlation spectrum tau/(1+(w*tau)^2). |
+| class | `TranslationalDiffusionModel` | Uniform FFHS solution of S=1/2 radicals outside a reflecting sphere. |
+
 ## `spin_dynamics.esr.deer`
 
 | Kind | Name | Summary |
@@ -2876,6 +2903,13 @@ No public classes or functions found.
 | function | `run_arrhenius_quadrupolar_relaxation(site: QuadrupolarSite, temperature_kelvin: float | Iterable[float] | np.ndarray, *, tau_ref_seconds: float, reference_temperature_kelvin: float, activation_energy_j_per_mol: float, fluctuation_amplitude_hz: float, b0_vector_tesla_pas: Iterable[float] | np.ndarray | None = None, vibration_frequency_hz: float = 0.0) -> QuadrupolarRelaxationWorkflowResult` | Run the transition workflow with one Arrhenius correlation-time law. |
 | function | `run_nmrd(larmor_frequency_hz: float | Iterable[float] | np.ndarray, correlation_time_seconds: float | Iterable[float] | np.ndarray, *, coupling_scale_per_second2: float, temperature_kelvin: Iterable[float] | np.ndarray | None = None, field_tesla: Iterable[float] | np.ndarray | None = None, baseline_r1_per_second: float = 0.0, baseline_r2_per_second: float = 0.0) -> NMRDWorkflowResult` | Run a BPP NMRD sweep over frequency for one or more conditions. |
 | function | `run_field_cycling_nmrd(field_tesla: float | Iterable[float] | np.ndarray, temperature_kelvin: float | Iterable[float] | np.ndarray, *, gamma_hz_per_t: float, tau_ref_seconds: float, reference_temperature_kelvin: float, activation_energy_j_per_mol: float, coupling_scale_per_second2: float, baseline_r1_per_second: float = 0.0, baseline_r2_per_second: float = 0.0) -> NMRDWorkflowResult` | Run an Arrhenius BPP field-cycling experiment on a field grid. |
+
+## `spin_dynamics.workflows.dnp`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `OverhauserPowerSweep` | CW observables with power rows and field columns. |
+| function | `run_overhauser_power_sweep(field_tesla, power_watts, *, model: TranslationalDiffusionModel, concentration_molar, half_saturation_power_watts, maximum_saturation = 1.0, background_r1_per_second = 0.0, scalar_self_rate_per_second = 0.0, temperature_kelvin = 298.15) -> OverhauserPowerSweep` | Run a proton CW power/field sweep with a prescribed FFHS motion model. |
 
 ## `spin_dynamics.workflows.sense`
 

@@ -40,6 +40,13 @@ def run_example(*args: str, cwd: Path = ROOT) -> subprocess.CompletedProcess[str
 
 
 class ExampleSmokeTests(unittest.TestCase):
+    def test_overhauser_dnp_example_renders(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            image = Path(directory) / "overhauser.png"
+            result = run_example("examples/plot_overhauser_dnp.py", "--output", str(image))
+            self.assertIn("xi=0.340477", result.stdout)
+            self.assertTrue(image.read_bytes().startswith(b"\x89PNG\r\n\x1a\n"))
+
     def test_pipe_flow_example_velocity_reduces_polarization_and_first_echo(self) -> None:
         radius = 2.0e-3
         fields = make_pipe_flow_fields(

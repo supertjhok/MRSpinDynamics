@@ -111,6 +111,7 @@ nav:
           - Nano-MR and optical detection: python_api/nano_mr.md
           - Literature and implementation plan: nano_mr_plan.md
       - Relaxation and feedback:
+          - CW Overhauser DNP: overhauser_dnp.md
           - Chemical and site exchange: python_api/exchange.md
           - Radiation damping: radiation_damping.md
           - Relaxation validation: relaxation_validation.md

@@ -5,6 +5,11 @@ repository. It models magnetic-resonance experiments in which spin ensembles
 evolve under magnetic fields, radio-frequency pulses, relaxation, motion,
 diffusion, exchange, and probe imperfections.
 
+Liquid-state CW Overhauser DNP is available through `spin_dynamics.dnp`, with
+absolute FFHS translational-diffusion rates, measured-rate inputs, saturation,
+and nuclear buildup/recovery. See [the DNP guide](docs/overhauser_dnp.md) and
+`examples/plot_overhauser_dnp.py` for a runnable field/power sweep.
+
 The package started as a Python port of the MATLAB NMR code in
 `../MATLABSpinDynamics`. That MATLAB implementation remains the numerical
 reference for the validated nuclear magnetic resonance (NMR) workflows. The

@@ -10,6 +10,34 @@
   },
   "records": [
     {
+      "id": "cw_overhauser_ffhs",
+      "component": "Liquid-state CW Overhauser DNP",
+      "claim": "CW factors, absolute FFHS translational rates, and nuclear buildup/recovery satisfy analytic limits and the original diffusion eigenmode integral in the high-temperature Zeeman regime.",
+      "evidence_types": ["A", "C", "D"],
+      "basis": "Hwang-Freed Appendix A eigenmode quadrature, Table I normalization, independent spatial/Poisson integrals, direct angular averaging of the two-spin dipolar Hamiltonian, and analytic scalar/dipolar/saturation/relaxation limits.",
+      "parameter_range": "Theory reference: 0.1, 0.35, 1 T with tau_D=30,54,100,300 ps; spectrum omega*tau=0 to 1000 plus asymptotes; S=I=1/2 and positive nuclear gamma.",
+      "metric": "Absolute spectral/rate agreement, coupling-factor agreement and pump/recovery limits",
+      "tolerance": "2e-10 relative for finite-frequency eigenmode integrals; 2e-9 absolute for stored coupling factors; 3e-6 relative for near-zero-field absolute-rate limit.",
+      "status": "validated",
+      "reproducers": [
+        "tests/test_dnp_spectral.py",
+        "tests/test_overhauser_dnp.py",
+        "validation/validate_overhauser_diffusion.py",
+        "examples/plot_overhauser_dnp.py"
+      ],
+      "references": [
+        "https://doi.org/10.1063/1.431841",
+        "https://doi.org/10.1103/PhysRev.99.559",
+        "https://doi.org/10.1039/C0CP02126A",
+        "https://doi.org/10.1016/j.pnmrs.2013.06.001"
+      ],
+      "limitations": [
+        "The stored reference is theoretical, not digitized experimental enhancement data; no independent experimental calibration is claimed.",
+        "Electron saturation is prescribed; nitroxide hyperfine redistribution and electron dynamics are not solved.",
+        "FFHS assumes uniform freely diffusing radicals outside a reflecting exclusion sphere; restricted diffusion, negative-gamma nuclei, zero-field pumping and large-polarization regimes are excluded."
+      ]
+    },
+    {
       "id": "bloch_core_matlab",
       "component": "Bloch rotations and acquisition kernels",
       "claim": "Core rotations, echo conversion, acquisition, and arb10 propagation reproduce the established MATLAB/Octave implementation.",

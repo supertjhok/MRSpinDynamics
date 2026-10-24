@@ -11,6 +11,9 @@ from __future__ import annotations
 
 import unittest
 
+from tests.test_overhauser_dnp import OverhauserDNPTests
+from tests.test_dnp_spectral import DNPSpectralTests
+
 from tests.test_basic_octave_fixtures import OctaveFixtureTests
 from tests.test_bloch_siegert import BlochSiegertWorkflowTests
 from spin_dynamics.fields.birdcage_circuit import tuned_low_pass_birdcage
@@ -129,6 +132,9 @@ def load_tests(
     _pattern: str | None,
 ) -> unittest.TestSuite:
     suite = unittest.TestSuite()
+    suite.addTest(ExampleSmokeTests("test_overhauser_dnp_example_renders"))
+    suite.addTests(loader.loadTestsFromTestCase(OverhauserDNPTests))
+    suite.addTests(loader.loadTestsFromTestCase(DNPSpectralTests))
     suite.addTest(
         unittest.FunctionTestCase(
             lambda: test_tuned_uniform_cages_match_analytical_frequencies(

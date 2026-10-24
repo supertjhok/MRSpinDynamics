@@ -18,6 +18,7 @@ __all__ = [
     "deprecation",
     "detection",
     "design",
+    "dnp",
     "esr",
     "exchange",
     "experiment",

@@ -9,6 +9,13 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
 
 ### Added
 
+- Added liquid-state CW Overhauser DNP with absolute Hwang–Freed translational
+  diffusion rates, measured-factor/relaxivity/T1 input paths, scalar/dipolar rate
+  composition, effective power/Bloch saturation, nuclear buildup and recovery,
+  field/power sweeps, a nano-MR adapter, numerical diffusion-integral validation,
+  and a plotted example. The model targets positive-gamma spin-1/2 nuclei in the
+  high-temperature Zeeman limit with prescribed electron saturation.
+
 - Added the first receiver-array foundation to PythonSpinDynamics: ordered
   `RxArray` hardware, absolute unit-current Cartesian B1 maps, complex
   channel-leading reciprocal B1- sensitivities with explicit T/A normalization,

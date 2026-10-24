@@ -316,6 +316,10 @@ from spin_dynamics.workflows.relaxation import (
     run_nmrd,
     run_quadrupolar_relaxation,
 )
+from spin_dynamics.workflows.dnp import (
+    OverhauserPowerSweep,
+    run_overhauser_power_sweep,
+)
 from spin_dynamics.workflows.portable_halbach import (
     EchoWindowSweep,
     GradientCoilDesignMetrics,
@@ -528,6 +532,8 @@ LEGACY_SWEEP_API = (
 )
 
 __all__ = [
+    "OverhauserPowerSweep",
+    "run_overhauser_power_sweep",
     "ParticleMRSequence",
     "CPMGResult",
     "CPMGIRTrainResult",

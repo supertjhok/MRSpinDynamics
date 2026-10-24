@@ -20,13 +20,14 @@ what supports the underlying scientific or numerical claim.
 
 ## Coverage Summary
 
-- 41 capability-level claims
-- 14 validated
+- 42 capability-level claims
+- 15 validated
 - 22 partially validated
 - 5 regression-only
 
 | Component | Claim | Evidence | Status |
 | --- | --- | --- | --- |
+| Liquid-state CW Overhauser DNP | CW factors, absolute FFHS translational rates, and nuclear buildup/recovery satisfy analytic limits and the original diffusion eigenmode integral in the high-temperature Zeeman regime. | **A**, **C**, **D** | validated |
 | Bloch rotations and acquisition kernels | Core rotations, echo conversion, acquisition, and arb10 propagation reproduce the established MATLAB/Octave implementation. | **B**, **A** | validated |
 | CPMG, FID, imaging, and probe workflows | Public ideal, tuned, untuned, and matched workflow assemblies preserve the reference signal and result conventions. | **B**, **R** | validated |
 | Probe pulse responses and phase programs | Rectangular tuned, untuned, and matched pulse responses and selected phase-program helpers match the MATLAB implementation. | **B** | validated |
@@ -70,6 +71,18 @@ what supports the underlying scientific or numerical claim.
 | Full-wave openEMS fields and validation | Full-wave field maps expose time termination, mesh change, E/J loss consistency, reciprocity, and low-frequency analytical-limit evidence before quantitative promotion. | **A**, **C**, **R** | partially validated |
 
 ## Detailed Evidence
+
+### Liquid-state CW Overhauser DNP
+
+- **Claim:** CW factors, absolute FFHS translational rates, and nuclear buildup/recovery satisfy analytic limits and the original diffusion eigenmode integral in the high-temperature Zeeman regime.
+- **Evidence:** A, C, D (validated)
+- **Basis:** Hwang-Freed Appendix A eigenmode quadrature, Table I normalization, independent spatial/Poisson integrals, direct angular averaging of the two-spin dipolar Hamiltonian, and analytic scalar/dipolar/saturation/relaxation limits.
+- **Tested range:** Theory reference: 0.1, 0.35, 1 T with tau_D=30,54,100,300 ps; spectrum omega*tau=0 to 1000 plus asymptotes; S=I=1/2 and positive nuclear gamma.
+- **Metric:** Absolute spectral/rate agreement, coupling-factor agreement and pump/recovery limits
+- **Tolerance:** 2e-10 relative for finite-frequency eigenmode integrals; 2e-9 absolute for stored coupling factors; 3e-6 relative for near-zero-field absolute-rate limit.
+- **References:** https://doi.org/10.1063/1.431841; https://doi.org/10.1103/PhysRev.99.559; https://doi.org/10.1039/C0CP02126A; https://doi.org/10.1016/j.pnmrs.2013.06.001
+- **Reproduce:** [`tests/test_dnp_spectral.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_dnp_spectral.py); [`tests/test_overhauser_dnp.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_overhauser_dnp.py); [`validation/validate_overhauser_diffusion.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/validation/validate_overhauser_diffusion.py); [`examples/plot_overhauser_dnp.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/examples/plot_overhauser_dnp.py)
+- **Limitations:** The stored reference is theoretical, not digitized experimental enhancement data; no independent experimental calibration is claimed. Electron saturation is prescribed; nitroxide hyperfine redistribution and electron dynamics are not solved. FFHS assumes uniform freely diffusing radicals outside a reflecting exclusion sphere; restricted diffusion, negative-gamma nuclei, zero-field pumping and large-polarization regimes are excluded.
 
 ### Bloch rotations and acquisition kernels
 
