@@ -20,13 +20,14 @@ what supports the underlying scientific or numerical claim.
 
 ## Coverage Summary
 
-- 45 capability-level claims
+- 46 capability-level claims
 - 18 validated
-- 22 partially validated
+- 23 partially validated
 - 5 regression-only
 
 | Component | Claim | Evidence | Status |
 | --- | --- | --- | --- |
+| Published TEMPOL/water saturation and DNP benchmarks | An unfitted reduced nitrogen-population model partially reproduces a published TEMPOL/water experimental DNP frequency profile; saturation theory, reconstructed EPR-fit curves and DNP-derived saturation anchors are classified separately. | **D**, **E**, **R** | partially validated |
 | Resolved nitrogen hyperfine populations and Heisenberg exchange saturation | High-temperature 14N/15N nitroxide populations give effective CW saturation with nitrogen relaxation, molarity-dependent population exchange and independently supplied transverse broadening. | **A**, **C**, **R** | validated |
 | Coupled electron-nuclear thermal Overhauser dynamics | A four-level Lindblad pair reference preserves physical density matrices, recovers the laboratory Gibbs state, resolves coherent microwave driving, and reproduces the high-temperature CW limit with its calculated electron saturation. | **A**, **C**, **R** | validated |
 | Rotational and scalar-contact CW Overhauser motion channels | Absolute rotational dipolar and exponential scalar-contact rates reproduce spin-1/2 transition generators and compose independent rate contributions consistently with the existing FFHS model. | **A**, **C** | validated |
@@ -74,6 +75,18 @@ what supports the underlying scientific or numerical claim.
 | Full-wave openEMS fields and validation | Full-wave field maps expose time termination, mesh change, E/J loss consistency, reciprocity, and low-frequency analytical-limit evidence before quantitative promotion. | **A**, **C**, **R** | partially validated |
 
 ## Detailed Evidence
+
+### Published TEMPOL/water saturation and DNP benchmarks
+
+- **Claim:** An unfitted reduced nitrogen-population model partially reproduces a published TEMPOL/water experimental DNP frequency profile; saturation theory, reconstructed EPR-fit curves and DNP-derived saturation anchors are classified separately.
+- **Evidence:** D, E, R (partially validated)
+- **Basis:** Source-pixel extraction of 31 red-square experimental marker clusters in Sezer Fig. 5; 19 manual theory-curve samples in Fig. 6c; source PDF/image SHA256 audit; independently reported relaxation-product and lower-field factor-closure diagnostics.
+- **Tested range:** 14N TEMPOL in water, 3.15 mM, 9.21238 T, approximately 313 K and 0.9 G co-rotating B1; room-temperature EPR fit-product comparison and 0.34/3.4 T DNP-derived saturation anchors are separate contexts.
+- **Metric:** Descriptive enhancement/theory-saturation RMSE, absolute residuals, parameter-product ratio and factor closure; no fitting to extracted observations
+- **Tolerance:** Fixed model-reduction regression envelopes: enhancement RMSE <=0.8 and theory saturation RMSE <=0.08. Actual 0.48285 and 0.01751. These bounds are not experimental error bars; residuals exceed digitization precision.
+- **References:** https://doi.org/10.1039/B906719C; https://doi.org/10.1021/ja901496g; https://doi.org/10.1021/ja0783207
+- **Reproduce:** [`validation/validate_tempol_water.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/validation/validate_tempol_water.py); [`validation/experimental/tempol_water_published.json`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/validation/experimental/tempol_water_published.json); [`tests/test_tempol_published_benchmarks.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_tempol_published_benchmarks.py); [`examples/plot_tempol_published_benchmarks.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/examples/plot_tempol_published_benchmarks.py)
+- **Limitations:** Published relaxation/exchange parameters contain source-study estimates; reduced common T2 and zero added nitrogen rate omit full relaxation-matrix effects. Coupling and leakage are supplied, so FFHS absolute rates are not experimentally validated here. Extracted marker clusters are not raw acquisitions; measurement uncertainties and correlations are unavailable. Saturation Fig. 6c is published theory, not independent experimental saturation. The EPR saturation curves are reconstructions from a reported fit product; isotope/sample/method differences limit cross-study parameter transfer. Lower-field saturation was inferred from DNP, so factor closure is not independent validation. Approximate maxima have unverified baseline convention and span concentrations; full source PDF was unavailable locally.
 
 ### Resolved nitrogen hyperfine populations and Heisenberg exchange saturation
 
