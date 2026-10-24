@@ -40,6 +40,21 @@ def run_example(*args: str, cwd: Path = ROOT) -> subprocess.CompletedProcess[str
 
 
 class ExampleSmokeTests(unittest.TestCase):
+    def test_tempol_published_benchmark_example_renders(self) -> None:
+        import json
+
+        with tempfile.TemporaryDirectory() as directory:
+            image = Path(directory) / "comparison.png"
+            report = Path(directory) / "report.json"
+            run_example("examples/plot_tempol_published_benchmarks.py", "--output",
+                        str(image), "--report", str(report))
+            for path in (image, Path(directory) / "comparison_anchors.png"):
+                self.assertTrue(path.read_bytes().startswith(b"\x89PNG\r\n\x1a\n"))
+            values = json.loads(report.read_text())
+            self.assertEqual(values["enhancement_profile"]["n"], 31)
+            self.assertEqual(values["fit_parameters"], [])
+            self.assertTrue(values["within_reduction_envelopes"])
+
     def test_tempol_saturation_example_renders(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             image = Path(directory) / "saturation.png"

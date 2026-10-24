@@ -1,0 +1,46 @@
+{
+  "data_sha256": "d23a4c421a3c67c053107480eb43de42bf0159486d2a35b23e2c498c80a6f82b",
+  "fit_parameters": [],
+  "enhancement_profile": {
+    "n": 31,
+    "rmse": 0.4828455827862031,
+    "mae": 0.404198199218284,
+    "max_absolute_error": 1.0585702734707017,
+    "bias": -0.043099813431814814
+  },
+  "saturation_published_theory": {
+    "n": 19,
+    "rmse": 0.017509807829052596,
+    "mae": 0.01352232881012399,
+    "max_absolute_error": 0.0447566312933714,
+    "bias": -0.009582541544951596
+  },
+  "reduction_envelopes": {
+    "enhancement_rmse_max": 0.8,
+    "saturation_theory_rmse_max": 0.08
+  },
+  "within_reduction_envelopes": true,
+  "epr_product_comparison": {
+    "reported_seconds_squared": 3.5e-15,
+    "other_study_parameter_product_seconds_squared": 1.513e-14,
+    "ratio": 4.322857142857143,
+    "status": "cross_study_parameter_difference_not_statistical_rejection"
+  },
+  "hofer_factor_closure": [
+    {
+      "field_tesla": 0.34,
+      "leakage_from_nmrd": 0.9044862518089725,
+      "epsilon_factor_closure": -98.5887200492097,
+      "epsilon_approximate_reported": -100,
+      "independent_validation": false
+    },
+    {
+      "field_tesla": 3.4,
+      "leakage_from_nmrd": 0.8368065303301876,
+      "epsilon_factor_closure": -24.785774854375955,
+      "epsilon_approximate_reported": -20,
+      "independent_validation": false
+    }
+  ],
+  "interpretation": "Partial published-data agreement with quantified model-reduction error. Saturation theory and DNP-derived saturation are not independent experimental saturation validation. Cross-study relaxation inputs disagree; do not reuse one calibration universally."
+}

@@ -21,6 +21,20 @@ the independent integral audit uses optional SciPy, and plotting uses Matplotlib
 
 ## Concentration-dependent nitroxide saturation
 
+Published TEMPOL/water comparisons now have an [offline benchmark and extraction
+audit](tempol_published_benchmarks.md). The unfitted reduced
+model has enhancement RMSE 0.483 against extracted experimental markers and
+saturation RMSE 0.0175 against a published theoretical profile. This is partial
+empirical agreement; independent experimental saturation validation remains
+limited by the available calibration metadata.
+
+![Published TEMPOL comparisons](assets/tempol_published_comparison.png)
+
+![Lower-field consistency anchors](assets/tempol_published_comparison_anchors.png)
+
+Run `python examples/plot_tempol_published_benchmarks.py --output .tmp/comparison.png`
+for both plots, or `python validation/validate_tempol_water.py` for a JSON report.
+
 `NitroxideSaturationModel` tracks six populations for 14N (S=1/2, I=1),
 or four for 15N (`nitrogen_spin=0.5`). It returns each line's conditional
 electron polarization and saturation, nitrogen populations, and the effective

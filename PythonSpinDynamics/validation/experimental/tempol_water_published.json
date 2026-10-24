@@ -1,0 +1,378 @@
+{
+  "schema_version": 1,
+  "retrieved_on": "2026-10-24",
+  "sources": {
+    "sezer2009": {
+      "doi": "10.1039/B906719C",
+      "title": "Dynamic nuclear polarization of water by a nitroxide radical: rigorous treatment of the electron spin saturation and comparison with experiments at 9.2 Tesla",
+      "url": "https://www.prisner.de/handouts/Publications/2009/PCCP_11_6638_6653.pdf",
+      "pdf_sha256": "0d8fa837a47dafdfb784754b17006e0db40ff513c0259087f3d16fc068b20ba1",
+      "pdf_page_indices_zero_based": {
+        "figure5": 10,
+        "figure6": 11
+      },
+      "figure5_jpeg_sha256": "7714e93594ecfb1d947a7840cd05b921de8f4bd1eb4195cdcbda9706e1ca3ffa",
+      "figure6_jpeg_sha256": "33116147b61eaaf96be3bda7935be24b8e6f04f640948117f3b9d760a97e6723"
+    },
+    "prandolini2009": {
+      "doi": "10.1021/ja901496g",
+      "title": "High-Field Dynamic Nuclear Polarization in Aqueous Solutions",
+      "url": "https://www.prisner.de/handouts/Publications/2009/JACS_131_6090_6092.pdf",
+      "location": "p. 6091, paragraph following Figure 3: estimated homogeneous-line T1e*T2e from an EPR power-saturation curve; T2e from linewidth",
+      "pdf_sha256": "0d7ff286d46f0f21885cefbb9a73aa3f4b7bd3deed939c22dd53374bc7ac34be"
+    },
+    "hofer2008": {
+      "doi": "10.1021/ja0783207",
+      "title": "Field Dependent Dynamic Nuclear Polarization with Radicals in Aqueous Solution",
+      "url": "https://flore.unifi.it/handle/2158/317649",
+      "location": "p. 3255, NMRD paragraph and effective saturation estimates; abstract gives approximate enhancement maxima",
+      "extraction": "Numeric text transcription from indexed primary-paper text; repository abstract confirms enhancement maxima. Full PDF unavailable locally."
+    }
+  },
+  "sezer_profile": {
+    "source": "sezer2009",
+    "radical": "14N TEMPOL",
+    "solvent": "water",
+    "field_tesla": 9.21238,
+    "temperature_kelvin": 313.15,
+    "concentration_molar": 0.00315,
+    "leakage_factor": 0.576,
+    "water_t10_seconds": 4.8,
+    "nuclear_relaxivity_per_molar_second": 90,
+    "coupling_factor": 0.027,
+    "t1e_seconds": 6.9e-07,
+    "t2e_seconds_by_nitrogen_m_ascending": [
+      2.21e-08,
+      2.51e-08,
+      2.86e-08
+    ],
+    "hyperfine_tensor_gauss": [
+      6.3,
+      6.3,
+      37.5
+    ],
+    "b1_corotating_gauss": 0.9,
+    "exchange_time_seconds": 4e-07,
+    "parameter_locations": "Table 5; Eq. (38), Eq. (41); Fig. 5 and Fig. 6(c)",
+    "enhancement_convention": "epsilon=(M_on-M_off)/M_off=E-1; negative dipolar enhancement",
+    "figure5": {
+      "evidence_kind": "digitized_experimental_observations",
+      "native_image_width_height": [
+        375,
+        304
+      ],
+      "axis_x_pixels_values": [
+        [
+          87,
+          -80
+        ],
+        [
+          340,
+          80
+        ]
+      ],
+      "axis_y_pixels_values": [
+        [
+          8,
+          0
+        ],
+        [
+          244,
+          -5
+        ]
+      ],
+      "method": "Red-square interior detection in the embedded JPEG; R>G+35 and R>B+25, fill holes, 4-connected components, merge fragment centers within 4 native pixels, area-weighted centers rounded to 0.01 pixel. Visually checked against the original squares; compressed/open square outlines are omitted. Reproducer: extract_marker_centers in validate_tempol_water.py. Not raw instrument data; pixels use top-left origin.",
+      "digitization_half_width_mhz": 1.0,
+      "digitization_half_width_epsilon": 0.05,
+      "experimental_uncertainty": null,
+      "points_pixels": [
+        [
+          72.75,
+          20.5
+        ],
+        [
+          108.0,
+          61.0
+        ],
+        [
+          118.0,
+          94.5
+        ],
+        [
+          130.0,
+          191.0
+        ],
+        [
+          132.5,
+          199.5
+        ],
+        [
+          139.0,
+          214.0
+        ],
+        [
+          145.5,
+          183.5
+        ],
+        [
+          164.0,
+          123.0
+        ],
+        [
+          174.0,
+          111.4
+        ],
+        [
+          183.25,
+          118.75
+        ],
+        [
+          189.67,
+          136.0
+        ],
+        [
+          194.75,
+          163.75
+        ],
+        [
+          199.5,
+          189.0
+        ],
+        [
+          204.5,
+          209.0
+        ],
+        [
+          208.75,
+          223.5
+        ],
+        [
+          213.0,
+          172.0
+        ],
+        [
+          213.8,
+          206.8
+        ],
+        [
+          219.0,
+          163.33
+        ],
+        [
+          223.0,
+          132.5
+        ],
+        [
+          231.5,
+          105.0
+        ],
+        [
+          237.0,
+          86.0
+        ],
+        [
+          244.75,
+          72.25
+        ],
+        [
+          256.0,
+          81.0
+        ],
+        [
+          264.0,
+          97.5
+        ],
+        [
+          264.0,
+          122.5
+        ],
+        [
+          283.0,
+          196.0
+        ],
+        [
+          290.0,
+          205.0
+        ],
+        [
+          295.0,
+          215.0
+        ],
+        [
+          300.0,
+          140.5
+        ],
+        [
+          320.0,
+          58.0
+        ],
+        [
+          340.0,
+          40.0
+        ]
+      ]
+    },
+    "figure6c": {
+      "evidence_kind": "digitized_published_theory_not_experiment",
+      "native_image_width_height": [
+        375,
+        908
+      ],
+      "axis_x_pixels_values": [
+        [
+          105,
+          -80
+        ],
+        [
+          343,
+          80
+        ]
+      ],
+      "axis_y_pixels_values": [
+        [
+          843,
+          0
+        ],
+        [
+          605,
+          0.5
+        ]
+      ],
+      "method": "Manual sparse samples of the magenta total-saturation curve in panel c, including peaks and valleys; no individual line curves used.",
+      "digitization_half_width_mhz": 1.0,
+      "digitization_half_width_saturation": 0.006,
+      "points_pixels": [
+        [
+          87,
+          825
+        ],
+        [
+          105,
+          816
+        ],
+        [
+          125,
+          782
+        ],
+        [
+          140,
+          720
+        ],
+        [
+          154,
+          646
+        ],
+        [
+          165,
+          674
+        ],
+        [
+          185,
+          751
+        ],
+        [
+          198,
+          756
+        ],
+        [
+          211,
+          693
+        ],
+        [
+          223,
+          631
+        ],
+        [
+          236,
+          683
+        ],
+        [
+          253,
+          754
+        ],
+        [
+          267,
+          758
+        ],
+        [
+          280,
+          692
+        ],
+        [
+          293,
+          632
+        ],
+        [
+          305,
+          682
+        ],
+        [
+          324,
+          765
+        ],
+        [
+          343,
+          811
+        ],
+        [
+          360,
+          824
+        ]
+      ]
+    },
+    "reduction": {
+      "t2_choice": "Use the published central-line T2e=25.1 ns for all three lines; the production model has a common T2e.",
+      "nitrogen_transition_per_second": 0,
+      "nitrogen_choice": "No scalar nitrogen rate is inferred from the paper's full relaxation matrix. Omit this channel and quantify the reduction error.",
+      "exchange_conversion": "k_ex=1/tau_H, K_ex=k_ex/C; high-temperature correlation-erasure convention of Appendix A.",
+      "hyperfine_conversion": "A_iso=mean(A_tensor)*gamma_e*1e-4 Hz; the paper's g anisotropy and line-dependent shifts are omitted.",
+      "fitting": "None. Published phenomenological parameters were themselves selected/estimated in the source study, so this is not a fully independent microscopic prediction."
+    }
+  },
+  "epr_saturation_product": {
+    "source": "prandolini2009",
+    "radical": "15N TEMPOL",
+    "solvent": "water",
+    "field_tesla": 9.2,
+    "temperature": "room temperature",
+    "t1e_t2e_seconds_squared": 3.5e-15,
+    "t2e_linewidth_seconds": 2.8e-08,
+    "evidence_kind": "published_EPR_saturation_fit_parameter_not_raw_curve",
+    "uncertainty": null,
+    "comparison_t1e_seconds": 8.5e-07,
+    "comparison_t2e_seconds": 1.78e-08,
+    "comparison_source": "sezer2009 Eq. (40), room-temperature central 14N line; isotope and method differ",
+    "limitations": "Compare parameter compatibility only. A Bloch curve reconstructed from this product is not a set of independent saturation observations. Concentration and detailed power calibration for the cited EPR fit are not supplied here."
+  },
+  "hofer_anchors": {
+    "source": "hofer2008",
+    "radical": "14N TEMPOL",
+    "solvent": "water",
+    "concentration_molar_nmrd": 0.01,
+    "temperature_kelvin_nmrd": 298,
+    "r10_per_second": 0.33,
+    "two_wi_per_second": 1.55,
+    "relaxation_relation": "xi=(5/7)*(1-2wi/(R1-R10))",
+    "points": [
+      {
+        "field_tesla": 0.34,
+        "coupling_factor": 0.36,
+        "coupling_reported_plus_minus": 0.02,
+        "saturation_factor": 0.46,
+        "saturation_reported_plus_minus": 0.02,
+        "approximate_epsilon_max": -100
+      },
+      {
+        "field_tesla": 3.4,
+        "coupling_factor": 0.06,
+        "coupling_reported_plus_minus": 0.02,
+        "saturation_factor": 0.75,
+        "saturation_reported_plus_minus": 0.25,
+        "approximate_epsilon_max": -20
+      }
+    ],
+    "evidence_kind": "DNP_derived_saturation_and_approximate_enhancement_anchors",
+    "reported_enhancement_baseline": "Unverified from available full text; these approximate maxima may use E or E-1. An offset of one remains unresolved. Closure is explicitly reported as E-1.",
+    "limitations": "Saturation was inferred using DNP enhancement and NMRD, not independent ELDOR. Enhancement maxima span 5-10 mM and are approximate. NMRD reference temperature is not established as the irradiated sample temperature. No independently supplied T1e/T2e/B1 permit an unfitted population-saturation prediction. Closure is a consistency check, not independent saturation validation."
+  }
+}

@@ -26,9 +26,14 @@ populations, adjacent nitrogen relaxation and concentration-dependent Heisenberg
 population exchange, with an illustrative TEMPOL/water example. It uses a
 high-temperature factorized thermal state and supplied electron/exchange rates;
 it does not calculate exchange coherence transfer or line coalescence.
-No independent experimental enhancement dataset has been used to calibrate or
-validate the complete model. A many-nucleus/dilute-solution dynamics mapping
-and experimental saturation/ELDOR calibration remain future work.
+An offline published-data benchmark now compares an unfitted reduced population
+model with the Sezer TEMPOL/water enhancement profile and published saturation
+theory. The observed reduction error and cross-study relaxation discrepancies
+are retained, with partial empirical validation recorded explicitly. This does
+not validate the complete microscopic motion-to-enhancement chain. A
+many-nucleus/dilute-solution dynamics mapping and independent experimental
+saturation/ELDOR calibration remain future work. See the
+[benchmark provenance](../PythonSpinDynamics/validation/experimental/README_tempol_water.md).
 
 ## Recommendation
 
