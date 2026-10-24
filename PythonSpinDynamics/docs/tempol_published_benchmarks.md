@@ -21,8 +21,8 @@ No publisher PDF or source figure is redistributed.
 
 | Comparison | Evidence | Result | Interpretation |
 | --- | --- | --- | --- |
-| 9.21238 T DNP frequency profile | 31 extracted experimental marker clusters, Sezer Fig. 5 | RMSE 0.48285, MAE 0.40420, largest absolute residual 1.05857 in epsilon | Partial empirical agreement; systematic shape differences remain |
-| Saturation frequency profile | 19 manually sampled points on Sezer Fig. 6c | RMSE 0.01751, largest absolute residual 0.04476 | Published theory comparison, not measured saturation |
+| 9.21238 T DNP frequency profile | 31 extracted experimental marker clusters, Sezer Fig. 5 | Full-matrix RMSE 0.48849, MAE 0.40843, largest absolute residual 1.15731 in epsilon | Partial empirical agreement; systematic shape differences remain |
+| Saturation frequency profile | 19 manually sampled points on Sezer Fig. 6c | Full-matrix RMSE 0.01657, largest absolute residual 0.04953 | Published theory comparison, not measured saturation |
 | Room-temperature EPR saturation product | Published fitted parameter, compared with another study's relaxation parameters | Products differ by 4.32286 times | Cross-study compatibility diagnostic; no statistical rejection without uncertainties |
 | 0.34/3.4 T saturation and enhancement anchors | DNP-derived saturation and approximate enhancement maxima | Factor closures -98.59/-24.79 versus roughly -100/-20 | Consistency check; saturation and enhancement are dependent observations |
 
@@ -34,16 +34,39 @@ agreement within experimental uncertainty. Point extraction half-widths are
 about 1 MHz and 0.05 in enhancement; experimental error bars were unavailable.
 Residuals exceed extraction precision. No measurement covariance is inferred.
 
+The report and plots retain three model stages without changing observations:
+
+| Model | DNP enhancement RMSE | Published saturation-theory RMSE |
+| --- | --- | --- |
+| Legacy common T2, scalar population model | 0.48285 | 0.01751 |
+| Quoted line T2 values, population model | 0.47456 | 0.01923 |
+| Full tensor-derived nitrogen relaxation and transverse exchange | 0.48849 | 0.01657 |
+
+The full operator improves agreement with the theory profile but slightly
+worsens agreement with measured enhancements. It is not retuned to reverse
+that result. These are model-stage comparisons, not a controlled isolation of
+one mechanism: the full operator also derives its electron relaxation from
+the source spectra instead of prescribing the rounded 690 ns T1.
+
 ## Primary source and reduction
 
 [Sezer et al., PCCP 2009, DOI 10.1039/B906719C](https://doi.org/10.1039/B906719C)
 is the primary comparison. The Fig. 5 data are 14N TEMPOL in water, 3.15 mM,
 at approximately 313 K. Table 5 and Eqs. 38/41 supply the field, microwave
 amplitude, hyperfine tensor, relaxation times, exchange time, leakage and
-coupling factors. The production model uses the central-line T2 on all lines,
-isotropic hyperfine spacing and no independently inferred nitrogen rate. It
-omits the source calculation's full relaxation matrix, differential linewidths,
-coherence transfer and shifts. These are stated reductions, not fitted terms.
+coupling factors. The legacy path uses one central-line T2; the intermediate
+path uses all three quoted T2 values. The active full path projects the general
+Appendix A1 relaxation operator from the g/A tensors, their covariance, 12 ps
+rotational time, Table 2 angular-velocity parameters and Table 5 additional
+electron relaxation. Spin-rotation densities follow Eq. 37 with the source's
+45 C MD parameters, as used for the approximately 40 C experiment. All
+R1/R2/R0/U/V blocks and transverse exchange transfer are retained. Nitrogen
+quadrupole terms and nonsecular frequency shifts are excluded, as in the
+source's secular treatment; hyperfine spacing remains isotropic.
+The operator gives diagonal T2 values of 22.1125/25.0723/28.6137 ns in ascending
+nitrogen m, agreeing within 0.12% with Eq. 41. The collective R1 Rayleigh time
+is 698.95 ns, compared with the quoted approximate T1 of 690 ns. The report
+exposes these diagnostics, including nonzero nuclear feedback matrices.
 Source parameters themselves include estimates and phenomenological choices.
 This benchmark does not independently validate microscopic motion or FFHS
 absolute rates: coupling and leakage are supplied from the publication.

@@ -23,6 +23,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from spin_dynamics.dnp import (  # noqa: E402
     NitroxideSaturationModel,
+    NitroxideRelaxationMatrix,
     bloch_saturation,
     overhauser_from_factors,
 )
@@ -59,21 +60,79 @@ def digitized_points(record):
     return np.column_stack(converted)
 
 
-def profile_model(data, detuning_mhz, *, exchange_scale=1.0, b1_scale=1.0):
-    """Evaluate the stated reduced model with published parameters, unfitted.
+def published_relaxation(data):
+    """Build the source's full nitrogen operator from tensors and MD spectra.
+
+    Angular-velocity amplitudes in rad^2/ps^2 are converted to s^-2. The
+    spin-rotation coupling uses T=g-g_free*I and Eq. (37), including both
+    oscillatory Lorentzian terms. There is no enhancement/saturation fitting.
+    """
+    p = data["sezer_profile"]
+    f = p["full_relaxation"]
+    g = np.asarray(f["g_tensor"])
+    free_g = 2.00231930436256
+    t0 = g.mean() - free_g
+    anisotropy_squared = np.sum((g - g.mean()) ** 2) / 3
+    a1 = f["angular_velocity_a1_rad2_per_ps2"]
+    a2 = f["angular_velocity_a1_plus_a2_rad2_per_ps2"] - a1
+    tau1, tau2, tau3 = [f[f"angular_velocity_tau{i}_seconds"] for i in (1, 2, 3)]
+
+    def spin_rotation(omega):
+        return (
+            (t0**2 + anisotropy_squared)
+            * 1e24
+            * (
+                a1 * tau1 / (1 + (omega * tau1) ** 2)
+                + a2 * tau2 / 2 / (1 + ((omega - 1 / tau3) * tau2) ** 2)
+                + a2 * tau2 / 2 / (1 + ((omega + 1 / tau3) * tau2) ** 2)
+            )
+        )
+
+    gamma = 2 * np.pi * ELECTRON_GAMMA_HZ_PER_T
+    return NitroxideRelaxationMatrix.from_isotropic_tumbling(
+        field_tesla=p["field_tesla"],
+        correlation_time_seconds=f["rotational_correlation_time_seconds"],
+        g_tensor=g,
+        hyperfine_tensor_hz=np.asarray(p["hyperfine_tensor_gauss"])
+        * ELECTRON_GAMMA_HZ_PER_T
+        * 1e-4,
+        spin_rotation_j0_per_second=spin_rotation(0),
+        spin_rotation_jomega_per_second=spin_rotation(gamma * p["field_tesla"]),
+        additional_r1_per_second=f["additional_r1_gauss"] * gamma * 1e-4,
+        additional_r2_per_second=f["additional_r2_gauss"] * gamma * 1e-4,
+    )
+
+
+def profile_model(
+    data, detuning_mhz, *, exchange_scale=1.0, b1_scale=1.0, relaxation="full"
+):
+    """Evaluate full, line-dependent or legacy reduced models without fitting.
 
     The source plots microwave minus resonance frequency; the API takes
     resonance minus microwave, hence the minus sign in the detuning conversion.
     B1 is the co-rotating amplitude in gauss; no additional factor of two.
     """
     p = data["sezer_profile"]
+    if relaxation not in ("full", "line_dependent", "reduced"):
+        raise ValueError("relaxation must be full, line_dependent or reduced")
+    t1 = np.inf if relaxation == "full" else p["t1e_seconds"]
+    t2 = (
+        np.inf
+        if relaxation == "full"
+        else (
+            p["t2e_seconds_by_nitrogen_m_ascending"]
+            if relaxation == "line_dependent"
+            else p["t2e_seconds_by_nitrogen_m_ascending"][1]
+        )
+    )
     model = NitroxideSaturationModel(
         hyperfine_hz=np.mean(p["hyperfine_tensor_gauss"])
         * ELECTRON_GAMMA_HZ_PER_T
         * 1e-4,
-        electron_t1_seconds=p["t1e_seconds"],
-        electron_t2_seconds=p["t2e_seconds_by_nitrogen_m_ascending"][1],
-        nitrogen_transition_per_second=p["reduction"]["nitrogen_transition_per_second"],
+        electron_t1_seconds=t1,
+        electron_t2_seconds=t2,
+        relaxation_matrix=published_relaxation(data) if relaxation == "full" else None,
+        nitrogen_transition_per_second=0,
         exchange_coefficient_per_molar_second=exchange_scale
         / (p["exchange_time_seconds"] * p["concentration_molar"]),
     )
@@ -126,6 +185,20 @@ def compare(data=None):
     predicted_s, _ = profile_model(data, observed_s[:, 0])
     e_metrics = error_metrics(observed_e[:, 1], predicted_e)
     s_metrics = error_metrics(observed_s[:, 1], predicted_s)
+    ablations = {}
+    for mode in ("reduced", "line_dependent", "full"):
+        ablations[mode] = {
+            "enhancement": error_metrics(
+                observed_e[:, 1],
+                profile_model(data, observed_e[:, 0], relaxation=mode)[1],
+            ),
+            "saturation_theory": error_metrics(
+                observed_s[:, 1],
+                profile_model(data, observed_s[:, 0], relaxation=mode)[0],
+            ),
+        }
+    full_blocks = published_relaxation(data)
+    r1, u, v, r0 = full_blocks.longitudinal_blocks()
     # Fixed engineering envelopes for this explicit reduction, NOT statistical
     # confidence intervals or a statement that all data agree within uncertainty.
     envelopes = {"enhancement_rmse_max": 0.8, "saturation_theory_rmse_max": 0.08}
@@ -164,6 +237,17 @@ def compare(data=None):
             json.dumps(data, sort_keys=True, separators=(",", ":")).encode("utf-8")
         ).hexdigest(),
         "fit_parameters": [],
+        "active_model": "full_nitrogen_relaxation_and_transverse_exchange",
+        "model_comparison": ablations,
+        "full_relaxation_diagnostics": {
+            "t2_diagonal_seconds_ascending_m": (
+                1 / full_blocks.transverse_per_second.diagonal()
+            ).tolist(),
+            "collective_r1_rayleigh_per_second": float(np.mean(r1.sum(axis=1))),
+            "nuclear_feedback_u_frobenius_per_second": float(np.linalg.norm(u)),
+            "nuclear_feedback_v_frobenius_per_second": float(np.linalg.norm(v)),
+            "nuclear_population_r0_rank": int(np.linalg.matrix_rank(r0, tol=1e-6)),
+        },
         "enhancement_profile": e_metrics,
         "saturation_published_theory": s_metrics,
         "reduction_envelopes": envelopes,
@@ -175,7 +259,7 @@ def compare(data=None):
             "status": "cross_study_parameter_difference_not_statistical_rejection",
         },
         "hofer_factor_closure": anchors,
-        "interpretation": "Partial published-data agreement with quantified model-reduction error. Saturation theory and DNP-derived saturation are not independent experimental saturation validation. Cross-study relaxation inputs disagree; do not reuse one calibration universally.",
+        "interpretation": "Partial published-data agreement: full tensor-derived relaxation improves saturation-theory RMSE but slightly worsens measured DNP RMSE relative to the retained legacy reduction. No DNP refitting. Saturation theory and DNP-derived saturation are not independent experimental saturation validation; cross-study relaxation inputs are not a universal calibration.",
     }
 
 

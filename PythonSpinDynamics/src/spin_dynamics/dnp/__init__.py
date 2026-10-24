@@ -11,6 +11,7 @@ from .overhauser import (
 )
 from .saturation import bloch_saturation, power_saturation
 from .nitroxide import NitroxideSaturationModel, NitroxideSaturationResult
+from .nitroxide_relaxation import NitroxideRelaxationMatrix
 from .motion import MotionBasedCWModel, RotationalDipolarModel, ScalarContactModel
 from .dynamics import (
     CoupledDynamicsResult,
@@ -32,6 +33,7 @@ __all__ = [
     "ElectronNuclearTransitionRates",
     "MicrowaveDrive",
     "NitroxideSaturationModel",
+    "NitroxideRelaxationMatrix",
     "NitroxideSaturationResult",
     "MotionBasedCWModel",
     "RotationalDipolarModel",

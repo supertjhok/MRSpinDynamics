@@ -16,6 +16,7 @@ from tests.test_dnp_spectral import DNPSpectralTests
 from tests.test_overhauser_motion import OverhauserMotionTests
 from tests.test_overhauser_dynamics import OverhauserDynamicsTests
 from tests.test_nitroxide_saturation import NitroxideSaturationTests
+from tests.test_nitroxide_relaxation_matrix import NitroxideRelaxationMatrixTests
 from tests.test_tempol_published_benchmarks import TempolPublishedBenchmarkTests
 
 from tests.test_basic_octave_fixtures import OctaveFixtureTests
@@ -150,6 +151,7 @@ def load_tests(
     suite.addTests(loader.loadTestsFromTestCase(OverhauserMotionTests))
     suite.addTests(loader.loadTestsFromTestCase(OverhauserDynamicsTests))
     suite.addTests(loader.loadTestsFromTestCase(NitroxideSaturationTests))
+    suite.addTests(loader.loadTestsFromTestCase(NitroxideRelaxationMatrixTests))
     suite.addTests(loader.loadTestsFromTestCase(TempolPublishedBenchmarkTests))
     suite.addTest(
         unittest.FunctionTestCase(

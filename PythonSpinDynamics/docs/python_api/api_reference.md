@@ -556,6 +556,12 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `NitroxideSaturationResult` | CW populations (..., nitrogen m, electron +/-), and total saturation. |
 | class | `NitroxideSaturationModel` | CW electron/nitrogen populations for resolved 14N or 15N nitroxides. |
 
+## `spin_dynamics.dnp.nitroxide_relaxation`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `NitroxideRelaxationMatrix` | Population (2n,2n) and transverse (n,n) real symmetric loss matrices. |
+
 ## `spin_dynamics.dnp.spectral`
 
 | Kind | Name | Summary |

@@ -22,9 +22,10 @@ the independent integral audit uses optional SciPy, and plotting uses Matplotlib
 ## Concentration-dependent nitroxide saturation
 
 Published TEMPOL/water comparisons now have an [offline benchmark and extraction
-audit](tempol_published_benchmarks.md). The unfitted reduced
-model has enhancement RMSE 0.483 against extracted experimental markers and
-saturation RMSE 0.0175 against a published theoretical profile. This is partial
+audit](tempol_published_benchmarks.md). The unfitted full-matrix
+model has enhancement RMSE 0.4885 against extracted experimental markers and
+saturation RMSE 0.01657 against a published theoretical profile. The previous
+reduction remains in the comparison (0.48285/0.01751). This is partial
 empirical agreement; independent experimental saturation validation remains
 limited by the available calibration metadata.
 
@@ -97,6 +98,97 @@ evaluates the full nonlinear population equation for arbitrary normalized
 nitrogen populations; `steady_state` specifies the uniform-nitrogen sector.
 If nitrogen relaxation is zero, other nitrogen marginals remain invariant.
 
+### Line-dependent relaxation and full nitrogen matrices
+
+`electron_t1_seconds` and `electron_t2_seconds` accept a scalar or a vector
+of length `2I+1`, ordered by ascending nitrogen m. Experimental condition
+arrays broadcast separately from this final line axis. Positive infinity
+disables an independent bath. Existing scalar inputs retain their population
+solver behavior and result shapes.
+
+An arbitrary spin-independent nitrogen transfer network can be supplied as
+`nitrogen_relaxation_matrix_per_second`: a symmetric **loss** matrix, with
+positive diagonals, nonpositive off-diagonals and zero row/column sums.
+For example, this includes direct transfer between the two outer manifolds:
+
+```python
+import numpy as np
+from spin_dynamics.dnp import NitroxideSaturationModel
+
+model = NitroxideSaturationModel(
+    electron_t1_seconds=[0.4e-6, 0.5e-6, 0.6e-6],
+    electron_t2_seconds=[80e-9, 100e-9, 130e-9],
+    nitrogen_relaxation_matrix_per_second=1e5 * np.array(
+        [[4, -3, -1], [-3, 5, -2], [-1, -2, 3]]),
+)
+```
+
+For coupled electron/nitrogen relaxation, `NitroxideRelaxationMatrix` accepts
+a `(2n,2n)` population loss block and an `(n,n)` electron transverse block.
+`from_isotropic_tumbling` constructs both by projecting the general
+double-commutator operator in Sezer Appendix A1, including g anisotropy,
+hyperfine anisotropy, their covariance and supplied spin-rotation spectra.
+Aligned g principal values are dimensionless; hyperfine principal values are
+Hz. Additional electron R1/R2 are in s^-1 and must obey R2>=R1/2.
+The correlation time is the rank-two rotational time, not a translation time.
+
+```python
+import numpy as np
+from spin_dynamics.dnp import NitroxideRelaxationMatrix, NitroxideSaturationModel
+
+a_hz = np.array([17.66e6, 17.66e6, 105.09e6])
+relaxation = NitroxideRelaxationMatrix.from_isotropic_tumbling(
+    field_tesla=0.35, correlation_time_seconds=20e-12,
+    g_tensor=[2.0088, 2.006, 2.002],
+    hyperfine_tensor_hz=a_hz,
+    additional_r1_per_second=2e6, additional_r2_per_second=1e7,
+)
+model = NitroxideSaturationModel(
+    hyperfine_hz=float(a_hz.mean()),
+    electron_t1_seconds=np.inf, electron_t2_seconds=np.inf,
+    relaxation_matrix=relaxation,
+    exchange_coefficient_per_molar_second=2e9,
+)
+sat = model.steady_state(field_tesla=0.35, concentration_molar=0.005,
+                        nutation_rad_per_s=20e6)
+print(sat.nitrogen_populations, sat.electron_coherences)
+```
+
+These inputs illustrate the API, not a new calibrated TEMPOL sample. The full
+matrix is **additive** with independent electron and nitrogen baths: using
+infinite T1/T2 above avoids counting the same relaxation twice. Rebuild a
+tensor-derived matrix when changing its field or correlation time.
+
+Supplying either matrix, or setting `coherence_transfer=True`, activates the
+generalized Bloch solver. It keeps both electron quadratures and all decaying
+nitrogen population modes: 11 real coordinates for 14N or 7 for 15N when all
+nuclear modes relax. In the longitudinal variables `d=p_minus-p_plus` and
+`q=p_minus+p_plus`, deviations obey
+
+\[
+\dot d=-R_1\delta d-U\delta q-\Omega_1 y-k_{ex}Xd,\qquad
+\dot q=-V\delta d-R_0\delta q,\quad X=1-\mathbf{11}^T/n.
+\]
+
+`relaxation.longitudinal_blocks()` exposes `(R1,U,V,R0)`. Transverse evolution
+uses the full `R2+k_ex*X` matrix; off-diagonal coherence transfer is retained.
+Nitrogen populations can therefore depart from their uniform thermal reference.
+Conserved nuclear modes keep their reference populations rather than making
+the stationary system singular. Unresolved stationary solves and nonphysical
+steady density blocks are rejected, without clipping.
+
+This path uses the source's **first-order high-temperature** relaxation of
+deviations and linearized exchange. It is not finite-temperature Gibbs dynamics
+and does not include nitrogen quadrupolar terms, nuclear coherences or general
+nonsecular shifts. The default population derivative retains nonlinear swaps;
+in full mode `population_derivative` adiabatically eliminates the coupled
+electron coherences and uses the same linearized exchange as the CW solve.
+The returned `microwave_transition_rates_per_second` in full mode is a
+diagonal-line reference, not a decomposition of the coupled drive into
+independent transitions. `t2e_seconds` then has a final line axis and contains
+inverse diagonal R2 values before exchange. Effective saturation is computed
+from the **total** electron polarization, accounting for nonuniform nitrogen.
+
 The thermal reference is factorized: exact electron Boltzmann polarization
 `tanh(h*gamma_e*B/(2*k*T))` and uniform nitrogen. Nitrogen Zeeman and hyperfine
 Boltzmann corrections are neglected. This is a high-temperature resolved-line
@@ -104,8 +196,10 @@ population approximation, distinct from the finite-temperature Gibbs pair
 solver below. The API requires electron argument <=0.1 and electron Zeeman
 frequency >=10*A*I; these checks do not establish spectral resolution. Use
 exchange rates, linewidths and nutation well below the hyperfine angular
-splitting. Coherence transfer, exchange narrowing/coalescence, quadrupolar
-coherences and coherent transients are outside this model.
+splitting. The default population path omits coherence transfer. Full mode
+retains transfer among resolved-line electron coherences; general exchange
+narrowing/coalescence, quadrupolar coherences and coherent transients remain
+outside this model.
 
 Concentration broadening is separately supplied as
 `1/T2e(C)=1/T2e(0)+b*C`. It must include the appropriate measured transverse
@@ -355,7 +449,7 @@ cross-correlation terms. Temperature/concentration-dependent diffusion,
 occupancies, contact amplitudes and correlation times must be supplied by
 rebuilding the model for each condition. Saturation is still externally
 prescribed in this CW model. Coupled pair dynamics are available below;
-multi-line nitrogen/exchange saturation remains a later stage.
+`NitroxideSaturationModel` above supplies multi-line nitrogen/exchange saturation.
 
 Run `python examples/plot_overhauser_motion_models.py --output .tmp/dnp_motion.png`
 to compare the individual and mixed channels. Optional `--csv` exports their

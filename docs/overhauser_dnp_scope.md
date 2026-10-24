@@ -22,12 +22,14 @@ It has a 1:1 electron/nucleus population mapping; bulk dilute-solution rates
 cannot be inserted without additional reservoir number-density information.
 
 The F-stage resolved-line saturation model now tracks six 14N (or four 15N)
-populations, adjacent nitrogen relaxation and concentration-dependent Heisenberg
-population exchange, with an illustrative TEMPOL/water example. It uses a
-high-temperature factorized thermal state and supplied electron/exchange rates;
-it does not calculate exchange coherence transfer or line coalescence.
-An offline published-data benchmark now compares an unfitted reduced population
-model with the Sezer TEMPOL/water enhancement profile and published saturation
+populations, line-dependent electron relaxation, arbitrary nitrogen population
+transfer networks and a complete coupled nitrogen relaxation operator. A
+generalized Bloch solve retains R1/R2/R0/U/V blocks and transverse exchange
+transfer; the original scalar population path remains available. It uses
+first-order high-temperature deviations rather than finite-temperature Gibbs
+dynamics; general line coalescence and nonsecular shifts remain out of scope.
+An offline published-data benchmark compares the full operator and two reductions
+with the Sezer TEMPOL/water enhancement profile and published saturation
 theory. The observed reduction error and cross-study relaxation discrepancies
 are retained, with partial empirical validation recorded explicitly. This does
 not validate the complete microscopic motion-to-enhancement chain. A
