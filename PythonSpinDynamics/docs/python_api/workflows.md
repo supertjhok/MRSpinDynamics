@@ -16,6 +16,7 @@ links to model assumptions and runnable examples.
 |---|---|---|
 | CPMG, FID, inversion recovery, or probe response | [Public CPMG runners](#public-cpmg-runners) | Read [Concepts and Units](concepts.md) first |
 | Prepolarization or molecular relaxation | [Prepolarization](#prepolarization) or [BPP relaxation](#bpp-relaxation) | These prepare parameters; they are not pulse sequences |
+| Liquid-state Overhauser DNP | [CW Overhauser guide](../overhauser_dnp.md) | Motion-derived ensemble rates, nitroxide saturation and closed-pair dynamics have different population mappings |
 | PGSE, restricted diffusion, PGSTE, DDE, or OGSE | [PGSE and PGSE-prepared CPMG](#pgse-and-pgse-prepared-cpmg) | Decide between analytical moments and explicit walkers |
 | Spins moving through B0/B1 maps or flowing samples | [Moving-isochromat sequences](#moving-isochromat-sequences) | Requires a spatial domain and field maps |
 | Phase-encoded, spin-warp, RARE, or multislice MRI | [CPMG imaging](#cpmg-imaging) | Acquisition and reconstruction are separate stages |

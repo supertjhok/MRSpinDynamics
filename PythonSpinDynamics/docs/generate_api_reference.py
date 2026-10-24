@@ -290,7 +290,9 @@ def _annotation_text(node: ast.AST | None) -> str:
     return ast.unparse(node)
 
 
-def _signature(node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef) -> str:
+def _signature(
+    node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef, *, skip_receiver=False
+) -> str:
     if isinstance(node, ast.ClassDef):
         return ""
     args = []
@@ -298,7 +300,10 @@ def _signature(node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef) -> s
     defaults = [None] * (len(positional) - len(node.args.defaults)) + list(
         node.args.defaults
     )
-    for arg, default in zip(positional, defaults):
+    pairs = list(zip(positional, defaults))
+    for index, (arg, default) in enumerate(pairs):
+        if skip_receiver and index == 0 and arg.arg in ("self", "cls"):
+            continue
         text = arg.arg
         annotation = _annotation_text(arg.annotation)
         if annotation:
@@ -306,8 +311,14 @@ def _signature(node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef) -> s
         if default is not None:
             text += f" = {ast.unparse(default)}"
         args.append(text)
+        if index + 1 == len(node.args.posonlyargs):
+            args.append("/")
     if node.args.vararg is not None:
-        args.append(f"*{node.args.vararg.arg}")
+        arg = node.args.vararg
+        args.append(
+            f"*{arg.arg}"
+            + (f": {_annotation_text(arg.annotation)}" if arg.annotation else "")
+        )
     elif node.args.kwonlyargs:
         args.append("*")
     for arg, default in zip(node.args.kwonlyargs, node.args.kw_defaults):
@@ -319,7 +330,11 @@ def _signature(node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef) -> s
             text += f" = {ast.unparse(default)}"
         args.append(text)
     if node.args.kwarg is not None:
-        args.append(f"**{node.args.kwarg.arg}")
+        arg = node.args.kwarg
+        args.append(
+            f"**{arg.arg}"
+            + (f": {_annotation_text(arg.annotation)}" if arg.annotation else "")
+        )
     signature = f"({', '.join(args)})"
     returns = _annotation_text(node.returns)
     if returns:
@@ -340,7 +355,66 @@ def _module_symbols(path: Path) -> list[Symbol]:
     symbols = []
     for node in tree.body:
         if isinstance(node, ast.ClassDef) and _is_public(node.name):
-            symbols.append(Symbol("class", node.name, "", _summary(node)))
+            constructor = next(
+                (
+                    member
+                    for member in node.body
+                    if isinstance(member, ast.FunctionDef) and member.name == "__init__"
+                ),
+                None,
+            )
+            signature = (
+                _signature(constructor, skip_receiver=True).split(" -> ")[0]
+                if constructor
+                else ""
+            )
+            symbols.append(Symbol("class", node.name, signature, _summary(node)))
+            for member in node.body:
+                if (
+                    isinstance(member, ast.AnnAssign)
+                    and isinstance(member.target, ast.Name)
+                    and _is_public(member.target.id)
+                ):
+                    signature = f": {_annotation_text(member.annotation)}"
+                    if member.value is not None:
+                        signature += f" = {ast.unparse(member.value)}"
+                    symbols.append(
+                        Symbol(
+                            "attribute",
+                            f"{node.name}.{member.target.id}",
+                            signature,
+                            "Declared attribute; inherited fields are not repeated.",
+                        )
+                    )
+                elif isinstance(
+                    member, (ast.FunctionDef, ast.AsyncFunctionDef)
+                ) and _is_public(member.name):
+                    decorators = {ast.unparse(item) for item in member.decorator_list}
+                    # Setter/deleter definitions repeat the same property.
+                    if any(
+                        item.endswith((".setter", ".deleter")) for item in decorators
+                    ):
+                        continue
+                    kind = (
+                        "property"
+                        if "property" in decorators or "cached_property" in decorators
+                        else "method"
+                    )
+                    signature = (
+                        ""
+                        if kind == "property"
+                        else _signature(
+                            member, skip_receiver="staticmethod" not in decorators
+                        )
+                    )
+                    symbols.append(
+                        Symbol(
+                            kind,
+                            f"{node.name}.{member.name}",
+                            signature,
+                            _summary(member),
+                        )
+                    )
         elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and _is_public(
             node.name
         ):
@@ -365,6 +439,7 @@ def _unlisted_public_modules() -> list[str]:
             missing.append(module)
     return sorted(missing)
 
+
 def _render_module(module: str, symbols: list[Symbol]) -> str:
     lines = [f"## `spin_dynamics.{module}`", ""]
     if not symbols:
@@ -373,7 +448,11 @@ def _render_module(module: str, symbols: list[Symbol]) -> str:
     lines.extend(["| Kind | Name | Summary |", "| --- | --- | --- |"])
     for symbol in symbols:
         name = f"`{symbol.name}{symbol.signature}`"
-        lines.append(f"| {symbol.kind} | {name} | {symbol.summary} |")
+        # Union annotations and prose may contain table delimiters, even inside
+        # code spans. Escape them so every row remains exactly three cells.
+        lines.append(
+            f"| {symbol.kind} | {name.replace('|', chr(92) + '|')} | {symbol.summary.replace('|', chr(92) + '|')} |"
+        )
     lines.append("")
     return "\n".join(lines)
 
@@ -391,9 +470,15 @@ def main() -> None:
         "Generated from public class and function docstrings by "
         "`docs/generate_api_reference.py`.",
         "",
-        "This reference is an inventory, not a substitute for the user manual. "
-        "For numerical assumptions, equations, and workflow guidance, see "
-        "`docs/user_manual.tex`.",
+        "This reference lists public definitions in source modules, including "
+        "class methods, properties and declared attributes. Explicit constructor "
+        "signatures are shown; synthesized dataclass constructors and inherited "
+        "members are not expanded. Attributes include dataclass input/result fields. "
+        "Re-exports and module constants are not repeated. No source code is executed.",
+        "",
+        "For model selection, units and worked examples, use the "
+        "[user manual](manual.md), [capability map](index.md) and "
+        "[validation matrix](../validation_matrix.md).",
         "",
     ]
     for module in MODULES:

@@ -11,15 +11,18 @@ the exact supported claims, use the [Validation Evidence
 Matrix](../validation_matrix.md); for stable public signatures, use the
 [API Reference](api_reference.md).
 
-## 2026-07 Capability Audit
+## Capability audit (updated October 2026)
 
-PythonSpinDynamics now has about 86,000 source lines in 264 Python modules,
-31,000 test lines, and 214 example scripts. Its breadth has moved the
+The July audit counted about 86,000 source lines in 264 Python modules,
+31,000 test lines, and 214 examples; those counts are a historical snapshot.
+Use the generated API inventory and examples catalog for current coverage.
+The package's breadth has moved the
 main architectural risk from missing individual models to disconnected feature
 islands. The next stabilization phase should emphasize composition,
 validation, reproducibility, and API maturity.
 
-The highest-leverage gaps identified in the July 2026 audit are listed below.
+The July 2026 architectural findings below retain their context, with completed
+work and scientific limitations updated through October 2026.
 The first composition milestone is now complete: `spin_dynamics.composition`
 provides shared typed adapters for spatial fields, thermal states, flow fields,
 hardware responses, and sequence timelines, including explicit SI boundaries
@@ -34,7 +37,7 @@ items below.
    probe-aware general execution and adapters for physics engines beyond moving
    isochromats.
 2. **Facade coverage.** The recommended `spin_dynamics.experiment` facade has
-   31 registered routes spanning CPMG/IR, imaging, deterministic and walker
+   registered routes spanning CPMG/IR, imaging, deterministic and walker
    PGSE, general sequence IR, NQR, ESR, ESEEM, HYSCORE, and ENDOR. Planning,
    config round trips, provenance, and seeded reproducibility are shared.
    Nonuniform/pipe flow, thermal, non-inductive detection, exchange, optimal
@@ -66,7 +69,7 @@ items below.
    are now gated. Remaining maturity work is expanding static typing and the
    coverage floor and publishing artifacts to a package index. Optional
    Numba/JAX lanes and host-normalized benchmark regression gates are now in CI.
-7. **Discoverability.** The 214 examples are a major asset and the catalog is
+7. **Discoverability.** The runnable examples are a major asset and the catalog is
    grouped by capability, but many scripts still assume readers already know
    the physics and package conventions. The current documentation overhaul is
    adding stronger introductions, decision-point comments, and beginner-first
@@ -242,10 +245,19 @@ Ported and validated:
 
 Remaining gaps:
 
+- liquid-state CW Overhauser DNP now includes translational motion, coupled
+  electron--nuclear dynamics, concentration-dependent nitroxide saturation,
+  line-dependent relaxation, and the full nitrogen relaxation matrix. The
+  [published TEMPOL comparisons](../tempol_published_benchmarks.md) show partial
+  agreement; parameter transfer between experiments and quantitative measured
+  validation remain open;
+- the [NQR screening study](../nqr_mail_screening.md) reaches a synthetic
+  Phase 4 detector baseline, but its physical 1 g scenario does not demonstrate
+  discrimination. Measured site calibration and hardware validation remain open;
 - receiver/RF hardware extensions beyond the current analytical and lumped
   layers: general arbitrary circuit graphs, measured S-parameter and standard
   LNA noise-parameter import, coupled transmission lines, component
-  tolerance/loss propagation, full-wave dielectric/shield modeling, SAR,
+  tolerance/loss propagation, validated general full-wave material/interface modeling, SAR,
   compression/recovery, and scanner or bench validation;
 - newer tuned-probe helper variants outside the original/reference and JMR
   rectangular-pulse paths;
