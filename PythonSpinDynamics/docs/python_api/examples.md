@@ -14,6 +14,9 @@ Examples can be run from `PythonSpinDynamics` or from inside
 
 ## Choose a learning path
 
+For liquid-state CW Overhauser DNP, run `plot_overhauser_dnp.py` and read
+[the model, conventions, and validation notes](../overhauser_dnp.md).
+
 | Goal | First example | Then try |
 |---|---|---|
 | Learn the common plan/run/result pattern | `experiment_facade_quickstart.py` | `ideal_cpmg_train.py` |
