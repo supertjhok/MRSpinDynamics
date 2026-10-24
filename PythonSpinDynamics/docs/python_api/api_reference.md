@@ -1272,6 +1272,7 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `OpenEMSWire` | One PEC wire property containing one or more piecewise-linear paths. |
 | class | `OpenEMSPlanarConductor` | Axis-aligned planar PEC polygon with a mesh-resolved strip width. |
 | class | `OpenEMSCylindricalSample` | Homogeneous lossy cylindrical material region. |
+| class | `OpenEMSMaterialBox` | Axis-aligned box of a homogeneous material, or of PEC when ``metal``. |
 | class | `OpenEMSLumpedPort` | Curve-based or box-based lumped excitation and measurement port. |
 | class | `OpenEMSSettings` | FDTD excitation, termination, boundary, and mesh settings. |
 | class | `OpenEMSProject` | Complete solver-neutral description consumed by the openEMS driver. |
@@ -1287,6 +1288,8 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `OpenEMSFieldDump` | One complex frequency-domain vector field read from openEMS HDF5. |
 | function | `load_openems_field_dump(path: str | Path, *, frequency_hz: float | None = None) -> OpenEMSFieldDump` | Read a current or legacy Cartesian openEMS frequency-domain HDF5 dump. |
 | function | `load_openems_solution(directory: str | Path, *, normalization: NormalizationKind = 'per_ampere', frequency_hz: float | None = None, electric_filename: str = 'E_fd.h5', magnetic_filename: str = 'B_fd.h5') -> HarmonicEMSolution` | Import and normalize openEMS E/B dumps and port metadata. |
+| class | `OpenEMSPortSweep` | One port's incident and reflected waves over the project's port sweep. |
+| function | `load_openems_port_sweep(directory: str | Path) -> tuple[OpenEMSPortSweep, ...]` | Read the port sweep (``openems_port_sweep.json``) of a run with ``port_frequencies_hz``. |
 
 ## `spin_dynamics.fields.interpolate`
 

@@ -220,10 +220,28 @@ class OpenEMSPlanarConductor:
     points_m: np.ndarray
     normal_axis: Literal["x", "y", "z"] = "x"
     priority: int = 10
+    # optional: a lossy conducting sheet (openEMS AddConductingSheet) instead of PEC
+    conductivity_s_per_m: float | None = None
+    thickness_m: float | None = None
 
     def __post_init__(self) -> None:
         if not self.name:
             raise ValueError("planar conductor name must not be empty")
+        if (self.conductivity_s_per_m is None) != (self.thickness_m is None):
+            raise ValueError(
+                "planar conductor conductivity_s_per_m and thickness_m go together"
+            )
+        if self.conductivity_s_per_m is not None:
+            object.__setattr__(
+                self,
+                "conductivity_s_per_m",
+                _finite_positive(self.conductivity_s_per_m, "planar conductor conductivity_s_per_m"),
+            )
+            object.__setattr__(
+                self,
+                "thickness_m",
+                _finite_positive(self.thickness_m, "planar conductor thickness_m"),
+            )
         points = np.array(self.points_m, dtype=np.float64, copy=True)
         if points.ndim != 2 or points.shape[1] != 3 or points.shape[0] < 3:
             raise ValueError(
@@ -256,20 +274,28 @@ class OpenEMSPlanarConductor:
         object.__setattr__(self, "priority", priority)
 
     def to_dict(self) -> dict[str, object]:
-        return {
+        out: dict[str, object] = {
             "name": self.name,
             "points_m": self.points_m.tolist(),
             "normal_axis": self.normal_axis,
             "priority": self.priority,
         }
+        if self.conductivity_s_per_m is not None:
+            out["conductivity_s_per_m"] = self.conductivity_s_per_m
+            out["thickness_m"] = self.thickness_m
+        return out
 
     @classmethod
     def from_dict(cls, value: Mapping[str, object]) -> OpenEMSPlanarConductor:
+        sigma = value.get("conductivity_s_per_m")
+        thickness = value.get("thickness_m")
         return cls(
             name=str(value["name"]),
             points_m=np.asarray(value["points_m"]),
             normal_axis=str(value.get("normal_axis", "x")),  # type: ignore[arg-type]
             priority=int(value.get("priority", 10)),
+            conductivity_s_per_m=None if sigma is None else float(sigma),  # type: ignore[arg-type]
+            thickness_m=None if thickness is None else float(thickness),  # type: ignore[arg-type]
         )
 
 
@@ -369,6 +395,124 @@ class OpenEMSCylindricalSample:
 
 
 @dataclass(frozen=True)
+class OpenEMSMaterialBox:
+    """Axis-aligned box of a homogeneous material, or of PEC when ``metal``.
+
+    Boxes model substrates, coatings, dielectric holders and conducting
+    structures that the wire and planar-conductor primitives do not cover.
+    Dielectric loss enters as an equivalent conductivity; use
+    :meth:`dielectric` to set it from a loss tangent at one frequency.
+    """
+
+    name: str
+    start_m: np.ndarray
+    stop_m: np.ndarray
+    relative_permittivity: float = 1.0
+    conductivity_s_per_m: float = 0.0
+    relative_permeability: float = 1.0
+    metal: bool = False
+    priority: int = 1
+    metadata: Mapping[str, object] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if not self.name:
+            raise ValueError("material box name must not be empty")
+        start = _vector3(self.start_m, "material box start_m")
+        stop = _vector3(self.stop_m, "material box stop_m")
+        low, high = np.minimum(start, stop), np.maximum(start, stop)
+        if np.any(high - low <= 0.0):
+            raise ValueError("material box must have a positive extent on every axis")
+        epsilon = _finite_positive(
+            self.relative_permittivity,
+            "material box relative_permittivity",
+        )
+        conductivity = _finite_nonnegative(
+            self.conductivity_s_per_m,
+            "material box conductivity_s_per_m",
+        )
+        permeability = _finite_positive(
+            self.relative_permeability,
+            "material box relative_permeability",
+        )
+        priority = int(self.priority)
+        if priority < 0:
+            raise ValueError("material box priority must be non-negative")
+        low.setflags(write=False)
+        high.setflags(write=False)
+        object.__setattr__(self, "start_m", low)
+        object.__setattr__(self, "stop_m", high)
+        object.__setattr__(self, "relative_permittivity", epsilon)
+        object.__setattr__(self, "conductivity_s_per_m", conductivity)
+        object.__setattr__(self, "relative_permeability", permeability)
+        object.__setattr__(self, "metal", bool(self.metal))
+        object.__setattr__(self, "priority", priority)
+        object.__setattr__(
+            self,
+            "metadata",
+            _json_mapping(self.metadata, "material box metadata"),
+        )
+
+    @classmethod
+    def dielectric(
+        cls,
+        name: str,
+        start_m: Sequence[float] | np.ndarray,
+        stop_m: Sequence[float] | np.ndarray,
+        *,
+        relative_permittivity: float,
+        loss_tangent: float = 0.0,
+        frequency_hz: float,
+        priority: int = 1,
+    ) -> OpenEMSMaterialBox:
+        """Dielectric box whose conductivity reproduces ``loss_tangent`` at
+        ``frequency_hz`` (sigma = 2 pi f eps0 eps_r tan delta)."""
+
+        epsilon = _finite_positive(relative_permittivity, "relative_permittivity")
+        tangent = _finite_nonnegative(loss_tangent, "loss_tangent")
+        frequency = _finite_positive(frequency_hz, "frequency_hz")
+        eps0 = 8.8541878128e-12
+        return cls(
+            name=name,
+            start_m=np.asarray(start_m, dtype=np.float64),
+            stop_m=np.asarray(stop_m, dtype=np.float64),
+            relative_permittivity=epsilon,
+            conductivity_s_per_m=2.0 * np.pi * frequency * eps0 * epsilon * tangent,
+            priority=priority,
+            metadata={"loss_tangent": tangent, "loss_tangent_frequency_hz": frequency},
+        )
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "name": self.name,
+            "start_m": self.start_m.tolist(),
+            "stop_m": self.stop_m.tolist(),
+            "relative_permittivity": self.relative_permittivity,
+            "conductivity_s_per_m": self.conductivity_s_per_m,
+            "relative_permeability": self.relative_permeability,
+            "metal": self.metal,
+            "priority": self.priority,
+            "metadata": dict(self.metadata),
+        }
+
+    @classmethod
+    def from_dict(cls, value: Mapping[str, object]) -> OpenEMSMaterialBox:
+        metadata = value.get("metadata", {})
+        if not isinstance(metadata, Mapping):
+            raise ValueError("material box metadata must be a mapping")
+        return cls(
+            name=str(value["name"]),
+            start_m=np.asarray(value["start_m"]),
+            stop_m=np.asarray(value["stop_m"]),
+            relative_permittivity=float(value.get("relative_permittivity", 1.0)),
+            conductivity_s_per_m=float(value.get("conductivity_s_per_m", 0.0)),
+            relative_permeability=float(value.get("relative_permeability", 1.0)),
+            metal=bool(value.get("metal", False)),
+            priority=int(value.get("priority", 1)),
+            metadata=metadata,
+        )
+
+
+@dataclass(frozen=True)
 class OpenEMSLumpedPort:
     """Curve-based or box-based lumped excitation and measurement port."""
 
@@ -452,9 +596,40 @@ class OpenEMSSettings:
     max_timesteps: int = 100_000
     end_criteria: float = 1.0e-5
     boundary_conditions: tuple[str, ...] = ("PML_8",) * 6
+    # optional port sweep: incident/reflected port waves at these frequencies
+    # (inside the Gaussian excitation band), written to openems_port_sweep.json
+    port_frequencies_hz: tuple[float, ...] = ()
+    # optional: merge mesh lines closer than this (feature lines of neighbouring
+    # primitives that nearly coincide otherwise force a tiny FDTD timestep)
+    mesh_merge_tolerance_m: float = 0.0
+    # optional: solver threads (None keeps the driver's default of min(8, cpus))
+    num_threads: int | None = None
+    # optional: dump E/J/B at these frequencies instead of frequency_hz alone (one run then covers a
+    # resonance whose frequency is not known beforehand; load_openems_field_dump picks one)
+    dump_frequencies_hz: tuple[float, ...] = ()
 
     def __post_init__(self) -> None:
         frequency = _finite_positive(self.frequency_hz, "frequency_hz")
+        object.__setattr__(
+            self,
+            "dump_frequencies_hz",
+            tuple(_finite_positive(item, "dump_frequencies_hz entry") for item in self.dump_frequencies_hz),
+        )
+        object.__setattr__(
+            self,
+            "mesh_merge_tolerance_m",
+            _finite_nonnegative(self.mesh_merge_tolerance_m, "mesh_merge_tolerance_m"),
+        )
+        if self.num_threads is not None:
+            threads = int(self.num_threads)
+            if threads < 1:
+                raise ValueError("num_threads must be positive")
+            object.__setattr__(self, "num_threads", threads)
+        sweep = tuple(
+            _finite_positive(item, "port_frequencies_hz entry")
+            for item in self.port_frequencies_hz
+        )
+        object.__setattr__(self, "port_frequencies_hz", sweep)
         bandwidth = (
             0.5 * frequency
             if self.gaussian_bandwidth_hz is None
@@ -496,6 +671,12 @@ class OpenEMSSettings:
             "max_timesteps": self.max_timesteps,
             "end_criteria": self.end_criteria,
             "boundary_conditions": list(self.boundary_conditions),
+            **({"port_frequencies_hz": list(self.port_frequencies_hz)}
+               if self.port_frequencies_hz else {}),
+            **({"mesh_merge_tolerance_m": self.mesh_merge_tolerance_m}
+               if self.mesh_merge_tolerance_m > 0.0 else {}),
+            **({"num_threads": self.num_threads} if self.num_threads is not None else {}),
+            **({"dump_frequencies_hz": list(self.dump_frequencies_hz)} if self.dump_frequencies_hz else {}),
         }
 
     @classmethod
@@ -515,6 +696,16 @@ class OpenEMSSettings:
             max_timesteps=int(value.get("max_timesteps", 100_000)),
             end_criteria=float(value.get("end_criteria", 1.0e-5)),
             boundary_conditions=tuple(str(item) for item in boundaries),
+            port_frequencies_hz=tuple(
+                float(item) for item in value.get("port_frequencies_hz", [])  # type: ignore[union-attr]
+            ),
+            mesh_merge_tolerance_m=float(value.get("mesh_merge_tolerance_m", 0.0)),  # type: ignore[arg-type]
+            num_threads=(
+                None if value.get("num_threads") is None else int(value["num_threads"])  # type: ignore[arg-type]
+            ),
+            dump_frequencies_hz=tuple(
+                float(item) for item in value.get("dump_frequencies_hz", [])  # type: ignore[union-attr]
+            ),
         )
 
 
@@ -531,6 +722,10 @@ class OpenEMSProject:
     samples: tuple[OpenEMSCylindricalSample, ...] = ()
     planar_conductors: tuple[OpenEMSPlanarConductor, ...] = ()
     metadata: Mapping[str, object] = field(default_factory=dict)
+    material_boxes: tuple[OpenEMSMaterialBox, ...] = ()
+    # extra fixed mesh lines per axis (x, y, z), e.g. strip edges and gaps that
+    # the polygon extrema alone do not resolve; smoothed with the rest
+    mesh_lines_m: tuple[tuple[float, ...], ...] = ((), (), ())
 
     def __post_init__(self) -> None:
         if not self.name:
@@ -559,6 +754,14 @@ class OpenEMSProject:
             raise TypeError("ports must contain at least one OpenEMSLumpedPort")
         if not all(isinstance(item, OpenEMSCylindricalSample) for item in samples):
             raise TypeError("samples must contain OpenEMSCylindricalSample objects")
+        boxes = tuple(self.material_boxes)
+        if not all(isinstance(item, OpenEMSMaterialBox) for item in boxes):
+            raise TypeError("material_boxes must contain OpenEMSMaterialBox objects")
+        lines = tuple(tuple(float(v) for v in axis) for axis in self.mesh_lines_m)
+        if len(lines) != 3 or not all(np.all(np.isfinite(axis)) for axis in lines):
+            raise ValueError("mesh_lines_m must hold three sequences of finite values")
+        object.__setattr__(self, "material_boxes", boxes)
+        object.__setattr__(self, "mesh_lines_m", lines)
         conductor_names = [item.name for item in (*wires, *conductors)]
         if len(set(conductor_names)) != len(conductor_names):
             raise ValueError("wire and planar conductor names must be unique")
@@ -591,6 +794,11 @@ class OpenEMSProject:
             "ports": [item.to_dict() for item in self.ports],
             "samples": [item.to_dict() for item in self.samples],
             "metadata": dict(self.metadata),
+            # optional keys are written only when used, so older projects keep their hash
+            **({"material_boxes": [item.to_dict() for item in self.material_boxes]}
+               if self.material_boxes else {}),
+            **({"mesh_lines_m": [list(axis) for axis in self.mesh_lines_m]}
+               if any(self.mesh_lines_m) else {}),
         }
 
     @classmethod
@@ -644,6 +852,14 @@ class OpenEMSProject:
                 OpenEMSCylindricalSample.from_dict(item) for item in samples
             ),
             metadata=metadata,
+            material_boxes=tuple(
+                OpenEMSMaterialBox.from_dict(item)
+                for item in value.get("material_boxes", [])  # type: ignore[union-attr]
+            ),
+            mesh_lines_m=tuple(
+                tuple(float(v) for v in axis)
+                for axis in value.get("mesh_lines_m", [[], [], []])  # type: ignore[union-attr]
+            ),
         )
 
     @property
@@ -954,6 +1170,31 @@ def main():
                         center[index] + float(sample["radius_m"]),
                     ]
                 )
+    for box in project.get("material_boxes", []):
+        for axis_index in range(3):
+            feature_lines[axis_index].update(
+                (float(box["start_m"][axis_index]), float(box["stop_m"][axis_index]))
+            )
+    for axis_index, axis in enumerate(project.get("mesh_lines_m", [[], [], []])):
+        feature_lines[axis_index].update(float(item) for item in axis)
+    for axis_index, bounds in enumerate(project["simulation_bounds_m"]):
+        low, high = float(bounds[0]), float(bounds[1])
+        feature_lines[axis_index] = {
+            item for item in feature_lines[axis_index] if low <= item <= high
+        }
+    merge = float(settings.get("mesh_merge_tolerance_m", 0.0))
+    if merge > 0.0:
+        bounds_lines = [set(float(v) for v in b) for b in project["simulation_bounds_m"]]
+        for axis_index in range(3):
+            kept = []
+            for item in sorted(feature_lines[axis_index]):
+                if kept and item - kept[-1] < merge:
+                    # keep a simulation bound over an interior line, else the first of the cluster
+                    if item in bounds_lines[axis_index]:
+                        kept[-1] = item
+                    continue
+                kept.append(item)
+            feature_lines[axis_index] = set(kept)
     for axis_index, axis_name in enumerate("xyz"):
         mesh.AddLine(axis_name, sorted(feature_lines[axis_index]))
     mesh.SmoothMeshLines(
@@ -983,6 +1224,22 @@ def main():
             priority=int(sample["priority"]),
         )
 
+    for box in project.get("material_boxes", []):
+        if box["metal"]:
+            prop = csx.AddMetal(box["name"])
+        else:
+            prop = csx.AddMaterial(
+                box["name"],
+                epsilon=float(box["relative_permittivity"]),
+                mue=float(box["relative_permeability"]),
+                kappa=float(box["conductivity_s_per_m"]),
+            )
+        prop.AddBox(
+            [float(item) for item in box["start_m"]],
+            [float(item) for item in box["stop_m"]],
+            priority=int(box["priority"]),
+        )
+
     for wire in project["wires"]:
         metal = csx.AddMetal(wire["name"])
         for polyline in wire["polylines_m"]:
@@ -994,7 +1251,14 @@ def main():
             )
 
     for conductor in project.get("planar_conductors", []):
-        metal = csx.AddMetal(conductor["name"])
+        if conductor.get("conductivity_s_per_m") is not None:
+            metal = csx.AddConductingSheet(
+                conductor["name"],
+                conductivity=float(conductor["conductivity_s_per_m"]),
+                thickness=float(conductor["thickness_m"]),
+            )
+        else:
+            metal = csx.AddMetal(conductor["name"])
         points = np.asarray(conductor["points_m"], dtype=float)
         normal_index = "xyz".index(conductor["normal_axis"])
         tangential_indices = [index for index in range(3) if index != normal_index]
@@ -1027,7 +1291,9 @@ def main():
 
     field_start = [float(axis[0]) for axis in project["field_axes_m"]]
     field_stop = [float(axis[-1]) for axis in project["field_axes_m"]]
-    frequency = [float(settings["frequency_hz"])]
+    frequency = [float(item) for item in settings.get("dump_frequencies_hz", [])] or [
+        float(settings["frequency_hz"])
+    ]
     e_dump = csx.AddDump(
         "E_fd",
         dump_type=10,
@@ -1059,7 +1325,11 @@ def main():
         cleanup=True,
         setup_only=bool(args.setup_only),
         engine="multithreaded",
-        numThreads=max(1, min(8, os.cpu_count() or 1)),
+        numThreads=(
+            int(settings["num_threads"])
+            if settings.get("num_threads") is not None
+            else max(1, min(8, os.cpu_count() or 1))
+        ),
     )
 
     run_metadata = {
@@ -1097,6 +1367,30 @@ def main():
         json.dumps(port_results, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+
+    sweep = [float(item) for item in settings.get("port_frequencies_hz", [])]
+    if sweep:
+        sweep_frequency = np.asarray(sweep)
+        records = []
+        for port_data, port in ports:
+            port.CalcPort(str(output_dir), sweep_frequency)
+            records.append(
+                {
+                    "number": int(port_data["number"]),
+                    "name": port_data["name"],
+                    "frequency_hz": sweep,
+                    "voltage_incident_v": [_complex_pair(v) for v in port.uf_inc],
+                    "voltage_reflected_v": [_complex_pair(v) for v in port.uf_ref],
+                    "current_incident_a": [_complex_pair(v) for v in port.if_inc],
+                    "current_reflected_a": [_complex_pair(v) for v in port.if_ref],
+                    "accepted_power_w": [float(v) for v in port.P_acc],
+                    "reference_impedance_ohm": float(port_data["resistance_ohm"]),
+                }
+            )
+        (output_dir / "openems_port_sweep.json").write_text(
+            json.dumps(records, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
 
 if __name__ == "__main__":
     main()
@@ -1661,6 +1955,17 @@ def load_openems_solution(
             metadata=dict(sample.metadata),
         )
         for sample in project.samples
+    ) + tuple(
+        HarmonicMaterial(
+            name=box.name,
+            relative_permittivity=box.relative_permittivity,
+            conductivity_s_per_m=box.conductivity_s_per_m,
+            relative_permeability=box.relative_permeability,
+            region_id=box.name,
+            metadata=dict(box.metadata),
+        )
+        for box in project.material_boxes
+        if not box.metal
     )
     convergence = None
     if run_metadata.get("final_energy_db") is not None:
@@ -1738,6 +2043,63 @@ def load_openems_solution(
     )
 
 
+@dataclass(frozen=True)
+class OpenEMSPortSweep:
+    """One port's incident and reflected waves over the project's port sweep."""
+
+    number: int
+    name: str
+    frequency_hz: np.ndarray
+    voltage_incident_v: np.ndarray
+    voltage_reflected_v: np.ndarray
+    accepted_power_w: np.ndarray
+    reference_impedance_ohm: float
+
+    @property
+    def reflection(self) -> np.ndarray:
+        """Complex reflection coefficient (S_nn for the excited port)."""
+
+        return self.voltage_reflected_v / self.voltage_incident_v
+
+
+def load_openems_port_sweep(directory: str | Path) -> tuple[OpenEMSPortSweep, ...]:
+    """Read the port sweep (``openems_port_sweep.json``) of a run with ``port_frequencies_hz``."""
+
+    path = Path(directory) / "openems_port_sweep.json"
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError as exc:
+        raise ValueError(f"missing openEMS port sweep: {path}") from exc
+    if not isinstance(raw, list) or not raw:
+        raise ValueError("openEMS port sweep must be a nonempty list")
+
+    def _complex_array(values: object, name: str) -> np.ndarray:
+        if not isinstance(values, list):
+            raise ValueError(f"{name} must be a list")
+        return np.array([_complex_from_json(item, name) for item in values])
+
+    out = []
+    for item in raw:
+        frequency = np.asarray(item["frequency_hz"], dtype=np.float64)
+        incident = _complex_array(item["voltage_incident_v"], "voltage_incident_v")
+        reflected = _complex_array(item["voltage_reflected_v"], "voltage_reflected_v")
+        power = np.asarray(item["accepted_power_w"], dtype=np.float64)
+        if not (frequency.shape == incident.shape == reflected.shape == power.shape):
+            raise ValueError("openEMS port sweep arrays must share one length")
+        out.append(
+            OpenEMSPortSweep(
+                number=int(item["number"]),
+                name=str(item.get("name", f"port_{item['number']}")),
+                frequency_hz=frequency,
+                voltage_incident_v=incident,
+                voltage_reflected_v=reflected,
+                accepted_power_w=power,
+                reference_impedance_ohm=float(item["reference_impedance_ohm"]),
+            )
+        )
+    return tuple(out)
+
+
 __all__ = [
     "OPENEMS_PROJECT_SCHEMA",
     "OpenEMSAvailability",
@@ -1745,6 +2107,8 @@ __all__ = [
     "OpenEMSExecutionError",
     "OpenEMSFieldDump",
     "OpenEMSLumpedPort",
+    "OpenEMSMaterialBox",
+    "OpenEMSPortSweep",
     "OpenEMSProject",
     "OpenEMSRunResult",
     "OpenEMSSettings",
@@ -1752,6 +2116,7 @@ __all__ = [
     "OpenEMSWire",
     "check_openems_python",
     "load_openems_field_dump",
+    "load_openems_port_sweep",
     "load_openems_project",
     "load_openems_solution",
     "loaded_loop_openems_reference",
