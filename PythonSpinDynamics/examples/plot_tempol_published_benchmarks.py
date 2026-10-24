@@ -1,4 +1,4 @@
-"""Compare published TEMPOL/water data with the unfitted reduced CW model.
+"""Compare full and reduced nitroxide relaxation with published TEMPOL/water data.
 
 python examples/plot_tempol_published_benchmarks.py --output .tmp/tempol_comparison.png
 Also writes a sibling <stem>_anchors.png and, with --report, a JSON benchmark.
@@ -43,8 +43,21 @@ def main():
     high = profile_model(data, frequencies, b1_scale=1 / 0.9)[1]
     plt = load_matplotlib(headless=args.output is not None)
     fig, axes = plt.subplots(2, 2, figsize=(11, 8), constrained_layout=True)
-    axes[0, 0].plot(frequencies, prediction_s, label="Reduced population model")
-    axes[0, 0].plot(frequencies, without_exchange, "--", label="Exchange off")
+    axes[0, 0].plot(frequencies, prediction_s, label="Full nitrogen relaxation")
+    axes[0, 0].plot(
+        frequencies,
+        without_exchange,
+        ":",
+        color="purple",
+        label="Full matrix, exchange off",
+    )
+    for mode, style, color, label in (
+        ("reduced", ":", "0.5", "Legacy common T2"),
+        ("line_dependent", "--", "tab:orange", "Line-dependent T2 only"),
+    ):
+        ms, me = profile_model(data, frequencies, relaxation=mode)
+        axes[0, 0].plot(frequencies, ms, style, color=color, label=label)
+        axes[0, 1].plot(frequencies, me, style, color=color, label=label)
     axes[0, 0].errorbar(
         s[:, 0],
         s[:, 1],
@@ -62,9 +75,12 @@ def main():
         np.minimum(low, high),
         np.maximum(low, high),
         alpha=0.15,
+        color="tab:blue",
         label="B1 = 0.8–1.0 G sensitivity; not CI",
     )
-    axes[0, 1].plot(frequencies, prediction_e, label="Reduced model; no refitting")
+    axes[0, 1].plot(
+        frequencies, prediction_e, color="tab:blue", label="Full matrix; no refitting"
+    )
     axes[0, 1].errorbar(
         e[:, 0],
         e[:, 1],
@@ -78,6 +94,7 @@ def main():
         xlabel="Microwave offset (MHz)", ylabel="ε = E − 1", ylim=(-5.5, 0.1)
     )
     residual = profile_model(data, e[:, 0])[1] - e[:, 1]
+    legacy_residual = profile_model(data, e[:, 0], relaxation="reduced")[1] - e[:, 1]
     axes[1, 0].axhline(0, color="0.5", lw=1)
     axes[1, 0].axhspan(
         -0.05, 0.05, color="0.8", alpha=0.5, label="Digitization half-width only"
@@ -87,7 +104,14 @@ def main():
         residual,
         "o-",
         ms=3,
-        label=f"Model − measured; RMSE {report['enhancement_profile']['rmse']:.3f}",
+        label=f"Full matrix; RMSE {report['enhancement_profile']['rmse']:.3f}",
+    )
+    axes[1, 0].plot(
+        e[:, 0],
+        legacy_residual,
+        ":",
+        color="0.5",
+        label=f"Legacy; RMSE {report['model_comparison']['reduced']['enhancement']['rmse']:.3f}",
     )
     axes[1, 0].set(xlabel="Microwave offset (MHz)", ylabel="Enhancement residual")
     b1 = np.linspace(0, 2, 301)
@@ -111,7 +135,7 @@ def main():
         ax.grid(alpha=0.25)
         ax.legend(fontsize=7, loc="lower right" if ax is axes[1, 1] else "best")
     fig.suptitle(
-        "Published TEMPOL/water benchmarks: partial agreement with explicit model reduction\nSezer et al., PCCP 2009; Prandolini et al., JACS 2009",
+        "Published TEMPOL/water benchmarks: full nitrogen relaxation versus reduced models\nSezer et al., PCCP 2009; Prandolini et al., JACS 2009 — no DNP refitting",
         fontsize=12,
     )
     fig.text(

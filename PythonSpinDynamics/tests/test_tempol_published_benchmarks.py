@@ -48,11 +48,11 @@ class TempolPublishedBenchmarkTests(unittest.TestCase):
         self.assertEqual(result["fit_parameters"], [])
         self.assertTrue(result["within_reduction_envelopes"])
         self.assertAlmostEqual(
-            result["enhancement_profile"]["rmse"], 0.4828455827862031, delta=1e-10
+            result["enhancement_profile"]["rmse"], 0.4884946790981705, delta=1e-10
         )
         self.assertAlmostEqual(
             result["saturation_published_theory"]["rmse"],
-            0.017509807829052596,
+            0.016572517088831236,
             delta=1e-11,
         )
         s, epsilon = profile_model(self.data, np.array([-42, 0, 42]))
@@ -66,6 +66,31 @@ class TempolPublishedBenchmarkTests(unittest.TestCase):
         # No irradiation means epsilon=0, while the baseline-inclusive E is 1.
         _, off = profile_model(self.data, [0], b1_scale=0)
         assert_allclose(off, 0, atol=0)
+
+    def test_full_operator_preserves_legacy_comparison_and_source_linewidths(self):
+        result = compare(self.data)
+        self.assertAlmostEqual(
+            result["model_comparison"]["reduced"]["enhancement"]["rmse"],
+            0.4828455827862031,
+            delta=1e-10,
+        )
+        self.assertLess(
+            result["saturation_published_theory"]["rmse"],
+            result["model_comparison"]["reduced"]["saturation_theory"]["rmse"],
+        )
+        # Better theory agreement does not imply a better fit to measurements.
+        self.assertGreater(
+            result["enhancement_profile"]["rmse"],
+            result["model_comparison"]["reduced"]["enhancement"]["rmse"],
+        )
+        diagnostic = result["full_relaxation_diagnostics"]
+        assert_allclose(
+            diagnostic["t2_diagonal_seconds_ascending_m"],
+            self.data["sezer_profile"]["t2e_seconds_by_nitrogen_m_ascending"],
+            rtol=0.002,
+        )
+        self.assertEqual(diagnostic["nuclear_population_r0_rank"], 2)
+        self.assertGreater(diagnostic["nuclear_feedback_u_frobenius_per_second"], 1000)
 
     def test_exchange_improves_profile_without_claiming_measurement_error_agreement(
         self,

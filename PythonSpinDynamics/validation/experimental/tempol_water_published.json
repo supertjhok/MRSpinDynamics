@@ -41,6 +41,19 @@
     "nuclear_relaxivity_per_molar_second": 90,
     "coupling_factor": 0.027,
     "t1e_seconds": 6.9e-07,
+    "full_relaxation": {
+      "g_tensor": [2.0088, 2.006, 2.002],
+      "rotational_correlation_time_seconds": 1.2e-11,
+      "angular_velocity_a1_rad2_per_ps2": 0.860,
+      "angular_velocity_a1_plus_a2_rad2_per_ps2": 1.389,
+      "angular_velocity_tau1_seconds": 1.17e-14,
+      "angular_velocity_tau2_seconds": 9.28e-14,
+      "angular_velocity_tau3_seconds": 6.49e-14,
+      "additional_r1_gauss": 0.02,
+      "additional_r2_gauss": 0.8,
+      "source_location": "Eqs. (37)-(38), Table 2 (45 C angular velocity), Table 5 and Appendix A1; 12 ps rotational time at approximately 40 C. Nuclear quadrupole relaxation and nonsecular hyperfine shifts were excluded in the source.",
+      "calibration": "No fitting to DNP or digitized saturation. Tensor anisotropy and g/A covariance construct the full relaxation operator. Spin-rotation densities are calculated from the reported angular-velocity fit; additional electron R1/R2 use the published phenomenological values. Quoted Eq. (41) line T2 values are checks, not fitted inputs for this operator."
+    },
     "t2e_seconds_by_nitrogen_m_ascending": [
       2.21e-08,
       2.51e-08,

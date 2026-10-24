@@ -20,14 +20,15 @@ what supports the underlying scientific or numerical claim.
 
 ## Coverage Summary
 
-- 46 capability-level claims
-- 18 validated
+- 47 capability-level claims
+- 19 validated
 - 23 partially validated
 - 5 regression-only
 
 | Component | Claim | Evidence | Status |
 | --- | --- | --- | --- |
-| Published TEMPOL/water saturation and DNP benchmarks | An unfitted reduced nitrogen-population model partially reproduces a published TEMPOL/water experimental DNP frequency profile; saturation theory, reconstructed EPR-fit curves and DNP-derived saturation anchors are classified separately. | **D**, **E**, **R** | partially validated |
+| Line-dependent electron and full nitrogen relaxation in CW nitroxide saturation | Generalized Bloch stationary solves retain line-dependent T1/T2, full electron-nitrogen population relaxation with R1/R0/U/V feedback, transverse relaxation transfer and linearized Heisenberg exchange. | **A**, **C**, **D**, **R** | validated |
+| Published TEMPOL/water saturation and DNP benchmarks | An unfitted full nitrogen-relaxation model and two retained reductions partially reproduce a published TEMPOL/water experimental DNP frequency profile; saturation theory, reconstructed EPR-fit curves and DNP-derived saturation anchors are classified separately. | **D**, **E**, **R** | partially validated |
 | Resolved nitrogen hyperfine populations and Heisenberg exchange saturation | High-temperature 14N/15N nitroxide populations give effective CW saturation with nitrogen relaxation, molarity-dependent population exchange and independently supplied transverse broadening. | **A**, **C**, **R** | validated |
 | Coupled electron-nuclear thermal Overhauser dynamics | A four-level Lindblad pair reference preserves physical density matrices, recovers the laboratory Gibbs state, resolves coherent microwave driving, and reproduces the high-temperature CW limit with its calculated electron saturation. | **A**, **C**, **R** | validated |
 | Rotational and scalar-contact CW Overhauser motion channels | Absolute rotational dipolar and exponential scalar-contact rates reproduce spin-1/2 transition generators and compose independent rate contributions consistently with the existing FFHS model. | **A**, **C** | validated |
@@ -76,17 +77,29 @@ what supports the underlying scientific or numerical claim.
 
 ## Detailed Evidence
 
+### Line-dependent electron and full nitrogen relaxation in CW nitroxide saturation
+
+- **Claim:** Generalized Bloch stationary solves retain line-dependent T1/T2, full electron-nitrogen population relaxation with R1/R0/U/V feedback, transverse relaxation transfer and linearized Heisenberg exchange.
+- **Evidence:** A, C, D, R (validated)
+- **Basis:** Scalar/vector Bloch limits; independent nitrogen-14 Appendix A13-A17 blocks; nitrogen-15 hyperfine jump-operator projection; an independent 36-component density-matrix stationary solve; thermal, trace, positivity, immutable-input and invalid-matrix checks. Tensor-derived line T2 values also agree with the published Eq. 41 values.
+- **Tested range:** 14N/15N resolved-line high-temperature model; line-dependent times, arbitrary symmetric nitrogen transfer networks, tensor anisotropy/covariance and spin-rotation spectra. Published TEMPOL case at 9.21238 T uses 12 ps rotational motion and the reported MD angular-velocity parameters.
+- **Metric:** Absolute population/coherence agreement, relaxation block identities, thermal stationarity, line-width agreement, and backward-compatible scalar behavior
+- **Tolerance:** 3e-14 relative analytic block agreement with absolute tolerances for cancellation; 3e-12 absolute independent density populations/coherences; published line T2 relative error <0.002. Experimental DNP comparison remains separately partially validated.
+- **References:** https://doi.org/10.1039/B906719C
+- **Reproduce:** [`tests/test_nitroxide_relaxation_matrix.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_nitroxide_relaxation_matrix.py); [`tests/test_nitroxide_saturation.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_nitroxide_saturation.py); [`validation/validate_tempol_water.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/validation/validate_tempol_water.py); [`examples/plot_tempol_published_benchmarks.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/examples/plot_tempol_published_benchmarks.py)
+- **Limitations:** Full mode is a first-order high-temperature, secular CW model with factorized thermal reference and linearized exchange; it is not finite-temperature Gibbs dynamics or coherent transient propagation. Arbitrary user-supplied block positivity does not establish complete positivity of a finite-temperature master equation. Nonphysical steady density blocks are rejected. Nitrogen quadrupole terms, general nuclear coherences, nonsecular shifts and general line coalescence remain outside this model. Rebuild tensor-derived relaxation blocks at each field and motional condition. Adding a supplied matrix to finite independent T1/T2 can double-count relaxation; use positive infinity to disable duplicate baths.
+
 ### Published TEMPOL/water saturation and DNP benchmarks
 
-- **Claim:** An unfitted reduced nitrogen-population model partially reproduces a published TEMPOL/water experimental DNP frequency profile; saturation theory, reconstructed EPR-fit curves and DNP-derived saturation anchors are classified separately.
+- **Claim:** An unfitted full nitrogen-relaxation model and two retained reductions partially reproduce a published TEMPOL/water experimental DNP frequency profile; saturation theory, reconstructed EPR-fit curves and DNP-derived saturation anchors are classified separately.
 - **Evidence:** D, E, R (partially validated)
 - **Basis:** Source-pixel extraction of 31 red-square experimental marker clusters in Sezer Fig. 5; 19 manual theory-curve samples in Fig. 6c; source PDF/image SHA256 audit; independently reported relaxation-product and lower-field factor-closure diagnostics.
 - **Tested range:** 14N TEMPOL in water, 3.15 mM, 9.21238 T, approximately 313 K and 0.9 G co-rotating B1; room-temperature EPR fit-product comparison and 0.34/3.4 T DNP-derived saturation anchors are separate contexts.
 - **Metric:** Descriptive enhancement/theory-saturation RMSE, absolute residuals, parameter-product ratio and factor closure; no fitting to extracted observations
-- **Tolerance:** Fixed model-reduction regression envelopes: enhancement RMSE <=0.8 and theory saturation RMSE <=0.08. Actual 0.48285 and 0.01751. These bounds are not experimental error bars; residuals exceed digitization precision.
+- **Tolerance:** Unchanged regression envelopes: enhancement RMSE <=0.8 and theory saturation RMSE <=0.08. Full model actual 0.48849 and 0.01657; legacy 0.48285 and 0.01751 retained. These bounds are not experimental error bars; residuals exceed digitization precision.
 - **References:** https://doi.org/10.1039/B906719C; https://doi.org/10.1021/ja901496g; https://doi.org/10.1021/ja0783207
 - **Reproduce:** [`validation/validate_tempol_water.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/validation/validate_tempol_water.py); [`validation/experimental/tempol_water_published.json`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/validation/experimental/tempol_water_published.json); [`tests/test_tempol_published_benchmarks.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_tempol_published_benchmarks.py); [`examples/plot_tempol_published_benchmarks.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/examples/plot_tempol_published_benchmarks.py)
-- **Limitations:** Published relaxation/exchange parameters contain source-study estimates; reduced common T2 and zero added nitrogen rate omit full relaxation-matrix effects. Coupling and leakage are supplied, so FFHS absolute rates are not experimentally validated here. Extracted marker clusters are not raw acquisitions; measurement uncertainties and correlations are unavailable. Saturation Fig. 6c is published theory, not independent experimental saturation. The EPR saturation curves are reconstructions from a reported fit product; isotope/sample/method differences limit cross-study parameter transfer. Lower-field saturation was inferred from DNP, so factor closure is not independent validation. Approximate maxima have unverified baseline convention and span concentrations; full source PDF was unavailable locally.
+- **Limitations:** Published relaxation/exchange parameters contain source-study estimates. The active model retains full population feedback and transverse relaxation; legacy reductions remain visible. Coupling and leakage are supplied, so FFHS absolute rates are not experimentally validated here. Better theory agreement does not improve measured DNP RMSE. Extracted marker clusters are not raw acquisitions; measurement uncertainties and correlations are unavailable. Saturation Fig. 6c is published theory, not independent experimental saturation. The EPR saturation curves are reconstructions from a reported fit product; isotope/sample/method differences limit cross-study parameter transfer. Lower-field saturation was inferred from DNP, so factor closure is not independent validation. Approximate maxima have unverified baseline convention and span concentrations; full source PDF was unavailable locally.
 
 ### Resolved nitrogen hyperfine populations and Heisenberg exchange saturation
 
@@ -98,7 +111,7 @@ what supports the underlying scientific or numerical claim.
 - **Tolerance:** 2e-13 relative isolated-line Bloch agreement; 6e-6 absolute selective-line limit; 1e-10 absolute analytic exchange saturation; 3e-12 absolute independent integrated population agreement.
 - **References:** https://doi.org/10.1039/C5CP00935A; https://doi.org/10.1039/C0CP02126A
 - **Reproduce:** [`tests/test_nitroxide_saturation.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_nitroxide_saturation.py); [`examples/plot_overhauser_tempol_saturation.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/examples/plot_overhauser_tempol_saturation.py)
-- **Limitations:** Factorized electron Boltzmann/uniform nitrogen thermal reference; nitrogen Zeeman and hyperfine Boltzmann corrections are neglected. Resolved-line population model only: exchange coherence transfer, coalescence, anisotropic spectra and coherent transients are not included. Uniform nitrogen sector for CW solves; at zero nitrogen relaxation, other nitrogen marginals are invariant. Electron relaxation, population-exchange coefficient and transverse broadening are supplied inputs with explicit rate conventions. TEMPOL example parameters are illustrative, without experimental calibration or predicted field dependence.
+- **Limitations:** Factorized electron Boltzmann/uniform nitrogen thermal reference; nitrogen Zeeman and hyperfine Boltzmann corrections are neglected. This record covers the default scalar population path, which omits exchange coherence transfer. The full relaxation matrix path is validated separately; general coalescence and coherent transients are not included. Uniform nitrogen sector for CW solves; at zero nitrogen relaxation, other nitrogen marginals are invariant. Electron relaxation, population-exchange coefficient and transverse broadening are supplied inputs with explicit rate conventions. TEMPOL example parameters are illustrative, without experimental calibration or predicted field dependence.
 
 ### Coupled electron-nuclear thermal Overhauser dynamics
 

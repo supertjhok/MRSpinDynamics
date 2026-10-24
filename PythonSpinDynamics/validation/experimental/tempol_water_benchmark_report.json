@@ -1,19 +1,81 @@
 {
-  "data_sha256": "d23a4c421a3c67c053107480eb43de42bf0159486d2a35b23e2c498c80a6f82b",
+  "data_sha256": "e751fd2e95e3f2efcd3ce78b3f2f52ed78e0a6aae7b831b742e471f0c2266e6a",
   "fit_parameters": [],
+  "active_model": "full_nitrogen_relaxation_and_transverse_exchange",
+  "model_comparison": {
+    "reduced": {
+      "enhancement": {
+        "n": 31,
+        "rmse": 0.4828455827862031,
+        "mae": 0.404198199218284,
+        "max_absolute_error": 1.0585702734707017,
+        "bias": -0.043099813431814814
+      },
+      "saturation_theory": {
+        "n": 19,
+        "rmse": 0.017509807829052596,
+        "mae": 0.01352232881012399,
+        "max_absolute_error": 0.0447566312933714,
+        "bias": -0.009582541544951596
+      }
+    },
+    "line_dependent": {
+      "enhancement": {
+        "n": 31,
+        "rmse": 0.4745633590259842,
+        "mae": 0.40301539983836987,
+        "max_absolute_error": 1.051399814242874,
+        "bias": -0.039910818208648266
+      },
+      "saturation_theory": {
+        "n": 19,
+        "rmse": 0.01922574063156827,
+        "mae": 0.013784591409380705,
+        "max_absolute_error": 0.053146944938239724,
+        "bias": -0.009847635686200732
+      }
+    },
+    "full": {
+      "enhancement": {
+        "n": 31,
+        "rmse": 0.4884946790981705,
+        "mae": 0.4084291932185264,
+        "max_absolute_error": 1.1573091063385688,
+        "bias": -0.11415490915130969
+      },
+      "saturation_theory": {
+        "n": 19,
+        "rmse": 0.016572517088831236,
+        "mae": 0.011736652005175749,
+        "max_absolute_error": 0.04953386511292575,
+        "bias": -0.0038125078290334354
+      }
+    }
+  },
+  "full_relaxation_diagnostics": {
+    "t2_diagonal_seconds_ascending_m": [
+      2.2112515101198194e-08,
+      2.5072302058712702e-08,
+      2.8613722771192735e-08
+    ],
+    "collective_r1_rayleigh_per_second": 1430710.8375974696,
+    "nuclear_feedback_u_frobenius_per_second": 1297.3070192774965,
+    "nuclear_feedback_v_frobenius_per_second": 1297.3070192774965,
+    "nuclear_population_r0_rank": 2
+  },
   "enhancement_profile": {
     "n": 31,
-    "rmse": 0.4828455827862031,
-    "mae": 0.404198199218284,
-    "max_absolute_error": 1.0585702734707017,
-    "bias": -0.043099813431814814
+    "rmse": 0.4884946790981705,
+    "mae": 0.4084291932185264,
+    "max_absolute_error": 1.1573091063385688,
+    "bias": -0.11415490915130969
   },
   "saturation_published_theory": {
     "n": 19,
-    "rmse": 0.017509807829052596,
-    "mae": 0.01352232881012399,
-    "max_absolute_error": 0.0447566312933714,
-    "bias": -0.009582541544951596
+    "rmse": 0.016572517088831236,
+    "mae": 0.011736652005175749,
+    "max_absolute_error": 0.04953386511292575,
+    "bias": -0.0038125078290334354
   },
   "reduction_envelopes": {
     "enhancement_rmse_max": 0.8,
@@ -42,5 +104,5 @@
       "independent_validation": false
     }
   ],
-  "interpretation": "Partial published-data agreement with quantified model-reduction error. Saturation theory and DNP-derived saturation are not independent experimental saturation validation. Cross-study relaxation inputs disagree; do not reuse one calibration universally."
+  "interpretation": "Partial published-data agreement: full tensor-derived relaxation improves saturation-theory RMSE but slightly worsens measured DNP RMSE relative to the retained legacy reduction. No DNP refitting. Saturation theory and DNP-derived saturation are not independent experimental saturation validation; cross-study relaxation inputs are not a universal calibration."
 }
