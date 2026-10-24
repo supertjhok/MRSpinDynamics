@@ -21,9 +21,14 @@ Lindblad propagation, stationary solves, and pair-motion rate conversions.
 It has a 1:1 electron/nucleus population mapping; bulk dilute-solution rates
 cannot be inserted without additional reservoir number-density information.
 
+The F-stage resolved-line saturation model now tracks six 14N (or four 15N)
+populations, adjacent nitrogen relaxation and concentration-dependent Heisenberg
+population exchange, with an illustrative TEMPOL/water example. It uses a
+high-temperature factorized thermal state and supplied electron/exchange rates;
+it does not calculate exchange coherence transfer or line coalescence.
 No independent experimental enhancement dataset has been used to calibrate or
-validate the complete model. Nitroxide population/exchange saturation and a
-many-nucleus/dilute-solution dynamics mapping remain beyond this pair reference.
+validate the complete model. A many-nucleus/dilute-solution dynamics mapping
+and experimental saturation/ELDOR calibration remain future work.
 
 ## Recommendation
 

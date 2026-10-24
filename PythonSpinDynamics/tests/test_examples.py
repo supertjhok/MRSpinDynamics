@@ -40,6 +40,26 @@ def run_example(*args: str, cwd: Path = ROOT) -> subprocess.CompletedProcess[str
 
 
 class ExampleSmokeTests(unittest.TestCase):
+    def test_tempol_saturation_example_renders(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            image = Path(directory) / "saturation.png"
+            csv = Path(directory) / "saturation.csv"
+            result = run_example("examples/plot_overhauser_tempol_saturation.py",
+                                 "--output", str(image), "--csv", str(csv))
+            self.assertIn("max |P| at", result.stdout)
+            self.assertTrue(image.read_bytes().startswith(b"\x89PNG\r\n\x1a\n"))
+            data = np.genfromtxt(csv, names=True, delimiter=",")
+            self.assertEqual(data.size, 5 * 241)
+            self.assertTrue(np.all((data["saturation_factor"] >= 0) &
+                                   (data["saturation_factor"] <= 1)))
+            optima = np.genfromtxt(Path(directory) / "saturation_optima.csv",
+                                   names=True, delimiter=",")
+            self.assertEqual(optima.size, 5)
+            for optimum in optima:
+                curve = data[data["concentration_mm"] == optimum["concentration_mm"]]
+                self.assertGreaterEqual(abs(optimum["proton_polarization"]) + 1e-12,
+                                        np.max(np.abs(curve["proton_polarization"])))
+
     def test_overhauser_coupled_dynamics_example_renders(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             image = Path(directory) / "coupled.png"

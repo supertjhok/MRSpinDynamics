@@ -20,13 +20,14 @@ what supports the underlying scientific or numerical claim.
 
 ## Coverage Summary
 
-- 44 capability-level claims
-- 17 validated
+- 45 capability-level claims
+- 18 validated
 - 22 partially validated
 - 5 regression-only
 
 | Component | Claim | Evidence | Status |
 | --- | --- | --- | --- |
+| Resolved nitrogen hyperfine populations and Heisenberg exchange saturation | High-temperature 14N/15N nitroxide populations give effective CW saturation with nitrogen relaxation, molarity-dependent population exchange and independently supplied transverse broadening. | **A**, **C**, **R** | validated |
 | Coupled electron-nuclear thermal Overhauser dynamics | A four-level Lindblad pair reference preserves physical density matrices, recovers the laboratory Gibbs state, resolves coherent microwave driving, and reproduces the high-temperature CW limit with its calculated electron saturation. | **A**, **C**, **R** | validated |
 | Rotational and scalar-contact CW Overhauser motion channels | Absolute rotational dipolar and exponential scalar-contact rates reproduce spin-1/2 transition generators and compose independent rate contributions consistently with the existing FFHS model. | **A**, **C** | validated |
 | Liquid-state CW Overhauser DNP | CW factors, absolute FFHS translational rates, and nuclear buildup/recovery satisfy analytic limits and the original diffusion eigenmode integral in the high-temperature Zeeman regime. | **A**, **C**, **D** | validated |
@@ -73,6 +74,18 @@ what supports the underlying scientific or numerical claim.
 | Full-wave openEMS fields and validation | Full-wave field maps expose time termination, mesh change, E/J loss consistency, reciprocity, and low-frequency analytical-limit evidence before quantitative promotion. | **A**, **C**, **R** | partially validated |
 
 ## Detailed Evidence
+
+### Resolved nitrogen hyperfine populations and Heisenberg exchange saturation
+
+- **Claim:** High-temperature 14N/15N nitroxide populations give effective CW saturation with nitrogen relaxation, molarity-dependent population exchange and independently supplied transverse broadening.
+- **Evidence:** A, C, R (validated)
+- **Basis:** Independent Bloch line solutions; selective-line 1/3 and 1/2 limits; analytic three-line exchange transfer; explicit pair-collision enumeration and independent six-population ODE integration.
+- **Tested range:** I=1 or 1/2, secular electron Zeeman frequency >=10*A*I, electron thermal argument <=0.1; nonnegative exchange and nitrogen rates, scalar and broadcast experimental conditions. Illustrative TEMPOL example uses 0.1-25 mM and 0.02-10 T.
+- **Metric:** Saturation and population agreement; collision conservation of nitrogen/electron marginals; normalization and positivity; numerical steady population residual
+- **Tolerance:** 2e-13 relative isolated-line Bloch agreement; 6e-6 absolute selective-line limit; 1e-10 absolute analytic exchange saturation; 3e-12 absolute independent integrated population agreement.
+- **References:** https://doi.org/10.1039/C5CP00935A; https://doi.org/10.1039/C0CP02126A
+- **Reproduce:** [`tests/test_nitroxide_saturation.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_nitroxide_saturation.py); [`examples/plot_overhauser_tempol_saturation.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/examples/plot_overhauser_tempol_saturation.py)
+- **Limitations:** Factorized electron Boltzmann/uniform nitrogen thermal reference; nitrogen Zeeman and hyperfine Boltzmann corrections are neglected. Resolved-line population model only: exchange coherence transfer, coalescence, anisotropic spectra and coherent transients are not included. Uniform nitrogen sector for CW solves; at zero nitrogen relaxation, other nitrogen marginals are invariant. Electron relaxation, population-exchange coefficient and transverse broadening are supplied inputs with explicit rate conventions. TEMPOL example parameters are illustrative, without experimental calibration or predicted field dependence.
 
 ### Coupled electron-nuclear thermal Overhauser dynamics
 

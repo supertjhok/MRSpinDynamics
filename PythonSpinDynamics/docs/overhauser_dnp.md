@@ -8,14 +8,134 @@ Independent motion channels or supplied scalar self/cross rates can be combined.
 Use `spin_dynamics.workflows.dnp` for field/power grids.
 A separate `CoupledElectronNuclearModel` resolves microwave driving and thermal
 recovery of one electron–nucleus pair, including the electron saturation dynamics.
+`NitroxideSaturationModel` supplies ensemble saturation from resolved nitrogen
+hyperfine populations, nitrogen relaxation and concentration-dependent exchange.
 
 The first implementation assumes S=1/2 electrons, positive-gamma spin-1/2 nuclei,
-the weak-coupling Zeeman limit, and high temperature. It does not solve nitrogen
-hyperfine population mixing, electron dynamics, zero-field pumping, restricted
-diffusion, or spin transport. Electron/nuclear gyromagnetic ratios are positive
+the weak-coupling Zeeman limit, and high temperature. Zero-field pumping,
+restricted diffusion and spin transport require additional models.
+Electron/nuclear gyromagnetic ratios are positive
 magnitudes in Hz/T; spectral frequencies are radians/second. Default gammas are
 the free electron and proton. No new runtime dependency beyond NumPy is required;
 the independent integral audit uses optional SciPy, and plotting uses Matplotlib.
+
+## Concentration-dependent nitroxide saturation
+
+`NitroxideSaturationModel` tracks six populations for 14N (S=1/2, I=1),
+or four for 15N (`nitrogen_spin=0.5`). It returns each line's conditional
+electron polarization and saturation, nitrogen populations, and the effective
+saturation averaged over all nitrogen manifolds. A strongly saturated single
+line gives effective saturation near 1/3 for 14N or 1/2 for 15N when the other
+lines remain unperturbed. Nitrogen relaxation and Heisenberg exchange transfer
+the saturation to the other lines.
+
+```python
+from spin_dynamics.dnp import NitroxideSaturationModel
+
+nitroxide = NitroxideSaturationModel(
+    hyperfine_hz=45e6, electron_t1_seconds=0.5e-6,
+    electron_t2_seconds=0.1e-6,
+    nitrogen_transition_per_second=1e4,
+    exchange_coefficient_per_molar_second=2e9,
+    transverse_broadening_per_molar_second=1e9,
+)
+sat = nitroxide.steady_state(
+    field_tesla=0.35, concentration_molar=0.005,
+    nutation_rad_per_s=20e6, detuning_rad_per_s=0,
+)
+# Pass sat.saturation_factor into cw_overhauser with the same conditions.
+print(sat.saturation_factor, sat.nitrogen_populations, sat.populations)
+```
+
+These electron parameters are **illustrative supplied inputs**, not a measured
+TEMPOL calibration. The positive hyperfine spacing is in Hz; detuning and
+co-rotating nutation are angular frequencies. Detuning is electron resonance
+minus microwave frequency, with line offsets `Delta_m=Delta+2*pi*A*m`.
+`nitrogen_transition_per_second` is the symmetric adjacent-m transition rate
+per direction, not a nitrogen T1. Nitrogen projections label the penultimate
+population axis; the last axis is electron (+1/2, -1/2). Experimental inputs
+broadcast, with these two state axes appended.
+
+For a joint population `p[m,e]`, random electron-swap collisions give
+
+\[
+\dot p_{me}|_{ex}=k_{ex}(p_m p_e-p_{me}),\quad
+k_{ex}=K_{ex} C.
+\]
+
+Each pair collision exchanges opposite electron orientations between radicals
+with different nitrogen states. This preserves both nitrogen marginals and
+total electron magnetization. Our `K_ex` has units M^-1 s^-1, and `k_ex` is the
+population-correlation decay rate; literature encounter/transition rates can
+use different factors. For uniform nitrogen, writing `x_m` for conditional
+electron polarization gives the linear steady balance
+
+\[
+0=R_e(P_e^0-x_m)-2W_m x_m
+-w_N(Lx)_m-k_{ex}(x_m-\bar x),\qquad
+W_m=\frac{\Omega_1^2 T_{2e}}{2(1+\Delta_m^2 T_{2e}^2)}.
+\]
+
+Here `R_e=1/T1e` and `L` is the nearest-neighbor nitrogen graph Laplacian.
+The effective saturation is `1-mean(x)/Pe0`. The solver works directly with
+saturation, giving exactly zero at zero drive. `population_derivative` also
+evaluates the full nonlinear population equation for arbitrary normalized
+nitrogen populations; `steady_state` specifies the uniform-nitrogen sector.
+If nitrogen relaxation is zero, other nitrogen marginals remain invariant.
+
+The thermal reference is factorized: exact electron Boltzmann polarization
+`tanh(h*gamma_e*B/(2*k*T))` and uniform nitrogen. Nitrogen Zeeman and hyperfine
+Boltzmann corrections are neglected. This is a high-temperature resolved-line
+population approximation, distinct from the finite-temperature Gibbs pair
+solver below. The API requires electron argument <=0.1 and electron Zeeman
+frequency >=10*A*I; these checks do not establish spectral resolution. Use
+exchange rates, linewidths and nutation well below the hyperfine angular
+splitting. Coherence transfer, exchange narrowing/coalescence, quadrupolar
+coherences and coherent transients are outside this model.
+
+Concentration broadening is separately supplied as
+`1/T2e(C)=1/T2e(0)+b*C`. It must include the appropriate measured transverse
+effects; the population collision coefficient alone does not establish `b`.
+Thus increasing concentration can improve line mixing while broadening lowers
+central-line saturation at fixed microwave amplitude. No universal exchange
+coefficient or field-dependent T1e/T2e is inferred from the TEMPOL name.
+
+The population-swap mechanism and nitrogen-relaxation pathways are described
+in [Enkin et al. (2015), including the supporting derivation](https://doi.org/10.1039/C5CP00935A).
+[Türke and Bennati (2011)](https://doi.org/10.1039/C0CP02126A) measure effective
+saturation by ELDOR for 15N TEMPONE-D; their fitted concentration coefficient
+is not assigned to 14N TEMPOL here.
+
+Run the new example:
+
+```bash
+python examples/plot_overhauser_tempol_saturation.py \
+  --output .tmp/tempol_saturation.png --csv .tmp/tempol_saturation.csv
+python -m unittest tests.test_nitroxide_saturation
+```
+
+![Concentration-dependent TEMPOL saturation](assets/overhauser_tempol_saturation.png)
+
+The example compares exchange on/off, individual nitrogen lines, detuning,
+and FFHS proton polarization versus field. Microwaves are retuned to the
+central line at each field, with electron parameters held constant. CSV
+output includes saturation and field curves plus a sibling `_optima.csv`.
+Markers maximize **absolute total proton polarization** in 0.02–10 T:
+
+| TEMPOL (mM) | Effective saturation | Field (T) | Signed polarization (ppm) |
+| --- | --- | --- | --- |
+| 0.1 | 0.354827 | 10.000, boundary | +33.835 |
+| 1 | 0.474032 | 10.000, boundary | +29.170 |
+| 5 | 0.647356 | 0.657070 | -89.873 |
+| 10 | 0.679834 | 0.722151 | -123.346 |
+| 25 | 0.633226 | 0.782112 | -140.790 |
+
+The boundary optima are predominantly thermal polarization. These maxima
+depend on the supplied rates and bounded field interval; they are not measured
+optimal TEMPOL operating conditions. Diffusion, viscosity and temperature are
+also held fixed. Tests cover Bloch parity, selective-line limits, analytic
+exchange transfer, fast mixing, independent collision enumeration and numerical
+population integration. No experimental saturation fit is claimed.
 
 ## Start from molecular motion
 

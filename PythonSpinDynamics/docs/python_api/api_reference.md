@@ -549,6 +549,13 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | function | `power_saturation(power_watts, half_saturation_power_watts, *, maximum = 1.0)` | Return effective s_max*p/(p+p_half) with explicitly calibrated powers. |
 | function | `bloch_saturation(nutation_rad_per_s, t1e_seconds, t2e_seconds, *, detuning_rad_per_s = 0.0, maximum = 1.0)` | Return homogeneous-line CW Bloch saturation, optionally scaled by s_max. |
 
+## `spin_dynamics.dnp.nitroxide`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `NitroxideSaturationResult` | CW populations (..., nitrogen m, electron +/-), and total saturation. |
+| class | `NitroxideSaturationModel` | CW electron/nitrogen populations for resolved 14N or 15N nitroxides. |
+
 ## `spin_dynamics.dnp.spectral`
 
 | Kind | Name | Summary |
