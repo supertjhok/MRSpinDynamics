@@ -176,6 +176,30 @@ and receiver sensitivity gains are not included in this CW API.
 
 ## Sweeps, examples and validation
 
+For a concrete TEMPOL/water scenario versus field, run:
+
+```bash
+python examples/plot_overhauser_tempol_water.py --output .tmp/tempol_water.png --csv .tmp/tempol_water.csv
+```
+
+![Illustrative TEMPOL/water CW Overhauser DNP versus field](assets/overhauser_tempol_water.png)
+
+This example uses 10 mM TEMPOL at 298.15 K, closest approach 0.39 nm,
+relative diffusion 2.8e-9 m²/s (tau_D=54.3 ps), radical-free T10=2.5 s, and
+effective saturation s=0.8. These are representative modeling assumptions,
+not a fit to measured TEMPOL data. Saturation, diffusivity and T10 are held
+constant across the field sweep, with the electron irradiation retuned to
+resonance at every field. The figure shows enhancement, absolute polarization,
+coupling/leakage factors and nuclear T1 from 0.02 to 10 T. Polarization and
+detection use the same field. The dashed s=1 curve is a saturation limit.
+The CSV exports the underlying rates and observables. Override parameters
+with the CLI options listed by `--help`.
+
+TEMPOL/water field-dependent DNP experiments are described in
+[Field Dependent Dynamic Nuclear Polarization with Radicals in Aqueous Solution](https://doi.org/10.1021/ja0783207).
+The bulk-water diffusion-time scale is discussed by
+[Franck et al.](https://doi.org/10.1016/j.pnmrs.2013.06.001).
+
 Run from `PythonSpinDynamics`:
 
 ```bash

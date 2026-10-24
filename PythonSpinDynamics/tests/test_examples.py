@@ -40,6 +40,31 @@ def run_example(*args: str, cwd: Path = ROOT) -> subprocess.CompletedProcess[str
 
 
 class ExampleSmokeTests(unittest.TestCase):
+    def test_tempol_water_field_example_renders_and_exports(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            image = Path(directory) / "tempol.png"
+            csv = Path(directory) / "tempol.csv"
+            result = run_example(
+                "examples/plot_overhauser_tempol_water.py",
+                "--output",
+                str(image),
+                "--csv",
+                str(csv),
+                "--points",
+                "20",
+            )
+            self.assertIn("TEMPOL/water", result.stdout)
+            self.assertTrue(image.read_bytes().startswith(b"\x89PNG\r\n\x1a\n"))
+            values = np.genfromtxt(csv, delimiter=",", names=True)
+            self.assertEqual(values.size, 20)
+            self.assertTrue(np.all(np.diff(values["field_tesla"]) > 0))
+            self.assertTrue(np.all(np.diff(values["coupling_factor"]) < 0))
+            np.testing.assert_allclose(values["saturation_factor"], 0.8)
+            np.testing.assert_allclose(
+                values["steady_polarization"],
+                values["enhancement"] * values["thermal_polarization"],
+            )
+
     def test_overhauser_dnp_example_renders(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             image = Path(directory) / "overhauser.png"

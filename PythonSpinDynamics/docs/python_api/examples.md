@@ -16,6 +16,8 @@ Examples can be run from `PythonSpinDynamics` or from inside
 
 For liquid-state CW Overhauser DNP, run `plot_overhauser_dnp.py` and read
 [the model, conventions, and validation notes](../overhauser_dnp.md).
+For a TEMPOL-in-water field sweep with exported CSV data, run
+`plot_overhauser_tempol_water.py`.
 
 | Goal | First example | Then try |
 |---|---|---|

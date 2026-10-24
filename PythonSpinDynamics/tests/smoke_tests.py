@@ -132,6 +132,9 @@ def load_tests(
     _pattern: str | None,
 ) -> unittest.TestSuite:
     suite = unittest.TestSuite()
+    suite.addTest(
+        ExampleSmokeTests("test_tempol_water_field_example_renders_and_exports")
+    )
     suite.addTest(ExampleSmokeTests("test_overhauser_dnp_example_renders"))
     suite.addTests(loader.loadTestsFromTestCase(OverhauserDNPTests))
     suite.addTests(loader.loadTestsFromTestCase(DNPSpectralTests))
