@@ -5,6 +5,7 @@ from __future__ import annotations
 import ast
 import json
 import sys
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -15,10 +16,13 @@ from spin_dynamics.fields import coils
 from spin_dynamics.fields.openems import (
     OPENEMS_PROJECT_SCHEMA,
     OpenEMSExecutionError,
+    OpenEMSMaterialBox,
+    OpenEMSPlanarConductor,
     OpenEMSProject,
     OpenEMSWire,
     check_openems_python,
     load_openems_field_dump,
+    load_openems_port_sweep,
     load_openems_project,
     load_openems_solution,
     loaded_loop_openems_reference,
@@ -95,7 +99,7 @@ def test_project_json_round_trip_and_standalone_driver_generation(tmp_path) -> N
     assert '"J_fd"' in driver
     assert "SetBoundaryCond" in driver
     assert 'engine="multithreaded"' in driver
-    assert "numThreads=max(1, min(8, os.cpu_count() or 1))" in driver
+    assert "else max(1, min(8, os.cpu_count() or 1))" in driver
     assert "float(np.min(coordinates))" in driver
 
 
@@ -304,3 +308,125 @@ def test_project_schema_constant_is_versioned() -> None:
     assert OpenEMSProject.from_dict(
         loaded_loop_openems_reference(n_wire_points=24).to_dict()
     ).model_hash
+
+
+def test_optional_keys_leave_existing_projects_unchanged() -> None:
+    raw = loaded_loop_openems_reference(n_wire_points=24).to_dict()
+
+    assert "material_boxes" not in raw
+    assert "mesh_lines_m" not in raw
+    assert "port_frequencies_hz" not in raw["settings"]
+
+
+def test_dielectric_box_conductivity_reproduces_loss_tangent() -> None:
+    box = OpenEMSMaterialBox.dielectric(
+        "substrate",
+        (0.0, -1.0e-3, -1.0e-3),
+        (2.0e-3, 1.0e-3, 0.0),
+        relative_permittivity=3.66,
+        loss_tangent=0.0037,
+        frequency_hz=12.0e9,
+    )
+    eps0 = 8.8541878128e-12
+    tan_delta = box.conductivity_s_per_m / (2 * np.pi * 12.0e9 * eps0 * 3.66)
+
+    assert tan_delta == pytest.approx(0.0037)
+    assert not box.metal
+    assert box.metadata["loss_tangent"] == pytest.approx(0.0037)
+    with pytest.raises(ValueError, match="positive extent"):
+        OpenEMSMaterialBox("flat", (0, 0, 0), (1.0e-3, 1.0e-3, 0.0))
+
+
+def test_material_boxes_mesh_lines_and_sweep_round_trip(tmp_path) -> None:
+    base = loaded_loop_openems_reference(n_wire_points=24)
+    boxes = (
+        OpenEMSMaterialBox.dielectric(
+            "slab", (-0.01, -0.01, -0.01), (0.01, 0.01, -0.009),
+            relative_permittivity=4.0, loss_tangent=0.01, frequency_hz=128.0e6,
+        ),
+        OpenEMSMaterialBox("shield", (0.05, -0.02, -0.02), (0.06, 0.02, 0.02), metal=True),
+    )
+    project = OpenEMSProject(
+        name=base.name,
+        settings=replace(base.settings, port_frequencies_hz=(100.0e6, 128.0e6, 150.0e6)),
+        simulation_bounds_m=base.simulation_bounds_m,
+        field_domain=base.field_domain,
+        wires=base.wires,
+        ports=base.ports,
+        samples=base.samples,
+        planar_conductors=base.planar_conductors,
+        metadata=base.metadata,
+        material_boxes=boxes,
+        mesh_lines_m=((0.001, -0.001), (), (0.0005,)),
+    )
+    project_path, driver_path = write_openems_project(project, tmp_path)
+    loaded = load_openems_project(project_path)
+
+    assert loaded.model_hash == project.model_hash
+    assert loaded.model_hash != base.model_hash
+    assert loaded.material_boxes[1].metal
+    assert loaded.mesh_lines_m == ((0.001, -0.001), (), (0.0005,))
+    assert loaded.settings.port_frequencies_hz == (100.0e6, 128.0e6, 150.0e6)
+    driver = driver_path.read_text(encoding="utf-8")
+    ast.parse(driver)
+    assert "AddBox" in driver
+    assert "openems_port_sweep.json" in driver
+    assert "mesh_lines_m" in driver
+
+
+def test_mesh_merge_and_thread_settings_are_optional_and_round_trip(tmp_path) -> None:
+    base = loaded_loop_openems_reference(n_wire_points=24)
+    assert "mesh_merge_tolerance_m" not in base.settings.to_dict()
+    assert "num_threads" not in base.settings.to_dict()
+    tuned = replace(base, settings=replace(base.settings, mesh_merge_tolerance_m=2.0e-5, num_threads=16))
+    project_path, driver_path = write_openems_project(tuned, tmp_path)
+    loaded = load_openems_project(project_path)
+
+    assert loaded.settings.mesh_merge_tolerance_m == pytest.approx(2.0e-5)
+    assert loaded.settings.num_threads == 16
+    assert loaded.model_hash == tuned.model_hash != base.model_hash
+    driver = driver_path.read_text(encoding="utf-8")
+    assert "mesh_merge_tolerance_m" in driver and 'settings["num_threads"]' in driver
+    assert "dump_frequencies_hz" in driver
+    multi = replace(base, settings=replace(base.settings, dump_frequencies_hz=(120e6, 128e6)))
+    assert OpenEMSProject.from_dict(multi.to_dict()).settings.dump_frequencies_hz == (120e6, 128e6)
+    assert "dump_frequencies_hz" not in base.settings.to_dict()
+    with pytest.raises(ValueError, match="num_threads"):
+        replace(base.settings, num_threads=0)
+
+
+def test_lossy_planar_sheet_round_trips_and_pec_stays_default(tmp_path) -> None:
+    square = np.array([[0, 0, 1e-3], [1e-3, 0, 1e-3], [1e-3, 1e-3, 1e-3], [0, 1e-3, 1e-3]])
+    pec = OpenEMSPlanarConductor("pec", square, normal_axis="z")
+    sheet = OpenEMSPlanarConductor("cu", square, normal_axis="z", conductivity_s_per_m=5.8e7, thickness_m=35e-6)
+
+    assert "conductivity_s_per_m" not in pec.to_dict()
+    assert OpenEMSPlanarConductor.from_dict(sheet.to_dict()).to_dict() == sheet.to_dict()
+    assert sheet.to_dict()["thickness_m"] == pytest.approx(35e-6)
+    with pytest.raises(ValueError, match="go together"):
+        OpenEMSPlanarConductor("bad", square, normal_axis="z", conductivity_s_per_m=5.8e7)
+    _, driver_path = write_openems_project(loaded_loop_openems_reference(n_wire_points=24), tmp_path)
+    assert "AddConductingSheet" in driver_path.read_text(encoding="utf-8")
+
+
+def test_port_sweep_import_gives_reflection(tmp_path) -> None:
+    frequency = [11.0e9, 12.0e9]
+    record = {
+        "number": 1,
+        "name": "feed",
+        "frequency_hz": frequency,
+        "voltage_incident_v": [[1.0, 0.0], [2.0, 0.0]],
+        "voltage_reflected_v": [[0.5, 0.0], [0.0, 1.0]],
+        "current_incident_a": [[0.02, 0.0], [0.04, 0.0]],
+        "current_reflected_a": [[-0.01, 0.0], [0.0, -0.02]],
+        "accepted_power_w": [0.0075, 0.03],
+        "reference_impedance_ohm": 50.0,
+    }
+    (tmp_path / "openems_port_sweep.json").write_text(json.dumps([record]), encoding="utf-8")
+
+    (sweep,) = load_openems_port_sweep(tmp_path)
+
+    np.testing.assert_allclose(sweep.reflection, [0.5, 0.5j])
+    np.testing.assert_allclose(sweep.frequency_hz, frequency)
+    with pytest.raises(ValueError, match="missing openEMS port sweep"):
+        load_openems_port_sweep(tmp_path / "nowhere")

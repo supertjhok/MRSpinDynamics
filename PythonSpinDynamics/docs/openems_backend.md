@@ -32,6 +32,42 @@ The adapter provides:
 The generated driver uses SI metres throughout. This avoids drawing-unit
 ambiguity when fields are brought back into PythonSpinDynamics.
 
+## Planar circuits, enclosures and port sweeps
+
+Optional project and settings fields extend the backend to printed microwave
+resonators in a conducting or dielectric enclosure. Each is written to the
+project JSON only when used, so existing projects keep their model hash.
+
+- `OpenEMSMaterialBox`: an axis-aligned box of a homogeneous material
+  (substrates, coatings, dielectric holders) or of PEC (`metal=True`, for
+  enclosures and magnets). `OpenEMSMaterialBox.dielectric()` sets the
+  conductivity from a loss tangent at one frequency.
+- `OpenEMSPlanarConductor(conductivity_s_per_m=..., thickness_m=...)`: a lossy
+  conducting sheet (openEMS `AddConductingSheet`) instead of PEC, so copper loss
+  enters Q. Scale the conductivity by `1/K^2` for a surface-roughness factor `K`
+  on the surface resistance.
+- `OpenEMSProject.mesh_lines_m`: fixed mesh lines per axis, for strip edges and
+  gaps that polygon extrema alone do not resolve.
+- `OpenEMSSettings.mesh_merge_tolerance_m`: merges mesh lines closer than the
+  tolerance. Neighbouring primitives' feature lines that nearly coincide
+  otherwise force a tiny timestep; a 1 µm cell can make a run 50 times longer.
+- `OpenEMSSettings.port_frequencies_hz`: the driver writes the incident and
+  reflected port waves at these frequencies to `openems_port_sweep.json`.
+  `load_openems_port_sweep()` returns them, and `OpenEMSPortSweep.reflection`
+  gives S11.
+- `OpenEMSSettings.dump_frequencies_hz`: dumps E, J and B at several
+  frequencies in one run, so a resonance whose frequency is known only after the
+  solve needs no second run. Choose the dump with
+  `load_openems_solution(..., frequency_hz=...)`. Keep `frequency_hz` itself
+  among the dump frequencies, because `run_openems` imports that one.
+- `OpenEMSSettings.num_threads`: solver threads. The default is min(8, CPUs).
+
+The ESR_System project's `probe/fullwave_paddle.py` uses all of these to model
+a microstrip omega resonator on RO4350B inside a Halbach magnet holder. The
+model comprises lossy copper sheets, a substrate and a solder-mask overlay as
+boxes, PEC bar magnets, a nylon body, a 9–15 GHz port sweep, and 60 dump
+frequencies around the resonance.
+
 ## Installation boundary
 
 Core project generation only needs NumPy. Reading openEMS HDF5 output needs the
