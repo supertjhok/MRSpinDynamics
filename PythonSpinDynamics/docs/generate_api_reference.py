@@ -61,6 +61,7 @@ MODULES = [
     "deprecation",
     "dnp.overhauser",
     "dnp.motion",
+    "dnp.dynamics",
     "dnp.saturation",
     "dnp.spectral",
     "esr.deer",

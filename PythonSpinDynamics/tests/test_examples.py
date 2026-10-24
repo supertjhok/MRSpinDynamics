@@ -40,6 +40,22 @@ def run_example(*args: str, cwd: Path = ROOT) -> subprocess.CompletedProcess[str
 
 
 class ExampleSmokeTests(unittest.TestCase):
+    def test_overhauser_coupled_dynamics_example_renders(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            image = Path(directory) / "coupled.png"
+            csv = Path(directory) / "coupled.csv"
+            result = run_example("examples/plot_overhauser_coupled_dynamics.py",
+                                 "--output", str(image), "--csv", str(csv), "--points", "30")
+            self.assertIn("saturation=", result.stdout)
+            self.assertTrue(image.read_bytes().startswith(b"\x89PNG\r\n\x1a\n"))
+            data = np.genfromtxt(csv, names=True, delimiter=",")
+            self.assertEqual(data.size, 30)
+            self.assertLess(data["pump_nuclear_polarization"][-1], 0)
+            self.assertGreater(data["recovery_nuclear_polarization"][-1],
+                               data["recovery_nuclear_polarization"][0])
+            np.testing.assert_allclose(data["recovery_nuclear_polarization"][0],
+                                       data["pump_nuclear_polarization"][-1], atol=1e-14)
+
     def test_overhauser_motion_example_renders(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             image = Path(directory) / "motion.png"

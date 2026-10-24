@@ -532,6 +532,16 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `ScalarContactModel` | Exponentially correlated fluctuations of isotropic hyperfine contact. |
 | class | `MotionBasedCWModel` | Compose independent FFHS, bound-vector rotation and contact fluctuations. |
 
+## `spin_dynamics.dnp.dynamics`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `ElectronNuclearTransitionRates` | Infinite-temperature directional transition rates W in s^-1 for one pair. |
+| class | `MicrowaveDrive` | Coherent rotating-frame drive; nutation and detuning are angular frequencies. |
+| class | `CoupledSteadyState` | Normalized density matrix and magnetic polarizations for a driven pair. |
+| class | `CoupledDynamicsResult` | Time-leading densities in electron-first basis (++,+-,-+,--). |
+| class | `CoupledElectronNuclearModel` | One electron–nucleus thermal Lindblad model with secular static Azz. |
+
 ## `spin_dynamics.dnp.saturation`
 
 | Kind | Name | Summary |
