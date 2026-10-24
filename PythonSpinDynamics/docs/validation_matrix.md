@@ -20,13 +20,14 @@ what supports the underlying scientific or numerical claim.
 
 ## Coverage Summary
 
-- 43 capability-level claims
-- 16 validated
+- 44 capability-level claims
+- 17 validated
 - 22 partially validated
 - 5 regression-only
 
 | Component | Claim | Evidence | Status |
 | --- | --- | --- | --- |
+| Coupled electron-nuclear thermal Overhauser dynamics | A four-level Lindblad pair reference preserves physical density matrices, recovers the laboratory Gibbs state, resolves coherent microwave driving, and reproduces the high-temperature CW limit with its calculated electron saturation. | **A**, **C**, **R** | validated |
 | Rotational and scalar-contact CW Overhauser motion channels | Absolute rotational dipolar and exponential scalar-contact rates reproduce spin-1/2 transition generators and compose independent rate contributions consistently with the existing FFHS model. | **A**, **C** | validated |
 | Liquid-state CW Overhauser DNP | CW factors, absolute FFHS translational rates, and nuclear buildup/recovery satisfy analytic limits and the original diffusion eigenmode integral in the high-temperature Zeeman regime. | **A**, **C**, **D** | validated |
 | Bloch rotations and acquisition kernels | Core rotations, echo conversion, acquisition, and arb10 propagation reproduce the established MATLAB/Octave implementation. | **B**, **A** | validated |
@@ -72,6 +73,18 @@ what supports the underlying scientific or numerical claim.
 | Full-wave openEMS fields and validation | Full-wave field maps expose time termination, mesh change, E/J loss consistency, reciprocity, and low-frequency analytical-limit evidence before quantitative promotion. | **A**, **C**, **R** | partially validated |
 
 ## Detailed Evidence
+
+### Coupled electron-nuclear thermal Overhauser dynamics
+
+- **Claim:** A four-level Lindblad pair reference preserves physical density matrices, recovers the laboratory Gibbs state, resolves coherent microwave driving, and reproduces the high-temperature CW limit with its calculated electron saturation.
+- **Evidence:** A, C, R (validated)
+- **Basis:** Detailed-balance fluxes, exact Boltzmann populations, trace identities and Choi positivity; analytic Rabi/Bloch/T1 solutions; independent high-temperature Solomon/CW coefficients and motion-rate conversion checks.
+- **Tested range:** S=I=1/2, positive nuclear gamma, representative 0.035-0.35 T and 0.2-298.15 K cases; secular Azz up to 200 kHz in tests; intrinsic and cross relaxation, detuned coherent drives, and disconnected-generator rejection.
+- **Metric:** Stationary Gibbs residual, complete positivity, state trace/eigenvalues, analytic transient/steady agreement, and CW enhancement agreement
+- **Tolerance:** 3e-13 s^-1 thermal generator residual in the tested moderate-rate case; 5e-10 absolute trace and 5e-11 eigenvalue/Hermiticity propagation tolerance; 3e-6 relative CW limiting enhancement agreement.
+- **References:** https://doi.org/10.1103/PhysRev.99.559
+- **Reproduce:** [`tests/test_overhauser_dynamics.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_overhauser_dynamics.py); [`examples/plot_overhauser_coupled_dynamics.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/examples/plot_overhauser_coupled_dynamics.py)
+- **Limitations:** One electron and one nucleus (1:1 reservoir population); bulk solution-averaged nuclear rates require an additional number-density mapping and do not directly specify this closed-pair dynamics. Secular static Azz and rotating-wave microwave driving only; general anisotropic hyperfine, nitrogen line mixing and Heisenberg exchange are not included. Finite-temperature directional bias preserves supplied infinite-temperature mean rates; microscopic temperature dependence of the bath spectrum is not inferred. The validation is analytical/numerical rather than an experimental DNP calibration.
 
 ### Rotational and scalar-contact CW Overhauser motion channels
 

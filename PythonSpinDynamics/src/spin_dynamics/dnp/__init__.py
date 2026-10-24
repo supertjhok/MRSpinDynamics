@@ -11,6 +11,13 @@ from .overhauser import (
 )
 from .saturation import bloch_saturation, power_saturation
 from .motion import MotionBasedCWModel, RotationalDipolarModel, ScalarContactModel
+from .dynamics import (
+    CoupledDynamicsResult,
+    CoupledElectronNuclearModel,
+    CoupledSteadyState,
+    ElectronNuclearTransitionRates,
+    MicrowaveDrive,
+)
 from .spectral import (
     TranslationalDiffusionModel,
     ffhs_spectral_density,
@@ -18,6 +25,11 @@ from .spectral import (
 )
 
 __all__ = [
+    "CoupledDynamicsResult",
+    "CoupledElectronNuclearModel",
+    "CoupledSteadyState",
+    "ElectronNuclearTransitionRates",
+    "MicrowaveDrive",
     "MotionBasedCWModel",
     "RotationalDipolarModel",
     "ScalarContactModel",

@@ -15,9 +15,15 @@ Spin prefactors and transition-frequency assignments are validated against
 independent two-spin transition calculations; FFHS also has its diffusion-integral
 audit. See [the implementation guide](../PythonSpinDynamics/docs/overhauser_dnp.md).
 
+The E-stage two-spin reference now provides finite-temperature Gibbs recovery,
+explicit cross-transition jumps, coherent microwave driving, trace-preserving
+Lindblad propagation, stationary solves, and pair-motion rate conversions.
+It has a 1:1 electron/nucleus population mapping; bulk dilute-solution rates
+cannot be inserted without additional reservoir number-density information.
+
 No independent experimental enhancement dataset has been used to calibrate or
-validate the complete model. Coupled electron/nuclear dynamics and nitroxide
-population/exchange saturation remain the later E/F stages below.
+validate the complete model. Nitroxide population/exchange saturation and a
+many-nucleus/dilute-solution dynamics mapping remain beyond this pair reference.
 
 ## Recommendation
 

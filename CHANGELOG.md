@@ -9,6 +9,11 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
 
 ### Added
 
+- Added a coupled electron–nuclear Overhauser dynamics reference with exact Gibbs
+  recovery, detailed-balance cross transitions, coherent microwave driving,
+  trace-preserving density-matrix propagation, stationary solves, pair-motion
+  rate conversions, physical-state/CW-limit validation, and a plotting example.
+
 - Extended the CW Overhauser motion model with absolute rotational dipolar and
   exponentially correlated scalar-contact rates, independent-channel composition,
   component diagnostics, power sweeps and a comparison plot, with spin-Hamiltonian

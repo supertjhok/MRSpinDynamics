@@ -20,6 +20,8 @@ For a TEMPOL-in-water field sweep with exported CSV data, run
 `plot_overhauser_tempol_water.py`.
 For absolute translational, rotational, scalar-contact and mixed-channel rates,
 run `plot_overhauser_motion_models.py`.
+For coupled electron–nuclear microwave pumping, thermal recovery and detuning,
+run `plot_overhauser_coupled_dynamics.py`.
 
 | Goal | First example | Then try |
 |---|---|---|

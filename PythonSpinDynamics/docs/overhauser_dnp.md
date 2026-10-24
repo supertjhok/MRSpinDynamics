@@ -6,6 +6,8 @@ relaxivities or T1 values, absolute dipolar rates from force-free hard-sphere
 (FFHS) translation or bound-vector rotation, and fluctuating scalar contact.
 Independent motion channels or supplied scalar self/cross rates can be combined.
 Use `spin_dynamics.workflows.dnp` for field/power grids.
+A separate `CoupledElectronNuclearModel` resolves microwave driving and thermal
+recovery of one electron–nucleus pair, including the electron saturation dynamics.
 
 The first implementation assumes S=1/2 electrons, positive-gamma spin-1/2 nuclei,
 the weak-coupling Zeeman limit, and high temperature. It does not solve nitrogen
@@ -218,7 +220,8 @@ enhancements by summing their rates. Correlated noise needs additional
 cross-correlation terms. Temperature/concentration-dependent diffusion,
 occupancies, contact amplitudes and correlation times must be supplied by
 rebuilding the model for each condition. Saturation is still externally
-prescribed; coupled electron/nitrogen dynamics remain a later stage.
+prescribed in this CW model. Coupled pair dynamics are available below;
+multi-line nitrogen/exchange saturation remains a later stage.
 
 Run `python examples/plot_overhauser_motion_models.py --output .tmp/dnp_motion.png`
 to compare the individual and mixed channels. Optional `--csv` exports their
@@ -232,6 +235,166 @@ explicit matrix elements for contact. Tests cover protons and positive-gamma
 carbon-13 at several fields, distance/amplitude/population scaling, limiting
 coupling factors, cancellation, arrays, power sweeps, and FFHS compatibility.
 This is analytic/numerical model validation, not experimental calibration.
+
+## Coupled electron–nuclear dynamics
+
+`CoupledElectronNuclearModel` is a four-level, trace-one density-matrix reference
+for one electron S=1/2 and one positive-gamma nucleus I=1/2. It propagates
+coherent microwaves, intrinsic thermal baths, pure dephasing and explicit
+electron–nuclear cross transitions. Electron saturation is calculated from the
+evolving state rather than supplied as an input. NumPy suffices for generators
+and stationary solves; time propagation uses SciPy (`.[opt]`).
+
+```python
+import numpy as np
+from spin_dynamics.dnp import (
+    CoupledElectronNuclearModel, ElectronNuclearTransitionRates, MicrowaveDrive,
+)
+
+model = CoupledElectronNuclearModel(
+    field_tesla=0.35, temperature_kelvin=298.15,
+    electron_t1_seconds=1e-4, nuclear_t1_seconds=2.5,
+    electron_dephasing_per_second=2e4,
+    transitions=ElectronNuclearTransitionRates(
+        zero_quantum_per_second=0.05,
+        double_quantum_per_second=0.3,
+        nuclear_single_quantum_per_second=0.1,
+        electron_single_quantum_per_second=0.02,
+    ),
+)
+drive = MicrowaveDrive(nutation_rad_per_s=5e4)
+times = np.linspace(0, 8, 160)
+pump = model.simulate(times, drive=drive)  # starts in the Gibbs thermal state
+recovery = model.simulate(
+    times, drive=drive.off(), initial_density=pump.density_matrices[-1],
+)
+steady = model.steady_state(drive)
+print(steady.electron_saturation, steady.nuclear_enhancement)
+```
+
+This example gives steady effective electron saturation about 0.90909,
+proton enhancement -156.466 and proton polarization -187.662 ppm. These are
+model results for the stated **1:1 pair**, not TEMPOL/water measurements.
+
+### Hamiltonian, frames and conventions
+
+The electron-first basis is (++,+−,−+,−−), with spin projections ±1/2. The
+laboratory Hamiltonian, in angular-frequency units, is
+
+\[
+H_{\rm lab}/\hbar=|\omega_e|S_z-\omega_n I_z+2\pi A_{zz}S_zI_z.
+\]
+
+`secular_hyperfine_hz` specifies the optional static Azz in Hz. It is a mean
+secular coupling, distinct from the fluctuating contact RMS used to generate
+relaxation rates. Full anisotropic/mixed-state hyperfine, zero-field pumping and
+solid-effect transitions are not included. The dynamics use the secular,
+rotating-wave approximation with microwave nutation small relative to the
+carrier frequency. The generator does not recalculate bath spectra for dressed
+states under strong driving.
+
+The output states are in electron and nuclear rotating frames:
+
+\[
+H_{\rm rot}/\hbar=\Delta S_z+2\pi A_{zz}S_zI_z+
+\omega_1[\cos\phi S_x+\sin\phi S_y],\qquad
+\Delta=|\omega_e|-\omega_{\rm mw}.
+\]
+
+Nutation and detuning are rad/s; microwave phase is radians. Magnetic
+polarizations are `P_e=-2*<Sz>` and `P_n=2*<Iz>`, both positive for ordinary
+uncoupled thermal equilibrium. The electron and nuclear polarizations retain
+their physical relative scales. For time-dependent segments, pass the final
+density into the next simulation. Use `drive.off()` to retain detuning and the
+same electron rotating frame while turning off nutation. If the rotating-frame
+reference changes between segments, transform transverse coherences as well.
+Thermal laboratory populations and longitudinal polarizations are unaffected
+by these frame phases.
+
+### Thermal jumps and rates
+
+The intrinsic electron/nuclear T1 baths use spin raising/lowering operators.
+The explicit stochastic transition channels and their reverse jumps are:
+
+| Rate W (s^-1) | Raising operator | Positive-frequency Zeeman gap |
+| --- | --- | --- |
+| w0, zero quantum | S+ I− | abs(omega_e)+omega_n |
+| w2, double quantum | S+ I+ | abs(omega_e)−omega_n |
+| w1n, nuclear SQ | 2 Sz I+ | omega_n |
+| w1e, electron SQ | 2 S+ Iz | abs(omega_e) |
+
+Rates W specify the infinite-temperature directional means. For each directed
+edge with laboratory energy change delta_E, the finite-temperature jump rate is
+`2*W/(1+exp(delta_E/(k*T)))`; the reverse uses -delta_E. Their ratio satisfies
+detailed balance. For nonzero Azz, each resolved SQ gap includes its hyperfine
+shift. Degenerate edges within a bath are combined into one jump, retaining
+their operator signs and spectator coherences; resolved edges are secularized
+separately. Pure dephasing uses `sqrt(2*gamma_phi)*Sz` or `Iz`, with nonnegative
+gamma_phi. Without cross channels or Azz, intrinsic
+`1/T2=1/(2*T1)+gamma_phi`. Explicit channels add further relaxation/dephasing.
+
+The microwave-off target is exactly
+`rho_eq=exp(-H_lab/(k*T))/trace(exp(-H_lab/(k*T)))`; Boltzmann factors are
+evaluated stably. Thermal jump weights use **laboratory gaps**, never the
+rotating-frame detuning. This finite-temperature completion keeps each supplied
+mean transition rate fixed; it does not infer a microscopic bath's temperature
+dependence. Unlike the linear CW formula, Gibbs populations need no
+high-temperature expansion, and no clipping enforces polarization bounds.
+
+The implementation integrates 15 traceless Hermitian density coordinates plus
+an affine source with matrix exponentials. This preserves trace and Hermiticity
+by construction across stiff electron/nuclear time scales without numerical
+renormalization. The stationary state is found by a trace-constrained linear
+solve; disconnected or numerically unresolved stationary subspaces are rejected
+rather than assigned an arbitrary state. `residual_per_second` exposes the
+stationary equation residual. Invalid initial density matrices are rejected.
+
+### Connection to motion rates and the CW limit
+
+`ElectronNuclearTransitionRates.from_rotational_model(motion, field)` resolves a
+single occupied rotational pair into all four channels, including electron SQ.
+It requires `pair_count=1`. `from_scalar_model(contact, field)` supplies the ZQ
+channel from a pair's effective scalar-contact autocovariance. These conversions
+use the zero-mean, bare-Zeeman motion rates; a static Azz does not automatically
+re-evaluate spectral densities at its shifted gaps. Supply appropriately
+evaluated rates when those shifts matter.
+
+At high temperature the nuclear rate sums are
+`R_rho=w0+2*w1n+w2`, `R_sigma=w2-w0`, and background `R_10=1/T1n`.
+`transitions.nuclear_cw_rates(background_r1_per_second=...)` exposes these sums
+for CW comparisons. They cannot be uniquely inverted into w0/w1n/w2 without
+additional information. When electrons equilibrate much faster than nuclei,
+Azz is zero and thermal arguments are small, the coupled result reproduces the
+existing CW enhancement using its actual steady electron saturation.
+Transient coherent depletion `1-P_e/P_e,thermal` may exceed one during Rabi
+oscillations; it is not restricted by the CW saturation parameter's [0,1] range.
+
+This backend has one electron per one nucleus, with explicit electron
+back-action. Bulk FFHS rates per solvent nucleus do not determine the matching
+rate per electron in a dilute solution. A many-nucleus bath needs electron and
+nuclear number densities and a consistent reservoir/density mapping; do not
+insert solution-averaged rates into a single pair and treat it as the whole
+sample. That ensemble mapping, nitrogen hyperfine populations and Heisenberg
+exchange are outside this four-level reference.
+
+The transition picture and the CW limiting comparison follow the
+[Solomon framework](https://doi.org/10.1103/PhysRev.99.559). The thermal-completion
+rule and secular/RWA restrictions above specify this implementation explicitly;
+no experimental benchmark is claimed.
+
+Run the pumping, recovery and detuning example:
+
+```bash
+python examples/plot_overhauser_coupled_dynamics.py --output .tmp/dnp_coupled.png --csv .tmp/dnp_coupled.csv
+python -m unittest tests.test_overhauser_dynamics
+```
+
+![Coupled electron–nuclear thermal recovery and microwave pumping](assets/overhauser_coupled_dynamics.png)
+
+Validation checks exact Gibbs recovery (including secular hyperfine splitting),
+detailed balance, trace/Hermiticity/positivity, complete positivity via the Choi
+matrix, coherent Rabi oscillations, uncoupled Bloch saturation and T1 recovery,
+the high-temperature Solomon/CW limits, and rate-factory consistency.
 
 ## Measured rates, heating and saturation
 

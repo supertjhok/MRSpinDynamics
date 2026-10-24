@@ -12,6 +12,8 @@ and nuclear buildup/recovery. See [the DNP guide](docs/overhauser_dnp.md) and
 `MotionBasedCWModel` also composes absolute bound-vector rotational and
 fluctuating scalar-contact rates; `examples/plot_overhauser_motion_models.py`
 shows the individual contributions and their combined CW response.
+`CoupledElectronNuclearModel` provides a thermal, coherently driven one-electron /
+one-nucleus Lindblad reference; see `examples/plot_overhauser_coupled_dynamics.py`.
 
 The package started as a Python port of the MATLAB NMR code in
 `../MATLABSpinDynamics`. That MATLAB implementation remains the numerical
