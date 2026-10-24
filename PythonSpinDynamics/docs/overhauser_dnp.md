@@ -184,16 +184,43 @@ python examples/plot_overhauser_tempol_water.py --output .tmp/tempol_water.png -
 
 ![Illustrative TEMPOL/water CW Overhauser DNP versus field](assets/overhauser_tempol_water.png)
 
-This example uses 10 mM TEMPOL at 298.15 K, closest approach 0.39 nm,
+This example compares 0.1, 1, 5, 10 and 25 mM TEMPOL at 298.15 K, closest approach 0.39 nm,
 relative diffusion 2.8e-9 m²/s (tau_D=54.3 ps), radical-free T10=2.5 s, and
 effective saturation s=0.8. These are representative modeling assumptions,
 not a fit to measured TEMPOL data. Saturation, diffusivity and T10 are held
-constant across the field sweep, with the electron irradiation retuned to
+constant across the field and concentration sweeps, with the electron irradiation retuned to
 resonance at every field. The figure shows enhancement, absolute polarization,
 coupling/leakage factors and nuclear T1 from 0.02 to 10 T. Polarization and
-detection use the same field. The dashed s=1 curve is a saturation limit.
-The CSV exports the underlying rates and observables. Override parameters
-with the CLI options listed by `--help`.
+detection use the same field. Colored stars mark the largest **magnitude of total
+proton polarization**, retaining its sign. This objective includes thermal
+polarization; it does not optimize enhancement E or only the microwave-induced
+change in polarization. The same effective saturation is assumed at every
+concentration; concentration-dependent nitroxide saturation and diffusion are
+not calculated.
+
+The optimizer samples 513 logarithmic fields, refines sampled local maxima with
+SciPy bounded minimization in log(field), and compares both interval endpoints.
+The search is independent of the number of plotting points. Boundary results
+are labeled; they do not establish a finite interior optimum or an optimum
+outside the requested interval.
+
+| TEMPOL (mM) | Optimal field within 0.02–10 T (T) | Signed polarization (ppm) | Location |
+| --- | --- | --- | --- |
+| 0.1 | 10.000 | +33.291 | Upper boundary, mostly thermal |
+| 1 | 0.514 | −38.777 | Interior |
+| 5 | 0.662 | −111.598 | Interior |
+| 10 | 0.726 | −145.587 | Interior |
+| 25 | 0.787 | −178.578 | Interior |
+
+Use `--concentrations-mm 1 5 10 25` to choose the comparison or
+`--concentration-mm 10` for the original single-concentration mode.
+`--csv` writes field-resolved rates/observables with a concentration column and
+a sibling `<stem>_optima.csv` with one refined optimum per concentration,
+signed and absolute polarization, and the search bounds/boundary flag.
+`--optima-csv` overrides that summary destination or exports it without a field
+CSV. SciPy (`.[opt]`) is required for refinement. Override other parameters
+with the CLI options listed by `--help`. The [default optimum summary](assets/overhauser_tempol_water_optima.csv)
+is included alongside the rendered figure.
 
 TEMPOL/water field-dependent DNP experiments are described in
 [Field Dependent Dynamic Nuclear Polarization with Radicals in Aqueous Solution](https://doi.org/10.1021/ja0783207).
