@@ -20,13 +20,14 @@ what supports the underlying scientific or numerical claim.
 
 ## Coverage Summary
 
-- 42 capability-level claims
-- 15 validated
+- 43 capability-level claims
+- 16 validated
 - 22 partially validated
 - 5 regression-only
 
 | Component | Claim | Evidence | Status |
 | --- | --- | --- | --- |
+| Rotational and scalar-contact CW Overhauser motion channels | Absolute rotational dipolar and exponential scalar-contact rates reproduce spin-1/2 transition generators and compose independent rate contributions consistently with the existing FFHS model. | **A**, **C** | validated |
 | Liquid-state CW Overhauser DNP | CW factors, absolute FFHS translational rates, and nuclear buildup/recovery satisfy analytic limits and the original diffusion eigenmode integral in the high-temperature Zeeman regime. | **A**, **C**, **D** | validated |
 | Bloch rotations and acquisition kernels | Core rotations, echo conversion, acquisition, and arb10 propagation reproduce the established MATLAB/Octave implementation. | **B**, **A** | validated |
 | CPMG, FID, imaging, and probe workflows | Public ideal, tuned, untuned, and matched workflow assemblies preserve the reference signal and result conventions. | **B**, **R** | validated |
@@ -71,6 +72,18 @@ what supports the underlying scientific or numerical claim.
 | Full-wave openEMS fields and validation | Full-wave field maps expose time termination, mesh change, E/J loss consistency, reciprocity, and low-frequency analytical-limit evidence before quantitative promotion. | **A**, **C**, **R** | partially validated |
 
 ## Detailed Evidence
+
+### Rotational and scalar-contact CW Overhauser motion channels
+
+- **Claim:** Absolute rotational dipolar and exponential scalar-contact rates reproduce spin-1/2 transition generators and compose independent rate contributions consistently with the existing FFHS model.
+- **Evidence:** A, C (validated)
+- **Basis:** Orientation quadrature of a fixed-vector dipolar Hamiltonian and explicit isotropic contact matrix elements with independent population generators, plus scaling, cancellation, CW/power-array and backward-compatibility tests.
+- **Tested range:** Proton and positive-gamma carbon-13 at 0.01, 0.35 and 3.4 T; positive finite correlation times and separations; nonnegative pair counts and contact fraction in [0,1].
+- **Metric:** Absolute self/cross-rate agreement, physical limits, summed-rate consistency and FFHS parity
+- **Tolerance:** 2e-12 relative plus 1e-15 s^-1 absolute for rotational transition-generator comparisons; 3e-14 relative for scalar generators; existing FFHS tolerances retained.
+- **References:** https://doi.org/10.1103/PhysRev.99.559; https://spindynamics.org/publications/105_kuprov_2022.pdf
+- **Reproduce:** [`tests/test_overhauser_motion.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_overhauser_motion.py); [`examples/plot_overhauser_motion_models.py`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/examples/plot_overhauser_motion_models.py)
+- **Limitations:** Independent stochastic channels feeding one homogeneous nuclear reservoir; no cross-correlation terms or distinct-reservoir dynamics. Bound pair counts and scalar autocovariance/contact fractions are supplied, not inferred from radical molarity or molecular encounters. Exponential scalar noise is a stated modeling assumption, not a calibrated microscopic collision model; no experimental validation is claimed. Electron saturation remains prescribed; the high-temperature, weak-coupling Zeeman assumptions of the CW core apply.
 
 ### Liquid-state CW Overhauser DNP
 

@@ -60,6 +60,7 @@ MODULES = [
     "design.utilities",
     "deprecation",
     "dnp.overhauser",
+    "dnp.motion",
     "dnp.saturation",
     "dnp.spectral",
     "esr.deer",

@@ -1,7 +1,23 @@
 # Overhauser DNP: literature survey and implementation scope
 
 Survey date: 2026-10-24. Repository inspected at `4f39f0a`.
-This is a design proposal; no Overhauser solver has been implemented or validated.
+This document records the initial design and subsequent implementation status.
+The original repository assessment below describes the survey-time baseline.
+
+## Implementation status (2026-10-24)
+
+The CW core, absolute FFHS translational rates, effective saturation, nuclear
+buildup/recovery, measured-rate inputs, field/power workflows and TEMPOL/water
+concentration examples are implemented. The motion-based stage now also has
+absolute fixed-vector rotational dipolar rates, exponential scalar-contact
+fluctuation rates, and `MotionBasedCWModel` for independent rate composition.
+Spin prefactors and transition-frequency assignments are validated against
+independent two-spin transition calculations; FFHS also has its diffusion-integral
+audit. See [the implementation guide](../PythonSpinDynamics/docs/overhauser_dnp.md).
+
+No independent experimental enhancement dataset has been used to calibrate or
+validate the complete model. Coupled electron/nuclear dynamics and nitroxide
+population/exchange saturation remain the later E/F stages below.
 
 ## Recommendation
 
@@ -18,7 +34,7 @@ spectral-density normalization, thermal recovery, saturation, and independent
 validation. Distinguish a model that accepts measured relaxation parameters from
 one that predicts absolute rates from concentration and molecular motion.
 
-## What exists in this repository
+## Repository baseline at the initial survey
 
 | Existing component | Reuse | Missing physics or constraint |
 | --- | --- | --- |

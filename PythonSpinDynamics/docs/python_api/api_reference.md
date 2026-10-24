@@ -524,6 +524,14 @@ This reference is an inventory, not a substitute for the user manual. For numeri
 | class | `OverhauserBuildup` | Time-leading polarization with shape (n_times, *condition_shape). |
 | function | `polarization_buildup(result: OverhauserResult, times_seconds, *, initial_polarization = None, pumping = True, off_t1_seconds = None) -> OverhauserBuildup` | Evolve toward the CW steady state or the microwave-off thermal state. |
 
+## `spin_dynamics.dnp.motion`
+
+| Kind | Name | Summary |
+| --- | --- | --- |
+| class | `RotationalDipolarModel` | Isotropic rotational diffusion of fixed-length electron–nuclear vectors. |
+| class | `ScalarContactModel` | Exponentially correlated fluctuations of isotropic hyperfine contact. |
+| class | `MotionBasedCWModel` | Compose independent FFHS, bound-vector rotation and contact fluctuations. |
+
 ## `spin_dynamics.dnp.saturation`
 
 | Kind | Name | Summary |
@@ -2909,7 +2917,7 @@ No public classes or functions found.
 | Kind | Name | Summary |
 | --- | --- | --- |
 | class | `OverhauserPowerSweep` | CW observables with power rows and field columns. |
-| function | `run_overhauser_power_sweep(field_tesla, power_watts, *, model: TranslationalDiffusionModel, concentration_molar, half_saturation_power_watts, maximum_saturation = 1.0, background_r1_per_second = 0.0, scalar_self_rate_per_second = 0.0, temperature_kelvin = 298.15) -> OverhauserPowerSweep` | Run a proton CW power/field sweep with a prescribed FFHS motion model. |
+| function | `run_overhauser_power_sweep(field_tesla, power_watts, *, model: TranslationalDiffusionModel | MotionBasedCWModel, concentration_molar = None, half_saturation_power_watts, maximum_saturation = 1.0, background_r1_per_second = 0.0, scalar_self_rate_per_second = 0.0, temperature_kelvin = 298.15) -> OverhauserPowerSweep` | Run a proton CW power/field sweep with FFHS or composed motion channels. |
 
 ## `spin_dynamics.workflows.sense`
 

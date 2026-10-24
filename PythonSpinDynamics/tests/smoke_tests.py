@@ -13,6 +13,7 @@ import unittest
 
 from tests.test_overhauser_dnp import OverhauserDNPTests
 from tests.test_dnp_spectral import DNPSpectralTests
+from tests.test_overhauser_motion import OverhauserMotionTests
 
 from tests.test_basic_octave_fixtures import OctaveFixtureTests
 from tests.test_bloch_siegert import BlochSiegertWorkflowTests
@@ -132,6 +133,7 @@ def load_tests(
     _pattern: str | None,
 ) -> unittest.TestSuite:
     suite = unittest.TestSuite()
+    suite.addTest(ExampleSmokeTests("test_overhauser_motion_example_renders"))
     suite.addTest(ExampleSmokeTests("test_tempol_optimum_magnitude_and_boundaries"))
     suite.addTest(
         ExampleSmokeTests("test_tempol_water_field_example_renders_and_exports")
@@ -139,6 +141,7 @@ def load_tests(
     suite.addTest(ExampleSmokeTests("test_overhauser_dnp_example_renders"))
     suite.addTests(loader.loadTestsFromTestCase(OverhauserDNPTests))
     suite.addTests(loader.loadTestsFromTestCase(DNPSpectralTests))
+    suite.addTests(loader.loadTestsFromTestCase(OverhauserMotionTests))
     suite.addTest(
         unittest.FunctionTestCase(
             lambda: test_tuned_uniform_cages_match_analytical_frequencies(

@@ -18,6 +18,8 @@ For liquid-state CW Overhauser DNP, run `plot_overhauser_dnp.py` and read
 [the model, conventions, and validation notes](../overhauser_dnp.md).
 For a TEMPOL-in-water field sweep with exported CSV data, run
 `plot_overhauser_tempol_water.py`.
+For absolute translational, rotational, scalar-contact and mixed-channel rates,
+run `plot_overhauser_motion_models.py`.
 
 | Goal | First example | Then try |
 |---|---|---|
