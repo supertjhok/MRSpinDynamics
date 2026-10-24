@@ -40,6 +40,20 @@ def run_example(*args: str, cwd: Path = ROOT) -> subprocess.CompletedProcess[str
 
 
 class ExampleSmokeTests(unittest.TestCase):
+    def test_overhauser_motion_example_renders(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            image = Path(directory) / "motion.png"
+            csv = Path(directory) / "motion.csv"
+            result = run_example("examples/plot_overhauser_motion_models.py",
+                                 "--output", str(image), "--csv", str(csv))
+            self.assertIn("Independent mixed rates", result.stdout)
+            self.assertTrue(image.read_bytes().startswith(b"\x89PNG\r\n\x1a\n"))
+            data = np.genfromtxt(csv, names=True, delimiter=",")
+            self.assertEqual(data.size, 4*220)
+            scalar = data[data["model_index"] == 2]
+            np.testing.assert_allclose(scalar["coupling_factor"], -1)
+            self.assertTrue(np.all(scalar["enhancement"] > 1))
+
     def test_tempol_water_field_example_renders_and_exports(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             image = Path(directory) / "tempol.png"

@@ -9,6 +9,11 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
 
 ### Added
 
+- Extended the CW Overhauser motion model with absolute rotational dipolar and
+  exponentially correlated scalar-contact rates, independent-channel composition,
+  component diagnostics, power sweeps and a comparison plot, with spin-Hamiltonian
+  prefactor/sign checks for proton and carbon-13 targets.
+
 - Added liquid-state CW Overhauser DNP with absolute Hwang–Freed translational
   diffusion rates, measured-factor/relaxivity/T1 input paths, scalar/dipolar rate
   composition, effective power/Bloch saturation, nuclear buildup and recovery,

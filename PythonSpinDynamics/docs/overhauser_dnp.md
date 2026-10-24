@@ -2,8 +2,9 @@
 
 `spin_dynamics.dnp` predicts nuclear polarization in a homogeneous liquid with
 prescribed CW electron saturation. It supports measured factors, measured
-relaxivities or T1 values, and absolute dipolar rates from force-free hard-sphere
-(FFHS) translational diffusion. Scalar self/cross rates can be added explicitly.
+relaxivities or T1 values, absolute dipolar rates from force-free hard-sphere
+(FFHS) translation or bound-vector rotation, and fluctuating scalar contact.
+Independent motion channels or supplied scalar self/cross rates can be combined.
 Use `spin_dynamics.workflows.dnp` for field/power grids.
 
 The first implementation assumes S=1/2 electrons, positive-gamma spin-1/2 nuclei,
@@ -129,6 +130,108 @@ their Table I quantity `J_two_sided(0)*d*D/(2*n)=4/27`; our normalized
 also checked from the exterior diffusion Poisson equation with Neumann boundary
 condition. The finite-frequency audit integrates the original diffusion
 eigenmodes in their Eq. A6, independently of the rational implementation.
+
+## Motion-based rotational and scalar channels
+
+`MotionBasedCWModel` composes the FFHS solution channel with bound-vector
+rotational dipolar motion and stochastic isotropic scalar contact. The model
+calculates absolute rates from motion parameters, then supplies the existing
+CW/buildup APIs. Its `rate_components` method exposes the individual rates;
+`relaxation_rates` sums them with the background exactly once.
+
+```python
+from spin_dynamics.dnp import (
+    MotionBasedCWModel, RotationalDipolarModel, ScalarContactModel,
+    TranslationalDiffusionModel, polarization_buildup,
+)
+
+model = MotionBasedCWModel(
+    translational_model=TranslationalDiffusionModel(0.39e-9, 2.8e-9),
+    concentration_molar=0.01,
+    rotational_models=(RotationalDipolarModel(
+        distance_m=0.9e-9, correlation_time_seconds=100e-12, pair_count=0.01,
+    ),),
+    scalar_models=(ScalarContactModel(
+        rms_hyperfine_hz=0.3e6, correlation_time_seconds=5e-12,
+        contact_fraction=0.02,
+    ),),
+)
+cw = model.cw(
+    [0.1, 0.35, 1.0], saturation_factor=0.8,
+    temperature_kelvin=298.15, background_r1_per_second=0.4,
+)
+components = model.rate_components([0.1, 0.35, 1.0])
+buildup = polarization_buildup(cw, [0, 0.1, 1, 5])
+```
+
+These numerical parameters illustrate independent contributions to one proton
+reservoir; they are not a TEMPOL calibration. For pure FFHS, use only the first
+two model arguments: its rates reproduce `translational_relaxation_rates`.
+For pure rotation or contact, omit `translational_model` and its concentration.
+`run_overhauser_power_sweep` also accepts `MotionBasedCWModel`; omit the separate
+`concentration_molar` and `scalar_self_rate_per_second` arguments because the
+composed model owns those channels. Conflicting parameterizations are rejected.
+
+For bound-vector rotation, the one-sided spectrum is
+`J_rot(omega)=tau_2/(1+(omega*tau_2)^2)`, where tau_2 is the rank-2 rotational
+integral correlation time, equal to `1/(6*D_rot)` for isotropic angular diffusion.
+For a fixed electron–nuclear separation r,
+
+\[
+b=\frac{\mu_0}{4\pi}\frac{\hbar\gamma_n\gamma_e}{r^3},\qquad
+A_{\rm rot}=\frac{N_{\rm pairs}\,b^2}{10}.
+\]
+
+Use angular gammas in b. The rate combinations are the same
+`R_rho=A_rot*(6*J_minus+3*J_n+J_plus)` and
+`R_sigma=A_rot*(6*J_minus-J_plus)` as for FFHS, with the rotational spectrum.
+`pair_count` is the mean number of independent bound pairs per observed nucleus,
+including occupancy. It is not a molarity; no concentration-to-binding model
+is inferred. Absolute rates scale as r^-6 and linearly with pair count.
+
+For scalar contact, the fluctuating Hamiltonian is
+`H_sc(t)=2*pi*delta_A(t)*S.I`, with delta_A in Hz. The model assumes zero mean
+and autocovariance
+`<delta_A(t)*delta_A(0)>=p*A_rms^2*exp(-|t|/tau_sc)`. Its rates are
+
+\[
+q=\frac{p(2\pi A_{\rm rms})^2}{2}
+  \frac{\tau_{\rm sc}}{1+[(|\omega_e|+\omega_n)\tau_{\rm sc}]^2},\qquad
+R_\rho^{\rm sc}=q,\quad R_\sigma^{\rm sc}=-q.
+\]
+
+The sum frequency follows from the scalar flip-flop transition in
+`H_Z=+omega_e*S_z-omega_n*I_z`. The factor 1/2 includes its spin matrix element
+and the one-sided Fourier normalization. The amplitude is the **RMS fluctuation**
+of contact coupling, not a static hyperfine coupling. A constant isotropic
+contact interaction does not fluctuate merely because a molecule rotates.
+`contact_fraction` weights the contact autocovariance and lies in [0,1]; it is
+not an automatically inferred collision probability. This exponential model
+does not substitute for a microscopic encounter/residence-time calculation.
+Scalar fluctuations and alternative liquid-state scalar models are discussed by
+[Orlando, Kuprov and Hiller (2022)](https://spindynamics.org/publications/105_kuprov_2022.pdf).
+
+The composition assumes independent fluctuating interactions feeding the same
+homogeneous nuclear reservoir. Do not count the same spin pair in both an FFHS
+population and a bound population, or average distinct isolated-reservoir
+enhancements by summing their rates. Correlated noise needs additional
+cross-correlation terms. Temperature/concentration-dependent diffusion,
+occupancies, contact amplitudes and correlation times must be supplied by
+rebuilding the model for each condition. Saturation is still externally
+prescribed; coupled electron/nitrogen dynamics remain a later stage.
+
+Run `python examples/plot_overhauser_motion_models.py --output .tmp/dnp_motion.png`
+to compare the individual and mixed channels. Optional `--csv` exports their
+field curves, with model indices printed by the script.
+
+![Illustrative independent motion-channel comparison](assets/overhauser_motion_models.png)
+
+The rotational and scalar prefactors are tested against independent spin-1/2
+transition generators, using an angular average for the dipolar Hamiltonian and
+explicit matrix elements for contact. Tests cover protons and positive-gamma
+carbon-13 at several fields, distance/amplitude/population scaling, limiting
+coupling factors, cancellation, arrays, power sweeps, and FFHS compatibility.
+This is analytic/numerical model validation, not experimental calibration.
 
 ## Measured rates, heating and saturation
 

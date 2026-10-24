@@ -1,4 +1,4 @@
-"""Liquid-state CW Overhauser DNP with explicit rates and FFHS diffusion."""
+"""Liquid-state CW Overhauser DNP with molecular-motion rates and diagnostics."""
 
 from .overhauser import (
     OverhauserBuildup,
@@ -10,6 +10,7 @@ from .overhauser import (
     translational_relaxation_rates,
 )
 from .saturation import bloch_saturation, power_saturation
+from .motion import MotionBasedCWModel, RotationalDipolarModel, ScalarContactModel
 from .spectral import (
     TranslationalDiffusionModel,
     ffhs_spectral_density,
@@ -17,6 +18,9 @@ from .spectral import (
 )
 
 __all__ = [
+    "MotionBasedCWModel",
+    "RotationalDipolarModel",
+    "ScalarContactModel",
     "OverhauserBuildup",
     "OverhauserRates",
     "OverhauserResult",
