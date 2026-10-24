@@ -52,18 +52,58 @@ class ExampleSmokeTests(unittest.TestCase):
                 str(csv),
                 "--points",
                 "20",
+                "--concentrations-mm", "0.1", "1", "10",
             )
             self.assertIn("TEMPOL/water", result.stdout)
             self.assertTrue(image.read_bytes().startswith(b"\x89PNG\r\n\x1a\n"))
             values = np.genfromtxt(csv, delimiter=",", names=True)
-            self.assertEqual(values.size, 20)
-            self.assertTrue(np.all(np.diff(values["field_tesla"]) > 0))
-            self.assertTrue(np.all(np.diff(values["coupling_factor"]) < 0))
+            self.assertEqual(values.size, 60)
+            for concentration in [0.1, 1, 10]:
+                curve = values[values["concentration_mM"] == concentration]
+                self.assertEqual(curve.size, 20)
+                self.assertTrue(np.all(np.diff(curve["field_tesla"]) > 0))
+                self.assertTrue(np.all(np.diff(curve["coupling_factor"]) < 0))
+            optima = np.genfromtxt(Path(directory) / "tempol_optima.csv", delimiter=",", names=True)
+            self.assertEqual(optima.size, 3)
+            self.assertEqual(optima[0]["optimal_field_tesla"], 10)
+            self.assertEqual(optima[0]["at_boundary"], 1)
+            self.assertEqual(optima[1]["at_boundary"], 0)
+            self.assertEqual(optima[2]["at_boundary"], 0)
+            for optimum in optima:
+                curve = values[values["concentration_mM"] == optimum["concentration_mM"]]
+                self.assertGreaterEqual(optimum["absolute_polarization"] + 1e-12,
+                                        np.max(np.abs(curve["steady_polarization"])))
+                self.assertAlmostEqual(optimum["absolute_polarization"],
+                                       abs(optimum["steady_polarization"]))
             np.testing.assert_allclose(values["saturation_factor"], 0.8)
             np.testing.assert_allclose(
                 values["steady_polarization"],
                 values["enhancement"] * values["thermal_polarization"],
             )
+            # The refined optimum must not depend on how densely the plot is
+            # sampled. Also retain the original single-concentration CLI.
+            single_csv = Path(directory) / "single.csv"
+            run_example(
+                "examples/plot_overhauser_tempol_water.py", "--output", str(image),
+                "--csv", str(single_csv), "--concentration-mm", "10", "--points", "2",
+            )
+            single = np.genfromtxt(Path(directory) / "single_optima.csv", delimiter=",", names=True)
+            self.assertAlmostEqual(single["optimal_field_tesla"],
+                                   optima[2]["optimal_field_tesla"], places=10)
+
+    def test_tempol_optimum_magnitude_and_boundaries(self) -> None:
+        from plot_overhauser_tempol_water import find_optimal_field
+
+        field, polarization, boundary = find_optimal_field(
+            lambda b: -np.exp(-np.log(b / 0.7)**2), 0.02, 10,
+        )
+        self.assertAlmostEqual(field, 0.7, places=7)
+        self.assertAlmostEqual(polarization, -1, places=10)
+        self.assertFalse(boundary)
+        for evaluate, expected in [(lambda b: b, 10), (lambda b: 1 / b, 0.02)]:
+            field, _, boundary = find_optimal_field(evaluate, 0.02, 10)
+            self.assertEqual(field, expected)
+            self.assertTrue(boundary)
 
     def test_overhauser_dnp_example_renders(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
