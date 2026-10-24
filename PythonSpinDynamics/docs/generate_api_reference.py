@@ -63,6 +63,7 @@ MODULES = [
     "dnp.motion",
     "dnp.dynamics",
     "dnp.saturation",
+    "dnp.nitroxide",
     "dnp.spectral",
     "esr.deer",
     "esr.dipolar",
