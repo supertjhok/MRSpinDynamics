@@ -2702,14 +2702,15 @@ For model selection, units and worked examples, use the [user manual](manual.md)
 
 | Kind | Name | Summary |
 | --- | --- | --- |
+| function | `centered_unit_axis(size: int) -> np.ndarray` | Return ``(i - size // 2) / ((size - 1) / 2)``: the DFT-centred unit grid. |
 | class | `SpatialDomain` | A rectilinear voxel grid of one to three spatial axes. |
 | attribute | `SpatialDomain.axes: tuple[np.ndarray, ...] = field()` | Declared attribute; inherited fields are not repeated. |
 | property | `SpatialDomain.ndim` |  |
 | property | `SpatialDomain.shape` |  |
 | property | `SpatialDomain.bounds` |  |
-| method | `SpatialDomain.normalized_coordinate_grids() -> tuple[np.ndarray, ...]` | Return one ``-1..1`` coordinate grid per axis, full domain shape. |
+| method | `SpatialDomain.normalized_coordinate_grids() -> tuple[np.ndarray, ...]` | Return one DFT-centred unit coordinate grid per axis, full domain shape. |
 | method | `SpatialDomain.meshgrid(indexing: str = 'ij') -> tuple[np.ndarray, ...]` | Return the physical coordinate grids (generalizes ``np.meshgrid``). |
-| method | `SpatialDomain.normalized(shape: tuple[int, ...]) -> 'SpatialDomain'` | Build a domain whose axes are ``linspace(-1, 1, n)`` for each ``n``. |
+| method | `SpatialDomain.normalized(shape: tuple[int, ...]) -> 'SpatialDomain'` | Build a domain whose axes are :func:`centered_unit_axis` for each ``n``. |
 
 ## `spin_dynamics.fields.eddy_modes`
 
