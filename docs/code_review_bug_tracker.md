@@ -31,8 +31,8 @@ code, not run.
 |---|---:|---:|---:|---:|
 | High | 0 | 0 | 13 | 0 |
 | CI / gates | 7 | 0 | 0 | 0 |
-| Medium | 17 | 0 | 26 | 1 |
-| Low | 51 | 0 | 1 | 0 |
+| Medium | 14 | 0 | 29 | 1 |
+| Low | 52 | 0 | 1 | 0 |
 
 ## High
 
@@ -84,9 +84,9 @@ code, not run.
 | M-14 | workflows | `workflows/cpmg_ir.py:226,376,624` | The CPMG-IR combine `mrx2 − mrx1` has the opposite sign to every CPMG workflow, so a standard IR fit sees an inverted curve. | Repro | Open | |
 | M-15 | workflows | `workflows/cpmg.py:809,1162,1383,1611`, `batched_sweeps.py:186`, `imaging.py:~1428`, `diffusion.py:938` | Echo-time bookkeeping is inconsistent: `(n+0.5)·TE` vs `(n+1)·TE`, and the encoding block is omitted, which biases `fit_imaging_echo_decay`'s `rho_map`. | Reading | Open | |
 | M-16 | workflows | `workflows/diffusion.py:933` vs `:1120` | Matched and tuned diffusion CPMG differ by a factor of 2 (`/2` in the PAP combine). | Reading | Open | |
-| M-17 | esr | `esr/relaxation.py:228-235` | T1 relaxes populations toward zero instead of the thermal deviation, so inversion never recovers. | Repro | Open | |
-| M-18 | esr | `esr/eseem.py:409-412`, `esr/deer.py:372-373` | Quantum ESEEM/DEER traces are normalized by the first requested sample, not V(0). | Repro (ESEEM) / Reading (DEER) | Open | |
-| M-19 | dnp | `dnp/nitroxide_relaxation.py:105` vs `dnp/nitroxide.py:121-123` | The two ¹⁵N halves disagree on the sign of A (signed tensor vs forced positive), so per-line T2s are assigned to the wrong lines. | Repro (partial) | Open | |
+| M-17 | esr | `esr/relaxation.py:228-235` | T1 relaxes populations toward zero instead of the thermal deviation, so inversion never recovers. | Repro | Fixed | `propagate_density_liouville(equilibrium_density=)` (exact inhomogeneous solve); the pulsed helpers pass the thermal deviation; direct calls without it keep the old target. Tests: `test_esr.py::test_continuous_drive_reaches_bloch_steady_state_with_t1` (Bloch steady state 0.30220), `::test_esr_t1_recovers_toward_supplied_equilibrium`. The example's T1 panel is now inversion recovery. Commit `c4bcf9c`. |
+| M-18 | esr | `esr/eseem.py:409-412`, `esr/deer.py:372-373` | Quantum ESEEM/DEER traces are normalized by the first requested sample, not V(0). | Repro (ESEEM) / Reading (DEER) | Fixed | Both quantum traces normalize by a separately computed τ = 0 / t_pump = 0 echo. Tests: `test_esr_eseem.py::test_quantum_normalized_to_tau_zero_when_axis_starts_later`, `test_esr_deer.py::test_quantum_normalized_to_zero_pump_time_when_axis_starts_later`. Commit `c4bcf9c`. |
+| M-19 | dnp | `dnp/nitroxide_relaxation.py:105` vs `dnp/nitroxide.py:121-123` | The two ¹⁵N halves disagree on the sign of A (signed tensor vs forced positive), so per-line T2s are assigned to the wrong lines. | Repro (partial) | Fixed | `NitroxideSaturationModel.hyperfine_hz` is signed and must match the tensor sign (positive inputs are unchanged). The sign is physical: the population block differs at about 1e-4. Test: `test_nitroxide_relaxation_matrix.py::test_signed_15n_hyperfine_matches_mirrored_positive_convention`. Commit `c4bcf9c`. |
 | M-20 | nqr | `nqr/full_dynamics.py:303` | `_default_carrier_hz` picks the line with `max()` over equal spin-1 strengths, so the excited line is arbitrary. | Repro | Fixed | Degenerate components are pooled and ties broken toward the highest line (ν+ for spin 1). Tests: `test_nqr_full_dynamics.py::DefaultCarrierTests`. Commit `6205987`. |
 | M-21 | nqr | `nqr/hamiltonians.py:117-120` | Transition labels from `argmax\|dipole\|` break for degenerate lines (at η=0, `transition('y')` raises KeyError) and are unstable across orientations. | Repro | Fixed | Exactly degenerate eigenspaces get a canonical basis (Ix²−Iy², then Iz, then Ix), so axial spin-1 is labelled x/y. Test: `test_nqr.py::test_axial_spin_one_labels_are_x_and_y`. Won't fix: labels can still change across orientations at nonzero B0 (argmax design). Commit `6205987`. |
 | M-22 | qdft | `QDFT/quadrupolar.py:57-60` | `nqr_frequencies_hz` returns every level difference, including forbidden lines for spin ≥ 5/2; these feed `efg_temperature_sweep`. | Repro | Fixed | Only dipole-allowed lines are returned by default (`include_forbidden=True` restores the old list). Tests: `QuadrupolarDFT/tests/test_quadrupolar.py::test_axial_higher_spin_returns_only_allowed_ladder`, `::test_spin_five_halves_matches_creel_series`. Commit `6205987`. |
@@ -169,6 +169,7 @@ code, not run.
 | L-50 | integration | `integration/src/mr_integration/database.py` | `with _connect()` doesn't close sqlite connections; the URI isn't built with `as_uri()`. Spin support is only 1 and 3/2, and DFT C_Q/η are averaged over non-equivalent atoms. | Open | |
 | L-51 | repo | `AGENTS.md`, `.gitattributes`, `tests/test_validation_gaps.py` | AGENTS.md points at a stale OneDrive copy and omits the validation-matrix check; `.gitattributes` names a missing path; 5 permanently skipped placeholder tests. | Open | |
 | L-52 | repo | `PythonSpinDynamics/docs/user_manual.pdf`, MATLAB tree, NQRDB exports | A 12 MB PDF in 129 commits (516 MiB pack); a Dropbox conflict copy and 23 paths with spaces/parentheses in MATLAB; 126 duplicate blobs across V2/V3; a `generated_at` timestamp in a tracked export. | Open | |
+| L-53 | esr | `examples/plot_esr_relaxation.py` (Hahn-echo panel) | Found while fixing M-17. The panel normalizes by the first echo at 2τ = 0.5 µs, so short-time points sit above exp(−2τ/T2) (same pattern as M-18, in example code). | Open | |
 
 ## Change log
 
@@ -184,3 +185,4 @@ code, not run.
 - 2026-11-01: M-34 to M-37 (fields) fixed in `fc240a6`.
 - 2026-11-01: M-01 to M-09 (core) fixed in `e3bcad3` (M-05 closed as not a bug, with documentation).
 - 2026-11-01: Glycine relaxation units (H-12 follow-up) and M-20 to M-27 (NQR, DFT, database, integration) fixed in `6205987`; mail-screening study updated and re-pinned in `96f120a`.
+- 2026-11-01: M-17 to M-19 (ESR, DNP) fixed in `c4bcf9c`; L-53 added.
