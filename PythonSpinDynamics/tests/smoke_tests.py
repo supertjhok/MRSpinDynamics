@@ -100,7 +100,7 @@ FAST_FIXTURE_TESTS = [
     "test_matlab_tuned_excitation_result_fixture_matches_csv",
     "test_matlab_tuned_refocusing_result_fixture_matches_python_eval",
     "test_matlab_ideal_time_varying_result_fixture_matches_python_eval",
-    "test_tuned_excitation_inverse_pipeline_uses_refocusing_neff",
+    "test_tuned_excitation_inverse_pipeline_recomputes_tuned_refocusing_neff",
     "test_tuned_refocusing_evaluation_accepts_spa_catalog_pulse",
     "test_untuned_refocusing_evaluation_accepts_spa_catalog_pulse",
     "test_tuned_spa_summary_returns_matlab_style_metrics",
