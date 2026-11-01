@@ -202,6 +202,46 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
   - integration `include_synonyms=`
   - openEMS per-frequency port records
   - the config `{type = "complex"}` encoding
+- Closed the remaining review items: the CI/quality-gate findings, every
+  low-severity finding, and the follow-ups found while fixing them (see the
+  bug tracker). Notable changes:
+  - **CI and release:**
+    - mypy now analyses the whole package against a shrink-only type-debt
+      list;
+    - the Numba/JAX golden-parity fixture is committed and the test fails
+      if it goes missing;
+    - CI path filters cover the cross-project data;
+    - `nqr-database.yml` always validates the database;
+    - `release.yml` requires tests and pins its third-party action by SHA;
+    - pytest no longer collects tests twice.
+  - **Opt-in options (MATLAB-parity defaults kept):**
+    - relaxation during RF pulses in the arb10 kernels
+      (`relax_during_pulses=`, `arb10_pulse_relaxation()`), which removes the
+      TE/(TE−T180) T2 bias;
+    - exact echo FFT registration (`calc_time_domain_echo(registration="exact")`);
+    - normalized combine for phase-encoded imaging
+      (`signal_convention="cpmg"`).
+  - **Behaviour changes:**
+    - **Proton γ and constants:** PGSE, experiment specs and bipolar use
+      2.6752218744e8 instead of the truncated 2.675e8 (+8.3e-5). Every
+      module now takes its constants from the new `spin_dynamics.constants`
+      (CODATA 2018); other values move by less than 5e-8.
+    - **Probe noise:** tuned and untuned receiver noise (and `noise.py`) now
+      include the damping resistor's 4kT/Rd noise.
+    - **Field-reversal precession:** follows dM/dt = γM×B, so echo
+      quadrature flips sign.
+    - **ESR hyperfine sweeps:** intensities are per electron.
+    - **Gradient windings:** contour orientation no longer depends on
+      roundoff.
+    - **Pulseq ADC phase:** referenced to the ADC start.
+    - **Serialization:** non-finite values use a `{"__float__": ...}` token.
+    - **JAX x64:** importing the package no longer enables x64 globally.
+      Code that builds its own `jnp` inputs for the low-level propagators
+      must enable x64 itself.
+    - **Integration data paths:** `mr_integration` finds its data through
+      `MR_INTEGRATION_REPO_ROOT` and raises a clear error when it can't.
+  - **Repository history:** not rewritten. The tracker (L-52) records the
+    pack-size analysis and the options.
 
 ### Changed
 
