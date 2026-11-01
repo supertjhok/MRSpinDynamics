@@ -5,10 +5,28 @@ on:
     paths:
       - ".github/workflows/python-spin-dynamics.yml"
       - "PythonSpinDynamics/**"
+      # Sibling-project inputs read by PSD tests/examples:
+      # tests/test_piezo_detection.py and examples read the NQR export and the
+      # glycine CIF; tests/test_nqr_database_relaxation_audit.py reads
+      # NQRDatabase/data/normalized; examples read the NaNO2 DFT summary;
+      # tests/test_nqr_cif.py checks the CIF reader twin stays in sync.
+      - "NQRDatabase/data/**"
+      - "QuadrupolarDFT/structures/**"
+      - "QuadrupolarDFT/results/**"
+      - "QuadrupolarDFT/src/quadrupolar_dft/_cif.py"
   pull_request:
     paths:
       - ".github/workflows/python-spin-dynamics.yml"
       - "PythonSpinDynamics/**"
+      # Sibling-project inputs read by PSD tests/examples:
+      # tests/test_piezo_detection.py and examples read the NQR export and the
+      # glycine CIF; tests/test_nqr_database_relaxation_audit.py reads
+      # NQRDatabase/data/normalized; examples read the NaNO2 DFT summary;
+      # tests/test_nqr_cif.py checks the CIF reader twin stays in sync.
+      - "NQRDatabase/data/**"
+      - "QuadrupolarDFT/structures/**"
+      - "QuadrupolarDFT/results/**"
+      - "QuadrupolarDFT/src/quadrupolar_dft/_cif.py"
 
 defaults:
   run:
@@ -51,7 +69,7 @@ jobs:
         run: python -m unittest tests.smoke_tests
 
   validation:
-    name: Types, coverage, and full validation (py${{ matrix.python-version }})
+    name: Baseline mypy, coverage, and full validation (py${{ matrix.python-version }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -67,7 +85,11 @@ jobs:
           cache-dependency-path: PythonSpinDynamics/pyproject.toml
       - name: Install package
         run: python -m pip install -e ".[dev,opt,plot]"
-      - name: Static type check
+      # mypy checks every module under src/spin_dynamics with a non-strict
+      # baseline (check_untyped_defs); modules on the "known type debt" list in
+      # pyproject.toml are analysed but their errors are suppressed. This is a
+      # ratchet, not a full strict type check.
+      - name: Baseline type check (mypy, see [tool.mypy] debt list)
         run: python -m mypy
       - name: Full pytest validation with branch coverage
         run: >-

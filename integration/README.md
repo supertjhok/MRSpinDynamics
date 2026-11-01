@@ -22,12 +22,20 @@ otherwise-independent subprojects into a single
   `quadrupole_frequency_hz` (`nu_Q`):
 
   ```
-  nu_Q = (3/4) C_Q   (spin-1)
-  nu_Q = (1/2) C_Q   (spin-3/2)
+  nu_Q = C_Q * d / (4 I (2I-1))    d = 3 (integer I), 6 (half-integer I)
+       = (3/4) C_Q   (spin-1)
+       = (1/2) C_Q   (spin-3/2)
+       = (3/10) C_Q  (spin-5/2), ... for any spin I >= 1
   ```
 
-  Builds a `spin_dynamics.nqr.QuadrupolarSite` from a `(C_Q, eta, spin)` triple
-  or directly from a `quadrupolar_dft.AbinitEFGRecord`.
+  The ratio comes from the simulator's own `spin_dynamics.nqr.isotopes`
+  mapping, and the tests check it against the independent
+  `quadrupolar_dft` Hamiltonian for spins 1 through 9/2. Builds a
+  `spin_dynamics.nqr.QuadrupolarSite` from a `(C_Q, eta, spin)` triple or
+  directly from a `quadrupolar_dft.AbinitEFGRecord` (the spin is looked up from
+  the isotope). The database and Landolt validators still check only the
+  spin-1/3/2 isotopes in `conversions.ISOTOPE_SPINS`, because they assume the
+  spin-1 line pattern.
 
 - **Self-consistency check** (`cross_validation`): runs DFT-derived parameters
   through `spin_dynamics` and confirms the resulting NQR lines match
@@ -45,9 +53,13 @@ otherwise-independent subprojects into a single
   `QuadrupolarDFT/structures` inventory, curated DFT result summaries, and
   measured database lines. It ranks each material by the next missing input,
   loads completed DFT rows without hard-coded parameters, and executes every
-  comparison that has a calibrated spin and matching isotope-tagged
+  comparison that has a quadrupolar spin and matching isotope-tagged
   measurements. This turns the one-material demonstration into a maintained
-  expansion queue.
+  expansion queue. Summary rows store `C_Q`/`eta` *averaged over the listed
+  atoms*. That average is only meaningful for equivalent atoms. Rows whose
+  per-atom `nqr_transitions_mhz` differ by more than `SITE_EQUIVALENCE_RTOL`
+  (0.5 %) average non-equivalent sites, so they are not compared
+  (`DFTSummaryRecord.sites_equivalent`).
 
 - **Uncertainty propagation** (`uncertainty`): accepts a correlated distribution
   over DFT `C_Q` and `eta`, propagates it through both independent Hamiltonian
@@ -99,6 +111,26 @@ Requires the two sibling packages on the path:
 ```bash
 pip install -e ./PythonSpinDynamics -e ./QuadrupolarDFT -e ./integration
 ```
+
+The package bundles no data. It reads the `NQRDatabase` export and the
+`QuadrupolarDFT` summary/structures from an MRSpinDynamics checkout. In an
+editable install the defaults are found automatically. For an installed wheel,
+point the package at the data, or pass `database_path=` / `path=` explicitly:
+
+| Variable | Points at |
+| --- | --- |
+| `MR_INTEGRATION_REPO_ROOT` | an MRSpinDynamics checkout (all defaults resolve under it) |
+| `MR_INTEGRATION_NQR_DB` | `nqr.sqlite` |
+| `MR_INTEGRATION_DFT_SUMMARY` | the DFT summary CSV |
+| `MR_INTEGRATION_STRUCTURES` | the DFT structure directory |
+
+A missing input raises `FileNotFoundError` that names these variables. Nothing
+silently returns an empty result.
+
+The flag-overlay writers stamp rows with a reproducible `generated_at`: the UTC
+time of `SOURCE_DATE_EPOCH` when it is set, otherwise a `content-sha256:`
+fingerprint of the rows. Regenerating the tracked exports on unchanged data
+therefore leaves them byte-identical.
 
 ## Try it
 

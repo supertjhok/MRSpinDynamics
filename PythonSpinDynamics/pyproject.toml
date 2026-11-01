@@ -112,7 +112,12 @@ target-version = "py310"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-python_files = ["test_*.py", "*_tests.py"]
+# Only ``test_*.py`` modules are discovered. ``smoke_tests.py``,
+# ``fixture_tests.py`` and ``example_tests.py`` are unittest ``load_tests``
+# aggregators that re-import classes from ``test_*.py``; discovering them would
+# collect ~550 tests twice. They remain runnable via ``python -m unittest
+# tests.smoke_tests`` (CI smoke job) and as explicit pytest paths.
+python_files = ["test_*.py"]
 markers = [
   "smoke: fast representative checks for edit loops",
   "fixtures: MATLAB/Octave fixture parity checks",
@@ -121,18 +126,162 @@ markers = [
 ]
 
 [tool.mypy]
+# Type-check the whole package (not just two files). Non-strict baseline:
+# check_untyped_defs everywhere; disallow_untyped_defs/warn_unreachable only for
+# the modules already written to that standard. Modules with existing type
+# errors are listed in the "known type debt" override below: they are still
+# analysed (so their types flow into the checked modules) but their own errors
+# are not reported. That list may only shrink -- remove a module once it passes.
 python_version = "3.10"
-files = [
-  "src/spin_dynamics/deprecation.py",
-  "src/spin_dynamics/experiment/cli.py"
-]
-follow_imports = "skip"
+files = ["src/spin_dynamics"]
 check_untyped_defs = true
-disallow_untyped_defs = true
 no_implicit_optional = true
 warn_redundant_casts = true
 warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+# Installed in CI but without type information.
+module = ["scipy", "scipy.*", "pyamg", "pyamg.*", "tomli", "tomllib"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# Optional accelerator / I/O extras: treated as Any whether or not they are
+# installed, so local runs (with jax/numba) and CI (without) agree.
+module = ["jax", "jax.*", "jaxlib", "jaxlib.*", "numba", "numba.*", "h5py", "h5py.*"]
+ignore_missing_imports = true
+follow_imports = "skip"
+
+[[tool.mypy.overrides]]
+# Fully annotated modules held to the strict standard.
+module = ["spin_dynamics.deprecation", "spin_dynamics.experiment.cli"]
+disallow_untyped_defs = true
 warn_unreachable = true
+
+[[tool.mypy.overrides]]
+# Known type debt (120 modules): errors suppressed, not yet fixed.
+module = [
+  "spin_dynamics._jax_motion",
+  "spin_dynamics._numba_motion",
+  "spin_dynamics.absolute_phase",
+  "spin_dynamics.analysis.ilt",
+  "spin_dynamics.composition",
+  "spin_dynamics.core._numba_kernels",
+  "spin_dynamics.core.kernels",
+  "spin_dynamics.core.numerics",
+  "spin_dynamics.coupling.isochromats",
+  "spin_dynamics.design.adapters",
+  "spin_dynamics.design.live",
+  "spin_dynamics.design.performance",
+  "spin_dynamics.design.priors",
+  "spin_dynamics.design.reference_ir",
+  "spin_dynamics.design.robustness",
+  "spin_dynamics.design.session",
+  "spin_dynamics.detection.base",
+  "spin_dynamics.detection.gradiometer",
+  "spin_dynamics.detection.inductive",
+  "spin_dynamics.dnp.dynamics",
+  "spin_dynamics.dnp.motion",
+  "spin_dynamics.esr.hamiltonians",
+  "spin_dynamics.esr.hyperfine",
+  "spin_dynamics.esr.spectra",
+  "spin_dynamics.exchange",
+  "spin_dynamics.experiment._catalog",
+  "spin_dynamics.experiment.config",
+  "spin_dynamics.experiment.hardware",
+  "spin_dynamics.experiment.io",
+  "spin_dynamics.experiment.nano_mr_adapter",
+  "spin_dynamics.experiment.rules",
+  "spin_dynamics.experiment.sequence_adapter",
+  "spin_dynamics.experiment.specs",
+  "spin_dynamics.fields.birdcage",
+  "spin_dynamics.fields.birdcage_circuit",
+  "spin_dynamics.fields.birdcage_multiport",
+  "spin_dynamics.fields.coil_peec",
+  "spin_dynamics.fields.coil_properties",
+  "spin_dynamics.fields.coils",
+  "spin_dynamics.fields.domain",
+  "spin_dynamics.fields.eddy_modes",
+  "spin_dynamics.fields.electropermanent",
+  "spin_dynamics.fields.electropermanent_array",
+  "spin_dynamics.fields.electropermanent_pulses",
+  "spin_dynamics.fields.electropermanent_transient",
+  "spin_dynamics.fields.fastercap_interop",
+  "spin_dynamics.fields.fasthenry_interop",
+  "spin_dynamics.fields.fullwave_validation",
+  "spin_dynamics.fields.gradient_coils",
+  "spin_dynamics.fields.gradient_engineering",
+  "spin_dynamics.fields.gradient_shielding",
+  "spin_dynamics.fields.gradient_windings",
+  "spin_dynamics.fields.harmonic",
+  "spin_dynamics.fields.nonlinear_magnetostatics",
+  "spin_dynamics.fields.openems",
+  "spin_dynamics.fields.quasistatic",
+  "spin_dynamics.interference._numba_cancellers",
+  "spin_dynamics.motion",
+  "spin_dynamics.nano_mr.baths",
+  "spin_dynamics.nano_mr.exact",
+  "spin_dynamics.nano_mr.geometry",
+  "spin_dynamics.nano_mr.hamiltonians",
+  "spin_dynamics.nano_mr.high_resolution",
+  "spin_dynamics.nano_mr.imaging",
+  "spin_dynamics.nano_mr.motion",
+  "spin_dynamics.nano_mr.presets",
+  "spin_dynamics.nano_mr.statistical",
+  "spin_dynamics.noise",
+  "spin_dynamics.nqr._cif",
+  "spin_dynamics.nqr.crossover",
+  "spin_dynamics.nqr.crossover_sequences",
+  "spin_dynamics.nqr.field_relaxation",
+  "spin_dynamics.nqr.full_dynamics",
+  "spin_dynamics.nqr.hamiltonians",
+  "spin_dynamics.nqr.inhomogeneity",
+  "spin_dynamics.nqr.interference",
+  "spin_dynamics.nqr.isotopes",
+  "spin_dynamics.nqr.polarization_enhancement",
+  "spin_dynamics.nqr.relaxation",
+  "spin_dynamics.nqr.simulation",
+  "spin_dynamics.nqr.structure_coupling",
+  "spin_dynamics.nqr.zeeman",
+  "spin_dynamics.optimal_control.control_response",
+  "spin_dynamics.optimal_control.hamiltonians",
+  "spin_dynamics.optimal_control.multi_axis",
+  "spin_dynamics.optimal_control.objectives",
+  "spin_dynamics.optimization._bounded",
+  "spin_dynamics.optimization.excitation",
+  "spin_dynamics.optimization.refocusing",
+  "spin_dynamics.optimization.results",
+  "spin_dynamics.optimization.spa",
+  "spin_dynamics.phase_cycling",
+  "spin_dynamics.probes.tuned",
+  "spin_dynamics.pulse_diagnostics",
+  "spin_dynamics.receiver_network",
+  "spin_dynamics.relaxation",
+  "spin_dynamics.sequences.compiler",
+  "spin_dynamics.sequences.motion",
+  "spin_dynamics.sequences.pulseq",
+  "spin_dynamics.susceptibility",
+  "spin_dynamics.thermal.electromagnet",
+  "spin_dynamics.thermal.sources",
+  "spin_dynamics.workflows.cpmg",
+  "spin_dynamics.workflows.cpmg_ir",
+  "spin_dynamics.workflows.diffusion",
+  "spin_dynamics.workflows.electropermanent_controller",
+  "spin_dynamics.workflows.electropermanent_imaging",
+  "spin_dynamics.workflows.electropermanent_particle_spin_echo",
+  "spin_dynamics.workflows.electropermanent_transport",
+  "spin_dynamics.workflows.fid",
+  "spin_dynamics.workflows.imaging",
+  "spin_dynamics.workflows.imaging_3d",
+  "spin_dynamics.workflows.pgse",
+  "spin_dynamics.workflows.portable_halbach",
+  "spin_dynamics.workflows.qspace",
+  "spin_dynamics.workflows.relaxation",
+  "spin_dynamics.workflows.sense",
+  "spin_dynamics.workflows.single_sided",
+  "spin_dynamics.workflows.slice_selective",
+  "spin_dynamics.workflows.time_varying",
+]
+ignore_errors = true
 
 [tool.coverage.run]
 branch = true

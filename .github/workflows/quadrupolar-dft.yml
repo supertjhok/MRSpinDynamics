@@ -8,6 +8,8 @@ on:
       - "QuadrupolarDFT/tests/**"
       - "QuadrupolarDFT/examples/**"
       - "QuadrupolarDFT/pyproject.toml"
+      # tests/test_strain_coupling.py reads the bundled glycine CIF.
+      - "QuadrupolarDFT/structures/**"
   pull_request:
     paths:
       - ".github/workflows/quadrupolar-dft.yml"
@@ -15,6 +17,8 @@ on:
       - "QuadrupolarDFT/tests/**"
       - "QuadrupolarDFT/examples/**"
       - "QuadrupolarDFT/pyproject.toml"
+      # tests/test_strain_coupling.py reads the bundled glycine CIF.
+      - "QuadrupolarDFT/structures/**"
 
 defaults:
   run:

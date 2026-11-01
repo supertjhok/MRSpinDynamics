@@ -13,14 +13,16 @@ depend on the simulator.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
+import os
 import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .database import default_database_path
+from .database import resolve_database_path
 from .database_validation import (
     DEFAULT_FLAG_THRESHOLD_HZ,
     SiteConsistencyReport,
@@ -91,6 +93,34 @@ def _finite_or_none(value: float) -> float | None:
     return float(value) if math.isfinite(value) else None
 
 
+def deterministic_generated_at(rows: list[dict]) -> str:
+    """Return a reproducible ``generated_at`` stamp for an overlay export.
+
+    Overlay rows are a pure function of the database contents, so a wall-clock
+    timestamp only makes every regeneration of the tracked JSONL/sqlite differ.
+    When ``SOURCE_DATE_EPOCH`` is set (the reproducible-builds convention) its
+    UTC time is used; otherwise the stamp is a content fingerprint of the rows
+    (excluding the stamp itself), so re-running on unchanged data writes
+    byte-identical output and any data change yields a new stamp.
+    """
+
+    epoch = os.environ.get("SOURCE_DATE_EPOCH")
+    if epoch:
+        moment = datetime.fromtimestamp(int(epoch), tz=timezone.utc)
+        return moment.strftime("%Y-%m-%dT%H:%M:%SZ")
+    payload = json.dumps(
+        [
+            {key: value for key, value in row.items() if key != "generated_at"}
+            for row in rows
+        ],
+        sort_keys=True,
+        ensure_ascii=True,
+        allow_nan=False,
+    )
+    digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16]
+    return f"content-sha256:{digest}"
+
+
 def write_consistency_flags(
     *,
     database_path: str | Path | None = None,
@@ -105,16 +135,16 @@ def write_consistency_flags(
     other normalized exports.
     """
 
-    db_path = Path(database_path) if database_path else default_database_path()
-    if not db_path.exists():
-        raise FileNotFoundError(f"NQR database not found at {db_path}")
+    db_path = resolve_database_path(database_path)
 
     reports = validate_database(database_path=db_path)
-    generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     rows = [
-        _report_row(report, threshold_hz=threshold_hz, generated_at=generated_at)
+        _report_row(report, threshold_hz=threshold_hz, generated_at="")
         for report in reports
     ]
+    generated_at = deterministic_generated_at(rows)
+    for row in rows:
+        row["generated_at"] = generated_at
 
     connection = sqlite3.connect(db_path)
     try:

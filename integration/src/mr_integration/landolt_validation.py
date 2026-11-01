@@ -30,6 +30,7 @@ from spin_dynamics.nqr import diagonalize_site
 
 from .conversions import ISOTOPE_SPINS, quadrupolar_site_from_cq
 from .cross_validation import match_lines
+from .database import readonly_uri, resolve_database_path
 
 #: Landolt frequencies are quoted to ~1 kHz; the bulk of consistent sets agree
 #: to < 1 kHz, so a much looser default cleanly isolates real discrepancies.
@@ -189,7 +190,8 @@ def validate_landolt_sets(
 ) -> list[LandoltConsistencyReport]:
     """Check every supported Landolt set, sorted worst-discrepancy first."""
 
-    connection = sqlite3.connect(f"file:{Path(database_path)}?mode=ro", uri=True)
+    path = resolve_database_path(database_path)
+    connection = sqlite3.connect(readonly_uri(path), uri=True)
     try:
         records = landolt_sets_with_parameters(connection)
     finally:

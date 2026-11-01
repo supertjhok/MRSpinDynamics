@@ -8,18 +8,12 @@ exported ``nqr.sqlite`` file and its stable schema.
 from __future__ import annotations
 
 import sqlite3
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
-# Default location of the exported database relative to the repository root
-# (``integration/`` and ``NQRDatabase/`` are siblings).
-_DEFAULT_DB = (
-    Path(__file__).resolve().parents[3]
-    / "NQRDatabase"
-    / "data"
-    / "exports"
-    / "nqr.sqlite"
-)
+from .paths import NQR_DB_ENV, default_nqr_database_path, missing_data_message
 
 
 @dataclass(frozen=True)
@@ -76,20 +70,58 @@ def compound_match_sql(*, include_synonyms: bool = False) -> str:
 
 
 def default_database_path() -> Path:
-    """Return the conventional path to the exported NQR SQLite database."""
+    """Return the default path to the exported NQR SQLite database.
 
-    return _DEFAULT_DB
+    Resolved at call time: ``MR_INTEGRATION_NQR_DB`` names the file directly,
+    ``MR_INTEGRATION_REPO_ROOT`` names an MRSpinDynamics checkout, and otherwise
+    the checkout containing this source file is used (see
+    :mod:`mr_integration.paths`). The returned path may not exist.
+    """
+
+    return default_nqr_database_path()
 
 
-def _connect(database_path: str | Path | None) -> sqlite3.Connection:
-    path = Path(database_path) if database_path is not None else _DEFAULT_DB
-    if not path.exists():
+def resolve_database_path(database_path: str | Path | None) -> Path:
+    """Return ``database_path`` (or the default) and fail clearly if absent."""
+
+    if database_path is not None:
+        path = Path(database_path)
+        if not path.is_file():
+            raise FileNotFoundError(f"NQR database not found at {path}")
+        return path
+    path = default_database_path()
+    if not path.is_file():
         raise FileNotFoundError(
-            f"NQR database not found at {path}; pass database_path= explicitly"
+            missing_data_message("NQR database export", path, NQR_DB_ENV)
         )
-    connection = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
-    connection.row_factory = sqlite3.Row
-    return connection
+    return path
+
+
+def readonly_uri(path: str | Path) -> str:
+    """Return a read-only SQLite URI for ``path``.
+
+    ``Path.as_uri()`` percent-encodes characters such as ``#``, ``?``, ``%`` and
+    spaces that would otherwise be parsed as URI syntax by SQLite.
+    """
+
+    return Path(path).resolve().as_uri() + "?mode=ro"
+
+
+@contextmanager
+def _connect(database_path: str | Path | None) -> Iterator[sqlite3.Connection]:
+    """Open the export read-only and *close* it on exit.
+
+    (``sqlite3.Connection``'s own context manager only commits/rolls back; it
+    never closes the connection.)
+    """
+
+    path = resolve_database_path(database_path)
+    connection = sqlite3.connect(readonly_uri(path), uri=True)
+    try:
+        connection.row_factory = sqlite3.Row
+        yield connection
+    finally:
+        connection.close()
 
 
 def measured_lines(

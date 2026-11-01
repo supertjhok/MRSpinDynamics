@@ -105,7 +105,11 @@ Add `numba`/`jax` as optional extras; build a deterministic benchmark for the
 forward kernel and an optimizer run; and lock golden numerical outputs from the
 current NumPy path so every later phase validates against them. Deliverables:
 `benchmarks/forward_kernel.py`, `tests/_perf_scenarios.py`,
-`tests/test_perf_golden.py`, and committed golden fixtures.
+`tests/test_perf_golden.py`, and the committed golden fixture
+`tests/perf_fixtures/golden.npz` (21 arrays from the NumPy reference path;
+explicitly un-ignored in both `.gitignore` files). Regenerate it only after an
+intended reference change, with `UPDATE_PERF_GOLDEN=1 python -m unittest
+tests.test_perf_golden`, and review the numerical diff before committing.
 
 **Phase 1 — Numba quick win (low risk).** _Landed (compiled path pending
 numba-host validation)._ Implemented:

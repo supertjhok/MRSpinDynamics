@@ -4,6 +4,21 @@ This module joins structure directories from ``QuadrupolarDFT``, completed EFG
 summary rows, and isotope-tagged measured lines from ``NQRDatabase``.  The result
 is both an actionable DFT queue and a data-driven way to execute every currently
 available DFT -> simulator -> measurement comparison.
+
+Data locations default to an MRSpinDynamics checkout and can be redirected with
+the ``MR_INTEGRATION_*`` environment variables (see :mod:`mr_integration.paths`).
+Missing inputs raise :class:`FileNotFoundError` rather than silently producing
+an empty survey.
+
+**Site averaging.**  Each summary row carries ``mean_cq_mhz``/``mean_eta``
+averaged over the row's ``atoms``.  That average only describes a physical site
+when those atoms are crystallographically equivalent.  The row's per-atom
+``nqr_transitions_mhz`` lists let us check this: a row whose atoms' lines differ
+by more than :data:`SITE_EQUIVALENCE_RTOL` (relative to the largest line) is
+treated as averaging *non-equivalent* sites and is excluded from
+:attr:`IntegrationTargetCoverage.comparison_ready_records`, because no single
+``(C_Q, eta)`` reproduces such a row.  Rows without per-atom lines cannot be
+checked and are used as-is (``sites_equivalent is None``).
 """
 
 from __future__ import annotations
@@ -12,14 +27,22 @@ import csv
 from dataclasses import dataclass
 from pathlib import Path
 
+from .conversions import nu_q_from_cq_hz
 from .database import MeasuredLine, measured_lines
+from .paths import (
+    DFT_SUMMARY_ENV,
+    STRUCTURES_ENV,
+    default_dft_summary_path,
+    default_structures_path,
+    missing_data_message,
+)
 from .pipeline import ComparisonReport, compare_dft_to_measured
 
-_REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
-_DEFAULT_STRUCTURES = _REPOSITORY_ROOT / "QuadrupolarDFT" / "structures"
-_DEFAULT_DFT_SUMMARY = (
-    _REPOSITORY_ROOT / "QuadrupolarDFT" / "results" / "nano2_efg_summary.csv"
-)
+#: Per-atom NQR lines that agree to this relative tolerance are treated as one
+#: crystallographic site.  Unsymmetrized ABINIT runs leave ~1e-5-1e-3 noise
+#: between symmetry-equivalent atoms (NaNO2 14N: 2e-5; 23Na: 1.3e-3), while
+#: genuinely different EFGs differ by percent (NaNO2 starter 17O: 2.3%).
+SITE_EQUIVALENCE_RTOL = 5.0e-3
 
 
 @dataclass(frozen=True)
@@ -59,6 +82,30 @@ class DFTSummaryRecord:
     mean_abs_cq_hz: float
     mean_eta: float
     source_path: Path
+    #: Per-atom NQR lines (Hz) from ``nqr_transitions_mhz``, in ``atoms`` order;
+    #: empty when the summary does not provide them.
+    per_atom_lines_hz: tuple[tuple[float, ...], ...] = ()
+
+    @property
+    def sites_equivalent(self) -> bool | None:
+        """Whether the averaged atoms are one site (``None`` if unknown).
+
+        True when every atom's line list matches the first atom's within
+        :data:`SITE_EQUIVALENCE_RTOL` of the largest line; ``None`` when the
+        summary has no per-atom lines.
+        """
+
+        if not self.per_atom_lines_hz:
+            return None
+        reference = self.per_atom_lines_hz[0]
+        scale = max((abs(value) for value in reference), default=0.0)
+        for lines in self.per_atom_lines_hz[1:]:
+            if len(lines) != len(reference):
+                return False
+            for value, ref in zip(sorted(lines), sorted(reference)):
+                if abs(value - ref) > SITE_EQUIVALENCE_RTOL * scale:
+                    return False
+        return True
 
 
 @dataclass(frozen=True)
@@ -82,13 +129,20 @@ class IntegrationTargetCoverage:
 
     @property
     def comparison_ready_records(self) -> tuple[DFTSummaryRecord, ...]:
-        """DFT rows with a calibrated spin and matching measured isotope lines."""
+        """DFT rows that can be compared against measured lines.
+
+        A row qualifies when its isotope has measured lines, its spin is
+        quadrupolar (any ``I >= 1``), and its averaged atoms are not known to be
+        non-equivalent sites (see :attr:`DFTSummaryRecord.sites_equivalent`).
+        """
 
         measured_isotopes = {isotope for isotope, _ in self.isotope_line_counts}
         return tuple(
             record
             for record in self.dft_records
-            if record.isotope in measured_isotopes and record.spin in (1.0, 1.5)
+            if record.isotope in measured_isotopes
+            and _quadrupolar_spin(record.spin)
+            and record.sites_equivalent is not False
         )
 
     @property
@@ -113,12 +167,45 @@ class AvailableDFTComparison:
     report: ComparisonReport
 
 
-def load_dft_summary(path: str | Path | None = None) -> tuple[DFTSummaryRecord, ...]:
-    """Load curated isotope-level EFG summary rows from a CSV file."""
+def _quadrupolar_spin(spin: float) -> bool:
+    try:
+        nu_q_from_cq_hz(1.0, spin)
+    except ValueError:
+        return False
+    return True
 
-    summary_path = Path(path) if path is not None else _DEFAULT_DFT_SUMMARY
-    if not summary_path.exists():
-        return ()
+
+def _per_atom_lines(text: str | None) -> tuple[tuple[float, ...], ...]:
+    """Parse ``"a, b, c; d, e, f"`` (MHz, one group per atom) into Hz tuples."""
+
+    groups: list[tuple[float, ...]] = []
+    for group in str(text or "").split(";"):
+        values = tuple(
+            float(token) * 1.0e6 for token in group.split(",") if token.strip()
+        )
+        if values:
+            groups.append(values)
+    return tuple(groups)
+
+
+def load_dft_summary(path: str | Path | None = None) -> tuple[DFTSummaryRecord, ...]:
+    """Load curated isotope-level EFG summary rows from a CSV file.
+
+    Raises :class:`FileNotFoundError` when the summary is missing (it used to
+    return ``()``, which silently turned an installed package's survey into
+    "no DFT rows").
+    """
+
+    if path is not None:
+        summary_path = Path(path)
+        if not summary_path.is_file():
+            raise FileNotFoundError(f"DFT summary not found at {summary_path}")
+    else:
+        summary_path = default_dft_summary_path()
+        if not summary_path.is_file():
+            raise FileNotFoundError(
+                missing_data_message("DFT summary CSV", summary_path, DFT_SUMMARY_ENV)
+            )
 
     records: list[DFTSummaryRecord] = []
     with summary_path.open(encoding="utf-8", newline="") as handle:
@@ -137,6 +224,7 @@ def load_dft_summary(path: str | Path | None = None) -> tuple[DFTSummaryRecord, 
                     mean_abs_cq_hz=float(row["mean_abs_cq_mhz"]) * 1.0e6,
                     mean_eta=float(row["mean_eta"]),
                     source_path=summary_path,
+                    per_atom_lines_hz=_per_atom_lines(row.get("nqr_transitions_mhz")),
                 )
             )
     return tuple(records)
@@ -162,7 +250,16 @@ def survey_integration_targets(
 ) -> tuple[IntegrationTargetCoverage, ...]:
     """Join structure, DFT-result, and measured-line coverage for all targets."""
 
-    root = Path(structures_path) if structures_path is not None else _DEFAULT_STRUCTURES
+    if structures_path is not None:
+        root = Path(structures_path)
+        if not root.is_dir():
+            raise FileNotFoundError(f"structure directory not found at {root}")
+    else:
+        root = default_structures_path()
+        if not root.is_dir():
+            raise FileNotFoundError(
+                missing_data_message("DFT structure directory", root, STRUCTURES_ENV)
+            )
     dft_records = load_dft_summary(dft_summary_path)
     targets: list[IntegrationTargetCoverage] = []
     for spec in target_specs:

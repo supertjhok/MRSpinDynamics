@@ -12,40 +12,41 @@ The standard zero-field quadrupole Hamiltonian, in frequency units, is
 
     H/h = C_Q / (4 I (2I-1)) * [3 Iz^2 - I(I+1) + eta (Ix^2 - Iy^2)]
 
-The simulator writes the same operator with prefactor ``nu_Q / d`` where
-``d = 3`` for spin-1 and ``d = 6`` for spin-3/2 (see
+The simulator writes the same operator with prefactor ``nu_Q / d`` where ``d``
+is the fundamental operator gap (``d = 3`` for integer spin, ``d = 6`` for
+half-integer spin; see
 ``spin_dynamics.nqr.hamiltonians.quadrupole_frequency_scale_hz``).  Matching the
 two prefactors gives
 
     nu_Q = C_Q * d / (4 I (2I-1))
-         = (3/4) C_Q   for spin-1
-         = (1/2) C_Q   for spin-3/2
+         = (3/4)  C_Q   for spin-1
+         = (1/2)  C_Q   for spin-3/2
+         = (3/10) C_Q   for spin-5/2   (and so on for any spin >= 1)
 
-This module owns that mapping in one place and builds the simulator site.
+The ratio is taken from ``spin_dynamics.nqr.isotopes.nu_q_over_cq`` -- the
+simulator's own mapping -- so the two codebases cannot drift apart; the
+integration tests check the resulting lines against the independent
+``quadrupolar_dft.nqr_frequencies_hz`` Hamiltonian for spins 1 through 9/2.
+This module builds the simulator site from that mapping.
 """
 
 from __future__ import annotations
 
 import numpy as np
 from spin_dynamics.nqr import QuadrupolarSite
-
-# Hamiltonian-scale denominators used by the simulator for each supported spin.
-# Mirrors spin_dynamics.nqr.hamiltonians.quadrupole_frequency_scale_hz so the
-# two codebases stay in sync; tests assert the resulting lines agree.
-_SCALE_DENOMINATORS = {1.0: 3.0, 1.5: 6.0}
+from spin_dynamics.nqr.isotopes import QUADRUPOLAR_ISOTOPES, nu_q_over_cq
 
 
 def _conversion_factor(spin: float) -> float:
-    """Return ``nu_Q / C_Q`` for a supported spin."""
+    """Return ``nu_Q / C_Q`` for a quadrupolar spin (``I >= 1``)."""
 
     spin = float(spin)
-    for supported, denominator in _SCALE_DENOMINATORS.items():
-        if np.isclose(spin, supported):
-            return denominator / (4.0 * supported * (2.0 * supported - 1.0))
-    raise ValueError(
-        "C_Q <-> nu_Q conversion is calibrated for spin=1 and spin=3/2 only; "
-        f"got spin={spin!r}"
-    )
+    if not np.isfinite(spin) or spin < 1.0 - 1e-9:
+        raise ValueError(
+            "C_Q <-> nu_Q conversion needs a quadrupolar spin I >= 1 "
+            f"(spin-1/2 nuclei have no quadrupole moment); got spin={spin!r}"
+        )
+    return float(nu_q_over_cq(spin))
 
 
 def nu_q_from_cq_hz(cq_hz: float, spin: float) -> float:
@@ -92,10 +93,13 @@ def quadrupolar_site_from_cq(
     )
 
 
-# Spin quantum number for the isotopes the simulator currently supports.  Used
-# to translate a record (which knows C_Q but not the nuclear spin) into a
-# simulator site.  Limited to spin-1 and spin-3/2, the regimes for which the
-# simulator's quadrupole-frequency scale is calibrated.
+# Isotopes the *database* and Landolt validators check.  These validators make
+# spin-1/3/2-specific assumptions (e.g. the Landolt check treats the two highest
+# lines as the tabulated nu_+/nu_-), so the set is deliberately narrower than
+# what the conversion supports.  Conversions and site construction accept any
+# spin >= 1, and :func:`quadrupolar_site_from_efg_record` falls back to the
+# simulator's isotope registry (``spin_dynamics.nqr.QUADRUPOLAR_ISOTOPES``,
+# spin 1 to 9/2) for isotopes not listed here.
 ISOTOPE_SPINS = {
     "14N": 1.0,
     "11B": 1.5,
@@ -109,6 +113,25 @@ ISOTOPE_SPINS = {
     "79Br": 1.5,
     "81Br": 1.5,
 }
+
+
+def isotope_spin(isotope: str) -> float:
+    """Return the nuclear spin for ``isotope`` (e.g. ``"27Al"`` -> ``2.5``).
+
+    Looks in :data:`ISOTOPE_SPINS` first, then the simulator's quadrupolar
+    isotope registry.
+    """
+
+    if isotope in ISOTOPE_SPINS:
+        return ISOTOPE_SPINS[isotope]
+    entry = QUADRUPOLAR_ISOTOPES.get(isotope)
+    if entry is None:
+        known = ", ".join(sorted(set(ISOTOPE_SPINS) | set(QUADRUPOLAR_ISOTOPES)))
+        raise ValueError(
+            f"unknown spin for isotope {isotope!r}; pass spin= explicitly "
+            f"(known isotopes: {known})"
+        )
+    return float(entry.spin)
 
 
 def spin1_parameters_from_lines(
@@ -154,12 +177,7 @@ def quadrupolar_site_from_efg_record(
     """
 
     if spin is None:
-        try:
-            spin = ISOTOPE_SPINS[isotope]
-        except KeyError as exc:  # pragma: no cover - defensive
-            raise ValueError(
-                f"unknown spin for isotope {isotope!r}; pass spin= explicitly"
-            ) from exc
+        spin = isotope_spin(isotope)
     return quadrupolar_site_from_cq(
         cq_hz=float(record.cq_mhz) * 1.0e6,
         eta=float(record.eta),

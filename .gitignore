@@ -29,6 +29,8 @@ PythonSpinDynamics/site/
 PythonSpinDynamics/**/__pycache__/
 PythonSpinDynamics/**/*.py[cod]
 PythonSpinDynamics/**/*.npz
+# The perf golden fixture is a committed test input (tests/test_perf_golden.py).
+!PythonSpinDynamics/tests/perf_fixtures/golden.npz
 PythonSpinDynamics/docs/*.aux
 PythonSpinDynamics/docs/*.log
 PythonSpinDynamics/docs/*.out

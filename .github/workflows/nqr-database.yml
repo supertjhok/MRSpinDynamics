@@ -1,20 +1,41 @@
 name: NQRDatabase
 
+# What runs where:
+# - Every push/PR: validate the checked-in exports (integrity, overlay tables vs
+#   their JSONL) and run the NQRDatabase unit tests. Neither needs the source
+#   PDFs/HTML.
+# - Rebuild + freshness: only when the source data under References/NQR Data is
+#   present. References/ is gitignored (copyrighted source material), so on
+#   GitHub-hosted runners this block is skipped and the log says so. It runs on
+#   a maintainer checkout or self-hosted runner that has the references.
+
 on:
   push:
     paths:
       - ".github/workflows/nqr-database.yml"
+      - ".github/scripts/compare_sqlite.py"
       - "NQRDatabase/**"
       - "References/NQR Data/**"
+      # The shipped sqlite carries overlay tables written by these modules.
+      - "integration/src/mr_integration/flag_export.py"
+      - "integration/src/mr_integration/landolt_review_export.py"
+      - "integration/scripts/write_*_flags.py"
   pull_request:
     paths:
       - ".github/workflows/nqr-database.yml"
+      - ".github/scripts/compare_sqlite.py"
       - "NQRDatabase/**"
       - "References/NQR Data/**"
+      - "integration/src/mr_integration/flag_export.py"
+      - "integration/src/mr_integration/landolt_review_export.py"
+      - "integration/scripts/write_*_flags.py"
+
+permissions:
+  contents: read
 
 jobs:
   build:
-    name: Build and validate (py${{ matrix.python-version }})
+    name: Validate and test (py${{ matrix.python-version }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -27,7 +48,12 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
-      - name: Detect local reference PDFs
+      - name: Validate checked-in artifacts
+        run: python NQRDatabase/scripts/validate_database.py
+      - name: NQRDatabase unit tests
+        working-directory: NQRDatabase
+        run: python -m unittest discover -s tests -v
+      - name: Detect local reference sources
         id: references
         shell: bash
         run: |
@@ -36,20 +62,33 @@ jobs:
           else
             echo "available=false" >> "$GITHUB_OUTPUT"
           fi
-      - name: Validate checked-in artifacts
-        run: python NQRDatabase/scripts/validate_database.py
-      - name: Install build dependencies
+      - name: Install rebuild and overlay dependencies
         if: steps.references.outputs.available == 'true'
-        run: python -m pip install pdfplumber
+        run: |
+          python -m pip install pdfplumber
+          python -m pip install -e ./PythonSpinDynamics -e ./QuadrupolarDFT -e ./integration
       - name: Rebuild database exports
         if: steps.references.outputs.available == 'true'
-        run: python NQRDatabase/scripts/build_database.py --output /tmp/nqr.sqlite
+        run: python NQRDatabase/scripts/build_database.py --output "$RUNNER_TEMP/nqr.sqlite"
+      - name: Re-apply integration overlays to the rebuilt database
+        if: steps.references.outputs.available == 'true'
+        run: |
+          python integration/scripts/write_consistency_flags.py --database "$RUNNER_TEMP/nqr.sqlite" --no-jsonl
+          python integration/scripts/write_landolt_review_flags.py --database "$RUNNER_TEMP/nqr.sqlite" --no-jsonl
       - name: Validate rebuilt artifacts
         if: steps.references.outputs.available == 'true'
-        run: python NQRDatabase/scripts/validate_database.py --database /tmp/nqr.sqlite
+        run: python NQRDatabase/scripts/validate_database.py --database "$RUNNER_TEMP/nqr.sqlite"
       - name: Check generated artifacts are current
         if: steps.references.outputs.available == 'true'
-        run: git diff --exit-code -- NQRDatabase/data/normalized
-      - name: Skip rebuild without local references
+        run: |
+          git diff --exit-code -- NQRDatabase/data/normalized
+          python .github/scripts/compare_sqlite.py \
+            NQRDatabase/data/exports/nqr.sqlite "$RUNNER_TEMP/nqr.sqlite" \
+            --ignore-column generated_at
+      - name: Rebuild skipped (no local references)
         if: steps.references.outputs.available != 'true'
-        run: echo "Reference PDFs are not present in this checkout; validated checked-in exports only."
+        run: >-
+          echo "::notice title=NQRDatabase rebuild skipped::References/NQR Data
+          is not in this checkout (gitignored source material). Validated the
+          checked-in exports and ran the unit tests only; run this workflow on
+          a checkout with the references to check export freshness."

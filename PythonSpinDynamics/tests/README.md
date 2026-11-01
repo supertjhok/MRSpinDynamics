@@ -56,9 +56,10 @@ and example checks. It is not a replacement for full validation. The full suite
 is grouped into smaller fixture modules behind `test_basic_octave_fixtures.py`
 so existing commands still work while failures remain easier to localize.
 
-`test_validation_gaps.py` contains skipped tests for known scientific
-validation gaps. Those skips are expected until the corresponding MATLAB or
-historical reference data exists.
+`test_validation_gaps.py` lists the known scientific validation gaps as
+`expectedFailure` tests (shown as expected failures / xfail in every run). They
+stay that way until the corresponding MATLAB or historical reference data
+exists. Then the body becomes the real comparison and the decorator is removed.
 
 Matched-probe SPA summary checks are intentionally kept out of the smoke tier
 because each selected catalog pulse runs the matched-network transient solver.

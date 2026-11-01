@@ -9,3 +9,5 @@ __pycache__/
 .tmp/
 /results/
 *.npz
+# Committed test input for tests/test_perf_golden.py.
+!/tests/perf_fixtures/golden.npz

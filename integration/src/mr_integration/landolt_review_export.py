@@ -22,10 +22,10 @@ from __future__ import annotations
 import json
 import sqlite3
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from pathlib import Path
 
-from .database import default_database_path
+from .database import resolve_database_path
+from .flag_export import deterministic_generated_at
 from .landolt_validation import (
     DEFAULT_LANDOLT_THRESHOLD_HZ,
     LandoltConsistencyReport,
@@ -164,17 +164,19 @@ def write_landolt_review_flags(
 ) -> LandoltReviewSummary:
     """Validate Landolt entries and route inconsistencies into the review queue."""
 
-    db_path = Path(database_path) if database_path else default_database_path()
-    if not db_path.exists():
-        raise FileNotFoundError(f"NQR database not found at {db_path}")
+    db_path = resolve_database_path(database_path)
 
     reports = validate_landolt_sets(database_path=db_path, threshold_hz=threshold_hz)
     worst = _worst_per_entry(reports, threshold_hz)
-    generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     rows = [
-        _flag_row(report, threshold_hz=threshold_hz, generated_at=generated_at)
+        _flag_row(report, threshold_hz=threshold_hz, generated_at="")
         for report in worst.values()
     ]
+    # Deterministic (content fingerprint or SOURCE_DATE_EPOCH), so regenerating
+    # the tracked export on unchanged data is a no-op diff.
+    generated_at = deterministic_generated_at(rows)
+    for row in rows:
+        row["generated_at"] = generated_at
 
     connection = sqlite3.connect(db_path)
     queue_updated = 0

@@ -7,12 +7,16 @@ on:
       - "integration/**"
       - "PythonSpinDynamics/**"
       - "QuadrupolarDFT/**"
+      # The integration tests and examples read the shipped NQR export.
+      - "NQRDatabase/data/**"
   pull_request:
     paths:
       - ".github/workflows/integration.yml"
       - "integration/**"
       - "PythonSpinDynamics/**"
       - "QuadrupolarDFT/**"
+      # The integration tests and examples read the shipped NQR export.
+      - "NQRDatabase/data/**"
 
 jobs:
   test:

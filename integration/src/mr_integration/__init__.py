@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from .conversions import (
     cq_hz_from_nu_q,
+    isotope_spin,
     nu_q_from_cq_hz,
     quadrupolar_site_from_cq,
     quadrupolar_site_from_efg_record,
@@ -18,6 +19,7 @@ from .conversions import (
 )
 from .coverage import (
     DEFAULT_TARGET_SPECS,
+    SITE_EQUIVALENCE_RTOL,
     AvailableDFTComparison,
     DFTSummaryRecord,
     IntegrationTargetCoverage,
@@ -76,6 +78,7 @@ from .uncertainty import (
 
 __all__ = [
     "DEFAULT_TARGET_SPECS",
+    "SITE_EQUIVALENCE_RTOL",
     "AvailableDFTComparison",
     "ComparisonReport",
     "DFTSummaryRecord",
@@ -108,6 +111,7 @@ __all__ = [
     "describe",
     "describe_landolt",
     "format_target_survey",
+    "isotope_spin",
     "load_dft_summary",
     "match_lines",
     "measured_lines",

@@ -59,8 +59,13 @@ class PerfGoldenParityTests(unittest.TestCase):
         if os.environ.get("UPDATE_PERF_GOLDEN") == "1":
             write_golden()
         if not FIXTURE.exists():
-            raise unittest.SkipTest(
-                "golden fixture missing; regenerate with UPDATE_PERF_GOLDEN=1"
+            # The fixture is committed (and un-ignored in .gitignore); a missing
+            # file means a broken checkout, not an optional input, so fail
+            # loudly instead of skipping the parity gate.
+            raise FileNotFoundError(
+                f"golden fixture missing at {FIXTURE}; it should be tracked in "
+                "git. Regenerate with UPDATE_PERF_GOLDEN=1 only after an "
+                "intended reference change."
             )
         with np.load(FIXTURE) as data:
             cls.golden = {key: data[key] for key in data.files}
