@@ -50,6 +50,27 @@ class SyntheticContourTests(unittest.TestCase):
                 contour.points[0], contour.points[-1], atol=1.0e-12
             )
 
+    def test_single_node_loops_are_oriented_by_the_stream_function(self) -> None:
+        # psi = +1 at one node and -1 at another: the +-0.5 contours are tiny loops
+        # around a single node. The surface current K = (-dpsi/dz, dpsi/(R dphi))
+        # keeps higher psi on the right of travel, so the loop around the maximum
+        # runs clockwise in the (R phi, z) plane (negative signed area) and the
+        # one around the minimum counter-clockwise. Pre-fix both loops got the same
+        # sense: the gradient was sampled at the nearest grid node, a constant
+        # vector whose vote sums to exactly zero around a closed loop.
+        surface = CylindricalWindingSurface(0.04, 0.10, 16, 8)
+        z = np.linspace(-0.05, 0.05, 9)
+        psi = np.zeros((16, 9))
+        psi[4, 3] = 1.0
+        psi[11, 5] = -1.0
+        contours = stream_function_contours(surface, psi, (-0.5, 0.5), z_coordinates=z)
+        self.assertEqual(len(contours), 2)
+        for contour in contours:
+            u = surface.radius * np.unwrap(contour.phi_z[:, 0])
+            v = contour.phi_z[:, 1]
+            area = 0.5 * float(np.sum(u[:-1] * v[1:] - u[1:] * v[:-1]))
+            self.assertLess(area * np.sign(contour.level_a), 0.0, msg=contour.level_a)
+
     def test_automatic_levels_are_half_step_centered(self) -> None:
         psi = np.array([[-2.1, 0.0, 2.1]])
         levels = winding_contour_levels(psi, current_per_turn_a=1.0)

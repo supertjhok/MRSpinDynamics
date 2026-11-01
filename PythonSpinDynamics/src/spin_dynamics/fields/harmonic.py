@@ -16,11 +16,12 @@ from typing import Literal
 
 import numpy as np
 
+from spin_dynamics.constants import MU0_T_M_PER_A
 from spin_dynamics.fields.domain import SpatialDomain
 from spin_dynamics.fields.maps import SpatialFieldMaps
 
 
-MU_0 = 4.0e-7 * np.pi
+MU_0 = MU0_T_M_PER_A
 HARMONIC_EM_SCHEMA = "python-spin-dynamics.harmonic-em/v1"
 
 PhasorConvention = Literal["exp(+iwt)", "exp(-iwt)"]

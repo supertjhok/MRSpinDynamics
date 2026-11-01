@@ -407,7 +407,16 @@ class ReducedScalarPotential3D:
             b = np.maximum(b - f / df, 0.0)
         # mu = B/H, with the small-signal limit 1/(bk1+bk2) as H -> 0.
         tiny = h <= 0.0
-        return np.where(tiny, 1.0 / nu0, b / np.where(tiny, 1.0, h))
+        mu = np.where(tiny, 1.0 / nu0, b / np.where(tiny, 1.0, h))
+        # Where the vacuum clamp is active the material is exactly vacuum: return
+        # mu0 itself, not B/H rounded to within an ulp of it. Otherwise a fully
+        # saturated region leaves a round-off (mu - mu0) H_s source, a round-off
+        # psi, and a meaningless relative residual (it stalled at 0.21 for the
+        # CODATA mu0 while converging for 4*pi*1e-7).
+        nu_final = self._bk1 + self._bk2 * np.exp(
+            self._bk3 * np.minimum(b * b, self._b2cap)
+        )
+        return np.where(self.nl & (nu_final >= 1.0 / MU0), MU0, mu)
 
     def _faces(self, arr: np.ndarray):
         """Return arithmetic face averages of a node array along each axis."""

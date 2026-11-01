@@ -426,24 +426,41 @@ def _orient_path(
     values: np.ndarray,
     radius: float,
 ) -> np.ndarray:
+    """Orient a contour along the surface current ``K = (-dpsi/dz, dpsi/(R dphi))``.
+
+    The current direction is evaluated per segment from the gradient of the
+    bilinear stream-function interpolant in the grid cell holding the segment's
+    midpoint. On a contour that gradient is normal to the segment and nonzero,
+    so every segment votes with weight ``|dl| |grad psi|`` and the sign is
+    unambiguous. (Sampling the gradient at the nearest grid node instead gave
+    small closed contours around one node a constant vote vector, whose sum over
+    a closed loop is zero, so their orientation was decided by round-off.)
+    """
+
     if path.shape[0] < 2:
         return path
-    dphi = 2.0 * np.pi / phi_axis.size
-    dpsi_dphi = (np.roll(values, -1, axis=0) - np.roll(values, 1, axis=0)) / (
-        2.0 * dphi
-    )
-    edge_order = 2 if z_axis.size >= 3 else 1
-    dpsi_dz = np.gradient(values, z_axis, axis=1, edge_order=edge_order)
+    n_phi = phi_axis.size
+    dphi = 2.0 * np.pi / n_phi
     alignment = 0.0
     for first, second in zip(path[:-1], path[1:], strict=True):
         delta_phi = (second[0] - first[0] + np.pi) % (2.0 * np.pi) - np.pi
         delta_z = second[1] - first[1]
-        midpoint_phi = (first[0] + 0.5 * delta_phi) % (2.0 * np.pi)
+        midpoint_phi = (first[0] + 0.5 * delta_phi - phi_axis[0]) % (2.0 * np.pi)
         midpoint_z = first[1] + 0.5 * delta_z
-        phi_index = int(round(midpoint_phi / dphi)) % phi_axis.size
-        z_index = int(np.argmin(np.abs(z_axis - midpoint_z)))
-        desired_phi = -dpsi_dz[phi_index, z_index]
-        desired_z = dpsi_dphi[phi_index, z_index] / radius
+        phi_cell = min(int(np.floor(midpoint_phi / dphi)), n_phi - 1)
+        s = midpoint_phi / dphi - phi_cell
+        z_cell = int(np.clip(np.searchsorted(z_axis, midpoint_z) - 1, 0, z_axis.size - 2))
+        dz = float(z_axis[z_cell + 1] - z_axis[z_cell])
+        t = (midpoint_z - z_axis[z_cell]) / dz
+        next_phi = (phi_cell + 1) % n_phi
+        v00 = values[phi_cell, z_cell]
+        v10 = values[next_phi, z_cell]
+        v01 = values[phi_cell, z_cell + 1]
+        v11 = values[next_phi, z_cell + 1]
+        dpsi_dphi = ((1.0 - t) * (v10 - v00) + t * (v11 - v01)) / dphi
+        dpsi_dz = ((1.0 - s) * (v01 - v00) + s * (v11 - v10)) / dz
+        desired_phi = -dpsi_dz
+        desired_z = dpsi_dphi / radius
         alignment += radius * delta_phi * desired_phi + delta_z * desired_z
     return path if alignment >= 0.0 else path[::-1].copy()
 

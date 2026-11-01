@@ -128,11 +128,14 @@ class CylindricalGradientDesignTests(unittest.TestCase):
             regularization=0.0,
             solver="numpy",
         )
+        # The unregularized solve leaves some segment currents at round-off of the
+        # O(1 A) solution (~5e-11 A, with either sign), so the absolute tolerance is
+        # tied to the current scale rather than fixed at 1e-10 A.
         np.testing.assert_allclose(
             second.segment_currents_a,
             2.5 * first.segment_currents_a,
             rtol=1.0e-9,
-            atol=1.0e-10,
+            atol=1.0e-9 * float(np.max(np.abs(second.segment_currents_a))),
         )
 
     def test_regularization_reduces_current_norm(self) -> None:

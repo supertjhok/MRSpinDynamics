@@ -17,16 +17,20 @@ from typing import Any, Protocol
 
 import numpy as np
 
+from spin_dynamics.constants import (
+    BOLTZMANN_J_PER_K,
+    MU0_OVER_4PI,
+    PLANCK_J_S,
+    PROTON_GAMMA_HZ_PER_T,
+)
 from spin_dynamics.core.numerics import expm
 
 
 GAS_CONSTANT_J_PER_MOL_K = 8.31446261815324
 TAU = 2.0 * np.pi
-MU0_OVER_4PI = 1.0e-7
-PLANCK = 6.62607015e-34
+PLANCK = PLANCK_J_S
 ANGSTROM = 1.0e-10
-PROTON_GAMMA_HZ_PER_T = 42.57747892e6
-BOLTZMANN = 1.380649e-23
+BOLTZMANN = BOLTZMANN_J_PER_K
 ATOMIC_MASS_UNIT_KG = 1.66053906660e-27
 
 

@@ -244,12 +244,109 @@ class GradientEngineeringWorkflowTests(unittest.TestCase):
             self.winding,
             modes,
             tau_rl=1.0e-3,
-            min_alpha=0.0,
+            min_alpha=1.0e-6,
             max_terms=2,
         )
         self.assertAlmostEqual(driver.tau_rl, 1.0e-3)
-        self.assertEqual(len(driver.eddy_terms), 2)
-        self.assertTrue(all(np.isfinite(term) for pair in driver.eddy_terms for term in pair))
+        # Two rings at +-z: a z-gradient winding drives only their antisymmetric
+        # mode (the symmetric mode's alpha is zero by symmetry, at round-off, so it
+        # is excluded by min_alpha rather than counted on its sign as before).
+        # Antisymmetric mode: I1 = -I2, tau = (L11 - L12)/R and
+        # alpha = (c1 - c2)(m1 - m2) / (2 (L11 - L12) g_drive).
+        self.assertEqual(len(driver.eddy_terms), 1)
+        ((alpha, tau),) = driver.eddy_terms
+        segments = tuple(
+            segment
+            for winding_set in (self.winding.primary, self.winding.shield)
+            for segment in winding_set.segments
+        )
+        spectrum = modes.spectrum(segments)
+        l_anti = modes.L[0, 0] - modes.L[0, 1]
+        self.assertAlmostEqual(tau / (l_anti / modes.R[0, 0]), 1.0, delta=1e-12)
+        from spin_dynamics.fields.eddy_modes import _axis_gradient
+        from spin_dynamics.fields.quasistatic import mutual_inductance
+
+        m = [mutual_inductance(loop, segments) for loop in modes._loops]
+        c = [_axis_gradient(loop, np.zeros(3), 2) for loop in modes._loops]
+        expected = (c[0] - c[1]) * (m[0] - m[1]) / (2.0 * l_anti * spectrum.drive_gradient)
+        self.assertAlmostEqual(alpha / expected, 1.0, delta=1e-9)
+
+    def test_realized_winding_and_eddy_alpha_are_smooth_in_the_turn_current(
+        self,
+    ) -> None:
+        # A 1e-9 relative change in the turn current (equivalently in mu0, which
+        # scales the solved stream function) must move the realized winding and
+        # its eddy alpha by ~1e-9. Pre-fix, small closed contours had round-off
+        # orientation: mu0 4*pi*1e-7 -> CODATA (5.5e-10) reversed five contours
+        # and moved alpha from 1.097e-2 to 7.95e-3, and the shell-mode alpha by 0.65%.
+        design = ActivelyShieldedGradientTests.result
+        modes = EddyModes(
+            [0.075, 0.075],
+            np.array([[0.0, 0.0, -0.03], [0.0, 0.0, 0.03]]),
+            wire_radius=1.0e-3,
+            resistivity=1.7e-8,
+            axis="z",
+            n_segments=24,
+        )
+        base_current = self.winding.primary.current_per_turn_a
+        alphas = []
+        windings = []
+        for scale in (1.0, 1.0 + 1.0e-9, 1.0 - 1.0e-9, 1.0 + 5.5e-10):
+            winding = extract_actively_shielded_winding(
+                design, current_per_turn_a=base_current * scale
+            )
+            windings.append(winding)
+            driver = winding_to_gradient_driver(
+                winding, modes, tau_rl=1.0e-3, min_alpha=1.0e-6
+            )
+            alphas.append(driver.eddy_terms[0][0])
+        for winding in windings[1:]:
+            for first, second in (
+                (windings[0].primary, winding.primary),
+                (windings[0].shield, winding.shield),
+            ):
+                self.assertEqual(len(first.contours), len(second.contours))
+                for a, b in zip(first.contours, second.contours):
+                    # Same orientation: point-by-point agreement to ~1e-9 of the size.
+                    np.testing.assert_allclose(a.points, b.points, rtol=0.0, atol=1e-9)
+        np.testing.assert_allclose(alphas, alphas[0], rtol=1e-8)
+
+    def test_realized_contours_keep_higher_stream_function_on_the_right(self) -> None:
+        # Independent orientation check of every realized segment: with
+        # K = (-dpsi/dz, dpsi/(R dphi)), psi increases to the right of travel.
+        from scipy.interpolate import RegularGridInterpolator
+
+        from spin_dynamics.fields.gradient_shielding import _stream_z
+
+        design = ActivelyShieldedGradientTests
+        for surface, psi, winding_set in (
+            (design.primary, design.result.primary_stream_function_a, self.winding.primary),
+            (design.shield, design.result.shield_stream_function_a, self.winding.shield),
+        ):
+            phi = np.concatenate([surface.phi, [2.0 * np.pi]])
+            interp = RegularGridInterpolator(
+                (phi, _stream_z(surface)),
+                np.vstack([psi, psi[:1]]),
+                bounds_error=False,
+                fill_value=None,
+            )
+            for contour in winding_set.contours:
+                u = np.unwrap(contour.phi_z[:, 0])
+                z = contour.phi_z[:, 1]
+                tangent = np.column_stack([surface.radius * np.diff(u), np.diff(z)])
+                right = np.column_stack([tangent[:, 1], -tangent[:, 0]])
+                right /= np.linalg.norm(right, axis=1, keepdims=True)
+                mid_u = 0.5 * (u[1:] + u[:-1])
+                mid_z = 0.5 * (z[1:] + z[:-1])
+                step = 1.0e-4
+                samples = []
+                for sign in (1.0, -1.0):
+                    p = np.mod(mid_u + sign * step * right[:, 0] / surface.radius, 2 * np.pi)
+                    q = mid_z + sign * step * right[:, 1]
+                    samples.append(interp(np.column_stack([p, q])))
+                self.assertGreater(
+                    float(np.mean(samples[0] > samples[1])), 0.99, msg=contour.level_a
+                )
 
     def test_cylindrical_shell_mode_predicts_geometry_derived_transient(
         self,

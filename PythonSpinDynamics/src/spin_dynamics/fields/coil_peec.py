@@ -62,6 +62,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
+from spin_dynamics.constants import MU0_OVER_4PI
 from spin_dynamics.fields.coil_properties import ANNEALED_COPPER, ConductorMaterial
 from spin_dynamics.fields.magnetostatics import MU0
 from spin_dynamics.fields.validity import (
@@ -73,7 +74,7 @@ from spin_dynamics.fields.validity import (
 )
 
 EPS0 = 8.8541878128e-12  # vacuum permittivity (F/m)
-MUOVER4PI = 1.0e-7  # mu0 / 4pi
+MUOVER4PI = MU0_OVER_4PI  # mu0 / 4pi (CODATA 2018, consistent with MU0)
 C0 = 299792458.0  # speed of light (m/s)
 ETA0 = 376.730313668  # impedance of free space (ohm)
 _FIL_EPS = 1e-13  # geometric tolerance for the filament-mutual branch selection
