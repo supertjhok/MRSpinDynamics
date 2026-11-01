@@ -31,7 +31,7 @@ code, not run.
 |---|---:|---:|---:|---:|
 | High | 0 | 0 | 13 | 0 |
 | CI / gates | 7 | 0 | 0 | 0 |
-| Medium | 38 | 0 | 6 | 0 |
+| Medium | 34 | 0 | 10 | 0 |
 | Low | 51 | 0 | 1 | 0 |
 
 ## High
@@ -101,10 +101,10 @@ code, not run.
 | M-31 | experiment | `experiment/provenance.py:232-259` | Unseeded receiver-array noise is classified as deterministic. | Repro | Open | |
 | M-32 | detection | `detection/gradiometer.py:97-115` | `Gradiometer.order` ignores loop radii and disagrees with `uniform_coupling()`. | Repro | Open | |
 | M-33 | experiment | `experiment/config.py:76-108` | The config registry has drifted from the serialization registry, so valid saved runs (e.g. `SampledB0`, `ReceiverNetwork`, complex covariance) can't be shown. | Repro | Open | |
-| M-34 | fields | `fields/nonlinear_magnetostatics.py:544,790` | Planar and axisymmetric magnets get μ_rec·Br remanence while the 3-D solver uses Br (about 5% too strong for NdFeB). | Repro | Open | |
-| M-35 | fields | `fields/magnetostatics.py:556`, `coils.planar_spiral` | `circular_loop(axis="y")` is left-handed, so `solenoid(axis="y")` points along −y and `maxwell_pair(axis="y")` has the wrong gradient sign. | Repro | Open | |
-| M-36 | fields | `fields/openems.py:1353,1867` | Multi-frequency dumps are normalized by port quantities computed only at `settings.frequency_hz`. | Reading | Open | |
-| M-37 | fields | `fasthenry_interop.py:101-104,181` | FastHenry results are labelled with the caller's `freqs`, not its log-spaced `.freq` sweep. | Reading | Open | |
+| M-34 | fields | `fields/nonlinear_magnetostatics.py:544,790` | Planar and axisymmetric magnets get μ_rec·Br remanence while the 3-D solver uses Br (about 5% too strong for NdFeB). | Repro | Fixed | Coercivity is now Br/(μ0·μ_rec) in the planar and axisymmetric solvers, matching 3-D. Closed-form tests: `test_nonlinear_magnetostatics.py::PlanarSolverTests::test_recoil_magnet_cylinder_matches_closed_form` (0.606 → 0.404 vs 0.400) and `AxisymmetricSolverTests::test_recoil_magnet_sphere_matches_closed_form`. Planar Dirichlet rows are rescaled too (`::test_linear_solve_matches_interior_only_reference`). The `plot_shim_a_ring_magnet.py` bore field changes 424 → 404 mT. Commit `fc240a6`. |
+| M-35 | fields | `fields/magnetostatics.py:556`, `coils.planar_spiral` | `circular_loop(axis="y")` is left-handed, so `solenoid(axis="y")` points along −y and `maxwell_pair(axis="y")` has the wrong gradient sign. | Repro | Fixed | Behaviour change: y-axis loops and spirals are now right-handed, so positive current gives B along +y; x/z and magnitude-only uses are unchanged. Tests: `test_magnetostatics.py::CoilHandednessTests` (closed-form loop, solenoid, Maxwell pair and spiral for every axis); `test_experiment.py` y/x B1⁻ ratio updated +1j → −1j. Receiver-array examples flip the rx1 phase sign. Commit `fc240a6`. |
+| M-36 | fields | `fields/openems.py:1353,1867` | Multi-frequency dumps are normalized by port quantities computed only at `settings.frequency_hz`. | Reading | Fixed | The driver runs CalcPort at every dump frequency, and `openems_port.json` gains per-frequency arrays; the loader normalizes at the loaded frequency and refuses mismatched single-frequency metadata. Tests: `test_openems_backend.py::test_multifrequency_import_normalizes_by_the_port_current_at_that_frequency` and two more. Commit `fc240a6`. |
+| M-37 | fields | `fasthenry_interop.py:101-104,181` | FastHenry results are labelled with the caller's `freqs`, not its log-spaced `.freq` sweep. | Reading | Fixed | Confirmed: the `.freq` log grid mislabelled off-decade requests. `run_fasthenry` runs one deck per frequency, always quits COM, and cleans up temp decks (also closes the FastHenry part of L-40). Tests: `test_coil_peec_fasthenry.py::RunFastHenryWithFakeComTests`. Commit `fc240a6`. |
 | M-38 | optimal_control | `optimal_control/multi_axis.py:70,112` | The `_built` cache is an init field, so `dataclasses.replace` shares stale operators. | Repro | Fixed | `_built` is now `field(default_factory=dict, init=False)`, so `replace()` gets a fresh cache. Test: `test_optimal_control_review_fixes.py::MultiAxisCacheTests::test_replace_rebuilds_operators`. Commit `41f0bd6`. |
 | M-39 | optimization | `optimization/_bounded.py:194-201,272-280` | Bounds are silently ignored by BFGS/CG and `result.x` isn't checked, so GRAPE can exceed `amplitude_max_hz`. | Repro | Fixed | Named SciPy methods that ignore bounds (BFGS, CG, ...) now raise; results are always projected onto the box and rescored. Test: `test_bounded_optimizer.py::BoundsEnforcementTests`. Commit `41f0bd6`. |
 | M-40 | optimal_control | `optimal_control/objectives.py:235`, `_jax_propagation.py:152` | With a gradient channel, `eigh` propagation is forced, and its gradient is NaN for a zero segment Hamiltonian (amplitude 0 at the position-0 member). | Reading | Fixed | Confirmed with JAX (NaN gradients at the amplitude-0 bound and in the zero RF tail). `propagator="expm"` is now allowed with a gradient channel and in gate mode, threaded through every batched path; the default stays `eigh`, and the docstring says when to use `expm`. Test: `test_optimal_control_review_fixes.py::GradientChannelExpmTests` (finite differences). Commit `41f0bd6`. |
@@ -181,3 +181,4 @@ code, not run.
 - 2026-11-01: H-01 (tuned-probe transient) fixed in `1263cee` and H-09 (pipeline refocusing axis) in `c985409`; M-44 added (found during H-01). All High items closed.
 - 2026-11-01: Frozen NQR mail-screening study re-pinned to the corrected database (none of its materials use the changed rows).
 - 2026-11-01: M-38 to M-43 (optimization, GRAPE, thermal) fixed in `41f0bd6`.
+- 2026-11-01: M-34 to M-37 (fields) fixed in `fc240a6`.
