@@ -123,7 +123,116 @@ class AxisymmetricSolverTests(unittest.TestCase):
         zc = int(np.argmin(np.abs(sol_air.z_m)))
         b_air = float(sol_air.on_axis_bz()[zc])
         b_fer = float(sol_fer.on_axis_bz()[zc])
-        self.assertGreater(b_fer, 1.5 * b_air)
+        # A mu_r = 1000 core of length/diameter 2.5 is demagnetization-limited: the
+        # central gain is ~1/N_f with the fluxmetric demagnetizing factor
+        # N_f ~ 0.07-0.12 at this aspect ratio, i.e. a gain of roughly 8-14. (The
+        # pre-fix operator, which did not keep H_z continuous at the core surface,
+        # gave 1.97.)
+        self.assertGreater(b_fer / b_air, 8.0)
+        self.assertLess(b_fer / b_air, 14.0)
+
+    @staticmethod
+    def _long_cored_solenoid(mu_r: float, *, h_r: float = 1.0e-3, r_max: float = 0.16):
+        """Coil R = 10 mm, L = 0.6 m, full-length coaxial core rc = 6 mm."""
+
+        r = np.arange(0.0, r_max + 0.5 * h_r, h_r)
+        z = np.arange(-0.4, 0.4 + 1.0e-3, 2.0e-3)
+        prob = AxisymmetricMagnetostatics(r, z)
+        coil_r, length, core_r, ampere_turns = 0.010, 0.6, 0.006, 1000.0
+        prob.add_material(
+            prob.rectangle((coil_r, coil_r + h_r), (-length / 2, length / 2)),
+            air(),
+            current_total_a=ampere_turns,
+        )
+        prob.add_material(
+            prob.rectangle((0.0, core_r), (-length / 2, length / 2)),
+            linear_material(mu_r),
+        )
+        return prob, prob.solve(), ampere_turns / length
+
+    def test_long_cored_solenoid_matches_closed_form(self) -> None:
+        # Midplane of a long solenoid with a coaxial linear core: H_z is uniform
+        # inside the winding (continuous across the core surface), jumps by the
+        # sheet current n I across the winding, and the core carries
+        # B = mu_r mu0 n I. Pre-fix values: core B / (mu_r mu0 n I) = 0.34 and
+        # H_z(core) / H_z(gap) = 0.35.
+        mu_r = 5.0
+        prob, sol, sheet = self._long_cored_solenoid(mu_r)
+        iz = int(np.argmin(np.abs(sol.z_m)))
+        b_z = sol.b_z[:, iz]
+
+        def at(radius):
+            return float(b_z[int(np.argmin(np.abs(prob.r - radius)))])
+
+        b_core, b_gap, b_out = at(0.003), at(0.008), at(0.030)
+        self.assertAlmostEqual((b_core / mu_r) / b_gap, 1.0, delta=2e-3)
+        self.assertAlmostEqual((b_gap - b_out) / (MU0 * sheet), 1.0, delta=2e-3)
+        # The finite Dirichlet box returns ~1% of the flux outside the winding, which
+        # lowers the interior H by the same ~1% (Ampere).
+        self.assertAlmostEqual(b_core / (mu_r * MU0 * sheet), 1.0, delta=0.02)
+
+    def test_ferrite_core_matches_conservative_flux_function_reference(self) -> None:
+        # Independent assembly of curl(nu curl A) in the flux function psi = r A:
+        # -d/dr(nu/r dpsi/dr) - d/dz(nu/r dpsi/dz) = J with face-averaged nu and
+        # psi = 0 on the boundary. The solver must reproduce it (pre-fix the core
+        # B_z at the midplane was 1.58 mu0 n I instead of 4.25 mu0 n I).
+        from scipy.sparse import coo_matrix
+        from scipy.sparse.linalg import spsolve
+
+        h = 1.0e-3
+        r = np.arange(0.0, 0.04 + 0.5 * h, h)
+        z = np.arange(-0.15, 0.15 + 0.5 * h, h)
+        prob = AxisymmetricMagnetostatics(r, z)
+        coil_r, length = 0.010, 0.24
+        prob.add_material(
+            prob.rectangle((coil_r, coil_r + h), (-length / 2, length / 2)),
+            air(),
+            current_total_a=1000.0,
+        )
+        prob.add_material(
+            prob.rectangle((0.0, 0.006), (-length / 2 + 0.02, length / 2 - 0.02)),
+            linear_material(5.0),
+        )
+        sol = prob.solve()
+
+        nu = 1.0 / (MU0 * prob.mu_r)
+        nr, nz = nu.shape
+        index = np.arange(nr * nz).reshape(nr, nz)
+        interior = np.zeros((nr, nz), dtype=bool)
+        interior[1:-1, 1:-1] = True
+        rows, cols, vals = [index[~interior]], [index[~interior]], [np.ones((~interior).sum())]
+        ii, jj = np.nonzero(interior)
+        r_face_hi = 0.5 * (r[ii] + r[ii + 1])
+        r_face_lo = 0.5 * (r[ii] + r[ii - 1])
+        c_e = 0.5 * (nu[ii, jj] + nu[ii + 1, jj]) / r_face_hi / h**2
+        c_w = 0.5 * (nu[ii, jj] + nu[ii - 1, jj]) / r_face_lo / h**2
+        c_n = 0.5 * (nu[ii, jj] + nu[ii, jj + 1]) / r[ii] / h**2
+        c_s = 0.5 * (nu[ii, jj] + nu[ii, jj - 1]) / r[ii] / h**2
+        here = index[ii, jj]
+        for neighbour, coeff in (
+            (index[ii + 1, jj], c_e),
+            (index[ii - 1, jj], c_w),
+            (index[ii, jj + 1], c_n),
+            (index[ii, jj - 1], c_s),
+        ):
+            rows += [here, here]
+            cols += [neighbour, here]
+            vals += [-coeff, coeff]
+        matrix = coo_matrix(
+            (np.concatenate(vals), (np.concatenate(rows), np.concatenate(cols))),
+            shape=(nr * nz, nr * nz),
+        ).tocsr()
+        rhs = np.where(interior, prob.jphi, 0.0).ravel()
+        psi = spsolve(matrix, rhs).reshape(nr, nz)
+        b_z_reference = np.gradient(psi, r, axis=0)[1:, :] / r[1:, None]
+
+        scale = float(np.max(np.abs(b_z_reference)))
+        np.testing.assert_allclose(sol.b_z[1:, :], b_z_reference, rtol=0.0, atol=1e-9 * scale)
+        iz = int(np.argmin(np.abs(z)))
+        i_core = int(np.argmin(np.abs(r - 0.004)))
+        self.assertAlmostEqual(
+            sol.b_z[i_core, iz] / (MU0 * 1000.0 / length), 4.25, delta=0.02
+        )
 
 
 class NonlinearBehaviourTests(unittest.TestCase):

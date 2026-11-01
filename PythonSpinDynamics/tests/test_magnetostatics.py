@@ -59,6 +59,52 @@ class YokeImageTests(unittest.TestCase):
         bx, _ = bar_array_b0(self.xs, np.zeros_like(self.xs), [self.bar], yoke_y=None)
         self.assertGreater(np.max(np.abs(bx)), 1e-3)
 
+    def test_oblique_bar_on_yoke_matches_explicit_image_bar(self):
+        # A mu -> inf plane at y = 0 is equivalent to the mirror bar at -y with the
+        # tangential (x) magnetization reversed and the normal (y) one kept. Pre-fix
+        # the x-magnetized image had the wrong sign: |Bx| on the iron reached
+        # 0.43 T and Bx at (0, 30 mm) was -0.074 T instead of -0.030 T.
+        bar = BarMagnet(x0=-0.01, x1=0.01, y0=0.002, y1=0.012, br_x=1.0, br_y=0.6)
+        image = BarMagnet(x0=-0.01, x1=0.01, y0=-0.012, y1=-0.002, br_x=-1.0, br_y=0.6)
+        xs = np.linspace(-0.05, 0.05, 21)
+        for y in (0.015, 0.03, 0.06):
+            ys = np.full_like(xs, y)
+            got = np.array(bar_array_b0(xs, ys, [bar], yoke_y=0.0))
+            expected = np.array(bar_array_b0(xs, ys, [bar, image]))
+            np.testing.assert_allclose(got, expected, rtol=0.0, atol=1e-12)
+        bx_surface, _ = bar_array_b0(xs, np.zeros_like(xs), [bar], yoke_y=0.0)
+        self.assertLess(np.max(np.abs(bx_surface)), 1e-9)
+
+    def test_yoke_image_for_nonzero_plane_height(self):
+        bar = BarMagnet(x0=0.0, x1=0.01, y0=0.012, y1=0.02, br_x=0.8)
+        image = BarMagnet(x0=0.0, x1=0.01, y0=0.0, y1=0.008, br_x=-0.8)
+        xs = np.linspace(-0.03, 0.04, 15)
+        bx, _ = bar_array_b0(xs, np.full_like(xs, 0.01), [bar], yoke_y=0.01)
+        self.assertLess(np.max(np.abs(bx)), 1e-9)
+        ys = np.full_like(xs, 0.035)
+        np.testing.assert_allclose(
+            np.array(bar_array_b0(xs, ys, [bar], yoke_y=0.01)),
+            np.array(bar_array_b0(xs, ys, [bar, image])),
+            rtol=0.0,
+            atol=1e-12,
+        )
+
+    def test_mouse_preset_matches_explicit_image_bars(self):
+        # The NMR-MOUSE bars are y-magnetized, whose images were already correct.
+        bars, yoke = nmr_mouse_magnets()
+        images = [
+            BarMagnet(x0=b.x0, x1=b.x1, y0=2 * yoke - b.y1, y1=2 * yoke - b.y0, br_y=b.br_y)
+            for b in bars
+        ]
+        xs = np.linspace(-0.02, 0.02, 21)
+        ys = np.full_like(xs, 0.03)
+        np.testing.assert_allclose(
+            np.array(bar_array_b0(xs, ys, bars, yoke_y=yoke)),
+            np.array(bar_array_b0(xs, ys, list(bars) + images)),
+            rtol=0.0,
+            atol=1e-12,
+        )
+
     def test_yoke_enhances_field_above_magnet(self):
         pt_x, pt_y = [0.0], [0.030]
         b_yoke = np.hypot(*bar_array_b0(pt_x, pt_y, [self.bar], yoke_y=0.0))[0]

@@ -720,8 +720,11 @@ class AxisymmetricMagnetostatics:
     material regions and azimuthal coil currents, then :meth:`solve`. The
     symmetry axis carries ``A_phi = 0``; the outer ``r`` and both ``z`` boundaries
     are Dirichlet ``A_phi = 0`` (place them far enough that the flux has decayed).
-    The equation is solved in its ``r``-weighted symmetric form so the same
-    conjugate-gradient driver applies.
+    The operator is the conservative finite-volume discretization of
+    ``curl(nu curl A)`` in the flux function ``r A_phi``, so ``H_z`` is continuous
+    across radial permeability jumps (e.g. the surface of a ferrite core) and
+    ``H_r`` across axial ones; it is solved in its ``r``-weighted symmetric form
+    so the same conjugate-gradient driver applies.
     """
 
     def __init__(self, r_m: Sequence[float] | np.ndarray, z_m: Sequence[float] | np.ndarray):
@@ -823,55 +826,66 @@ class AxisymmetricMagnetostatics:
         nu_nl = np.minimum(nu_nl, 1.0 / MU0)
         return np.where(self.nl, nu_nl, nu_lin)
 
+    # The operator is the conservative finite-volume form of
+    # curl(nu curl(A_phi e_phi)) written for the flux function psi = r A_phi:
+    #     -d/dr(nu/r dpsi/dr) - d/dz(nu/r dpsi/dz) = J_phi ,
+    # whose radial face flux nu (1/r) d(rA)/dr = nu B_z = H_z is exactly what is
+    # continuous across a radial permeability jump (and nu dA/dz = -H_r across an
+    # axial one). Substituting psi = r A and weighting each row by r gives the
+    # symmetric positive-definite system D M_psi D A = r J used below (D = diag(r)),
+    # so the right-hand side keeps its r-weighting and CG still applies.
+    def _radial_face_conductance(self, nu: np.ndarray) -> np.ndarray:
+        rface = (0.5 * (self.r[1:] + self.r[:-1]))[:, None]
+        return 0.5 * (nu[1:, :] + nu[:-1, :]) / rface  # nu/r on radial faces
+
     def _operator(self, nu: np.ndarray):
         r_col = self.r[:, None]
-        rface = (0.5 * (self.r[1:] + self.r[:-1]))[:, None]
-        nur = 0.5 * (nu[1:, :] + nu[:-1, :])
+        q = self._radial_face_conductance(nu)
         nuz = 0.5 * (nu[:, 1:] + nu[:, :-1])
-        cr = rface * nur  # r-weighted radial face conductance
         hr2, hz2 = self.hr**2, self.hz**2
 
         def apply(a_phi: np.ndarray) -> np.ndarray:
             out = np.zeros_like(a_phi)
-            fr = cr * (a_phi[1:, :] - a_phi[:-1, :])
+            psi = r_col * a_phi
+            fr = q * (psi[1:, :] - psi[:-1, :])
             fz = nuz * (a_phi[:, 1:] - a_phi[:, :-1])
-            radial = (fr[1:, 1:-1] - fr[:-1, 1:-1]) / hr2
+            radial = r_col[1:-1, :] * (fr[1:, 1:-1] - fr[:-1, 1:-1]) / hr2
             axial = r_col[1:-1, :] * (fz[1:-1, 1:] - fz[1:-1, :-1]) / hz2
-            out[1:-1, 1:-1] = (
-                -(radial + axial)
-                + nu[1:-1, 1:-1] * a_phi[1:-1, 1:-1] / r_col[1:-1, :]
-            )
+            out[1:-1, 1:-1] = -(radial + axial)
             return out
 
         diag = np.ones_like(nu)
         diag[1:-1, 1:-1] = (
-            (cr[1:, 1:-1] + cr[:-1, 1:-1]) / hr2
+            r_col[1:-1, :] ** 2 * (q[1:, 1:-1] + q[:-1, 1:-1]) / hr2
             + r_col[1:-1, :] * (nuz[1:-1, 1:] + nuz[1:-1, :-1]) / hz2
-            + nu[1:-1, 1:-1] / r_col[1:-1, :]
         )
         return apply, diag
 
     def _sparse_coeffs(self, nu: np.ndarray):
         hr2, hz2 = self.hr**2, self.hz**2
         r_col = self.r[:, None]
-        rface = (0.5 * (self.r[1:] + self.r[:-1]))[:, None]
-        nur = 0.5 * (nu[1:, :] + nu[:-1, :])
+        q = self._radial_face_conductance(nu)
         nuz = 0.5 * (nu[:, 1:] + nu[:, :-1])
-        cr = rface * nur
+        coupling_r = r_col[:-1, :] * r_col[1:, :] * q / hr2  # symmetric (i, i+1) entry
         c_ip = np.zeros_like(nu)
-        c_ip[:-1, :] = cr / hr2
+        c_ip[:-1, :] = coupling_r
         c_im = np.zeros_like(nu)
-        c_im[1:, :] = cr / hr2
+        c_im[1:, :] = coupling_r
         c_jp = np.zeros_like(nu)
         c_jp[:, :-1] = r_col * nuz / hz2
         c_jm = np.zeros_like(nu)
         c_jm[:, 1:] = r_col * nuz / hz2
-        reaction = np.zeros_like(nu)
-        reaction[1:, :] = nu[1:, :] / r_col[1:, :]
-        diag = c_ip + c_im + c_jp + c_jm + reaction
+        q_out = np.zeros_like(nu)
+        q_out[:-1, :] += q
+        q_out[1:, :] += q
+        diag = r_col**2 * q_out / hr2 + c_jp + c_jm
         b = np.zeros(nu.shape, dtype=bool)
         b[0, :] = b[-1, :] = b[:, 0] = b[:, -1] = True
-        diag[b] = 1.0
+        # Dirichlet rows (zero right-hand side) are scaled to the interior diagonal:
+        # unit rows beside ~1e9-scale interior rows let the sparse LU leave ~1e-5
+        # relative round-off on the boundary values, which the solver then zeroes,
+        # leaving the interior out of balance by the same relative amount.
+        diag[b] = float(np.max(diag[~b])) if np.any(~b) else 1.0
         for arr in (c_ip, c_im, c_jp, c_jm):
             arr[b] = 0.0
         return diag, c_ip, c_im, c_jp, c_jm

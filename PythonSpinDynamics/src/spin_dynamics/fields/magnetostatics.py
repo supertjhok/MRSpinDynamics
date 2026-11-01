@@ -97,10 +97,14 @@ def _faces(bar: BarMagnet) -> list[tuple[str, float, float, float, float]]:
 
 
 def _mirror_face(face, yoke_y: float):
+    # Image charge of opposite sign mirrored across the mu -> inf plane. A
+    # vertical strip over y in [a, b] maps to y in [2Y - b, 2Y - a]; the extents
+    # must stay ordered (a < b) because _strip_field is odd under swapping them,
+    # which would otherwise silently undo the sign flip.
     kind, a, b, fixed, sigma = face
     if kind == "h":
         return ("h", a, b, 2.0 * yoke_y - fixed, -sigma)
-    return ("v", 2.0 * yoke_y - a, 2.0 * yoke_y - b, fixed, -sigma)
+    return ("v", 2.0 * yoke_y - b, 2.0 * yoke_y - a, fixed, -sigma)
 
 
 def _strip_field(x, y, face):

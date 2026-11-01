@@ -30,6 +30,7 @@ from spin_dynamics.fields.coil_properties import (  # noqa: E402
     solenoid_field_inductance,
     solenoid_properties,
 )
+from spin_dynamics.fields.magnetostatics import MU0  # noqa: E402
 
 # QOIL reference outputs, keyed by (kwargs). Generated from the vendored inductance.py
 # math (see module docstring). Units: L in henry, R/X in ohm, C in farad, f in Hz.
@@ -170,6 +171,34 @@ class PhysicsTrendTests(unittest.TestCase):
         # correction makes it grow marginally slower than exactly sqrt(f).
         self.assertGreater(r4 / r1, 1.9)
         self.assertLess(r4 / r1, 2.0)
+
+    def test_ac_resistance_tends_to_dc_resistance(self) -> None:
+        # Pre-fix, this 0.8 mm-wire coil gave R_ac = -0.133 ohm at 2 kHz (skin depth
+        # 1.48 mm > wire radius) and 1.45 ohm at 10 kHz, above its 50 kHz value.
+        base = dict(diameter=50e-3, length=50e-3, turns=50, wire_diameter=0.8e-3)
+        a = 0.4e-3
+        wire_length = np.sqrt((50 * np.pi * 50e-3) ** 2 + 50e-3**2)
+        r_dc = ANNEALED_COPPER.resistivity_at(None) * wire_length / (np.pi * a**2)
+        r_low = solenoid_properties(frequency=1.0, **base).ac_resistance
+        self.assertAlmostEqual(r_low / r_dc, 1.0, delta=1e-8)
+
+    def test_ac_resistance_is_monotonic_and_continuous_in_frequency(self) -> None:
+        for kw in (
+            dict(diameter=50e-3, length=50e-3, turns=50, wire_diameter=0.8e-3),
+            dict(diameter=20e-3, length=30e-3, turns=10, wire_diameter=1.0e-3),
+            dict(diameter=10e-3, length=100e-3, turns=40, wire_diameter=1.0e-3),
+        ):
+            freqs = np.logspace(0.0, 8.0, 161)
+            r_ac = np.array([solenoid_properties(frequency=f, **kw).ac_resistance for f in freqs])
+            self.assertTrue(np.all(r_ac > 0.0))
+            self.assertTrue(np.all(np.diff(r_ac) >= 0.0), msg=str(kw))
+            # Continuous where the skin depth crosses the wire radius.
+            rho = ANNEALED_COPPER.resistivity_at(None)
+            a = 0.5 * kw["wire_diameter"]
+            f_cross = rho / (np.pi * MU0 * a**2)
+            below = solenoid_properties(frequency=f_cross * (1 - 1e-9), **kw).ac_resistance
+            above = solenoid_properties(frequency=f_cross * (1 + 1e-9), **kw).ac_resistance
+            self.assertAlmostEqual(below / above, 1.0, delta=1e-6)
 
     def test_self_resonance_above_design_and_stray_c_positive(self) -> None:
         r = solenoid_properties(

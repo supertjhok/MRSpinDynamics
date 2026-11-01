@@ -367,6 +367,13 @@ def solenoid_properties(
     effective-circuit results (``L_eff``, ``Q``, stray ``C``) are ``nan`` when the coil is
     at/near a self-resonance where the dispersion solve degenerates; ``L_s`` and the AC
     resistance are always returned.
+
+    The QOIL skin/proximity resistance is a deep-skin model. Below the frequency at
+    which the skin depth equals the wire radius ``a`` the skin depth is capped at ``a``
+    and the proximity terms fade in as ``(a/delta)^4`` (the low-frequency eddy-loss
+    scaling), so ``ac_resistance`` joins the QOIL value continuously at ``delta = a``
+    and tends to the DC resistance ``rho * l_wire / (pi a^2)`` as ``f -> 0``. Above that
+    frequency the QOIL result is unchanged.
     """
 
     D = float(diameter)
@@ -417,9 +424,21 @@ def solenoid_properties(
     delta = np.sqrt(rho / (np.pi * f * MU0 * material.mu_r))
 
     # Effective series AC resistance (skin annulus * proximity, current-sharing (N-1)/N).
-    r_ac = rho * l_w_eff / (np.pi * (d * delta - delta**2)) * phi
+    # The QOIL expression is a deep-skin (delta < d/2) model: its annulus area
+    # pi (d delta - delta^2) peaks at the full cross-section when delta = d/2 and goes
+    # negative beyond. So the skin depth is capped at the wire radius (the annulus
+    # becomes the whole wire, continuously), and the high-frequency proximity terms
+    # (Medhurst phi, the proximity-shifted l_w_eff, and (N-1)/N) are blended in with
+    # the low-frequency eddy-loss scaling w = (a/delta)^4 (w = 1 for delta <= a), so
+    # R_ac -> R_dc = rho l_w_phys / (pi a^2) as f -> 0 and is unchanged for delta <= a.
+    radius_ratio = 0.5 * d / delta
+    delta_skin = min(delta, 0.5 * d)
+    proximity_length = l_w_eff * phi
     if N > 1:
-        r_ac *= (nn - 1.0) / nn
+        proximity_length *= (nn - 1.0) / nn
+    weight = min(1.0, radius_ratio**4)
+    resistive_length = l_w_phys + weight * (proximity_length - l_w_phys)
+    r_ac = rho * resistive_length / (np.pi * (d * delta_skin - delta_skin**2))
 
     # Current-sheet geometric inductance (frequency independent).
     l_s = MU0 * (np.pi * (d_eff * nn) ** 2 / (4.0 * length) * k_l - d_eff * nn * (k_s + k_m) / 2.0)
