@@ -13,6 +13,7 @@ from dataclasses import dataclass, replace
 
 import numpy as np
 
+from spin_dynamics.constants import BOLTZMANN_J_PER_K, PLANCK_J_S
 from spin_dynamics.nqr.hamiltonians import (
     TAU,
     diagonalize_sites_over_b0,
@@ -27,8 +28,8 @@ from spin_dynamics.nqr.orientations import (
 from spin_dynamics.nqr.systems import NQREigensystem, QuadrupolarSite
 
 
-_PLANCK_J_S = 6.62607015e-34
-_BOLTZMANN_J_PER_K = 1.380649e-23
+_PLANCK_J_S = PLANCK_J_S
+_BOLTZMANN_J_PER_K = BOLTZMANN_J_PER_K
 
 
 def _unit_real(vector: Sequence[float] | np.ndarray, *, name: str) -> np.ndarray:

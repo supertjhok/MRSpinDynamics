@@ -46,7 +46,7 @@ def main() -> None:
     parser.add_argument(
         "--nuclear-gamma-mhz-per-t",
         type=float,
-        default=42.57747892,
+        default=42.577478518,
         help="Nuclear gamma / 2pi in MHz/T; use 0 for the pure high-field doublet.",
     )
     parser.add_argument("--broadening-mhz", type=float, default=0.5)

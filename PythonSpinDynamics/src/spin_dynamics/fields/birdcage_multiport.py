@@ -20,6 +20,7 @@ from typing import Iterable, Sequence, TypeAlias
 
 import numpy as np
 
+from spin_dynamics.constants import BOLTZMANN_J_PER_K
 from spin_dynamics.fields.birdcage import (
     BirdcageFieldSolution,
     BirdcageGeometry,
@@ -44,7 +45,7 @@ from spin_dynamics.fields.validity import (
     assess_quasistatic_validity,
 )
 
-_BOLTZMANN_J_PER_K = 1.380649e-23
+_BOLTZMANN_J_PER_K = BOLTZMANN_J_PER_K
 
 
 def _freeze(value: np.ndarray, *, dtype: np.dtype | type | None = None) -> np.ndarray:

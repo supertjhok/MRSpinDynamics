@@ -293,7 +293,7 @@ def _plot(plt, sweep: EnhancementSweep, args: argparse.Namespace):
             args.proton_linewidth_khz
             * 1e3
             * sweep.coupling_hz
-        / (42.57747892e6 * np.maximum(gradient, 1.0e-12))
+        / (42.577478518e6 * np.maximum(gradient, 1.0e-12))
     )
     ax2.plot(z_mm, vmax * 1e2, color="tab:green", alpha=0.6)
     ax2.set_ylabel("illustrative vmax (cm/s)")

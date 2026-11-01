@@ -6,6 +6,7 @@ from typing import Any, Mapping
 
 import numpy as np
 
+from spin_dynamics.constants import FREE_ELECTRON_G
 from spin_dynamics.design.adapters import (
     CPMGIRAdapter,
     CPMGIRDesign,
@@ -251,7 +252,7 @@ def make_esr_hahn_benchmark(
     )
     adapter = ESRHahnAdapter(
         template,
-        {"t2_seconds": 2e-6, "g_factor": 2.00231930436256},
+        {"t2_seconds": 2e-6, "g_factor": FREE_ELECTRON_G},
         sample_index=8,
         recovery_seconds=10e-6,
         fixed_overhead_seconds=1e-6,

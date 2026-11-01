@@ -32,7 +32,7 @@ from spin_dynamics.relaxation import (  # noqa: E402
 )
 
 
-GAMMA_1H_HZ_PER_T = 42.57747892e6
+from spin_dynamics.constants import PROTON_GAMMA_HZ_PER_T as GAMMA_1H_HZ_PER_T  # noqa: E402
 WATER_HH_DISTANCE_ANGSTROM = 1.52
 
 

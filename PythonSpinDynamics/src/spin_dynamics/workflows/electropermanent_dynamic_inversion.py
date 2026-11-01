@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 import numpy as np
+from spin_dynamics.constants import BOLTZMANN_J_PER_K, MU0_T_M_PER_A
 from spin_dynamics.workflows._epm_common import _positive
 
 __all__ = [
@@ -34,8 +35,8 @@ __all__ = [
     "simulate_dynamic_inversion",
 ]
 
-MU0 = 4.0e-7 * np.pi
-BOLTZMANN = 1.380649e-23
+MU0 = MU0_T_M_PER_A  # CODATA 2018
+BOLTZMANN = BOLTZMANN_J_PER_K
 
 ParticleShape = Literal["sphere", "rod"]
 HardwareArchitecture = Literal["coils", "epm", "hybrid"]

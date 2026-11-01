@@ -37,6 +37,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from spin_dynamics.constants import MU0_T_M_PER_A
+
 try:  # SciPy gives a fast sparse direct solve; fall back to matrix-free CG.
     from scipy.sparse import coo_matrix as _coo_matrix
     from scipy.sparse.linalg import splu as _splu
@@ -52,7 +54,7 @@ try:  # pyamg gives an O(N) AMG-preconditioned CG, lifting the 3D splu ceiling.
 except Exception:  # pragma: no cover - exercised only without pyamg installed
     _HAVE_PYAMG = False
 
-MU0 = 4.0e-7 * np.pi
+MU0 = MU0_T_M_PER_A  # CODATA 2018
 
 
 # ---------------------------------------------------------------------------

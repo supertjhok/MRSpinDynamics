@@ -13,6 +13,7 @@ from dataclasses import dataclass, replace
 
 import numpy as np
 
+from spin_dynamics.constants import BOLTZMANN_J_PER_K, HBAR_J_S
 from spin_dynamics.analysis.compressed_sensing import (
     AdaptiveCSResult,
     adaptive_cs_reconstruction,
@@ -685,8 +686,8 @@ def simulate_portable_halbach_mri(
     # Reciprocity: V = omega * integral(M_perp * B1/I dV). The water-cylinder
     # reference predicts the same single-echo/scan SNR quoted in the book;
     # importantly, the quoted value is not used to set the simulated noise.
-    boltzmann = 1.380649e-23
-    hbar = 1.054571817e-34
+    boltzmann = BOLTZMANN_J_PER_K
+    hbar = HBAR_J_S
     gamma_rad = 2.0 * np.pi * cfg.resonance_frequency_hz / cfg.nominal_b0_t
     magnetization = (
         cfg.proton_number_density_per_m3

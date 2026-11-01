@@ -28,8 +28,14 @@ from typing import Literal
 
 import numpy as np
 
+from spin_dynamics.constants import PROTON_GAMMA_RAD_PER_S_PER_T
+
+# Pre-2019 exact mu_0, deliberately kept rather than CODATA 2018
+# (spin_dynamics.constants.MU0_T_M_PER_A, 5.5e-10 larger): the eddy-mode count
+# in tests/test_gradient_shielding.py depends on the sign of a mode whose alpha
+# is roundoff-zero (~+/-5e-19) and flips with that change.
 MU0 = 4.0e-7 * np.pi
-GAMMA_PROTON = 2.675222e8  # rad/s/T
+GAMMA_PROTON = PROTON_GAMMA_RAD_PER_S_PER_T  # rad/s/T, CODATA 2018
 
 
 @dataclass(frozen=True)

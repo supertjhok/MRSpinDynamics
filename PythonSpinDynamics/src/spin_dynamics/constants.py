@@ -23,6 +23,9 @@ AVOGADRO_PER_MOL = 6.02214076e23
 MU0_OVER_4PI = 1.00000000055e-7
 """Vacuum permeability over ``4*pi`` in T m/A (CODATA 2018 ``mu_0``)."""
 
+MU0_T_M_PER_A = 4.0 * math.pi * MU0_OVER_4PI
+"""Vacuum permeability ``mu_0`` in T m/A (= 1.25663706212e-6, CODATA 2018)."""
+
 BOHR_MAGNETON_J_PER_T = 9.2740100783e-24
 """Bohr magneton ``mu_B`` in J/T."""
 
@@ -38,6 +41,9 @@ ELECTRON_GAMMA_HZ_PER_T = 28.0249514242e9
 PROTON_GAMMA_HZ_PER_T = 42.577478518e6
 """Proton (unshielded) ``gamma_p/(2*pi)`` in Hz/T."""
 
+PROTON_GAMMA_RAD_PER_S_PER_T = 2.0 * math.pi * PROTON_GAMMA_HZ_PER_T
+"""Proton (unshielded) ``gamma_p`` in rad/s/T (= 2.6752218744e8)."""
+
 __all__ = [
     "AVOGADRO_PER_MOL",
     "BOHR_MAGNETON_HZ_PER_T",
@@ -47,6 +53,8 @@ __all__ = [
     "FREE_ELECTRON_G",
     "HBAR_J_S",
     "MU0_OVER_4PI",
+    "MU0_T_M_PER_A",
     "PLANCK_J_S",
     "PROTON_GAMMA_HZ_PER_T",
+    "PROTON_GAMMA_RAD_PER_S_PER_T",
 ]

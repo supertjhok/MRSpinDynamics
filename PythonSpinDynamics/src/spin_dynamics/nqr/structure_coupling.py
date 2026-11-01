@@ -8,11 +8,13 @@ from pathlib import Path
 
 import numpy as np
 
+from spin_dynamics.constants import MU0_OVER_4PI as _MU0_OVER_4PI, PLANCK_J_S
 from spin_dynamics.nqr import _cif
 from spin_dynamics.nqr.polarization_enhancement import PROTON_GAMMA_HZ_PER_T
 
-MU0_OVER_4PI = 1.0e-7
-PLANCK = 6.62607015e-34
+# CODATA 2018, from spin_dynamics.constants.
+MU0_OVER_4PI = _MU0_OVER_4PI
+PLANCK = PLANCK_J_S
 ANGSTROM = 1.0e-10
 GAMMA_14N_HZ_PER_T = 3.0766e6
 # Two symmetry-generated positions closer than this are the same site.

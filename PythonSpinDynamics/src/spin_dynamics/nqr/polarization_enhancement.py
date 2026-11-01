@@ -16,13 +16,15 @@ from typing import Literal
 
 import numpy as np
 
+from spin_dynamics.constants import PROTON_GAMMA_HZ_PER_T as _PROTON_GAMMA_HZ_PER_T
 from spin_dynamics.fields.magnetostatics import (
     FiniteMagnetRod,
     finite_magnet_array_b0,
     halbach_dipole_magnets,
 )
 
-PROTON_GAMMA_HZ_PER_T = 42.57747892e6
+# CODATA 2018, from spin_dynamics.constants.
+PROTON_GAMMA_HZ_PER_T = _PROTON_GAMMA_HZ_PER_T
 
 
 @dataclass(frozen=True)

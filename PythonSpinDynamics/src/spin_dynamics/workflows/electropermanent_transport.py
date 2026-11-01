@@ -18,6 +18,7 @@ from typing import Literal
 
 import numpy as np
 
+from spin_dynamics.constants import BOLTZMANN_J_PER_K, MU0_T_M_PER_A
 from spin_dynamics.motion import advect_diffuse_positions
 from spin_dynamics.workflows._epm_common import _bilinear_sample, _positive, _strict_axis
 
@@ -30,8 +31,8 @@ __all__ = [
     "simulate_magnetophoretic_transport",
 ]
 
-MU0 = 4.0e-7 * np.pi
-BOLTZMANN = 1.380649e-23
+MU0 = MU0_T_M_PER_A  # CODATA 2018
+BOLTZMANN = BOLTZMANN_J_PER_K
 
 MagnetizationModel = Literal["linear", "langevin"]
 TransportBoundary = Literal["reflect", "periodic", "clip"]

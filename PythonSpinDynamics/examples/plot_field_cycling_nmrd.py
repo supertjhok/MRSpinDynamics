@@ -43,7 +43,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--field-min-t", type=float, default=1.0e-6)
     parser.add_argument("--field-max-t", type=float, default=3.0)
-    parser.add_argument("--gamma-mhz-per-t", type=float, default=42.57747892)
+    parser.add_argument("--gamma-mhz-per-t", type=float, default=42.577478518)
     parser.add_argument("--temperatures-k", type=float, nargs="+", default=[280, 300, 320])
     parser.add_argument("--reference-temp-k", type=float, default=300.0)
     parser.add_argument("--tau-ref-ns", type=float, default=8.0)

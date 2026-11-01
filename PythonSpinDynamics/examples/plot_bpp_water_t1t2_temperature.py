@@ -42,7 +42,7 @@ from spin_dynamics.relaxation import (  # noqa: E402
     tau_c_from_t1_minimum,
 )
 
-GAMMA_1H_HZ_PER_T = 42.57747892e6
+from spin_dynamics.constants import PROTON_GAMMA_HZ_PER_T as GAMMA_1H_HZ_PER_T  # noqa: E402
 
 # Vogel-Tammann-Fulcher correlation for liquid water shear viscosity, valid
 # roughly 273-373 K: eta(T) = A * exp(B / (T - C)) in Pa.s. The constants

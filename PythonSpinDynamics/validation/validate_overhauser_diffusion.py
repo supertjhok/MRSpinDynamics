@@ -44,7 +44,7 @@ def main():
     rows = []
     for tau in [30e-12, 54e-12, 100e-12, 300e-12]:
         for field in [0.1, 0.35, 1.0]:
-            we, wn = 2 * np.pi * field * np.array([28.0249514242e9, 42.57747892e6])
+            we, wn = 2 * np.pi * field * np.array([28.0249514242e9, 42.577478518e6])
             jm, ji, jp = [diffusion_integral(w, tau) for w in [we - wn, wn, we + wn]]
             xi = (6 * jm - jp) / (6 * jm + 3 * ji + jp)
             model = TranslationalDiffusionModel(3e-10, 9e-20 / tau)
@@ -68,7 +68,7 @@ def main():
         "normalized_one_sided_j0_over_tau": 4 / 9,
         "table_i_half_two_sided_j0_dD_over_density": 4 / 27,
         "gamma_e_hz_per_t": 28.0249514242e9,
-        "gamma_n_hz_per_t": 42.57747892e6,
+        "gamma_n_hz_per_t": 42.577478518e6,
         "transition_convention": "Positive magnitudes; H_Z=+omega_e*S_z-omega_n*I_z; dipolar DQ at difference, ZQ at sum",
         "diffusion_curve": rows,
         "limitations": [

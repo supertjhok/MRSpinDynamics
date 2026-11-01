@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from spin_dynamics.constants import BOLTZMANN_J_PER_K, PLANCK_J_S
 from spin_dynamics.nqr.crossover import boltzmann_populations
 from spin_dynamics.nqr.hamiltonians import TAU, nqr_hamiltonian
 from spin_dynamics.nqr.operators import spin_matrices
@@ -19,8 +20,8 @@ from spin_dynamics.relaxation import (
 from spin_dynamics.relaxation import quadrupolar_tesseral_operators
 
 
-_PLANCK_J_S = 6.62607015e-34
-_BOLTZMANN_J_PER_K = 1.380649e-23
+_PLANCK_J_S = PLANCK_J_S
+_BOLTZMANN_J_PER_K = BOLTZMANN_J_PER_K
 
 
 @dataclass(frozen=True)

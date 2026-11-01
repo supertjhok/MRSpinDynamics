@@ -16,12 +16,14 @@ import sqlite3
 
 import numpy as np
 
+from spin_dynamics.constants import AVOGADRO_PER_MOL, BOLTZMANN_J_PER_K, PLANCK_J_S
 from spin_dynamics.nqr.hamiltonians import diagonalize_site
 from spin_dynamics.nqr.systems import QuadrupolarSite
 
-PLANCK = 6.62607015e-34
-BOLTZMANN = 1.380649e-23
-AVOGADRO = 6.02214076e23
+# CODATA 2018 (exact SI), from spin_dynamics.constants.
+PLANCK = PLANCK_J_S
+BOLTZMANN = BOLTZMANN_J_PER_K
+AVOGADRO = AVOGADRO_PER_MOL
 EPSILON_0 = 8.8541878128e-12
 
 

@@ -42,6 +42,7 @@ from typing import Literal
 
 import numpy as np
 
+from spin_dynamics.constants import PROTON_GAMMA_RAD_PER_S_PER_T
 from spin_dynamics.motion import (
     Boundary,
     MotionFieldMaps2D,
@@ -78,8 +79,9 @@ __all__ = [
     "run_cotts_thirteen_interval_walkers",
 ]
 
-# Proton gyromagnetic ratio (rad/s/T), matching the package PGSE default.
-GAMMA = 2.675e8
+# Proton gyromagnetic ratio (rad/s/T, CODATA 2018). This was the truncated
+# 2.675e8 that workflows.pgse still uses as its default ``gamma``.
+GAMMA = PROTON_GAMMA_RAD_PER_S_PER_T
 
 
 @dataclass(frozen=True)
