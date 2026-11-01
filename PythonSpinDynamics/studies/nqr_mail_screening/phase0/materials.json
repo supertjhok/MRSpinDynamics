@@ -5,8 +5,8 @@
   "status": "frozen",
   "source_database": {
     "path": "NQRDatabase/data/exports/nqr.sqlite",
-    "sha256": "f8f4858910777f49a3d4929a13402d4e920f834bcdd7a21248ebb44afd3af98e",
-    "repository_commit": "4a9351ab015177c8f9df997f2c96ab3d5bc8e0e5"
+    "sha256": "d309ead547037d3e693ba313b4fdfdca4e4a703216d38227b7cc8148837620aa",
+    "repository_commit": "23def73ef5324edd0010f1ab6be0e8aa598b9e0b"
   },
   "materials": [
     {

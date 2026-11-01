@@ -179,3 +179,4 @@ code, not run.
 - 2026-11-01: H-05 (bSSFP catalyzation phase) fixed in `a2f5480`.
 - 2026-11-01: H-02 (radiation damping during pulses) fixed in `c215ed5`.
 - 2026-11-01: H-01 (tuned-probe transient) fixed in `1263cee` and H-09 (pipeline refocusing axis) in `c985409`; M-44 added (found during H-01). All High items closed.
+- 2026-11-01: Frozen NQR mail-screening study re-pinned to the corrected database (none of its materials use the changed rows).
