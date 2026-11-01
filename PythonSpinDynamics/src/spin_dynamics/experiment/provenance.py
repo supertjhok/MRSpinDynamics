@@ -250,6 +250,19 @@ def randomness_identity(experiment: Any) -> dict[str, Any]:
             {"source": "acquisition.noise", "seed": seed, "external_rng": external_rng}
         )
 
+    acquisition = experiment.acquisition
+    if (
+        float(getattr(acquisition, "receiver_noise_std", 0.0)) > 0.0
+        or getattr(acquisition, "receiver_noise_covariance", None) is not None
+    ):
+        # Receiver-array noise draws from default_rng(receiver_noise_seed).
+        sources.append(
+            {
+                "source": "acquisition.receiver_noise",
+                "seed": getattr(acquisition, "receiver_noise_seed", None),
+            }
+        )
+
     if not sources:
         status = "deterministic"
     elif any(item.get("seed") is None for item in sources):

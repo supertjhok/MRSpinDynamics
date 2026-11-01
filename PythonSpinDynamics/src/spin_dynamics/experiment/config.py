@@ -25,6 +25,10 @@ fields are plain keys and arrays are plain lists::
 The top-level document describes an ``Experiment``; the ``sample``,
 ``hardware``, and ``acquisition`` sections may omit their ``type`` (their
 class is implied) and may be omitted entirely to accept the defaults.
+
+Any type registered for the canonical encoding may appear as a ``type``
+table. Complex scalars and arrays, which TOML and JSON cannot represent, are
+written as ``{type = "complex", real = ..., imag = ...}`` tables.
 """
 
 from __future__ import annotations
@@ -46,6 +50,7 @@ from spin_dynamics.experiment.hardware import (
     TxCoil,
     UniformB0,
 )
+from spin_dynamics.experiment.serialization import registered_types
 from spin_dynamics.experiment.specs import (
     Acquisition,
     DEERDistribution,
@@ -106,6 +111,20 @@ _SPEC_CLASSES: tuple[type, ...] = (
     SequenceIR,
 )
 _REGISTRY: dict[str, type] = {cls.__name__: cls for cls in _SPEC_CLASSES}
+# Typed pseudo-table for complex scalars/arrays, which TOML and JSON lack.
+_COMPLEX_TYPE = "complex"
+
+
+def _registry() -> dict[str, type]:
+    """Return every spec type a config may name.
+
+    Every type registered for the canonical JSON encoding is also writable
+    here, so the two registries cannot drift apart. The lookup happens at call
+    time, so types registered after import (e.g. by the workflow catalog) are
+    included.
+    """
+
+    return {**registered_types(), **_REGISTRY}
 _SECTION_CLASSES: dict[str, type] = {
     "sample": Sample,
     "hardware": Hardware,
@@ -124,7 +143,9 @@ def _build(value: Any) -> Any:
     if isinstance(value, dict):
         if "type" in value:
             type_name = value["type"]
-            cls = _REGISTRY.get(type_name)
+            if type_name == _COMPLEX_TYPE:
+                return _build_complex(value)
+            cls = _registry().get(type_name)
             if cls is None:
                 raise ConfigError(f"unknown spec type {type_name!r}")
             fields = {k: _build(v) for k, v in value.items() if k != "type"}
@@ -137,6 +158,17 @@ def _build(value: Any) -> Any:
     if isinstance(value, list):
         return [_build(v) for v in value]
     return value
+
+
+def _build_complex(value: dict[str, Any]) -> Any:
+    if set(value) != {"type", "real", "imag"}:
+        raise ConfigError("a complex table needs exactly 'real' and 'imag' keys")
+    real, imag = value["real"], value["imag"]
+    if isinstance(real, list) or isinstance(imag, list):
+        return np.asarray(real, dtype=np.float64) + 1j * np.asarray(
+            imag, dtype=np.float64
+        )
+    return complex(float(real), float(imag))
 
 
 def _build_section(value: Any, cls: type) -> Any:
@@ -183,12 +215,21 @@ def experiment_from_config(data: dict[str, Any]) -> Experiment:
 # --------------------------------------------------------------------------
 def _emit(value: Any) -> Any:
     if isinstance(value, np.ndarray):
+        if np.iscomplexobj(value):
+            return {
+                "type": _COMPLEX_TYPE,
+                "real": value.real.tolist(),
+                "imag": value.imag.tolist(),
+            }
         return value.tolist()
+    if isinstance(value, (complex, np.complexfloating)):
+        number = complex(value)
+        return {"type": _COMPLEX_TYPE, "real": number.real, "imag": number.imag}
     if isinstance(value, (np.integer, np.floating, np.bool_)):
         return value.item()
     if dataclasses.is_dataclass(value) and not isinstance(value, type):
         name = type(value).__name__
-        if name not in _REGISTRY:
+        if _registry().get(name) is not type(value):
             raise ConfigError(
                 f"{name} cannot be written to a config file; use the JSON "
                 "result archive instead"

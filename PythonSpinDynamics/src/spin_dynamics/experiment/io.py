@@ -12,7 +12,9 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import os
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Mapping
 
 import numpy as np
@@ -44,7 +46,33 @@ def register_result_type(cls: type) -> type:
     return cls
 
 
-def save_run(record: RunRecord, path: str) -> None:
+def _npz_path(path: str | os.PathLike[str]) -> Path:
+    """Return the file ``np.savez`` actually writes for ``path``.
+
+    NumPy appends ``.npz`` when the name does not already end in it.
+    """
+
+    text = os.fspath(path)
+    return Path(text if text.endswith(".npz") else text + ".npz")
+
+
+def _existing_npz_path(path: str | os.PathLike[str]) -> Path:
+    """Resolve a load path, accepting the name passed to the matching save."""
+
+    given = Path(os.fspath(path))
+    if given.exists():
+        return given
+    written = _npz_path(path)
+    return written if written.exists() else given
+
+
+def save_run(record: RunRecord, path: str | os.PathLike[str]) -> Path:
+    """Save a run archive and return the path actually written.
+
+    As with :func:`numpy.savez`, ``.npz`` is appended when ``path`` does not
+    already end in it; :func:`load_run` accepts either spelling.
+    """
+
     result = record.result
     if not dataclasses.is_dataclass(result) or isinstance(result, type):
         raise TypeError("RunRecord.result must be a workflow result dataclass")
@@ -78,7 +106,9 @@ def save_run(record: RunRecord, path: str) -> None:
         "result_meta": meta_fields,
         "unsaved_result_fields": unsaved,
     }
-    np.savez(path, __meta__=json.dumps(meta), **arrays)
+    written = _npz_path(path)
+    np.savez(written, __meta__=json.dumps(meta), **arrays)
+    return written
 
 
 @dataclass(frozen=True)
@@ -229,7 +259,8 @@ class LoadedRun:
         )
 
 
-def load_run(path: str) -> LoadedRun:
+def load_run(path: str | os.PathLike[str]) -> LoadedRun:
+    path = _existing_npz_path(path)
     with np.load(path, allow_pickle=False) as archive:
         meta = json.loads(str(archive["__meta__"]))
         if meta.get("format") != FORMAT_NAME:

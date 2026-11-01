@@ -58,8 +58,8 @@ def _cmd_run(args: argparse.Namespace) -> int:
     print(f"elapsed: {record.provenance['elapsed_seconds'] * 1e3:.1f} ms")
     print(f"result type: {type(result).__name__}")
     if args.output is not None:
-        record.save(args.output)
-        print(f"saved: {args.output}")
+        written = record.save(args.output)
+        print(f"saved: {written}")
     return 0
 
 

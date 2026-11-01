@@ -426,6 +426,42 @@ def robust_fir_canceller(
     )
 
 
+def _solve_windowed_system(
+    normal: np.ndarray,
+    rhs: np.ndarray,
+    has_data: np.ndarray,
+    block_size: int,
+    smoothness: float,
+) -> np.ndarray:
+    """Solve a windowed normal system, holding coefficients over empty windows.
+
+    The first ``len(has_data) * block_size`` unknowns are per-window
+    coefficient blocks; any trailing unknowns (e.g. global signal amplitudes)
+    are shared. With ``smoothness > 0`` neighbouring windows are coupled and
+    the full system is solved. Without smoothness a window with no fit
+    samples is unconstrained by the data (singular for ``ridge = 0``, or
+    shrunk to zero coupling for ``ridge > 0``), so it is left out of the solve
+    and inherits the coefficients of the nearest window that has fit samples.
+    """
+
+    num_windows = has_data.size
+    if smoothness > 0.0 or np.all(has_data):
+        return np.linalg.solve(normal, rhs)
+    total_ref = num_windows * block_size
+    keep = np.concatenate(
+        [np.repeat(has_data, block_size), np.ones(normal.shape[0] - total_ref, dtype=bool)]
+    )
+    solution = np.zeros(normal.shape[0], dtype=np.complex128)
+    solution[keep] = np.linalg.solve(normal[np.ix_(keep, keep)], rhs[keep])
+    filled = np.flatnonzero(has_data)
+    for window in np.flatnonzero(~has_data):
+        source = int(filled[np.argmin(np.abs(filled - window))])
+        solution[window * block_size : (window + 1) * block_size] = solution[
+            source * block_size : (source + 1) * block_size
+        ]
+    return solution
+
+
 def windowed_ridge_fir_canceller(
     primary: np.ndarray,
     references: np.ndarray,
@@ -443,6 +479,11 @@ def windowed_ridge_fir_canceller(
     penalties, and ``smoothness * ||h_w - h_{w-1}||^2`` between adjacent windows.
     This is useful for randomly modulated AM-like RFI whose coupling changes
     too much for one stationary fit but can be estimated offline.
+
+    With ``smoothness = 0`` a window containing no ``fit_mask`` samples (for
+    example one spanning only signal gaps) reuses the coefficients of the
+    nearest window that has fit samples; with ``smoothness > 0`` it is
+    determined by the smoothness coupling to its neighbours.
     """
 
     y, x = _validate_xy(primary, references)
@@ -462,13 +503,15 @@ def windowed_ridge_fir_canceller(
     total_size = num_windows * coeff_size
     normal = np.zeros((total_size, total_size), dtype=np.complex128)
     rhs = np.zeros(total_size, dtype=np.complex128)
+    has_data = np.zeros(num_windows, dtype=bool)
 
     for window in range(num_windows):
         start = window * window_samples
         stop = min(y.size, start + window_samples)
         selected = valid[start:stop]
         sl = slice(window * coeff_size, (window + 1) * coeff_size)
-        if np.any(selected):
+        has_data[window] = bool(np.any(selected))
+        if has_data[window]:
             a = design[start:stop][selected]
             target = y[start:stop][selected]
             normal[sl, sl] += a.conj().T @ a
@@ -486,7 +529,9 @@ def windowed_ridge_fir_canceller(
             normal[left, right] -= eye
             normal[right, left] -= eye
 
-    coefficients = np.linalg.solve(normal, rhs).reshape(num_windows, x.shape[0], taps)
+    coefficients = _solve_windowed_system(
+        normal, rhs, has_data, coeff_size, smoothness
+    ).reshape(num_windows, x.shape[0], taps)
     window_index = np.minimum(np.arange(y.size) // window_samples, num_windows - 1)
     history = coefficients[window_index]
     predicted = np.einsum("nkt,nkt->n", design.reshape(y.size, x.shape[0], taps), history)
@@ -584,7 +629,8 @@ def windowed_joint_signal_reference_canceller(
     smoothed between neighboring windows, while the ``signal_basis`` coefficients
     are global. In pulsed-NQR workflows this lets the fit use all receive
     samples, including echoes, without forcing the reference model to explain an
-    SLSE-shaped signal.
+    SLSE-shaped signal. Windows without ``fit_mask`` samples are handled as in
+    :func:`windowed_ridge_fir_canceller`.
     """
 
     y, x = _validate_xy(primary, references)
@@ -609,13 +655,15 @@ def windowed_joint_signal_reference_canceller(
     normal = np.zeros((total_size, total_size), dtype=np.complex128)
     rhs = np.zeros(total_size, dtype=np.complex128)
     sig_slice = slice(total_ref_size, total_size)
+    has_data = np.zeros(num_windows, dtype=bool)
 
     for window in range(num_windows):
         start = window * window_samples
         stop = min(y.size, start + window_samples)
         selected = valid[start:stop]
         ref_slice = slice(window * ref_size, (window + 1) * ref_size)
-        if np.any(selected):
+        has_data[window] = bool(np.any(selected))
+        if has_data[window]:
             ref_block = reference_design[start:stop][selected]
             sig_block = signal_design[start:stop][selected]
             target = y[start:stop][selected]
@@ -645,7 +693,7 @@ def windowed_joint_signal_reference_canceller(
             sig_size, dtype=np.complex128
         )
 
-    coeff = np.linalg.solve(normal, rhs)
+    coeff = _solve_windowed_system(normal, rhs, has_data, ref_size, smoothness)
     reference_coeff = coeff[:total_ref_size].reshape(num_windows, x.shape[0], taps)
     signal_coeff = coeff[total_ref_size:]
     window_index = np.minimum(np.arange(y.size) // window_samples, num_windows - 1)

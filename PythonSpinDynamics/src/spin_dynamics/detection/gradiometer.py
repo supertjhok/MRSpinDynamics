@@ -28,6 +28,7 @@ couples like a plain magnetometer.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 import numpy as np
@@ -41,6 +42,24 @@ def _axis_center(axis: str, coord: float) -> tuple[float, float, float]:
     center = [0.0, 0.0, 0.0]
     center[_AXIS_INDEX[axis]] = float(coord)
     return (center[0], center[1], center[2])
+
+
+def _harmonic_flux(k: int, radius: np.ndarray, z: np.ndarray) -> np.ndarray:
+    """Flux through coaxial disks of the axisymmetric field with ``Bz(0, z) = z^k``.
+
+    The harmonic (curl- and divergence-free) continuation off axis is
+    ``Bz(r, z) = sum_m (-1)^m k! / ((m!)^2 4^m (k-2m)!) z^(k-2m) r^(2m)``;
+    integrating over a disk of radius ``a`` gives
+    ``pi * sum_m (-1)^m k! / ((m!)^2 4^m (k-2m)! (m+1)) z^(k-2m) a^(2m+2)``.
+    """
+
+    total = np.zeros(np.broadcast(radius, z).shape, dtype=np.float64)
+    for m in range(k // 2 + 1):
+        coeff = (-1) ** m * math.factorial(k) / (
+            math.factorial(m) ** 2 * 4**m * math.factorial(k - 2 * m) * (m + 1)
+        )
+        total = total + coeff * z ** (k - 2 * m) * radius ** (2 * m + 2)
+    return np.pi * total
 
 
 def _axis_unit(axis: str) -> np.ndarray:
@@ -99,18 +118,25 @@ class Gradiometer:
 
         ``0`` for a magnetometer (responds to a uniform field), ``1`` when the
         uniform-field moment is nulled (responds to the first gradient), ``2``
-        when the first-gradient moment is also nulled, and so on. Computed from
-        the loop moments ``sum_i w_i z_i^k`` evaluated for increasing ``k``.
+        when the first-gradient moment is also nulled, and so on.
+
+        The ``k``-th moment is the net signed flux the winding threads for the
+        axisymmetric harmonic field whose on-axis value is ``Bz = z^k``, i.e.
+        ``sum_i w_i * Phi_k(r_i, z_i)``. ``Phi_0 = pi r^2`` (net area) and
+        ``Phi_1 = pi r^2 z``, so loops of different radii are weighted by their
+        area, consistent with :meth:`uniform_field_response`.
         """
 
         z = np.asarray(self.positions_m)
+        r = np.asarray(self.radii_m)
         w = np.asarray(self.weights)
-        wscale = np.sum(np.abs(w)) or 1.0
-        zscale = np.max(np.abs(z)) if np.any(z) else 1.0
+        lscale = max(float(np.max(np.abs(z))), float(np.max(r)))
         for k in range(self.n_loops):
-            moment = float(np.sum(w * z**k))
-            tol = 1e-9 * wscale * (zscale**k if zscale > 0 else 1.0)
-            if abs(moment) > tol:
+            fluxes = _harmonic_flux(k, r, z)
+            moment = float(np.sum(w * fluxes))
+            # Scale the tolerance by the per-loop flux magnitude of this order.
+            scale = float(np.sum(np.abs(w))) * np.pi * float(np.max(r)) ** 2 * lscale**k
+            if abs(moment) > 1e-9 * scale:
                 return k
         return self.n_loops
 

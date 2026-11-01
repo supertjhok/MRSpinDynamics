@@ -93,3 +93,52 @@ def test_validation_errors():
         Gradiometer(radii_m=(R,), positions_m=(0.0,), weights=(1.0,), axis="q")
     with pytest.raises(ValueError):
         Gradiometer.magnetometer(radius_m=R).sensitivity(np.zeros((3, 2)))
+
+
+# Axisymmetric harmonic test fields with on-axis Bz = 1, z, z^2 (each solves
+# Laplace's equation: Bz = z^2 - r^2/2 pairs with Br = -r z/2).
+_TEST_FIELDS = (
+    lambda r, z: np.ones_like(r),
+    lambda r, z: z * np.ones_like(r),
+    lambda r, z: z * z - 0.5 * r * r,
+)
+
+
+def _numerical_order(g):
+    """Order from quadrature of the flux each loop threads, independent of the class."""
+
+    nodes, weights = np.polynomial.legendre.leggauss(32)
+    for k, field in enumerate(_TEST_FIELDS):
+        net = 0.0
+        scale = 0.0
+        for a, z, w in zip(g.radii_m, g.positions_m, g.weights):
+            r = 0.5 * a * (nodes + 1.0)
+            flux = np.sum(0.5 * a * weights * 2.0 * np.pi * r * field(r, z))
+            net += w * flux
+            scale += abs(w) * np.pi * a * a * max(abs(z), a) ** k
+        if abs(net) > 1e-9 * scale:
+            return k
+    return len(_TEST_FIELDS)
+
+
+def test_order_weights_loops_by_area():
+    # Unequal radii with (+1, -1): the net area is non-zero, so a uniform field
+    # is not rejected (order 0), even though the turns sum to zero.
+    unbalanced = Gradiometer(radii_m=(0.01, 0.02), positions_m=(0.0, 0.05), weights=(1.0, -1.0))
+    # Area-balanced pair: 2 turns of radius a against 1 turn of radius a*sqrt(2).
+    balanced = Gradiometer(
+        radii_m=(0.01, 0.01 * np.sqrt(2.0)), positions_m=(0.0, 0.05), weights=(2.0, -1.0)
+    )
+    assert abs(unbalanced.uniform_coupling()) > 1.0
+    assert abs(balanced.uniform_field_response()) < 1e-15
+    assert unbalanced.order == _numerical_order(unbalanced) == 0
+    assert balanced.order == _numerical_order(balanced) == 1
+
+
+def test_order_matches_flux_quadrature_for_presets():
+    for g in (
+        Gradiometer.magnetometer(radius_m=R),
+        Gradiometer.first_order_axial(radius_m=R, baseline_m=B, bottom_m=0.03),
+        Gradiometer.second_order_axial(radius_m=R, baseline_m=B, bottom_m=0.03),
+    ):
+        assert g.order == _numerical_order(g)

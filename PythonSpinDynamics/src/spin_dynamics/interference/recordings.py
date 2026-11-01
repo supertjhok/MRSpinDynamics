@@ -85,14 +85,21 @@ class RFIRecording:
         return int(self.references.shape[0])
 
 
-def save_rfi_recording(path: str | Path, recording: RFIRecording) -> None:
-    """Write a recording to a NumPy ``.npz`` archive.
+def _npz_path(path: str | Path) -> Path:
+    text = str(path)
+    return Path(text if text.endswith(".npz") else text + ".npz")
+
+
+def save_rfi_recording(path: str | Path, recording: RFIRecording) -> Path:
+    """Write a recording to a NumPy ``.npz`` archive and return its path.
 
     The mask is stored as its integer label array, so :func:`load_rfi_recording`
-    restores the recording exactly without re-deriving the gating.
+    restores the recording exactly without re-deriving the gating. As with
+    :func:`numpy.savez`, ``.npz`` is appended when ``path`` lacks it;
+    :func:`load_rfi_recording` accepts either spelling.
     """
 
-    path = Path(path)
+    path = _npz_path(path)
     np.savez(
         path,
         primary=recording.primary,
@@ -101,12 +108,15 @@ def save_rfi_recording(path: str | Path, recording: RFIRecording) -> None:
         mask_labels=recording.mask.labels,
         metadata=np.asarray(json.dumps(recording.metadata)),
     )
+    return path
 
 
 def load_rfi_recording(path: str | Path) -> RFIRecording:
     """Load a recording previously written by :func:`save_rfi_recording`."""
 
     path = Path(path)
+    if not path.exists() and _npz_path(path).exists():
+        path = _npz_path(path)
     with np.load(path, allow_pickle=False) as data:
         sample_rate_hz = float(data["sample_rate_hz"])
         mask = AcquisitionMask(sample_rate_hz=sample_rate_hz, labels=data["mask_labels"])

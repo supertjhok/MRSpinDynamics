@@ -28,10 +28,12 @@ class RunRecord:
     plan: ExperimentPlan
     provenance: dict[str, Any]
 
-    def save(self, path: str) -> None:
+    def save(self, path: str) -> Any:
+        """Save the run; returns the path written (``.npz`` appended if absent)."""
+
         from spin_dynamics.experiment.io import save_run
 
-        save_run(self, path)
+        return save_run(self, path)
 
 
 def run_experiment(experiment: Experiment, **execution: Any) -> RunRecord:

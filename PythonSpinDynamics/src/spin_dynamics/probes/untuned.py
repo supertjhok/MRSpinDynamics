@@ -66,15 +66,15 @@ def untuned_probe_lp(
     ic0 = 0.0 + 0.0j
     ic = np.zeros(ncyc, dtype=np.complex128)
     cnt = 0
-    phi_eff = float(phi[0])
 
     for np_j, phi_j, amp_j, Rs_j in zip(np_seg, phi, amp, Rs):
         if np_j <= 0:
             continue
         tau = L / (R + Rs_j)
         tv = 2 * np.pi * np.linspace(1, np_j, np_j) / (w * N)
-        if cnt > 0:
-            phi_eff = w * tvect[cnt - 1] + phi_j
+        # Drive phase at this segment's start time (global t = 0 for the first
+        # simulated segment, even if earlier zero-length segments were skipped).
+        phi_eff = phi_j if cnt == 0 else w * tvect[cnt - 1] + phi_j
 
         ich = ic0 * np.exp(-tv / tau)
         if amp_j == 0:
