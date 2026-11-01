@@ -8591,9 +8591,13 @@ broadenings, each a different ensemble over the shared control waveform:
   on the RF direction in its principal-axis system, so \code{h\_x}/\code{h\_y}
   vary per orientation while \code{h\_drift} is shared --- a per-case
   \emph{drive-operator} ensemble. Pass \code{control\_operator\_batch}
-  (from \code{nqr\_powder\_control\_batch}); \code{examples\textbackslash
+  (from \code{nqr\_powder\_control\_batch}) together with
+  \code{ensemble\_weights} (from \code{nqr\_powder\_control\_weights}): the
+  orientations of a quadrature grid are not equally weighted, and without the
+  weights the mean is not the powder average. \code{examples\textbackslash
   grape\_nqr\_powder\_pulse.py} inverts a \(^{35}\)Cl line across a powder
-  (held-out worst-case \(\sim 0.03 \to 0.87\)).
+  (held-out powder average \(\sim 0.74 \to 0.97\), worst case
+  \(\sim 0.38 \to 0.83\)).
 \end{itemize}
 
 The two axes compose: passing \code{hamiltonian\_batch} and
