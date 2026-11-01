@@ -30,7 +30,7 @@ code, not run.
 | Severity | Open | In progress | Fixed | Closed without change |
 |---|---:|---:|---:|---:|
 | High | 0 | 0 | 13 | 0 |
-| CI / gates | 0 | 0 | 7 | 0 |
+| CI / gates | 0 | 0 | 8 | 0 |
 | Medium | 0 | 0 | 44 | 1 |
 | Low | 0 | 0 | 55 | 3 |
 
@@ -63,6 +63,7 @@ code, not run.
 | G-05 | Medium | `.github/workflows/release.yml` | Several safety gaps: no tests before tagging and releasing; `${{ inputs.version }}` interpolated into shell; `--find-links` without `--no-index`; a third-party action pinned by tag (not SHA) under `contents: write`; `workflow_dispatch` can tag any branch. | Reading | Fixed | A guard job validates the version via env (main-only dispatch, ancestor check); a required test job runs before release; `--no-index` installs from artifacts; `softprops/action-gh-release` pinned to `3bb12739…`; write permission only on the release job. Not executed (nothing was triggered). Commit `0e6fffb`. |
 | G-06 | Medium | `integration/src/mr_integration/database.py:15-21`, `coverage.py:18-22` | Default data paths use `Path(__file__).parents[3]`, which only works in a checkout. Installed from the wheel, `measured_lines()` raises and `load_dft_summary()` silently returns `()`. | Reading | Fixed | New `mr_integration.paths` with `MR_INTEGRATION_REPO_ROOT` and per-file env vars; missing data raises clearly (`load_dft_summary` no longer returns `()`). Tests: `integration/tests/test_paths_and_overlays.py`. Commit `0e6fffb`. |
 | G-07 | Medium | `PythonSpinDynamics/pyproject.toml` `python_files` | The `*_tests.py` pattern makes pytest collect about 552 tests twice (smoke/fixture/example aggregators). | Repro (`--collect-only`) | Fixed | `python_files = ["test_*.py"]` (2642 → 2085 collected, no duplicates); the unittest aggregators still load. Commit `0e6fffb`. |
+| G-08 | High | `PythonSpinDynamics/docs/generate_api_reference.py` | Found by checking GitHub CI after the pushes. The Python 3.10 smoke jobs (Ubuntu and Windows) had been failing since before the review (`e25d982`): `ast.unparse` writes `lambda :` on 3.10 but `lambda:` on 3.11+, so the committed API reference never matched there. The 3.12 full-validation job failed at the same time on the roundoff-fragile eddy-mode test fixed by L-57. | Verified (CI logs) | Fixed | `_unparse` normalizes the lambda spacing for every `ast.unparse` use; output is unchanged on 3.11/3.12 (3.10 not available locally, so confirm on the next CI run). Commit `df3ea36`. |
 
 ## Medium
 
@@ -205,3 +206,4 @@ code, not run.
 - 2026-11-01: L-55 part 1 in `1744aa8`; L-57 and L-58 (regression from L-01) added.
 - 2026-11-01: L-28 to L-35 (experiment, interference, detection, probes) closed in `1aa1ea1`.
 - 2026-11-01: L-55 completed (`1744aa8`, `aeb7d41`, `b9c5da1`), L-56 and L-58 fixed in `2a61aea`, L-57 fixed in `b9c5da1`; L-32 follow-up (shared receiver-noise model, MATLAB rx) in `3d2c35d`. No items remain open.
+- 2026-11-01: G-08 (pre-existing py3.10 API-reference CI failure) added and fixed.
