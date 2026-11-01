@@ -53,6 +53,27 @@ class EngineMultiSliceTests(unittest.TestCase):
         peak = np.unravel_index(np.argmax(res.magnitude), res.magnitude.shape)
         self.assertEqual(peak, (1, 2, 3))
 
+    def test_spin_echo_refocuses_on_the_k0_sample(self):
+        # Regression (M-11): the 180 was placed for an echo at readout/2 with the
+        # sinc centre taken as exc_total/2, so the echo fell one dwell early
+        # (rephase=False) or one dwell late (default rephase=True, 1 ms pulse)
+        # relative to the k=0 sample. Reference: the spin-echo condition. Voxels
+        # on the in-plane isocentre line (no in-plane encoding) with random B0
+        # inside a thick slice trace the echo envelope during the readout.
+        n, ny = 16, 120
+        rng = np.random.default_rng(1)
+        rho = np.zeros((n, ny, n))
+        rho[n // 2, :, n // 2] = 1.0
+        b0 = np.zeros_like(rho)
+        b0[n // 2, :, n // 2] = rng.uniform(-2 * np.pi * 1500, 2 * np.pi * 1500, ny)
+        for rephase in (True, False):
+            res = run_multislice_imaging(
+                rho, slice_gradient=1.0, slice_positions=[0.0], b0_map=b0,
+                rephase=rephase,
+            )
+            envelope = np.abs(res.kspace[:, 0, n // 2])
+            self.assertEqual(int(np.argmax(envelope)), n // 2)
+
     def test_slice_axis_zero(self):
         rho = _point_phantom((5, 4, 4), (2, 1, 3))
         res = run_multislice_imaging(rho, slice_axis=0, slice_gradient=1.5e7, num_substeps=32)

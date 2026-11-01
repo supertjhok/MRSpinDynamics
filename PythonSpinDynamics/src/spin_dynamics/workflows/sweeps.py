@@ -60,7 +60,7 @@ class CPMGFiniteParameterSweepResult:
     echo: np.ndarray
     tvect: np.ndarray
     echo_integrals: np.ndarray
-    sequence_time: np.ndarray
+    sequence_time: np.ndarray  # echo centres (s) from the excitation time origin
     probe: str
     sweep: str
 

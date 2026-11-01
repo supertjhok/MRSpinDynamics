@@ -36,6 +36,7 @@ from spin_dynamics.workflows.cpmg import (
     _apply_longitudinal_phase_kick,
     _calc_matched_pulse_shape,
     _calc_tuned_pulse_shape,
+    _echo_center_times,
     _echo_train_from_spectra,
     _maybe_refine_numpts,
 )
@@ -53,7 +54,7 @@ class MatchedDiffusionCPMGResult:
     echo: np.ndarray
     tvect: np.ndarray
     echo_integrals: np.ndarray
-    sequence_time: np.ndarray
+    sequence_time: np.ndarray  # echo centres (s) from the excitation time origin
     q_value: float
     diffusion_coefficient: float
     diffusion_time: float
@@ -72,7 +73,7 @@ class TunedDiffusionCPMGResult:
     echo: np.ndarray
     tvect: np.ndarray
     echo_integrals: np.ndarray
-    sequence_time: np.ndarray
+    sequence_time: np.ndarray  # echo centres (s) from the excitation time origin
     q_value: float
     diffusion_coefficient: float
     diffusion_time: float
@@ -92,7 +93,7 @@ class MatchedDiffusionQSweepResult:
     echo: np.ndarray
     tvect: np.ndarray
     echo_integrals: np.ndarray
-    sequence_time: np.ndarray
+    sequence_time: np.ndarray  # echo centres (s) from the excitation time origin
     diffusion_coefficient: float
     diffusion_time: float
     gradient: float
@@ -930,12 +931,20 @@ def run_matched_diffusion_cpmg(
         apply_receiver=apply_receiver,
         num_workers=num_workers,
     )
-    mrx = mrx1 - mrx2
+    # Normalized PAP combine, (+x - (-x)) / 2, as in every other finite-train
+    # workflow (``cpmg_two_step_phase_cycle``), so |mrx| <= M0 without receiver.
+    mrx = (mrx1 - mrx2) / 2
 
     tacq = float((np.pi / 2) * (echo_spacing_seconds / 2) / t90_seconds)
     tdw = float((np.pi / 2) * pp0.tdw / t90_seconds)
     echo, tvect, echo_integrals = _echo_train_from_spectra(mrx, del_w, tacq, tdw)
-    sequence_time = echo_spacing_seconds * (np.arange(int(num_echoes), dtype=np.float64) + 1)
+    # Echo times from the excitation origin include the encoding spin-echo
+    # block [gap, 180, gap] (2 * diffusion_time - T_90) before the CPMG train.
+    sequence_time = _echo_center_times(
+        num_echoes,
+        echo_spacing_seconds,
+        offset_seconds=2.0 * encoding_gap * t90_seconds / (np.pi / 2) + t_180,
+    )
     return MatchedDiffusionCPMGResult(
         del_w=del_w,
         mrx=mrx,
@@ -1122,7 +1131,13 @@ def run_tuned_diffusion_cpmg(
     tacq = float((np.pi / 2) * (echo_spacing_seconds / 2) / t90_seconds)
     tdw = float((np.pi / 2) * pp0.tdw / t90_seconds)
     echo, tvect, echo_integrals = _echo_train_from_spectra(mrx, del_w, tacq, tdw)
-    sequence_time = echo_spacing_seconds * (np.arange(int(num_echoes), dtype=np.float64) + 1)
+    # Echo times from the excitation origin include the encoding spin-echo
+    # block [gap, 180, gap] (2 * diffusion_time - T_90) before the CPMG train.
+    sequence_time = _echo_center_times(
+        num_echoes,
+        echo_spacing_seconds,
+        offset_seconds=2.0 * encoding_gap * t90_seconds / (np.pi / 2) + t_180,
+    )
     return TunedDiffusionCPMGResult(
         del_w=del_w,
         mrx=mrx,

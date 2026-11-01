@@ -30,6 +30,7 @@ from spin_dynamics.workflows.cpmg import (
     _cpmg_branch_prefixes,
     _cpmg_excitation_offsets,
     _default_cpmg_phase_cycle,
+    _echo_center_times,
     _echo_phase_matrix,
     _echo_train_from_spectra,
     _maybe_refine_numpts,
@@ -49,7 +50,7 @@ class CPMGRelaxationSweepResult:
     echo: np.ndarray  # (cases, num_echoes, ntime)
     tvect: np.ndarray
     echo_integrals: np.ndarray  # (cases, num_echoes)
-    sequence_time: np.ndarray
+    sequence_time: np.ndarray  # echo centres (s) from the excitation time origin
 
 
 def run_ideal_cpmg_relaxation_sweep(
@@ -183,9 +184,7 @@ def run_ideal_cpmg_relaxation_sweep(
         echo_cases.append(echo_i)
         integral_cases.append(integrals_i)
 
-    sequence_time = np.sum(pp0.tref) * (
-        np.arange(int(num_echoes), dtype=np.float64) + 0.5
-    )
+    sequence_time = _echo_center_times(num_echoes, float(np.sum(pp0.tref)))
     return CPMGRelaxationSweepResult(
         t1_seconds=t1,
         t2_seconds=t2,

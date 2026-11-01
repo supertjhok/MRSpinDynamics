@@ -208,6 +208,25 @@ class QSpaceImagingTests(unittest.TestCase):
         np.testing.assert_allclose(result.x_axis, x_axis)
         np.testing.assert_allclose(result.z_axis, z_axis)
 
+    def test_magnitude_mode_accepts_complex_form_factor(self) -> None:
+        # Regression (M-13): "magnitude" used to cast complex input to float,
+        # keeping only the real part, so a purely imaginary response gave an
+        # all-zero image. Reference: the circular autocorrelation of rho,
+        # evaluated directly by shift-and-sum (no FFT).
+        rho, x_axis, z_axis = _ellipse()
+        qx, qz = qspace_axes_from_real_space(x_axis, z_axis)
+        form = 1j * pore_form_factor_from_density(rho)
+
+        image = reconstruct_qspace_image(form, qx, qz, data_kind="magnitude").image
+        nx, nz = rho.shape
+        expected = np.empty_like(rho)
+        for i in range(nx):
+            for j in range(nz):
+                shifted = np.roll(np.roll(rho, i - nx // 2, axis=0), j - nz // 2, axis=1)
+                expected[i, j] = np.sum(rho * shifted)
+        expected /= expected.max()
+        np.testing.assert_allclose(image, expected, atol=1e-10)
+
     def test_intensity_reconstructs_pore_autocorrelation(self) -> None:
         rho, x_axis, z_axis = _ellipse()
         qx, qz = qspace_axes_from_real_space(x_axis, z_axis)

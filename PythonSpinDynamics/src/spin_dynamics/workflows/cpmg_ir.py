@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, replace
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 
@@ -36,6 +36,35 @@ from spin_dynamics.workflows.cpmg import (
 )
 
 
+SignalConvention = Literal["matlab", "cpmg"]
+
+
+def _check_signal_convention(signal_convention: str) -> None:
+    if signal_convention not in ("matlab", "cpmg"):
+        raise ValueError("signal_convention must be 'matlab' or 'cpmg'")
+
+
+def _combine_ir_branches(
+    mrx1: np.ndarray,
+    mrx2: np.ndarray,
+    signal_convention: str,
+) -> np.ndarray:
+    """Combine the two excitation-phase branches of a CPMG-IR acquisition.
+
+    ``"matlab"`` (the default) reproduces MATLAB
+    ``sim_cpmg_ir_matched_probe_relax4.m``: ``mrx2 - mrx1``, which is ``-2``
+    times the normalized PAP combine used by the CPMG trains, so a fully
+    recovered sample gives a negative signal. ``"cpmg"`` uses that normalized
+    combine ``(mrx1 - mrx2) / 2`` (as in MATLAB ``relax``..``relax3``): long
+    inversion delays then reproduce the CPMG train and the recovery follows
+    ``+(1 - 2 exp(-tau / T1))``.
+    """
+
+    if signal_convention == "cpmg":
+        return (mrx1 - mrx2) / 2
+    return mrx2 - mrx1
+
+
 @dataclass(frozen=True)
 class CPMGIRTrainResult:
     """Finite CPMG-IR echo train over inversion delays."""
@@ -46,7 +75,7 @@ class CPMGIRTrainResult:
     echo: np.ndarray
     tvect: np.ndarray
     echo_integrals: np.ndarray
-    sequence_time: np.ndarray
+    sequence_time: np.ndarray  # echo centres (s) from the excitation time origin
     probe: str
 
 
@@ -137,10 +166,18 @@ def run_ideal_cpmg_ir_train(
     auto_refine_grid: bool = False,
     rephase_safety_factor: float = 1.25,
     rephase_action: str = "warn",
+    signal_convention: SignalConvention = "matlab",
 ) -> CPMGIRTrainResult:
-    """Run a compact ideal-probe CPMG-IR finite echo train."""
+    """Run a compact ideal-probe CPMG-IR finite echo train.
+
+    ``signal_convention="matlab"`` (default) keeps the MATLAB ``relax4``
+    combine ``mrx2 - mrx1``, the negative of (and twice) the CPMG-train
+    convention, so recovered magnetization reads negative. Pass ``"cpmg"`` for
+    the normalized ``(mrx1 - mrx2) / 2`` combine shared with the CPMG trains.
+    """
 
     _validate_ir_inputs(num_echoes, echo_spacing_seconds, t1_seconds, t2_seconds)
+    _check_signal_convention(signal_convention)
     tau = _as_tauvect(tauvect)
     sp0, pp0 = set_params_ideal(numpts=numpts)
     if echo_spacing_seconds <= pp0.T_180:
@@ -223,7 +260,7 @@ def run_ideal_cpmg_ir_train(
         ppc2["tp"][ind_enc] = tau_norm
         mrx1 = calc_macq_ideal_probe_relax4(sp, ppc1, num_workers=num_workers)
         mrx2 = calc_macq_ideal_probe_relax4(sp, ppc2, num_workers=num_workers)
-        mrx = mrx2 - mrx1
+        mrx = _combine_ir_branches(mrx1, mrx2, signal_convention)
         echo, _tvect, echo_integrals = _echo_train_from_spectra(mrx, del_w, tacq, tdw)
         return mrx, echo, echo_integrals
 
@@ -264,8 +301,10 @@ def _run_probe_cpmg_ir_train(
     auto_refine_grid: bool,
     rephase_safety_factor: float,
     rephase_action: str,
+    signal_convention: SignalConvention,
 ) -> CPMGIRTrainResult:
     _validate_ir_inputs(num_echoes, echo_spacing_seconds, t1_seconds, t2_seconds)
+    _check_signal_convention(signal_convention)
     tau = _as_tauvect(tauvect)
     if probe == "tuned":
         _params, sp0, pp0 = set_params_tuned_orig(numpts=numpts)
@@ -373,7 +412,7 @@ def _run_probe_cpmg_ir_train(
         ppc2["tp"][ind_enc] = tau_norm
         _macq1, mrx1 = calc_macq(sp, ppc1, num_workers=num_workers)
         _macq2, mrx2 = calc_macq(sp, ppc2, num_workers=num_workers)
-        mrx = mrx2 - mrx1
+        mrx = _combine_ir_branches(mrx1, mrx2, signal_convention)
         echo, _tvect, echo_integrals = _echo_train_from_spectra(mrx, del_w, tacq, tdw)
         return mrx, echo, echo_integrals
 
@@ -413,8 +452,15 @@ def run_tuned_cpmg_ir_train(
     auto_refine_grid: bool = False,
     rephase_safety_factor: float = 1.25,
     rephase_action: str = "warn",
+    signal_convention: SignalConvention = "matlab",
 ) -> CPMGIRTrainResult:
-    """Run a compact tuned-probe CPMG-IR finite echo train."""
+    """Run a compact tuned-probe CPMG-IR finite echo train.
+
+    ``signal_convention="matlab"`` (default) keeps the MATLAB ``relax4``
+    combine ``mrx2 - mrx1``, the negative of (and twice) the CPMG-train
+    convention, so recovered magnetization reads negative. Pass ``"cpmg"`` for
+    the normalized ``(mrx1 - mrx2) / 2`` combine shared with the CPMG trains.
+    """
 
     return _run_probe_cpmg_ir_train(
         "tuned",
@@ -430,6 +476,7 @@ def run_tuned_cpmg_ir_train(
         auto_refine_grid=auto_refine_grid,
         rephase_safety_factor=rephase_safety_factor,
         rephase_action=rephase_action,
+        signal_convention=signal_convention,
     )
 
 
@@ -447,8 +494,15 @@ def run_untuned_cpmg_ir_train(
     auto_refine_grid: bool = False,
     rephase_safety_factor: float = 1.25,
     rephase_action: str = "warn",
+    signal_convention: SignalConvention = "matlab",
 ) -> CPMGIRTrainResult:
-    """Run a compact untuned-probe CPMG-IR finite echo train."""
+    """Run a compact untuned-probe CPMG-IR finite echo train.
+
+    ``signal_convention="matlab"`` (default) keeps the MATLAB ``relax4``
+    combine ``mrx2 - mrx1``, the negative of (and twice) the CPMG-train
+    convention, so recovered magnetization reads negative. Pass ``"cpmg"`` for
+    the normalized ``(mrx1 - mrx2) / 2`` combine shared with the CPMG trains.
+    """
 
     return _run_probe_cpmg_ir_train(
         "untuned",
@@ -464,6 +518,7 @@ def run_untuned_cpmg_ir_train(
         auto_refine_grid=auto_refine_grid,
         rephase_safety_factor=rephase_safety_factor,
         rephase_action=rephase_action,
+        signal_convention=signal_convention,
     )
 
 
@@ -481,6 +536,7 @@ def run_matched_cpmg_ir_train(
     auto_refine_grid: bool = False,
     rephase_safety_factor: float = 1.25,
     rephase_action: str = "warn",
+    signal_convention: SignalConvention = "matlab",
 ) -> MatchedCPMGIRTrainResult:
     """Run a compact matched-probe CPMG-IR finite echo train.
 
@@ -489,6 +545,11 @@ def run_matched_cpmg_ir_train(
     shapes, rotation matrices, receiver transfer functions, and time-domain
     isochromats are precomputed once, then the inversion delay is swept over
     `tauvect`.
+
+    ``signal_convention="matlab"`` (default) keeps the MATLAB ``relax4``
+    combine ``mrx2 - mrx1``, the negative of (and twice) the CPMG-train
+    convention, so recovered magnetization reads negative. Pass ``"cpmg"`` for
+    the normalized ``(mrx1 - mrx2) / 2`` combine shared with the CPMG trains.
     """
 
     if num_echoes <= 0:
@@ -497,6 +558,7 @@ def run_matched_cpmg_ir_train(
         raise ValueError("echo_spacing_seconds must be positive")
     if t1_seconds <= 0 or t2_seconds <= 0:
         raise ValueError("t1_seconds and t2_seconds must be positive")
+    _check_signal_convention(signal_convention)
 
     tau = _as_tauvect(tauvect)
     sp0, pp0 = set_params_matched_orig(numpts=numpts)
@@ -621,7 +683,7 @@ def run_matched_cpmg_ir_train(
             ppc2,
             num_workers=num_workers,
         )
-        mrx = mrx2 - mrx1
+        mrx = _combine_ir_branches(mrx1, mrx2, signal_convention)
         echo, tvect, echo_integrals = _echo_train_from_spectra(mrx, del_w, tacq, tdw)
         return mrx, echo, echo_integrals
 

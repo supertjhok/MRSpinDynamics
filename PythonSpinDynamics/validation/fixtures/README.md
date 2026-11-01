@@ -41,3 +41,33 @@ file's existing layout and inputs:
 
 Rerunning the Octave generators against the corrected Version 3 MATLAB code
 should reproduce these values to the usual fixture tolerances.
+
+## Imaging and tuned-train fixtures regenerated for review items M-12 and M-44
+
+Two workflow corrections changed arrays that these fixtures had locked in.
+Octave was again unavailable, so the files below were regenerated from the
+corrected Python with each file's existing layout and inputs (the inputs used by
+`tests/octave_fixtures/support.py`):
+
+- `run_ideal_cpmg_imaging_kspace.csv`, `run_tuned_cpmg_imaging_kspace.csv`,
+  `run_matched_cpmg_imaging_kspace.csv` (M-12). The phase-encoded imagers
+  used `linspace(-1, 1, n)` for both the phase-encode gradients and the default
+  `del_wx`/`del_wz` position maps. For even `n` (these fixtures are 2x2) that
+  grid has no k=0 sample and a half-integer centre, while the reconstruction
+  (`fftshift(ifft2(ifftshift(.)))`) and the SENSE folding assume index `n // 2`
+  is the origin, so a point voxel was reconstructed half a pixel off and spread
+  over a 2x2 block. Both grids are now `(i - n // 2) / ((n - 1) / 2)`, which is
+  identical to `linspace(-1, 1, n)` for odd `n` and keeps the same step for even
+  `n`. The MATLAB Version 3 `Sim_CPMG/sim_cpmg_*_probe_img.m` scripts still use
+  the `linspace` grids, so rerunning `generate_imaging_fixtures.m` reproduces the
+  old values until those scripts adopt the same grid.
+- `run_tuned_cpmg_train_mrx.csv`, `run_tuned_cpmg_train_echo.csv`,
+  `run_tuned_cpmg_train_integrals.csv` (M-44). Tuned-probe pulse shapes were
+  min-max (peak) normalized. With the corrected gate-on transient (H-01) the
+  peak overshoot depends on the absolute RF phase (up to about 1.7x the steady
+  current), so the nominal pulse amplitude moved with phase. Shapes are now
+  normalized to the analytic steady-state coil current of the drive, so a long
+  pulse plateaus at amplitude 1 for any gate-on phase; the echo integrals grow
+  by about 22 % (first echo 411.3 to 501.8). MATLAB's `calc_masy_tuned_probe_lp.m`
+  also normalizes to a mid-pulse plateau, while `sim_cpmg_tuned_probe_img.m`
+  uses the peak; the tuned imaging path keeps its MATLAB-as-executed shape.

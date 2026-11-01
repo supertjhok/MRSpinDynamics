@@ -278,6 +278,27 @@ class FrequencyEncodedImagingTests(unittest.TestCase):
         ratio = abs(spread_run.kspace[10, last, 0]) / abs(plain.kspace[10, last, 0])
         self.assertGreater(ratio, 0.8)
 
+    def test_spin_echo_refocuses_on_the_k0_sample_every_echo(self) -> None:
+        # Regression (M-10): the spin echo fell one dwell before the k=0 sample
+        # (index px//2), and for an echo train the k=0 sample sat off the CPMG
+        # midpoint. Reference: the spin-echo condition itself. A single voxel at
+        # the gradient isocentre carrying a wide static sub-voxel B0 spread
+        # sees no encoding, so its readout samples trace the echo envelope, and
+        # the envelope must peak on the k=0 sample of every echo.
+        px = 16
+        rho = np.zeros((px, 2))
+        rho[px // 2, 1] = 1.0
+        for etl in (1, 2):
+            result = run_rare_imaging(
+                rho, num_offsets=201, offset_spread=2.0 * np.pi * 4.0e3,
+                echo_train_length=etl, readout_time=2.0e-3,
+                t2_map=np.full(rho.shape, np.inf),
+            )
+            for line in range(rho.shape[1]):
+                envelope = np.abs(result.kspace[:, line, 0])
+                self.assertEqual(int(np.argmax(envelope)), px // 2)
+                self.assertGreater(envelope[px // 2], 2.0 * envelope[px // 2 - 1])
+
 
 if __name__ == "__main__":
     unittest.main()

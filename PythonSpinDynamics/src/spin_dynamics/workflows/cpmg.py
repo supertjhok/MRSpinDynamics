@@ -109,7 +109,7 @@ class CPMGTrainResult:
     echo: np.ndarray
     tvect: np.ndarray
     echo_integrals: np.ndarray
-    sequence_time: np.ndarray
+    sequence_time: np.ndarray  # echo centres (s) from the excitation time origin
     probe: str
     mrx_noisy: np.ndarray | None = None
     echo_noisy: np.ndarray | None = None
@@ -391,6 +391,30 @@ def probe_cpmg_train_max_time(pp0: Any, num_echoes: int) -> float:
         np.pi / 2
         + (np.pi / 2) * pp0.tcorr / pp0.T_90
         + int(num_echoes) * (tfp + np.pi + tfp)
+    )
+
+
+def _echo_center_times(
+    num_echoes: int,
+    echo_spacing_seconds: float,
+    *,
+    offset_seconds: float = 0.0,
+) -> np.ndarray:
+    """Return finite-train echo-centre times in seconds.
+
+    Times are measured from the effective time origin of the excitation (the
+    start of free evolution after the ``tcorr`` correction). Every refocusing
+    block ``[tfp, pi, tfp]`` ends on its echo, so echo ``n`` (0-based) of the
+    train sits at ``offset_seconds + (n + 1) * echo_spacing_seconds``, where
+    ``offset_seconds`` is the duration of any preparation/encoding block played
+    between the excitation and the first refocusing block.
+
+    The kernels apply no relaxation during RF pulses, so the simulated decay
+    reflects the free-precession time only; these are the physical echo times.
+    """
+
+    return float(offset_seconds) + float(echo_spacing_seconds) * (
+        np.arange(int(num_echoes), dtype=np.float64) + 1.0
     )
 
 
@@ -863,9 +887,7 @@ def run_ideal_cpmg_train(
         echo_noisy, noise_metadata = _add_optional_time_noise(echo, noise)
         if echo_noisy is not None:
             echo_integrals_noisy = trapezoid(echo_noisy, tvect, axis=1)
-    sequence_time = np.sum(pp0.tref) * (
-        np.arange(int(num_echoes), dtype=np.float64) + 0.5
-    )
+    sequence_time = _echo_center_times(num_echoes, float(np.sum(pp0.tref)))
 
     return CPMGTrainResult(
         del_w=del_w,
@@ -881,6 +903,33 @@ def run_ideal_cpmg_train(
         noise=noise_metadata,
         absolute_phase=ap_metadata,
         phase_cycle=phase_cycle,
+    )
+
+
+def _tuned_steady_state_current(
+    sp: Mapping[str, Any] | Any,
+    pp: Mapping[str, Any] | Any,
+    pulse_amplitude: float,
+) -> float:
+    """Return the rotating-frame steady-state coil current of a tuned-probe pulse.
+
+    This is the particular (driven) solution of the series-RLC model in
+    ``tuned_probe_lp``: ``|amp / Rs| / (2 |wn**2 - w**2 + 2j gamma w|)`` with
+    the source resistance of the pulse segment. It is independent of the RF
+    phase at gate-on, unlike the transient peak.
+    """
+
+    L = float(_field(sp, "L"))
+    R = float(_field(sp, "R"))
+    C = float(_field(sp, "C"))
+    wp = 1.0 / np.sqrt(L * C)
+    Z0 = np.sqrt(L / C)
+    rs = float(np.ravel(_field(pp, "Rsref"))[0])
+    w = float(_field(pp, "w")) / wp
+    gamma = 0.5 * (R / Z0 + Z0 / rs)
+    wn_sq = 1.0 + R / rs
+    return float(
+        0.5 * abs(float(pulse_amplitude)) / (rs * abs(wn_sq - w**2 + 2j * gamma * w))
     )
 
 
@@ -914,9 +963,14 @@ def _calc_tuned_pulse_shape(
     amp_zero = float(_field(pp, "amp_zero"))
     amp[amp < amp_zero] = 0
 
-    amp_range = float(np.max(amp) - np.min(amp))
-    if amp_range > 0:
-        amp = (amp - np.min(amp)) / amp_range
+    # Normalize to the steady-state coil current of this drive, so amplitude 1
+    # is the nominal w1 of a long pulse. The gate-on overshoot of the corrected
+    # transient depends on the absolute RF phase; normalizing by the peak (as
+    # MATLAB's imaging script does) would rescale every pulse by a
+    # phase-dependent factor (up to ~1.7x here), unlike a fixed-voltage drive.
+    steady = _tuned_steady_state_current(sp, pp_curr, pulse_amplitude)
+    if steady > 0:
+        amp = amp / steady
     amp[amp < amp_zero] = 0
 
     return (
@@ -1217,8 +1271,8 @@ def run_tuned_cpmg_train(
         echo_noisy, noise_metadata = _add_optional_time_noise(echo, noise)
         if echo_noisy is not None:
             echo_integrals_noisy = trapezoid(echo_noisy, tvect, axis=1)
-    sequence_time = np.sum(pp0.tref) * (
-        np.arange(int(num_echoes), dtype=np.float64) + 0.5
+    sequence_time = _echo_center_times(
+        num_echoes, pp0.preDelay + pp0.T_180 + pp0.postDelay
     )
 
     return CPMGTrainResult(
@@ -1438,8 +1492,8 @@ def run_untuned_cpmg_train(
         echo_noisy, noise_metadata = _add_optional_time_noise(echo, noise)
         if echo_noisy is not None:
             echo_integrals_noisy = trapezoid(echo_noisy, tvect, axis=1)
-    sequence_time = np.sum(pp0.tref) * (
-        np.arange(int(num_echoes), dtype=np.float64) + 0.5
+    sequence_time = _echo_center_times(
+        num_echoes, pp0.preDelay + pp0.T_180 + pp0.postDelay
     )
 
     return CPMGTrainResult(
@@ -1667,8 +1721,8 @@ def run_matched_cpmg_train(
         echo_noisy, noise_metadata = _add_optional_time_noise(echo, noise)
         if echo_noisy is not None:
             echo_integrals_noisy = trapezoid(echo_noisy, tvect, axis=1)
-    sequence_time = np.sum(pp0.tref) * (
-        np.arange(int(num_echoes), dtype=np.float64) + 0.5
+    sequence_time = _echo_center_times(
+        num_echoes, pp0.preDelay + pp0.T_180 + pp0.postDelay
     )
 
     return CPMGTrainResult(

@@ -188,7 +188,18 @@ def run_multislice_imaging(
     moment_predephase = -(nx // 2 + 1) * dk_x / phase_time
     moment_rewind = -(nx - (nx // 2 + 1)) * dk_x / phase_time
     exc_total = slice_duration + (rephase_fraction * slice_duration if rephase else 0.0)
-    pre_180_gap = max(0.0, phase_time + 0.5 * readout_time - 0.5 * exc_total)
+    # Spin-echo centring. B0 phase accrues from the sinc-pulse centre
+    # (slice_duration / 2), through the slice-rephase lobe, to the 180; the k=0
+    # sample (index nx//2) is taken at the end of its dwell, ``center_sample *
+    # readout_time`` into the readout. Equal intervals on both sides of the 180
+    # put the spin echo on the k=0 sample.
+    center_sample = (nx // 2 + 1) / nx
+    pre_180_gap = max(
+        0.0,
+        phase_time
+        + center_sample * readout_time
+        - (exc_total - 0.5 * slice_duration),
+    )
 
     def _slice_excitation(center: float):
         steps = list(

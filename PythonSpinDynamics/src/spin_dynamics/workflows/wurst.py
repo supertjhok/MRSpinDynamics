@@ -30,6 +30,7 @@ from spin_dynamics.pulses import WURSTPulse, create_wurst_pulse
 from spin_dynamics.workflows.acquisition import calc_macq_matched_probe_relax4
 from spin_dynamics.workflows.cpmg import (
     _calc_matched_pulse_shape,
+    _echo_center_times,
     _echo_train_from_spectra,
     _maybe_refine_numpts,
 )
@@ -60,7 +61,7 @@ class MatchedWURSTCPMGResult:
     echo: np.ndarray
     tvect: np.ndarray
     echo_integrals: np.ndarray
-    sequence_time: np.ndarray
+    sequence_time: np.ndarray  # echo centres (s) from the excitation time origin
     rotating_time: np.ndarray
     rotating_current: np.ndarray
     probe: str
@@ -384,8 +385,12 @@ def run_matched_wurst_cpmg(
     tacq = float((np.pi / 2) * np.ravel(pp0.tacq)[0] / pp0.T_90)
     tdw = float((np.pi / 2) * pp0.tdw / pp0.T_90)
     echo, tvect, echo_integrals = _echo_train_from_spectra(mrx, del_w, tacq, tdw)
-    sequence_time = float(pulse_duration) + np.sum(pp0.tref) * (
-        np.arange(int(num_echoes), dtype=np.float64) + 0.5
+    # Measured from the start of the swept excitation: each refocusing block
+    # ends on its echo, so echo n sits (n + 1) echo spacings after the pulse.
+    sequence_time = _echo_center_times(
+        num_echoes,
+        pp0.preDelay + pp0.T_180 + pp0.postDelay,
+        offset_seconds=float(pulse_duration),
     )
     return MatchedWURSTCPMGResult(
         del_w=del_w,

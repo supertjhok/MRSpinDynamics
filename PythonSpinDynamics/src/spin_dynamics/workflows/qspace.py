@@ -491,8 +491,11 @@ def reconstruct_qspace_image(
 
     ``data_kind="complex"`` treats ``response`` as a phase-preserving form
     factor and returns the direct inverse image. ``"intensity"`` treats it as
-    ``|F(q)|^2`` and returns the Patterson/autocorrelation image. ``"magnitude"``
-    squares the supplied magnitude first, so it also returns an autocorrelation.
+    ``|F(q)|^2`` and returns the Patterson/autocorrelation image; an intensity
+    is real by definition, so the real part of complex input is used (finite
+    walker sampling leaves only a small imaginary residue). ``"magnitude"``
+    squares ``abs(response)`` first, so complex input is accepted and it also
+    returns an autocorrelation.
     Magnitude-only data do not determine a unique image without phase retrieval;
     use :func:`phase_retrieve_qspace_magnitude` when a support constraint is
     available.
@@ -502,9 +505,9 @@ def reconstruct_qspace_image(
     if data_kind == "complex":
         spectrum = np.asarray(data, dtype=np.complex128)
     elif data_kind == "magnitude":
-        spectrum = np.asarray(data, dtype=np.float64) ** 2
+        spectrum = np.abs(data).astype(np.float64) ** 2
     elif data_kind == "intensity":
-        spectrum = np.asarray(data, dtype=np.float64)
+        spectrum = np.real(data).astype(np.float64)
     else:
         raise ValueError("data_kind must be 'complex', 'magnitude', or 'intensity'")
 

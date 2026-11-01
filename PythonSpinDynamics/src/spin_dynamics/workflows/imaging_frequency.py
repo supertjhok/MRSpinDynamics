@@ -327,19 +327,27 @@ def run_rare_imaging(
     # to -(px//2 + 1)*dk_x lands the samples on the centered grid (m - px//2)*dk_x.
     moment_predephase = -(px // 2 + 1) * dk_x / phase_time
     moment_rewind = -(px - (px // 2 + 1)) * dk_x / phase_time  # k_x back to 0
-    # Place the first 180 so the readout centre (k=0) sits at the spin-echo
-    # refocus time; later echoes are then automatically centred. This makes the
-    # sub-voxel B0 spread refocus at each echo, as a real spin echo does.
+    # The k=0 sample (index px//2) is taken at the end of its dwell, i.e. at
+    # ``center_sample * readout_time`` into the readout -- one dwell after the
+    # readout midpoint for even px, half a dwell for odd px.
+    center_sample = (px // 2 + 1) / px
+    # Place the first 180 so the k=0 sample sits at the spin-echo refocus time.
+    # A free ``echo_balance`` delay after each rewind makes the 180-to-k0 and
+    # k0-to-next-180 intervals equal, so every later CPMG echo is centred on its
+    # k=0 sample too. This makes the sub-voxel B0 spread refocus at each echo,
+    # as a real spin echo does.
     pre_180_gap = max(
-        0.0, phase_time + 0.5 * readout_time - 0.5 * excitation_duration
+        0.0, phase_time + center_sample * readout_time - 0.5 * excitation_duration
     )
+    echo_balance = (2.0 * center_sample - 1.0) * readout_time
 
     schedule = _phase_encode_schedule(pz, echo_train_length, phase_encode_order)
     num_shots = len(schedule)
     if refocusing:
-        echo_spacing = refocusing_duration + 2.0 * phase_time + readout_time
+        echo_spacing = (
+            refocusing_duration + 2.0 * phase_time + readout_time + echo_balance
+        )
     else:
-        center_sample = (px // 2 + 1) / px
         echo_spacing = (
             0.5 * excitation_duration + phase_time + center_sample * readout_time
         )
@@ -399,6 +407,14 @@ def run_rare_imaging(
                     ),
                 ]
             )
+            if refocusing and echo_balance > 0.0:
+                steps.append(
+                    MotionSequenceStep(
+                        duration=echo_balance,
+                        substeps=max(1, sub),
+                        label="echo_balance",
+                    )
+                )
         return steps
 
     shot_steps = [(_shot_steps(lines), lines) for lines in schedule]

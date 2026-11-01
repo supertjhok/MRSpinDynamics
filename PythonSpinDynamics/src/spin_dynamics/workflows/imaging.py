@@ -39,6 +39,7 @@ from spin_dynamics.workflows.acquisition import (
 )
 from spin_dynamics.workflows.cpmg import (
     _calc_matched_pulse_shape,
+    _echo_center_times,
 )
 from spin_dynamics.workflows.imaging_types import (
     IdealCPMGImagingResult,
@@ -78,10 +79,26 @@ def _as_map(value: Iterable[float] | np.ndarray, name: str) -> np.ndarray:
     return arr
 
 
+def _centered_unit_axis(size: int) -> np.ndarray:
+    """Return ``(i - size // 2) / ((size - 1) / 2)``: the DFT-centred unit grid.
+
+    Index ``size // 2`` sits exactly at zero, which is the centre that
+    ``fftshift``/``ifftshift`` assume. For odd ``size`` this is identical to
+    ``linspace(-1, 1, size)``; for even ``size`` it keeps the same step but
+    drops the half-integer centre, which otherwise imprints a half-pixel shift
+    (and a missing k=0 sample) on the reconstruction.
+    """
+
+    n = int(size)
+    if n == 1:
+        return np.zeros(1, dtype=np.float64)
+    return (np.arange(n, dtype=np.float64) - n // 2) / ((n - 1) / 2.0)
+
+
 def _default_gradient_maps(shape: tuple[int, int]) -> tuple[np.ndarray, np.ndarray]:
     nx, nz = shape
-    del_wx = np.tile(np.linspace(-1, 1, nx)[:, np.newaxis], (1, nz))
-    del_wz = np.tile(np.linspace(-1, 1, nz)[np.newaxis, :], (nx, 1))
+    del_wx = np.tile(_centered_unit_axis(nx)[:, np.newaxis], (1, nz))
+    del_wz = np.tile(_centered_unit_axis(nz)[np.newaxis, :], (nx, 1))
     return del_wx, del_wz
 
 
@@ -308,8 +325,8 @@ def reconstruct_image_from_kspace(kspace: np.ndarray, echo_index: int = 0) -> np
     """Reconstruct an image from one echo of CPMG imaging k-space.
 
     The acquisition samples k-space centered, with k=0 at the middle index of
-    each phase-encode axis (``gradx``/``gradz`` run symmetrically from negative
-    to positive). A correct inverse DFT therefore needs ``ifftshift`` to move
+    each phase-encode axis (``gradx``/``gradz`` lie on the DFT-centred grid
+    whose index ``n // 2`` is exactly k=0). A correct inverse DFT therefore needs ``ifftshift`` to move
     k=0 to the array origin that ``ifft2`` expects, and ``fftshift`` afterward
     to move the image origin back to the center:
 
@@ -1380,14 +1397,14 @@ def _ideal_phase_encoded_cpmg_imaging(
     # full k-space traversal matched to the field of view: the encode geometry
     # ties resolution (px), FOV, and the normalized gradient time `tgradn`
     # together via `wxmax ~ px**2 / (FOV * tgradn)`. The gradients run
-    # symmetrically from -wxmax to +wxmax, so k=0 is sampled at the center
-    # index -- this is the centered-k-space convention assumed by
-    # `reconstruct_image_from_kspace`.
+    # on the DFT-centred grid (index px//2 is exactly k=0; for odd px this is
+    # the symmetric -wxmax..+wxmax sweep), the centered-k-space convention
+    # assumed by `reconstruct_image_from_kspace` and the SENSE folding.
     px, pz = rho_arr.shape
     wxmax = np.pi * px**2 / (2 * fov_arr[0] * tgradn)
     wzmax = np.pi * pz**2 / (2 * fov_arr[1] * tgradn)
-    gradx = wxmax * np.linspace(-1, 1, px)
-    gradz = wzmax * np.linspace(-1, 1, pz)
+    gradx = wxmax * _centered_unit_axis(px)
+    gradz = wzmax * _centered_unit_axis(pz)
     sampling_mask = None
     if sense_acceleration is not None:
         sampling_mask = uniform_cartesian_mask(
@@ -1451,8 +1468,12 @@ def _ideal_phase_encoded_cpmg_imaging(
         with ThreadPoolExecutor(max_workers=workers) as executor:
             rows = list(executor.map(run_point, indices))
 
-    sequence_time = echo_spacing_seconds * (
-        np.arange(int(num_echoes), dtype=np.float64) + 1
+    # Echo times from the excitation origin include the phase-encode spin-echo
+    # block [gradient, 180, gradient] played before the CPMG train.
+    sequence_time = _echo_center_times(
+        num_echoes,
+        echo_spacing_seconds,
+        offset_seconds=2.0 * gradient_duration_seconds + t180,
     )
     if receiver_maps is not None:
         channel_kspace = np.zeros(
@@ -1704,14 +1725,14 @@ def _probe_imaging(
     # full k-space traversal matched to the field of view: the encode geometry
     # ties resolution (px), FOV, and the normalized gradient time `tgradn`
     # together via `wxmax ~ px**2 / (FOV * tgradn)`. The gradients run
-    # symmetrically from -wxmax to +wxmax, so k=0 is sampled at the center
-    # index -- this is the centered-k-space convention assumed by
-    # `reconstruct_image_from_kspace`.
+    # on the DFT-centred grid (index px//2 is exactly k=0; for odd px this is
+    # the symmetric -wxmax..+wxmax sweep), the centered-k-space convention
+    # assumed by `reconstruct_image_from_kspace` and the SENSE folding.
     px, pz = rho_arr.shape
     wxmax = np.pi * px**2 / (2 * fov_arr[0] * tgradn)
     wzmax = np.pi * pz**2 / (2 * fov_arr[1] * tgradn)
-    gradx = wxmax * np.linspace(-1, 1, px)
-    gradz = wzmax * np.linspace(-1, 1, pz)
+    gradx = wxmax * _centered_unit_axis(px)
+    gradz = wzmax * _centered_unit_axis(pz)
 
     tacq = float((np.pi / 2) * tacq_seconds / t90)
     tdw = float((np.pi / 2) * pp0.tdw / t90)
@@ -1808,7 +1829,13 @@ def _probe_imaging(
             kspace_noisy[ix, iz, :] = noisy_values
         else:
             kspace[ix, iz, :] = values
-    sequence_time = echo_spacing_seconds * (np.arange(int(num_echoes), dtype=np.float64) + 1)
+    # Echo times from the excitation origin include the phase-encode spin-echo
+    # block [gradient, 180, gradient] played before the CPMG train.
+    sequence_time = _echo_center_times(
+        num_echoes,
+        echo_spacing_seconds,
+        offset_seconds=2.0 * gradient_duration_seconds + t180,
+    )
     noise_metadata = None
     if probe_noise:
         _dummy, noise_metadata = add_received_noise(

@@ -28,7 +28,7 @@ class IdealCPMGImagingResult:
     gradz: np.ndarray
     del_w: np.ndarray
     echo_integrals: np.ndarray
-    sequence_time: np.ndarray
+    sequence_time: np.ndarray  # echo centres (s) from the excitation time origin
     probe: str
     kspace_noisy: np.ndarray | None = None
     image_noisy: np.ndarray | None = None
@@ -53,7 +53,7 @@ class ProbeCPMGImagingResult:
     gradz: np.ndarray
     del_w: np.ndarray
     echo_integrals: np.ndarray
-    sequence_time: np.ndarray
+    sequence_time: np.ndarray  # echo centres (s) from the excitation time origin
     probe: str
     kspace_noisy: np.ndarray | None = None
     image_noisy: np.ndarray | None = None
@@ -106,7 +106,7 @@ class ReceiverArrayCPMGImagingResult:
     gradx: np.ndarray
     gradz: np.ndarray
     del_w: np.ndarray
-    sequence_time: np.ndarray
+    sequence_time: np.ndarray  # echo centres (s) from the excitation time origin
     probe: str
     noise_covariance: np.ndarray | None = None
     channel_kspace_noisy: np.ndarray | None = None
