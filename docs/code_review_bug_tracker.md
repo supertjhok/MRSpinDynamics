@@ -32,7 +32,7 @@ code, not run.
 | High | 0 | 0 | 13 | 0 |
 | CI / gates | 0 | 0 | 7 | 0 |
 | Medium | 0 | 0 | 44 | 1 |
-| Low | 11 | 1 | 44 | 2 |
+| Low | 3 | 1 | 51 | 3 |
 
 ## High
 
@@ -145,14 +145,14 @@ code, not run.
 | L-25 | nqr | `nqr/hamiltonians.py:98` | The 1e-6 × span degeneracy floor can drop weak-field Zeeman transitions for heavy nuclei. | Fixed | Confirmed (127I at 50 µT lost its 429 Hz line). The floor is now max(tolerance, 1e-10·max\|level\|). Tests: `test_nqr_higher_spin.py::test_heavy_nucleus_weak_field_zeeman_line_is_kept`, `::test_zero_field_has_no_spurious_near_zero_transitions`. Commit `5cf2c2c`. |
 | L-26 | nqr | `nqr/structure_coupling.py` vs `QDFT/strain_coupling.py` | The CIF parser, symmetry `eval`, `_spin_matrices` and cell matrix are duplicated across the two packages. | Fixed | One `_cif` module, byte-identical in both packages and guarded by sync tests (neither package may depend on the other), with a safe symmetry-expression parser replacing `eval`; QuadrupolarDFT's internal spin-matrix duplicate is removed. Won't fix: the cross-package spin-matrix duplication (the APIs differ). Tests: `test_nqr_cif.py::TwinSyncTests`, `::SymmetryExpressionTests`, `QuadrupolarDFT/tests/test_strain_coupling.py::test_shared_cif_module_matches_python_spin_dynamics_copy`. Commit `5cf2c2c`. |
 | L-27 | nqrdb | `NQRDB/scripts/validate_database.py` | Checks only counts and orphans; no unit-plausibility checks. | Fixed | `validate_plausibility` checks 14N < 6.5 MHz, T2/T2* < 1 s, T2 ≤ 2·T1, positive times, and isotope vs Form; the shipped data passes. Tests: `NQRDatabase/tests/test_plausibility.py` (re-injects the earlier defects). Commit `5cf2c2c`. |
-| L-28 | experiment | `experiment/config.py:238-284` | The TOML writer doesn't escape control characters or quote keys. | Open | |
-| L-29 | interference | `interference/cancellers.py:945` | `frequency_domain_canceller` `hop`/`segment_length` are under-validated (crash, or 45% uncancelled). | Open | |
-| L-30 | interference | `interference/_signal.py:55-74` | `spectral_phase_shift` zeroes the Nyquist bin for even n. | Open | |
-| L-31 | experiment | `experiment/serialization.py:59-65` vs `provenance.py:33` | NaN arrays are emitted as non-standard JSON while scalars are rejected, so provenance can raise after the run. | Open | |
-| L-32 | probes | `probes/tuned.py:365`, `probes/untuned.py:157-162` | `pnoise` omits the damping resistor's thermal noise (inherited from MATLAB). | Open | |
-| L-33 | probes | `probes/*` | `tuned_probe_lp`/`_orig` are 95% identical; `find_coil_current*` duplicated; `_field`/`_with_fields` helpers have drifted. | Open | |
-| L-34 | detection | `SQUIDMagnetometer`, `IdealFaradayCoil` | Advertise an `xp` (JAX) parameter but use boolean-mask indexing that JAX can't trace. | Open | |
-| L-35 | probes | wiring `_SOLVE_CACHE` | Unbounded cache. | Open | |
+| L-28 | experiment | `experiment/config.py:238-284` | The TOML writer doesn't escape control characters or quote keys. | Fixed | Proper TOML basic strings, quoted non-bare keys, inline tables for dicts in arrays. Test: `test_review_low_fixes_experiment_probes.py::test_toml_writer_escapes_strings_and_quotes_keys`. Commit `1aa1ea1`. |
+| L-29 | interference | `interference/cancellers.py:945` | `frequency_domain_canceller` `hop`/`segment_length` are under-validated (crash, or 45% uncancelled). | Fixed | Default hop is max(1, n//2); hops that leave gaps are rejected. Tests: `::test_frequency_canceller_single_sample_segments_cancel_a_pure_gain`, `::test_frequency_canceller_rejects_hops_that_leave_gaps`. Commit `1aa1ea1`. |
+| L-30 | interference | `interference/_signal.py:55-74` | `spectral_phase_shift` zeroes the Nyquist bin for even n. | Not a bug | For even n the Nyquist bin is real, and cos φ scaling is the exact sampled answer; the docstring is corrected and the behaviour pinned by `::test_spectral_phase_shift_matches_sampled_closed_form`. Commit `1aa1ea1`. |
+| L-31 | experiment | `experiment/serialization.py:59-65` vs `provenance.py:33` | NaN arrays are emitted as non-standard JSON while scalars are rejected, so provenance can raise after the run. | Fixed | Non-finite values encode as `{"__float__": ...}` tokens (new reserved key; old archives still load). Test: `::test_non_finite_values_encode_as_standard_json_and_round_trip`. Commit `1aa1ea1`. |
+| L-32 | probes | `probes/tuned.py:365`, `probes/untuned.py:157-162` | `pnoise` omits the damping resistor's thermal noise (inherited from MATLAB). | Fixed | The receivers add 4kT/Rd·\|Zs\|², matching the Nyquist theorem to 1e-9 (was +9%/+34% SNR at Rd = 1 kΩ). At the default 1 MΩ: −0.16%/−0.27% SNR. SNR/score fixtures regenerated from Python (README). Tests: `::test_tuned_receiver_noise_obeys_nyquist_theorem`, `::test_untuned_receiver_noise_obeys_nyquist_theorem`. Follow-up (noise.py duplicate, MATLAB rx files) in progress. Commit `1aa1ea1`. |
+| L-33 | probes | `probes/*` | `tuned_probe_lp`/`_orig` are 95% identical; `find_coil_current*` duplicated; `_field`/`_with_fields` helpers have drifted. | Fixed | Shared `probes/_common.py` helpers; `tuned_probe_lp`/`_orig` share one core (bit-identical). Won't fix: `find_coil_current` vs `_wurst` (they differ materially, and the fixtures are too loose to guard a merge). Test: `::test_probe_parameter_helpers_share_one_contract`. Commit `1aa1ea1`. |
+| L-34 | detection | `SQUIDMagnetometer`, `IdealFaradayCoil` | Advertise an `xp` (JAX) parameter but use boolean-mask indexing that JAX can't trace. | Fixed | `_clamp_zero_frequency` uses where/min only. Test: `::test_detector_noise_psds_trace_under_jax_jit`. Commit `1aa1ea1`. |
+| L-35 | probes | wiring `_SOLVE_CACHE` | Unbounded cache. | Fixed | LRU bound of 16 entries. Test: `::test_solve_cache_is_bounded_lru`. Commit `1aa1ea1`. |
 | L-36 | fields | `fields/openems.py:1536` | The energy regex misses openEMS's padded `(- 9.50dB)` format. | Fixed | The regex accepts padded dB values (a real 32 MHz strip log now reports 0.0 dB instead of no convergence metadata). Test: `test_fullwave_validation.py::test_termination_parser_reads_padded_energy_values`. Commit `c70e936`. |
 | L-37 | fields | `fields/coils.py`, `coil_properties.py` | The two inductance models assume different turn pitch (L/(N−1) vs L/N). | Fixed | Conservative: `solenoid_field_inductance` uses the L/N pitch of `solenoid_properties` (default coil −8.5% → −2.1% vs sheet L); `coils.solenoid` keeps its documented centre-to-centre convention. Test: `test_coil_properties.py::test_currentsheet_matches_field_inductance` (tolerance 15% → 4%). Commit `c70e936`. |
 | L-38 | fields | `nonlinear_magnetostatics._amg_linsolve_3d` | CG is used on a matrix the code itself says is non-symmetric. | Fixed | Interior→boundary couplings are dropped (homogeneous Dirichlet), so the matrix is SPD; the solution is unchanged. Test: `test_scalar_potential_3d.py::LinearSolverTests::test_assembled_matrix_is_symmetric_for_cg_accelerated_amg`. Commit `c70e936`. |
@@ -203,3 +203,4 @@ code, not run.
 - 2026-11-01: M-45, L-01 to L-06 and L-49 (core) fixed in `50df5d7`; L-56 added.
 - 2026-11-01: G-01 to G-07, L-07, L-50, L-51 fixed and L-52 partly addressed in `0e6fffb`.
 - 2026-11-01: L-55 part 1 in `1744aa8`; L-57 and L-58 (regression from L-01) added.
+- 2026-11-01: L-28 to L-35 (experiment, interference, detection, probes) closed in `1aa1ea1`.
