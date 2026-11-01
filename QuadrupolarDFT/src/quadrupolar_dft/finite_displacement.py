@@ -31,7 +31,7 @@ import re
 
 import numpy as np
 
-from .abinit import parse_abinit_efg
+from .abinit import _fortran_float, parse_abinit_efg
 from .constants import ANGSTROM_M, ATOMIC_MASS_UNIT_KG, BOHR_TO_ANGSTROM
 from .tensors import EFGTensor
 from .vibrational import VibrationalMode, efg_curvature_central_difference
@@ -341,8 +341,14 @@ _LENGTH_UNITS = {
 }
 
 
+_COMMENT_CHARS = ("#", "!")  # ABINIT accepts both comment markers
+_MULTIPLIER_RE = re.compile(r"^(\d+)\*(\S+)$")
+# A comment (to end of line) or one whitespace/comment-delimited token.
+_ABINIT_TOKEN_RE = re.compile(r"[#!][^\n]*|[^\s#!]+")
+
+
 def _strip_comments(text: str) -> str:
-    return "\n".join(line.split("#", 1)[0] for line in text.splitlines())
+    return "\n".join(re.split(r"[#!]", line, maxsplit=1)[0] for line in text.splitlines())
 
 
 def _tokens_after(text: str, keyword: str) -> list[str]:
@@ -352,13 +358,27 @@ def _tokens_after(text: str, keyword: str) -> list[str]:
     return text[match.end():].split()
 
 
+def _expand_numeric_token(token: str) -> list[float]:
+    """Expand one ABINIT numeric token, including the ``n*value`` repeat syntax.
+
+    ``3*10.0`` is three copies of ``10.0``. Raises ``ValueError`` for anything
+    that is not a number.
+    """
+
+    match = _MULTIPLIER_RE.match(token)
+    if match is not None:
+        return [_fortran_float(match.group(2))] * int(match.group(1))
+    return [_fortran_float(token)]
+
+
 def _read_floats(tokens: list[str], count: int) -> tuple[list[float], int]:
+    """Read ``count`` numbers from ``tokens``; return them and the tokens used."""
+
     values: list[float] = []
     index = 0
     while len(values) < count and index < len(tokens):
-        token = tokens[index].replace("d", "e").replace("D", "e")
         try:
-            values.append(float(token))
+            values.extend(_expand_numeric_token(tokens[index]))
         except ValueError as exc:
             raise ValueError(
                 f"expected {count} numbers, got non-numeric token {tokens[index]!r}"
@@ -366,11 +386,63 @@ def _read_floats(tokens: list[str], count: int) -> tuple[list[float], int]:
         index += 1
     if len(values) < count:
         raise ValueError(f"expected {count} numbers, found {len(values)}")
+    if len(values) > count:
+        raise ValueError(
+            f"expected {count} numbers, but a repeat token supplies {len(values)}"
+        )
     return values, index
 
 
+def _rprim_from_angdeg(angdeg: list[float]) -> np.ndarray:
+    """Return dimensionless primitive vectors (rows) from ABINIT ``angdeg``.
+
+    Follows ABINIT's construction: ``angdeg = (alpha, beta, gamma)`` are the
+    angles between vectors (2,3), (1,3) and (1,2). Three equal angles that are
+    not all 90 degrees give the trigonal setting symmetric about z; otherwise
+    ``R1 = x``, ``R2`` lies in the xy plane at ``gamma`` from ``R1``, and ``R3``
+    is fixed by ``beta`` and ``alpha``.
+    """
+
+    alpha, beta, gamma = (float(value) for value in angdeg)
+    equal = abs(alpha - beta) < 1e-12 and abs(beta - gamma) < 1e-12
+    all_right = abs(alpha - 90.0) + abs(beta - 90.0) + abs(gamma - 90.0) <= 1e-12
+    if equal and not all_right:
+        cos_angle = np.cos(np.deg2rad(alpha))
+        a2 = 2.0 / 3.0 * (1.0 - cos_angle)
+        aa = np.sqrt(a2)
+        cc = np.sqrt(1.0 - a2)
+        half_root3 = 0.5 * np.sqrt(3.0)
+        return np.array(
+            [
+                [aa, 0.0, cc],
+                [-0.5 * aa, half_root3 * aa, cc],
+                [-0.5 * aa, -half_root3 * aa, cc],
+            ]
+        )
+    cos_gamma = np.cos(np.deg2rad(gamma))
+    sin_gamma = np.sin(np.deg2rad(gamma))
+    r3x = np.cos(np.deg2rad(beta))
+    r3y = (np.cos(np.deg2rad(alpha)) - cos_gamma * r3x) / sin_gamma
+    r3z2 = 1.0 - r3x**2 - r3y**2
+    if r3z2 <= 0.0:
+        raise ValueError(f"angdeg {angdeg} does not define a real lattice")
+    return np.array(
+        [
+            [1.0, 0.0, 0.0],
+            [cos_gamma, sin_gamma, 0.0],
+            [r3x, r3y, np.sqrt(r3z2)],
+        ]
+    )
+
+
 def parse_abinit_structure(text: str) -> Crystal:
-    """Parse acell/rprim/typat/znucl and xred or xcart from an ABINIT input."""
+    """Parse acell/rprim/typat/znucl and xred or xcart from an ABINIT input.
+
+    The cell comes from ``acell`` with either ``rprim`` or ``angdeg`` (built the
+    way ABINIT does; identity ``rprim`` if neither is given). Numeric lists
+    accept ABINIT's ``n*value`` repeat syntax and Fortran ``D`` exponents, and
+    both ``#`` and ``!`` start comments.
+    """
 
     clean = _strip_comments(text)
 
@@ -390,8 +462,13 @@ def parse_abinit_structure(text: str) -> Crystal:
     acell = np.array(acell_values) * acell_unit
 
     rprim_tokens = _tokens_after(clean, "rprim")
+    angdeg_tokens = _tokens_after(clean, "angdeg")
+    if rprim_tokens and angdeg_tokens:
+        raise ValueError("input sets both rprim and angdeg; ABINIT allows only one")
     if rprim_tokens:
         rprim = np.array(_read_floats(rprim_tokens, 9)[0]).reshape(3, 3)
+    elif angdeg_tokens:
+        rprim = _rprim_from_angdeg(_read_floats(angdeg_tokens, 3)[0])
     else:
         rprim = np.eye(3)
     lattice = rprim * acell[:, None]
@@ -459,7 +536,7 @@ def _replace_position_block(
     needed = 3 * natom
     seen = 0
     end = pos
-    token_re = re.compile(r"#[^\n]*|\S+")
+    token_re = _ABINIT_TOKEN_RE
     first_word = True
     while seen < needed:
         token_match = token_re.search(text, end)
@@ -467,16 +544,16 @@ def _replace_position_block(
             return None
         token = token_match.group(0)
         end = token_match.end()
-        if token.startswith("#"):
+        if token.startswith(_COMMENT_CHARS):
             continue
         if first_word and token.lower() in _LENGTH_UNITS:
             first_word = False
             continue
         first_word = False
-        normalized = token.replace("d", "e").replace("D", "e")
         try:
-            float(normalized)
+            seen += len(_expand_numeric_token(token))
         except ValueError:
             return None
-        seen += 1
+    if seen != needed:
+        return None
     return text[:start] + new_block + "\n" + text[end:]

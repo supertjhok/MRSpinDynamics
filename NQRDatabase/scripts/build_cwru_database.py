@@ -350,19 +350,69 @@ def first_number(value: str | None) -> float | None:
     return float(match.group(0)) if match else None
 
 
-def parse_time_s(value: str | None) -> float | None:
+TIME_UNIT_SECONDS = {
+    "s": 1.0,
+    "sec": 1.0,
+    "secs": 1.0,
+    "second": 1.0,
+    "seconds": 1.0,
+    "ms": 1.0e-3,
+    "msec": 1.0e-3,
+    "millisecond": 1.0e-3,
+    "milliseconds": 1.0e-3,
+    "us": 1.0e-6,
+    "µs": 1.0e-6,  # micro sign
+    "μs": 1.0e-6,  # Greek small mu
+    "usec": 1.0e-6,
+    "microsecond": 1.0e-6,
+    "microseconds": 1.0e-6,
+    "min": 60.0,
+    "minute": 60.0,
+    "minutes": 60.0,
+    "h": 3600.0,
+    "hr": 3600.0,
+    "hour": 3600.0,
+    "hours": 3600.0,
+}
+
+# The CWRU T1/T2/T2# columns carry no unit header; where a cell has no unit the
+# value is in milliseconds (the sodium nitrite page lists T1 = 328/280/90.3 and
+# T2 = 5.1/3.3/5.3, which the NRL line summary gives as 0.328/0.280/0.0903 s and
+# 0.0051/0.0033/0.0053 s).
+CWRU_UNITLESS_TIME_SCALE_S = 1.0e-3
+
+# Compounds whose unitless CWRU relaxation times are kept in seconds because the
+# unit has not been established from the source. Glycine's CWRU values
+# (T1 = 43.4/50, T2 = 12.5/17.1) are repeated verbatim in the NRL line summary,
+# so they cannot be cross-checked the way sodium nitrite can.
+CWRU_UNITLESS_TIME_SECONDS_COMPOUNDS = frozenset({"Glycine"})
+
+
+def parse_time_s(value: str | None, unitless_scale_s: float = 1.0) -> float | None:
+    """Return a relaxation time in seconds from a source cell.
+
+    The unit is the first whole word in the cell that names a time unit (``s``,
+    ``ms``, ``us`` or micro-sign/Greek-mu ``s``, ``min``, ``h`` and spelled-out
+    forms), so ``"4.2 +- 1.1 s"``, ``"ca 2 s"`` and ``"250 us"`` parse correctly
+    and ``"hours"`` is never mistaken for microseconds. A cell with no unit is
+    multiplied by ``unitless_scale_s`` (the source table's convention).
+    """
+
     text = normalize_space(value)
     if not text:
         return None
     number = first_number(text)
     if number is None:
         return None
-    lower = text.lower()
-    if "ms" in lower:
-        return number / 1000.0
-    if "us" in lower or "micro" in lower:
-        return number / 1_000_000.0
-    return number
+    scale = unitless_scale_s
+    for word in re.findall(r"[µμA-Za-z]+", text):
+        unit = TIME_UNIT_SECONDS.get(word.lower())
+        if unit is not None:
+            scale = unit
+            break
+    # Divide for sub-second units (1/1e-3 and 1/1e-6 are exact) so values match
+    # the historical ``number / 1000`` results bit for bit.
+    return number * scale if scale >= 1.0 else number / (1.0 / scale)
 
 
 def parse_temperature_k(value: str | None) -> float | None:
@@ -505,6 +555,11 @@ def add_line_rows(
     compound_id = ensure_compound(state, compound_name, category_for(compound_name))
     sample_id = ensure_sample(state, compound_id, compound_name)
     header_keys = [clean_header(header) for header in headers]
+    unitless_time_scale_s = (
+        1.0
+        if compound_name in CWRU_UNITLESS_TIME_SECONDS_COMPOUNDS
+        else CWRU_UNITLESS_TIME_SCALE_S
+    )
     current_site: dict[str, Any] = {
         "site_number": None,
         "site_label": None,
@@ -601,11 +656,11 @@ def add_line_rows(
             "fwhm_khz": first_number(values.get("fwhm")),
             "line_width_khz": line_width,
             "line_width_original": line_width_original,
-            "t1_s": parse_time_s(values.get("t1")),
+            "t1_s": parse_time_s(values.get("t1"), unitless_time_scale_s),
             "t1_original": values.get("t1") or None,
-            "t2_s": parse_time_s(values.get("t2")),
+            "t2_s": parse_time_s(values.get("t2"), unitless_time_scale_s),
             "t2_original": values.get("t2") or None,
-            "t2_star_s": parse_time_s(values.get("t2_star")),
+            "t2_star_s": parse_time_s(values.get("t2_star"), unitless_time_scale_s),
             "t2_star_original": values.get("t2_star") or None,
             "dnu_dt_khz_per_c": None,
             "dnu_dt_original": None,

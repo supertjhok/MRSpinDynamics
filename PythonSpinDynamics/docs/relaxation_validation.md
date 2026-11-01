@@ -216,13 +216,12 @@ series, uncertainty, pulse-sequence definition, and enough microscopic inputs
 for a defensible fit. The audit therefore marks zero records as immediately
 fit-eligible while retaining all 89 in its coverage report.
 
-The sodium-nitrite warning is now concrete. The CWRU HTML and NRL summary contain
-the same three frequencies, but every HTML-normalized T1 and T2 is exactly 1000
-times the corresponding NRL value. The bare HTML cells omit units; the NRL
-values are in seconds and are consistent with interpreting the HTML numbers as
-milliseconds. Until the source normalization is curated in NQRDatabase, the
-six HTML relaxation values are an unresolved unit conflict and must not be
-treated as independent measurements or model targets.
+The CWRU HTML and NRL summary contain the same three sodium-nitrite
+frequencies. The bare CWRU cells omit units and were originally normalized as
+seconds, which made every T1 and T2 exactly 1000 times the NRL value. NQRDatabase
+now normalizes unitless CWRU relaxation cells as milliseconds, and the audit
+checks that no cross-source scale conflicts remain. The two sources are still
+duplicates of the same measurements, not independent data.
 
 ### Stage 5: zero- to ultralow-field liquids
 

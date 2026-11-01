@@ -72,6 +72,22 @@ class AbinitParserTests(unittest.TestCase):
         self.assertTrue(np.all(np.isnan(record.eigvals_1e21_v_per_m2)))
         self.assertIsNotNone(record.tensor)
 
+    def test_parses_fortran_d_exponents(self):
+        # Regression: the number regex accepted "D" exponents but float() did not.
+        fragment = (
+            ABINIT_FRAGMENT.replace("-0.0256 ", "-2.56D-02 ")
+            .replace("6.6150", "6.6150D+00")
+            .replace("-1.100599", "-1.100599d0")
+            .replace("     -0.236543     0.864057", "     -2.36543D-01     8.64057D-01")
+        )
+        self.assertIn("D-02", fragment)
+        record = parse_abinit_efg(fragment)[0]
+        reference = parse_abinit_efg(ABINIT_FRAGMENT)[0]
+        self.assertAlmostEqual(record.quadrupole_moment_barns, -0.0256)
+        self.assertAlmostEqual(record.cq_mhz, 6.6150)
+        np.testing.assert_allclose(record.eigvals_au, reference.eigvals_au)
+        np.testing.assert_allclose(record.total_tensor_au, reference.total_tensor_au)
+
     def test_format_abinit_efg_block(self):
         block = format_abinit_efg_block([0.0, -0.02558])
 

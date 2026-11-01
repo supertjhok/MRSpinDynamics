@@ -933,8 +933,8 @@ uncertainty) and the alignment of proton NMRD minima with nitrogen transitions.
 The read-only NQRDatabase audit shows why not every relaxation record is a fit
 target. Of 89 records, only two state a temperature and only nine preserve an
 uncertainty; none combines a complete series, pulse-sequence definition,
-uncertainty, and microscopic inputs. It also finds a factor-1000 unit conflict
-between duplicate sodium-nitrite sources. Consult
+uncertainty, and microscopic inputs. It also checks that duplicate sources
+agree in scale (unitless CWRU relaxation cells are milliseconds). Consult
 \code{docs/relaxation\_validation.md} before fitting a literature fixture.
 
 \subsection{Prepolarized Spin-Lock (\texorpdfstring{$T_{1\rho}$}{T1rho}) Dispersion}

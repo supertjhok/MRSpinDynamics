@@ -52,13 +52,13 @@ def parse_abinit_efg(text: str) -> list[AbinitEFGRecord]:
         typat = _match_int(match, "typat")
         nuclear = _NUCLEAR_RE.search(block)
         if nuclear is not None:
-            quadrupole_moment_barns = float(nuclear.group("q"))
-            cq_mhz = float(nuclear.group("cq"))
-            eta = float(nuclear.group("eta"))
+            quadrupole_moment_barns = _fortran_float(nuclear.group("q"))
+            cq_mhz = _fortran_float(nuclear.group("cq"))
+            eta = _fortran_float(nuclear.group("eta"))
         elif match.group("cq") is not None:
             quadrupole_moment_barns = float("nan")
-            cq_mhz = float(match.group("cq"))
-            eta = float(match.group("eta"))
+            cq_mhz = _fortran_float(match.group("cq"))
+            eta = _fortran_float(match.group("eta"))
         else:
             continue
 
@@ -66,14 +66,14 @@ def parse_abinit_efg(text: str) -> list[AbinitEFGRecord]:
         eigvals_si = []
         eigvecs = []
         for eig_match in _EIG_RE.finditer(block):
-            eigvals_au.append(float(eig_match.group("au")))
+            eigvals_au.append(_fortran_float(eig_match.group("au")))
             si_value = eig_match.group("si")
-            eigvals_si.append(float(si_value) if si_value is not None else float("nan"))
+            eigvals_si.append(_fortran_float(si_value) if si_value is not None else float("nan"))
             eigvecs.append(
                 [
-                    float(eig_match.group("x")),
-                    float(eig_match.group("y")),
-                    float(eig_match.group("z")),
+                    _fortran_float(eig_match.group("x")),
+                    _fortran_float(eig_match.group("y")),
+                    _fortran_float(eig_match.group("z")),
                 ]
             )
 
@@ -127,14 +127,20 @@ def _parse_named_tensor(block: str, name: str) -> np.ndarray | None:
     for row_match in row_re.finditer(block):
         rows.append(
             [
-                float(row_match.group("a")),
-                float(row_match.group("b")),
-                float(row_match.group("c")),
+                _fortran_float(row_match.group("a")),
+                _fortran_float(row_match.group("b")),
+                _fortran_float(row_match.group("c")),
             ]
         )
     if len(rows) < 3:
         return None
     return np.asarray(rows[:3], dtype=float)
+
+
+def _fortran_float(token: str) -> float:
+    """Parse a Fortran real, accepting ``D``/``d`` exponents (``1.0D-3``)."""
+
+    return float(token.replace("d", "e").replace("D", "e"))
 
 
 def _format_values(values: Sequence[float]) -> str:

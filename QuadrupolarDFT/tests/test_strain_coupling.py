@@ -109,6 +109,28 @@ class StrainGeometryTests(unittest.TestCase):
             atol=1e-9,
         )
 
+    def test_strained_input_from_angdeg_cell_replaces_angdeg(self):
+        base = BASE_INPUT.replace(
+            "acell 4.0 5.0 6.0 Angstrom",
+            "acell 2*4.0 6.0 Angstrom\nangdeg 90 90 120",
+        )
+        crystal = parse_abinit_structure(base)
+        np.testing.assert_allclose(
+            crystal.lattice_angstrom[1], [-2.0, 2.0 * np.sqrt(3.0), 0.0], atol=1e-12
+        )
+        job = generate_strain_jobs(crystal, strain_amplitude=0.01, components=("xy",))[1]
+
+        text = abinit_input_with_lattice_and_positions(base, job.crystal)
+
+        # ABINIT rejects rprim together with angdeg.
+        self.assertNotIn("angdeg", text)
+        self.assertIn("rprim", text)
+        np.testing.assert_allclose(
+            parse_abinit_structure(text).lattice_angstrom,
+            job.crystal.lattice_angstrom,
+            atol=1e-9,
+        )
+
     def test_write_strain_jobs_creates_manifest(self):
         crystal = parse_abinit_structure(BASE_INPUT)
         jobs = generate_strain_jobs(crystal, strain_amplitude=0.002, components=("xy",))

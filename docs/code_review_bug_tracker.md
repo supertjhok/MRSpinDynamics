@@ -29,10 +29,10 @@ code, not run.
 
 | Severity | Open | In progress | Fixed | Closed without change |
 |---|---:|---:|---:|---:|
-| High | 0 | 11 | 2 | 0 |
+| High | 0 | 8 | 5 | 0 |
 | CI / gates | 7 | 0 | 0 | 0 |
 | Medium | 43 | 0 | 0 | 0 |
-| Low | 52 | 0 | 0 | 0 |
+| Low | 51 | 0 | 1 | 0 |
 
 ## High
 
@@ -40,17 +40,17 @@ code, not run.
 |---|---|---|---|---|---|
 | H-01 | `probes/tuned.py:101-145, 234-280` | Tuned-probe transient divides the first homogeneous term by 2α twice (also in `dicd1`/`dicd2`), so pulse edges and ringdown are wrong (51% early-pulse current error, 4× in the first rotating-frame window). The error was introduced in MATLAB Version_3 `tuned_probe_lp.m` / `tuned_probe_lp_Orig.m` (V1/V2 are correct); Octave-parity fixtures lock it in. | Verified + Repro (`solve_ivp`) | In progress | |
 | H-02 | `core/kernels.py:513-545` | `_matrix_elements_power` uses the principal branch of `eig`; for rotations ≥ π the sub-step is not a rotation (half of a π pulse maps Mz → i·Mz). Radiation damping with `apply_during_pulses=True` mishandles every refocusing pulse. | Verified + Repro | In progress | |
-| H-03 | `nqr/simulation.py:417-438` | `simulate_slse` with default `relaxation=None` applies only the pulse propagator and drops free precession, and it samples at a different point from the relaxing branch. Off-resonance SLSE and `simulate_slse_offset_sweep` are wrong. | Verified + Repro | In progress | |
+| H-03 | `nqr/simulation.py:417-438` | `simulate_slse` with default `relaxation=None` applies only the pulse propagator and drops free precession, and it samples at a different point from the relaxing branch. Off-resonance SLSE and `simulate_slse_offset_sweep` are wrong. | Verified + Repro | Fixed | Both branches now share the `_relaxing_slse_steps` cycle (pulse + detuned free precession) and sample at the end of the cycle; the unitary branch is the T1,T2→∞ limit. Test: `test_nqr.py::test_unitary_slse_includes_off_resonance_free_precession` (independent Bloch-rotation reference). |
 | H-04 | `optimal_control/hamiltonians.py:253-262`, `optimal_control/objectives.py:125` | NQR powder GRAPE discards `OrientationSample.weight`, and the ensemble objective takes an unweighted mean, so the optimizer solves the wrong problem (0.258 vs weighted 0.185). | Verified + Repro | In progress | |
 | H-05 | `workflows/bssfp.py:160, 356-364` | The α/2 catalyzation prep has the same RF phase as the first α pulse (3α/2 total), so catalyzation amplifies the transient instead of suppressing it. In the imaging path, `pulse_index` never advances, contrary to its comment. | Verified + Repro | In progress | |
 | H-06 | `fields/nonlinear_magnetostatics.py:826-880` | The axisymmetric A_φ operator is missing the ∂ν/∂r term, so H_z is not continuous at radial μ jumps. Ferrite-core solenoid core field: 1.58 vs 4.25 (μr = 5). The existing test only asserts "> 1.5×". | Repro | In progress | |
 | H-07 | `fields/magnetostatics.py:99-103` | The vertical-face yoke image reverses its endpoints, which cancels `-sigma`. Images of x-magnetized bars have the wrong sign (tangential B = 0.43 T on the iron). | Verified + Repro | In progress | |
 | H-08 | `fields/coil_properties.py:420` | Skin-annulus area π·δ(d−δ) has no DC limit, so R_ac goes negative or non-monotonic when δ > d (R_ac = −0.13 Ω at 2 kHz). | Verified + Repro | In progress | |
 | H-09 | `optimization/pipeline.py:143-197` | The excitation pipeline computes `neff` with the ideal `calc_rot_axis_arba4` instead of the tuned-probe axis with free precession (`calc_rot_axis_tuned_probe_lp_orig2`), giving `neff` errors up to 1.99. `maxoffs` is ignored on the evaluation path. | Repro | In progress | |
-| H-10 | `esr/hyperfine.py:441-443` | The automatic field axis ignores nuclear spin I (half-span 0.6·Σ\|A\|), which cuts off the outer ¹⁴N nitroxide lines. | Repro | Fixed | Half-span is now 1.2·Σ I_k·\|A_k\| + 5·broadening (unchanged for spin-1/2). Test: `test_esr.py::test_hyperfine_auto_field_axis_contains_all_nitroxide_14n_lines`. |
-| H-11 | `esr/hyperfine.py:369-376` | `detection_mode="derivative"` differentiates with respect to microwave frequency, not field, so the sign is inverted and the units are per Hz relative to `simulate_field_sweep`. | Repro | Fixed | Each line is weighted by −dν/dB (the Hellmann–Feynman slope), so the result is dS/dB in 1/T with the same sign as `simulate_field_sweep`. Tests: `test_esr.py::test_hyperfine_derivative_matches_field_sweep_derivative_convention`, `::test_hyperfine_derivative_matches_numerical_field_gradient`. |
-| H-12 | `NQRDB/scripts/build_cwru_database.py:353` | CWRU T1/T2 values with no unit are stored as seconds, but the source tables are in ms. NaNO₂ is 1000× too long (cross-checked against NRL). The glycine T2 = 12.5/17.1 "s" values are suspect and are hard-coded in `nqr/piezo_detection.py:224`. | Repro (second source) | In progress | |
-| H-13 | `QDFT/finite_displacement.py:392-396` | `parse_abinit_structure` silently ignores `angdeg`, so a hexagonal cell becomes orthorhombic. The `n*value` multiplier syntax crashes it, and `!` comments are not stripped. | Repro | In progress | |
+| H-10 | `esr/hyperfine.py:441-443` | The automatic field axis ignores nuclear spin I (half-span 0.6·Σ\|A\|), which cuts off the outer ¹⁴N nitroxide lines. | Repro | Fixed | Half-span is now 1.2·Σ I_k·\|A_k\| + 5·broadening (unchanged for spin-1/2). Test: `test_esr.py::test_hyperfine_auto_field_axis_contains_all_nitroxide_14n_lines`. Commit `28e3214`. |
+| H-11 | `esr/hyperfine.py:369-376` | `detection_mode="derivative"` differentiates with respect to microwave frequency, not field, so the sign is inverted and the units are per Hz relative to `simulate_field_sweep`. | Repro | Fixed | Each line is weighted by −dν/dB (the Hellmann–Feynman slope), so the result is dS/dB in 1/T with the same sign as `simulate_field_sweep`. Tests: `test_esr.py::test_hyperfine_derivative_matches_field_sweep_derivative_convention`, `::test_hyperfine_derivative_matches_numerical_field_gradient`. Commit `28e3214`. |
+| H-12 | `NQRDB/scripts/build_cwru_database.py:353` | CWRU T1/T2 values with no unit are stored as seconds, but the source tables are in ms. NaNO₂ is 1000× too long (cross-checked against NRL). The glycine T2 = 12.5/17.1 "s" values are suspect and are hard-coded in `nqr/piezo_detection.py:224`. | Repro (second source) | Fixed | `parse_time_s` uses whole-word unit matching, and CWRU unitless cells are ms. The 6 NaNO₂ values in `lines.jsonl`, `line_records.jsonl` and `nqr.sqlite` were patched from their stored source text (`References/` not available to rebuild); the audit, docs and evidence registry are updated. Glycine is left in seconds (no independent unit evidence; NRL repeats the numbers) and still needs curation. Tests: `NQRDatabase/tests/test_relaxation_units.py` (CWRU vs NRL agree within 1%), `test_nqr_database_relaxation_audit.py`. |
+| H-13 | `QDFT/finite_displacement.py:392-396` | `parse_abinit_structure` silently ignores `angdeg`, so a hexagonal cell becomes orthorhombic. The `n*value` multiplier syntax crashes it, and `!` comments are not stripped. | Repro | Fixed | Adds `angdeg` (ABINIT construction, including the trigonal setting), `n*value` repeats, `!` comments, and D-exponent floats (also closes L-22); strained jobs drop `angdeg` when writing `rprim`. Tests: `QuadrupolarDFT/tests/test_finite_displacement.py` (hexagonal and trigonal against textbook vectors), `test_abinit.py`, `test_strain_coupling.py`. |
 
 ## CI and quality gates
 
@@ -137,7 +137,7 @@ code, not run.
 | L-19 | esr | `esr/deer.py:231` | `deer_dipolar_spectrum` subtracts `signal[-1]`, not the (1−λ) offset its docstring describes. | Open | |
 | L-20 | constants | `esr/systems.py:167`, dnp, nano_mr, nonresonant | Physical constants come from mixed CODATA vintages and are duplicated per module. | Open | |
 | L-21 | nqr | `nqr/structure_coupling.py:319`, `QDFT/strain_coupling.py:633` | The posix-`shlex` CIF tokenizer rejects legal CIF quoting (`'O'Brien'`). | Open | |
-| L-22 | qdft | `QDFT/abinit.py` | `_FLOAT` accepts Fortran `D` exponents, but `float()` fails on them. | Open | |
+| L-22 | qdft | `QDFT/abinit.py` | `_FLOAT` accepts Fortran `D` exponents, but `float()` fails on them. | Fixed | `_fortran_float` helper; fixed together with H-13. |
 | L-23 | nqrdb | `NQRDB/scripts/build_cwru_database.py` `first_number`/`parse_time_s` | No scientific notation; `µs` vs `us`; "hours" matches "us". | Open | |
 | L-24 | nqr | `nqr/isotopes.py` | 65Cu γ is about 0.2% high; the docstring's higher axial line positions are wrong for integer spin ≥ 2. | Open | |
 | L-25 | nqr | `nqr/hamiltonians.py:98` | The 1e-6 × span degeneracy floor can drop weak-field Zeeman transitions for heavy nuclei. | Open | |
@@ -173,3 +173,4 @@ code, not run.
 
 - 2026-11-01: Tracker created from the review of `e25d982`. H-01 to H-13 assigned for fixing.
 - 2026-11-01: H-10, H-11 fixed (ESR hyperfine field axis and derivative convention).
+- 2026-11-01: H-03 (SLSE free precession), H-12 (CWRU T1/T2 units), H-13 and L-22 (ABINIT structure parser) fixed.

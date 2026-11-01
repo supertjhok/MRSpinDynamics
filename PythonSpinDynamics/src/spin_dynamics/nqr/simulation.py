@@ -364,6 +364,11 @@ def simulate_slse(
 ) -> SLSEResult:
     """Simulate a selective-pulse SLSE echo train.
 
+    Each cycle is the detection pulse followed by free precession at the pulse
+    detuning for the remainder of ``echo_spacing_seconds``; echo ``k`` is sampled
+    at the end of cycle ``k``. Without ``relaxation`` the cycle is propagated
+    unitarily, which is the ``T1, T2 -> inf`` limit of the relaxing path.
+
     ``backend`` selects the diagonalizer for the powder orientation scan:
     ``"numpy"`` (the reference) or ``"jax"`` (one batched eigensolve over all
     orientations, requires the optional ``jax`` extra). Results are identical.
@@ -414,20 +419,20 @@ def simulate_slse(
             else np.asarray(initial_density, dtype=np.complex128).copy()
         )
         echoes = np.zeros(sequence.num_echoes, dtype=np.complex128)
+        # One SLSE cycle is the detection pulse followed by free precession at
+        # the detuning for the rest of the echo spacing; both branches use the
+        # same step list and sample at the end of each cycle, so the unitary
+        # branch is exactly the T1, T2 -> inf limit of the relaxing branch.
+        steps = _relaxing_slse_steps(
+            site.dimension,
+            transition,
+            sequence,
+            sample.b1_direction_pas,
+        )
         if relaxation is None:
-            detuning_hz = _pulse_detuning_hz(sequence.detection, transition)
-            hamiltonian = selective_pulse_hamiltonian(
-                site.dimension,
-                transition,
-                nutation_hz=sequence.detection.nutation_hz,
-                phase=sequence.detection.phase,
-                b1_direction_pas=sample.b1_direction_pas,
-                detuning_hz=detuning_hz,
-            )
-            unitary = propagator(
-                hamiltonian,
-                sequence.detection.duration_seconds,
-            )
+            unitary = np.eye(site.dimension, dtype=np.complex128)
+            for step_hamiltonian, step_duration in steps:
+                unitary = propagator(step_hamiltonian, step_duration) @ unitary
             unitary_dagger = unitary.conj().T
             for echo_idx in range(sequence.num_echoes):
                 density = unitary @ density @ unitary_dagger
@@ -437,12 +442,6 @@ def simulate_slse(
                     b1_direction_pas=sample.b1_direction_pas,
                 )
         else:
-            steps = _relaxing_slse_steps(
-                site.dimension,
-                transition,
-                sequence,
-                sample.b1_direction_pas,
-            )
             cycle = cycle_superoperator(steps, relaxation=relaxation)
             eigenvalues = np.linalg.eigvals(cycle)
             local_eigenvalues.append(eigenvalues)

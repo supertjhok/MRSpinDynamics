@@ -21,7 +21,10 @@ import numpy as np
 
 from .constants import BARN_M2, ELEMENTARY_CHARGE_C, PLANCK_CONSTANT_J_S
 from .finite_displacement import (
+    _ABINIT_TOKEN_RE,
+    _COMMENT_CHARS,
     Crystal,
+    _expand_numeric_token,
     abinit_input_with_positions,
     collect_efg_outputs,
 )
@@ -464,6 +467,11 @@ def _replace_lattice_block(text: str, lattice_angstrom: np.ndarray) -> str:
     replaced = _replace_keyword_values(replaced_acell, "rprim", 9, rprim_block)
     if replaced is not None:
         return replaced
+    # ABINIT rejects rprim together with angdeg, so drop an angdeg cell
+    # description before inserting the explicit strained rprim.
+    without_angdeg = _replace_keyword_values(replaced_acell, "angdeg", 3, "")
+    if without_angdeg is not None:
+        replaced_acell = without_angdeg
     match = re.search(r"(?:^|\n)[ \t]*acell\b[^\n]*(?:\n)?", replaced_acell)
     if match is None:
         raise ValueError("base input has no acell block")
@@ -487,7 +495,7 @@ def _replace_keyword_values(
     if match is None:
         return None
     start = match.start() + (1 if text[match.start()] == "\n" else 0)
-    token_re = re.compile(r"#[^\n]*|\S+")
+    token_re = _ABINIT_TOKEN_RE
     seen = 0
     end = match.end()
     while seen < value_count:
@@ -496,18 +504,19 @@ def _replace_keyword_values(
             return None
         token = token_match.group(0)
         end = token_match.end()
-        if token.startswith("#"):
+        if token.startswith(_COMMENT_CHARS):
             continue
         try:
-            float(token.replace("d", "e").replace("D", "e"))
+            seen += len(_expand_numeric_token(token))
         except ValueError:
             return None
-        seen += 1
+    if seen != value_count:
+        return None
     if allow_unit:
         token_match = token_re.search(text, end)
         if token_match is not None:
             token = token_match.group(0)
-            if not token.startswith("#") and token.lower() in {
+            if not token.startswith(_COMMENT_CHARS) and token.lower() in {
                 "angstrom",
                 "angstr",
                 "angst",

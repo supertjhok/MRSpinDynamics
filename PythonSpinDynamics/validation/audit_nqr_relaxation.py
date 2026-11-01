@@ -134,9 +134,10 @@ def audit_relaxation_records(database: Path = DEFAULT_DATABASE) -> dict[str, Any
                 "series, uncertainty, pulse-sequence definition, and sufficient model inputs."
             ),
             "sodium_nitrite": (
-                "The CWRU HTML and NRL summary duplicate the same three lines, but the "
-                "HTML-normalized T1/T2 values are exactly 1000 times the NRL values. "
-                "Treat the HTML entries as unresolved unit conflicts, not independent data."
+                "The CWRU HTML and NRL summary duplicate the same three lines. The "
+                "unitless CWRU T1/T2 cells are milliseconds and are now normalized as "
+                "such, so the two sources agree; they remain duplicates, not "
+                "independent data."
             ),
         },
     }

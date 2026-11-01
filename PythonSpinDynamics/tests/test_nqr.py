@@ -642,6 +642,100 @@ H2 H 0.5 0 0
         np.testing.assert_allclose(result.sweep_values, [0.05, 0.1, 0.2])
         np.testing.assert_allclose(result.effective_t2eff_seconds, 0.2)
 
+    @staticmethod
+    def _bloch_slse_magnitudes(
+        nutation_hz: float,
+        detuning_hz: float,
+        pulse_s: float,
+        spacing_s: float,
+        num_echoes: int,
+        initial_mz: float,
+    ) -> np.ndarray:
+        """Independent fictitious-spin-1/2 Bloch-vector SLSE reference.
+
+        Pulse: rotation about ``2 pi (nu1, 0, delta)`` for ``pulse_s``; free:
+        rotation about z by ``2 pi delta (spacing - pulse)``. ``|rho_ul|`` equals
+        the transverse Bloch magnitude and is independent of sign conventions.
+        """
+
+        def rotation(axis: np.ndarray, angle: float) -> np.ndarray:
+            norm = float(np.linalg.norm(axis))
+            if norm == 0.0 or angle == 0.0:
+                return np.eye(3)
+            n = axis / norm
+            k = np.array([[0, -n[2], n[1]], [n[2], 0, -n[0]], [-n[1], n[0], 0]])
+            return np.eye(3) + np.sin(angle) * k + (1 - np.cos(angle)) * (k @ k)
+
+        field = 2.0 * np.pi * np.array([nutation_hz, 0.0, detuning_hz])
+        pulse = rotation(field, float(np.linalg.norm(field)) * pulse_s)
+        free = rotation(
+            np.array([0.0, 0.0, 1.0]),
+            2.0 * np.pi * detuning_hz * (spacing_s - pulse_s),
+        )
+        vector = np.array([0.0, 0.0, initial_mz])
+        out = []
+        for _ in range(num_echoes):
+            vector = free @ (pulse @ vector)
+            out.append(np.hypot(vector[0], vector[1]))
+        return np.asarray(out)
+
+    def test_unitary_slse_includes_off_resonance_free_precession(self) -> None:
+        # Regression: the relaxation=None branch used to apply only the pulse
+        # propagator per echo, dropping the detuned free precession between
+        # pulses, so it disagreed with the T1, T2 -> inf relaxing branch.
+        site = QuadrupolarSite(spin=1.0, quadrupole_frequency_hz=3.4e6, eta=0.2)
+        eigensystem = diagonalize_site(site)
+        transition = eigensystem.transition("x")
+        density = equilibrium_density(eigensystem.levels_hz)
+        initial_mz = 0.5 * float(
+            np.real(
+                density[transition.lower, transition.lower]
+                - density[transition.upper, transition.upper]
+            )
+        )
+        orientation = [OrientationSample((1.0, 0.0, 0.0))]
+        for offset_hz in (0.0, 2000.0):
+            sequence = slse_sequence(
+                "x",
+                pulse_duration_seconds=50e-6,
+                nutation_hz=5000.0,
+                echo_spacing_seconds=1e-3,
+                num_echoes=8,
+                rf_frequency_hz=transition.frequency_hz + offset_hz,
+            )
+            unitary = simulate_slse(site, sequence, orientations=orientation)
+            relaxing = simulate_slse(
+                site,
+                sequence,
+                orientations=orientation,
+                relaxation=NQRRelaxationModel(t1_seconds=1e9, t2_seconds=1e9),
+            )
+            reference = self._bloch_slse_magnitudes(
+                5000.0, offset_hz, 50e-6, 1e-3, 8, initial_mz
+            )
+            np.testing.assert_allclose(
+                np.abs(unitary.echo_amplitudes), reference, atol=1e-9
+            )
+            np.testing.assert_allclose(
+                unitary.echo_amplitudes, relaxing.echo_amplitudes, atol=1e-6
+            )
+        # On resonance a 90-degree pulse train alternates full/zero coherence.
+        np.testing.assert_allclose(
+            np.abs(simulate_slse(
+                site,
+                slse_sequence(
+                    "x",
+                    pulse_duration_seconds=50e-6,
+                    nutation_hz=5000.0,
+                    echo_spacing_seconds=1e-3,
+                    num_echoes=4,
+                ),
+                orientations=orientation,
+            ).echo_amplitudes),
+            [initial_mz, 0.0, initial_mz, 0.0],
+            atol=1e-12,
+        )
+
     def test_gaussian_efg_distribution_normalizes_weights(self) -> None:
         site = QuadrupolarSite(spin=1, quadrupole_frequency_hz=900.0, eta=0.3)
 

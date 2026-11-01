@@ -76,6 +76,123 @@ class StructureParseTests(unittest.TestCase):
         self.assertIn("nucefg 2", text)
         self.assertIn("ecut 25", text)
 
+    def test_angdeg_hexagonal_cell_matches_textbook_vectors(self):
+        # Regression: angdeg used to be ignored, giving an orthorhombic 5x5x8 cell.
+        text = """
+natom 2
+ntypat 2
+znucl 7 11
+typat 1 2
+acell 5.0 5.0 8.0 Angstrom
+angdeg 90 90 120
+xred 0 0 0  0.333333333333 0.666666666667 0.5
+"""
+        crystal = parse_abinit_structure(text)
+        # Hexagonal: a1 = a x, a2 = a (-1/2, sqrt(3)/2, 0), a3 = c z.
+        expected = np.array(
+            [[5.0, 0.0, 0.0], [-2.5, 2.5 * np.sqrt(3.0), 0.0], [0.0, 0.0, 8.0]]
+        )
+        np.testing.assert_allclose(crystal.lattice_angstrom, expected, atol=1e-12)
+        np.testing.assert_allclose(
+            crystal.cart_angstrom[1],
+            [0.0, 5.0 / np.sqrt(3.0), 4.0],
+            atol=1e-9,
+        )
+
+    def test_angdeg_equal_angles_use_trigonal_setting(self):
+        alpha = 60.0
+        text = f"""
+natom 1
+ntypat 1
+znucl 29
+typat 1
+acell 3*4.0 angstrom
+angdeg 3*{alpha}
+xred 0 0 0
+"""
+        lattice = parse_abinit_structure(text).lattice_angstrom
+        lengths = np.linalg.norm(lattice, axis=1)
+        np.testing.assert_allclose(lengths, 4.0, atol=1e-12)
+        for i, j in ((0, 1), (0, 2), (1, 2)):
+            cosine = lattice[i] @ lattice[j] / (lengths[i] * lengths[j])
+            self.assertAlmostEqual(cosine, np.cos(np.deg2rad(alpha)), places=12)
+        # ABINIT's trigonal setting: equal z components, R1 in the xz plane.
+        np.testing.assert_allclose(lattice[:, 2], lattice[0, 2], atol=1e-12)
+        self.assertAlmostEqual(lattice[0, 1], 0.0, places=12)
+
+    def test_general_angdeg_matches_cell_metric(self):
+        text = """
+natom 1
+ntypat 1
+znucl 7
+typat 1
+acell 4.0 5.0 6.0 angstrom
+angdeg 80 95 105
+xred 0 0 0
+"""
+        lattice = parse_abinit_structure(text).lattice_angstrom
+        a, b, c = np.linalg.norm(lattice, axis=1)
+        np.testing.assert_allclose([a, b, c], [4.0, 5.0, 6.0], atol=1e-12)
+        self.assertAlmostEqual(
+            np.degrees(np.arccos(lattice[1] @ lattice[2] / (b * c))), 80.0, places=9
+        )
+        self.assertAlmostEqual(
+            np.degrees(np.arccos(lattice[0] @ lattice[2] / (a * c))), 95.0, places=9
+        )
+        self.assertAlmostEqual(
+            np.degrees(np.arccos(lattice[0] @ lattice[1] / (a * b))), 105.0, places=9
+        )
+
+    def test_rejects_rprim_and_angdeg_together(self):
+        with self.assertRaises(ValueError):
+            parse_abinit_structure(
+                BASE_INPUT.replace("chkprim 0", "angdeg 90 90 90\nrprim 1 0 0 0 1 0 0 0 1")
+            )
+
+    def test_multiplier_syntax_comments_and_d_exponents(self):
+        # Regression: "3*10.0" and "2*1" used to raise "non-numeric token".
+        compact = """
+natom 4 ! four atoms
+ntypat 2
+znucl 7 8
+typat 2*1 2*2   # repeat syntax
+acell 3*1.0D+01 bohr
+xred
+  4*0.0          ! atom 1 x,y,z and atom 2 x
+  0.5 0.5
+  0.25 0.25 0.25
+  3*0.75
+"""
+        explicit = """
+natom 4
+ntypat 2
+znucl 7 8
+typat 1 1 2 2
+acell 10.0 10.0 10.0 bohr
+xred
+  0.0 0.0 0.0  0.0 0.5 0.5
+  0.25 0.25 0.25  0.75 0.75 0.75
+"""
+        got = parse_abinit_structure(compact)
+        want = parse_abinit_structure(explicit)
+        self.assertEqual(got.species_z, (7, 7, 8, 8))
+        np.testing.assert_allclose(
+            got.lattice_angstrom, np.eye(3) * 10.0 * 0.529177210544, atol=1e-12
+        )
+        np.testing.assert_allclose(got.lattice_angstrom, want.lattice_angstrom)
+        np.testing.assert_allclose(got.cart_angstrom, want.cart_angstrom)
+        # The position block is still replaceable when it uses repeat tokens.
+        shifted = got.with_positions(got.cart_angstrom + 0.01)
+        text = abinit_input_with_positions(compact, shifted)
+        self.assertNotIn("4*0.0", text)
+        np.testing.assert_allclose(
+            parse_abinit_structure(text).cart_angstrom, shifted.cart_angstrom, atol=1e-9
+        )
+
+    def test_repeat_token_overrunning_count_is_rejected(self):
+        with self.assertRaises(ValueError):
+            parse_abinit_structure(BASE_INPUT.replace("acell 3.557 5.569 5.384", "acell 4*3.557"))
+
 
 class DisplacementGeometryTests(unittest.TestCase):
     def test_step_hits_requested_max_displacement(self):

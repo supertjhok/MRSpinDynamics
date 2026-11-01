@@ -28,15 +28,15 @@ class NQRDatabaseRelaxationAuditTests(unittest.TestCase):
         self.assertEqual(plausibility["nonpositive_values"], [])
         self.assertEqual(plausibility["t2_greater_than_t1_line_ids"], [])
 
-    def test_sodium_nitrite_duplicate_sources_have_factor_1000_conflict(self) -> None:
+    def test_no_cross_source_scale_conflicts_remain(self) -> None:
+        # The CWRU HTML sodium-nitrite T1/T2 cells carry no unit and are in
+        # milliseconds; they used to be normalized as seconds, a factor-1000
+        # conflict with the NRL summary (6 values). NQRDatabase now applies the
+        # CWRU millisecond convention, so the duplicate sources agree.
         report = AUDIT.audit_relaxation_records()
         conflicts = report["plausibility"]["cross_source_scale_conflicts"]
-        sodium = [item for item in conflicts if item["compound"] == "Sodium Nitrite"]
 
-        self.assertEqual(len(sodium), 6)
-        self.assertEqual({item["observable"] for item in sodium}, {"t1_s", "t2_s"})
-        for item in sodium:
-            self.assertAlmostEqual(item["max_to_min_ratio"], 1000.0)
+        self.assertEqual(conflicts, [])
 
 
 if __name__ == "__main__":
