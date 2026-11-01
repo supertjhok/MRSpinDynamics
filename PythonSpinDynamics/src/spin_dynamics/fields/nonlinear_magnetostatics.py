@@ -60,6 +60,18 @@ MU0 = 4.0e-7 * np.pi
 # ---------------------------------------------------------------------------
 
 
+def _brauer_nu(b2, bk1, bk2, bk3, b2cap) -> np.ndarray:
+    """Brauer reluctivity ``bk1 + bk2 exp(bk3 min(B^2, b2cap))`` clamped to ``1/mu0``.
+
+    The one evaluation shared by :class:`BrauerBH` and the per-node planar and
+    axisymmetric solvers (the coefficients may be scalars or node arrays).
+    """
+
+    b2 = np.asarray(b2, dtype=np.float64)
+    nu = bk1 + bk2 * np.exp(bk3 * np.minimum(b2, b2cap))
+    return np.minimum(nu, 1.0 / MU0)
+
+
 @dataclass(frozen=True)
 class BrauerBH:
     """Smooth Brauer soft-magnetic reluctivity ``nu(B^2) = bk1 + bk2 exp(bk3 B^2)``.
@@ -78,9 +90,7 @@ class BrauerBH:
     def nu_of_b2(self, b2: np.ndarray) -> np.ndarray:
         """Return reluctivity at ``B^2`` (clamped to a physical ``mu_r >= 1``)."""
 
-        b2 = np.asarray(b2, dtype=np.float64)
-        nu = self.bk1 + self.bk2 * np.exp(self.bk3 * np.minimum(b2, self.b2cap))
-        return np.minimum(nu, 1.0 / MU0)
+        return _brauer_nu(b2, self.bk1, self.bk2, self.bk3, self.b2cap)
 
     def dnu_db2(self, b2: np.ndarray) -> np.ndarray:
         """Return ``d(nu)/d(B^2)`` (zero where ``nu`` is clamped)."""
@@ -259,16 +269,20 @@ def _build_matrix_3d(diag, c_ip, c_im, c_jp, c_jm, c_kp, c_km):
     """Assemble the 7-point stencil sparse matrix (boundary rows are identity).
 
     ``diag`` and the six directional coupling arrays are shaped like the
-    ``(nx, ny, nz)`` grid, with boundary rows already set to identity. Interior
-    rows retain their couplings to boundary nodes (whose values the right-hand
-    side pins), so the matrix is a nonsingular M-matrix; it is mildly asymmetric
-    only in those boundary-adjacent rows, which both the sparse LU and pyamg's
-    CG-accelerated solve handle.
+    ``(nx, ny, nz)`` grid, with boundary rows already set to identity. The
+    boundary values are homogeneous Dirichlet (zero right-hand side), so the
+    interior rows' couplings to boundary nodes multiply zeros and are dropped:
+    that eliminates the boundary columns and leaves a symmetric positive-definite
+    M-matrix, as the CG-accelerated AMG solve requires (with them kept, the
+    boundary-adjacent rows were non-symmetric).
     """
 
     n0, n1, n2 = diag.shape
     total = n0 * n1 * n2
     idx = np.arange(total).reshape(n0, n1, n2)
+    interior = np.zeros((n0, n1, n2), dtype=bool)
+    interior[1:-1, 1:-1, 1:-1] = True
+    keep = interior.ravel()
     rows = [
         idx.ravel(),
         idx[:-1, :, :].ravel(), idx[1:, :, :].ravel(),
@@ -287,6 +301,8 @@ def _build_matrix_3d(diag, c_ip, c_im, c_jp, c_jm, c_kp, c_km):
         -c_jp[:, :-1, :].ravel(), -c_jm[:, 1:, :].ravel(),
         -c_kp[:, :, :-1].ravel(), -c_km[:, :, 1:].ravel(),
     ]
+    for index in range(1, len(data)):  # off-diagonals: drop boundary columns
+        data[index] = np.where(keep[cols[index]], data[index], 0.0)
     return _coo_matrix(
         (np.concatenate(data), (np.concatenate(rows), np.concatenate(cols))),
         shape=(total, total),
@@ -576,10 +592,7 @@ class PlanarMagnetostatics:
             return nu_lin
         b_x, b_y = self._b_field(a_z)
         b2 = b_x**2 + b_y**2
-        nu_nl = self._bk1 + self._bk2 * np.exp(
-            self._bk3 * np.minimum(b2, self._b2cap)
-        )
-        nu_nl = np.minimum(nu_nl, 1.0 / MU0)
+        nu_nl = _brauer_nu(b2, self._bk1, self._bk2, self._bk3, self._b2cap)
         return np.where(self.nl, nu_nl, nu_lin)
 
     def _operator(self, nu: np.ndarray):
@@ -836,10 +849,7 @@ class AxisymmetricMagnetostatics:
             return nu_lin
         b_r, b_z = self._b_field(a_phi)
         b2 = b_r**2 + b_z**2
-        nu_nl = self._bk1 + self._bk2 * np.exp(
-            self._bk3 * np.minimum(b2, self._b2cap)
-        )
-        nu_nl = np.minimum(nu_nl, 1.0 / MU0)
+        nu_nl = _brauer_nu(b2, self._bk1, self._bk2, self._bk3, self._b2cap)
         return np.where(self.nl, nu_nl, nu_lin)
 
     # The operator is the conservative finite-volume form of

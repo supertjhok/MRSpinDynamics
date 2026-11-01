@@ -145,9 +145,11 @@ class FieldCrossCheckTests(unittest.TestCase):
             with self.subTest(**kw):
                 l_field = solenoid_field_inductance(**kw)
                 l_sheet = solenoid_properties(frequency=5e6, **kw).inductance_currentsheet
-                # Two independent models (stacked-loop partial-L vs current-sheet formula)
-                # should agree to ~15%.
-                self.assertLess(abs(l_field - l_sheet) / l_sheet, 0.15)
+                # Two independent models (stacked-loop partial-L vs current-sheet
+                # formula) of the same winding (length = N * pitch) agree to ~3%.
+                # Pre-fix the loops were spread at pitch length/(N-1), a different
+                # coil, and the first case was 8.5% low.
+                self.assertLess(abs(l_field - l_sheet) / l_sheet, 0.04)
 
 
 class PhysicsTrendTests(unittest.TestCase):

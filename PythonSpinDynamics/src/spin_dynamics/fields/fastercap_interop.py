@@ -20,12 +20,14 @@ always available.
 from __future__ import annotations
 
 import os
+import shutil
 import tempfile
 import time
 
 import numpy as np
 
 from spin_dynamics.fields.coil_peec import Conductor, _rotation_minimizing_frames
+from spin_dynamics.fields.fasthenry_interop import _com_value, _quit_com
 
 __all__ = [
     "to_fastercap_panels",
@@ -108,26 +110,34 @@ def run_fastercap(
     ``tolerance`` is FasterCap's automatic mesh-refinement tolerance (``-a``). Windows +
     FasterCap + pywin32 with a registered type library only; raises ``RuntimeError``
     otherwise. See the module docstring for the type-library registration step.
+
+    ``IsRunning``/``GetCapacitance`` work whether they resolve as methods (early binding)
+    or properties (the late-binding fallback). The COM server is always quit and a
+    temporary panel directory (used when ``workdir`` is ``None``) is always removed,
+    also on timeout or error.
     """
 
     deck = to_fastercap_panels(conductor, n_theta=n_theta)
-    tmpdir = workdir or tempfile.mkdtemp(prefix="fastercap_")
-    path = os.path.join(tmpdir, "peec_conductor.txt")
-    with open(path, "w", encoding="ascii") as fh:
-        fh.write(deck)
-
-    doc = _find_fastercap_com()
-    doc.Run('"%s" -a%g' % (os.path.abspath(path), tolerance))
-    t0 = time.time()
-    while doc.IsRunning():
-        time.sleep(0.2)
-        if time.time() - t0 > timeout:  # pragma: no cover
-            raise RuntimeError("FasterCap run exceeded the timeout")
-    cap = np.array(doc.GetCapacitance(), dtype=np.float64)
+    own_tmpdir = workdir is None
+    tmpdir = tempfile.mkdtemp(prefix="fastercap_") if own_tmpdir else workdir
+    doc = None
     try:
-        doc.Quit()
-    except Exception:  # pragma: no cover
-        pass
+        path = os.path.join(tmpdir, "peec_conductor.txt")
+        with open(path, "w", encoding="ascii") as fh:
+            fh.write(deck)
+        doc = _find_fastercap_com()
+        doc.Run('"%s" -a%g' % (os.path.abspath(path), tolerance))
+        t0 = time.time()
+        while _com_value(doc, "IsRunning"):
+            time.sleep(0.2)
+            if time.time() - t0 > timeout:
+                raise RuntimeError("FasterCap run exceeded the timeout")
+        cap = np.array(_com_value(doc, "GetCapacitance"), dtype=np.float64)
+    finally:
+        if doc is not None:
+            _quit_com(doc)
+        if own_tmpdir:
+            shutil.rmtree(tmpdir, ignore_errors=True)
     return float(cap.reshape(-1)[0])
 
 

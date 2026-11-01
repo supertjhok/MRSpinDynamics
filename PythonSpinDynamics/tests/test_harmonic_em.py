@@ -151,6 +151,49 @@ def test_h_only_solution_requires_or_uses_relative_permeability() -> None:
     np.testing.assert_allclose(with_mu.magnetic_flux_density(), expected)
 
 
+def test_stored_b_rejects_an_explicit_relative_permeability() -> None:
+    # Pre-fix an explicit mu_r was silently ignored when B is stored, so
+    # magnetic_flux_density(relative_permeability=2.0) returned B unchanged.
+    solution = _solution()
+    with pytest.raises(ValueError, match="H-only"):
+        solution.magnetic_flux_density(relative_permeability=2.0)
+    with pytest.raises(ValueError, match="H-only"):
+        solution.b1_plus(relative_permeability=2.0)
+    np.testing.assert_allclose(
+        solution.magnetic_flux_density(), solution.magnetic_flux_density_t
+    )
+
+
+def test_b_and_h_must_satisfy_the_stored_constitutive_map() -> None:
+    domain = SpatialDomain((np.array([0.0, 1.0]),))
+    shape = domain.shape + (3,)
+    electric = np.zeros(shape, dtype=np.complex128)
+    magnetic_h = np.ones(shape, dtype=np.complex128)
+    mu_r = np.array([1.0, 2.0])
+    consistent_b = MU_0 * mu_r[:, np.newaxis] * magnetic_h
+    solution = HarmonicEMSolution(
+        domain,
+        1.0e6,
+        "exp(+iwt)",
+        electric,
+        magnetic_flux_density_t=consistent_b,
+        magnetic_field_a_per_m=magnetic_h,
+        relative_permeability_map=mu_r,
+    )
+    np.testing.assert_allclose(solution.magnetic_flux_density(), consistent_b)
+    # Pre-fix a B array off by the mu_r map (here mu_r = 1 assumed) was accepted.
+    with pytest.raises(ValueError, match="inconsistent"):
+        HarmonicEMSolution(
+            domain,
+            1.0e6,
+            "exp(+iwt)",
+            electric,
+            magnetic_flux_density_t=MU_0 * magnetic_h,
+            magnetic_field_a_per_m=magnetic_h,
+            relative_permeability_map=mu_r,
+        )
+
+
 def test_spatial_field_adapter_uses_nonnegative_circular_magnitudes() -> None:
     solution = _solution()
     maps = solution.to_spatial_field_maps(

@@ -66,6 +66,70 @@ class PanelExportTests(unittest.TestCase):
             to_fastercap_panels(c)
 
 
+class _EarlyBoundFasterCap:
+    """COM stand-in with gencache-style methods (``IsRunning()``)."""
+
+    def __init__(self, *, hang: bool = False) -> None:
+        self.hang = hang
+        self.quit_calls = 0
+        self.paths: list[str] = []
+
+    def Run(self, command: str) -> bool:
+        self.paths.append(command.split('"')[1])
+        return True
+
+    def IsRunning(self) -> bool:
+        return self.hang
+
+    def GetCapacitance(self):
+        return [[12.5e-12]]
+
+    def Quit(self) -> None:
+        self.quit_calls += 1
+
+
+class _LateBoundFasterCap(_EarlyBoundFasterCap):
+    """Dynamic-dispatch stand-in: argument-less members are invoked on access."""
+
+    @property
+    def IsRunning(self) -> bool:  # type: ignore[override]
+        return self.hang
+
+    @property
+    def GetCapacitance(self):  # type: ignore[override]
+        return [[12.5e-12]]
+
+
+class RunFasterCapWithFakeComTests(unittest.TestCase):
+    def _run(self, fake, **kw):
+        from unittest import mock
+
+        import spin_dynamics.fields.fastercap_interop as interop
+
+        with mock.patch.object(interop, "_find_fastercap_com", return_value=fake):
+            return interop.run_fastercap(_straight_wire(n=6), n_theta=8, **kw)
+
+    def test_early_and_late_bound_com_both_work(self) -> None:
+        # Pre-fix the late-binding fallback failed: IsRunning() called a bool.
+        import os
+
+        for fake in (_EarlyBoundFasterCap(), _LateBoundFasterCap()):
+            with self.subTest(type(fake).__name__):
+                self.assertEqual(self._run(fake), 12.5e-12)
+                self.assertEqual(fake.quit_calls, 1)
+                # Pre-fix the temporary panel directory was never removed.
+                self.assertFalse(os.path.exists(os.path.dirname(fake.paths[0])))
+
+    def test_timeout_still_quits_com_and_cleans_up(self) -> None:
+        import os
+
+        fake = _EarlyBoundFasterCap(hang=True)
+        with self.assertRaisesRegex(RuntimeError, "timeout"):
+            self._run(fake, timeout=0.0)
+        self.assertEqual(fake.quit_calls, 1)
+        self.assertFalse(os.path.exists(os.path.dirname(fake.paths[0])))
+
+
 @unittest.skipUnless(_fastercap_available(), "FasterCap COM automation not available")
 class LiveCapacitanceTests(unittest.TestCase):
     def test_wire_capacitance_matches_fastercap(self) -> None:

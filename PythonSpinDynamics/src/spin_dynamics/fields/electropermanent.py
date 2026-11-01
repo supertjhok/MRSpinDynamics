@@ -19,7 +19,12 @@ from typing import Literal
 
 import numpy as np
 
-from spin_dynamics.fields.magnetostatics import GAMMA_PROTON, MU0
+from spin_dynamics.fields.magnetostatics import (
+    GAMMA_PROTON,
+    MU0,
+    _cylinder_cubature,
+    _point_dipole_field,
+)
 
 EvidenceClass = Literal["measured", "simulated", "specified", "inferred"]
 RemanenceBranch = Literal[
@@ -491,23 +496,12 @@ def _rod_dipoles(
     n_length = int(n_length)
     if n_cross < 1 or n_length < 1:
         raise ValueError("n_cross and n_length must be at least one")
-    coords = (
-        (np.arange(n_cross, dtype=np.float64) + 0.5) / n_cross - 0.5
-    ) * (2.0 * rod.radius_m)
-    xx, yy = np.meshgrid(coords, coords, indexing="ij")
-    mask = xx**2 + yy**2 <= rod.radius_m**2
-    transverse_x = xx[mask]
-    transverse_y = yy[mask]
-    axial = (
-        (np.arange(n_length, dtype=np.float64) + 0.5) / n_length - 0.5
-    ) * rod.length_m
-    tx, zz = np.meshgrid(transverse_x, axial, indexing="ij")
-    ty, _ = np.meshgrid(transverse_y, axial, indexing="ij")
+    tx, ty, zz = _cylinder_cubature(rod.radius_m, rod.length_m, n_cross, n_length)
     first, second = _transverse_frame(rod.axis)
     offsets = (
-        tx.ravel()[:, None] * first
-        + ty.ravel()[:, None] * second
-        + zz.ravel()[:, None] * np.asarray(rod.axis)
+        tx[:, None] * first
+        + ty[:, None] * second
+        + zz[:, None] * np.asarray(rod.axis)
     )
     positions = offsets + np.asarray(rod.center_m)
     moment = rod.magnetic_moment_am2 / positions.shape[0]
@@ -561,33 +555,7 @@ def electropermanent_field(
         source_moments.append(moments)
     positions = np.concatenate(source_positions, axis=0)
     moments = np.concatenate(source_moments, axis=0)
-    flat = pts.reshape(-1, 3)
-    result = np.zeros_like(flat)
-    coefficient = MU0 / (4.0 * np.pi)
-    for start in range(0, flat.shape[0], chunk_size):
-        stop = min(start + chunk_size, flat.shape[0])
-        displacement = flat[start:stop, None, :] - positions[None, :, :]
-        radius_squared = np.sum(displacement**2, axis=-1)
-        moment_dot_radius = np.sum(moments[None, :, :] * displacement, axis=-1)
-        with np.errstate(divide="ignore", invalid="ignore"):
-            inverse_radius_cubed = np.where(
-                radius_squared > 0.0,
-                radius_squared**-1.5,
-                0.0,
-            )
-            inverse_radius_fifth = np.where(
-                radius_squared > 0.0,
-                inverse_radius_cubed / radius_squared,
-                0.0,
-            )
-        field = (
-            3.0
-            * displacement
-            * moment_dot_radius[..., None]
-            * inverse_radius_fifth[..., None]
-            - moments[None, :, :] * inverse_radius_cubed[..., None]
-        )
-        result[start:stop] = coefficient * np.sum(field, axis=1)
+    result = _point_dipole_field(pts.reshape(-1, 3), positions, moments, chunk_size)
     return result.reshape(pts.shape)
 
 

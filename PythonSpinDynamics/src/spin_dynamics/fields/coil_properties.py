@@ -530,6 +530,11 @@ def solenoid_field_inductance(
     quasistatic (DC) value and should agree with
     :attr:`CoilProperties.inductance_currentsheet` at low frequency, serving as a
     solver-independent cross-check of the semi-analytical model.
+
+    ``length`` is the winding length, as in :func:`solenoid_properties`: the turns sit
+    at pitch ``p = length / turns`` with centres spanning ``length - p`` (each turn
+    occupies one pitch of the winding). Note :func:`spin_dynamics.fields.coils.solenoid`
+    takes the centre-to-centre span of the end turns instead.
     """
 
     from spin_dynamics.fields.quasistatic import coil_inductance
@@ -539,12 +544,9 @@ def solenoid_field_inductance(
         raise ValueError("turns must be at least 1")
     radius = float(diameter) / 2.0
     wire_radius = float(wire_diameter) / 2.0
-    if N == 1:
-        centers = np.zeros((1, 3))
-    else:
-        offsets = np.linspace(-float(length) / 2.0, float(length) / 2.0, N)
-        centers = np.zeros((N, 3))
-        centers[:, 2] = offsets
+    pitch = float(length) / N
+    centers = np.zeros((N, 3))
+    centers[:, 2] = np.linspace(-0.5 * (length - pitch), 0.5 * (length - pitch), N)
     radii = np.full(N, radius)
     return float(
         coil_inductance(radii, centers, wire_radius=wire_radius, axis="z", n_segments=n_segments)

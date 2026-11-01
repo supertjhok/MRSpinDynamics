@@ -1545,10 +1545,14 @@ def _parse_openems_output(
     iterations = re.findall(r"Time for\s+(\d+) iterations", stdout)
     if iterations:
         result["iterations"] = int(iterations[-1])
+    # openEMS pads the dB value to a fixed width, so a small attenuation prints with a
+    # space after the sign: "(- 0.00dB)", "(- 9.50dB)", "(-27.22dB)".
     energies = re.findall(
-        r"Energy:.*?\(\s*([+-]?[0-9]+(?:\.[0-9]+)?)dB\)", stdout
+        r"Energy:.*?\(\s*([+-]?)\s*([0-9]+(?:\.[0-9]+)?)dB\)", stdout
     )
-    final_energy_db = None if not energies else float(energies[-1])
+    final_energy_db = (
+        None if not energies else float(energies[-1][0] + energies[-1][1])
+    )
     if final_energy_db is not None:
         result["final_energy_db"] = final_energy_db
         result["relative_energy"] = 10.0 ** (final_energy_db / 10.0)

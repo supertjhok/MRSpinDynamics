@@ -31,6 +31,8 @@ from spin_dynamics.fields.birdcage_circuit import (
     BirdcageCircuitMode,
     BirdcageDriveSolution,
     BirdcageModalAnalysis,
+    _dominant_azimuthal_index,
+    _normalize_mode,
 )
 from spin_dynamics.fields.coil_peec import _mutualfil_matrix
 from spin_dynamics.fields.quasistatic import vector_potential
@@ -215,24 +217,6 @@ class BirdcageBranchLoading:
         object.__setattr__(self, "n_branches", size)
         object.__setattr__(self, "inductance_coupling_h", inductance)
         object.__setattr__(self, "resistance_ohm", resistance)
-
-
-def _normalize_mode(rung_currents: np.ndarray) -> np.ndarray:
-    result = np.asarray(rung_currents, dtype=np.complex128)
-    pivot = int(np.argmax(np.abs(result)))
-    scale = abs(result[pivot])
-    if scale == 0.0:
-        raise ValueError("mode current cannot be identically zero")
-    result = result / scale
-    result *= np.exp(-1.0j * np.angle(result[pivot]))
-    return np.real_if_close(result, tol=1000).astype(np.complex128)
-
-
-def _dominant_azimuthal_index(rung_currents: np.ndarray) -> int:
-    spectrum = np.abs(np.fft.fft(rung_currents))
-    spectrum[0] = 0.0
-    index = int(np.argmax(spectrum))
-    return min(index, rung_currents.size - index)
 
 
 @dataclass(frozen=True)

@@ -410,7 +410,9 @@ class HarmonicEMSolution:
 
     At least one magnetic field representation must be supplied.  ``B`` is the
     preferred interchange quantity; an H-only solution can still compute B1 if
-    ``relative_permeability_map`` is supplied.  All arrays have
+    ``relative_permeability_map`` is supplied.  When B, H and the permeability
+    map are all given they must satisfy ``B = mu0 mu_r H`` (relative 1e-6 of
+    the field scale), otherwise construction fails.  All arrays have
     ``domain.shape + (3,)`` and use SI coordinates and field units, modified by
     the declared excitation normalization.
     """
@@ -486,6 +488,16 @@ class HarmonicEMSolution:
             )
             if np.any(permeability <= 0.0):
                 raise ValueError("relative_permeability_map must be positive")
+        if magnetic_b is not None and magnetic_h is not None and permeability is not None:
+            # Both representations plus the constitutive map: they must agree,
+            # B = mu0 mu_r H, to a small fraction of the field scale.
+            expected_b = MU_0 * permeability[..., np.newaxis] * magnetic_h
+            scale = max(float(np.max(np.abs(magnetic_b))), float(np.max(np.abs(expected_b))))
+            if scale > 0.0 and float(np.max(np.abs(magnetic_b - expected_b))) > 1.0e-6 * scale:
+                raise ValueError(
+                    "magnetic_flux_density_t is inconsistent with "
+                    "mu0 * relative_permeability_map * magnetic_field_a_per_m"
+                )
         if not isinstance(self.normalization, HarmonicFieldNormalization):
             raise TypeError("normalization must be HarmonicFieldNormalization")
         if not isinstance(self.provenance, HarmonicSolverProvenance):
@@ -535,10 +547,17 @@ class HarmonicEMSolution:
 
         H-only data require either a stored ``relative_permeability_map`` or an
         explicit scalar/map argument.  No silent nonmagnetic-material assumption
-        is made at this interchange boundary.
+        is made at this interchange boundary.  When B is stored it is returned
+        as is, so an explicit ``relative_permeability`` (which could only be
+        silently ignored) is rejected.
         """
 
         if self.magnetic_flux_density_t is not None:
+            if relative_permeability is not None:
+                raise ValueError(
+                    "relative_permeability applies only to H-only solutions; this "
+                    "solution stores B (magnetic_flux_density_t)"
+                )
             return self._canonical_phasor(self.magnetic_flux_density_t)
         permeability = (
             self.relative_permeability_map

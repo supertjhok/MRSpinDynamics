@@ -50,6 +50,13 @@ def solenoid(
     Loops are normal to ``axis`` and centred on the line through ``center``.
     (The small helical/axial current component is neglected -- the standard
     stacked-loop model, accurate for the interior and near field.)
+
+    ``length`` is the centre-to-centre span of the two end turns, so the pitch is
+    ``length / (turns - 1)`` and the equivalent current sheet is one pitch longer
+    (``length + pitch``) with ``turns / (length + pitch)`` turns per metre. To model a
+    winding of length ``W`` at pitch ``W / turns`` (the convention of
+    :func:`spin_dynamics.fields.coil_properties.solenoid_properties`), pass
+    ``length = W * (turns - 1) / turns``.
     """
 
     if radius <= 0 or turns < 1:

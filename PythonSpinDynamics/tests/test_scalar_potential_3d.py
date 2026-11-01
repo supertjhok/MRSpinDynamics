@@ -146,6 +146,34 @@ class LinearSolverTests(unittest.TestCase):
             self.assertAlmostEqual(self._sphere_b_in("amg", 27, 5.0) / ref, 1.0, delta=1e-4)
         self.assertAlmostEqual(self._sphere_b_in("cg", 27, 5.0) / ref, 1.0, delta=1e-4)
 
+    def test_assembled_matrix_is_symmetric_for_cg_accelerated_amg(self) -> None:
+        # The AMG path is CG-accelerated, which needs a symmetric operator. Pre-fix
+        # the interior rows kept their couplings to the (identity) boundary rows,
+        # so A - A^T had entries up to the face conductance (~2e-3 here); with the
+        # homogeneous-Dirichlet boundary columns eliminated it is exactly symmetric
+        # and the solution is unchanged.
+        from scipy.sparse.linalg import spsolve
+
+        from spin_dynamics.fields.nonlinear_magnetostatics import _build_matrix_3d
+
+        g = _grid(0.15, 13)
+        prob = ReducedScalarPotential3D(g, g, g)
+        prob.add_material(prob.sphere((0.0, 0.0, 0.0), 0.06), linear_material(5.0))
+        prob.add_uniform_source_field((0.0, 0.0, 1000.0))
+        matrix = _build_matrix_3d(*prob._sparse_coeffs(prob.mu)).tocsr()
+        self.assertEqual(abs(matrix - matrix.T).max(), 0.0)
+        # The same psi as an independent solve of the interior unknowns alone.
+        rhs = prob._rhs(prob.mu)
+        interior = np.zeros(prob.mu.shape, dtype=bool)
+        interior[1:-1, 1:-1, 1:-1] = True
+        keep = interior.ravel()
+        reduced = matrix[keep][:, keep].tocsc()
+        reference = spsolve(reduced, rhs.ravel()[keep])
+        sol = prob.solve(linear_solver="splu")
+        np.testing.assert_allclose(
+            sol.psi.ravel()[keep], reference, rtol=0.0, atol=1e-10 * np.max(np.abs(reference))
+        )
+
     def test_refinement_reduces_high_mu_error(self) -> None:
         # Grid refinement is the effective cure for the high-mu_r cancellation
         # error (the total/reduced-potential split does not help; see the doc).

@@ -183,20 +183,34 @@ def run_fasthenry(
                 fh.write(deck)
             doc.Run('"%s"' % os.path.abspath(inp_path))
             t0 = time.time()
-            while doc.IsRunning:
+            while _com_value(doc, "IsRunning"):
                 time.sleep(0.2)
                 if time.time() - t0 > timeout:
                     raise RuntimeError("FastHenry run exceeded the timeout")
             # GetInductance/GetResistance are COM properties returning (F, nport, nport)
             # arrays; a single-frequency, single-port deck gives one value each.
-            ind[index] = np.asarray(doc.GetInductance, dtype=np.float64).reshape(-1)[0]
-            res[index] = np.asarray(doc.GetResistance, dtype=np.float64).reshape(-1)[0]
+            inductance = _com_value(doc, "GetInductance")
+            resistance = _com_value(doc, "GetResistance")
+            ind[index] = np.asarray(inductance, dtype=np.float64).reshape(-1)[0]
+            res[index] = np.asarray(resistance, dtype=np.float64).reshape(-1)[0]
     finally:
         if doc is not None:
             _quit_com(doc)
         if own_tmpdir:
             shutil.rmtree(tmpdir, ignore_errors=True)
     return FastHenryResult(frequency=freqs, inductance=ind, resistance=res)
+
+
+def _com_value(doc, name: str):
+    """Read a COM member that is a property (late binding) or a method (early binding).
+
+    ``win32com`` dynamic dispatch invokes an argument-less member on attribute access
+    and returns its value, while an early-bound (``gencache``) wrapper returns a
+    method that must be called; this accepts both.
+    """
+
+    member = getattr(doc, name)
+    return member() if callable(member) else member
 
 
 def _quit_com(doc) -> None:

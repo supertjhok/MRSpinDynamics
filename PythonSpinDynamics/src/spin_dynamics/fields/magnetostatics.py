@@ -197,17 +197,7 @@ def _rod_dipoles(
     elif rod.shape == "cylinder":
         if rod.radius is None or rod.radius <= 0.0 or not np.isfinite(rod.radius):
             raise ValueError("cylindrical rods require a positive finite radius")
-        coords = (
-            (np.arange(n_cross, dtype=np.float64) + 0.5) / n_cross - 0.5
-        ) * (2.0 * rod.radius)
-        xx2, yy2 = np.meshgrid(coords, coords, indexing="ij")
-        mask = xx2**2 + yy2**2 <= rod.radius**2
-        if not np.any(mask):
-            raise ValueError("n_cross is too small to sample the cylinder")
-        x_offsets = xx2[mask]
-        y_offsets = yy2[mask]
-        xx, zz = np.meshgrid(x_offsets, z_offsets, indexing="ij")
-        yy, _ = np.meshgrid(y_offsets, z_offsets, indexing="ij")
+        xx, yy, zz = _cylinder_cubature(rod.radius, rod.length, n_cross, n_length)
         volume = np.pi * rod.radius**2 * rod.length
     else:
         raise ValueError("rod shape must be 'cylinder' or 'square'")
@@ -253,25 +243,60 @@ def finite_magnet_array_b0(
 
     src_pos = np.concatenate(source_positions, axis=0)
     src_mom = np.concatenate(source_moments, axis=0)
-    flat = pts.reshape(-1, 3)
-    out = np.zeros_like(flat)
-    prefactor = MU0 / (4.0 * np.pi)
+    out = _point_dipole_field(pts.reshape(-1, 3), src_pos, src_mom, chunk_size)
+    return out.reshape(pts.shape)
 
-    for start in range(0, flat.shape[0], chunk_size):
-        stop = min(start + chunk_size, flat.shape[0])
-        r = flat[start:stop, np.newaxis, :] - src_pos[np.newaxis, :, :]
+
+def _point_dipole_field(
+    points: np.ndarray,
+    positions: np.ndarray,
+    moments: np.ndarray,
+    chunk_size: int,
+) -> np.ndarray:
+    """Return the summed point-dipole B field (T) at ``(n, 3)`` points.
+
+    ``positions``/``moments`` are ``(m, 3)`` dipole locations (m) and moments
+    (A m^2). A point coinciding with a dipole gets no contribution from it. Shared
+    by the finite-rod and electropermanent cubatures.
+    """
+
+    out = np.zeros_like(points)
+    prefactor = MU0 / (4.0 * np.pi)
+    for start in range(0, points.shape[0], chunk_size):
+        stop = min(start + chunk_size, points.shape[0])
+        r = points[start:stop, np.newaxis, :] - positions[np.newaxis, :, :]
         r2 = np.sum(r**2, axis=-1)
-        mdotr = np.sum(src_mom[np.newaxis, :, :] * r, axis=-1)
+        mdotr = np.sum(moments[np.newaxis, :, :] * r, axis=-1)
         with np.errstate(divide="ignore", invalid="ignore"):
             inv_r3 = np.where(r2 > 0.0, r2 ** -1.5, 0.0)
             inv_r5 = np.where(r2 > 0.0, inv_r3 / r2, 0.0)
         term = (
             3.0 * r * mdotr[..., np.newaxis] * inv_r5[..., np.newaxis]
-            - src_mom[np.newaxis, :, :] * inv_r3[..., np.newaxis]
+            - moments[np.newaxis, :, :] * inv_r3[..., np.newaxis]
         )
         out[start:stop, :] = prefactor * np.sum(term, axis=1)
+    return out
 
-    return out.reshape(pts.shape)
+
+def _cylinder_cubature(
+    radius: float, length: float, n_cross: int, n_length: int
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Return local ``(transverse_1, transverse_2, axial)`` cubature offsets (m).
+
+    Midpoint rule on an ``n_cross x n_cross`` square grid masked to the disk, times
+    ``n_length`` axial midpoints; flattened disk-major. Shared by
+    :class:`FiniteMagnetRod` and the electropermanent rods.
+    """
+
+    coords = ((np.arange(n_cross, dtype=np.float64) + 0.5) / n_cross - 0.5) * (2.0 * radius)
+    xx2, yy2 = np.meshgrid(coords, coords, indexing="ij")
+    mask = xx2**2 + yy2**2 <= radius**2
+    if not np.any(mask):
+        raise ValueError("n_cross is too small to sample the cylinder")
+    axial = ((np.arange(n_length, dtype=np.float64) + 0.5) / n_length - 0.5) * length
+    first, along = np.meshgrid(xx2[mask], axial, indexing="ij")
+    second, _ = np.meshgrid(yy2[mask], axial, indexing="ij")
+    return first.ravel(), second.ravel(), along.ravel()
 
 
 def halbach_dipole_magnets(

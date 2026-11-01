@@ -166,6 +166,33 @@ Time for 9009 iterations with 305118.00 cells : 25.57 sec
     assert not solution.convergence.converged
 
 
+def test_termination_parser_reads_padded_energy_values() -> None:
+    # Lines copied from a real openEMS 0.37 run that hit max timesteps
+    # (.tmp/openems_phase4_strip/unloaded_strip_32mhz_5mm). openEMS pads the dB
+    # value, so small attenuations print as "(- 0.00dB)". Pre-fix none of these
+    # matched, so final_energy_db was missing; a "(- 9.50dB)" tail after a
+    # "(-27.22dB)" line was reported as -27.22 dB.
+    stdout = """
+[@    12m08s] Timestep:       207144 || Speed:  100.3 MC/s (3.561e-03 s/TS) || Energy: ~7.30e-19 (- 0.00dB)
+[@    14m43s] Timestep:       249999 || Speed:   98.7 MC/s (3.618e-03 s/TS) || Energy: ~2.19e-17 (- 0.00dB)
+"""
+    stderr = "RunFDTD: Warning: Max. number of timesteps was reached before the end-criteria\n"
+    parsed = _parse_openems_output(stdout, stderr, end_criteria=1.0e-5)
+    assert parsed["final_energy_db"] == 0.0
+    assert parsed["relative_energy"] == pytest.approx(1.0)
+    assert parsed["termination_verified"] is False
+    assert parsed["max_timesteps_reached"] is True
+
+    mixed = """
+[@ 21s] Timestep: 7150 || Energy: ~1.21e-18 (-27.22dB)
+[@ 25s] Timestep: 8580 || Energy: ~2.45e-17 (- 9.50dB)
+"""
+    parsed = _parse_openems_output(mixed, "", end_criteria=1.0e-5)
+    assert parsed["final_energy_db"] == pytest.approx(-9.5)
+    assert parsed["relative_energy"] == pytest.approx(10.0 ** -0.95)
+    assert parsed["termination_verified"] is False
+
+
 def test_report_serialization_and_application_promote_only_required_passes(
     tmp_path,
 ) -> None:
