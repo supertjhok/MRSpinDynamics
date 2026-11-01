@@ -52,13 +52,16 @@ def arb10_core(
     mth,
     rstack,
     n_acq,
+    relax_pulses=0,
 ):
     """Core segment loop for ``sim_spin_dynamics_arb10``.
 
     Parameters mirror the validated NumPy kernel. ``acq`` is a ``uint8`` mask
     and ``rstack`` has shape ``(num_pulses, 3, 3, numpts)`` (output component as
-    the first matrix axis, input component as the second). Returns the acquired
-    spectra of shape ``(n_acq, numpts)``.
+    the first matrix axis, input component as the second). A nonzero
+    ``relax_pulses`` relaxes for ``tp/2`` before and after each pulse matrix
+    (the NumPy ``relax_during_pulses`` option). Returns the acquired spectra of
+    shape ``(n_acq, numpts)``.
     """
 
     numpts = del_w0.shape[0]
@@ -76,7 +79,14 @@ def arb10_core(
     for j in range(nseg):
         if amp[j] > 0.0:
             p = pul[j] - 1
+            half = 0.5 * tp[j]
             for k in range(numpts):
+                if relax_pulses != 0:
+                    lon_h = np.exp(-half / t1n[k])
+                    tr_h = np.exp(-half / t2n[k])
+                    m0row[k] = lon_h * m0row[k] + mth[k] * (1.0 - lon_h)
+                    mmrow[k] = tr_h * mmrow[k]
+                    mprow[k] = tr_h * mprow[k]
                 a0 = m0row[k]
                 am = mmrow[k]
                 ap = mprow[k]
@@ -95,6 +105,12 @@ def arb10_core(
                     + rstack[p, 2, 1, k] * am
                     + rstack[p, 2, 2, k] * ap
                 )
+                if relax_pulses != 0:
+                    lon_h = np.exp(-half / t1n[k])
+                    tr_h = np.exp(-half / t2n[k])
+                    m0row[k] = lon_h * m0row[k] + mth[k] * (1.0 - lon_h)
+                    mmrow[k] = tr_h * mmrow[k]
+                    mprow[k] = tr_h * mprow[k]
         else:
             tf = tp[j]
             g = grad[j]

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 
@@ -547,9 +548,9 @@ def _detuning_values(
     if detuning_waveform is None:
         return 0.0
     if callable(detuning_waveform):
-        try:
+        if _accepts_two_arguments(detuning_waveform):
             value = detuning_waveform(float(time), positions)
-        except TypeError:
+        else:
             value = detuning_waveform(float(time))
     else:
         value = detuning_waveform
@@ -565,3 +566,23 @@ def _detuning_values(
     if not np.all(np.isfinite(detuning)):
         raise ValueError("detuning_waveform must return finite values")
     return detuning
+
+
+def _accepts_two_arguments(callback: Callable[..., object]) -> bool:
+    """Whether ``callback(time, positions)`` binds, decided without calling it.
+
+    Inspecting the signature (instead of calling and retrying on ``TypeError``)
+    keeps TypeErrors raised inside a user callback from being masked by a
+    one-argument retry. Callables without an introspectable signature are
+    called with both arguments.
+    """
+
+    try:
+        signature = inspect.signature(callback)
+    except (TypeError, ValueError):
+        return True
+    try:
+        signature.bind(0.0, None)
+    except TypeError:
+        return False
+    return True

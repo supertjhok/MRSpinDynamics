@@ -101,7 +101,12 @@ def compile_sequence(
                     _combined_frequency_offset(block.adc, system_frequency_hz)
                 )
                 phase = _combined_phase_offset(block.adc, system_frequency_hz)
-                phase += 2.0 * np.pi * adc_frequencies[-1] * float(relative_time)
+                # The frequency-offset phase is referenced to the ADC event's
+                # own start (after its delay), as for RF events and as in the
+                # Pulseq MATLAB toolbox (`fp_adc = phase + freq * ta`, with
+                # `ta` measured from the first dwell interval).
+                event_time = float(relative_time) - float(block.adc.delay_seconds)
+                phase += 2.0 * np.pi * adc_frequencies[-1] * event_time
                 if phase_shape is not None:
                     phase += float(phase_shape[sample_index])
                 adc_phases.append(phase)

@@ -17,6 +17,8 @@ from typing import Any, Protocol
 
 import numpy as np
 
+from spin_dynamics.core.numerics import expm
+
 
 GAS_CONSTANT_J_PER_MOL_K = 8.31446261815324
 TAU = 2.0 * np.pi
@@ -1387,8 +1389,10 @@ def matrix_exponential(matrix: np.ndarray, duration: float = 1.0) -> np.ndarray:
         raise ValueError("duration must be non-negative and finite")
     if duration == 0:
         return np.eye(matrix.shape[0], dtype=np.complex128)
-    values, vectors = np.linalg.eig(matrix)
-    return (vectors * np.exp(values * duration)[np.newaxis, :]) @ np.linalg.inv(vectors)
+    # Scaling and squaring (shared with spin_dynamics.exchange) instead of an
+    # eigendecomposition, which loses accuracy near exceptional points of
+    # non-normal relaxation Liouvillians and fails for defective generators.
+    return expm(matrix * duration)
 
 
 def liouville_hamiltonian(hamiltonian: np.ndarray) -> np.ndarray:

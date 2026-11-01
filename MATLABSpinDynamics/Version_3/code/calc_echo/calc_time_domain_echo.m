@@ -20,6 +20,11 @@
 % Notes
 %   Uses a fixed zero-filling ratio of 4 to smooth the echo shape. The plotted
 %   time axis is normalized by T_180 = pi.
+%   Known registration offset (kept for reference parity): for odd numpts the
+%   last sample is dropped and w = 0 lands zf/2 = 2 bins from the DFT centre,
+%   so the echo carries a linear phase ramp; tvect is also not the exact DFT
+%   time grid (about 1/numpts stretched). The Python port offers the corrected
+%   layout as calc_time_domain_echo(..., registration="exact").
 %
 % Written by: Soumyajit Mandal, 03/28/19
 % -------------------------------------------------------------------------

@@ -14,8 +14,10 @@ constants. This keeps the kernel fully generic (one compilation serves every
 sequence), ``vmap``-able over parameter sweeps, and differentiable for the
 autodiff optimizer work (Phase 3).
 
-x64 is enabled on import so complex128 matches the NumPy reference; without it
-JAX would silently downcast to complex64 and fail the parity gate.
+The kernels need x64 so complex128 matches the NumPy reference (without it JAX
+silently downcasts to complex64). The public entry points enable it only for
+their own tracing and execution via :func:`x64_scope` (``jax.enable_x64``), so
+importing this module does not change the process-wide ``jax_enable_x64``.
 
 If ``jax`` is not installed, ``JAX_AVAILABLE`` is ``False`` and the entry points
 raise a helpful error when called. See ``docs/performance.md``.
@@ -29,14 +31,22 @@ import numpy as np
 
 try:  # pragma: no cover - exercised by environment, not logic
     import jax
-
-    jax.config.update("jax_enable_x64", True)
     import jax.numpy as jnp
     from jax import lax
 
     JAX_AVAILABLE = True
 except Exception:  # pragma: no cover - import guard
     JAX_AVAILABLE = False
+
+
+def x64_scope():
+    """Return a context manager enabling JAX x64 for the enclosed block only."""
+
+    if hasattr(jax, "enable_x64"):
+        return jax.enable_x64(True)
+    from jax.experimental import enable_x64  # pragma: no cover - older JAX
+
+    return enable_x64()  # pragma: no cover - older JAX
 
 
 if JAX_AVAILABLE:
@@ -55,8 +65,13 @@ if JAX_AVAILABLE:
         m0,
         mth,
         n_acq,
+        relax=False,
     ):
-        """Pure arb10 scan for one simulation (no jit; jit/vmap applied below)."""
+        """Pure arb10 scan for one simulation (no jit; jit/vmap applied below).
+
+        ``relax`` relaxes for ``tp/2`` before and after each pulse matrix (the
+        NumPy ``relax_during_pulses`` option).
+        """
 
         numpts = m0.shape[0]
         macq0 = jnp.zeros((n_acq, numpts), dtype=jnp.complex128)
@@ -67,12 +82,13 @@ if JAX_AVAILABLE:
 
             def pulse_branch(_):
                 mat = rstack[pul_j]
-                a0, am, ap = m0r, mmr, mpr
-                return (
-                    mat[0, 0] * a0 + mat[0, 1] * am + mat[0, 2] * ap,
-                    mat[1, 0] * a0 + mat[1, 1] * am + mat[1, 2] * ap,
-                    mat[2, 0] * a0 + mat[2, 1] * am + mat[2, 2] * ap,
-                )
+                lon_h, tr_h = _half_pulse_relaxation(relax, tf_j, t1n, t2n)
+                a0 = lon_h * m0r + mth * (1.0 - lon_h)
+                am, ap = tr_h * mmr, tr_h * mpr
+                b0 = mat[0, 0] * a0 + mat[0, 1] * am + mat[0, 2] * ap
+                bm = mat[1, 0] * a0 + mat[1, 1] * am + mat[1, 2] * ap
+                bp = mat[2, 0] * a0 + mat[2, 1] * am + mat[2, 2] * ap
+                return lon_h * b0 + mth * (1.0 - lon_h), tr_h * bm, tr_h * bp
 
             def free_branch(_):
                 dw = del_w0 + grad_j * del_wg
@@ -104,6 +120,14 @@ if JAX_AVAILABLE:
 
     _arb10_scan = jax.jit(_arb10_single, static_argnums=(12,))
 
+    def _half_pulse_relaxation(relax, tf_j, t1n, t2n):
+        """Longitudinal/transverse factors for relaxing over ``tf_j / 2``."""
+
+        half = 0.5 * tf_j
+        lon_h = jnp.where(relax, jnp.exp(-half / t1n), 1.0)
+        tr_h = jnp.where(relax, jnp.exp(-half / t2n), 1.0)
+        return lon_h, tr_h
+
     def _arb10_branchless(
         rstack,
         is_pulse,
@@ -117,6 +141,7 @@ if JAX_AVAILABLE:
         t2n,
         m0,
         mth,
+        relax=False,
     ):
         """Branchless single-sim scan for the batched/GPU path.
 
@@ -134,10 +159,15 @@ if JAX_AVAILABLE:
             is_pulse_j, pul_j, tf_j, grad_j = xs
 
             mat = rstack[pul_j]
-            a0, am, ap = m0r, mmr, mpr
+            lon_h, tr_h = _half_pulse_relaxation(relax, tf_j, t1n, t2n)
+            a0 = lon_h * m0r + mth * (1.0 - lon_h)
+            am, ap = tr_h * mmr, tr_h * mpr
             p0 = mat[0, 0] * a0 + mat[0, 1] * am + mat[0, 2] * ap
             p1 = mat[1, 0] * a0 + mat[1, 1] * am + mat[1, 2] * ap
             p2 = mat[2, 0] * a0 + mat[2, 1] * am + mat[2, 2] * ap
+            p0 = lon_h * p0 + mth * (1.0 - lon_h)
+            p1 = tr_h * p1
+            p2 = tr_h * p2
 
             dw = del_w0 + grad_j * del_wg
             lon = jnp.exp(-tf_j / t1n)
@@ -176,13 +206,14 @@ if JAX_AVAILABLE:
         m0,
         mth,
         n_acq,
+        relax=False,
     ):
         """vmap of the memory-light ``cond`` single kernel (best on CPU)."""
 
         def one(rstack_b, del_w0_b, t1n_b, t2n_b, m0_b, mth_b):
             return _arb10_single(
                 rstack_b, is_pulse, pul_idx, acq_flag, tp, grad,
-                del_w0_b, del_wg, t1n_b, t2n_b, m0_b, mth_b, n_acq,
+                del_w0_b, del_wg, t1n_b, t2n_b, m0_b, mth_b, n_acq, relax,
             )
 
         return jax.vmap(one)(rstack, del_w0, t1n, t2n, m0, mth)
@@ -201,6 +232,7 @@ if JAX_AVAILABLE:
         t2n,
         m0,
         mth,
+        relax=False,
     ):
         """vmap of the branchless kernel over a leading batch axis (best on GPU).
 
@@ -225,16 +257,28 @@ if JAX_AVAILABLE:
                 t2n_b,
                 m0_b,
                 mth_b,
+                relax,
             )
 
         return jax.vmap(one)(rstack, del_w0, t1n, t2n, m0, mth)
 
 
-def run_arb10(tp, pul, amp, acq, grad, del_w0, del_wg, t1n, t2n, m0, mth, rstack):
+def run_arb10(
+    tp, pul, amp, acq, grad, del_w0, del_wg, t1n, t2n, m0, mth, rstack,
+    *, relax_during_pulses=False,
+):
     """Run the JAX arb10 kernel and return a NumPy ``(n_acq, numpts)`` array."""
 
     if not JAX_AVAILABLE:  # pragma: no cover - guarded by caller
         raise ImportError("jax is not installed")
+    with x64_scope():
+        return _run_arb10(
+            tp, pul, amp, acq, grad, del_w0, del_wg, t1n, t2n, m0, mth, rstack,
+            bool(relax_during_pulses),
+        )
+
+
+def _run_arb10(tp, pul, amp, acq, grad, del_w0, del_wg, t1n, t2n, m0, mth, rstack, relax):
 
     amp = np.asarray(amp)
     pul = np.asarray(pul)
@@ -258,12 +302,14 @@ def run_arb10(tp, pul, amp, acq, grad, del_w0, del_wg, t1n, t2n, m0, mth, rstack
         jnp.asarray(m0, dtype=jnp.complex128),
         jnp.asarray(mth, dtype=jnp.complex128),
         n_acq,
+        jnp.asarray(relax),
     )
     return np.asarray(result)
 
 
 def run_arb10_batched(
-    tp, pul, amp, acq, grad, del_w0, del_wg, t1n, t2n, m0, mth, rstack
+    tp, pul, amp, acq, grad, del_w0, del_wg, t1n, t2n, m0, mth, rstack,
+    *, relax_during_pulses=False,
 ):
     """Run a batch of arb10 simulations in one vmapped call.
 
@@ -279,11 +325,21 @@ def run_arb10_batched(
 
     if not JAX_AVAILABLE:  # pragma: no cover - guarded by caller
         raise ImportError("jax is not installed")
+    with x64_scope():
+        return _run_arb10_batched(
+            tp, pul, amp, acq, grad, del_w0, del_wg, t1n, t2n, m0, mth, rstack,
+            bool(relax_during_pulses),
+        )
 
+
+def _run_arb10_batched(
+    tp, pul, amp, acq, grad, del_w0, del_wg, t1n, t2n, m0, mth, rstack, relax
+):
     amp = np.asarray(amp)
     pul = np.asarray(pul)
     acq_np = np.asarray(acq).astype(bool)
     is_pulse = amp > 0
+    relax_j = jnp.asarray(relax)
 
     rstack_j = jnp.asarray(rstack, dtype=jnp.complex128)
     is_pulse_j = jnp.asarray(is_pulse)
@@ -302,13 +358,13 @@ def run_arb10_batched(
         acq_idx = np.flatnonzero(acq_np).astype(np.int64)
         result = _arb10_batched_branchless(
             rstack_j, is_pulse_j, jnp.asarray(pul_idx), jnp.asarray(acq_idx),
-            tp_j, grad_j, del_w0_j, del_wg_j, t1n_j, t2n_j, m0_j, mth_j,
+            tp_j, grad_j, del_w0_j, del_wg_j, t1n_j, t2n_j, m0_j, mth_j, relax_j,
         )
     else:
         pul_idx = np.where(is_pulse, pul - 1, -1).astype(np.int64)
         n_acq = int(np.count_nonzero(acq_np))
         result = _arb10_batched_cond(
             rstack_j, is_pulse_j, jnp.asarray(pul_idx), jnp.asarray(acq_np),
-            tp_j, grad_j, del_w0_j, del_wg_j, t1n_j, t2n_j, m0_j, mth_j, n_acq,
+            tp_j, grad_j, del_w0_j, del_wg_j, t1n_j, t2n_j, m0_j, mth_j, n_acq, relax_j,
         )
     return np.asarray(result)

@@ -55,8 +55,10 @@ class JaxBackendTests(unittest.TestCase):
     def test_jax_x64_is_enabled(self) -> None:
         import jax.numpy as jnp
 
-        # Without x64, this would be float32; complex128 parity depends on it.
-        self.assertEqual(jnp.asarray(1.0).dtype, np.float64)
+        # The kernels enable x64 only inside their own scope (L-06); without it
+        # this would be float32 and complex128 parity would fail.
+        with jk.x64_scope():
+            self.assertEqual(jnp.asarray(1.0).dtype, np.float64)
 
     @unittest.skipUnless(jk.JAX_AVAILABLE, "jax not installed")
     def test_jax_backend_matches_numpy_cpmg_workflow(self) -> None:

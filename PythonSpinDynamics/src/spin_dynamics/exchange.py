@@ -42,6 +42,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from spin_dynamics.core.numerics import expm
+
 
 __all__ = [
     "ExchangeSite",
@@ -299,23 +301,7 @@ def _matrix_exponential(matrix: np.ndarray) -> np.ndarray:
     would mishandle.
     """
 
-    a = np.asarray(matrix, dtype=np.complex128)
-    if a.ndim != 2 or a.shape[0] != a.shape[1]:
-        raise ValueError("matrix must be square")
-    dim = a.shape[0]
-    norm = float(np.max(np.sum(np.abs(a), axis=0))) if a.size else 0.0
-    if norm == 0.0:
-        return np.eye(dim, dtype=np.complex128)
-    squarings = max(0, int(np.ceil(np.log2(norm))))
-    scaled = a / (2.0**squarings)
-    result = np.eye(dim, dtype=np.complex128)
-    term = np.eye(dim, dtype=np.complex128)
-    for k in range(1, 19):
-        term = term @ scaled / k
-        result = result + term
-    for _ in range(squarings):
-        result = result @ result
-    return result
+    return expm(matrix)
 
 
 def transverse_propagator(system: ExchangeSystem, duration: float) -> np.ndarray:

@@ -102,7 +102,16 @@ class CPMGResult:
 
 @dataclass(frozen=True)
 class CPMGTrainResult:
-    """Finite ideal CPMG acquisition result."""
+    """Finite ideal CPMG acquisition result.
+
+    ``sequence_time`` holds the physical echo centres ``(n + 1) * TE``. By
+    default (MATLAB parity) the arb10 kernels apply no T1/T2 relaxation during
+    RF pulses, so each echo period relaxes only for ``TE - T_180`` and a ``T2``
+    fitted to ``echo_integrals`` against ``sequence_time`` is inflated by
+    ``TE / (TE - T_180)`` (about 1.33x for the default ideal train). Run under
+    ``spin_dynamics.core.kernels.arb10_pulse_relaxation()`` to relax during
+    pulses as well.
+    """
 
     del_w: np.ndarray
     mrx: np.ndarray

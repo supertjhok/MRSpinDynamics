@@ -8,9 +8,11 @@ Primary MATLAB references:
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+from functools import partial
 import os
 from typing import Any
 import warnings
@@ -49,6 +51,72 @@ def get_arb10_backend() -> str:
     """Return the current default ``sim_spin_dynamics_arb10`` backend."""
 
     return _DEFAULT_BACKEND
+
+
+_RELAX_DURING_PULSES = False
+
+
+def set_arb10_pulse_relaxation(enabled: bool) -> None:
+    """Set the default for T1/T2 relaxation during RF pulses in the arb10 kernels.
+
+    The default ``False`` matches MATLAB ``sim_spin_dynamics_arb10.m`` (and the
+    Octave parity fixtures): pulse matrices act instantaneously and relaxation
+    only runs during free precession. Then a ``T2`` fitted against physical
+    echo times is inflated by ``TE / (TE - T_180)``. ``True`` applies a
+    symmetric (Strang) split around every pulse: relax for ``tp/2``, apply the
+    pulse matrix, relax for ``tp/2`` (exact when ``T1 = T2`` on resonance,
+    otherwise second order in the pulse duration). A per-call
+    ``relax_during_pulses`` argument, or a ``relax_during_pulses`` key in
+    ``params``, overrides this default. The setting is process-global (like
+    :func:`set_arb10_backend`); see also :func:`arb10_pulse_relaxation`.
+    """
+
+    global _RELAX_DURING_PULSES
+    _RELAX_DURING_PULSES = bool(enabled)
+
+
+def get_arb10_pulse_relaxation() -> bool:
+    """Return the default for relaxation during RF pulses."""
+
+    return _RELAX_DURING_PULSES
+
+
+@contextmanager
+def arb10_pulse_relaxation(enabled: bool = True) -> Iterator[None]:
+    """Temporarily set :func:`set_arb10_pulse_relaxation` (restored on exit).
+
+    Useful for workflows that build the kernel parameters internally, e.g.
+    ``with arb10_pulse_relaxation(): run_ideal_cpmg_train(...)``. Not safe for
+    concurrent callers that want different settings.
+    """
+
+    previous = _RELAX_DURING_PULSES
+    set_arb10_pulse_relaxation(enabled)
+    try:
+        yield
+    finally:
+        set_arb10_pulse_relaxation(previous)
+
+
+def _resolve_pulse_relaxation(params: Any, override: bool | None) -> bool:
+    if override is not None:
+        return bool(override)
+    value = _field_or_default(params, "relax_during_pulses", None)
+    return _RELAX_DURING_PULSES if value is None else bool(value)
+
+
+def _apply_pulse_relaxation_half(
+    mvect: np.ndarray,
+    duration: float,
+    t1n: np.ndarray,
+    t2n: np.ndarray,
+    mth: np.ndarray,
+) -> None:
+    """Relax (no precession) for half a pulse duration, in place."""
+
+    _apply_free_precession_step(
+        mvect, np.zeros(mvect.shape[1]), 0.5 * float(duration), t1n, t2n, mth
+    )
 
 
 @dataclass(frozen=True)
@@ -216,53 +284,38 @@ def sim_spin_dynamics_arb10(
     params: Mapping[str, Any] | Arb10Parameters | Any,
     *,
     backend: str | None = None,
+    relax_during_pulses: bool | None = None,
 ) -> np.ndarray:
     """Simulate arbitrary-pulse spin dynamics with precomputed pulse matrices.
 
     Mirrors MATLAB `sim_spin_dynamics_arb/sim_spin_dynamics_arb10.m`.
     `Rtot` uses MATLAB-style pulse numbering in `pul`, so `pul=1` selects the
-    first Python sequence entry. Free-precession segments should have `amp=0`.
+    first Python sequence entry; every pulse segment (`amp > 0`) must have
+    `1 <= pul <= len(Rtot)`. Free-precession segments should have `amp=0`.
     Acquired rows are ``M- = Mx - i My``; combine phase-cycled branches with
     ``PhaseCycle.combine(..., detection="m_minus")``.
 
     `backend` selects the compute path: ``"numpy"`` (the reference) or
     ``"numba"`` (the JIT-compiled segment loop, requires the ``numba`` extra).
     When ``None`` the module default from :func:`set_arb10_backend` is used.
+    `relax_during_pulses` (default: the ``params`` key of that name, else
+    :func:`get_arb10_pulse_relaxation`, ``False``) adds T1/T2 relaxation over
+    each pulse's ``tp``; all backends implement it identically.
     """
 
+    relax = _resolve_pulse_relaxation(params, relax_during_pulses)
     resolved = _DEFAULT_BACKEND if backend is None else backend
     if resolved == "numba":
-        return _sim_spin_dynamics_arb10_numba(params)
+        return _sim_spin_dynamics_arb10_numba(params, relax)
     if resolved == "jax":
-        return _sim_spin_dynamics_arb10_jax(params)
+        return _sim_spin_dynamics_arb10_jax(params, relax)
     if resolved != "numpy":
         raise ValueError(f"backend must be one of {_VALID_BACKENDS}")
 
-    tp = _as_vector(_field(params, "tp"), np.float64)
-    pul = _as_vector(_field(params, "pul"), np.int64)
-    rtot = _field(params, "Rtot")
-    amp = _as_vector(_field(params, "amp"), np.float64)
-    acq = _as_vector(_field(params, "acq"), bool)
-    grad = _as_vector(_field(params, "grad"), np.float64)
-    del_w0 = _as_vector(_field(params, "del_w"), np.float64)
-    del_wg = _as_vector(_field(params, "del_wg"), np.float64)
-    T1n = _as_vector(_field(params, "T1n"), np.float64)
-    T2n = _as_vector(_field(params, "T2n"), np.float64)
-    m0 = _as_vector(_field(params, "m0"), np.complex128)
-    mth = _as_vector(_field(params, "mth"), np.complex128)
-
+    tp, pul, rtot, amp, acq, grad, del_w0, del_wg, T1n, T2n, m0, mth = (
+        _validate_arb10_inputs(params)
+    )
     numpts = del_w0.size
-    if not (tp.size == pul.size == amp.size == acq.size == grad.size):
-        raise ValueError("tp, pul, amp, acq, and grad must have the same length")
-    for name, arr in {
-        "del_wg": del_wg,
-        "T1n": T1n,
-        "T2n": T2n,
-        "m0": m0,
-        "mth": mth,
-    }.items():
-        if arr.size != numpts:
-            raise ValueError(f"{name} must have length len(del_w)")
 
     mvect = np.zeros((3, numpts), dtype=np.complex128)
     mvect[0, :] = m0
@@ -272,12 +325,16 @@ def sim_spin_dynamics_arb10(
 
     for tp_j, pul_j, amp_j, acq_j, grad_j in zip(tp, pul, amp, acq, grad):
         if amp_j > 0:
+            if relax:
+                _apply_pulse_relaxation_half(mvect, tp_j, T1n, T2n, mth)
             mat = rtot[int(pul_j) - 1]
             mlong = np.zeros(numpts, dtype=np.complex128)
             tmp = mvect.copy()
             mvect[0, :] = mat.R_00 * tmp[0, :] + mat.R_0m * tmp[1, :] + mat.R_0p * tmp[2, :] + mlong
             mvect[1, :] = mat.R_m0 * tmp[0, :] + mat.R_mm * tmp[1, :] + mat.R_mp * tmp[2, :]
             mvect[2, :] = mat.R_p0 * tmp[0, :] + mat.R_pm * tmp[1, :] + mat.R_pp * tmp[2, :]
+            if relax:
+                _apply_pulse_relaxation_half(mvect, tp_j, T1n, T2n, mth)
         else:
             del_w = del_w0 + grad_j * del_wg
             _apply_free_precession_step(
@@ -337,11 +394,20 @@ def _validate_arb10_inputs(
     }.items():
         if arr.size != numpts:
             raise ValueError(f"{name} must have length len(del_w)")
+    pulse_index = pul[amp > 0]
+    if pulse_index.size and (
+        np.any(pulse_index < 1) or np.any(pulse_index > len(rtot))
+    ):
+        raise ValueError(
+            "pul must select an Rtot matrix (1..len(Rtot)) for every pulse "
+            "segment with amp > 0"
+        )
     return tp, pul, rtot, amp, acq, grad, del_w0, del_wg, t1n, t2n, m0, mth
 
 
 def _sim_spin_dynamics_arb10_numba(
     params: Mapping[str, Any] | Arb10Parameters | Any,
+    relax_during_pulses: bool = False,
 ) -> np.ndarray:
     """Numba backend for :func:`sim_spin_dynamics_arb10`.
 
@@ -376,11 +442,13 @@ def _sim_spin_dynamics_arb10_numba(
         mth,
         rstack,
         n_acq,
+        np.uint8(bool(relax_during_pulses)),
     )
 
 
 def _sim_spin_dynamics_arb10_jax(
     params: Mapping[str, Any] | Arb10Parameters | Any,
+    relax_during_pulses: bool = False,
 ) -> np.ndarray:
     """JAX backend for :func:`sim_spin_dynamics_arb10`.
 
@@ -402,12 +470,15 @@ def _sim_spin_dynamics_arb10_jax(
     )
     rstack = _stack_matrix_elements(rtot, del_w0.size)
     return jk.run_arb10(
-        tp, pul, amp, acq, grad, del_w0, del_wg, t1n, t2n, m0, mth, rstack
+        tp, pul, amp, acq, grad, del_w0, del_wg, t1n, t2n, m0, mth, rstack,
+        relax_during_pulses=bool(relax_during_pulses),
     )
 
 
 def sim_spin_dynamics_arb10_batched(
     params_list: Sequence[Mapping[str, Any] | Arb10Parameters | Any],
+    *,
+    relax_during_pulses: bool | None = None,
 ) -> np.ndarray:
     """Run many same-structured arb10 simulations in one vmapped JAX call.
 
@@ -418,7 +489,8 @@ def sim_spin_dynamics_arb10_batched(
     optimizer multistarts: a single wide program instead of a Python/thread loop.
 
     Returns an array of shape ``(len(params_list), n_acq, numpts)``. Requires the
-    optional ``jax`` extra.
+    optional ``jax`` extra. ``relax_during_pulses`` follows
+    :func:`sim_spin_dynamics_arb10` (resolved from the first case).
     """
 
     from spin_dynamics.core import _jax_kernels as jk
@@ -477,6 +549,7 @@ def sim_spin_dynamics_arb10_batched(
         np.stack(m0_b, axis=0),
         np.stack(mth_b, axis=0),
         np.stack(rstack_b, axis=0),
+        relax_during_pulses=_resolve_pulse_relaxation(params_list[0], relax_during_pulses),
     )
 
 
@@ -941,6 +1014,8 @@ def _advance_pulse_segments_with_radiation_damping(
 def sim_spin_dynamics_arb10_radiation_damping(
     params: Mapping[str, Any] | Arb10Parameters | Any,
     radiation_damping: RadiationDampingSpec,
+    *,
+    relax_during_pulses: bool | None = None,
 ) -> np.ndarray:
     """Simulate `arb10` with ensemble radiation damping during free intervals.
 
@@ -960,12 +1035,15 @@ def sim_spin_dynamics_arb10_radiation_damping(
     Without them the pulse is split by :func:`_matrix_elements_power`, which
     follows the shortest rotation path (exact for net rotations below ``pi``),
     emits a ``RuntimeWarning``, and raises for rotations of ``pi`` such as
-    on-resonance refocusing pulses.
+    on-resonance refocusing pulses. ``relax_during_pulses`` follows
+    :func:`sim_spin_dynamics_arb10` (half-``tp`` relaxation either side of
+    each pulse).
     """
 
     tp, pul, rtot, amp, acq, grad, del_w0, del_wg, t1n, t2n, m0, mth = (
         _validate_arb10_inputs(params)
     )
+    relax = _resolve_pulse_relaxation(params, relax_during_pulses)
     segments = _pulse_segments_for(
         _field_or_default(params, "pulse_segments", None),
         len(rtot),
@@ -984,6 +1062,8 @@ def sim_spin_dynamics_arb10_radiation_damping(
 
     for tp_j, pul_j, amp_j, acq_j, grad_j in zip(tp, pul, amp, acq, grad):
         del_w = del_w0 + grad_j * del_wg
+        if amp_j > 0 and relax:
+            _apply_pulse_relaxation_half(mvect, tp_j, t1n, t2n, mth)
         if amp_j > 0 and not radiation_damping.apply_during_pulses:
             mat = rtot[int(pul_j) - 1]
             mlong = np.zeros(numpts, dtype=np.complex128)
@@ -1034,6 +1114,8 @@ def sim_spin_dynamics_arb10_radiation_damping(
                 feedback,
                 step_limit,
             )
+        if amp_j > 0 and relax:
+            _apply_pulse_relaxation_half(mvect, tp_j, t1n, t2n, mth)
 
         if acq_j:
             macq[acq_cnt, :] = mvect[1, :]
@@ -1044,45 +1126,29 @@ def sim_spin_dynamics_arb10_radiation_damping(
 
 def sim_spin_dynamics_arb10_diffusion(
     params: Mapping[str, Any] | Arb10DiffusionParameters | Any,
+    *,
+    relax_during_pulses: bool | None = None,
 ) -> np.ndarray:
     """Simulate arbitrary-pulse dynamics with a diffusion free-precession term.
 
     This is an `arb10`-style modernization of MATLAB
     `sim_spin_dynamics_arb/sim_spin_dynamics_arb_relax_diff.m`: RF pulse
     matrices are precomputed and acquisitions are returned as spectra without
-    the older sinc-window convolution.
+    the older sinc-window convolution. ``relax_during_pulses`` follows
+    :func:`sim_spin_dynamics_arb10` (diffusion attenuation stays on the free
+    intervals).
     """
 
-    tp = _as_vector(_field(params, "tp"), np.float64)
-    pul = _as_vector(_field(params, "pul"), np.int64)
-    rtot = _field(params, "Rtot")
-    amp = _as_vector(_field(params, "amp"), np.float64)
-    acq = _as_vector(_field(params, "acq"), bool)
-    grad = _as_vector(_field(params, "grad"), np.float64)
-    del_w0 = _as_vector(_field(params, "del_w"), np.float64)
-    del_wg = _as_vector(_field(params, "del_wg"), np.float64)
-    T1n = _as_vector(_field(params, "T1n"), np.float64)
-    T2n = _as_vector(_field(params, "T2n"), np.float64)
-    m0 = _as_vector(_field(params, "m0"), np.complex128)
-    mth = _as_vector(_field(params, "mth"), np.complex128)
+    tp, pul, rtot, amp, acq, grad, del_w0, del_wg, T1n, T2n, m0, mth = (
+        _validate_arb10_inputs(params)
+    )
+    relax = _resolve_pulse_relaxation(params, relax_during_pulses)
     gamma = float(_field(params, "gamma"))
     gradient = float(_field(params, "gradient"))
     diffusion_coefficient = float(_field(params, "diffusion_coefficient"))
     time_scale = float(_field_or_default(params, "time_scale", 1.0))
 
     numpts = del_w0.size
-    if not (tp.size == pul.size == amp.size == acq.size == grad.size):
-        raise ValueError("tp, pul, amp, acq, and grad must have the same length")
-    for name, arr in {
-        "del_wg": del_wg,
-        "T1n": T1n,
-        "T2n": T2n,
-        "m0": m0,
-        "mth": mth,
-    }.items():
-        if arr.size != numpts:
-            raise ValueError(f"{name} must have length len(del_w)")
-
     mvect = np.zeros((3, numpts), dtype=np.complex128)
     mvect[0, :] = m0
     macq = np.zeros((int(np.sum(acq)), numpts), dtype=np.complex128)
@@ -1090,12 +1156,16 @@ def sim_spin_dynamics_arb10_diffusion(
 
     for tp_j, pul_j, amp_j, acq_j, grad_j in zip(tp, pul, amp, acq, grad):
         if amp_j > 0:
+            if relax:
+                _apply_pulse_relaxation_half(mvect, tp_j, T1n, T2n, mth)
             mat = rtot[int(pul_j) - 1]
             mlong = np.zeros(numpts, dtype=np.complex128)
             tmp = mvect.copy()
             mvect[0, :] = mat.R_00 * tmp[0, :] + mat.R_0m * tmp[1, :] + mat.R_0p * tmp[2, :] + mlong
             mvect[1, :] = mat.R_m0 * tmp[0, :] + mat.R_mm * tmp[1, :] + mat.R_mp * tmp[2, :]
             mvect[2, :] = mat.R_p0 * tmp[0, :] + mat.R_pm * tmp[1, :] + mat.R_pp * tmp[2, :]
+            if relax:
+                _apply_pulse_relaxation_half(mvect, tp_j, T1n, T2n, mth)
         else:
             del_w = del_w0 + grad_j * del_wg
             t_seconds = abs(float(tp_j)) * time_scale
@@ -1185,6 +1255,8 @@ def sim_spin_dynamics_arb10_chunked(
     params: Mapping[str, Any] | Arb10Parameters | Any,
     num_workers: int | None = None,
     min_chunk_size: int = 8192,
+    *,
+    relax_during_pulses: bool | None = None,
 ) -> np.ndarray:
     """Run `sim_spin_dynamics_arb10` on contiguous isochromat chunks.
 
@@ -1193,27 +1265,29 @@ def sim_spin_dynamics_arb10_chunked(
     the full state through process boundaries.
     """
 
+    relax = _resolve_pulse_relaxation(params, relax_during_pulses)
+    run = partial(sim_spin_dynamics_arb10, relax_during_pulses=relax)
     del_w = _as_vector(_field(params, "del_w"), np.float64)
     numpts = del_w.size
     if numpts == 0:
-        return sim_spin_dynamics_arb10(params)
+        return run(params)
 
     if num_workers is None:
         workers = os.cpu_count() or 1
     else:
         workers = int(num_workers)
     if workers <= 1:
-        return sim_spin_dynamics_arb10(params)
+        return run(params)
 
     max_useful_workers = max(1, int(np.ceil(numpts / max(1, int(min_chunk_size)))))
     workers = min(workers, numpts, max_useful_workers)
     if workers <= 1:
-        return sim_spin_dynamics_arb10(params)
+        return run(params)
 
     slices = _chunk_slices(numpts, workers)
     chunk_params = [_slice_arb10_params(params, slc) for slc in slices]
     with ThreadPoolExecutor(max_workers=workers) as executor:
-        chunks = list(executor.map(sim_spin_dynamics_arb10, chunk_params))
+        chunks = list(executor.map(run, chunk_params))
     return np.concatenate(chunks, axis=1)
 
 
@@ -1221,30 +1295,34 @@ def sim_spin_dynamics_arb10_diffusion_chunked(
     params: Mapping[str, Any] | Arb10DiffusionParameters | Any,
     num_workers: int | None = None,
     min_chunk_size: int = 8192,
+    *,
+    relax_during_pulses: bool | None = None,
 ) -> np.ndarray:
     """Run `sim_spin_dynamics_arb10_diffusion` on isochromat chunks."""
 
+    relax = _resolve_pulse_relaxation(params, relax_during_pulses)
+    run = partial(sim_spin_dynamics_arb10_diffusion, relax_during_pulses=relax)
     del_w = _as_vector(_field(params, "del_w"), np.float64)
     numpts = del_w.size
     if numpts == 0:
-        return sim_spin_dynamics_arb10_diffusion(params)
+        return run(params)
 
     if num_workers is None:
         workers = os.cpu_count() or 1
     else:
         workers = int(num_workers)
     if workers <= 1:
-        return sim_spin_dynamics_arb10_diffusion(params)
+        return run(params)
 
     max_useful_workers = max(1, int(np.ceil(numpts / max(1, int(min_chunk_size)))))
     workers = min(workers, numpts, max_useful_workers)
     if workers <= 1:
-        return sim_spin_dynamics_arb10_diffusion(params)
+        return run(params)
 
     slices = _chunk_slices(numpts, workers)
     chunk_params = [_slice_arb10_diffusion_params(params, slc) for slc in slices]
     with ThreadPoolExecutor(max_workers=workers) as executor:
-        chunks = list(executor.map(sim_spin_dynamics_arb10_diffusion, chunk_params))
+        chunks = list(executor.map(run, chunk_params))
     return np.concatenate(chunks, axis=1)
 
 

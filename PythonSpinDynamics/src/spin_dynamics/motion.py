@@ -633,11 +633,12 @@ def make_circular_reflector(
         dx = pos[:, 0] - cx
         dz = pos[:, 1] - cz
         dist = np.hypot(dx, dz)
-        # Fold the radius into [0, r] with a reflecting wall at r, mirroring the
-        # triangle-wave fold used by the rectangular "reflect" mode.
-        period = 2.0 * r
-        folded_mod = np.mod(dist, period)
-        folded = np.where(folded_mod <= r, folded_mod, period - folded_mod)
+        # Reflect along the diameter through the walker: the signed coordinate
+        # s = dist on that line bounces between walls at -r and +r (a
+        # triangle wave of period 4r). Overshoots past the opposite wall
+        # (dist > 2r) therefore land on the far side of the centre instead
+        # of treating the centre itself as a wall.
+        folded = _fold_between_walls(dist, r)
         scale = np.divide(folded, dist, out=np.ones_like(dist), where=dist > 0.0)
         pos[:, 0] = cx + dx * scale
         pos[:, 1] = cz + dz * scale
@@ -675,15 +676,26 @@ def make_elliptical_reflector(
         u = (pos[:, 0] - cx) / ax
         v = (pos[:, 1] - cz) / az
         radius = np.hypot(u, v)
-        # Fold the normalized radius into the unit disc (ellipse boundary at 1).
-        folded_mod = np.mod(radius, 2.0)
-        folded = np.where(folded_mod <= 1.0, folded_mod, 2.0 - folded_mod)
+        # Fold the normalized radius between walls at -1 and +1 (ellipse
+        # boundary at 1), as for the circular reflector.
+        folded = _fold_between_walls(radius, 1.0)
         scale = np.divide(folded, radius, out=np.ones_like(radius), where=radius > 0.0)
         pos[:, 0] = cx + u * scale * ax
         pos[:, 1] = cz + v * scale * az
         return pos
 
     return reflect
+
+
+def _fold_between_walls(distance: np.ndarray, wall: float) -> np.ndarray:
+    """Fold a signed line coordinate into ``[-wall, wall]`` by specular reflection.
+
+    ``distance`` is measured from the centre along the walker's direction; a
+    negative result means the reflected walker sits on the opposite side.
+    """
+
+    shifted = np.mod(distance + wall, 4.0 * wall)
+    return np.where(shifted <= 2.0 * wall, shifted - wall, 3.0 * wall - shifted)
 
 
 def make_semipermeable_plane(

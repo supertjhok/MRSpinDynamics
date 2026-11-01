@@ -1,4 +1,9 @@
-"""Optional JAX kernels for moving-walker simulations."""
+"""Optional JAX kernels for moving-walker simulations.
+
+The kernels run in float64/complex128. The entry points enable JAX x64 only
+for their own tracing and execution (``core._jax_kernels.x64_scope``), so
+importing this module leaves the process-wide ``jax_enable_x64`` unchanged.
+"""
 
 from __future__ import annotations
 
@@ -6,8 +11,6 @@ import numpy as np
 
 try:  # pragma: no cover - depends on optional local dependency
     import jax
-
-    jax.config.update("jax_enable_x64", True)
     import jax.numpy as jnp
     from jax import lax
 
@@ -48,6 +51,21 @@ def cpmg_voxel_walkers_core(
 
     if not JAX_AVAILABLE:
         raise ImportError("jax is not installed")
+    from spin_dynamics.core._jax_kernels import x64_scope
+
+    with x64_scope():
+        return _cpmg_voxel_walkers(
+            positions0, weights, diffusion, t1, t2, b0_map, pore_mask,
+            axis0, axis1, axis2, dt_steps, rf_amp_steps, rf_phase_steps,
+            acquire_steps, normals,
+        )
+
+
+def _cpmg_voxel_walkers(
+    positions0, weights, diffusion, t1, t2, b0_map, pore_mask,
+    axis0, axis1, axis2, dt_steps, rf_amp_steps, rf_phase_steps,
+    acquire_steps, normals,
+):
     full_signal, positions = _cpmg_voxel_walkers_jit(
         jnp.asarray(positions0),
         jnp.asarray(weights),
@@ -89,6 +107,21 @@ def cpmg_voxel_walkers_core_prng(
 
     if not JAX_AVAILABLE:
         raise ImportError("jax is not installed")
+    from spin_dynamics.core._jax_kernels import x64_scope
+
+    with x64_scope():
+        return _cpmg_voxel_walkers_prng(
+            positions0, weights, diffusion, t1, t2, b0_map, pore_mask,
+            axis0, axis1, axis2, dt_steps, rf_amp_steps, rf_phase_steps,
+            acquire_steps, seed,
+        )
+
+
+def _cpmg_voxel_walkers_prng(
+    positions0, weights, diffusion, t1, t2, b0_map, pore_mask,
+    axis0, axis1, axis2, dt_steps, rf_amp_steps, rf_phase_steps,
+    acquire_steps, seed,
+):
     full_signal, positions = _cpmg_voxel_walkers_prng_jit(
         jnp.asarray(positions0),
         jnp.asarray(weights),
