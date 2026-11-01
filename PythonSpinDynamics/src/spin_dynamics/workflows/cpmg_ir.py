@@ -51,13 +51,12 @@ def _combine_ir_branches(
 ) -> np.ndarray:
     """Combine the two excitation-phase branches of a CPMG-IR acquisition.
 
-    ``"matlab"`` (the default) reproduces MATLAB
+    ``"cpmg"`` (the default) uses the normalized PAP combine of the CPMG
+    trains, ``(mrx1 - mrx2) / 2`` (as in MATLAB ``relax``..``relax3``): long
+    inversion delays reproduce the CPMG train and the recovery follows
+    ``+(1 - 2 exp(-tau / T1))``. ``"matlab"`` reproduces MATLAB
     ``sim_cpmg_ir_matched_probe_relax4.m``: ``mrx2 - mrx1``, which is ``-2``
-    times the normalized PAP combine used by the CPMG trains, so a fully
-    recovered sample gives a negative signal. ``"cpmg"`` uses that normalized
-    combine ``(mrx1 - mrx2) / 2`` (as in MATLAB ``relax``..``relax3``): long
-    inversion delays then reproduce the CPMG train and the recovery follows
-    ``+(1 - 2 exp(-tau / T1))``.
+    times that combine, so a fully recovered sample gives a negative signal.
     """
 
     if signal_convention == "cpmg":
@@ -166,14 +165,15 @@ def run_ideal_cpmg_ir_train(
     auto_refine_grid: bool = False,
     rephase_safety_factor: float = 1.25,
     rephase_action: str = "warn",
-    signal_convention: SignalConvention = "matlab",
+    signal_convention: SignalConvention = "cpmg",
 ) -> CPMGIRTrainResult:
     """Run a compact ideal-probe CPMG-IR finite echo train.
 
-    ``signal_convention="matlab"`` (default) keeps the MATLAB ``relax4``
-    combine ``mrx2 - mrx1``, the negative of (and twice) the CPMG-train
-    convention, so recovered magnetization reads negative. Pass ``"cpmg"`` for
-    the normalized ``(mrx1 - mrx2) / 2`` combine shared with the CPMG trains.
+    ``signal_convention="cpmg"`` (default) uses the normalized
+    ``(mrx1 - mrx2) / 2`` combine shared with the CPMG trains, so recovered
+    magnetization reads positive and long inversion delays reproduce the CPMG
+    train. Pass ``"matlab"`` for the MATLAB ``relax4`` combine ``mrx2 - mrx1``
+    (the negative of, and twice, the CPMG-train convention).
     """
 
     _validate_ir_inputs(num_echoes, echo_spacing_seconds, t1_seconds, t2_seconds)
@@ -452,14 +452,15 @@ def run_tuned_cpmg_ir_train(
     auto_refine_grid: bool = False,
     rephase_safety_factor: float = 1.25,
     rephase_action: str = "warn",
-    signal_convention: SignalConvention = "matlab",
+    signal_convention: SignalConvention = "cpmg",
 ) -> CPMGIRTrainResult:
     """Run a compact tuned-probe CPMG-IR finite echo train.
 
-    ``signal_convention="matlab"`` (default) keeps the MATLAB ``relax4``
-    combine ``mrx2 - mrx1``, the negative of (and twice) the CPMG-train
-    convention, so recovered magnetization reads negative. Pass ``"cpmg"`` for
-    the normalized ``(mrx1 - mrx2) / 2`` combine shared with the CPMG trains.
+    ``signal_convention="cpmg"`` (default) uses the normalized
+    ``(mrx1 - mrx2) / 2`` combine shared with the CPMG trains, so recovered
+    magnetization reads positive and long inversion delays reproduce the CPMG
+    train. Pass ``"matlab"`` for the MATLAB ``relax4`` combine ``mrx2 - mrx1``
+    (the negative of, and twice, the CPMG-train convention).
     """
 
     return _run_probe_cpmg_ir_train(
@@ -494,14 +495,15 @@ def run_untuned_cpmg_ir_train(
     auto_refine_grid: bool = False,
     rephase_safety_factor: float = 1.25,
     rephase_action: str = "warn",
-    signal_convention: SignalConvention = "matlab",
+    signal_convention: SignalConvention = "cpmg",
 ) -> CPMGIRTrainResult:
     """Run a compact untuned-probe CPMG-IR finite echo train.
 
-    ``signal_convention="matlab"`` (default) keeps the MATLAB ``relax4``
-    combine ``mrx2 - mrx1``, the negative of (and twice) the CPMG-train
-    convention, so recovered magnetization reads negative. Pass ``"cpmg"`` for
-    the normalized ``(mrx1 - mrx2) / 2`` combine shared with the CPMG trains.
+    ``signal_convention="cpmg"`` (default) uses the normalized
+    ``(mrx1 - mrx2) / 2`` combine shared with the CPMG trains, so recovered
+    magnetization reads positive and long inversion delays reproduce the CPMG
+    train. Pass ``"matlab"`` for the MATLAB ``relax4`` combine ``mrx2 - mrx1``
+    (the negative of, and twice, the CPMG-train convention).
     """
 
     return _run_probe_cpmg_ir_train(
@@ -536,7 +538,7 @@ def run_matched_cpmg_ir_train(
     auto_refine_grid: bool = False,
     rephase_safety_factor: float = 1.25,
     rephase_action: str = "warn",
-    signal_convention: SignalConvention = "matlab",
+    signal_convention: SignalConvention = "cpmg",
 ) -> MatchedCPMGIRTrainResult:
     """Run a compact matched-probe CPMG-IR finite echo train.
 
@@ -546,10 +548,11 @@ def run_matched_cpmg_ir_train(
     isochromats are precomputed once, then the inversion delay is swept over
     `tauvect`.
 
-    ``signal_convention="matlab"`` (default) keeps the MATLAB ``relax4``
-    combine ``mrx2 - mrx1``, the negative of (and twice) the CPMG-train
-    convention, so recovered magnetization reads negative. Pass ``"cpmg"`` for
-    the normalized ``(mrx1 - mrx2) / 2`` combine shared with the CPMG trains.
+    ``signal_convention="cpmg"`` (default) uses the normalized
+    ``(mrx1 - mrx2) / 2`` combine shared with the CPMG trains, so recovered
+    magnetization reads positive and long inversion delays reproduce the CPMG
+    train. Pass ``"matlab"`` for the MATLAB ``relax4`` combine ``mrx2 - mrx1``
+    (the negative of, and twice, the CPMG-train convention).
     """
 
     if num_echoes <= 0:

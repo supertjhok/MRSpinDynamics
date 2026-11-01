@@ -114,12 +114,15 @@ class PhaseCycleNormalizationTests(unittest.TestCase):
             numpts=21, num_echoes=3, t1_seconds=5e-3, t2_seconds=5e-3,
             rephase_action="ignore",
         )
-        aligned = run_ideal_cpmg_ir_train(signal_convention="cpmg", **kw)
+        # The default is the CPMG convention.
+        aligned = run_ideal_cpmg_ir_train(**kw)
         np.testing.assert_allclose(
             aligned.echo_integrals[0], cpmg.echo_integrals, rtol=1e-9, atol=1e-12
         )
-        # The default keeps the MATLAB relax4 combine: -2x the CPMG convention.
-        legacy = run_ideal_cpmg_ir_train(**kw)
+        explicit = run_ideal_cpmg_ir_train(signal_convention="cpmg", **kw)
+        np.testing.assert_array_equal(explicit.mrx, aligned.mrx)
+        # "matlab" keeps the MATLAB relax4 combine: -2x the CPMG convention.
+        legacy = run_ideal_cpmg_ir_train(signal_convention="matlab", **kw)
         np.testing.assert_allclose(legacy.mrx, -2.0 * aligned.mrx, rtol=1e-12, atol=1e-15)
         with self.assertRaises(ValueError):
             run_ideal_cpmg_ir_train(signal_convention="bogus", **kw)

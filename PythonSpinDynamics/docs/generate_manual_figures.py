@@ -3,7 +3,8 @@
 Run from any directory with a Python environment containing the package's
 ``plot`` and ``opt`` extras. The examples remain the single source of truth;
 this script only supplies stable documentation output paths and, where useful,
-the fast deterministic plotting mode.
+the fast deterministic plotting mode. Each new figure is then stored as a
+palette PNG by ``optimize_figures.py`` to keep ``user_manual.pdf`` small.
 """
 
 from __future__ import annotations
@@ -13,6 +14,8 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+
+from optimize_figures import optimize_png
 
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[1]
@@ -199,6 +202,7 @@ def main() -> None:
         output = IMAGE_DIR / output_name
         if not output.is_file() or output.stat().st_size == 0:
             raise RuntimeError(f"figure was not created: {output}")
+        print(f"[{name}] {optimize_png(output)}", flush=True)
 
 
 if __name__ == "__main__":

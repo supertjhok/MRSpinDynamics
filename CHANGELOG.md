@@ -193,7 +193,8 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
 
   **New options:**
   - `PhaseCycle.combine(detection="m_minus")`
-  - `run_*_cpmg_ir_train(signal_convention="cpmg")`
+  - `run_*_cpmg_ir_train(signal_convention=)`; `"cpmg"` became the default
+    later (see Changed)
   - `NitroxideSaturationModel` accepts a signed `hyperfine_hz`
   - `propagate_density_liouville(equilibrium_density=)`
   - GRAPE `ensemble_weights`, `propagator="expm"` with gradient channels, and
@@ -245,6 +246,17 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
 
 ### Changed
 
+- **CPMG-IR sign (breaking):** `run_{ideal,tuned,untuned,matched}_cpmg_ir_train`
+  and the `CPMGIRTrain` experiment now default to `signal_convention="cpmg"`,
+  the normalized `(mrx1 - mrx2) / 2` combine shared with the CPMG trains, so
+  recovered magnetization reads positive and follows `+(1 - 2 exp(-tau/T1))`.
+  The old default was MATLAB `relax4`'s `mrx2 - mrx1` (−2× that); pass
+  `signal_convention="matlab"` to keep it.
+- The user manual's figures are stored as 256-colour palette PNGs
+  (`docs/optimize_figures.py`, run automatically by
+  `generate_manual_figures.py`). The most frequent colours are kept exactly and
+  every figure stays above 43 dB PSNR. The figures shrink from 12.3 MB to
+  4.2 MB and `user_manual.pdf` from 12.5 MB to 6.2 MB.
 - Rewrote the PythonSpinDynamics web documentation openings around reader
   questions, prerequisites, model boundaries, and neighboring guides; added a
   documentation map and maintainer writing standard; clarified that the
