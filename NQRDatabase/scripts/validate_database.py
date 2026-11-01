@@ -1,8 +1,10 @@
 """Validate generated NQR database artifacts.
 
 This script is intentionally lightweight: it checks that the generated SQLite
-database opens, core tables have plausible row counts, and normalized JSONL
-exports are parseable. It is meant for CI and for quick local rebuild checks.
+database opens, core tables have plausible row counts, normalized JSONL exports
+are parseable, overlay tables match their JSONL, and normalized values pass
+physical unit-plausibility checks. It is meant for CI and for quick local
+rebuild checks.
 """
 
 from __future__ import annotations
@@ -10,10 +12,22 @@ from __future__ import annotations
 import argparse
 import json
 import sqlite3
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from build_cwru_database import isotope_from_form  # noqa: E402
 
 
 PROJECT = Path(__file__).resolve().parents[1]
+
+# Unit-plausibility envelopes. The largest 14N quadrupole couplings are ~6-7 MHz
+# and nu+ <= C_Q, so a 14N line above 6.5 MHz is a mis-assigned nucleus or a
+# unit error. Quadrupolar T2 in solids is ms-scale; a T2 of 1 s or more is almost
+# certainly milliseconds stored as seconds. T2 <= 2 T1 always holds.
+MAX_14N_LINE_KHZ = 6500.0
+MAX_T2_SECONDS = 1.0
 DEFAULT_DATABASE = PROJECT / "data" / "exports" / "nqr.sqlite"
 DEFAULT_NORMALIZED_DIR = PROJECT / "data" / "normalized"
 
@@ -127,6 +141,57 @@ def validate_overlays(database: Path, normalized_dir: Path) -> dict[str, int]:
     return counts
 
 
+def validate_plausibility(normalized_dir: Path) -> dict[str, int]:
+    """Check normalized lines for unit and assignment plausibility.
+
+    Raises ``AssertionError`` listing every offending line id; returns how many
+    values each check examined.
+    """
+
+    def load(name: str) -> list[dict]:
+        with (normalized_dir / name).open("r", encoding="utf-8") as handle:
+            return [json.loads(line) for line in handle if line.strip()]
+
+    sites = {row["id"]: row for row in load("sites.jsonl")}
+    problems: list[str] = []
+    counts = {"14n_lines": 0, "t2_values": 0, "t2_t1_pairs": 0, "form_isotopes": 0}
+    for line in load("lines.jsonl"):
+        site = sites.get(line["site_id"], {})
+        isotope = site.get("isotope")
+        frequency = line.get("frequency_khz")
+        if isotope == "14N" and frequency is not None:
+            counts["14n_lines"] += 1
+            if frequency > MAX_14N_LINE_KHZ:
+                problems.append(f"{line['id']}: 14N line at {frequency} kHz")
+        for key in ("t1_s", "t2_s", "t2_star_s"):
+            value = line.get(key)
+            if value is not None and value <= 0.0:
+                problems.append(f"{line['id']}: non-positive {key} = {value}")
+        for key in ("t2_s", "t2_star_s"):
+            value = line.get(key)
+            if value is not None:
+                counts["t2_values"] += 1
+                if value >= MAX_T2_SECONDS:
+                    problems.append(f"{line['id']}: {key} = {value} s (likely ms)")
+        t1, t2 = line.get("t1_s"), line.get("t2_s")
+        if t1 is not None and t2 is not None:
+            counts["t2_t1_pairs"] += 1
+            if t2 > 2.0 * t1:
+                problems.append(f"{line['id']}: T2 {t2} s exceeds 2 T1 ({t1} s)")
+        form_isotope = isotope_from_form(line.get("form"))
+        if form_isotope is not None:
+            counts["form_isotopes"] += 1
+            if form_isotope != isotope:
+                problems.append(
+                    f"{line['id']}: form names {form_isotope} but site isotope is {isotope}"
+                )
+    if problems:
+        raise AssertionError(
+            "unit-plausibility check failed:\n  " + "\n  ".join(problems)
+        )
+    return counts
+
+
 def validate_jsonl_exports(normalized_dir: Path) -> dict[str, int]:
     if not normalized_dir.exists():
         raise FileNotFoundError(f"Normalized export directory not found: {normalized_dir}")
@@ -161,6 +226,7 @@ def main() -> None:
     sqlite_counts = validate_sqlite(args.database)
     jsonl_counts = validate_jsonl_exports(args.normalized_dir)
     overlay_counts = validate_overlays(args.database, args.normalized_dir)
+    plausibility_counts = validate_plausibility(args.normalized_dir)
 
     print("sqlite tables:")
     for table, count in sqlite_counts.items():
@@ -171,6 +237,9 @@ def main() -> None:
     print("overlays:")
     for table, count in overlay_counts.items():
         print(f"  {table}={count}")
+    print("plausibility checks:")
+    for check, count in plausibility_counts.items():
+        print(f"  {check}={count}")
 
 
 if __name__ == "__main__":

@@ -75,6 +75,60 @@ class StrainGeometryTests(unittest.TestCase):
         text_with_overlap, _ = glycine_static_efg_input_from_cif(cif, pawovlp=25)
         self.assertIn("pawovlp 25", text_with_overlap)
 
+    def test_cif_with_legal_embedded_apostrophe_parses(self):
+        # Regression: the posix-shlex tokenizer raised "No closing quotation" on
+        # CIF 1.1-legal values such as 'O'Brien, J.'.
+        root = Path(__file__).resolve().parents[2]
+        source = root / "QuadrupolarDFT" / "structures" / "Glycine" / "189379.cif"
+        reference_text, reference_atoms = glycine_static_efg_input_from_cif(source)
+        with tempfile.TemporaryDirectory() as tmp:
+            cif = Path(tmp) / "glycine_quoted.cif"
+            cif.write_text(
+                "_publ_author_name 'O'Brien, J.'\n" + source.read_text(encoding="utf-8"),
+                encoding="utf-8",
+            )
+            text, atoms = glycine_static_efg_input_from_cif(cif)
+        self.assertEqual(len(atoms), len(reference_atoms))
+        self.assertEqual(
+            text.splitlines()[1:], reference_text.splitlines()[1:]
+        )
+
+    def test_symmetry_operations_use_safe_parser(self):
+        from quadrupolar_dft import _cif
+
+        np.testing.assert_allclose(
+            _cif.apply_symmetry_operation("-x+1/2,y+1/2,-z", np.array([0.1, 0.2, 0.3])),
+            [0.4, 0.7, -0.3],
+        )
+        with self.assertRaises(ValueError):
+            _cif.apply_symmetry_operation("x,y,2**3", np.zeros(3))
+
+    def test_shared_cif_module_matches_python_spin_dynamics_copy(self):
+        # The CIF reader is duplicated on purpose (neither package depends on
+        # the other); keep the two copies identical up to line endings.
+        root = Path(__file__).resolve().parents[2]
+        here = root / "QuadrupolarDFT" / "src" / "quadrupolar_dft" / "_cif.py"
+        twin = root / "PythonSpinDynamics" / "src" / "spin_dynamics" / "nqr" / "_cif.py"
+        if not twin.exists():
+            self.skipTest("PythonSpinDynamics checkout not present")
+        self.assertEqual(
+            here.read_bytes().replace(b"\r\n", b"\n"),
+            twin.read_bytes().replace(b"\r\n", b"\n"),
+        )
+
+    def test_strain_spin_matrices_match_ladder_helper(self):
+        from quadrupolar_dft.strain_coupling import _spin_matrices
+
+        for spin in (1.0, 1.5, 2.5):
+            ix, iy, iz = _spin_matrices(spin)
+            # Angular-momentum algebra: [Ix, Iy] = i Iz and I^2 = I(I+1).
+            np.testing.assert_allclose(ix @ iy - iy @ ix, 1j * iz, atol=1e-12)
+            np.testing.assert_allclose(
+                ix @ ix + iy @ iy + iz @ iz,
+                spin * (spin + 1.0) * np.eye(int(2 * spin + 1)),
+                atol=1e-12,
+            )
+
     def test_affine_strain_preserves_fractional_coordinates(self):
         crystal = parse_abinit_structure(BASE_INPUT)
         strain = np.array([[0.01, 0.002, 0.0], [0.002, 0.0, 0.0], [0.0, 0.0, -0.01]])

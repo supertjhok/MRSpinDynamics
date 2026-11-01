@@ -15,8 +15,10 @@ Convention (matches ``mr_integration.conversions`` and
     H/h = C_Q / (4 I (2I-1)) * [3 Iz^2 - I(I+1) + eta (Ix^2 - Iy^2)]
     nu_Q = C_Q * d / (4 I (2I-1))      # d = fundamental_operator_gap(spin) = 3 or 6
 
-``nu_Q`` is the ``eta = 0`` fundamental (lowest) transition; for spin > 3/2 the
-higher axial lines follow at ``2 nu_Q``, ``3 nu_Q``, ...
+``nu_Q`` is the ``eta = 0`` fundamental (lowest) transition. For half-integer
+spin > 3/2 the higher axial lines follow at ``2 nu_Q``, ``3 nu_Q``, ...; for
+integer spin >= 2 the ``m <-> m+1`` gaps are ``3(2m+1)`` operator units, so the
+axial lines fall at the odd multiples ``nu_Q``, ``3 nu_Q``, ``5 nu_Q``, ...
 
 Gyromagnetic ratios are magnitudes ``|gamma| / 2pi`` in Hz/T. Zero-field NQR (this
 module's scope) does not depend on the sign; it only enters the optional weak
@@ -62,7 +64,8 @@ QUADRUPOLAR_ISOTOPES: dict[str, NuclearIsotope] = {
         NuclearIsotope("37Cl", 1.5, _mhz_per_t(3.4765)),
         NuclearIsotope("39K", 1.5, _mhz_per_t(1.9893)),
         NuclearIsotope("63Cu", 1.5, _mhz_per_t(11.319)),
-        NuclearIsotope("65Cu", 1.5, _mhz_per_t(12.128)),
+        # gamma = 7.6104e7 rad/s/T (Harris 2001); was 12.128, about 0.13% high.
+        NuclearIsotope("65Cu", 1.5, _mhz_per_t(12.112)),
         NuclearIsotope("69Ga", 1.5, _mhz_per_t(10.248)),
         NuclearIsotope("71Ga", 1.5, _mhz_per_t(13.021)),
         NuclearIsotope("75As", 1.5, _mhz_per_t(7.315)),

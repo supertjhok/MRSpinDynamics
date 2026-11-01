@@ -22,8 +22,9 @@ def quadrupole_frequency_scale_hz(site: QuadrupolarSite) -> float:
     integer spin and ``d = 6`` for half-integer spin, so the prefactor is
     ``nu_Q / d``. This reproduces the historical spin-1 (``d = 3``) and spin-3/2
     (``d = 6``) values exactly and extends unchanged to spin-5/2, 7/2, 9/2, where
-    the higher axial lines fall at ``2 nu_Q``, ``3 nu_Q``, ... (see
-    ``mr_integration.conversions`` for the matching ``C_Q <-> nu_Q`` mapping).
+    the higher axial lines fall at ``2 nu_Q``, ``3 nu_Q``, ..., and to integer
+    spin >= 2, where they fall at the odd multiples ``3 nu_Q``, ``5 nu_Q``, ...
+    (see ``mr_integration.conversions`` for the matching ``C_Q <-> nu_Q`` mapping).
     """
 
     return site.quadrupole_frequency_hz / fundamental_operator_gap(site.spin)
@@ -167,13 +168,17 @@ def _transitions_from_eigensystem(
     """
 
     # Exactly-degenerate levels (the Kramers doublets of half-integer spin) are
-    # split by sub-Hz eigensolver noise, and their eigenvectors are arbitrary
-    # within the degenerate subspace, which would otherwise surface as spurious
-    # near-zero-frequency "transitions" with random strength (most visible for
-    # spin > 3/2). Floor the frequency cut at a small fraction of the level spread
-    # so numerical degeneracy is filtered while real lines (>= kHz) are kept.
-    level_span = float(np.ptp(levels_hz)) if np.size(levels_hz) else 0.0
-    frequency_floor_hz = max(float(frequency_tolerance_hz), 1.0e-6 * level_span)
+    # split only by eigensolver noise (~1e-15 of the largest level), which would
+    # otherwise surface as spurious near-zero-frequency "transitions". Floor the
+    # frequency cut at the same relative tolerance that defines exact degeneracy
+    # in ``_canonical_degenerate_eigenvectors``. The floor used to be 1e-6 of the
+    # level span, which for heavy nuclei (127I, 209Bi: span ~1 GHz) also dropped
+    # real weak-field Zeeman transitions of a few hundred Hz.
+    level_scale = float(np.max(np.abs(levels_hz))) if np.size(levels_hz) else 0.0
+    frequency_floor_hz = max(
+        float(frequency_tolerance_hz),
+        _DEGENERACY_RELATIVE_TOLERANCE * max(level_scale, 1.0),
+    )
 
     used_labels: set[str] = set()
     transitions: list[NQRTransition] = []

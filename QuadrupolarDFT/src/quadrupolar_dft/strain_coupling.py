@@ -15,10 +15,10 @@ from dataclasses import dataclass
 import json
 from pathlib import Path
 import re
-import shlex
 
 import numpy as np
 
+from . import _cif
 from .constants import BARN_M2, ELEMENTARY_CHARGE_C, PLANCK_CONSTANT_J_S
 from .finite_displacement import (
     _ABINIT_TOKEN_RE,
@@ -28,6 +28,7 @@ from .finite_displacement import (
     abinit_input_with_positions,
     collect_efg_outputs,
 )
+from .quadrupolar import _spin_matrices as _ladder_matrices
 from .tensors import EFGTensor
 
 
@@ -354,9 +355,9 @@ def glycine_static_efg_input_from_cif(
     """
 
     text = Path(path).read_text(encoding="utf-8")
-    items, loops = _parse_cif_tokens(text)
+    items, loops = _cif.parse_cif(text)
     atoms = _cif_atom_sites(loops)
-    sym_ops = _cif_symmetry_operations(loops) or ("x,y,z",)
+    sym_ops = tuple(_cif.symmetry_operations_from_loops(loops)) or ("x,y,z",)
     lattice = _cif_lattice(items)
     expanded = _expand_cif_atoms(atoms, sym_ops)
     species = sorted({atom["z"] for atom in expanded})
@@ -543,29 +544,13 @@ def _manifest_job(manifest: dict, component: str, sign: int) -> dict:
 
 
 def _spin_matrices(spin: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    twice_spin = round(2.0 * spin)
-    if not np.isclose(twice_spin, 2.0 * spin) or spin < 1.0:
+    if spin < 1.0:
         raise ValueError("spin must be an integer or half-integer >= 1")
-    m_values = np.arange(spin, -spin - 1.0, -1.0)
-    dim = len(m_values)
-    iz = np.diag(m_values).astype(np.complex128)
-    ip = np.zeros((dim, dim), dtype=np.complex128)
-    im = np.zeros((dim, dim), dtype=np.complex128)
-    index = {m: i for i, m in enumerate(m_values)}
-    for m_value in m_values:
-        raised = m_value + 1.0
-        lowered = m_value - 1.0
-        if raised in index:
-            ip[index[raised], index[m_value]] = np.sqrt(
-                spin * (spin + 1.0) - m_value * raised
-            )
-        if lowered in index:
-            im[index[lowered], index[m_value]] = np.sqrt(
-                spin * (spin + 1.0) - m_value * lowered
-            )
-    ix = 0.5 * (ip + im)
-    iy = (ip - im) / (2.0j)
-    return ix, iy, iz
+    ladder = _ladder_matrices(spin)
+    ip = ladder["ip"].astype(np.complex128)
+    im = ladder["im"].astype(np.complex128)
+    iz = ladder["iz"].astype(np.complex128)
+    return 0.5 * (ip + im), (ip - im) / (2.0j), iz
 
 
 def _cif_value(text: str, tag: str) -> str | None:
@@ -578,91 +563,15 @@ def _cif_value(text: str, tag: str) -> str | None:
     return value
 
 
-def _parse_cif_tokens(
-    text: str,
-) -> tuple[dict[str, str], list[tuple[list[str], list[list[str]]]]]:
-    tokens = _tokenize_cif(text)
-    items: dict[str, str] = {}
-    loops: list[tuple[list[str], list[list[str]]]] = []
-    index = 0
-    while index < len(tokens):
-        token = tokens[index]
-        if token == "loop_":
-            index += 1
-            tags: list[str] = []
-            while index < len(tokens) and tokens[index].startswith("_"):
-                tags.append(tokens[index])
-                index += 1
-            values: list[str] = []
-            while (
-                index < len(tokens)
-                and tokens[index] != "loop_"
-                and not tokens[index].startswith("_")
-            ):
-                values.append(tokens[index])
-                index += 1
-            if tags:
-                rows = [
-                    values[start:start + len(tags)]
-                    for start in range(
-                        0,
-                        len(values) - len(values) % len(tags),
-                        len(tags),
-                    )
-                ]
-                loops.append((tags, rows))
-            continue
-        if token.startswith("_") and index + 1 < len(tokens):
-            items[token] = tokens[index + 1]
-            index += 2
-        else:
-            index += 1
-    return items, loops
-
-
-def _tokenize_cif(text: str) -> list[str]:
-    tokens: list[str] = []
-    in_multiline = False
-    multiline: list[str] = []
-    for raw_line in text.splitlines():
-        if raw_line.startswith(";"):
-            if in_multiline:
-                tokens.append("\n".join(multiline))
-                multiline = []
-                in_multiline = False
-            else:
-                in_multiline = True
-            continue
-        if in_multiline:
-            multiline.append(raw_line)
-            continue
-        line = raw_line.strip()
-        if not line or line.startswith("#"):
-            continue
-        lexer = shlex.shlex(line, posix=True)
-        lexer.whitespace_split = True
-        lexer.commenters = "#"
-        tokens.extend(list(lexer))
-    if in_multiline:
-        tokens.append("\n".join(multiline))
-    return tokens
-
-
 def _cif_lattice(items: dict[str, str]) -> np.ndarray:
-    a = _float_cif(items["_cell_length_a"])
-    b = _float_cif(items["_cell_length_b"])
-    c = _float_cif(items["_cell_length_c"])
-    alpha = np.deg2rad(_float_cif(items.get("_cell_angle_alpha", "90")))
-    beta = np.deg2rad(_float_cif(items.get("_cell_angle_beta", "90")))
-    gamma = np.deg2rad(_float_cif(items.get("_cell_angle_gamma", "90")))
-    cos_a, cos_b, cos_g = np.cos(alpha), np.cos(beta), np.cos(gamma)
-    sin_g = np.sin(gamma)
-    v_a = np.array([a, 0.0, 0.0])
-    v_b = np.array([b * cos_g, b * sin_g, 0.0])
-    cx = c * cos_b
-    cy = c * (cos_a - cos_b * cos_g) / sin_g
-    cz = np.sqrt(max(c * c - cx * cx - cy * cy, 0.0))
-    return np.vstack([v_a, v_b, [cx, cy, cz]])
+    lengths = tuple(
+        _cif.cif_float(items[f"_cell_length_{axis}"]) for axis in ("a", "b", "c")
+    )
+    angles = tuple(
+        _cif.cif_float(items.get(f"_cell_angle_{name}", "90"))
+        for name in ("alpha", "beta", "gamma")
+    )
+    return _cif.cell_matrix(lengths, angles)
 
 
 def _cif_atom_sites(loops: list[tuple[list[str], list[list[str]]]]) -> list[dict]:
@@ -676,7 +585,7 @@ def _cif_atom_sites(loops: list[tuple[list[str], list[list[str]]]]) -> list[dict
         element_i = tags.index("_atom_site_type_symbol")
         atoms = []
         for row in rows:
-            element = _normalize_element(row[element_i])
+            element = _cif.normalize_element(row[element_i])
             atoms.append(
                 {
                     "label": row[label_i],
@@ -684,9 +593,9 @@ def _cif_atom_sites(loops: list[tuple[list[str], list[list[str]]]]) -> list[dict
                     "z": ELEMENT_Z[element],
                     "fractional": np.array(
                         [
-                            _float_cif(row[fx_i]),
-                            _float_cif(row[fy_i]),
-                            _float_cif(row[fz_i]),
+                            _cif.cif_float(row[fx_i]),
+                            _cif.cif_float(row[fy_i]),
+                            _cif.cif_float(row[fz_i]),
                         ],
                         dtype=float,
                     ),
@@ -696,23 +605,12 @@ def _cif_atom_sites(loops: list[tuple[list[str], list[list[str]]]]) -> list[dict
     raise ValueError("CIF contains no atom-site loop")
 
 
-def _cif_symmetry_operations(
-    loops: list[tuple[list[str], list[list[str]]]]
-) -> tuple[str, ...]:
-    for tags, rows in loops:
-        for tag in ("_symmetry_equiv_pos_as_xyz", "_space_group_symop_operation_xyz"):
-            if tag in tags:
-                index = tags.index(tag)
-                return tuple(row[index] for row in rows)
-    return ()
-
-
 def _expand_cif_atoms(atoms: list[dict], sym_ops: tuple[str, ...]) -> list[dict]:
     expanded: list[dict] = []
     seen: set[tuple[str, tuple[float, float, float]]] = set()
     for sym_index, operation in enumerate(sym_ops):
         for atom in atoms:
-            frac = np.mod(_apply_symmetry_operation(operation, atom["fractional"]), 1.0)
+            frac = np.mod(_cif.apply_symmetry_operation(operation, atom["fractional"]), 1.0)
             rounded = tuple(float(v) for v in np.round(frac, 10))
             key = (atom["label"], rounded)
             if key in seen:
@@ -728,39 +626,6 @@ def _expand_cif_atoms(atoms: list[dict], sym_ops: tuple[str, ...]) -> list[dict]
                 }
             )
     return expanded
-
-
-def _apply_symmetry_operation(operation: str, fractional: np.ndarray) -> np.ndarray:
-    parts = [part.strip() for part in operation.strip().strip("'\"").split(",")]
-    if len(parts) != 3:
-        raise ValueError(f"unsupported symmetry operation: {operation!r}")
-    x, y, z = np.asarray(fractional, dtype=float)
-    env = {"x": float(x), "y": float(y), "z": float(z)}
-    return np.array(
-        [_safe_eval_fractional(part, env) for part in parts],
-        dtype=float,
-    )
-
-
-def _safe_eval_fractional(expression: str, env: dict[str, float]) -> float:
-    allowed = set("xyzXYZ0123456789+-*/(). ")
-    if any(ch not in allowed for ch in expression):
-        raise ValueError(f"unsupported symmetry expression: {expression!r}")
-    return float(eval(expression.lower(), {"__builtins__": {}}, env))
-
-
-def _float_cif(value: str) -> float:
-    cleaned = str(value).strip().strip("'\"")
-    if cleaned in {"?", "."}:
-        raise ValueError(f"missing numeric CIF value: {value!r}")
-    if "(" in cleaned:
-        cleaned = cleaned[: cleaned.index("(")]
-    return float(cleaned)
-
-
-def _normalize_element(value: str) -> str:
-    text = str(value).strip().strip("'\"")
-    return text[0].upper() + text[1:].lower()
 
 
 def _format_int_rows(values: list[int], columns: int = 12) -> list[str]:

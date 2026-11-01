@@ -343,10 +343,19 @@ def slug(value: str) -> str:
     return value.strip("-") or "unknown"
 
 
+_NUMBER_RE = re.compile(r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?")
+
+
 def first_number(value: str | None) -> float | None:
+    """Return the first number in ``value`` (thousands commas are ignored).
+
+    Accepts leading-dot decimals (``.5``) and scientific notation (``1.2e-3``);
+    the pattern used to read ``.5 ms`` as 5 and ``1.2e-3 s`` as 1.2.
+    """
+
     if not value:
         return None
-    match = re.search(r"[-+]?\d+(?:\.\d+)?", value.replace(",", ""))
+    match = _NUMBER_RE.search(value.replace(",", ""))
     return float(match.group(0)) if match else None
 
 

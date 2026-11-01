@@ -16,8 +16,9 @@ class QuadrupolarSite:
     Supports any integer or half-integer ``spin`` above 1/2.
     ``quadrupole_frequency_hz`` (nu_Q) is the ``eta = 0`` *fundamental* (lowest)
     zero-field transition frequency -- the ``0 <-> 1`` line for integer spin and
-    the ``1/2 <-> 3/2`` line for half-integer spin. For spin > 3/2 the higher
-    (satellite) axial lines then fall at ``2 nu_Q``, ``3 nu_Q``, ...; build a site
+    the ``1/2 <-> 3/2`` line for half-integer spin. For half-integer spin > 3/2
+    the higher (satellite) axial lines then fall at ``2 nu_Q``, ``3 nu_Q``, ...;
+    for integer spin >= 2 they fall at ``3 nu_Q``, ``5 nu_Q``, ... Build a site
     from the quadrupole coupling constant ``C_Q`` instead via
     ``spin_dynamics.nqr.quadrupolar_site`` / ``mr_integration.conversions``.
     """

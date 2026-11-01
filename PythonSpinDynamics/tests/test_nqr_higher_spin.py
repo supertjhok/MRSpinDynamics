@@ -118,6 +118,45 @@ class ConversionAndPresetTests(unittest.TestCase):
             self.assertIn(iso, QUADRUPOLAR_ISOTOPES)
             self.assertGreater(quadrupolar_site(iso, nu_q_hz=1e6).gamma_hz_per_t, 0.0)
 
+    def test_copper_gyromagnetic_ratios_match_harris(self) -> None:
+        # Regression: 65Cu was 12.128 MHz/T (~0.13% high). Harris et al. (IUPAC
+        # 2001) give gamma = 7.1118e7 (63Cu) and 7.6104e7 (65Cu) rad/s/T.
+        tau = 2.0 * np.pi
+        cu63 = QUADRUPOLAR_ISOTOPES["63Cu"].gamma_hz_per_t
+        cu65 = QUADRUPOLAR_ISOTOPES["65Cu"].gamma_hz_per_t
+        self.assertAlmostEqual(cu63 * tau / 7.1118e7, 1.0, delta=1e-4)
+        self.assertAlmostEqual(cu65 * tau / 7.6104e7, 1.0, delta=1e-4)
+        self.assertAlmostEqual(cu65 / cu63, 7.6104 / 7.1118, delta=1e-4)
+
+    def test_integer_spin_axial_lines_are_odd_multiples(self) -> None:
+        # Documented ladder for integer spin >= 2: the m <-> m+1 gap is
+        # 3(2m+1) operator units, i.e. nu_Q, 3 nu_Q, 5 nu_Q, ...
+        for spin, ratios in ((2.0, [1, 3]), (3.0, [1, 3, 5])):
+            site = QuadrupolarSite(spin=spin, quadrupole_frequency_hz=1.0e6, eta=0.0)
+            lines = _line_freqs(site)
+            self.assertEqual([round(f / 1.0e6, 9) for f in lines], ratios)
+
+    def test_heavy_nucleus_weak_field_zeeman_line_is_kept(self) -> None:
+        # Regression: the transition floor was 1e-6 of the level span (900 Hz for
+        # 127I at nu_Q = 300 MHz), so the +-1/2 doublet line at gamma*B0 = 429 Hz
+        # (B0 = 50 uT along z) was dropped. With eta = 0 and B0 || z the
+        # Hamiltonian is diagonal: E_m = nu_Q-term - m gamma B0, so the
+        # +1/2 <-> -1/2 gap is exactly gamma B0.
+        site = quadrupolar_site("127I", nu_q_hz=300e6, eta=0.0)
+        b0 = 50e-6
+        eigensystem = diagonalize_site(site, (0.0, 0.0, b0))
+        low = [t for t in eigensystem.transitions if t.frequency_hz < 1e4]
+        self.assertEqual(len(low), 1)
+        self.assertAlmostEqual(low[0].frequency_hz / (site.gamma_hz_per_t * b0), 1.0, places=6)
+        # |<1/2|I+-|-1/2>| = I + 1/2 = 3, so |<.|Ix|.>| = |<.|Iy|.>| = 3/2.
+        self.assertAlmostEqual(low[0].strength, 1.5 * np.sqrt(2.0), places=9)
+
+    def test_zero_field_has_no_spurious_near_zero_transitions(self) -> None:
+        for spin in (1.5, 2.5, 3.5, 4.5):
+            site = QuadrupolarSite(spin=spin, quadrupole_frequency_hz=300e6, eta=0.3)
+            frequencies = [t.frequency_hz for t in diagonalize_site(site).transitions]
+            self.assertGreater(min(frequencies), 1e6, spin)
+
     def test_requires_exactly_one_of_cq_or_nu_q(self) -> None:
         with self.assertRaises(ValueError):
             quadrupolar_site("27Al", cq_hz=1e6, nu_q_hz=1e6)

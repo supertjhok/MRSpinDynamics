@@ -14,6 +14,7 @@ sys.path.insert(0, str(PROJECT / "scripts"))
 
 from build_cwru_database import (  # noqa: E402
     CWRU_UNITLESS_TIME_SCALE_S,
+    first_number,
     parse_time_s,
 )
 
@@ -50,6 +51,24 @@ class ParseTimeTests(unittest.TestCase):
         self.assertEqual(parse_time_s("4 s", CWRU_UNITLESS_TIME_SCALE_S), 4.0)
         self.assertIsNone(parse_time_s(""))
         self.assertIsNone(parse_time_s("several"))
+
+    def test_scientific_notation_and_leading_dot(self) -> None:
+        # Regression: the number pattern read ".5 ms" as 5 ms and "1.2e-3 s" as
+        # 1.2 s (no leading-dot decimals, no exponents).
+        cases = {
+            ".5 ms": 0.5e-3,
+            "1.2e-3 s": 1.2e-3,
+            "2.5E+2 us": 2.5e-4,
+            "3e1 ms": 0.03,
+        }
+        for text, expected in cases.items():
+            with self.subTest(text=text):
+                self.assertAlmostEqual(parse_time_s(text), expected, delta=1e-15)
+        self.assertAlmostEqual(parse_time_s("5e-3", CWRU_UNITLESS_TIME_SCALE_S), 5e-6)
+        self.assertEqual(first_number("1,234.5 kHz"), 1234.5)
+        self.assertEqual(first_number("1.5-2.0"), 1.5)
+        self.assertEqual(first_number("-.25"), -0.25)
+        self.assertEqual(first_number("12. kHz"), 12.0)
 
 
 class CrossSourceRelaxationTests(unittest.TestCase):
