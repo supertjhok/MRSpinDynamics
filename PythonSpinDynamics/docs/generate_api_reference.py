@@ -284,10 +284,17 @@ def _is_public(name: str) -> bool:
     return not name.startswith("_")
 
 
+def _unparse(node: ast.AST) -> str:
+    # Python 3.10's ast.unparse writes argument-less lambdas as "lambda :";
+    # 3.11+ write "lambda:". Normalize so the generated file is identical on
+    # every supported Python version (the smoke job diffs it on 3.10-3.12).
+    return ast.unparse(node).replace("lambda :", "lambda:")
+
+
 def _annotation_text(node: ast.AST | None) -> str:
     if node is None:
         return ""
-    return ast.unparse(node)
+    return _unparse(node)
 
 
 def _signature(
@@ -309,7 +316,7 @@ def _signature(
         if annotation:
             text += f": {annotation}"
         if default is not None:
-            text += f" = {ast.unparse(default)}"
+            text += f" = {_unparse(default)}"
         args.append(text)
         if index + 1 == len(node.args.posonlyargs):
             args.append("/")
@@ -327,7 +334,7 @@ def _signature(
         if annotation:
             text += f": {annotation}"
         if default is not None:
-            text += f" = {ast.unparse(default)}"
+            text += f" = {_unparse(default)}"
         args.append(text)
     if node.args.kwarg is not None:
         arg = node.args.kwarg
@@ -377,7 +384,7 @@ def _module_symbols(path: Path) -> list[Symbol]:
                 ):
                     signature = f": {_annotation_text(member.annotation)}"
                     if member.value is not None:
-                        signature += f" = {ast.unparse(member.value)}"
+                        signature += f" = {_unparse(member.value)}"
                     symbols.append(
                         Symbol(
                             "attribute",
@@ -389,7 +396,7 @@ def _module_symbols(path: Path) -> list[Symbol]:
                 elif isinstance(
                     member, (ast.FunctionDef, ast.AsyncFunctionDef)
                 ) and _is_public(member.name):
-                    decorators = {ast.unparse(item) for item in member.decorator_list}
+                    decorators = {_unparse(item) for item in member.decorator_list}
                     # Setter/deleter definitions repeat the same property.
                     if any(
                         item.endswith((".setter", ".deleter")) for item in decorators
