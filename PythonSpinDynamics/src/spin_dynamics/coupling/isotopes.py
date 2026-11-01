@@ -17,6 +17,7 @@ signed value by default.
 
 from __future__ import annotations
 
+from spin_dynamics.constants import PROTON_GAMMA_HZ_PER_T
 from spin_dynamics.nqr.isotopes import QUADRUPOLAR_ISOTOPES, NuclearIsotope
 
 
@@ -28,7 +29,8 @@ def _mhz_per_t(value: float) -> float:
 SPIN_HALF_ISOTOPES: dict[str, NuclearIsotope] = {
     iso.isotope: iso
     for iso in (
-        NuclearIsotope("1H", 0.5, _mhz_per_t(42.5774806)),
+        # 1H is the shared CODATA 2018 proton value (was CODATA 2010 42.5774806).
+        NuclearIsotope("1H", 0.5, PROTON_GAMMA_HZ_PER_T),
         NuclearIsotope("19F", 0.5, _mhz_per_t(40.0775017)),
         NuclearIsotope("13C", 0.5, _mhz_per_t(10.7083974)),
         NuclearIsotope("15N", 0.5, _mhz_per_t(4.3172655)),

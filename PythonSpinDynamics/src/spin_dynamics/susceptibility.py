@@ -35,6 +35,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from spin_dynamics.constants import PROTON_GAMMA_RAD_PER_S_PER_T
 from spin_dynamics.motion import MotionFieldMaps2D, make_motion_field_maps_2d
 
 
@@ -48,8 +49,8 @@ __all__ = [
     "internal_gradient_distribution",
 ]
 
-# Proton gyromagnetic ratio (rad/s/T); matches the value used by the examples.
-PROTON_GAMMA = 2.675222005e8
+# Proton gyromagnetic ratio (rad/s/T, CODATA 2018).
+PROTON_GAMMA = PROTON_GAMMA_RAD_PER_S_PER_T
 
 
 @dataclass(frozen=True)

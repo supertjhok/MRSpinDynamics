@@ -19,7 +19,7 @@ introducing a second definition of gradient moment or b-value.
 
 ## Reused conventions (from `workflows/pgse.py`, `fields/positions.py`, `motion.py`)
 
-- **Gyromagnetic ratio** `gamma = 2.675e8` rad/(s*T) (proton default).
+- **Gyromagnetic ratio** `gamma = 2.6752218744e8` rad/(s*T) (proton default, `spin_dynamics.constants.PROTON_GAMMA_RAD_PER_S_PER_T`).
 - **Gradient coupling** is Lagrangian: a spin at position `r` (meters) sees an
   offset `g . r`, the `positions @ gradient` rule (`fields.positions.gradient_offset`).
   The GRAPE gradient channel already matches this: `g(t) * position_k * h_grad`

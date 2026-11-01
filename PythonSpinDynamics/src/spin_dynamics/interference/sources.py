@@ -32,9 +32,10 @@ from typing import Protocol, runtime_checkable
 
 import numpy as np
 
+from spin_dynamics.constants import MU0_T_M_PER_A
 from spin_dynamics.interference._signal import sample_times
 
-MU0 = 4.0e-7 * np.pi
+MU0 = MU0_T_M_PER_A  # CODATA 2018
 
 
 def _unit_vector(vector: np.ndarray | list[float] | tuple[float, float, float]) -> np.ndarray:

@@ -14,12 +14,21 @@ from typing import Any
 
 import numpy as np
 
+from spin_dynamics.constants import (
+    AVOGADRO_PER_MOL,
+    BOLTZMANN_J_PER_K,
+    HBAR_J_S,
+    MU0_T_M_PER_A,
+    PROTON_GAMMA_RAD_PER_S_PER_T,
+)
 
-MU0 = 4e-7 * np.pi
-KB = 1.380649e-23
-HBAR = 1.054571817e-34
-AVOGADRO = 6.02214076e23
-PROTON_GAMMA = 2 * np.pi * 42.57747892e6
+
+# CODATA 2018, from spin_dynamics.constants.
+MU0 = MU0_T_M_PER_A
+KB = BOLTZMANN_J_PER_K
+HBAR = HBAR_J_S
+AVOGADRO = AVOGADRO_PER_MOL
+PROTON_GAMMA = PROTON_GAMMA_RAD_PER_S_PER_T
 
 
 def _field(obj: Mapping[str, Any] | Any, name: str) -> Any:

@@ -8,6 +8,7 @@ from typing import Literal
 
 import numpy as np
 
+from spin_dynamics.constants import PROTON_GAMMA_RAD_PER_S_PER_T
 from spin_dynamics.motion import (
     Boundary,
     MotionFieldMaps2D,
@@ -149,7 +150,7 @@ def pgse_b_value(
     gradient_duration: float,
     diffusion_time: float,
     *,
-    gamma: float = 2.675e8,
+    gamma: float = PROTON_GAMMA_RAD_PER_S_PER_T,
 ) -> float:
     """Return the rectangular Stejskal-Tanner PGSE b-value.
 
@@ -173,7 +174,7 @@ def pgse_b_value(
 def gradient_moment_b_value(
     segments: Iterable[tuple[float, float]],
     *,
-    gamma: float = 2.675e8,
+    gamma: float = PROTON_GAMMA_RAD_PER_S_PER_T,
 ) -> float:
     """Integrate ``q(t)^2`` for a piecewise-constant effective gradient.
 
@@ -211,7 +212,7 @@ def run_pgse_moment(
     first_echo_time_seconds: float | None = None,
     echo_spacing_seconds: float | None = None,
     initial_signal: complex = 1.0 + 0.0j,
-    gamma: float = 2.675e8,
+    gamma: float = PROTON_GAMMA_RAD_PER_S_PER_T,
 ) -> PGSEMomentResult:
     """Run a fast ideal PGSE or PGSE-prepared CPMG calculation.
 
@@ -281,7 +282,7 @@ def run_pgse_walkers(
     gradient_duration: float = 2.0e-3,
     diffusion_time: float = 20.0e-3,
     diffusion_coefficient: float = 2.3e-9,
-    gamma: float = 2.675e8,
+    gamma: float = PROTON_GAMMA_RAD_PER_S_PER_T,
     gradient_axis: PGSEDirection = "x",
     walkers_per_cell: int = 128,
     seed: int | None = None,
@@ -397,7 +398,7 @@ def run_pgste_walkers(
     gradient_duration: float = 2.0e-3,
     diffusion_time: float = 20.0e-3,
     diffusion_coefficient: float = 2.3e-9,
-    gamma: float = 2.675e8,
+    gamma: float = PROTON_GAMMA_RAD_PER_S_PER_T,
     gradient_axis: PGSEAxis = "x",
     walkers_per_cell: int = 128,
     seed: int | None = None,
@@ -533,7 +534,7 @@ def run_dde_walkers(
     angle1: float = 0.0,
     angle2: float = 0.0,
     diffusion_coefficient: float = 2.3e-9,
-    gamma: float = 2.675e8,
+    gamma: float = PROTON_GAMMA_RAD_PER_S_PER_T,
     walkers_per_cell: int = 128,
     seed: int | None = None,
     jitter: bool = False,
@@ -656,7 +657,7 @@ def run_ogse_walkers(
     num_periods: int = 2,
     samples_per_period: int = 16,
     diffusion_coefficient: float = 2.3e-9,
-    gamma: float = 2.675e8,
+    gamma: float = PROTON_GAMMA_RAD_PER_S_PER_T,
     gradient_axis: PGSEAxis = "x",
     walkers_per_cell: int = 128,
     seed: int | None = None,

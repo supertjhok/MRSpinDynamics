@@ -7,9 +7,10 @@ from typing import Iterable
 
 import numpy as np
 
+from spin_dynamics.constants import BOLTZMANN_J_PER_K as _BOLTZMANN_J_PER_K
 from spin_dynamics.receiver_frontend import PassiveTwoPort, identity_two_port
 
-BOLTZMANN_J_PER_K = 1.380649e-23
+BOLTZMANN_J_PER_K = _BOLTZMANN_J_PER_K  # CODATA 2018 (exact)
 
 
 def _as_impedance_matrix(

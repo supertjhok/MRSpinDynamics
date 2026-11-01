@@ -79,8 +79,8 @@ __all__ = [
     "run_cotts_thirteen_interval_walkers",
 ]
 
-# Proton gyromagnetic ratio (rad/s/T, CODATA 2018). This was the truncated
-# 2.675e8 that workflows.pgse still uses as its default ``gamma``.
+# Proton gyromagnetic ratio (rad/s/T, CODATA 2018), the same default as
+# workflows.pgse and experiment.specs (all were the truncated 2.675e8).
 GAMMA = PROTON_GAMMA_RAD_PER_S_PER_T
 
 

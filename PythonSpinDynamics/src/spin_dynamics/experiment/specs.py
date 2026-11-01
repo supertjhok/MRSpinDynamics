@@ -22,6 +22,7 @@ from typing import Any, Iterable, Mapping
 
 import numpy as np
 
+from spin_dynamics.constants import FREE_ELECTRON_G, PROTON_GAMMA_RAD_PER_S_PER_T
 from spin_dynamics.experiment.serialization import decode, encode, register_serializable
 from spin_dynamics.sequences import SequenceIR
 
@@ -679,7 +680,7 @@ class PGSE:
     diffusion_time: float = 20.0e-3
     first_echo_time_seconds: float | None = None
     echo_spacing_seconds: float | None = None
-    gamma: float = 2.675e8
+    gamma: float = PROTON_GAMMA_RAD_PER_S_PER_T
 
 
 @register_serializable
@@ -691,7 +692,7 @@ class PGSEWalkers:
     gradient_amplitude: float = 0.05
     gradient_duration: float = 2.0e-3
     diffusion_time: float = 20.0e-3
-    gamma: float = 2.675e8
+    gamma: float = PROTON_GAMMA_RAD_PER_S_PER_T
     gradient_axis: str = "x"
     walkers_per_cell: int = 128
     seed: int | None = None
@@ -943,8 +944,8 @@ class ESRDEER:
     num_points: int = 512
     lambda_depth: float = 1.0
     n_theta: int = 2001
-    g_a: float = 2.00231930436256
-    g_b: float = 2.00231930436256
+    g_a: float = FREE_ELECTRON_G
+    g_b: float = FREE_ELECTRON_G
 
     def __post_init__(self) -> None:
         if self.acquisition_seconds <= 0 or self.num_points <= 1:
