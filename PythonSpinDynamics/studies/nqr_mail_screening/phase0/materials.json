@@ -5,8 +5,8 @@
   "status": "frozen",
   "source_database": {
     "path": "NQRDatabase/data/exports/nqr.sqlite",
-    "sha256": "d309ead547037d3e693ba313b4fdfdca4e4a703216d38227b7cc8148837620aa",
-    "repository_commit": "23def73ef5324edd0010f1ab6be0e8aa598b9e0b"
+    "sha256": "b75690bd3237f31d22d5acca062ee8c761d37b9758a47078eeb5058e10f078cc",
+    "repository_commit": "6205987f598fd15790fb36dd7fdf735a4da94bc9"
   },
   "materials": [
     {
@@ -69,8 +69,8 @@
           "site_id": "site:nrl-site-summary-pdf-glycine-default-1-amine-14n-1193-0-528",
           "frequency_hz": 737000.0,
           "fwhm_hz": 800.0,
-          "t1_s": 50.0,
-          "t2_s": 17.1,
+          "t1_s": 0.05,
+          "t2_s": 0.0171,
           "t2_star_s": null,
           "dnu_dt_hz_per_k": -205.0,
           "reference_temperature_k": null,
@@ -81,8 +81,8 @@
           "site_id": "site:nrl-site-summary-pdf-glycine-default-1-amine-14n-1193-0-528",
           "frequency_hz": 1052000.0,
           "fwhm_hz": 2800.0,
-          "t1_s": 43.4,
-          "t2_s": 12.5,
+          "t1_s": 0.0434,
+          "t2_s": 0.0125,
           "t2_star_s": null,
           "dnu_dt_hz_per_k": -195.0,
           "reference_temperature_k": null,

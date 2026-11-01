@@ -6,7 +6,7 @@
   "approval_reference": null,
   "artifact_sha256": {
     "requirements.json": "c476e056721eb67a351a18de459ddec0954a11b4bbd028d69fa160bf183144fb",
-    "materials.json": "872df4040a0c3dc8775c075d35d9a2fbd2aa1e5c3393bfc7c119447dbb3c5397",
+    "materials.json": "2b1e60d99eb1e13b59cca55610d595591fa8a53e8fa5bbcbbd885d9cab783cf6",
     "evidence_classes.json": "9b1047929b3a13e59dcc7392a6214d279e15fc3b2d1b28646296e9ccd655b314",
     "test_set_policy.md": "30dfc6d90952a47d2dfda075a90070b23f01fdbd38083d21f79ac61a9f968fc4",
     "requirements.schema.json": "eb754e89f1279388f0dcdf6e4108f506e8bf552379a6ee3846e279f187f57b30",
