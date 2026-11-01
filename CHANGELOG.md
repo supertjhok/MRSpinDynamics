@@ -132,6 +132,28 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
   Gauss-Legendre integration, while terminal reduction retries an equilibrated
   system and can fall back to partial-pivoted Gaussian elimination if NumPy's
   direct and SVD-based solvers both fail.
+- Fixed the 13 high-severity defects from the 2026-11 whole-repository review
+  (tracked in [`docs/code_review_bug_tracker.md`](docs/code_review_bug_tracker.md)),
+  each with an independent-reference regression test. Results change for:
+  - **tuned-probe transients:** an extra `1/(2*alpha)` inherited from MATLAB
+    Version_3; affected fixtures regenerated;
+  - **radiation damping during pulses:** now sub-stepped from the pulse
+    generators instead of a principal-branch matrix root;
+  - **off-resonance unitary NQR SLSE:** now includes free precession;
+  - **NQR powder GRAPE:** new `ensemble_weights` for orientation quadrature
+    weights;
+  - **bSSFP α/2 catalyzation:** corrected prep phase;
+  - **axisymmetric magnetostatics with radial permeability jumps:** now a
+    conservative ψ = rA_φ operator;
+  - **iron-yoke images of x-magnetized bars;**
+  - **low-frequency solenoid AC resistance:** now tends to the DC limit;
+  - **tuned excitation/inverse pipeline:** now uses the tuned-probe refocusing
+    axis;
+  - **ESR hyperfine sweeps:** the automatic field axis now covers all lines,
+    and `"derivative"` now means dS/dB;
+  - **CWRU NQR relaxation times:** unitless cells are now read as ms;
+  - **QuadrupolarDFT ABINIT input parsing:** adds `angdeg`, `n*value` and
+    `D` exponents.
 
 ### Changed
 
