@@ -248,7 +248,10 @@ def efg_tensor_from_record(record) -> EFGTensor:
     """Return the EFG tensor of one parsed ABINIT atom record.
 
     Prefers the printed total EFG tensor; otherwise reconstructs it from the
-    eigenvalues and eigenvectors.
+    eigenvalues and eigenvectors. ABINIT prints those to 6 decimals, so the
+    rebuilt tensor carries a rounding-level trace; that residual is removed
+    (the EFG is traceless) as long as it is consistent with the printed
+    precision, and a larger trace is rejected.
     """
 
     if record.tensor is not None:
@@ -260,6 +263,16 @@ def efg_tensor_from_record(record) -> EFGTensor:
     matrix = sum(
         value * np.outer(eigvecs[i], eigvecs[i]) for i, value in enumerate(eigvals)
     )
+    matrix = 0.5 * (matrix + matrix.T)
+    trace = float(np.trace(matrix))
+    # 6-decimal eigenvalues (+-5e-7 au each) and unit eigenvectors (+-5e-7 per
+    # component) bound the printed-rounding trace well below this tolerance.
+    rounding_tolerance_au = 1e-5 * float(np.max(np.abs(eigvals))) + 5e-6
+    if abs(trace) > rounding_tolerance_au:
+        raise ValueError(
+            f"EFG eigenpairs have trace {trace:.3g} au, larger than printed rounding"
+        )
+    matrix = matrix - (trace / 3.0) * np.eye(3)
     return EFGTensor.from_components(matrix, unit="au")
 
 

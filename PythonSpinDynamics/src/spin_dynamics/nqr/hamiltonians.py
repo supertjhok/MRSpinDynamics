@@ -73,6 +73,84 @@ def nqr_hamiltonian(
     return hamiltonian
 
 
+# Levels closer than this fraction of the largest |level| are exactly degenerate
+# (eigensolver noise is ~1e-15 relative); physical splittings are far larger.
+_DEGENERACY_RELATIVE_TOLERANCE = 1.0e-10
+# Eigenvalues of the O(1)-O(I^2) symmetry-breaking operators below closer than
+# this are treated as equal when refining a degenerate subspace.
+_REFINE_TOLERANCE = 1.0e-8
+
+
+def _refine_degenerate_subspace(
+    subspace: np.ndarray, operators: tuple[np.ndarray, ...]
+) -> np.ndarray:
+    """Rotate a degenerate eigenspace onto the eigenbasis of ``operators``.
+
+    Each operator is diagonalized inside the subspace; where it is (numerically)
+    a multiple of the identity there it is skipped, so solver noise never picks
+    the basis. Remaining degeneracies are refined by the next operator.
+    """
+
+    if subspace.shape[1] == 1 or not operators:
+        return subspace
+    operator, rest = operators[0], operators[1:]
+    projected = subspace.conj().T @ operator @ subspace
+    projected = 0.5 * (projected + projected.conj().T)
+    values, rotation = np.linalg.eigh(projected)
+    if float(np.ptp(values)) <= _REFINE_TOLERANCE:
+        return _refine_degenerate_subspace(subspace, rest)
+    rotated = subspace @ rotation
+    blocks: list[list[int]] = [[0]]
+    for index in range(1, values.size):
+        if values[index] - values[blocks[-1][0]] <= _REFINE_TOLERANCE:
+            blocks[-1].append(index)
+        else:
+            blocks.append([index])
+    return np.hstack(
+        [_refine_degenerate_subspace(rotated[:, block], rest) for block in blocks]
+    )
+
+
+def _canonical_degenerate_eigenvectors(
+    site: QuadrupolarSite, values: np.ndarray, vectors: np.ndarray
+) -> np.ndarray:
+    """Return ``vectors`` with every exactly degenerate eigenspace made canonical.
+
+    ``eigh`` returns an arbitrary basis inside a degenerate eigenspace (the
+    spin-1 ``m = +-1`` pair at ``eta = 0``, every Kramers doublet of a
+    half-integer spin at zero field), which made transition labels and dipole
+    vectors arbitrary. Each such eigenspace is rotated onto the eigenbasis of
+    ``Ix^2 - Iy^2`` (the ``eta -> 0+`` limit, giving the spin-1 ``|x>, |y>``
+    states), then ``Iz`` and ``Ix`` (the weak-field limit along z, then x), and
+    each vector's largest component is made real and positive. ``values`` must
+    be sorted ascending. Non-degenerate eigenvectors are returned unchanged.
+    """
+
+    scale = float(np.max(np.abs(values))) if values.size else 0.0
+    tolerance = _DEGENERACY_RELATIVE_TOLERANCE * max(scale, 1.0)
+    groups: list[list[int]] = [[0]]
+    for index in range(1, values.size):
+        if values[index] - values[groups[-1][0]] <= tolerance:
+            groups[-1].append(index)
+        else:
+            groups.append([index])
+    if all(len(group) == 1 for group in groups):
+        return vectors
+    ops = spin_matrices(site.spin)
+    operators = (ops.ix @ ops.ix - ops.iy @ ops.iy, ops.iz, ops.ix)
+    out = np.array(vectors, dtype=np.complex128, copy=True)
+    for group in groups:
+        if len(group) == 1:
+            continue
+        refined = _refine_degenerate_subspace(out[:, group], operators)
+        for column in range(refined.shape[1]):
+            vector = refined[:, column]
+            pivot = vector[int(np.argmax(np.abs(vector)))]
+            refined[:, column] = vector * (abs(pivot) / pivot)
+        out[:, group] = refined
+    return out
+
+
 def _transitions_from_eigensystem(
     site: QuadrupolarSite,
     levels_hz: np.ndarray,
@@ -147,7 +225,7 @@ def diagonalize_site(
     values, vectors = np.linalg.eigh(hamiltonian)
     order = np.argsort(values)
     values = values[order]
-    vectors = vectors[:, order]
+    vectors = _canonical_degenerate_eigenvectors(site, values, vectors[:, order])
     levels_hz = values / TAU
 
     ops = spin_matrices(site.spin)
@@ -231,7 +309,9 @@ def diagonalize_sites_over_b0(
     results: list[NQREigensystem] = []
     for index in range(b0.shape[0]):
         levels_hz = values[index] / TAU
-        site_vectors = vectors[index]
+        site_vectors = _canonical_degenerate_eigenvectors(
+            site, values[index], vectors[index]
+        )
         transitions = _transitions_from_eigensystem(
             site,
             levels_hz,

@@ -381,11 +381,22 @@ TIME_UNIT_SECONDS = {
 # 0.0051/0.0033/0.0053 s).
 CWRU_UNITLESS_TIME_SCALE_S = 1.0e-3
 
-# Compounds whose unitless CWRU relaxation times are kept in seconds because the
-# unit has not been established from the source. Glycine's CWRU values
-# (T1 = 43.4/50, T2 = 12.5/17.1) are repeated verbatim in the NRL line summary,
-# so they cannot be cross-checked the way sodium nitrite can.
-CWRU_UNITLESS_TIME_SECONDS_COMPOUNDS = frozenset({"Glycine"})
+# Documented errata for the NRL line summary, whose T1/T2 columns are in
+# seconds. Keyed by (compound, frequency_khz); the value is the scale applied to
+# the stored T1/T2 numbers and the reason. Applied only to these exact rows.
+NRL_RELAXATION_UNIT_ERRATA: dict[tuple[str, float], tuple[float, str]] = {
+    ("Glycine", 1052.0): (
+        1.0e-3,
+        "T1 = 43.4, T2 = 12.5 are milliseconds (confirmed by the curator); they "
+        "match the unitless CWRU glycine cells, and every other NRL glycine-family "
+        "line has ms-scale T1/T2 written in seconds.",
+    ),
+    ("Glycine", 737.0): (
+        1.0e-3,
+        "T1 = 50, T2 = 17.1 are milliseconds (confirmed by the curator); see the "
+        "1052 kHz entry.",
+    ),
+}
 
 
 def parse_time_s(value: str | None, unitless_scale_s: float = 1.0) -> float | None:
@@ -525,6 +536,31 @@ def extract_isotope(site_label: str | None, compound: str) -> str | None:
     return None
 
 
+# Element names that a CWRU "Form" cell can use to mark a line of a nucleus
+# other than the site's 14N. Chlorine lines in the CWRU tables are 35Cl (the
+# 37Cl line of the same site sits at 0.788x the 35Cl frequency).
+FORM_ELEMENT_ISOTOPES = {"chlorine": "35Cl"}
+
+
+def isotope_from_form(form: str | None) -> str | None:
+    """Return the isotope a CWRU "Form" cell names (e.g. "Chlorine line"), if any.
+
+    ``extract_isotope`` defaults every labelled CWRU site to 14N, so a line whose
+    Form names another nucleus must be split onto its own site.
+    """
+
+    text = normalize_space(form)
+    if not text:
+        return None
+    match = re.search(r"\b(\d{1,3}[A-Z][a-z]?)\b", text)
+    if match:
+        return match.group(1)
+    for word in re.findall(r"[A-Za-z]+", text.lower()):
+        if word in FORM_ELEMENT_ISOTOPES:
+            return FORM_ELEMENT_ISOTOPES[word]
+    return None
+
+
 def site_key(
     source_id: str,
     sample_id: str,
@@ -555,11 +591,7 @@ def add_line_rows(
     compound_id = ensure_compound(state, compound_name, category_for(compound_name))
     sample_id = ensure_sample(state, compound_id, compound_name)
     header_keys = [clean_header(header) for header in headers]
-    unitless_time_scale_s = (
-        1.0
-        if compound_name in CWRU_UNITLESS_TIME_SECONDS_COMPOUNDS
-        else CWRU_UNITLESS_TIME_SCALE_S
-    )
+    unitless_time_scale_s = CWRU_UNITLESS_TIME_SCALE_S
     current_site: dict[str, Any] = {
         "site_number": None,
         "site_label": None,
@@ -634,6 +666,33 @@ def add_line_rows(
             continue
 
         form = values.get("form") or None
+        form_isotope = isotope_from_form(form)
+        if form_isotope is not None and form_isotope != state.sites[site_id]["isotope"]:
+            # e.g. furosemide's "Chlorine line" (36.2 MHz) listed under 14N site 1.
+            site_id = site_key(
+                source_id,
+                sample_id,
+                current_site["site_number"],
+                form_isotope,
+                None,
+                None,
+            )
+            state.sites.setdefault(
+                site_id,
+                {
+                    "id": site_id,
+                    "sample_id": sample_id,
+                    "site_number": current_site["site_number"],
+                    "isotope": form_isotope,
+                    "site_label": form_isotope,
+                    "weight_percent": None,
+                    "qcc_khz": None,
+                    "eta": None,
+                    "assignment_confidence": "inferred_from_form",
+                    "source_id": source_id,
+                    "original_record": json.dumps(original, ensure_ascii=False, sort_keys=True),
+                },
+            )
         line_width_original = values.get("line_width") or values.get("fwhm") or None
         line_width = first_number(line_width_original)
         line_id = "line:" + slug(
@@ -897,6 +956,13 @@ def upsert_site(
     return site_id
 
 
+def _scaled_time(value: float | None, scale: float) -> float | None:
+    if value is None or scale == 1.0:
+        return value
+    # Divide for sub-second scales so values match ``number / 1000`` exactly.
+    return value * scale if scale >= 1.0 else value / (1.0 / scale)
+
+
 def add_line_record(
     state: BuildState,
     source_id: str,
@@ -912,6 +978,7 @@ def add_line_record(
     polarization_factor_original: str | None = None,
     form: str | None = None,
     temperature_k: float | None = None,
+    relaxation_time_scale_s: float = 1.0,
 ) -> str | None:
     frequency = first_number(frequency_original)
     if frequency is None:
@@ -937,9 +1004,9 @@ def add_line_record(
         "fwhm_khz": first_number(fwhm_original),
         "line_width_khz": first_number(fwhm_original),
         "line_width_original": dash_to_none(fwhm_original),
-        "t1_s": parse_time_s(t1_original),
+        "t1_s": _scaled_time(parse_time_s(t1_original), relaxation_time_scale_s),
         "t1_original": dash_to_none(t1_original),
-        "t2_s": parse_time_s(t2_original),
+        "t2_s": _scaled_time(parse_time_s(t2_original), relaxation_time_scale_s),
         "t2_original": dash_to_none(t2_original),
         "t2_star_s": None,
         "t2_star_original": None,
@@ -1107,7 +1174,20 @@ def import_nrl_summaries(state: BuildState, nrl_dir: Path) -> None:
                             t1_original=t1,
                             t2_original=t2,
                             dnu_dt_original=dnu,
+                            relaxation_time_scale_s=nrl_relaxation_time_scale(
+                                compound, frequency
+                            ),
                         )
+
+
+def nrl_relaxation_time_scale(compound: str, frequency_original: str | None) -> float:
+    """Return the T1/T2 scale for one NRL line (1.0 unless listed in the errata)."""
+
+    frequency = first_number(frequency_original)
+    if frequency is None:
+        return 1.0
+    entry = NRL_RELAXATION_UNIT_ERRATA.get((compound, float(frequency)))
+    return 1.0 if entry is None else entry[0]
 
 
 def import_nrl_references(state: BuildState) -> None:
@@ -3347,6 +3427,27 @@ def write_normalized(state: BuildState) -> None:
     write_jsonl(NORMALIZED_DIR / "line_records.jsonl", records)
 
 
+# The same substance imported under different names by different sources
+# (CWRU/NRL common names vs Landolt CAS index names). Each compound gets the
+# other's canonical name as an alias, so alias-aware lookups merge them without
+# rewriting compound ids. Keyed by compound id; values are extra aliases.
+SUBSTANCE_SYNONYMS: dict[str, tuple[str, ...]] = {
+    # CAS 7632-00-0
+    "compound:sodium-nitrite": ("Nitrous acid sodium salt", "NNaO2", "CAS 7632-00-0"),
+    "compound:nitrous-acid-sodium-salt": ("Sodium Nitrite", "NaNO2"),
+}
+
+
+def add_substance_synonyms(state: BuildState) -> None:
+    """Record cross-source synonyms in ``compound_aliases`` (see SUBSTANCE_SYNONYMS)."""
+
+    for compound_id, aliases in SUBSTANCE_SYNONYMS.items():
+        if compound_id not in state.compounds:
+            continue
+        for alias in aliases:
+            state.aliases.add((compound_id, alias))
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--cwru-dir", type=Path, default=DEFAULT_CWRU_DIR)
@@ -3371,6 +3472,7 @@ def main() -> None:
         generate_crops=not args.skip_landolt_crops,
     )
     promote_accepted_landolt_reviews(state)
+    add_substance_synonyms(state)
     write_normalized(state)
     recreate_database(args.output, state)
 

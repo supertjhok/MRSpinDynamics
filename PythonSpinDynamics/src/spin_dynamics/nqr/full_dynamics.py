@@ -296,12 +296,23 @@ def _propagate(
 def _default_carrier_hz(eigensystem: NQREigensystem) -> float:
     if not eigensystem.transitions:
         raise ValueError("site has no RF-active transitions")
-    # The strongest RF-active line. For half-integer spin the fundamental
-    # (lowest, 1/2<->3/2) transition has the largest transverse matrix element, so
-    # this also selects the fundamental for spin-5/2, 7/2, 9/2 -- the carrier the
-    # single-carrier RWA is faithful to.
-    strongest = max(eigensystem.transitions, key=lambda t: t.strength)
-    return float(strongest.frequency_hz)
+    # The strongest RF-active line. Components of one line (the Kramers-doublet
+    # pairs of half-integer spin) are pooled by summing |dipole|^2, which does
+    # not depend on the arbitrary basis inside a degenerate doublet. For
+    # half-integer spin the fundamental (lowest, 1/2<->3/2) line is strongest, so
+    # this selects the fundamental for spin-5/2, 7/2, 9/2 -- the carrier the
+    # single-carrier RWA is faithful to. Exact ties (all three spin-1 lines have
+    # unit strength) resolve to the highest-frequency line, nu+ for spin-1.
+    lines: list[list[float]] = []  # [frequency_hz, pooled |dipole|^2]
+    for transition in sorted(eigensystem.transitions, key=lambda t: t.frequency_hz):
+        frequency = float(transition.frequency_hz)
+        if lines and frequency - lines[-1][0] <= 1e-9 * max(frequency, 1.0):
+            lines[-1][1] += transition.strength**2
+        else:
+            lines.append([frequency, transition.strength**2])
+    best = max(score for _, score in lines)
+    tied = [frequency for frequency, score in lines if score >= best * (1.0 - 1e-9)]
+    return float(max(tied))
 
 
 def _warn_if_rwa_carrier_invalid(

@@ -34,12 +34,12 @@
       "t1_s": {
         "count": 84,
         "minimum_seconds": 0.00197,
-        "maximum_seconds": 50.0
+        "maximum_seconds": 33.0
       },
       "t2_s": {
         "count": 50,
         "minimum_seconds": 0.0001,
-        "maximum_seconds": 17.1
+        "maximum_seconds": 0.4
       },
       "t2_star_s": {
         "count": 3,

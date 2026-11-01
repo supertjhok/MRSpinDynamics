@@ -64,6 +64,26 @@ class RealDatabaseTests(unittest.TestCase):
         # All NaNO2 14N coefficients are negative (Bayer behaviour).
         self.assertTrue(all(c.dnu_dt_hz_per_k < 0 for c in coeffs))
 
+    def test_nano2_coefficients_found_under_either_name(self):
+        # Regression: the Landolt coefficients were only reachable through the
+        # Landolt name; the common name returned nothing at 293 K.
+        common = measured_temperature_coefficients(
+            "Sodium Nitrite", isotope="14N", temperature_k=293.0, include_synonyms=True
+        )
+        landolt = measured_temperature_coefficients(
+            "Nitrous acid sodium salt", isotope="14N", temperature_k=293.0
+        )
+        self.assertTrue(common)
+        self.assertFalse(
+            measured_temperature_coefficients(
+                "Sodium Nitrite", isotope="14N", temperature_k=293.0
+            )
+        )
+        self.assertEqual(
+            [(c.frequency_hz, c.dnu_dt_hz_per_k) for c in common],
+            [(c.frequency_hz, c.dnu_dt_hz_per_k) for c in landolt],
+        )
+
     def test_compare_signs_agree_with_negative_prediction(self):
         comparison = compare_temperature_coefficients(
             compound="Nitrous acid sodium salt",

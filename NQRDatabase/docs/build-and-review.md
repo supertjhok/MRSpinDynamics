@@ -39,7 +39,7 @@ The current build reports:
 - `sources=41`
 - `compounds=184`
 - `samples=250`
-- `sites=548`
+- `sites=549`
 - `lines=923`
 - `literature_references=117`
 - `reference_links=1268`

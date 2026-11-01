@@ -268,5 +268,36 @@ class FullSLSETests(unittest.TestCase):
         self.assertTrue(np.all(np.isfinite(result.echo_amplitudes)))
 
 
+class DefaultCarrierTests(unittest.TestCase):
+    def test_spin_one_default_carrier_is_nu_plus_for_every_eta(self) -> None:
+        # Regression: all three spin-1 lines have unit strength, so max() picked
+        # whichever won 1e-16 noise (nu0 = 1.13 MHz at eta = 0.5).
+        # Reference: nu+ = nu_Q (1 + eta/3) with nu_Q = 3 C_Q / 4.
+        nu_q = 3.4e6
+        times = np.linspace(0.0, 1e-4, 4)
+        for eta in (0.1, 0.2, 0.3, 0.5, 0.7, 0.9):
+            with self.subTest(eta=eta):
+                site = QuadrupolarSite(spin=1, quadrupole_frequency_hz=nu_q, eta=eta)
+                fid = simulate_full_fid(
+                    site, nutation_hz=4e3, pulse_duration_seconds=20e-6,
+                    times_seconds=times,
+                )
+                self.assertAlmostEqual(
+                    fid.rf_frequency_hz / (nu_q * (1.0 + eta / 3.0)), 1.0, places=12
+                )
+
+    def test_half_integer_default_carrier_is_fundamental(self) -> None:
+        # Axial spin-5/2 and 7/2: the fundamental 1/2 <-> 3/2 line is nu_Q.
+        times = np.linspace(0.0, 1e-4, 4)
+        for spin in (1.5, 2.5, 3.5):
+            with self.subTest(spin=spin):
+                site = QuadrupolarSite(spin=spin, quadrupole_frequency_hz=2.0e6, eta=0.0)
+                fid = simulate_full_fid(
+                    site, nutation_hz=4e3, pulse_duration_seconds=20e-6,
+                    times_seconds=times,
+                )
+                self.assertAlmostEqual(fid.rf_frequency_hz / 2.0e6, 1.0, places=9)
+
+
 if __name__ == "__main__":
     unittest.main()

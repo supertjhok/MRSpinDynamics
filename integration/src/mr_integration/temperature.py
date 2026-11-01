@@ -20,7 +20,7 @@ from pathlib import Path
 
 import numpy as np
 
-from .database import _connect
+from .database import _connect, compound_match_sql
 
 
 @dataclass(frozen=True)
@@ -41,6 +41,7 @@ def measured_temperature_coefficients(
     temperature_k: float | None = None,
     temperature_tolerance_k: float = 5.0,
     database_path: str | Path | None = None,
+    include_synonyms: bool = False,
 ) -> list[MeasuredTemperatureCoefficient]:
     """Return measured ``(frequency, dnu/dT)`` pairs for a compound.
 
@@ -48,7 +49,9 @@ def measured_temperature_coefficients(
     no coefficient are skipped and duplicate ``(isotope, frequency, slope)``
     rows are collapsed. Pass ``temperature_k`` to keep only rows measured near
     that temperature (the database lists a line at several temperatures, each
-    carrying the same coefficient), giving one row per physical line.
+    carrying the same coefficient), giving one row per physical line. Pass
+    ``include_synonyms=True`` to also match ``compound_aliases`` synonyms (see
+    :func:`mr_integration.database.compound_match_sql`).
     """
 
     query = """
@@ -62,10 +65,7 @@ def measured_temperature_coefficients(
         JOIN compounds c ON sa.compound_id = c.id
         WHERE l.dnu_dt_khz_per_c IS NOT NULL
           AND l.frequency_khz IS NOT NULL
-          AND (lower(c.canonical_name) = lower(:needle)
-               OR lower(c.formula) = lower(:needle)
-               OR lower(c.conventional_formula) = lower(:needle)
-               OR lower(c.id) = lower(:needle))
+          AND """ + compound_match_sql(include_synonyms=include_synonyms) + """
     """
     with _connect(database_path) as connection:
         rows = connection.execute(query, {"needle": compound}).fetchall()

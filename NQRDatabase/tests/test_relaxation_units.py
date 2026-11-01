@@ -88,6 +88,42 @@ class CrossSourceRelaxationTests(unittest.TestCase):
         # Sodium nitrite (3 lines) and glycine (2 lines), T1 and T2 each.
         self.assertGreaterEqual(compared, 10)
 
+    def test_glycine_relaxation_times_are_milliseconds(self) -> None:
+        # Regression: glycine T1 = 43.4/50 and T2 = 12.5/17.1 are ms (curator
+        # confirmed) but were stored as seconds in both the CWRU and NRL rows.
+        # 14N T2 in a protonated solid is ms-scale, so require T2 < 0.1 s and the
+        # quoted millisecond values in seconds.
+        sites = {row["id"]: row for row in _load("sites.jsonl")}
+        samples = {row["id"]: row for row in _load("samples.jsonl")}
+        expected = {1052.0: (0.0434, 0.0125), 737.0: (0.050, 0.0171)}
+        seen = defaultdict(set)
+        for line in _load("lines.jsonl"):
+            compound = samples[sites[line["site_id"]]["sample_id"]]["compound_id"]
+            if compound != "compound:glycine" or line["frequency_khz"] not in expected:
+                continue
+            t1, t2 = expected[line["frequency_khz"]]
+            with self.subTest(line=line["id"]):
+                self.assertLess(line["t2_s"], 0.1)
+                self.assertAlmostEqual(line["t1_s"], t1, delta=1e-12)
+                self.assertAlmostEqual(line["t2_s"], t2, delta=1e-12)
+            seen[line["frequency_khz"]].add(line["source_id"])
+        for frequency in expected:
+            self.assertEqual(
+                seen[frequency],
+                {"cwru_html_glycine-nqr-database", "nrl_line_summary_pdf"},
+            )
+
+    def test_nrl_errata_rows_are_scaled(self) -> None:
+        from build_cwru_database import (
+            NRL_RELAXATION_UNIT_ERRATA,
+            nrl_relaxation_time_scale,
+        )
+
+        self.assertEqual(set(NRL_RELAXATION_UNIT_ERRATA), {("Glycine", 1052.0), ("Glycine", 737.0)})
+        self.assertEqual(nrl_relaxation_time_scale("Glycine", "1052"), 1.0e-3)
+        self.assertEqual(nrl_relaxation_time_scale("Glycine", "815"), 1.0)
+        self.assertEqual(nrl_relaxation_time_scale("Diglycine HCl", "737"), 1.0)
+
     def test_sqlite_lines_match_normalized_jsonl(self) -> None:
         expected = {
             line["id"]: (line["t1_s"], line["t2_s"], line["t2_star_s"])

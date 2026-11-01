@@ -94,8 +94,10 @@ class PiezoNQRLine:
     transition_label: str = "x"
     qcc_hz: float | None = None
     eta: float | None = None
-    t1_seconds: float = 50.0
-    t2_seconds: float = 15.0
+    # Glycine-like ms-scale defaults (the database lines are T1 = 43.4/50 ms,
+    # T2 = 12.5/17.1 ms).
+    t1_seconds: float = 0.050
+    t2_seconds: float = 0.015
     linewidth_hz: float | None = None
 
     def __post_init__(self) -> None:
@@ -220,8 +222,9 @@ def default_glycine_nqr_lines() -> tuple[PiezoNQRLine, ...]:
         key=lambda item: item.frequency_hz,
     )
     database = {
-        "y": (737.0e3, 50.0, 17.1, 0.8e3),
-        "x": (1052.0e3, 43.4, 12.5, 2.8e3),
+        # frequency (Hz), T1 (s), T2 (s), FWHM (Hz); T1/T2 are quoted in ms.
+        "y": (737.0e3, 50.0e-3, 17.1e-3, 0.8e3),
+        "x": (1052.0e3, 43.4e-3, 12.5e-3, 2.8e3),
     }
     lines: list[PiezoNQRLine] = []
     for transition in by_frequency:
@@ -289,8 +292,8 @@ def load_glycine_nqr_lines_from_sqlite(path: str | Path) -> tuple[PiezoNQRLine, 
     transition_labels = _labels_by_frequency(qcc, eta)
     lines: list[PiezoNQRLine] = []
     for frequency_khz, group in sorted(grouped.items()):
-        t1 = _mean_optional(row["t1_s"] for row in group) or 50.0
-        t2 = _mean_optional(row["t2_s"] for row in group) or 15.0
+        t1 = _mean_optional(row["t1_s"] for row in group) or 0.050
+        t2 = _mean_optional(row["t2_s"] for row in group) or 0.015
         linewidth = _mean_optional(row["fwhm_khz"] for row in group)
         frequency_hz = float(frequency_khz) * 1e3
         transition_label = min(

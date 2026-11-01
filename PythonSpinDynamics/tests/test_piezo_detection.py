@@ -43,8 +43,9 @@ class PiezoDetectionTests(unittest.TestCase):
         self.assertEqual(set(by_label), {"x", "y"})
         self.assertAlmostEqual(by_label["x"].frequency_hz, 1052.0e3)
         self.assertAlmostEqual(by_label["y"].frequency_hz, 737.0e3)
-        self.assertAlmostEqual(by_label["x"].t1_seconds, 43.4)
-        self.assertAlmostEqual(by_label["y"].t2_seconds, 17.1)
+        # The database quotes glycine T1/T2 in ms (43.4 ms, 17.1 ms).
+        self.assertAlmostEqual(by_label["x"].t1_seconds, 43.4e-3, delta=1e-12)
+        self.assertAlmostEqual(by_label["y"].t2_seconds, 17.1e-3, delta=1e-12)
 
     def test_load_glycine_lines_from_sqlite_deduplicates_sources(self) -> None:
         db_path = REPO_ROOT / "NQRDatabase" / "data" / "exports" / "nqr.sqlite"
@@ -54,6 +55,17 @@ class PiezoDetectionTests(unittest.TestCase):
         self.assertEqual({line.frequency_hz for line in lines}, {737.0e3, 1052.0e3})
         self.assertTrue(all(line.qcc_hz == 1.193e6 for line in lines))
         self.assertTrue(all(line.eta == 0.528 for line in lines))
+        # Both sources (CWRU and NRL) now store the ms values in seconds, so the
+        # deduplicated lines match the built-in defaults exactly.
+        defaults = {line.frequency_hz: line for line in default_glycine_nqr_lines()}
+        for line in lines:
+            self.assertAlmostEqual(
+                line.t1_seconds, defaults[line.frequency_hz].t1_seconds, delta=1e-12
+            )
+            self.assertAlmostEqual(
+                line.t2_seconds, defaults[line.frequency_hz].t2_seconds, delta=1e-12
+            )
+            self.assertLess(line.t2_seconds, 0.1)
 
     def test_glycine_crystal_from_cif_uses_density_metadata(self) -> None:
         cif = REPO_ROOT / "QuadrupolarDFT" / "structures" / "Glycine" / "189379.cif"

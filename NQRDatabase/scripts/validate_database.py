@@ -83,6 +83,50 @@ def validate_sqlite(database: Path) -> dict[str, int]:
     return counts
 
 
+# Post-build overlays written by integration/scripts/write_consistency_flags.py
+# and write_landolt_review_flags.py. Each writes a sqlite table plus a JSONL
+# export; when the JSONL is shipped the sqlite table must be shipped too, with
+# the same rows (the explorer and review GUIs read only the sqlite table).
+OVERLAY_TABLES = {
+    "site_consistency_flags": "site_id",
+    "landolt_consistency_flags": "entry_id",
+}
+
+
+def validate_overlays(database: Path, normalized_dir: Path) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    with sqlite3.connect(database) as conn:
+        conn.row_factory = sqlite3.Row
+        tables = {
+            row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        }
+        for table, key in OVERLAY_TABLES.items():
+            path = normalized_dir / f"{table}.jsonl"
+            if not path.exists():
+                continue
+            with path.open("r", encoding="utf-8") as handle:
+                exported = [json.loads(line) for line in handle if line.strip()]
+            if table not in tables:
+                raise AssertionError(
+                    f"{path.name} is exported but the sqlite export lacks table {table}; "
+                    "re-run the integration overlay scripts against the shipped database"
+                )
+            stored = [dict(row) for row in conn.execute(f"SELECT * FROM {table}")]
+
+            def keyed(rows: list[dict]) -> dict:
+                return {
+                    (row[key], row.get("measurement_set_id")): {
+                        name: value for name, value in row.items() if name != "generated_at"
+                    }
+                    for row in rows
+                }
+
+            if keyed(stored) != keyed(exported):
+                raise AssertionError(f"sqlite table {table} differs from {path.name}")
+            counts[table] = len(stored)
+    return counts
+
+
 def validate_jsonl_exports(normalized_dir: Path) -> dict[str, int]:
     if not normalized_dir.exists():
         raise FileNotFoundError(f"Normalized export directory not found: {normalized_dir}")
@@ -116,6 +160,7 @@ def main() -> None:
 
     sqlite_counts = validate_sqlite(args.database)
     jsonl_counts = validate_jsonl_exports(args.normalized_dir)
+    overlay_counts = validate_overlays(args.database, args.normalized_dir)
 
     print("sqlite tables:")
     for table, count in sqlite_counts.items():
@@ -123,6 +168,9 @@ def main() -> None:
     print("jsonl exports:")
     for filename, count in jsonl_counts.items():
         print(f"  {filename}={count}")
+    print("overlays:")
+    for table, count in overlay_counts.items():
+        print(f"  {table}={count}")
 
 
 if __name__ == "__main__":

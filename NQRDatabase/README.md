@@ -22,7 +22,7 @@ The current generated database contains:
 
 - 184 compounds
 - 250 samples or reported measurement conditions
-- 548 isotope/site records
+- 549 isotope/site records
 - 923 NQR line-frequency records
 - 117 literature-reference records
 - 1268 links from compounds, sites, and lines to references
@@ -93,6 +93,18 @@ This adds a `quad_consistency_mismatch` issue flag to the affected
 `landolt_consistency_flags` table plus `data/normalized/
 landolt_consistency_flags.jsonl`. On the current export, 26 of 141 checked
 Landolt sets are flagged.
+
+Both overlays write the SQLite table and the JSONL together, but a database
+rebuild recreates `nqr.sqlite` without them. Re-run both scripts after every
+build: `scripts/validate_database.py` fails when an overlay JSONL is present but
+the shipped SQLite lacks the matching table or rows. The `landolt_review_queue`
+issue flags exist only in SQLite (`landolt_review_queue.jsonl` is the pre-overlay
+build output).
+
+The flagged `14N` sites (ampicillin trihydrate, dipicolinic acid) are
+source-reported values, preserved as published: their stored `eta` differs from
+the `eta` implied by their lines by a factor of about 1.5. They are left for
+source re-review rather than corrected in the build.
 
 ### Landolt Review GUI
 

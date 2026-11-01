@@ -15,6 +15,8 @@ MU0_OVER_4PI = 1.0e-7
 PLANCK = 6.62607015e-34
 ANGSTROM = 1.0e-10
 GAMMA_14N_HZ_PER_T = 3.0766e6
+# Two symmetry-generated positions closer than this are the same site.
+_SAME_SITE_ANGSTROM = 1.0e-4
 
 
 @dataclass(frozen=True)
@@ -178,7 +180,11 @@ def estimate_proton_dipolar_couplings(
 
     image_range = _image_range(structure, proton_radius_angstrom, max_periodic_images)
     couplings: list[ProtonDipolarCoupling] = []
-    seen: set[tuple[str, tuple[int, int, int], tuple[float, float, float]]] = set()
+    # Proton sites already counted, per label. A site is identified by its
+    # position relative to the target only: different symmetry operations and
+    # lattice images that land on the same point (a proton on a special
+    # position) are one proton, so the image index must not be part of the key.
+    seen: dict[str, list[np.ndarray]] = {}
     for atom in structure.atoms:
         if atom.element.upper() != "H":
             continue
@@ -191,14 +197,13 @@ def estimate_proton_dipolar_couplings(
                 distance = float(np.linalg.norm(vector))
                 if distance < 1.0e-8 or distance > proton_radius_angstrom:
                     continue
-                key = (
-                    atom.label,
-                    image,
-                    tuple(np.round(vector, decimals=8)),
-                )
-                if key in seen:
+                previous = seen.setdefault(atom.label, [])
+                if any(
+                    np.allclose(vector, other, rtol=0.0, atol=_SAME_SITE_ANGSTROM)
+                    for other in previous
+                ):
                     continue
-                seen.add(key)
+                previous.append(vector)
                 coupling = dipolar_coupling_hz(
                     distance,
                     gamma_a_hz_per_t=gamma_quadrupolar_hz_per_t,

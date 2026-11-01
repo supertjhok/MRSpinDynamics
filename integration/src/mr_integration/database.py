@@ -50,6 +50,31 @@ class MeasuredLine:
     transition_label: str | None
 
 
+_EXACT_MATCH_SQL = """
+    lower(c.canonical_name) = lower(:needle)
+    OR lower(c.formula) = lower(:needle)
+    OR lower(c.conventional_formula) = lower(:needle)
+    OR lower(c.id) = lower(:needle)"""
+_ALIAS_MATCH_SQL = """
+    OR c.id IN (
+        SELECT ca.compound_id FROM compound_aliases ca
+        WHERE lower(ca.alias) = lower(:needle)
+    )"""
+
+
+def compound_match_sql(*, include_synonyms: bool = False) -> str:
+    """Return the SQL predicate (bind ``:needle``) that selects compounds.
+
+    By default a compound matches on its canonical name, formula, conventional
+    formula, or id (case-insensitive). With ``include_synonyms=True`` it also
+    matches any ``compound_aliases`` entry; the alias table carries cross-source
+    synonyms such as CWRU "Sodium Nitrite" and Landolt "Nitrous acid sodium
+    salt" (CAS 7632-00-0), so one lookup returns every source's rows.
+    """
+
+    return "(" + _EXACT_MATCH_SQL + (_ALIAS_MATCH_SQL if include_synonyms else "") + "\n)"
+
+
 def default_database_path() -> Path:
     """Return the conventional path to the exported NQR SQLite database."""
 
@@ -72,12 +97,17 @@ def measured_lines(
     *,
     isotope: str | None = None,
     database_path: str | Path | None = None,
+    include_synonyms: bool = False,
 ) -> list[MeasuredLine]:
     """Return measured lines for ``compound`` (matched on name or formula).
 
     ``compound`` is matched case-insensitively against the canonical name,
-    formula, or compound id.  Pass ``isotope`` (e.g. ``"14N"``) to filter.
-    Duplicate ``(isotope, frequency)`` rows from multiple sources are collapsed.
+    formula, or compound id.  Pass ``include_synonyms=True`` to also match
+    ``compound_aliases`` synonyms, merging every source stored under another
+    name for the same substance (e.g. Landolt's NaNO2 temperature series); the
+    default keeps the single-compound result.  Pass ``isotope`` (e.g. ``"14N"``)
+    to filter.  Duplicate ``(isotope, frequency)`` rows from multiple sources are
+    collapsed.
     """
 
     query = """
@@ -93,10 +123,7 @@ def measured_lines(
         JOIN sites s   ON l.site_id = s.id
         JOIN samples sa ON s.sample_id = sa.id
         JOIN compounds c ON sa.compound_id = c.id
-        WHERE lower(c.canonical_name) = lower(:needle)
-           OR lower(c.formula) = lower(:needle)
-           OR lower(c.conventional_formula) = lower(:needle)
-           OR lower(c.id) = lower(:needle)
+        WHERE """ + compound_match_sql(include_synonyms=include_synonyms) + """
     """
     with _connect(database_path) as connection:
         rows = connection.execute(query, {"needle": compound}).fetchall()

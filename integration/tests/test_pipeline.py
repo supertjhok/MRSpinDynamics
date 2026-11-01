@@ -26,6 +26,25 @@ class DatabasePipelineTests(unittest.TestCase):
         self.assertTrue(lines)
         self.assertTrue(all(line.compound == "Sodium Nitrite" for line in lines))
 
+    def test_nano2_synonyms_merge_every_source(self) -> None:
+        # Regression: exact-string matching split NaNO2 (CAS 7632-00-0) into
+        # CWRU/NRL "Sodium Nitrite" and Landolt "Nitrous acid sodium salt", so
+        # no lookup could reach both. With include_synonyms every name and
+        # formula returns the same merged set, including the Landolt lines
+        # (4.647 MHz at 293 K, 4.929 MHz at 77 K) and the CWRU 4.642 MHz line.
+        by_needle = {
+            needle: {
+                round(line.frequency_hz / 1e3, 2)
+                for line in measured_lines(needle, isotope="14N", include_synonyms=True)
+            }
+            for needle in ("Sodium Nitrite", "Nitrous acid sodium salt", "NaNO2", "NNaO2")
+        }
+        reference = by_needle["Sodium Nitrite"]
+        for needle, frequencies in by_needle.items():
+            self.assertEqual(frequencies, reference, needle)
+        for frequency_khz in (1038.0, 3604.0, 4642.0, 4647.0, 4929.0):
+            self.assertIn(frequency_khz, reference)
+
     def test_literature_params_reproduce_measured_lines(self) -> None:
         # Feeding the literature C_Q/eta through the simulator should land
         # within a few kHz of the measured lines (rounding of the stored QCC).

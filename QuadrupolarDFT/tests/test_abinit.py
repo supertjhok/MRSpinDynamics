@@ -2,7 +2,13 @@ import unittest
 
 import numpy as np
 
-from quadrupolar_dft import format_abinit_efg_block, parse_abinit_efg
+from quadrupolar_dft import (
+    coupling_constant_hz,
+    efg_tensor_from_record,
+    format_abinit_efg_block,
+    parse_abinit_efg,
+)
+from quadrupolar_dft.constants import EFG_AU_TO_SI
 
 
 ABINIT_FRAGMENT = """
@@ -87,6 +93,30 @@ class AbinitParserTests(unittest.TestCase):
         self.assertAlmostEqual(record.cq_mhz, 6.6150)
         np.testing.assert_allclose(record.eigvals_au, reference.eigvals_au)
         np.testing.assert_allclose(record.total_tensor_au, reference.total_tensor_au)
+
+    def test_eigenpair_fallback_reproduces_abinit_cq_and_eta(self):
+        # Regression: without "total efg" rows the tensor rebuilt from ABINIT's
+        # 6-decimal eigenpairs failed the 1e-8 trace check, so this always raised.
+        compact = ABINIT_COMPACT_FRAGMENT.split("      total efg")[0]
+        record = parse_abinit_efg(compact)[0]
+        self.assertIsNone(record.tensor)
+
+        tensor = efg_tensor_from_record(record)
+
+        # Independent reference: ABINIT's own header values for this atom.
+        self.assertAlmostEqual(tensor.eta, 0.140313, delta=2e-5)
+        self.assertAlmostEqual(tensor.vzz_si / EFG_AU_TO_SI, -1.100599, delta=2e-6)
+        # 17O quadrupole moment -25.58 mb (the header prints it rounded to -0.0256).
+        cq_mhz = coupling_constant_hz(tensor.vzz_si, -0.02558) / 1e6
+        self.assertAlmostEqual(cq_mhz, 6.615041, delta=1e-4)
+
+    def test_eigenpair_fallback_rejects_non_traceless_eigenvalues(self):
+        compact = ABINIT_COMPACT_FRAGMENT.split("      total efg")[0].replace(
+            "0.627514", "0.727514"
+        )
+        record = parse_abinit_efg(compact)[0]
+        with self.assertRaises(ValueError):
+            efg_tensor_from_record(record)
 
     def test_format_abinit_efg_block(self):
         block = format_abinit_efg_block([0.0, -0.02558])
