@@ -109,7 +109,13 @@ class DiffusionAbsolutePhaseTests(unittest.TestCase):
             np.abs(phase_advanced.echo_integrals - baseline.echo_integrals)
             / np.maximum(np.abs(baseline.echo_integrals), np.finfo(float).tiny)
         )
-        self.assertGreater(float(rel_delta), 0.05)
+        # The tuned rotating-frame pulse phase is carrier-compensated, so the
+        # absolute RF phase acts only through the gate-on transient. With
+        # steady-state pulse normalization (M-44) that is a small but nonzero
+        # effect (~0.3 %); the former >5 % contrast (~81 %) came from peak
+        # normalization rescaling every pulse by a phase-dependent gain.
+        self.assertGreater(float(rel_delta), 1e-3)
+        self.assertLess(float(rel_delta), 0.02)
 
 
 if __name__ == "__main__":
