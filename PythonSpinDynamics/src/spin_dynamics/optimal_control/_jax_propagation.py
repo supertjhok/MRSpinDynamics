@@ -80,8 +80,8 @@ if JAX_AVAILABLE:
         psi_final, _ = lax.scan(body, psi0, (amplitude, phase, dt_arr))
         return psi_final
 
-    @jax.jit
-    def propagate_unitary_scan(h_drift, h_x, h_y, amplitude, phase, dt):
+    @partial(jax.jit, static_argnames=("method",))
+    def propagate_unitary_scan(h_drift, h_x, h_y, amplitude, phase, dt, *, method="eigh"):
         """Propagate the identity through the control sequence to a full unitary."""
 
         dt_arr = _broadcast_dt(dt, amplitude.shape[0])
@@ -89,7 +89,7 @@ if JAX_AVAILABLE:
 
         def body(u, xs):
             amp_j, phase_j, dt_j = xs
-            u_seg = _segment_propagator(h_drift, h_x, h_y, amp_j, phase_j, dt_j)
+            u_seg = _segment_propagator(h_drift, h_x, h_y, amp_j, phase_j, dt_j, method)
             return u_seg @ u, None
 
         u_final, _ = lax.scan(body, u0, (amplitude, phase, dt_arr))
@@ -130,12 +130,16 @@ if JAX_AVAILABLE:
 
         return jax.vmap(one)(h_drift_batch, psi0_batch)
 
-    @jax.jit
-    def propagate_unitary_batched(h_drift_batch, h_x, h_y, amplitude, phase, dt):
+    @partial(jax.jit, static_argnames=("method",))
+    def propagate_unitary_batched(
+        h_drift_batch, h_x, h_y, amplitude, phase, dt, *, method="eigh"
+    ):
         """vmap ``propagate_unitary_scan`` over a leading batch axis of ``h_drift_batch``."""
 
         def one(h_drift_b):
-            return propagate_unitary_scan(h_drift_b, h_x, h_y, amplitude, phase, dt)
+            return propagate_unitary_scan(
+                h_drift_b, h_x, h_y, amplitude, phase, dt, method=method
+            )
 
         return jax.vmap(one)(h_drift_batch)
 
@@ -188,8 +192,10 @@ if JAX_AVAILABLE:
         psi_final, _ = lax.scan(body, psi0, (amplitude, phase, gradient, dt_arr))
         return psi_final
 
-    @jax.jit
-    def propagate_unitary_scan_grad(h_drift, h_x, h_y, h_grad, amplitude, phase, gradient, dt):
+    @partial(jax.jit, static_argnames=("method",))
+    def propagate_unitary_scan_grad(
+        h_drift, h_x, h_y, h_grad, amplitude, phase, gradient, dt, *, method="eigh"
+    ):
         """Propagate the identity through an RF+gradient control sequence."""
 
         dt_arr = _broadcast_dt(dt, amplitude.shape[0])
@@ -198,16 +204,17 @@ if JAX_AVAILABLE:
         def body(u, xs):
             amp_j, phase_j, grad_j, dt_j = xs
             u_seg = _segment_propagator_grad(
-                h_drift, h_x, h_y, h_grad, amp_j, phase_j, grad_j, dt_j
+                h_drift, h_x, h_y, h_grad, amp_j, phase_j, grad_j, dt_j, method
             )
             return u_seg @ u, None
 
         u_final, _ = lax.scan(body, u0, (amplitude, phase, gradient, dt_arr))
         return u_final
 
-    @jax.jit
+    @partial(jax.jit, static_argnames=("method",))
     def propagate_batched_grad(
-        h_drift_batch, h_x, h_y, h_grad_batch, amplitude, phase, gradient, dt, psi0_batch
+        h_drift_batch, h_x, h_y, h_grad_batch, amplitude, phase, gradient, dt, psi0_batch,
+        *, method="eigh",
     ):
         """vmap ``propagate_state_scan_grad`` over a position/ensemble axis.
 
@@ -216,24 +223,30 @@ if JAX_AVAILABLE:
         member its own gradient-operator scale. The RF (``h_x``, ``h_y``,
         ``amplitude``, ``phase``) AND the ``gradient`` waveform are shared,
         identical for every member -- the single control waveform whose
-        position-dependent effect is exactly what the gradient channel models."""
+        position-dependent effect is exactly what the gradient channel models.
+        ``method="expm"`` is the degeneracy-safe segment propagator, needed when a
+        member's ``H_seg`` can vanish (e.g. the position-0, on-resonance member
+        during an RF gap), where the ``eigh`` gradient is NaN."""
 
         def one(h_drift_b, h_grad_b, psi0_b):
             return propagate_state_scan_grad(
-                h_drift_b, h_x, h_y, h_grad_b, amplitude, phase, gradient, dt, psi0_b
+                h_drift_b, h_x, h_y, h_grad_b, amplitude, phase, gradient, dt, psi0_b,
+                method=method,
             )
 
         return jax.vmap(one)(h_drift_batch, h_grad_batch, psi0_batch)
 
-    @jax.jit
+    @partial(jax.jit, static_argnames=("method",))
     def propagate_unitary_batched_grad(
-        h_drift_batch, h_x, h_y, h_grad_batch, amplitude, phase, gradient, dt
+        h_drift_batch, h_x, h_y, h_grad_batch, amplitude, phase, gradient, dt,
+        *, method="eigh",
     ):
         """vmap ``propagate_unitary_scan_grad`` over ``(h_drift_batch, h_grad_batch)``."""
 
         def one(h_drift_b, h_grad_b):
             return propagate_unitary_scan_grad(
-                h_drift_b, h_x, h_y, h_grad_b, amplitude, phase, gradient, dt
+                h_drift_b, h_x, h_y, h_grad_b, amplitude, phase, gradient, dt,
+                method=method,
             )
 
         return jax.vmap(one)(h_drift_batch, h_grad_batch)

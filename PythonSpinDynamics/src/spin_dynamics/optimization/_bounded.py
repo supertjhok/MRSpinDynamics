@@ -28,6 +28,36 @@ class BoundedOptimizationRun:
     message: str
 
 
+# SciPy ``minimize`` methods that honour box ``bounds``. Every other named
+# method (BFGS, CG, Newton-CG, dogleg, trust-ncg, ...) ignores them with only a
+# warning, which would let a result escape hardware limits such as GRAPE's
+# ``amplitude_max_hz``; those are rejected up front.
+_BOUND_CAPABLE_SCIPY_METHODS = frozenset(
+    {
+        "nelder-mead",
+        "powell",
+        "l-bfgs-b",
+        "tnc",
+        "slsqp",
+        "trust-constr",
+        "cobyla",
+        "cobyqa",
+    }
+)
+
+
+def _require_bound_capable_method(scipy_method: object) -> None:
+    """Reject a named SciPy method that would silently ignore ``bounds``."""
+
+    if callable(scipy_method):
+        return
+    if str(scipy_method).lower() not in _BOUND_CAPABLE_SCIPY_METHODS:
+        supported = ", ".join(sorted(_BOUND_CAPABLE_SCIPY_METHODS))
+        raise ValueError(
+            f"scipy_method {scipy_method!r} ignores bounds; use one of: {supported}"
+        )
+
+
 def validate_bounds(bounds: tuple[float, float]) -> tuple[float, float]:
     """Validate scalar lower/upper phase bounds."""
 
@@ -174,6 +204,7 @@ def scipy_maximize(
             "optimization dependencies with `python -m pip install -e .[opt]`."
         ) from exc
 
+    _require_bound_capable_method(scipy_method)
     lower, upper = validate_bounds(bounds)
     x0 = np.clip(np.asarray(initial, dtype=np.float64).reshape(-1), lower, upper)
     if x0.size == 0:
@@ -198,7 +229,9 @@ def scipy_maximize(
         bounds=[(lower, upper)] * x0.size,
         options=options,
     )
-    best_x = np.asarray(result.x, dtype=np.float64).reshape(-1)
+    # Project onto the box (a no-op for bound-honouring methods up to round-off)
+    # so the reported optimum always satisfies the bounds.
+    best_x = np.clip(np.asarray(result.x, dtype=np.float64).reshape(-1), lower, upper)
     best_score = float(score_fn(best_x.copy()))
     if not np.isfinite(best_score):
         best_score = -np.inf
@@ -249,6 +282,7 @@ def scipy_maximize_with_grad(
             "optional optimization dependencies with `python -m pip install -e .[opt]`."
         ) from exc
 
+    _require_bound_capable_method(scipy_method)
     x0_raw = np.asarray(initial, dtype=np.float64).reshape(-1)
     if x0_raw.size == 0:
         raise ValueError("initial_phases must not be empty")
@@ -277,7 +311,11 @@ def scipy_maximize_with_grad(
         bounds=bounds_pairs,
         options=options,
     )
-    best_x = np.asarray(result.x, dtype=np.float64).reshape(-1)
+    # Project onto the box (a no-op for bound-honouring methods up to round-off)
+    # so the reported optimum always satisfies the per-parameter bounds.
+    best_x = np.clip(
+        np.asarray(result.x, dtype=np.float64).reshape(-1), lower_arr, upper_arr
+    )
     best_score, _grad = value_and_grad_fn(best_x)
     best_score = float(best_score)
     if not np.isfinite(best_score):

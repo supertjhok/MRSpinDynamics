@@ -74,5 +74,60 @@ class PerParameterBoundsTests(unittest.TestCase):
             scipy_maximize_with_grad(vg, np.zeros(2), bounds=[(1.0, -1.0), (-1.0, 1.0)])
 
 
+class BoundsEnforcementTests(unittest.TestCase):
+    """Review M-39: results must never escape the box bounds.
+
+    Before the fix, ``scipy_method="BFGS"`` silently ignored the bounds (SciPy
+    only warns) and returned the unconstrained optimum ``[5, 5]`` for a box of
+    ``[0, 1]^2`` -- in GRAPE that exceeds ``amplitude_max_hz``.
+    """
+
+    def test_unbounded_named_methods_are_rejected(self) -> None:
+        from spin_dynamics.optimization._bounded import scipy_maximize
+
+        vg = _quadratic_bowl_value_and_grad(np.array([5.0, 5.0]))
+        for method in ("BFGS", "CG", "Newton-CG"):
+            with self.subTest(method=method):
+                with self.assertRaisesRegex(ValueError, "ignores bounds"):
+                    scipy_maximize_with_grad(
+                        vg, np.full(2, 0.5), bounds=(0.0, 1.0), scipy_method=method
+                    )
+                with self.assertRaisesRegex(ValueError, "ignores bounds"):
+                    scipy_maximize(
+                        lambda x: vg(x)[0], np.full(2, 0.5), bounds=(0.0, 1.0),
+                        scipy_method=method,
+                    )
+
+    def test_bound_capable_methods_reach_the_box_corner(self) -> None:
+        # Independent reference: the maximizer of -(x-5)^2 on [0, 1]^2 is (1, 1).
+        vg = _quadratic_bowl_value_and_grad(np.array([5.0, 5.0]))
+        for method in ("L-BFGS-B", "TNC", "SLSQP"):
+            with self.subTest(method=method):
+                run = scipy_maximize_with_grad(
+                    vg, np.full(2, 0.5), bounds=(0.0, 1.0), scipy_method=method
+                )
+                np.testing.assert_allclose(run.best_x, [1.0, 1.0], atol=1e-6)
+                self.assertTrue(np.all((run.best_x >= 0.0) & (run.best_x <= 1.0)))
+
+    def test_custom_method_result_is_projected_and_rescored(self) -> None:
+        from scipy.optimize import OptimizeResult
+
+        def escaping_method(fun, x0, args=(), **_options):
+            # A user-supplied method that ignores the bounds entirely.
+            return OptimizeResult(
+                x=np.array([5.0, -3.0]), success=True, message="escaped", nfev=1
+            )
+
+        vg = _quadratic_bowl_value_and_grad(np.array([5.0, 5.0]))
+        run = scipy_maximize_with_grad(
+            vg,
+            np.full(2, 0.5),
+            bounds=[(0.0, 1.0), (0.0, 2.0)],
+            scipy_method=escaping_method,
+        )
+        np.testing.assert_allclose(run.best_x, [1.0, 0.0])
+        np.testing.assert_allclose(run.best_score, -(16.0 + 25.0))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -9,8 +9,10 @@ resolve (SAR hot-spot inside a lossy/tissue sample, coil-former stack).
 Geometry enters only through the divergence operator, written in the unified
 form ``(1/r^m) d/dr (r^m k dT/dr)`` with ``m = 0`` (slab), ``1`` (cylinder),
 ``2`` (sphere). A conservative finite-volume discretization on face-centered
-conductances keeps the steady state exact for piecewise-constant ``k`` and
-conserves energy; time stepping is Crank-Nicolson (unconditionally stable).
+conductances with exact cell volumes conserves energy exactly (deposited power
+equals boundary outflow at steady state) and gives second-order (``O(dr^2)``)
+accurate profiles for piecewise-constant ``k``; time stepping is
+Crank-Nicolson (unconditionally stable).
 
 Pennes bioheat: ``rho c_p dT/dt = div(k grad T) + q_v + w_b c_b (T_a - T)``,
 with blood perfusion ``w_b`` (kg/m^3/s), blood specific heat ``c_b``, and
@@ -81,7 +83,9 @@ class Conduction1D:
     """Finite-volume conduction on a slab / cylinder / sphere radial grid.
 
     ``r`` is the cell-center coordinate (m), uniformly spaced from a center/
-    inner face to the outer face. ``conductivity``, ``rho_cp`` (J/m^3/K), and
+    inner face to the outer face. For a cylinder/sphere the first centre must be
+    at ``r >= dr/2`` (``r[0] = dr/2`` for a solid body, so the inner face is the
+    axis); a grid starting at ``r = 0`` is rejected. ``conductivity``, ``rho_cp`` (J/m^3/K), and
     the volumetric ``source`` (W/m^3) are per-cell arrays or scalars.
 
     Boundary conditions per end are ``("insulated",)``,
@@ -142,6 +146,15 @@ class Conduction1D:
         # Face radii (n+1 faces) and their geometric weights r_face^m.
         self.r_faces = np.concatenate(([r[0] - dr / 2], r + dr / 2))
         if self.m > 0 and self.r_faces[0] < 0:
+            # A radial grid's first cell centre must sit at least dr/2 from the
+            # axis (r = dr/2 for a solid cylinder/sphere); only round-off below
+            # zero is clamped. A grid starting at r = 0 would give a cell of
+            # zero (or negative) measure and a shifted outer radius.
+            if self.r_faces[0] < -1e-9 * dr:
+                raise ValueError(
+                    "cylinder/sphere cell centres must start at r >= dr/2 "
+                    "(use r = (arange(n) + 0.5) * dr for a solid body)"
+                )
             self.r_faces[0] = 0.0
         self._build_operator()
 
@@ -151,10 +164,14 @@ class Conduction1D:
         return r_face**self.m if self.m > 0 else np.ones_like(r_face)
 
     def _cell_weight(self) -> np.ndarray:
-        # Finite-volume cell measure ~ r^m dr (m=0 slab -> dr).
+        # Exact finite-volume cell measure: integral of r^m dr over each cell,
+        # (r_out^(m+1) - r_in^(m+1)) / (m+1). For the slab this is dr and for
+        # the cylinder it equals r dr; for the sphere the midpoint value r^2 dr
+        # would be short by dr^3/12 per cell and break energy conservation.
         if self.m == 0:
             return np.full(self.n, self.dr)
-        return self.r**self.m * self.dr
+        power = self.m + 1
+        return (self.r_faces[1:] ** power - self.r_faces[:-1] ** power) / power
 
     def _build_operator(self) -> None:
         """Assemble the conduction matrix ``A`` (W/K per cell measure) and BC vectors."""

@@ -193,6 +193,14 @@ def make_grape_objective(
     be per-case, shape ``(batch, dim)`` for state transfer (e.g. inverted
     in-slice, untouched out-of-slice) as well as the shared ``(dim,)`` form.
 
+    **Propagator.** ``propagator="eigh"`` (default) diagonalizes each segment
+    Hamiltonian; its reverse-mode gradient is NaN whenever a segment
+    Hamiltonian is degenerate -- Kramers-degenerate NQR spectra, or with a
+    gradient channel the position-0 on-resonance member during a
+    zero-amplitude segment (an amplitude at its lower bound of 0, or the zero
+    RF tail appended by a ``gradient_response``). ``propagator="expm"`` is
+    degeneracy-safe and is supported in every mode and with every ensemble.
+
     **Per-case control operators (e.g. NQR powder).** Passing
     ``control_operator_batch`` (a sequence of per-case ``(h_x, h_y)`` drive-
     operator pairs, e.g. from ``hamiltonians.nqr_powder_control_batch``) makes
@@ -254,11 +262,6 @@ def make_grape_objective(
 
     if propagator not in ("eigh", "expm"):
         raise ValueError("propagator must be 'eigh' or 'expm'")
-    if propagator == "expm" and (gradient_active or mode != "state_transfer"):
-        raise ValueError(
-            "propagator='expm' (for degenerate NQR spectra) is currently supported "
-            "only for mode='state_transfer' without the gradient channel"
-        )
 
     amp_fixed = None
     if not optimize_amplitude:
@@ -430,7 +433,7 @@ def make_grape_objective(
             if gradient_active:
                 psi_finals = propagate_batched_grad(
                     drift_batch, h_x, h_y, hgrad_batch,
-                    amplitude, phase, gradient, dt_eff, psi0_batch,
+                    amplitude, phase, gradient, dt_eff, psi0_batch, method=propagator,
                 )
                 fids = jax.vmap(state_transfer_fidelity, in_axes=(0, target_in_axis))(
                     psi_finals, target_j
@@ -467,20 +470,25 @@ def make_grape_objective(
             amplitude, phase, gradient, dt_eff = _deliver(amplitude_c, phase_c, gradient_c)
             if gradient_active:
                 u_finals = propagate_unitary_batched_grad(
-                    drift_batch, h_x, h_y, hgrad_batch, amplitude, phase, gradient, dt_eff
+                    drift_batch, h_x, h_y, hgrad_batch, amplitude, phase, gradient, dt_eff,
+                    method=propagator,
                 )
                 fids = jax.vmap(average_gate_fidelity, in_axes=(0, target_in_axis))(
                     u_finals, target_j
                 )
                 fidelity = _reduce(fids)
             elif batch is not None:
-                u_finals = propagate_unitary_batched(batch, h_x, h_y, amplitude, phase, dt_eff)
+                u_finals = propagate_unitary_batched(
+                    batch, h_x, h_y, amplitude, phase, dt_eff, method=propagator
+                )
                 fids = jax.vmap(average_gate_fidelity, in_axes=(0, target_in_axis))(
                     u_finals, target_j
                 )
                 fidelity = _reduce(fids)
             else:
-                u_final = propagate_unitary_scan(h_drift, h_x, h_y, amplitude, phase, dt_eff)
+                u_final = propagate_unitary_scan(
+                    h_drift, h_x, h_y, amplitude, phase, dt_eff, method=propagator
+                )
                 fidelity = average_gate_fidelity(u_final, target_j)
             return fidelity - _regularization(phase_c, gradient_c)
 

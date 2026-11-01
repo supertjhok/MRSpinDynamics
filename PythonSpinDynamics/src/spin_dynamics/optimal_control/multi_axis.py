@@ -67,7 +67,7 @@ class MultiAxisSLSEConfig:
     rx_scheme: str = "quadrature"
     ramp_segments: float = 1.0
     helicity: int = 1
-    _built: dict = field(default_factory=dict, repr=False, compare=False)
+    _built: dict = field(default_factory=dict, init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         if self.n_coils < 1 or self.n_coils > 3:

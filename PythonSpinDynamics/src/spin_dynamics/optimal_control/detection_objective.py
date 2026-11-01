@@ -175,7 +175,7 @@ def make_detected_snr_objective(
         if per_rf_power:
             # SNR per unit RF amplitude: divide by the delivered pulse's B1 norm.
             # Floor keeps the gradient finite at zero amplitude (a no-op otherwise).
-            rf_energy = jnp.sum(amplitude * amplitude) * dt_eff
+            rf_energy = jnp.sum(amplitude * amplitude * dt_eff)
             snr = snr / jnp.sqrt(rf_energy + 1e-30)
         return snr
 

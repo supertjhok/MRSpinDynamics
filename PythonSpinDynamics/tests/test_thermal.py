@@ -617,6 +617,53 @@ class TestConduction1D:
         with pytest.raises(ValueError):
             PerfusionModel(blood_perfusion=-1.0)
 
+    # Review M-41: radial grids starting at r=0 and inexact sphere volumes.
+    def test_radial_grid_starting_at_axis_is_rejected(self) -> None:
+        # Before the fix the r=0 cell had zero measure: transient() divided by
+        # zero and the outer radius was shifted by dr/2.
+        r = np.linspace(0.0, 0.01, 20)
+        for geometry in ("cylinder", "sphere"):
+            with pytest.raises(ValueError, match="dr/2"):
+                Conduction1D(r, geometry=geometry, conductivity=0.5, rho_cp=4e6)
+        # The slab has no axis, so an offset grid stays valid.
+        Conduction1D(r, geometry="slab", conductivity=0.5, rho_cp=4e6)
+
+    @pytest.mark.parametrize("geometry,m", [("cylinder", 1), ("sphere", 2)])
+    def test_radial_cell_volumes_are_exact(self, geometry: str, m: int) -> None:
+        # Independent reference: integral of r^m dr over [0, R] is R^(m+1)/(m+1).
+        # Before the fix the sphere's midpoint r^2 dr summed to 0.99938 of it
+        # (n=20), so a uniform source deposited 0.06% too little energy.
+        radius, n = 0.01, 20
+        dr = radius / n
+        r = (np.arange(n) + 0.5) * dr
+        c = Conduction1D(r, geometry=geometry, conductivity=0.5, rho_cp=4e6)
+        assert c.cell_measure.sum() == pytest.approx(
+            radius ** (m + 1) / (m + 1), rel=1e-13
+        )
+        assert c.lumped_capacity() == pytest.approx(
+            4e6 * radius ** (m + 1) / (m + 1), rel=1e-13
+        )
+
+    def test_sphere_steady_profile_and_energy_balance(self) -> None:
+        # Analytic: T(r) = T0 + q (R^2 - r^2) / (6 k). Before the fix the
+        # coarse n=20 sphere was off by 0.38% of the rise; it is now O(dr^2)
+        # like the slab/cylinder (0.0625%).
+        radius, n, k, q, t0 = 0.01, 20, 0.5, 1e5, 300.0
+        dr = radius / n
+        r = (np.arange(n) + 0.5) * dr
+        c = Conduction1D(
+            r, geometry="sphere", conductivity=k, rho_cp=4e6, source=q,
+            outer_bc=("temperature", t0),
+        )
+        prof = c.steady_state().temperature
+        exact = t0 + q * (radius**2 - r**2) / (6 * k)
+        assert np.max(np.abs(prof - exact)) / np.max(exact - t0) < 1e-3
+        # Steady energy balance: deposited power equals outflow at the wall.
+        deposited = q * c.cell_measure.sum()
+        g_wall = radius**2 * k / (dr / 2)
+        outflow = g_wall * (prof[-1] - t0)
+        assert outflow == pytest.approx(deposited, rel=1e-12)
+
 
 class TestThermalFlow:
     def test_flow_conductance_value(self) -> None:

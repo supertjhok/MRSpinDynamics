@@ -25,7 +25,17 @@ from spin_dynamics.optimization._bounded import scipy_maximize_with_grad
 
 @dataclass(frozen=True)
 class GrapeOptimizationResult:
-    """Result of a GRAPE control-waveform optimization."""
+    """Result of a GRAPE control-waveform optimization.
+
+    ``best_fidelity``/``initial_fidelity`` (and ``history_scores``) are the
+    *optimized objective*: the (ensemble-reduced) fidelity minus any
+    ``phase_smoothness_weight``/``gradient_smoothness_weight`` penalty, which is
+    what the optimizer maximizes and what multistart drivers rank by. The
+    penalty-free fidelity of the same controls is reported separately as
+    ``best_unpenalized_fidelity``/``initial_unpenalized_fidelity`` (equal to the
+    objective when both smoothness weights are zero). ``initial_controls`` is the
+    start point actually used: the supplied controls projected onto ``bounds``.
+    """
 
     mode: str
     n_segments: int
@@ -44,6 +54,8 @@ class GrapeOptimizationResult:
     optimizer_success: bool
     optimizer_message: str
     optimize_gradient: bool = False
+    best_unpenalized_fidelity: float | None = None
+    initial_unpenalized_fidelity: float | None = None
 
     @property
     def best_amplitude(self) -> np.ndarray | None:
@@ -199,9 +211,10 @@ def grape_optimize(
     else:
         bounds = phase_only_bounds(n_segments, phase_bound_rad=phase_bound_rad)
     x0 = blocks[0] if len(blocks) == 1 else np.concatenate(blocks)
+    # The optimizer starts from the box projection of x0, so score that point.
+    x0 = np.clip(x0, bounds.lower, bounds.upper)
 
-    value_and_grad_fn = make_grape_objective(
-        model,
+    objective_kwargs = dict(
         n_segments=n_segments,
         dt=dt,
         target=target,
@@ -216,11 +229,15 @@ def grape_optimize(
         hamiltonian_batch=hamiltonian_batch,
         ensemble_reduction=ensemble_reduction,
         ensemble_weights=ensemble_weights,
-        phase_smoothness_weight=phase_smoothness_weight,
-        gradient_smoothness_weight=gradient_smoothness_weight,
         propagator=propagator,
         rf_response=rf_response,
         gradient_response=gradient_response,
+    )
+    value_and_grad_fn = make_grape_objective(
+        model,
+        phase_smoothness_weight=phase_smoothness_weight,
+        gradient_smoothness_weight=gradient_smoothness_weight,
+        **objective_kwargs,
     )
 
     initial_score, _initial_grad = value_and_grad_fn(x0)
@@ -233,6 +250,17 @@ def grape_optimize(
         scipy_method=scipy_method,
         options=scipy_options,
     )
+
+    penalized = phase_smoothness_weight != 0.0 or (
+        gradient_operator_batch is not None and gradient_smoothness_weight != 0.0
+    )
+    if penalized:
+        fidelity_fn = make_grape_objective(model, **objective_kwargs)
+        initial_unpenalized = float(fidelity_fn(x0)[0])
+        best_unpenalized = float(fidelity_fn(run.best_x)[0])
+    else:
+        initial_unpenalized = initial_score
+        best_unpenalized = float(run.best_score)
 
     dt_arr = np.broadcast_to(np.asarray(dt, dtype=np.float64), (n_segments,)).copy()
 
@@ -254,6 +282,8 @@ def grape_optimize(
         optimizer_method=run.method,
         optimizer_success=run.success,
         optimizer_message=run.message,
+        best_unpenalized_fidelity=best_unpenalized,
+        initial_unpenalized_fidelity=initial_unpenalized,
     )
 
 

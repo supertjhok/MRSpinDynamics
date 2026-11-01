@@ -63,7 +63,9 @@ def gradient_moments(gradient, dt, *, encode_end, coherence_sign=None):
     length as ``gradient``): a 180 refocusing pulse flips it, so two same-polarity
     physical lobes straddling a 180 refocus (net ``q`` back to zero), matching the
     effective-gradient convention of ``workflows.pgse``. Without
-    ``coherence_sign`` the raw gradient is integrated (``s == +1``).
+    ``coherence_sign`` the raw gradient is integrated (``s == +1``). ``dt`` is
+    the scalar sample spacing or a per-sample ``(len(gradient),)`` array for a
+    non-uniform grid (``q = cumsum(g * s * dt)``).
 
     Returns ``(q_of_t, q_encode, q_residual, b_value)``: ``q_encode = q`` at the
     end of the encode lobe (fine-grid index ``encode_end``), ``q_residual = q`` at
@@ -74,10 +76,10 @@ def gradient_moments(gradient, dt, *, encode_end, coherence_sign=None):
     """
 
     effective = gradient if coherence_sign is None else gradient * coherence_sign
-    q = jnp.cumsum(effective) * dt
+    q = jnp.cumsum(effective * dt)
     q_encode = q[int(encode_end) - 1]
     q_residual = q[-1]
-    b_value = jnp.sum(q * q) * dt
+    b_value = jnp.sum(q * q * dt)
     return q, q_encode, q_residual, b_value
 
 
