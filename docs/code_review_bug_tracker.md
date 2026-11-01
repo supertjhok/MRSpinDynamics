@@ -32,7 +32,7 @@ code, not run.
 | High | 0 | 0 | 13 | 0 |
 | CI / gates | 7 | 0 | 0 | 0 |
 | Medium | 1 | 0 | 43 | 1 |
-| Low | 53 | 0 | 1 | 0 |
+| Low | 46 | 0 | 8 | 0 |
 
 ## High
 
@@ -159,13 +159,13 @@ code, not run.
 | L-39 | fields | `HarmonicEMSolution.magnetic_flux_density` | An explicit `relative_permeability` is ignored when B is stored; B/H consistency is never checked. | Open | |
 | L-40 | fields | `fasthenry_interop.py`, FasterCap glue | Temp dirs leak; COM server not stopped on timeout; inconsistent `IsRunning`/`Quit` usage. | Open | |
 | L-41 | fields | Brauer ν(B²), `_rod_dipoles`, birdcage helpers | Logic duplicated 2–4× (the remanence drift in M-34 came from this). | Open | |
-| L-42 | optimization | `optimization/drivers.py:427-430` | AttributeError if the first inverse multistart is non-finite. | Open | |
-| L-43 | analysis | `analysis/ilt.py:145` | Permitted complex input triggers ComplexWarning. | Open | |
-| L-44 | thermal | `thermal/network.py:579-593` | `steady_state` `for/else` raises even when the last iteration converged; damping accepts T ≤ 0. | Open | |
-| L-45 | thermal | `thermal/coupling.py:258` | `march` drops factory-internal sources and drifts from `fixed_point`. | Open | |
-| L-46 | optimization | `UntunedProbeResponse`, `MatchedProbeResponse`, `GradientDriverResponse` | No `oversample >= 1` validation (ZeroDivisionError). | Open | |
-| L-47 | thermal | `sar_source_from_eddy` | Inconsistent 1/2 factor between density and `EddyResult.power` when `time_average=False`. | Open | |
-| L-48 | design | `ExperimentPredictor._cache`; `parameters/constructors.py` | Unbounded cache; `params.texc` and `pp.texc` alias one mutable array. | Open | |
+| L-42 | optimization | `optimization/drivers.py:427-430` | AttributeError if the first inverse multistart is non-finite. | Fixed | Re-centres only once a finite best result exists. Test: `test_review_low_fixes_design_thermal.py::test_inverse_multistart_survives_non_finite_first_start`. Commit `0de0dca`. |
+| L-43 | analysis | `analysis/ilt.py:145` | Permitted complex input triggers ComplexWarning. | Fixed | Takes the real part before the float cast. Test: `::test_inversion_recovery_ilt_accepts_complex_input_without_warning`. Commit `0de0dca`. |
+| L-44 | thermal | `thermal/network.py:579-593` | `steady_state` `for/else` raises even when the last iteration converged; damping accepts T ≤ 0. | Fixed | Re-checks convergence after the final update; raises on non-positive damped Newton temperatures. Tests: `::test_steady_state_accepts_convergence_on_last_iteration`, `::test_steady_state_refuses_non_positive_newton_step`. Commit `0de0dca`. |
+| L-45 | thermal | `thermal/coupling.py:258` | `march` drops factory-internal sources and drifts from `fixed_point`. | Fixed | Restarted networks use the factory-assembled powers (march 298.25 K → agrees with fixed_point 304.37 K). Test: `::test_march_keeps_factory_sources_and_reaches_fixed_point`. Commit `0de0dca`. |
+| L-46 | optimization | `UntunedProbeResponse`, `MatchedProbeResponse`, `GradientDriverResponse` | No `oversample >= 1` validation (ZeroDivisionError). | Fixed | Shared `_validated_oversample`; non-integers are now rejected (stricter). Test: `::test_responses_validate_oversample`. Commit `0de0dca`. |
+| L-47 | thermal | `sar_source_from_eddy` | Inconsistent 1/2 factor between density and `EddyResult.power` when `time_average=False`. | Fixed | `sar_source_from_eddy(time_average=)` must match the EddyResult flag; recording the flag in `EddyResult` itself would be the fuller fix (fields). Test: `::test_sar_source_matches_cycle_average_for_instantaneous_eddy_result`. Commit `0de0dca`. |
+| L-48 | design | `ExperimentPredictor._cache`; `parameters/constructors.py` | Unbounded cache; `params.texc` and `pp.texc` alias one mutable array. | Fixed | LRU cache with `max_cache_entries=100_000`; the four legacy constructors copy their arrays. Tests: `::test_predictor_cache_is_bounded_lru`, `::test_parameter_constructor_arrays_are_not_shared`. Commit `0de0dca`. |
 | L-49 | core | `core/echo.py`, MATLAB `Version_3/code/calc_echo/calc_time_domain_echo.m` | Zero-fill places ω=0 off by up to 2 bins and `tvect` isn't the FFT grid (small at the default `numpts`); Octave parity locks it in. | Open | |
 | L-50 | integration | `integration/src/mr_integration/database.py` | `with _connect()` doesn't close sqlite connections; the URI isn't built with `as_uri()`. Spin support is only 1 and 3/2, and DFT C_Q/η are averaged over non-equivalent atoms. | Open | |
 | L-51 | repo | `AGENTS.md`, `.gitattributes`, `tests/test_validation_gaps.py` | AGENTS.md points at a stale OneDrive copy and omits the validation-matrix check; `.gitattributes` names a missing path; 5 permanently skipped placeholder tests. | Open | |
@@ -191,3 +191,4 @@ code, not run.
 - 2026-11-01: M-28 to M-33 (experiment, detection, interference, probes) fixed in `1752cf8`.
 - 2026-11-01: M-10 to M-16 and M-44 (workflows) fixed in `89b2e01`/`f19bd50`; M-45 and L-54 added. Every Medium from the review is now closed; M-45 is new and open.
 - 2026-11-01: L-54 partly fixed in `b7a89d8` (SpatialDomain normalized grids now DFT-centred).
+- 2026-11-01: L-42 to L-48 (design, optimization, thermal) fixed in `0de0dca`.
