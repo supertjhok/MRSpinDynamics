@@ -154,6 +154,54 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
   - **CWRU NQR relaxation times:** unitless cells are now read as ms;
   - **QuadrupolarDFT ABINIT input parsing:** adds `angdeg`, `n*value` and
     `D` exponents.
+- Corrected the glycine 737/1052 kHz relaxation times in NQRDatabase (both
+  CWRU and NRL rows), the piezo-detection defaults and the NQR
+  mail-screening study. The values are milliseconds, not seconds: T1 is
+  43.4/50 ms and T2 12.5/17.1 ms.
+- Fixed the 44 medium-severity review findings (M-05 is documented as not a
+  bug, and each fix has a regression test; see the bug tracker).
+  **Behaviour changes:**
+  - **CPMG-family `sequence_time`:** now the physical echo centre,
+    `(n+1)·TE`, instead of `(n+0.5)·TE`. Imaging, diffusion and WURST add
+    their encoding or pulse block.
+  - **Tuned CPMG and diffusion pulse shapes:** normalized to the
+    steady-state current instead of the phase-dependent gate-on peak (tuned
+    echo integrals change by about 20%).
+  - **Matched diffusion:** uses the normalized `(mrx1 − mrx2)/2` combine, so
+    outputs halve.
+  - **Even-size phase-encoded imaging:** uses a centred k-grid, removing a
+    half-pixel shift.
+  - **RARE, spin-warp and 3-D spin-echo imaging:** now refocus on the k=0
+    sample; echo spacing grows by one dwell for even matrices.
+  - **White-noise `target_snr`:** now means rms(signal)/rms(complex noise),
+    so the noise is 1/√2 smaller for a given target.
+  - **Multinuclear Zeeman:** uses signed γ by default (`signed_gamma=True`).
+  - **y-axis coils** (`circular_loop`, `planar_spiral` and the solenoid,
+    Maxwell-pair and gradiometer builders): now right-handed, so positive
+    current gives B along +y.
+  - **2-D and axisymmetric permanent magnets:** use Br (not μ_rec·Br) as the
+    remanence.
+  - **`quantize_phase`:** wraps phases (`circular=False` keeps the MATLAB
+    mode).
+  - **Pulsed ESR:** T1 restores thermal polarization.
+  - **ESEEM and DEER quantum traces:** normalized at zero time.
+  - **QuadrupolarDFT `nqr_frequencies_hz`:** returns only allowed lines
+    (`include_forbidden=True` restores the old list).
+  - **Windowed RFI cancellers:** fill windows that have no baseline samples
+    from the nearest fitted window.
+  - **Bounded optimizers:** reject SciPy methods that ignore bounds.
+
+  **New options:**
+  - `PhaseCycle.combine(detection="m_minus")`
+  - `run_*_cpmg_ir_train(signal_convention="cpmg")`
+  - `NitroxideSaturationModel` accepts a signed `hyperfine_hz`
+  - `propagate_density_liouville(equilibrium_density=)`
+  - GRAPE `ensemble_weights`, `propagator="expm"` with gradient channels, and
+    `best_unpenalized_fidelity`
+  - `RadiationDampingSpec.from_t90`
+  - integration `include_synonyms=`
+  - openEMS per-frequency port records
+  - the config `{type = "complex"}` encoding
 
 ### Changed
 

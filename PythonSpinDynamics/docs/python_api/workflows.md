@@ -145,7 +145,10 @@ Finite train runners return a `CPMGTrainResult` with:
 - `mrx`: acquired spectra with shape `(num_echoes, numpts)`;
 - `echo`, `tvect`: direct-summed time-domain echoes and acquisition vector;
 - `echo_integrals`: trapezoidal integrals of each echo;
-- `sequence_time`: physical echo-center times in seconds;
+- `sequence_time`: physical echo-centre times in seconds, `(n + 1) * TE` from the
+  excitation's effective origin (imaging, diffusion and WURST trains add their
+  encoding or pulse block). Before the 2026-11 review fixes, CPMG trains
+  reported `(n + 0.5) * TE`;
 - `probe`: one of `ideal`, `tuned`, `untuned`, or `matched`.
 
 Finite train runners also accept `rephase_action`, `rephase_safety_factor`,

@@ -282,8 +282,9 @@ For model selection, units and worked examples, use the [user manual](manual.md)
 
 | Kind | Name | Summary |
 | --- | --- | --- |
+| function | `signed_gamma_hz_per_t(isotope: str) -> float` | Return the signed ``gamma / 2pi`` in Hz/T for a registry isotope. |
 | function | `nuclear_isotope(isotope: str) -> NuclearIsotope` | Return the registry entry (spin and ``\|gamma\|/2pi``) for ``isotope``. |
-| function | `larmor_frequency_hz(isotope: str, b0_tesla: float, *, gamma_hz_per_t: float \| None = None) -> float` | Return the Larmor frequency ``gamma * B0`` in hertz for ``isotope``. |
+| function | `larmor_frequency_hz(isotope: str, b0_tesla: float, *, gamma_hz_per_t: float \| None = None, signed: bool = False) -> float` | Return the Larmor frequency ``gamma * B0`` in hertz for ``isotope``. |
 
 ## `spin_dynamics.coupling.j_editing`
 
@@ -329,12 +330,12 @@ For model selection, units and worked examples, use the [user manual](manual.md)
 | property | `MultinuclearSpinSystem.nspin` | Number of nuclei. |
 | property | `MultinuclearSpinSystem.spins` | Spin quantum numbers in storage order. |
 | property | `MultinuclearSpinSystem.dimension` | Tensor-product Hilbert-space dimension. |
-| property | `MultinuclearSpinSystem.gammas_hz_per_t` | Per-site gyromagnetic ratios ``\|gamma\|/2pi`` in Hz/T. |
+| property | `MultinuclearSpinSystem.gammas_hz_per_t` | Per-site gyromagnetic ratios ``gamma/2pi`` in Hz/T (signed by default). |
 | property | `MultinuclearSpinSystem.larmor_hz` | Per-site Larmor frequencies ``gamma_i B0`` in hertz. |
 | property | `MultinuclearSpinSystem.labels` | Site labels in storage order. |
 | property | `MultinuclearSpinSystem.isotopes` | Site isotopes in storage order. |
 | method | `MultinuclearSpinSystem.indices_for_isotope(isotope: str) -> tuple[int, ...]` | Return the site indices whose isotope matches ``isotope``. |
-| function | `multinuclear_system(isotopes: Sequence[str], couplings_hz: Iterable[Iterable[float]], b0_tesla: float, *, labels: Sequence[str] \| None = None, spins: Sequence[float] \| None = None, gammas_hz_per_t: Sequence[float] \| None = None) -> MultinuclearSpinSystem` | Build a validated heteronuclear system from isotope names and couplings. |
+| function | `multinuclear_system(isotopes: Sequence[str], couplings_hz: Iterable[Iterable[float]], b0_tesla: float, *, labels: Sequence[str] \| None = None, spins: Sequence[float] \| None = None, gammas_hz_per_t: Sequence[float] \| None = None, signed_gamma: bool = True) -> MultinuclearSpinSystem` | Build a validated heteronuclear system from isotope names and couplings. |
 | function | `multinuclear_hamiltonian(system: MultinuclearSpinSystem, *, coupling: str = 'isotropic', include_zeeman: bool = True) -> np.ndarray` | Return the static lab-frame Hamiltonian in radians per second. |
 | function | `multinuclear_rf_hamiltonian(system: MultinuclearSpinSystem, nutation_hz: float, *, phase: float = 0.0, indices: Iterable[int] \| None = None) -> np.ndarray` | Return an RF Hamiltonian (rad/s) driving selected spins at one amplitude. |
 | function | `multinuclear_equilibrium_density(system: MultinuclearSpinSystem, *, axis: str = 'z', gamma_weighted: bool = True) -> np.ndarray` | Return the high-temperature equilibrium density deviation. |
@@ -1674,7 +1675,7 @@ For model selection, units and worked examples, use the [user manual](manual.md)
 | function | `liouville_hamiltonian(hamiltonian: np.ndarray) -> np.ndarray` | Return the commutator Liouvillian for column-stacked density matrices. |
 | function | `relaxation_superoperator(dimension: int, model: ESRRelaxationModel) -> np.ndarray` | Return a trace-preserving ESR relaxation superoperator. |
 | function | `liouville_superoperator(hamiltonian: np.ndarray, model: ESRRelaxationModel \| None = None) -> np.ndarray` | Return Hamiltonian plus optional ESR relaxation Liouvillian. |
-| function | `propagate_density_liouville(density: np.ndarray, hamiltonian: np.ndarray, duration: float, *, relaxation: ESRRelaxationModel \| None = None) -> np.ndarray` | Propagate a density matrix with Hamiltonian and ESR relaxation. |
+| function | `propagate_density_liouville(density: np.ndarray, hamiltonian: np.ndarray, duration: float, *, relaxation: ESRRelaxationModel \| None = None, equilibrium_density: np.ndarray \| None = None) -> np.ndarray` | Propagate a density matrix with Hamiltonian and ESR relaxation. |
 
 ## `spin_dynamics.esr.spectra`
 
@@ -1905,7 +1906,7 @@ For model selection, units and worked examples, use the [user manual](manual.md)
 | Kind | Name | Summary |
 | --- | --- | --- |
 | function | `register_result_type(cls: type) -> type` | Register a workflow result dataclass for load-time reconstruction. |
-| function | `save_run(record: RunRecord, path: str) -> None` |  |
+| function | `save_run(record: RunRecord, path: str \| os.PathLike[str]) -> Path` | Save a run archive and return the path actually written. |
 | class | `ReproductionReport` | Comparison between a saved run and a fresh execution of its spec. |
 | attribute | `ReproductionReport.matches: bool` | Declared attribute; inherited fields are not repeated. |
 | attribute | `ReproductionReport.expected_result_sha256: str \| None` | Declared attribute; inherited fields are not repeated. |
@@ -1930,7 +1931,7 @@ For model selection, units and worked examples, use the [user manual](manual.md)
 | property | `LoadedRun.specification_matches` | Whether the loaded spec matches its recorded canonical fingerprint. |
 | property | `LoadedRun.result_matches` | Whether persisted result content matches its recorded fingerprint. |
 | method | `LoadedRun.verify_reproduction(**execution: Any) -> ReproductionReport` | Rerun the saved experiment and compare canonical result identities. |
-| function | `load_run(path: str) -> LoadedRun` |  |
+| function | `load_run(path: str \| os.PathLike[str]) -> LoadedRun` |  |
 
 ## `spin_dynamics.experiment.nano_mr_adapter`
 
@@ -2036,7 +2037,7 @@ For model selection, units and worked examples, use the [user manual](manual.md)
 | attribute | `RunRecord.result: Any` | Declared attribute; inherited fields are not repeated. |
 | attribute | `RunRecord.plan: ExperimentPlan` | Declared attribute; inherited fields are not repeated. |
 | attribute | `RunRecord.provenance: dict[str, Any]` | Declared attribute; inherited fields are not repeated. |
-| method | `RunRecord.save(path: str) -> None` |  |
+| method | `RunRecord.save(path: str) -> Any` | Save the run; returns the path written (``.npz`` appended if absent). |
 | function | `run_experiment(experiment: Experiment, **execution: Any) -> RunRecord` | Plan and execute an experiment, delegating to the registered workflow. |
 
 ## `spin_dynamics.experiment.serialization`
@@ -4008,7 +4009,7 @@ For model selection, units and worked examples, use the [user manual](manual.md)
 | attribute | `RFIRecording.metadata: dict = field(default_factory=dict)` | Declared attribute; inherited fields are not repeated. |
 | property | `RFIRecording.num_samples` | Number of samples in each channel window. |
 | property | `RFIRecording.num_references` | Number of reference channels (may be zero for tracker-only records). |
-| function | `save_rfi_recording(path: str \| Path, recording: RFIRecording) -> None` | Write a recording to a NumPy ``.npz`` archive. |
+| function | `save_rfi_recording(path: str \| Path, recording: RFIRecording) -> Path` | Write a recording to a NumPy ``.npz`` archive and return its path. |
 | function | `load_rfi_recording(path: str \| Path) -> RFIRecording` | Load a recording previously written by :func:`save_rfi_recording`. |
 
 ## `spin_dynamics.interference.sources`
@@ -5287,8 +5288,8 @@ For model selection, units and worked examples, use the [user manual](manual.md)
 | attribute | `PiezoNQRLine.transition_label: str = 'x'` | Declared attribute; inherited fields are not repeated. |
 | attribute | `PiezoNQRLine.qcc_hz: float \| None = None` | Declared attribute; inherited fields are not repeated. |
 | attribute | `PiezoNQRLine.eta: float \| None = None` | Declared attribute; inherited fields are not repeated. |
-| attribute | `PiezoNQRLine.t1_seconds: float = 50.0` | Declared attribute; inherited fields are not repeated. |
-| attribute | `PiezoNQRLine.t2_seconds: float = 15.0` | Declared attribute; inherited fields are not repeated. |
+| attribute | `PiezoNQRLine.t1_seconds: float = 0.05` | Declared attribute; inherited fields are not repeated. |
+| attribute | `PiezoNQRLine.t2_seconds: float = 0.015` | Declared attribute; inherited fields are not repeated. |
 | attribute | `PiezoNQRLine.linewidth_hz: float \| None = None` | Declared attribute; inherited fields are not repeated. |
 | class | `PiezoNQRCoupling` | Strain-to-transition coupling and drive geometry. |
 | attribute | `PiezoNQRCoupling.drive_hz_per_strain: float = 1000000.0` | Declared attribute; inherited fields are not repeated. |
@@ -5908,7 +5909,7 @@ No public classes or functions found.
 | property | `PhaseCycle.branch_weights` | Complex branch-combination weights. |
 | property | `PhaseCycle.labels` | Optional branch labels. |
 | method | `PhaseCycle.pulse_phases(pulse_name: str) -> np.ndarray` | Return one phase per branch for ``pulse_name``. |
-| method | `PhaseCycle.combine(branch_signals: Sequence[np.ndarray \| complex]) -> np.ndarray` | Combine one signal per branch using receiver-weighted accumulation. |
+| method | `PhaseCycle.combine(branch_signals: Sequence[np.ndarray \| complex], *, detection: str = 'm_plus') -> np.ndarray` | Combine one signal per branch using receiver-weighted accumulation. |
 | method | `PhaseCycle.apply_to_sequence(sequence: SequenceIR, *, pulse_blocks: Mapping[str, int \| str \| Sequence[int \| str]] \| None = None) -> tuple[PhaseCycledSequenceBranch, ...]` | Apply this cycle to arbitrary labeled ``SequenceIR`` RF blocks. |
 | function | `phase_cycle_sequence_ir(sequence: SequenceIR, phase_cycle: PhaseCycle, *, pulse_blocks: Mapping[str, int \| str \| Sequence[int \| str]] \| None = None) -> tuple[PhaseCycledSequenceBranch, ...]` | Create one independently executable ``SequenceIR`` per phase-cycle step. |
 | function | `cpmg_two_step_phase_cycle(*, excitation_name: str = 'excitation', excitation_phase_rad: float = np.pi / 2.0) -> PhaseCycle` | Return the default two-step CPMG/PAP excitation phase cycle. |
@@ -6100,6 +6101,8 @@ No public classes or functions found.
 | attribute | `GrapeOptimizationResult.optimizer_success: bool` | Declared attribute; inherited fields are not repeated. |
 | attribute | `GrapeOptimizationResult.optimizer_message: str` | Declared attribute; inherited fields are not repeated. |
 | attribute | `GrapeOptimizationResult.optimize_gradient: bool = False` | Declared attribute; inherited fields are not repeated. |
+| attribute | `GrapeOptimizationResult.best_unpenalized_fidelity: float \| None = None` | Declared attribute; inherited fields are not repeated. |
+| attribute | `GrapeOptimizationResult.initial_unpenalized_fidelity: float \| None = None` | Declared attribute; inherited fields are not repeated. |
 | property | `GrapeOptimizationResult.best_amplitude` | The amplitude channel of ``best_controls``, or ``None`` if it was fixed. |
 | property | `GrapeOptimizationResult.best_phase` | The phase channel of ``best_controls``. |
 | property | `GrapeOptimizationResult.best_gradient` | The gradient channel of ``best_controls``, or ``None`` if it was fixed. |
@@ -6473,7 +6476,7 @@ No public classes or functions found.
 | attribute | `UntunedPulseAdjustment.phase_rotation: float` | Declared attribute; inherited fields are not repeated. |
 | attribute | `UntunedPulseAdjustment.clock_period: float` | Declared attribute; inherited fields are not repeated. |
 | attribute | `UntunedPulseAdjustment.steady_state_phase: float` | Declared attribute; inherited fields are not repeated. |
-| function | `quantize_phase(phi: np.ndarray \| list[float], num_phases: int) -> np.ndarray` | Quantize phases to the nearest evenly spaced phase state. |
+| function | `quantize_phase(phi: np.ndarray \| list[float], num_phases: int, *, circular: bool = True) -> np.ndarray` | Quantize phases to the nearest evenly spaced phase state in ``[0, 2*pi)``. |
 | function | `create_wurst_pulse(*, duration_seconds: float, sweep_width_rad_per_s: float, num_steps: int = 2000, order: int = 20, amplitude: float = 1.0, initial_phase: float = np.pi / 2, center_frequency_offset: float = 0.0) -> WURSTPulse` | Create a WURST amplitude and frequency-sweep pulse. |
 | function | `adjust_untuned_segment_lengths(segment_lengths: np.ndarray \| list[float], phases: np.ndarray \| list[float], sp: Mapping[str, Any] \| Any \| None = None, pp: Mapping[str, Any] \| Any \| None = None, *, num_phases: int \| None = None) -> UntunedPulseAdjustment` | Adjust untuned-probe segment lengths to reduce switching transients. |
 | function | `tuned_rectangular_pulse_response(*, voltage_scale: float = 62.5, numpts: int = 10000) -> ProbePulseResponse` | Return the JMR tuned-probe rectangular-pulse response. |
@@ -6711,6 +6714,7 @@ No public classes or functions found.
 | attribute | `RadiationDampingSpec.max_step: float \| None = None` | Declared attribute; inherited fields are not repeated. |
 | attribute | `RadiationDampingSpec.apply_during_pulses: bool = False` | Declared attribute; inherited fields are not repeated. |
 | attribute | `RadiationDampingSpec.initial_feedback: complex = 0.0 + 0j` | Declared attribute; inherited fields are not repeated. |
+| method | `RadiationDampingSpec.from_t90(probe: RadiationDampingProbe, t90_seconds: float, **kwargs: Any) -> 'RadiationDampingSpec'` | Return a spec whose ``time_scale`` is ``(pi/2) / t90_seconds``. |
 | property | `RadiationDampingSpec.trd` |  |
 | property | `RadiationDampingSpec.resonator_time_constant` |  |
 | property | `RadiationDampingSpec.detuning` |  |
@@ -7475,10 +7479,10 @@ No public classes or functions found.
 | class | `MatchedCPMGIRTrainResult` | Finite matched-probe CPMG-IR echo train over inversion delays. |
 | function | `default_ir_tauvect(tauvect: Iterable[float] \| np.ndarray \| None = None) -> np.ndarray` | Resolve an optional inversion-delay list to the workflow's tau vector. |
 | function | `cpmg_ir_train_max_time(pp0: Any, num_echoes: int, echo_spacing_seconds: float, tau: np.ndarray) -> float` | Normalized total evolution time for a finite CPMG-IR echo train. |
-| function | `run_ideal_cpmg_ir_train(num_echoes: int = 10, echo_spacing_seconds: float = 0.0005, tauvect: Iterable[float] \| np.ndarray \| None = None, t1_seconds: float = 0.005, t2_seconds: float = 0.005, *, numpts: int = 101, maxoffs: float = 10.0, num_workers: int \| None = 1, tau_workers: int \| None = 1, auto_refine_grid: bool = False, rephase_safety_factor: float = 1.25, rephase_action: str = 'warn') -> CPMGIRTrainResult` | Run a compact ideal-probe CPMG-IR finite echo train. |
-| function | `run_tuned_cpmg_ir_train(num_echoes: int = 10, echo_spacing_seconds: float = 0.0005, tauvect: Iterable[float] \| np.ndarray \| None = None, t1_seconds: float = 0.005, t2_seconds: float = 0.005, *, numpts: int = 101, maxoffs: float = 10.0, num_workers: int \| None = 1, tau_workers: int \| None = 1, auto_refine_grid: bool = False, rephase_safety_factor: float = 1.25, rephase_action: str = 'warn') -> CPMGIRTrainResult` | Run a compact tuned-probe CPMG-IR finite echo train. |
-| function | `run_untuned_cpmg_ir_train(num_echoes: int = 10, echo_spacing_seconds: float = 0.0005, tauvect: Iterable[float] \| np.ndarray \| None = None, t1_seconds: float = 0.005, t2_seconds: float = 0.005, *, numpts: int = 101, maxoffs: float = 10.0, num_workers: int \| None = 1, tau_workers: int \| None = 1, auto_refine_grid: bool = False, rephase_safety_factor: float = 1.25, rephase_action: str = 'warn') -> CPMGIRTrainResult` | Run a compact untuned-probe CPMG-IR finite echo train. |
-| function | `run_matched_cpmg_ir_train(num_echoes: int = 10, echo_spacing_seconds: float = 0.0005, tauvect: Iterable[float] \| np.ndarray \| None = None, t1_seconds: float = 0.005, t2_seconds: float = 0.005, *, numpts: int = 101, maxoffs: float = 10.0, num_workers: int \| None = 1, tau_workers: int \| None = 1, auto_refine_grid: bool = False, rephase_safety_factor: float = 1.25, rephase_action: str = 'warn') -> MatchedCPMGIRTrainResult` | Run a compact matched-probe CPMG-IR finite echo train. |
+| function | `run_ideal_cpmg_ir_train(num_echoes: int = 10, echo_spacing_seconds: float = 0.0005, tauvect: Iterable[float] \| np.ndarray \| None = None, t1_seconds: float = 0.005, t2_seconds: float = 0.005, *, numpts: int = 101, maxoffs: float = 10.0, num_workers: int \| None = 1, tau_workers: int \| None = 1, auto_refine_grid: bool = False, rephase_safety_factor: float = 1.25, rephase_action: str = 'warn', signal_convention: SignalConvention = 'matlab') -> CPMGIRTrainResult` | Run a compact ideal-probe CPMG-IR finite echo train. |
+| function | `run_tuned_cpmg_ir_train(num_echoes: int = 10, echo_spacing_seconds: float = 0.0005, tauvect: Iterable[float] \| np.ndarray \| None = None, t1_seconds: float = 0.005, t2_seconds: float = 0.005, *, numpts: int = 101, maxoffs: float = 10.0, num_workers: int \| None = 1, tau_workers: int \| None = 1, auto_refine_grid: bool = False, rephase_safety_factor: float = 1.25, rephase_action: str = 'warn', signal_convention: SignalConvention = 'matlab') -> CPMGIRTrainResult` | Run a compact tuned-probe CPMG-IR finite echo train. |
+| function | `run_untuned_cpmg_ir_train(num_echoes: int = 10, echo_spacing_seconds: float = 0.0005, tauvect: Iterable[float] \| np.ndarray \| None = None, t1_seconds: float = 0.005, t2_seconds: float = 0.005, *, numpts: int = 101, maxoffs: float = 10.0, num_workers: int \| None = 1, tau_workers: int \| None = 1, auto_refine_grid: bool = False, rephase_safety_factor: float = 1.25, rephase_action: str = 'warn', signal_convention: SignalConvention = 'matlab') -> CPMGIRTrainResult` | Run a compact untuned-probe CPMG-IR finite echo train. |
+| function | `run_matched_cpmg_ir_train(num_echoes: int = 10, echo_spacing_seconds: float = 0.0005, tauvect: Iterable[float] \| np.ndarray \| None = None, t1_seconds: float = 0.005, t2_seconds: float = 0.005, *, numpts: int = 101, maxoffs: float = 10.0, num_workers: int \| None = 1, tau_workers: int \| None = 1, auto_refine_grid: bool = False, rephase_safety_factor: float = 1.25, rephase_action: str = 'warn', signal_convention: SignalConvention = 'matlab') -> MatchedCPMGIRTrainResult` | Run a compact matched-probe CPMG-IR finite echo train. |
 
 ## `spin_dynamics.workflows.diffusion`
 
