@@ -30,6 +30,7 @@ from spin_dynamics.noise import (
 )
 
 from .base import Detector
+from .squid import _clamp_zero_frequency
 
 
 @dataclass(frozen=True)
@@ -190,9 +191,7 @@ class IdealFaradayCoil(Detector):
     def field_noise_psd(self, freqs, *, xp=np):
         f = xp.asarray(freqs)
         af = xp.abs(f)
-        positive = af[af > 0]
-        floor = positive.min() if positive.size else xp.asarray(1.0)
-        af = xp.where(af > 0, af, floor)
+        af = _clamp_zero_frequency(af, xp)
         ref = self.field_noise_T_per_rtHz_ref
         return (ref * ref) * (self.f_ref_hz / af) ** 2
 

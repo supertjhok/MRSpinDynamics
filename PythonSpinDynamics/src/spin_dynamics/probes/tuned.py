@@ -7,7 +7,6 @@ MATLAB reference folder:
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import replace
 from typing import Any
 
 import numpy as np
@@ -15,40 +14,19 @@ import numpy as np
 from spin_dynamics.core.numerics import trapezoid
 from spin_dynamics.core.rotations import calc_rot_axis_arba3, sim_spin_dynamics_asymp_mag3
 from spin_dynamics.phase_cycling import cpmg_two_step_phase_cycle
+from spin_dynamics.probes._common import as_vector as _as_vector
+from spin_dynamics.probes._common import field as _field
+from spin_dynamics.probes._common import with_fields as _with_fields
 
 
-def _field(obj: Mapping[str, Any] | Any, name: str) -> Any:
-    if isinstance(obj, Mapping):
-        if name in obj:
-            return obj[name]
-        if name == "in_":
-            return obj["in"]
-    return getattr(obj, name)
-
-
-def _with_fields(obj: Mapping[str, Any] | Any, **updates: Any) -> Any:
-    if isinstance(obj, Mapping):
-        out = dict(obj)
-        out.update(updates)
-        return out
-    return replace(obj, **updates)
-
-
-def _as_vector(value: Any, dtype: Any = np.float64) -> np.ndarray:
-    return np.asarray(value, dtype=dtype).reshape(-1)
-
-
-def tuned_probe_lp_orig(
+def _tuned_probe_raw_current(
     sp: Mapping[str, Any] | Any,
     pp: Mapping[str, Any] | Any,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Calculate tuned-probe coil current for the original/reference path.
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, float, int, int]:
+    """Shared analytic tank solve for ``tuned_probe_lp``/``tuned_probe_lp_orig``.
 
-    Mirrors MATLAB `circuit_simulation/tuned_probe/tuned_probe_lp_Orig.m`.
-    The driven-response transient uses the zero-initial-condition homogeneous
-    coefficients ``(lam1 - i w) / (2 alpha)`` and ``-(lam0 - i w) / (2 alpha)``
-    of the Version 1/2 MATLAB code; the Version 3 file had an extra
-    ``1/(2 alpha)`` on the first term, corrected there as well.
+    Returns the normalized time grid, the lab-frame coil current, its
+    rotating-frame demodulation, ``wp``, ``N`` and the number of grid steps.
     """
 
     L = float(_field(sp, "L"))
@@ -159,14 +137,37 @@ def tuned_probe_lp_orig(
 
     icr = ic * np.exp(-1j * w0 * tvect)
 
-    numpts = int(np.floor(ncyc / N))
+    return tvect, ic, icr, wp, N, ncyc
+
+
+def _window_average(
+    tvect: np.ndarray, icr: np.ndarray, window: int, numpts: int
+) -> tuple[np.ndarray, np.ndarray]:
     tvect2 = np.zeros(numpts, dtype=np.float64)
     icr2 = np.zeros(numpts, dtype=np.complex128)
     for idx in range(numpts):
-        ind = slice(idx * N, (idx + 1) * N)
+        ind = slice(idx * window, (idx + 1) * window)
         tvect2[idx] = np.mean(tvect[ind])
         icr2[idx] = np.mean(icr[ind])
+    return tvect2, icr2
 
+
+def tuned_probe_lp_orig(
+    sp: Mapping[str, Any] | Any,
+    pp: Mapping[str, Any] | Any,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Calculate tuned-probe coil current for the original/reference path.
+
+    Mirrors MATLAB `circuit_simulation/tuned_probe/tuned_probe_lp_Orig.m`.
+    The driven-response transient uses the zero-initial-condition homogeneous
+    coefficients ``(lam1 - i w) / (2 alpha)`` and ``-(lam0 - i w) / (2 alpha)``
+    of the Version 1/2 MATLAB code; the Version 3 file had an extra
+    ``1/(2 alpha)`` on the first term, corrected there as well.
+    """
+
+    tvect, ic, icr, wp, N, ncyc = _tuned_probe_raw_current(sp, pp)
+    # Average over full-RF-cycle windows to remove the 2w component.
+    tvect2, icr2 = _window_average(tvect, icr, N, int(np.floor(ncyc / N)))
     return tvect2 / wp, icr2, tvect / wp, ic
 
 
@@ -182,126 +183,8 @@ def tuned_probe_lp(
     (including the same Version 3 transient-coefficient correction).
     """
 
-    L = float(_field(sp, "L"))
-    R = float(_field(sp, "R"))
-    C = float(_field(sp, "C"))
-    wp = 1 / np.sqrt(L * C)
-    Z0 = np.sqrt(L / C)
-
-    w0 = float(_field(sp, "w0")) / wp
-    tp = wp * _as_vector(_field(pp, "tref"))
-    phi = _as_vector(_field(pp, "pref"))
-    amp = _as_vector(_field(pp, "aref"))
-    Rs = _as_vector(_field(pp, "Rsref"))
-    w = float(_field(pp, "w")) / wp
-    N = int(_field(pp, "N"))
-
-    np_seg = np.rint(tp * N * w / (2 * np.pi)).astype(int)
-    ncyc = int(np.sum(np_seg))
-    if ncyc <= 0:
-        raise ValueError("pulse sequence must contain at least one simulation cycle")
-    tvect = 2 * np.pi * np.linspace(1, ncyc, ncyc) / (w * N)
-
-    ic0 = np.array([0.0 + 0.0j, 0.0 + 0.0j], dtype=np.complex128)
-    ic = np.zeros(ncyc, dtype=np.complex128)
-    cnt = 0
-
-    for np_j, phi_j, amp_j, Rs_j in zip(np_seg, phi, amp, Rs):
-        if np_j <= 0:
-            continue
-        gamma = 0.5 * (R / Z0 + Z0 / Rs_j)
-        wn = np.sqrt(1 + R / Rs_j)
-        alpha = np.sqrt((gamma**2 - wn**2) + 0j)
-        lam = -gamma + np.array([1.0, -1.0]) * alpha
-        lmat = np.array([[1.0 + 0j, 1.0 + 0j], [lam[0], lam[1]]])
-
-        tv = 2 * np.pi * np.linspace(1, np_j, np_j) / (w * N)
-        tve = tv[-1]
-        phi_eff = w * tvect[cnt] - 2 * np.pi / N + phi_j
-
-        ch = np.linalg.solve(lmat, ic0)
-        ich = ch[0] * np.exp(lam[0] * tv) + ch[1] * np.exp(lam[1] * tv)
-        dich = (
-            ch[0] * lam[0] * np.exp(lam[0] * tve)
-            + ch[1] * lam[1] * np.exp(lam[1] * tve)
-        )
-
-        if amp_j == 0:
-            icd = 0.0
-            dicd = 0.0
-        else:
-            icd1 = (
-                (amp_j / Rs_j)
-                * np.exp(1j * phi_eff)
-                * (
-                    np.exp(1j * w * tv)
-                    + (
-                        (lam[1] - 1j * w) * np.exp(lam[0] * tv)
-                        - (lam[0] - 1j * w) * np.exp(lam[1] * tv)
-                    )
-                    / (2 * alpha)
-                )
-                / (wn**2 - w**2 + 2j * gamma * w)
-            )
-            icd2 = (
-                (amp_j / Rs_j)
-                * np.exp(-1j * phi_eff)
-                * (
-                    np.exp(-1j * w * tv)
-                    + (
-                        (lam[1] + 1j * w) * np.exp(lam[0] * tv)
-                        - (lam[0] + 1j * w) * np.exp(lam[1] * tv)
-                    )
-                    / (2 * alpha)
-                )
-                / (wn**2 - w**2 - 2j * gamma * w)
-            )
-            icd = 0.5 * (icd1 + icd2)
-
-            dicd1 = (
-                (amp_j / Rs_j)
-                * np.exp(1j * phi_eff)
-                * (
-                    1j * w * np.exp(1j * w * tve)
-                    + (
-                        lam[0] * (lam[1] - 1j * w) * np.exp(lam[0] * tve)
-                        - lam[1] * (lam[0] - 1j * w) * np.exp(lam[1] * tve)
-                    )
-                    / (2 * alpha)
-                )
-                / (wn**2 - w**2 + 2j * gamma * w)
-            )
-            dicd2 = (
-                (amp_j / Rs_j)
-                * np.exp(-1j * phi_eff)
-                * (
-                    -1j * w * np.exp(-1j * w * tve)
-                    + (
-                        lam[0] * (lam[1] + 1j * w) * np.exp(lam[0] * tve)
-                        - lam[1] * (lam[0] + 1j * w) * np.exp(lam[1] * tve)
-                    )
-                    / (2 * alpha)
-                )
-                / (wn**2 - w**2 - 2j * gamma * w)
-            )
-            dicd = 0.5 * (dicd1 + dicd2)
-
-        ic[cnt : cnt + np_j] = ich + icd
-        ic0[0] = ic[cnt + np_j - 1]
-        ic0[1] = dich + dicd
-        cnt += np_j
-
-    icr = ic * np.exp(-1j * w0 * tvect)
-
-    step = N // 2
-    numpts = int(np.floor(ncyc * 2 / N))
-    tvect2 = np.zeros(numpts, dtype=np.float64)
-    icr2 = np.zeros(numpts, dtype=np.complex128)
-    for idx in range(numpts):
-        ind = slice(idx * step, (idx + 1) * step)
-        tvect2[idx] = np.mean(tvect[ind])
-        icr2[idx] = np.mean(icr[ind])
-
+    tvect, ic, icr, wp, N, ncyc = _tuned_probe_raw_current(sp, pp)
+    tvect2, icr2 = _window_average(tvect, icr, N // 2, int(np.floor(ncyc * 2 / N)))
     return tvect2 / wp, icr2, tvect / wp, ic
 
 
@@ -338,7 +221,8 @@ def tuned_probe_rx(
 ) -> tuple[np.ndarray, float, complex]:
     """Apply tuned-probe receiver filtering and matched-filter SNR.
 
-    Mirrors MATLAB `circuit_simulation/tuned_probe/tuned_probe_rx.m`.
+    Mirrors MATLAB `circuit_simulation/tuned_probe/tuned_probe_rx.m`, plus the
+    damping resistor's thermal noise ``4kT/Rd * |Zs|^2``, which MATLAB omits.
     """
 
     k = float(_field(sp, "k"))
@@ -366,7 +250,10 @@ def tuned_probe_rx(
 
     mrx = macq * tf * (2 * np.pi * f / w0) ** 2
     vni2 = 4 * k * T * R * np.abs(tf) ** 2
-    pnoise = vn**2 + inn**2 * np.abs(Zs) ** 2 + vni2
+    # Thermal current noise 4kT/Rd of the damping resistor across the tank,
+    # seen at the input node through Zs (omitted in the MATLAB reference).
+    vnd2 = (4 * k * T / Rd) * np.abs(Zs) ** 2
+    pnoise = vn**2 + inn**2 * np.abs(Zs) ** 2 + vni2 + vnd2
 
     if mf_type == 0:
         theta = np.arctan2(np.sum(np.imag(mrx)), np.sum(np.real(mrx)))

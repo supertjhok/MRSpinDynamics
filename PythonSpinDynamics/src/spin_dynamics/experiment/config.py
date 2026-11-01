@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -286,9 +287,41 @@ def _toml_scalar(value: Any) -> str:
             raise ConfigError("non-finite floats cannot be written to TOML")
         return repr(value)
     if isinstance(value, str):
-        escaped = value.replace("\\", "\\\\").replace('"', '\\"')
-        return f'"{escaped}"'
+        return _toml_string(value)
     raise ConfigError(f"cannot serialize {type(value).__name__} to TOML")
+
+
+_TOML_ESCAPES = {
+    "\\": "\\\\",
+    '"': '\\"',
+    "\b": "\\b",
+    "\t": "\\t",
+    "\n": "\\n",
+    "\f": "\\f",
+    "\r": "\\r",
+}
+_BARE_KEY = re.compile(r"[A-Za-z0-9_-]+")
+
+
+def _toml_string(value: str) -> str:
+    """Return a TOML basic string, escaping quotes and every control character."""
+
+    out = []
+    for char in value:
+        if char in _TOML_ESCAPES:
+            out.append(_TOML_ESCAPES[char])
+        elif ord(char) < 0x20 or ord(char) == 0x7F:
+            out.append(f"\\u{ord(char):04X}")
+        else:
+            out.append(char)
+    return '"' + "".join(out) + '"'
+
+
+def _toml_key(key: Any) -> str:
+    """Return ``key`` bare when TOML allows it, otherwise as a quoted key."""
+
+    key = str(key)
+    return key if _BARE_KEY.fullmatch(key) else _toml_string(key)
 
 
 def _toml_array(value: list) -> str:
@@ -298,6 +331,9 @@ def _toml_array(value: list) -> str:
 def _toml_value(value: Any) -> str:
     if isinstance(value, list):
         return _toml_array(value)
+    if isinstance(value, dict):
+        items = ", ".join(f"{_toml_key(k)} = {_toml_value(v)}" for k, v in value.items())
+        return "{" + items + "}"
     return _toml_scalar(value)
 
 
@@ -308,7 +344,7 @@ def _dump_toml(mapping: dict[str, Any], path: tuple[str, ...] = ()) -> list[str]
         if isinstance(value, dict):
             sub_path = path + (key,)
             table_lines.append("")
-            table_lines.append(f"[{'.'.join(sub_path)}]")
+            table_lines.append(f"[{'.'.join(_toml_key(k) for k in sub_path)}]")
             table_lines.extend(_dump_toml(value, sub_path))
         elif (
             isinstance(value, list)
@@ -318,10 +354,10 @@ def _dump_toml(mapping: dict[str, Any], path: tuple[str, ...] = ()) -> list[str]
             sub_path = path + (key,)
             for item in value:
                 table_lines.append("")
-                table_lines.append(f"[[{'.'.join(sub_path)}]]")
+                table_lines.append(f"[[{'.'.join(_toml_key(k) for k in sub_path)}]]")
                 table_lines.extend(_dump_toml(item, sub_path))
         else:
-            scalar_lines.append(f"{key} = {_toml_value(value)}")
+            scalar_lines.append(f"{_toml_key(key)} = {_toml_value(value)}")
     return scalar_lines + table_lines
 
 

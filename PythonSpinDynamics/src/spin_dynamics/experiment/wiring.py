@@ -10,7 +10,7 @@ workflows consume.
 
 Solves are cached per process keyed on a hash of the phantom arrays and the
 geometry specs, so ``plan()`` and ``run()`` (and repeated runs) share one
-solve.
+solve. The cache keeps the 16 most recently used solves.
 """
 
 from __future__ import annotations
@@ -38,6 +38,22 @@ from spin_dynamics.workflows.imaging_types import ImagingFieldMaps
 _PLANE_AXES = {"xz": (0, 2), "xy": (0, 1), "yz": (1, 2)}
 
 _SOLVE_CACHE: dict[str, "_SolvedFields"] = {}
+# Least-recently-used bound on cached solves (each holds full-grid field maps).
+_SOLVE_CACHE_MAX_ENTRIES = 16
+
+
+def _cache_get(key: str) -> "_SolvedFields | None":
+    value = _SOLVE_CACHE.pop(key, None)
+    if value is not None:
+        _SOLVE_CACHE[key] = value  # re-insert as most recently used
+    return value
+
+
+def _cache_put(key: str, value: "_SolvedFields") -> None:
+    _SOLVE_CACHE.pop(key, None)
+    _SOLVE_CACHE[key] = value
+    while len(_SOLVE_CACHE) > _SOLVE_CACHE_MAX_ENTRIES:
+        _SOLVE_CACHE.pop(next(iter(_SOLVE_CACHE)))
 
 
 @dataclass(frozen=True)
@@ -328,7 +344,7 @@ def solve_imaging_field_maps(
 
 def _solve_coil_fields(phantom: Phantom, hardware: Hardware) -> _SolvedFields:
     key = _cache_key(phantom, hardware)
-    cached = _SOLVE_CACHE.get(key)
+    cached = _cache_get(key)
     if cached is not None:
         return cached
 
@@ -372,7 +388,7 @@ def _solve_coil_fields(phantom: Phantom, hardware: Hardware) -> _SolvedFields:
         receive_sensitivities,
         diagnostics,
     )
-    _SOLVE_CACHE[key] = solved
+    _cache_put(key, solved)
     return solved
 
 

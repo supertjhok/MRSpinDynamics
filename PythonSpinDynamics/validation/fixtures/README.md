@@ -76,3 +76,27 @@ corrected Python with each file's existing layout and inputs (the inputs used by
   by about 22 % (first echo 411.3 to 501.8). MATLAB's `calc_masy_tuned_probe_lp.m`
   also normalizes to a mid-pulse plateau, while `sim_cpmg_tuned_probe_img.m`
   uses the peak; the tuned imaging path keeps its MATLAB-as-executed shape.
+
+## Damping-resistor noise in the tuned/untuned receivers (L-32)
+
+`tuned_probe_rx` and `untuned_probe_rx` now include the thermal current noise
+`4 k T / Rd` of the damping resistor, seen at the receiver input through `Zs`.
+The MATLAB `tuned_probe_rx.m` / `untuned_probe_rx.m` omit it, so these SNR or
+score values were regenerated from Python (signal spectra are unchanged):
+
+- `calc_masy_tuned_probe_lp_orig.csv`, `calc_masy_untuned_probe_lp.csv`: SNR
+  column only (at the default `Rd = 1 MOhm`: tuned 0.88349 to 0.88212, -0.16 %;
+  untuned 0.66021 to 0.65844, -0.27 %).
+- `optimization_tuned_excitation_phase_shift.csv`,
+  `optimization_tuned_excitation_result.csv`,
+  `optimization_tuned_inverse_result.csv`,
+  `optimization_tuned_inverse_spectra.csv`: SNR, mismatch and residual-ratio
+  values re-evaluated with the committed phases.
+- `optimization_tuned_excitation_results.mat`,
+  `optimization_tuned_excitation_results_inv.mat`,
+  `optimization_tuned_refocusing_results.mat`,
+  `optimization_untuned_refocusing_results.mat`: the stored score element only
+  (untuned refocusing 0.93154 to 0.91805 and 0.86146 to 0.84900).
+
+Rerunning the Octave generators reproduces the old values until the MATLAB
+receiver functions add the same term.

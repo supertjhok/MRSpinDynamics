@@ -5,6 +5,11 @@ arrays, and complex numbers round-trip through JSON. Only types registered
 via :func:`register_serializable` can be reconstructed; encoding an
 unregistered or non-representable object raises :class:`SerializationError`
 with the offending field path so callers can switch to a plain-mapping form.
+
+Non-finite floats (NaN, +/-inf) are encoded as the strings ``"nan"``,
+``"inf"`` and ``"-inf"`` -- tagged as ``{"__float__": ...}`` for scalars and
+inline inside ``__ndarray__`` payloads -- so the output is always standard
+JSON (``json.dumps(..., allow_nan=False)`` succeeds) and round-trips exactly.
 """
 
 from __future__ import annotations
@@ -17,6 +22,8 @@ import numpy as np
 TYPE_KEY = "__type__"
 NDARRAY_KEY = "__ndarray__"
 COMPLEX_KEY = "__complex__"
+FLOAT_KEY = "__float__"
+_RESERVED_KEYS = (TYPE_KEY, NDARRAY_KEY, COMPLEX_KEY, FLOAT_KEY)
 
 
 class SerializationError(TypeError):
@@ -44,24 +51,43 @@ def registered_types() -> Mapping[str, type]:
     return dict(_TYPE_TABLE)
 
 
+def _float_token(value: float) -> float | str:
+    """Return ``value`` unchanged when finite, else its string token."""
+
+    if np.isfinite(value):
+        return value
+    if np.isnan(value):
+        return "nan"
+    return "inf" if value > 0 else "-inf"
+
+
+def _array_payload(values: np.ndarray) -> Any:
+    if values.dtype.kind == "f" and not np.all(np.isfinite(values)):
+        return np.vectorize(_float_token, otypes=[object])(values).tolist()
+    return values.tolist()
+
+
 def encode(value: Any, *, path: str = "$") -> Any:
     """Encode a value into JSON-representable form."""
 
     if value is None or isinstance(value, (bool, int, float, str)):
         if isinstance(value, float) and not np.isfinite(value):
-            raise SerializationError(f"{path}: non-finite float is not serializable")
+            return {FLOAT_KEY: _float_token(value)}
         return value
     if isinstance(value, (np.bool_, np.integer, np.floating)):
         return encode(value.item(), path=path)
     if isinstance(value, (complex, np.complexfloating)):
         cval = complex(value)
-        return {COMPLEX_KEY: [cval.real, cval.imag]}
+        return {COMPLEX_KEY: [_float_token(cval.real), _float_token(cval.imag)]}
     if isinstance(value, np.ndarray):
         payload: Any
         if np.iscomplexobj(value):
-            payload = {"real": value.real.tolist(), "imag": value.imag.tolist()}
+            payload = {
+                "real": _array_payload(value.real),
+                "imag": _array_payload(value.imag),
+            }
         else:
-            payload = value.tolist()
+            payload = _array_payload(value)
         return {NDARRAY_KEY: payload, "dtype": str(value.dtype)}
     if dataclasses.is_dataclass(value) and not isinstance(value, type):
         name = type(value).__name__
@@ -81,7 +107,7 @@ def encode(value: Any, *, path: str = "$") -> Any:
         for key, item in value.items():
             if not isinstance(key, str):
                 raise SerializationError(f"{path}: mapping keys must be strings")
-            if key in (TYPE_KEY, NDARRAY_KEY, COMPLEX_KEY):
+            if key in _RESERVED_KEYS:
                 raise SerializationError(f"{path}: reserved mapping key {key!r}")
             encoded[key] = encode(item, path=f"{path}[{key!r}]")
         return encoded
@@ -96,6 +122,8 @@ def decode(value: Any) -> Any:
     """Decode a value produced by :func:`encode`."""
 
     if isinstance(value, dict):
+        if FLOAT_KEY in value:
+            return float(value[FLOAT_KEY])
         if COMPLEX_KEY in value:
             real, imag = value[COMPLEX_KEY]
             return complex(float(real), float(imag))

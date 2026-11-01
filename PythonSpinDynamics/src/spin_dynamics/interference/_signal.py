@@ -57,8 +57,12 @@ def spectral_phase_shift(signal: np.ndarray, phase_rad: float) -> np.ndarray:
 
     Positive-frequency components are rotated by ``-phase_rad`` and negative
     ones by ``+phase_rad`` (Hilbert-transform convention), so the operator is
-    unit-magnitude at every frequency and reduces to identity at
-    ``phase_rad = 0``.
+    unit-magnitude at every frequency strictly between DC and Nyquist and
+    reduces to identity at ``phase_rad = 0``. DC is left unchanged. For an
+    even-length record the Nyquist bin is real: the sampled, phase-shifted
+    tone ``cos(pi n - phase_rad)`` equals ``cos(phase_rad) * cos(pi n)``, so that
+    bin is scaled by ``cos(phase_rad)`` (and vanishes at ``pi/2``) -- the exact
+    sampled value of the shifted signal, not a numerical loss.
     """
 
     phase_rad = float(phase_rad)

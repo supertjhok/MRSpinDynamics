@@ -7,7 +7,6 @@ MATLAB reference folder:
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import replace
 from typing import Any
 
 import numpy as np
@@ -15,27 +14,9 @@ import numpy as np
 from spin_dynamics.core.numerics import trapezoid
 from spin_dynamics.core.rotations import calc_rot_axis_arba3, sim_spin_dynamics_asymp_mag3
 from spin_dynamics.phase_cycling import cpmg_two_step_phase_cycle
-
-
-def _field(obj: Mapping[str, Any] | Any, name: str) -> Any:
-    if isinstance(obj, Mapping):
-        if name in obj:
-            return obj[name]
-        if name == "in_":
-            return obj["in"]
-    return getattr(obj, name)
-
-
-def _with_fields(obj: Mapping[str, Any] | Any, **updates: Any) -> Any:
-    if isinstance(obj, Mapping):
-        out = dict(obj)
-        out.update(updates)
-        return out
-    return replace(obj, **updates)
-
-
-def _as_vector(value: Any, dtype: Any = np.float64) -> np.ndarray:
-    return np.asarray(value, dtype=dtype).reshape(-1)
+from spin_dynamics.probes._common import as_vector as _as_vector
+from spin_dynamics.probes._common import field as _field
+from spin_dynamics.probes._common import with_fields as _with_fields
 
 
 def untuned_probe_lp(
@@ -116,7 +97,11 @@ def untuned_probe_rx(
     pp: Mapping[str, Any] | Any,
     macq: np.ndarray,
 ) -> tuple[np.ndarray, float, np.ndarray]:
-    """Apply untuned-probe receiver filtering and matched-filter SNR."""
+    """Apply untuned-probe receiver filtering and matched-filter SNR.
+
+    Mirrors MATLAB `circuit_simulation/untuned_probe/untuned_probe_rx.m`, plus
+    the damping resistor's thermal noise ``4kT/Rd * |Zs|^2``, which MATLAB omits.
+    """
 
     k = float(_field(sp, "k"))
     T = float(_field(sp, "T"))
@@ -159,6 +144,9 @@ def untuned_probe_rx(
         + inn**2 * np.abs(Zs) ** 2
         + 4 * k * T * (Rdup + R1 + R2 / Nv**2) * np.abs(tf) ** 2
         + vni2
+        # Thermal current noise 4kT/Rd of the damping resistor at the input
+        # node, seen through Zs (omitted in the MATLAB reference).
+        + (4 * k * T / Rd) * np.abs(Zs) ** 2
     )
 
     if mf_type == 0:

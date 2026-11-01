@@ -990,7 +990,16 @@ def frequency_domain_canceller(
     sample_rate_hz = float(sample_rate_hz)
     if not np.isfinite(sample_rate_hz) or sample_rate_hz <= 0.0:
         raise ValueError("sample_rate_hz must be positive and finite")
-    step = length // 2 if hop is None else _positive_int(hop, "hop")
+    step = max(1, length // 2) if hop is None else _positive_int(hop, "hop")
+    # The periodic Hann window is zero at each segment's first sample, so the
+    # overlap-add only covers every sample when segments overlap (a length-1
+    # segment uses a rectangular window and must step by one sample).
+    max_step = 1 if length == 1 else length - 1
+    if step > max_step:
+        raise ValueError(
+            "hop must be smaller than segment_length so the overlap-add windows "
+            "cover every sample"
+        )
     channels = x.shape[0]
     window = np.hanning(length + 1)[:-1] if length > 1 else np.ones(1)
     fit = _mask(fit_mask, y.size, "fit_mask")

@@ -19,26 +19,9 @@ from spin_dynamics.core.rotations import (
     sim_spin_dynamics_asymp_mag3,
 )
 from spin_dynamics.phase_cycling import cpmg_two_step_phase_cycle
-
-
-def _field(obj: Mapping[str, Any] | Any, name: str) -> Any:
-    if isinstance(obj, Mapping):
-        return obj[name]
-    return getattr(obj, name)
-
-
-def _with_fields(obj: Mapping[str, Any] | Any, **updates: Any) -> Any:
-    if isinstance(obj, Mapping):
-        out = dict(obj)
-        out.update(updates)
-        return out
-    out = dict(vars(obj))
-    out.update(updates)
-    return out
-
-
-def _as_vector(value: Any, dtype: Any = np.float64) -> np.ndarray:
-    return np.asarray(value, dtype=dtype).reshape(-1)
+from spin_dynamics.probes._common import as_vector as _as_vector
+from spin_dynamics.probes._common import field as _field
+from spin_dynamics.probes._common import with_fields as _with_fields
 
 
 def matching_network_design2(

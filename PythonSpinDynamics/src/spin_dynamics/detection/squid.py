@@ -23,6 +23,18 @@ from .base import Detector
 from .gradiometer import Gradiometer
 
 
+def _clamp_zero_frequency(af, xp):
+    """Replace ``|f| = 0`` by the smallest positive ``|f|`` on the grid (or 1).
+
+    Written with ``where``/``min`` only (no boolean-mask indexing), so it stays
+    traceable under ``jax.jit``.
+    """
+
+    positive_min = xp.min(xp.where(af > 0, af, xp.inf))
+    floor = xp.where(xp.isfinite(positive_min), positive_min, 1.0)
+    return xp.where(af > 0, af, floor)
+
+
 @dataclass(frozen=True)
 class SQUIDMagnetometer(Detector):
     """Untuned SQUID magnetometer: flat field-noise floor with a ``1/f`` knee.
@@ -73,9 +85,7 @@ class SQUIDMagnetometer(Detector):
         # Guard f = 0 (the 1/f term diverges at DC); clamp to the smallest
         # positive |f| on the grid so the PSD stays finite and positive.
         af = xp.abs(f)
-        positive = af[af > 0]
-        floor = positive.min() if positive.size else xp.asarray(1.0)
-        af = xp.where(af > 0, af, floor)
+        af = _clamp_zero_frequency(af, xp)
         return white * (1.0 + self.one_over_f_knee_hz / af)
 
     @classmethod
