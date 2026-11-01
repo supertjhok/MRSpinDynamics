@@ -32,7 +32,7 @@ code, not run.
 | High | 0 | 0 | 13 | 0 |
 | CI / gates | 7 | 0 | 0 | 0 |
 | Medium | 1 | 0 | 43 | 1 |
-| Low | 46 | 0 | 8 | 0 |
+| Low | 40 | 0 | 14 | 0 |
 
 ## High
 
@@ -138,13 +138,13 @@ code, not run.
 | L-18 | nonresonant | `nonresonant/field_reversal.py:360,373` | Supercycle `echo_times` uses only `cycle[0]`'s duration, and `t2_seconds <= 0` is treated as infinite. | Open | |
 | L-19 | esr | `esr/deer.py:231` | `deer_dipolar_spectrum` subtracts `signal[-1]`, not the (1−λ) offset its docstring describes. | Open | |
 | L-20 | constants | `esr/systems.py:167`, dnp, nano_mr, nonresonant | Physical constants come from mixed CODATA vintages and are duplicated per module. | Open | |
-| L-21 | nqr | `nqr/structure_coupling.py:319`, `QDFT/strain_coupling.py:633` | The posix-`shlex` CIF tokenizer rejects legal CIF quoting (`'O'Brien'`). | Open | |
+| L-21 | nqr | `nqr/structure_coupling.py:319`, `QDFT/strain_coupling.py:633` | The posix-`shlex` CIF tokenizer rejects legal CIF quoting (`'O'Brien'`). | Fixed | A CIF 1.1 lexer replaces shlex in both packages (the bundled Acetaminophen CIF now parses). Tests: `test_nqr_cif.py::CIFLexerTests`, `QuadrupolarDFT/tests/test_strain_coupling.py::test_cif_with_legal_embedded_apostrophe_parses`. Commit `5cf2c2c`. |
 | L-22 | qdft | `QDFT/abinit.py` | `_FLOAT` accepts Fortran `D` exponents, but `float()` fails on them. | Fixed | `_fortran_float` helper; fixed together with H-13 in `23def73`. |
-| L-23 | nqrdb | `NQRDB/scripts/build_cwru_database.py` `first_number`/`parse_time_s` | No scientific notation; `µs` vs `us`; "hours" matches "us". | Open | |
-| L-24 | nqr | `nqr/isotopes.py` | 65Cu γ is about 0.2% high; the docstring's higher axial line positions are wrong for integer spin ≥ 2. | Open | |
-| L-25 | nqr | `nqr/hamiltonians.py:98` | The 1e-6 × span degeneracy floor can drop weak-field Zeeman transitions for heavy nuclei. | Open | |
-| L-26 | nqr | `nqr/structure_coupling.py` vs `QDFT/strain_coupling.py` | The CIF parser, symmetry `eval`, `_spin_matrices` and cell matrix are duplicated across the two packages. | Open | |
-| L-27 | nqrdb | `NQRDB/scripts/validate_database.py` | Checks only counts and orphans; no unit-plausibility checks. | Open | |
+| L-23 | nqrdb | `NQRDB/scripts/build_cwru_database.py` `first_number`/`parse_time_s` | No scientific notation; `µs` vs `us`; "hours" matches "us". | Fixed | Scientific notation and leading-dot values are parsed; no shipped data changes. Test: `NQRDatabase/tests/test_relaxation_units.py::test_scientific_notation_and_leading_dot`. Commit `5cf2c2c`. |
+| L-24 | nqr | `nqr/isotopes.py` | 65Cu γ is about 0.2% high; the docstring's higher axial line positions are wrong for integer spin ≥ 2. | Fixed | 65Cu γ is 12.112 MHz/T (Harris 2001); the integer-spin axial-ladder docstrings are corrected. Tests: `test_nqr_higher_spin.py::test_copper_gyromagnetic_ratios_match_harris`, `::test_integer_spin_axial_lines_are_odd_multiples`. Commit `5cf2c2c`. |
+| L-25 | nqr | `nqr/hamiltonians.py:98` | The 1e-6 × span degeneracy floor can drop weak-field Zeeman transitions for heavy nuclei. | Fixed | Confirmed (127I at 50 µT lost its 429 Hz line). The floor is now max(tolerance, 1e-10·max\|level\|). Tests: `test_nqr_higher_spin.py::test_heavy_nucleus_weak_field_zeeman_line_is_kept`, `::test_zero_field_has_no_spurious_near_zero_transitions`. Commit `5cf2c2c`. |
+| L-26 | nqr | `nqr/structure_coupling.py` vs `QDFT/strain_coupling.py` | The CIF parser, symmetry `eval`, `_spin_matrices` and cell matrix are duplicated across the two packages. | Fixed | One `_cif` module, byte-identical in both packages and guarded by sync tests (neither package may depend on the other), with a safe symmetry-expression parser replacing `eval`; QuadrupolarDFT's internal spin-matrix duplicate is removed. Won't fix: the cross-package spin-matrix duplication (the APIs differ). Tests: `test_nqr_cif.py::TwinSyncTests`, `::SymmetryExpressionTests`, `QuadrupolarDFT/tests/test_strain_coupling.py::test_shared_cif_module_matches_python_spin_dynamics_copy`. Commit `5cf2c2c`. |
+| L-27 | nqrdb | `NQRDB/scripts/validate_database.py` | Checks only counts and orphans; no unit-plausibility checks. | Fixed | `validate_plausibility` checks 14N < 6.5 MHz, T2/T2* < 1 s, T2 ≤ 2·T1, positive times, and isotope vs Form; the shipped data passes. Tests: `NQRDatabase/tests/test_plausibility.py` (re-injects the earlier defects). Commit `5cf2c2c`. |
 | L-28 | experiment | `experiment/config.py:238-284` | The TOML writer doesn't escape control characters or quote keys. | Open | |
 | L-29 | interference | `interference/cancellers.py:945` | `frequency_domain_canceller` `hop`/`segment_length` are under-validated (crash, or 45% uncancelled). | Open | |
 | L-30 | interference | `interference/_signal.py:55-74` | `spectral_phase_shift` zeroes the Nyquist bin for even n. | Open | |
@@ -192,3 +192,4 @@ code, not run.
 - 2026-11-01: M-10 to M-16 and M-44 (workflows) fixed in `89b2e01`/`f19bd50`; M-45 and L-54 added. Every Medium from the review is now closed; M-45 is new and open.
 - 2026-11-01: L-54 partly fixed in `b7a89d8` (SpatialDomain normalized grids now DFT-centred).
 - 2026-11-01: L-42 to L-48 (design, optimization, thermal) fixed in `0de0dca`.
+- 2026-11-01: L-21, L-23 to L-27 (NQR, DFT, database) fixed in `5cf2c2c`.
