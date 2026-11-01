@@ -138,8 +138,8 @@ skips matched-probe files when `fmincon` is unavailable.
 | `spin_dynamics.workflows.run_*_time_varying_cpmg_final` | Python analogue of ideal time-varying final-echo assembly with tuned, untuned, and matched probe models | workflow shape and finite-output smoke tests | Passed |
 | `spin_dynamics.workflows.run_*_time_varying_amplitude_sweep` | Python-native wrappers around probe-aware time-varying final-echo runners | serial/parallel equality and finite-output smoke tests | Passed |
 | `spin_dynamics.workflows.fid.sim_fid_ideal` | `Sim_FID/simFID_ideal.m` via `calc_macq_fid`/`calc_FID_time_domain` | `sim_fid_ideal_macq.csv`, `sim_fid_ideal_echo.csv` | Passed |
-| `spin_dynamics.probes.tuned.tuned_probe_lp_orig` | `circuit_simulation/tuned_probe/tuned_probe_lp_Orig.m` | `tuned_probe_lp_orig.csv` | Passed |
-| `spin_dynamics.probes.tuned.calc_masy_tuned_probe_lp_orig` | `calc_masy/calc_masy_tuned_probe_lp_Orig.m` | `calc_masy_tuned_probe_lp_orig.csv` | Passed |
+| `spin_dynamics.probes.tuned.tuned_probe_lp_orig` | `circuit_simulation/tuned_probe/tuned_probe_lp_Orig.m` (Version_3 transient corrected) | `tuned_probe_lp_orig.csv` (regenerated from corrected Python; see `validation/fixtures/README.md`) and `tests/test_tuned_probe_transient.py` (direct ODE reference) | Passed |
+| `spin_dynamics.probes.tuned.calc_masy_tuned_probe_lp_orig` | `calc_masy/calc_masy_tuned_probe_lp_Orig.m` | `calc_masy_tuned_probe_lp_orig.csv` (regenerated from corrected Python) | Passed |
 | `spin_dynamics.probes.untuned.untuned_probe_lp` | `circuit_simulation/untuned_probe/untuned_probe_lp.m` | `untuned_probe_lp.csv` | Passed |
 | `spin_dynamics.probes.untuned.calc_masy_untuned_probe_lp` | `calc_masy/calc_masy_untuned_probe_lp.m` | `calc_masy_untuned_probe_lp.csv` | Passed |
 | `spin_dynamics.probes.matched.find_coil_current` | `circuit_simulation/matched_probe/find_coil_current.m` | `find_coil_current_matched.csv` | Passed |

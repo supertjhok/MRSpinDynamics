@@ -45,6 +45,10 @@ def tuned_probe_lp_orig(
     """Calculate tuned-probe coil current for the original/reference path.
 
     Mirrors MATLAB `circuit_simulation/tuned_probe/tuned_probe_lp_Orig.m`.
+    The driven-response transient uses the zero-initial-condition homogeneous
+    coefficients ``(lam1 - i w) / (2 alpha)`` and ``-(lam0 - i w) / (2 alpha)``
+    of the Version 1/2 MATLAB code; the Version 3 file had an extra
+    ``1/(2 alpha)`` on the first term, corrected there as well.
     """
 
     L = float(_field(sp, "L"))
@@ -98,7 +102,7 @@ def tuned_probe_lp_orig(
                 * (
                     np.exp(1j * w * tv)
                     + (
-                        (lam[1] - 1j * w) * np.exp(lam[0] * tv) / (2 * alpha)
+                        (lam[1] - 1j * w) * np.exp(lam[0] * tv)
                         - (lam[0] - 1j * w) * np.exp(lam[1] * tv)
                     )
                     / (2 * alpha)
@@ -111,7 +115,7 @@ def tuned_probe_lp_orig(
                 * (
                     np.exp(-1j * w * tv)
                     + (
-                        (lam[1] + 1j * w) * np.exp(lam[0] * tv) / (2 * alpha)
+                        (lam[1] + 1j * w) * np.exp(lam[0] * tv)
                         - (lam[0] + 1j * w) * np.exp(lam[1] * tv)
                     )
                     / (2 * alpha)
@@ -126,7 +130,7 @@ def tuned_probe_lp_orig(
                 * (
                     1j * w * np.exp(1j * w * tve)
                     + (
-                        lam[0] * (lam[1] - 1j * w) * np.exp(lam[0] * tve) / (2 * alpha)
+                        lam[0] * (lam[1] - 1j * w) * np.exp(lam[0] * tve)
                         - lam[1] * (lam[0] - 1j * w) * np.exp(lam[1] * tve)
                     )
                     / (2 * alpha)
@@ -139,7 +143,7 @@ def tuned_probe_lp_orig(
                 * (
                     -1j * w * np.exp(-1j * w * tve)
                     + (
-                        lam[0] * (lam[1] + 1j * w) * np.exp(lam[0] * tve) / (2 * alpha)
+                        lam[0] * (lam[1] + 1j * w) * np.exp(lam[0] * tve)
                         - lam[1] * (lam[0] + 1j * w) * np.exp(lam[1] * tve)
                     )
                     / (2 * alpha)
@@ -174,7 +178,8 @@ def tuned_probe_lp(
 
     Mirrors MATLAB `circuit_simulation/tuned_probe/tuned_probe_lp.m`. The
     dynamics are the same as `tuned_probe_lp_Orig`, but the rotating-frame
-    current is averaged over half-RF-cycle windows instead of full cycles.
+    current is averaged over half-RF-cycle windows instead of full cycles
+    (including the same Version 3 transient-coefficient correction).
     """
 
     L = float(_field(sp, "L"))
@@ -231,7 +236,7 @@ def tuned_probe_lp(
                 * (
                     np.exp(1j * w * tv)
                     + (
-                        (lam[1] - 1j * w) * np.exp(lam[0] * tv) / (2 * alpha)
+                        (lam[1] - 1j * w) * np.exp(lam[0] * tv)
                         - (lam[0] - 1j * w) * np.exp(lam[1] * tv)
                     )
                     / (2 * alpha)
@@ -244,7 +249,7 @@ def tuned_probe_lp(
                 * (
                     np.exp(-1j * w * tv)
                     + (
-                        (lam[1] + 1j * w) * np.exp(lam[0] * tv) / (2 * alpha)
+                        (lam[1] + 1j * w) * np.exp(lam[0] * tv)
                         - (lam[0] + 1j * w) * np.exp(lam[1] * tv)
                     )
                     / (2 * alpha)
@@ -260,7 +265,6 @@ def tuned_probe_lp(
                     1j * w * np.exp(1j * w * tve)
                     + (
                         lam[0] * (lam[1] - 1j * w) * np.exp(lam[0] * tve)
-                        / (2 * alpha)
                         - lam[1] * (lam[0] - 1j * w) * np.exp(lam[1] * tve)
                     )
                     / (2 * alpha)
@@ -274,7 +278,6 @@ def tuned_probe_lp(
                     -1j * w * np.exp(-1j * w * tve)
                     + (
                         lam[0] * (lam[1] + 1j * w) * np.exp(lam[0] * tve)
-                        / (2 * alpha)
                         - lam[1] * (lam[0] + 1j * w) * np.exp(lam[1] * tve)
                     )
                     / (2 * alpha)

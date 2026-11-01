@@ -533,7 +533,9 @@ class OctaveOptimizationFixtureTests(OctaveFixtureBase):
             target.snr,
             numpts=del_w.size,
             optimizer="pattern",
-            max_passes=8,
+            # 16 passes: with the corrected tuned-probe transient, 8 passes
+            # stop ~1e-3 short of the re-evaluated MATLAB optimum.
+            max_passes=16,
         )
 
         initial_ratio = trapezoid(np.abs(target.mrx + initial_eval.excitation.mrx), del_w)

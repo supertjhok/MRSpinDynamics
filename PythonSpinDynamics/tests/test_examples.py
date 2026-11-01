@@ -241,6 +241,13 @@ class ExampleSmokeTests(unittest.TestCase):
         static_ratio = np.abs(matched_filter_ratio(pi_periodic, baseline))
         modulated_ratio = np.abs(matched_filter_ratio(modulated, baseline))
 
+        # The three cases use different RF frequencies, so the excitation pulse
+        # starts at a different absolute RF phase in each. The tuned probe's
+        # gate-on transient depends on that phase, which sets an overall
+        # train gain; normalize it out with the first echo and test only the
+        # echo-to-echo modulation that the refocusing phase step produces.
+        static_ratio = static_ratio / static_ratio[0]
+        modulated_ratio = modulated_ratio / modulated_ratio[0]
         np.testing.assert_allclose(static_ratio, 1.0, atol=5e-3, rtol=5e-3)
         self.assertGreater(float(np.max(np.abs(modulated_ratio - 1.0))), 0.02)
 
