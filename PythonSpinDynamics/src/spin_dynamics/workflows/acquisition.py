@@ -32,6 +32,21 @@ def _as_vector(value: Any, dtype: Any) -> np.ndarray:
     return np.asarray(value, dtype=dtype).reshape(-1)
 
 
+def _forward_pulse_segments(params: dict[str, Any], pp: Mapping[str, Any] | Any) -> None:
+    """Pass optional ``pp.pulse_segments`` (per-``Rtot`` generators) to the kernel.
+
+    The radiation-damping kernel uses them to sub-step pulses along their
+    physical path when ``apply_during_pulses`` is set.
+    """
+
+    if isinstance(pp, Mapping):
+        segments = pp.get("pulse_segments")
+    else:
+        segments = getattr(pp, "pulse_segments", None)
+    if segments is not None:
+        params["pulse_segments"] = segments
+
+
 def calc_macq_ideal_probe_relax4(
     sp: Mapping[str, Any] | Any,
     pp: Mapping[str, Any] | Any,
@@ -77,6 +92,7 @@ def calc_macq_ideal_probe_relax4(
             action=rephase_action,
         )
     if radiation_damping is not None:
+        _forward_pulse_segments(params, pp)
         return sim_spin_dynamics_arb10_radiation_damping(params, radiation_damping)
     if num_workers is None or int(num_workers) > 1:
         return sim_spin_dynamics_arb10_chunked(params, num_workers=num_workers)
@@ -120,6 +136,7 @@ def _calc_macq_relax4(
             action=rephase_action,
         )
     if radiation_damping is not None:
+        _forward_pulse_segments(params, pp)
         return sim_spin_dynamics_arb10_radiation_damping(params, radiation_damping)
     if num_workers is None or int(num_workers) > 1:
         return sim_spin_dynamics_arb10_chunked(params, num_workers=num_workers)

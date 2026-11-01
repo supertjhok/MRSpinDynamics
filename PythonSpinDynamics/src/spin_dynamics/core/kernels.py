@@ -13,10 +13,15 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 import os
 from typing import Any
+import warnings
 
 import numpy as np
 
-from spin_dynamics.core.rotations import MatrixElements, rf_matrix_elements
+from spin_dynamics.core.rotations import (
+    MatrixElements,
+    calc_rotation_matrix,
+    rf_matrix_elements,
+)
 from spin_dynamics.radiation_damping import RadiationDampingSpec
 
 
@@ -510,11 +515,32 @@ def _stack_matrix_elements(
     return stack
 
 
-def _matrix_elements_power(mat: MatrixElements, exponent: float) -> MatrixElements:
-    """Raise each isochromat's 3x3 coherence matrix to ``exponent``.
+# Cartesian (Mx, My, Mz) <- coherence (Mz, M-, M+) basis change and its inverse,
+# matching the conversion at the end of ``sim_spin_dynamics_exc``.
+_COH_TO_CART = np.array(
+    [[0.0, 0.5, 0.5], [0.0, 0.5j, -0.5j], [1.0, 0.0, 0.0]], dtype=np.complex128
+)
+_CART_TO_COH = np.array(
+    [[0.0, 0.0, 1.0], [1.0, -1.0j, 0.0], [1.0, 1.0j, 0.0]], dtype=np.complex128
+)
+_ROTATION_TOL = 1e-8
+_ROTATION_PI_TOL = 1e-6
 
-    Vectorized over isochromats: NumPy's ``eig``/``inv``/``matmul`` broadcast
-    over the leading axis, so the per-isochromat Python loop is unnecessary.
+
+def _matrix_elements_power(mat: MatrixElements, exponent: float) -> MatrixElements:
+    """Raise each isochromat's pulse rotation to the real power ``exponent``.
+
+    Each 3x3 coherence-basis matrix must be a proper rotation (no relaxation).
+    The result is the rotation about the same effective axis by
+    ``exponent * theta``, where ``theta`` in ``[0, pi]`` is the net rotation
+    angle recovered from the matrix (Rodrigues form, vectorized over
+    isochromats). A matrix alone cannot tell a rotation by ``theta > pi`` from
+    one by ``2*pi - theta`` about the opposite axis, so this follows the
+    shortest path; it raises ``ValueError`` when ``theta`` is within
+    ``1e-6`` rad of ``pi``, where the half-step direction is undetermined.
+    Callers that need the physical in-pulse trajectory should build sub-steps
+    from the pulse generator instead (see ``pulse_segments`` in
+    :func:`sim_spin_dynamics_arb10_radiation_damping`).
     """
 
     size = mat.R_00.size
@@ -529,9 +555,39 @@ def _matrix_elements_power(mat: MatrixElements, exponent: float) -> MatrixElemen
     full[:, 2, 1] = mat.R_pm
     full[:, 2, 2] = mat.R_pp
 
-    vals, vecs = np.linalg.eig(full)
-    # vecs @ diag(vals**exponent) == vecs scaled column-wise by vals**exponent.
-    powered = (vecs * (vals**exponent)[:, np.newaxis, :]) @ np.linalg.inv(vecs)
+    cart_c = _COH_TO_CART @ full @ _CART_TO_COH
+    if np.max(np.abs(cart_c.imag), initial=0.0) > _ROTATION_TOL:
+        raise ValueError("pulse matrix is not a real rotation; cannot take its power")
+    cart = cart_c.real
+    gram = np.swapaxes(cart, 1, 2) @ cart
+    if (
+        np.max(np.abs(gram - np.eye(3)), initial=0.0) > _ROTATION_TOL
+        or np.any(np.linalg.det(cart) <= 0.0)
+    ):
+        raise ValueError("pulse matrix is not a proper rotation; cannot take its power")
+
+    trace = np.trace(cart, axis1=1, axis2=2)
+    theta = np.arccos(np.clip(0.5 * (trace - 1.0), -1.0, 1.0))
+    if np.any(np.pi - theta < _ROTATION_PI_TOL):
+        raise ValueError(
+            "pulse rotation angle is pi to within tolerance: its fractional power "
+            "is ambiguous; supply pulse generators (pulse_segments) instead"
+        )
+    # R = I + sin(theta) K + (1 - cos(theta)) K^2 with K the unit-axis cross
+    # matrix: skew = sin(theta) K and sym - I = (1 - cos(theta)) K^2.
+    skew = 0.5 * (cart - np.swapaxes(cart, 1, 2))
+    sym_minus_i = 0.5 * (cart + np.swapaxes(cart, 1, 2)) - np.eye(3)
+    t = float(exponent)
+    small = theta < 1e-8
+    safe = np.where(small, 1.0, theta)
+    sin_ratio = np.where(small, t, np.sin(t * safe) / np.sin(safe))
+    cos_ratio = np.where(small, t * t, (1.0 - np.cos(t * safe)) / (1.0 - np.cos(safe)))
+    powered_cart = (
+        np.eye(3)
+        + sin_ratio[:, np.newaxis, np.newaxis] * skew
+        + cos_ratio[:, np.newaxis, np.newaxis] * sym_minus_i
+    )
+    powered = _CART_TO_COH @ powered_cart.astype(np.complex128) @ _COH_TO_CART
     return MatrixElements(
         R_00=powered[:, 0, 0].copy(),
         R_0m=powered[:, 0, 1].copy(),
@@ -756,6 +812,128 @@ def _advance_pulse_matrix_with_radiation_damping(
     return state, fb
 
 
+@dataclass(frozen=True)
+class _PulseSegments:
+    """Normalized generator of one ``Rtot`` pulse (see ``pulse_segments``)."""
+
+    tp: np.ndarray
+    phi: np.ndarray
+    amp: np.ndarray
+    w_1: np.ndarray
+    post_rotation: MatrixElements | None
+
+
+def _pulse_segments_for(
+    raw_segments: Sequence[Any] | None,
+    num_pulses: int,
+) -> list[_PulseSegments | None]:
+    """Normalize optional per-pulse generators."""
+
+    if raw_segments is None:
+        return [None] * num_pulses
+    if len(raw_segments) != num_pulses:
+        raise ValueError("pulse_segments must have one entry per Rtot pulse")
+    out: list[_PulseSegments | None] = []
+    for entry in raw_segments:
+        if entry is None:
+            out.append(None)
+            continue
+        tp = _as_vector(_field(entry, "tp"), np.float64)
+        phi = _as_vector(_field(entry, "phi"), np.float64)
+        amp = _as_vector(_field(entry, "amp"), np.float64)
+        w_1 = np.asarray(_field_or_default(entry, "w_1", 1.0), dtype=np.float64)
+        if not (tp.size == phi.size == amp.size) or tp.size == 0:
+            raise ValueError("pulse_segments tp, phi, and amp must be non-empty and equal length")
+        post = _field_or_default(entry, "post_rotation", None)
+        out.append(_PulseSegments(tp, phi, amp, w_1, post))
+    return out
+
+
+def _check_pulse_segments(
+    segments: _PulseSegments,
+    rtot_mat: MatrixElements,
+    del_w: np.ndarray,
+) -> None:
+    """Raise unless the segment generators reproduce the ``Rtot`` matrix."""
+
+    composed = calc_rotation_matrix(
+        del_w, segments.w_1, segments.tp, segments.phi, segments.amp
+    )
+    if segments.post_rotation is not None:
+        # Column c of (post @ composed) is post applied to column c of composed.
+        zeros = np.zeros(del_w.size, dtype=np.complex128)
+        columns = {
+            col: _apply_matrix_step(
+                np.stack(
+                    [
+                        getattr(composed, f"R_0{col}"),
+                        getattr(composed, f"R_m{col}"),
+                        getattr(composed, f"R_p{col}"),
+                    ]
+                ),
+                segments.post_rotation,
+                zeros,
+            )
+            for col in ("0", "m", "p")
+        }
+        composed = MatrixElements(
+            **{
+                f"R_{row}{col}": columns[col][index]
+                for index, row in enumerate(("0", "m", "p"))
+                for col in ("0", "m", "p")
+            }
+        )
+    for name in MatrixElements.__dataclass_fields__:
+        if not np.allclose(
+            getattr(composed, name), getattr(rtot_mat, name), rtol=0.0, atol=1e-8
+        ):
+            raise ValueError("pulse_segments do not reproduce the corresponding Rtot matrix")
+
+
+def _advance_pulse_segments_with_radiation_damping(
+    mvect: np.ndarray,
+    segments: _PulseSegments,
+    del_w: np.ndarray,
+    spec: RadiationDampingSpec,
+    weights: np.ndarray,
+    feedback: complex,
+    step_limit: float,
+) -> tuple[np.ndarray, complex]:
+    """Sub-step a pulse from its generator, interleaving RD feedback.
+
+    Each rectangular segment (nutation ``amp * w_1``, phase ``phi``, duration
+    ``tp``) is split into equal sub-pulses built with ``rf_matrix_elements``,
+    so the in-pulse trajectory is the physical one even for rotations of
+    ``pi`` or more. Negative-duration (rewind) segments integrate the feedback
+    backward, matching the free-interval convention. An optional
+    zero-duration ``post_rotation`` is applied last.
+    """
+
+    tp, phi, amp, w_1 = segments.tp, segments.phi, segments.amp, segments.w_1
+    state = mvect
+    fb = feedback
+    zeros = np.zeros(mvect.shape[1], dtype=np.complex128)
+    for tp_k, phi_k, amp_k in zip(tp, phi, amp):
+        if tp_k == 0:
+            continue
+        steps = max(1, int(np.ceil(abs(float(tp_k)) / step_limit)))
+        h = float(tp_k) / steps
+        submat = rf_matrix_elements(del_w, amp_k * w_1, h, float(phi_k))
+        for _ in range(steps):
+            state = _apply_matrix_step(state, submat, zeros)
+            state, fb = _advance_feedback_only_radiation_damping(
+                state,
+                h,
+                spec,
+                weights,
+                fb,
+                step_limit,
+            )
+    if segments.post_rotation is not None:
+        state = _apply_matrix_step(state, segments.post_rotation, zeros)
+    return state, fb
+
+
 def sim_spin_dynamics_arb10_radiation_damping(
     params: Mapping[str, Any] | Arb10Parameters | Any,
     radiation_damping: RadiationDampingSpec,
@@ -765,10 +943,28 @@ def sim_spin_dynamics_arb10_radiation_damping(
     RF pulse blocks continue to use the supplied precomputed matrices. This
     first nonlinear bridge therefore captures receive-window and inter-pulse
     back-action without perturbing the validated pulse-shape machinery.
+
+    With ``radiation_damping.apply_during_pulses`` the pulses are sub-stepped
+    so feedback also acts inside them. ``params`` may then carry an optional
+    ``pulse_segments`` entry: one item per ``Rtot`` matrix, either ``None`` or a
+    mapping/object with segment arrays ``tp``, ``phi``, ``amp`` and optional
+    per-isochromat ``w_1`` (the :func:`calc_rotation_matrix` convention), plus
+    an optional zero-duration ``post_rotation`` matrix applied after the
+    segments. Those generators give the exact in-pulse path and must reproduce
+    the matrix; the in-pulse feedback then acts over the segments' own
+    durations (including any negative rewind segment) rather than ``tp``.
+    Without them the pulse is split by :func:`_matrix_elements_power`, which
+    follows the shortest rotation path (exact for net rotations below ``pi``),
+    emits a ``RuntimeWarning``, and raises for rotations of ``pi`` such as
+    on-resonance refocusing pulses.
     """
 
     tp, pul, rtot, amp, acq, grad, del_w0, del_wg, t1n, t2n, m0, mth = (
         _validate_arb10_inputs(params)
+    )
+    segments = _pulse_segments_for(
+        _field_or_default(params, "pulse_segments", None),
+        len(rtot),
     )
     numpts = del_w0.size
     weights = _radiation_damping_weights(radiation_damping, numpts)
@@ -779,6 +975,8 @@ def sim_spin_dynamics_arb10_radiation_damping(
     macq = np.zeros((int(np.sum(acq)), numpts), dtype=np.complex128)
     acq_cnt = 0
     feedback = complex(radiation_damping.initial_feedback)
+    verified: set[tuple[int, bytes]] = set()
+    warned: set[int] = set()
 
     for tp_j, pul_j, amp_j, acq_j, grad_j in zip(tp, pul, amp, acq, grad):
         del_w = del_w0 + grad_j * del_wg
@@ -786,7 +984,30 @@ def sim_spin_dynamics_arb10_radiation_damping(
             mat = rtot[int(pul_j) - 1]
             mlong = np.zeros(numpts, dtype=np.complex128)
             mvect = _apply_matrix_step(mvect, mat, mlong)
+        elif amp_j > 0 and segments[int(pul_j) - 1] is not None:
+            key = (int(pul_j), del_w.tobytes())
+            if key not in verified:
+                _check_pulse_segments(segments[int(pul_j) - 1], rtot[int(pul_j) - 1], del_w)
+                verified.add(key)
+            mvect, feedback = _advance_pulse_segments_with_radiation_damping(
+                mvect,
+                segments[int(pul_j) - 1],
+                del_w,
+                radiation_damping,
+                weights,
+                feedback,
+                step_limit,
+            )
         elif amp_j > 0:
+            if int(pul_j) not in warned:
+                warnings.warn(
+                    f"radiation damping during pulse Rtot[{int(pul_j) - 1}] has no "
+                    "pulse_segments; the in-pulse trajectory follows the shortest "
+                    "rotation path, which is exact only for net rotations below pi",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
+                warned.add(int(pul_j))
             mvect, feedback = _advance_pulse_matrix_with_radiation_damping(
                 mvect,
                 rtot[int(pul_j) - 1],

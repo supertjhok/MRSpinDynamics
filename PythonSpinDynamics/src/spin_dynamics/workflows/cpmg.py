@@ -460,6 +460,30 @@ def _compose_rotation_matrices(
     )
 
 
+def _longitudinal_phase_kick_matrix(
+    *,
+    del_w: np.ndarray,
+    spec: AbsolutePhaseSpec | None,
+    pp: Mapping[str, Any] | Any,
+    pulse_start_phase_rad: float,
+    pulse_kind: str,
+) -> MatrixElements | None:
+    model = None if spec is None else spec.transient_model
+    if not isinstance(model, LongitudinalPhaseKick):
+        return None
+    end_phase = (
+        float(pulse_start_phase_rad)
+        + float(spec.rf_angular_frequency_rad_s) * float(_field(pp, "T_180"))
+    )
+    kick = model.phase_kick(end_phase, pulse_kind)
+    if kick == 0.0:
+        return None
+    return free_precession_matrix_elements(
+        np.full_like(del_w, kick, dtype=np.float64),
+        1.0,
+    )
+
+
 def _apply_longitudinal_phase_kick(
     matrix: MatrixElements,
     *,
@@ -469,20 +493,15 @@ def _apply_longitudinal_phase_kick(
     pulse_start_phase_rad: float,
     pulse_kind: str,
 ) -> MatrixElements:
-    model = None if spec is None else spec.transient_model
-    if not isinstance(model, LongitudinalPhaseKick):
-        return matrix
-    end_phase = (
-        float(pulse_start_phase_rad)
-        + float(spec.rf_angular_frequency_rad_s) * float(_field(pp, "T_180"))
+    kick_matrix = _longitudinal_phase_kick_matrix(
+        del_w=del_w,
+        spec=spec,
+        pp=pp,
+        pulse_start_phase_rad=pulse_start_phase_rad,
+        pulse_kind=pulse_kind,
     )
-    kick = model.phase_kick(end_phase, pulse_kind)
-    if kick == 0.0:
+    if kick_matrix is None:
         return matrix
-    kick_matrix = free_precession_matrix_elements(
-        np.full_like(del_w, kick, dtype=np.float64),
-        1.0,
-    )
     return _compose_rotation_matrices(kick_matrix, matrix)
 
 
@@ -545,7 +564,33 @@ def _metadata_for_plan(
     )
 
 
+def _pulse_segment_entry(
+    shape: PulseShape,
+    w_1: np.ndarray | float,
+    post_rotation: MatrixElements | None = None,
+) -> dict[str, Any]:
+    """Return the kernel ``pulse_segments`` generator for one ``Rtot`` shape."""
+
+    duration, phase, amplitude = _shape_tuple(shape)
+    return {
+        "tp": duration,
+        "phi": phase,
+        "amp": amplitude,
+        "w_1": w_1,
+        "post_rotation": post_rotation,
+    }
+
+
 def _build_absolute_phase_rtot_and_pul(
+    **kwargs: Any,
+) -> tuple[list[Any], np.ndarray, np.ndarray, AbsolutePhaseMetadata | None]:
+    rtot, pref, pref2, metadata, _segments = _build_absolute_phase_rtot_segments_and_pul(
+        **kwargs
+    )
+    return rtot, pref, pref2, metadata
+
+
+def _build_absolute_phase_rtot_segments_and_pul(
     *,
     del_w: np.ndarray,
     w_1: np.ndarray | float,
@@ -558,20 +603,26 @@ def _build_absolute_phase_rtot_and_pul(
     ref_shape_factory: Any,
     phase_cycle: PhaseCycle,
     excitation_start_seconds: float = 0.0,
-) -> tuple[list[Any], np.ndarray, np.ndarray, AbsolutePhaseMetadata | None]:
+) -> tuple[
+    list[Any],
+    np.ndarray,
+    np.ndarray,
+    AbsolutePhaseMetadata | None,
+    list[dict[str, Any]],
+]:
+    """Build ``Rtot`` plus the matching per-matrix ``pulse_segments`` generators."""
+
     _cpmg_excitation_phases(phase_cycle)
     if spec is None or schedule is None:
         pulse_plan = build_finite_cpmg_pulse_plan(
             int(num_echoes),
             per_echo_refocusing=False,
         )
-        rtot = [
-            calc_rotation_matrix(del_w, w_1, *_shape_tuple(exc_y)),
-            calc_rotation_matrix(del_w, w_1, *_shape_tuple(exc_minus_y)),
-            calc_rotation_matrix(del_w, w_1, *_shape_tuple(ref_shape_factory(0.0))),
-        ]
+        shapes = [exc_y, exc_minus_y, ref_shape_factory(0.0)]
+        rtot = [calc_rotation_matrix(del_w, w_1, *_shape_tuple(shape)) for shape in shapes]
+        segments = [_pulse_segment_entry(shape, w_1) for shape in shapes]
         pref = pulse_plan.refocus_cycle
-        return rtot, pref, pref.copy(), None
+        return rtot, pref, pref.copy(), None, segments
 
     exc_abs = schedule.excitation_absolute_phase_rad
     exc_y_ap = apply_absolute_phase_model(exc_y, spec, float(exc_abs[0]), "excitation")
@@ -584,6 +635,10 @@ def _build_absolute_phase_rtot_and_pul(
     rtot = [
         calc_rotation_matrix(del_w, w_1, *_shape_tuple(exc_y_ap)),
         calc_rotation_matrix(del_w, w_1, *_shape_tuple(exc_minus_y_ap)),
+    ]
+    segments = [
+        _pulse_segment_entry(exc_y_ap, w_1),
+        _pulse_segment_entry(exc_minus_y_ap, w_1),
     ]
 
     refocus_abs = schedule.refocus_absolute_phase_rad[: int(num_echoes)]
@@ -616,15 +671,17 @@ def _build_absolute_phase_rtot_and_pul(
                 "refocusing",
             )
             ref_matrix = calc_rotation_matrix(del_w, w_1, *_shape_tuple(ref_shape))
-            ref_matrix = _apply_longitudinal_phase_kick(
-                ref_matrix,
+            kick_matrix = _longitudinal_phase_kick_matrix(
                 del_w=del_w,
                 spec=spec,
                 pp=pp,
                 pulse_start_phase_rad=absolute_start,
                 pulse_kind="refocusing",
             )
+            if kick_matrix is not None:
+                ref_matrix = _compose_rotation_matrices(kick_matrix, ref_matrix)
             rtot.append(ref_matrix)
+            segments.append(_pulse_segment_entry(ref_shape, w_1, kick_matrix))
             matrix_index = len(rtot)
             matrix_by_phase[key] = matrix_index
             unique_phases.append(absolute_start)
@@ -656,7 +713,7 @@ def _build_absolute_phase_rtot_and_pul(
         unique_refocus_phase_rad=np.asarray(unique_phases, dtype=np.float64),
         refocus_pulse_library=refocus_pulse_library,
     )
-    return rtot, pref, pref.copy(), metadata
+    return rtot, pref, pref.copy(), metadata, segments
 
 
 def run_ideal_cpmg_train(
@@ -1062,7 +1119,7 @@ def run_tuned_cpmg_train(
     )
     ref_x = _calc_tuned_pulse_shape(sp, pp0, pp0.T_180, 0.0, 1.0, 2 * pp0.T_90)
 
-    rtot, pref, _pref2, ap_metadata = _build_absolute_phase_rtot_and_pul(
+    rtot, pref, _pref2, ap_metadata, pulse_segments = _build_absolute_phase_rtot_segments_and_pul(
         del_w=del_w,
         w_1=sp["w_1"],
         spec=ap_spec,
@@ -1104,6 +1161,7 @@ def run_tuned_cpmg_train(
         "acq": np.concatenate([acq_exc, acq_ref]),
         "grad": np.concatenate([grad_exc, grad_ref]),
         "Rtot": rtot,
+        "pulse_segments": pulse_segments,
     }
 
     sp["tf"] = tuned_probe_rx_tf(sp, pp0)
@@ -1509,7 +1567,7 @@ def run_matched_cpmg_train(
         psi=None if excitation_psi is None else float(excitation_psi[1]),
     )[:3]
     ref_x = _calc_matched_pulse_shape(sp, pp0, pp0.T_180, 0.0, 1.0, pp0.trd)[:3]
-    rtot, pref, _pref2, ap_metadata = _build_absolute_phase_rtot_and_pul(
+    rtot, pref, _pref2, ap_metadata, pulse_segments = _build_absolute_phase_rtot_segments_and_pul(
         del_w=del_w,
         w_1=sp["w_1"],
         spec=ap_spec,
@@ -1552,6 +1610,7 @@ def run_matched_cpmg_train(
         "acq": np.concatenate([acq_exc, acq_ref]),
         "grad": np.concatenate([grad_exc, grad_ref]),
         "Rtot": rtot,
+        "pulse_segments": pulse_segments,
     }
 
     sp["tf1"] = tf1
