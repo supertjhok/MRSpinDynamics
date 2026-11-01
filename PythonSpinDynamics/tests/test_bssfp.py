@@ -76,22 +76,76 @@ class BSSFPSteadyStateTests(unittest.TestCase):
         steady = np.abs(bssfp_steady_state_signal(30.0, **kw)).ravel()[0]
         self.assertAlmostEqual(final, steady, delta=1e-3)
 
-    def test_catalyzation_reaches_steady_state_sooner(self) -> None:
-        # Off-resonance transients oscillate; the alpha/2 preparation lands the
-        # magnetization near the steady-state cone, so the train settles to
-        # within 5% of steady state in fewer TRs.
+    def test_catalyzation_suppresses_transient_oscillation(self) -> None:
+        # Off-resonance transients oscillate TR to TR; the alpha/2 preparation
+        # lands the magnetization near the steady-state cone, so the oscillation
+        # is suppressed and only the smooth relaxation envelope remains. (The
+        # envelope itself still decays at the Scheffler rate, so catalyzation
+        # does not shorten the 5%-settling time; an earlier version of this test
+        # compared first entry into the 5% band, which the buggy same-phase prep
+        # met only because its large oscillation swept through the band.)
         kw = dict(flip_angle_deg=40.0, tr=3.0e-3, t1=0.2, t2=0.08)
-        steady = np.abs(bssfp_steady_state_signal(60.0, **kw)).ravel()[0]
 
-        def settle_tr(catalyze: bool) -> int:
-            trace = np.abs(bssfp_transient(60.0, num_tr=400, catalyze=catalyze, **kw)).ravel()
-            within = np.abs(trace - steady) < 0.05 * steady
-            return int(np.argmax(within)) if within.any() else 400
+        def oscillation(catalyze: bool) -> float:
+            trace = np.abs(bssfp_transient(60.0, num_tr=20, catalyze=catalyze, **kw)).ravel()
+            return float(np.max(np.abs(np.diff(trace, 2))))
 
-        self.assertLessEqual(settle_tr(True), settle_tr(False))
+        self.assertLess(oscillation(True), 0.25 * oscillation(False))
+
+    def test_catalyzed_transient_matches_analytic_on_resonance(self) -> None:
+        # Regression: the alpha/2 prep must carry the phase of pulse index -1
+        # (-alpha/2 for alternating RF). With the old same-phase prep the tilts
+        # added to 3*alpha/2 and |M_perp| alternated 0.97, 0.45, 0.91, 0.40, ...
+        # Independent references: Freeman-Hill steady state at TE = TR/2,
+        #   S_ss = (1 - E1) sin(a) sqrt(E2) / (1 - (E1 - E2) cos(a) - E1 E2),
+        # and Scheffler's (MRM 49, 2003) mono-exponential catalyzed approach
+        #   S_n = S_ss + (sin(a/2) sqrt(E2) - S_ss) * lam**n,
+        #   lam = E1 cos^2(a/2) + E2 sin^2(a/2).
+        alpha, tr, t1, t2 = np.deg2rad(60.0), 5.0e-3, 1.0, 0.1
+        e1, e2 = np.exp(-tr / t1), np.exp(-tr / t2)
+        steady = (1 - e1) * np.sin(alpha) * np.sqrt(e2) / (
+            1 - (e1 - e2) * np.cos(alpha) - e1 * e2
+        )
+        lam = e1 * np.cos(alpha / 2) ** 2 + e2 * np.sin(alpha / 2) ** 2
+        n = np.arange(40)
+        expected = steady + (np.sin(alpha / 2) * np.sqrt(e2) - steady) * lam**n
+        kw = dict(flip_angle_deg=60.0, tr=tr, t1=t1, t2=t2, excitation_duration=0.1e-3)
+        trace = np.abs(bssfp_transient(0.0, num_tr=40, catalyze=True, **kw)).ravel()
+        # Smooth (no TR-to-TR alternation) and on the analytic catalyzed curve.
+        self.assertLess(np.max(np.abs(np.diff(trace, 2))), 5e-3)
+        np.testing.assert_allclose(trace, expected, rtol=0.03)
+        late = np.abs(bssfp_transient(0.0, num_tr=3000, catalyze=True, **kw)).ravel()[-1]
+        self.assertAlmostEqual(late, steady, delta=1e-4)
 
 
 class BSSFPImagingTests(unittest.TestCase):
+    def test_catalyzed_train_is_smooth_at_isocentre(self) -> None:
+        # Regression for the imaging path's alpha/2 prep phase. A single voxel
+        # at the gradient isocentre sees no encoding, so with no dummy TRs the
+        # demodulated k-space centre of each acquired line must follow the
+        # (analytically anchored) gradient-free catalyzed transient sampled at
+        # the k=0 readout time, without TR-to-TR alternation.
+        n = 8
+        rho = np.zeros((n, n))
+        rho[n // 2, n // 2] = 1.0
+        exc, phase_time, readout = 0.1e-3, 0.4e-3, 1.2e-3
+        result = run_bssfp_imaging(
+            rho, t1_map=np.full((n, n), 1.0), t2_map=np.full((n, n), 0.1),
+            flip_angle_deg=60.0, excitation_duration=exc, phase_time=phase_time,
+            readout_time=readout, num_dummy_tr=0, catalyze=True,
+        )
+        centre = np.abs(result.kspace[n // 2, :, 0])
+        te_k0 = 0.5 * exc + phase_time + (n // 2 + 1) / n * readout
+        expected = np.abs(
+            bssfp_transient(
+                0.0, flip_angle_deg=60.0, tr=result.tr, t1=1.0, t2=0.1, num_tr=n,
+                te=te_k0, excitation_duration=exc,
+            )
+        ).ravel()
+        np.testing.assert_allclose(centre, expected, rtol=1e-6)
+        self.assertLess(np.max(np.abs(np.diff(centre, 2))), 5e-3)
+
+
     def _phantom(self, n: int = 12) -> np.ndarray:
         rho = np.zeros((n, n), dtype=np.float64)
         rho[3:9, 4:8] = 1.0

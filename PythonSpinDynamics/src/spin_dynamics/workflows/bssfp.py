@@ -132,6 +132,12 @@ def bssfp_transient(
     ``(num_tr, ...)`` with the trailing axes matching the input, tracing the
     approach to steady state (the smooth T1 build-up plus the oscillatory
     transient that the ``catalyze`` half-angle preparation suppresses).
+
+    The ``catalyze`` preparation is an ``alpha/2`` pulse a half TR before the
+    first ``alpha`` pulse, carrying the RF phase of pulse index ``-1`` in the
+    ``k * phase_increment_deg`` cycle (``-alpha/2`` for the standard 180-degree
+    alternation). It is exact at the band centre of the alternating scheme and
+    only approximate for other phase increments.
     """
 
     if num_tr <= 0:
@@ -156,8 +162,10 @@ def bssfp_transient(
     )
     if catalyze:
         # Deimling/Heid alpha/2 -- TR/2 preparation: start near the steady-state
-        # cone so the oscillatory transient is suppressed.
-        ensemble = apply_rf_rotation(ensemble, excitation_duration, 0.0, 0.5 * w1, omega)
+        # cone so the oscillatory transient is suppressed. The half pulse takes
+        # the phase of pulse index -1 (opposite to the first alpha pulse for
+        # alternating RF); with the same phase the tilts would add to 3*alpha/2.
+        ensemble = apply_rf_rotation(ensemble, excitation_duration, -dphi, 0.5 * w1, omega)
         ensemble = apply_free_precession(ensemble, 0.5 * tr, omega, t1=t1, t2=t2, mth=m0)
 
     out = np.empty((int(num_tr), n), dtype=np.complex128)
@@ -350,7 +358,9 @@ def run_bssfp_imaging(
     lines = list(range(pz))
     # One continuous steady-state train: catalyzation, dummy TRs, then one TR per
     # phase-encode line. The RF phase index advances every TR (including dummies
-    # and the half-angle prep) so phase cycling is continuous.
+    # and the half-angle prep) so phase cycling is continuous: the alpha/2 prep
+    # sits one index before the first alpha pulse (opposite phase for alternating
+    # RF), which places the magnetization on the steady-state cone.
     pulse_index = 0
     steps: list[MotionSequenceStep] = []
     if catalyze:
@@ -358,7 +368,7 @@ def run_bssfp_imaging(
             MotionSequenceStep(
                 duration=excitation_duration,
                 rf_amplitude=0.5 * flip_amplitude,
-                rf_phase=0.0,
+                rf_phase=float(pulse_index * dphi),
                 substeps=max(1, sub),
                 label="catalyze_half",
             )
@@ -366,6 +376,7 @@ def run_bssfp_imaging(
         steps.append(
             MotionSequenceStep(duration=0.5 * tr, substeps=sub, label="catalyze_delay")
         )
+        pulse_index += 1
     for _ in range(int(num_dummy_tr)):
         steps.extend(
             _bssfp_tr_steps(
