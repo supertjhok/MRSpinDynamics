@@ -86,6 +86,15 @@ class TailSpec:
         return float(self.factor) * float(dominant_tau)
 
 
+def _validated_oversample(value) -> int:
+    """Return ``oversample`` as a positive integer (shared by every response)."""
+
+    count = int(value)
+    if count != value or count < 1:
+        raise ValueError("oversample must be an integer >= 1")
+    return count
+
+
 # ---------------------------------------------------------------------------
 # RF probe: envelope FFT-multiply responses
 # ---------------------------------------------------------------------------
@@ -152,9 +161,7 @@ class TunedProbeResponse(EnvelopeResponse):
     def __post_init__(self) -> None:
         if self.tau <= 0:
             raise ValueError("tau must be positive")
-        if int(self.oversample) < 1:
-            raise ValueError("oversample must be >= 1")
-        object.__setattr__(self, "oversample", int(self.oversample))
+        object.__setattr__(self, "oversample", _validated_oversample(self.oversample))
         object.__setattr__(self, "dominant_tau", float(self.tau))
 
     @classmethod
@@ -212,7 +219,7 @@ class UntunedProbeResponse(EnvelopeResponse):
     def __post_init__(self) -> None:
         if self.inductance_h <= 0 or self.resistance_ohm <= 0 or self.carrier_hz <= 0:
             raise ValueError("inductance_h, resistance_ohm, carrier_hz must be positive")
-        object.__setattr__(self, "oversample", int(self.oversample))
+        object.__setattr__(self, "oversample", _validated_oversample(self.oversample))
         z0 = self.resistance_ohm + 1j * 2.0 * pi * self.carrier_hz * self.inductance_h
         tau_c = self.inductance_h / z0  # complex effective time constant
         object.__setattr__(self, "_tau_complex", tau_c)
@@ -251,7 +258,7 @@ class MatchedProbeResponse(EnvelopeResponse):
     def __post_init__(self) -> None:
         if self.tau_main <= 0 or self.tau_extra <= 0:
             raise ValueError("tau_main and tau_extra must be positive")
-        object.__setattr__(self, "oversample", int(self.oversample))
+        object.__setattr__(self, "oversample", _validated_oversample(self.oversample))
         object.__setattr__(self, "dominant_tau", float(max(self.tau_main, self.tau_extra)))
         # Normalize so the main resonance passes unity (the extra pole otherwise
         # attenuates it): gain = value of the extra-pole factor at f = detuning.
@@ -332,7 +339,7 @@ class GradientDriverResponse:
             if not (0.0 <= alpha < 1.0):
                 raise ValueError("every eddy alpha must be in [0, 1)")
         object.__setattr__(self, "eddy_terms", tuple((float(a), float(t)) for a, t in self.eddy_terms))
-        object.__setattr__(self, "oversample", int(self.oversample))
+        object.__setattr__(self, "oversample", _validated_oversample(self.oversample))
         taus = [self.tau_rl, *(t for _a, t in self.eddy_terms)]
         object.__setattr__(self, "dominant_tau", float(max(taus)))
 

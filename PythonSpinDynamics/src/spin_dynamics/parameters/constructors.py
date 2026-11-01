@@ -511,16 +511,16 @@ def set_params_tuned_orig(
         amp_zero=1e-4,
     )
     params = TunedOrigParameters(
-        texc=pp.texc,
-        pexc=pp.pexc,
-        aexc=pp.aexc,
+        texc=pp.texc.copy(),
+        pexc=pp.pexc.copy(),
+        aexc=pp.aexc.copy(),
         trd=pp.trd,
         tref=np.array([pp.tref[1]], dtype=np.float64),
         pref=np.array([pp.pref[1]], dtype=np.float64),
         aref=np.array([pp.aref[1]], dtype=np.float64),
         tfp=pp.preDelay,
         tqs=pp.tqs,
-        tacq=pp.tacq,
+        tacq=pp.tacq.copy(),
         Rs=np.array([pp.Rsref[0], pp.Rsref[1], pp.Rsref[2]], dtype=np.float64),
         pcycle=1,
     )
@@ -605,16 +605,16 @@ def set_params_tuned_spa(
         amp_zero=1e-4,
     )
     params = TunedOrigParameters(
-        texc=pp.texc,
-        pexc=pp.pexc,
-        aexc=pp.aexc,
+        texc=pp.texc.copy(),
+        pexc=pp.pexc.copy(),
+        aexc=pp.aexc.copy(),
         trd=pp.trd,
         tref=np.array([pp.tref[1]], dtype=np.float64),
         pref=np.array([pp.pref[1]], dtype=np.float64),
         aref=np.array([pp.aref[1]], dtype=np.float64),
         tfp=pp.preDelay,
         tqs=pp.tqs,
-        tacq=pp.tacq,
+        tacq=pp.tacq.copy(),
         Rs=np.array([pp.Rsref[0], pp.Rsref[1], pp.Rsref[2]], dtype=np.float64),
         pcycle=1,
     )
@@ -791,16 +791,16 @@ def set_params_untuned_orig(
         amp_zero=1e-4,
     )
     params = UntunedOrigParameters(
-        texc=pp.texc,
-        pexc=pp.pexc,
-        aexc=pp.aexc,
+        texc=pp.texc.copy(),
+        pexc=pp.pexc.copy(),
+        aexc=pp.aexc.copy(),
         trd=pp.trd,
         tref=np.array([pp.tref[1]], dtype=np.float64),
         pref=np.array([pp.pref[1]], dtype=np.float64),
         aref=np.array([pp.aref[1]], dtype=np.float64),
         tfp=pp.preDelay,
         tqs=pp.tqs,
-        tacq=pp.tacq,
+        tacq=pp.tacq.copy(),
         Rs=np.array([pp.Rsref[0], pp.Rsref[1], pp.Rsref[2]], dtype=np.float64),
         pcycle=1,
     )
@@ -894,16 +894,16 @@ def set_params_untuned_spa(
         amp_zero=1e-4,
     )
     params = UntunedOrigParameters(
-        texc=pp.texc,
-        pexc=pp.pexc,
-        aexc=pp.aexc,
+        texc=pp.texc.copy(),
+        pexc=pp.pexc.copy(),
+        aexc=pp.aexc.copy(),
         trd=pp.trd,
         tref=np.array([pp.tref[1]], dtype=np.float64),
         pref=np.array([pp.pref[1]], dtype=np.float64),
         aref=np.array([pp.aref[1]], dtype=np.float64),
         tfp=pp.preDelay,
         tqs=pp.tqs,
-        tacq=pp.tacq,
+        tacq=pp.tacq.copy(),
         Rs=np.array([pp.Rsref[0], pp.Rsref[1], pp.Rsref[2]], dtype=np.float64),
         pcycle=1,
     )

@@ -427,7 +427,10 @@ def run_tuned_inverse_excitation_multistart(
             if float(result.best_score) > best_score:
                 best_result = result
                 best_score = float(result.best_score)
-            center = np.asarray(best_result.best_phases, dtype=np.float64)
+            # Re-centre on the best finite result so far; while every start has
+            # been non-finite, keep the phase-flipped reference centre.
+            if best_result is not None:
+                center = np.asarray(best_result.best_phases, dtype=np.float64)
         starts = np.vstack(starts_list)
         results = tuple(results_list)
 

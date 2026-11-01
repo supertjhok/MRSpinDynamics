@@ -188,6 +188,7 @@ def sar_source_from_eddy(
     *,
     duty_cycle: float = 1.0,
     conductivity: float | np.ndarray | None = None,
+    time_average: bool = True,
     name: str = "sample SAR",
 ) -> tuple[DutyCycledSource, np.ndarray]:
     """Sample SAR source and volumetric density map from an ``EddyResult``.
@@ -201,6 +202,12 @@ def sar_source_from_eddy(
     ``q_v = (1/2) Re(J) . Re(E)``-equivalent ``(1/2) J . E`` for the real
     first-order fields, so it can be omitted whenever ``eddy_result`` carries
     both ``current_density`` and ``e_field``.
+
+    ``time_average`` must match the flag ``eddy_result`` was computed with
+    (``eddy_currents(..., time_average=...)``; ``EddyResult`` does not record
+    it). The source's ``peak_power`` is always the cycle-averaged power while
+    the RF is on -- the same ``1/2`` convention as the density map -- so an
+    instantaneous-peak result (``time_average=False``, ``k = 1``) is halved.
     """
 
     if not (0.0 <= duty_cycle <= 1.0):
@@ -215,8 +222,9 @@ def sar_source_from_eddy(
     if np.any(density < -1e-30):
         raise ValueError("negative deposition density; check the eddy inputs")
     density = np.clip(density, 0.0, None) * duty_cycle
+    cycle_average_power = float(eddy_result.power) * (1.0 if time_average else 0.5)
     source = DutyCycledSource(
-        name=name, peak_power=float(eddy_result.power), duty_cycle=duty_cycle
+        name=name, peak_power=cycle_average_power, duty_cycle=duty_cycle
     )
     return source, density
 

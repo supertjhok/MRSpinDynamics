@@ -142,7 +142,9 @@ def _warn_if_magnitude_like_signal(
 
     if not nonnegative:
         return
-    real = np.real(np.asarray(signal, dtype=np.float64))
+    # Take the real part before casting: complex input (negligible imaginary
+    # part, as the solvers permit) must not trip numpy's ComplexWarning.
+    real = np.asarray(np.real(np.asarray(signal)), dtype=np.float64)
     if real.size == 0:
         return
     scale = float(np.max(np.abs(real))) or 1.0

@@ -254,11 +254,18 @@ class ThermalCoupling:
             stop = min(idx + update_every, times.size - 1)
             sources, coil_power, sample_power = self._sources(temps)
             network = self._factory(sources)
-            # Restart the network from the marched temperatures.
+            # Restart the network from the marched temperatures, keeping every
+            # source the factory assembled (including any it adds itself), so the
+            # march has the same long-time limit as :meth:`fixed_point`.
+            network_powers = {
+                node.name: float(network._power[index])
+                for index, node in enumerate(network.nodes)
+                if network._power[index] != 0.0
+            }
             network = ThermalNetwork(
                 [replace(n, initial_temperature=temps[n.name]) for n in network.nodes],
                 network.links,
-                sources,
+                network_powers,
             )
             segment = network.transient(times[idx : stop + 1])
             for name in names:

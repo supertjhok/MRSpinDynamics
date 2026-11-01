@@ -264,9 +264,15 @@ class ThermalNetwork:
 
         temps = self._initial()
         free = self._free
+        threshold = tol * max(1.0, float(np.max(self._power)), 1e-12)
+
+        def residual_at(values: np.ndarray) -> tuple[np.ndarray, bool]:
+            residual = self._net_flux(values)[free]
+            return residual, bool(np.max(np.abs(residual)) < threshold)
+
         for _ in range(max_iterations):
-            residual = self._net_flux(temps)[free]
-            if np.max(np.abs(residual)) < tol * max(1.0, float(np.max(self._power)), 1e-12):
+            residual, converged = residual_at(temps)
+            if converged:
                 break
             jac = self._jacobian(temps)[np.ix_(free, free)]
             step = np.linalg.solve(jac, -residual)
@@ -276,9 +282,16 @@ class ThermalNetwork:
             while np.any(new <= 0.0) and scale > 1e-6:
                 scale *= 0.5
                 new = temps[free] + scale * step
+            if np.any(new <= 0.0):
+                raise RuntimeError(
+                    "steady-state Newton step cannot keep temperatures positive"
+                )
             temps[free] = new
         else:
-            raise RuntimeError("steady-state Newton iteration did not converge")
+            # The final update may itself have converged; only fail if not.
+            _residual, converged = residual_at(temps)
+            if not converged:
+                raise RuntimeError("steady-state Newton iteration did not converge")
         return {n.name: float(temps[i]) for i, n in enumerate(self.nodes)}
 
     def transient(

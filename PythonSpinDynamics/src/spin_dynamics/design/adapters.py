@@ -10,6 +10,7 @@ same static planner used by ordinary experiments before utility is evaluated.
 
 from __future__ import annotations
 
+from collections import OrderedDict
 from dataclasses import dataclass, replace
 from typing import Any, Mapping, Protocol, Sequence
 
@@ -683,7 +684,10 @@ class ExperimentPredictor:
 
     Simulator outputs are cached by action and scalar particle values.  This
     matters because nested Monte Carlo utilities and posterior updates reuse
-    the same deterministic predictions.
+    the same deterministic predictions.  The cache is least-recently-used and
+    holds at most ``max_cache_entries`` observables (``None`` for unbounded),
+    so long sessions that resample particles or sweep many actions do not grow
+    memory without limit; eviction only costs a re-simulation.
     """
 
     def __init__(
@@ -692,11 +696,19 @@ class ExperimentPredictor:
         *,
         cache: bool = True,
         prefer_batch: bool = True,
+        max_cache_entries: int | None = 100_000,
     ) -> None:
+        if max_cache_entries is not None and int(max_cache_entries) < 1:
+            raise ValueError("max_cache_entries must be positive or None")
         self.adapter = adapter
         self.cache = bool(cache)
         self.prefer_batch = bool(prefer_batch)
-        self._cache: dict[tuple[str, tuple[tuple[str, float], ...]], np.ndarray] = {}
+        self.max_cache_entries = (
+            None if max_cache_entries is None else int(max_cache_entries)
+        )
+        self._cache: OrderedDict[
+            tuple[str, tuple[tuple[str, float], ...]], np.ndarray
+        ] = OrderedDict()
 
     def clear_cache(self) -> None:
         """Discard all cached simulator observables."""
@@ -759,6 +771,12 @@ class ExperimentPredictor:
                     observable = np.asarray(simulate(particles[index], design))
                 self._cache[keys[index]] = observable.copy()
         predictions = [self._cache[key] for key in keys]
+        if self.cache:
+            for key in keys:
+                self._cache.move_to_end(key)
+            if self.max_cache_entries is not None:
+                while len(self._cache) > self.max_cache_entries:
+                    self._cache.popitem(last=False)
         try:
             result = np.stack(predictions, axis=0)
         except ValueError as exc:
