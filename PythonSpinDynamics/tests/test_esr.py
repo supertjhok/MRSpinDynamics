@@ -342,6 +342,112 @@ class ESRTests(unittest.TestCase):
             delta=2e-5,
         )
 
+    def test_hyperfine_auto_field_axis_contains_all_nitroxide_14n_lines(self) -> None:
+        # Regression: the automatic span used 0.6*sum|A| and ignored I, so the
+        # outer m_I = +/-1 lines of a 14N nitroxide fell outside the axis.
+        hyperfine_hz = 45.0e6
+        microwave_frequency_hz = 9.5e9
+        system = electron_nuclear_system(
+            [hyperfine_hz],
+            nuclei=[NuclearSite("N", isotope="14N", spin=1.0, gamma_hz_per_t=3.077e6)],
+        )
+
+        result = simulate_hyperfine_field_sweep(
+            system,
+            microwave_frequency_hz,
+            broadening_hz=0.5e6,
+            points=2001,
+        )
+        spectrum = result.spectrum
+        local = np.where(
+            (spectrum[1:-1] > spectrum[:-2])
+            & (spectrum[1:-1] > spectrum[2:])
+            & (spectrum[1:-1] > 0.1 * spectrum.max())
+        )[0] + 1
+        peak_fields = np.sort(result.fields_tesla[local])
+        # Independent first-order reference: B = (nu_mw - A*m_I) / (g mu_B/h).
+        hz_per_t = BOHR_MAGNETON_HZ_PER_T * 2.00231930436256
+        expected = np.sort(
+            (microwave_frequency_hz - hyperfine_hz * np.array([-1.0, 0.0, 1.0]))
+            / hz_per_t
+        )
+
+        self.assertEqual(len(peak_fields), 3)
+        np.testing.assert_allclose(peak_fields, expected, rtol=0.0, atol=1.0e-5)
+        np.testing.assert_allclose(
+            expected, [0.33738, 0.33898, 0.34059], rtol=0.0, atol=1.0e-5
+        )
+
+    def test_hyperfine_derivative_matches_field_sweep_derivative_convention(
+        self,
+    ) -> None:
+        # Regression: derivative mode returned d/d(nu_mw) in per-hertz units,
+        # with the opposite sign to simulate_field_sweep's d/dB.
+        g = 2.0
+        hz_per_t = BOHR_MAGNETON_HZ_PER_T * g
+        microwave_frequency_hz = 9.5e9
+        broadening_hz = 2.0e6
+        center = microwave_frequency_hz / hz_per_t
+        fields = np.linspace(center - 4.0e-4, center + 4.0e-4, 401)
+        system = electron_nuclear_system(
+            [1.0],
+            nuclei=[NuclearSite("H1", gamma_hz_per_t=0.0)],
+            g_tensor=g,
+        )
+
+        hyperfine = simulate_hyperfine_field_sweep(
+            system,
+            microwave_frequency_hz,
+            broadening_hz=broadening_hz,
+            fields_tesla=fields,
+            detection_mode="derivative",
+        )
+        reference = simulate_field_sweep(
+            ESRSpinSystem(g_tensor=g),
+            microwave_frequency_hz,
+            broadening_tesla=broadening_hz / hz_per_t,
+            fields_tesla=fields,
+            detection_mode="derivative",
+        )
+        # The two nuclear states each carry the bare electron intensity, so
+        # the A -> 0 hyperfine trace is twice the bare-electron trace.
+        scale = float(np.max(np.abs(reference.spectrum)))
+        np.testing.assert_allclose(
+            hyperfine.spectrum / 2.0,
+            reference.spectrum,
+            rtol=0.0,
+            atol=1.0e-6 * scale,
+        )
+
+    def test_hyperfine_derivative_matches_numerical_field_gradient(self) -> None:
+        # A resolved doublet with nuclear Zeeman: derivative mode must equal the
+        # finite-difference field gradient of the absorption trace.
+        system = electron_nuclear_system(
+            [20.0e6],
+            nuclei=[NuclearSite("H1", gamma_hz_per_t=42.57747892e6)],
+            g_tensor=2.0,
+        )
+        microwave_frequency_hz = 9.5e9
+        center = microwave_frequency_hz / (BOHR_MAGNETON_HZ_PER_T * 2.0)
+        fields = np.linspace(center - 8.0e-4, center + 8.0e-4, 1601)
+        kwargs = dict(broadening_hz=0.5e6, fields_tesla=fields)
+
+        absorption = simulate_hyperfine_field_sweep(
+            system, microwave_frequency_hz, **kwargs
+        )
+        derivative = simulate_hyperfine_field_sweep(
+            system, microwave_frequency_hz, detection_mode="derivative", **kwargs
+        )
+        gradient = np.gradient(absorption.spectrum, fields)
+        scale = float(np.max(np.abs(gradient)))
+
+        np.testing.assert_allclose(
+            derivative.spectrum[1:-1],
+            gradient[1:-1],
+            rtol=0.0,
+            atol=2.0e-3 * scale,
+        )
+
     def test_detuned_isochromat_ensemble_rephases_at_hahn_echo_time(self) -> None:
         system = ESRSpinSystem(g_tensor=2.0)
         b0 = 0.35

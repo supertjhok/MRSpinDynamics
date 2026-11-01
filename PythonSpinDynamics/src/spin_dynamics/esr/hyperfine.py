@@ -12,7 +12,7 @@ from spin_dynamics.esr.hamiltonians import (
     effective_g_value,
     resonance_field_tesla,
 )
-from spin_dynamics.esr.lineshapes import spectrum_from_lines
+from spin_dynamics.esr.lineshapes import _is_derivative_mode, spectrum_from_lines
 from spin_dynamics.esr.systems import BOHR_MAGNETON_HZ_PER_T, ESRSpinSystem, as_g_tensor
 from spin_dynamics.nqr.operators import spin_dimension, spin_matrices, validate_spin
 
@@ -315,7 +315,15 @@ def simulate_hyperfine_field_sweep(
     detection_mode: str = "absorption",
     intensity_tolerance: float = 1e-14,
 ) -> HyperfineFieldSweepResult:
-    """Return a field-swept ESR spectrum including isotropic hyperfine coupling."""
+    """Return a field-swept ESR spectrum including isotropic hyperfine coupling.
+
+    Each transition is broadened in frequency by ``broadening_hz`` and sampled
+    at the microwave frequency. ``detection_mode="derivative"`` returns the
+    field derivative ``dS/dB`` in per-tesla units, with the same sign
+    convention as :func:`spin_dynamics.esr.spectra.simulate_field_sweep`. Each
+    line's field slope ``d(nu)/dB`` comes from the Hellmann-Feynman derivative
+    of its two levels, and its intensity is held at the local value.
+    """
 
     frequency = float(microwave_frequency_hz)
     if frequency <= 0 or not np.isfinite(frequency):
@@ -323,8 +331,11 @@ def simulate_hyperfine_field_sweep(
     broadening = float(broadening_hz)
     if broadening <= 0 or not np.isfinite(broadening):
         raise ValueError("broadening_hz must be positive and finite")
+    derivative = _is_derivative_mode(detection_mode)
     b0_direction = _unit(b0_direction_g)
     b1_direction = _unit(b1_direction_g)
+    # H is linear in B, so dH/dB is the Zeeman term for a unit field (rad/s/T).
+    zeeman_per_tesla = zeeman_hamiltonian(system, b0_direction) if derivative else None
     if fields_tesla is None:
         fields = _auto_field_axis(
             system,
@@ -353,7 +364,23 @@ def simulate_hyperfine_field_sweep(
             if intensity <= intensity_tolerance:
                 continue
             centers.append(transition.frequency_hz)
-            intensities.append(intensity)
+            if derivative:
+                # The profile derivative is taken with respect to the microwave
+                # axis: d/dB f(nu_mw - nu(B)) = -f'(nu_mw - nu) * d(nu)/dB.
+                vectors = eigensystem.eigenvectors
+                slope_hz_per_t = float(
+                    np.real(
+                        vectors[:, transition.upper].conj()
+                        @ zeeman_per_tesla
+                        @ vectors[:, transition.upper]
+                        - vectors[:, transition.lower].conj()
+                        @ zeeman_per_tesla
+                        @ vectors[:, transition.lower]
+                    )
+                ) / TAU
+                intensities.append(-intensity * slope_hz_per_t)
+            else:
+                intensities.append(intensity)
             transition_points.append(
                 HyperfineFieldPoint(
                     field_tesla=float(field),
@@ -438,9 +465,14 @@ def _auto_field_axis(
     g_eff = effective_g_value(base, b0_direction_g)
     hz_per_t = BOHR_MAGNETON_HZ_PER_T * g_eff
     if span_tesla is None:
-        hyperfine_span = float(np.sum(np.abs(system.hyperfine_hz))) / hz_per_t
+        # First-order outermost lines lie at +/- sum_k I_k |A_k|; the 1.2 margin
+        # leaves the spin-1/2 axis unchanged (0.6 * sum |A_k|).
+        nuclear_spins = np.array([nucleus.spin for nucleus in system.nuclei])
+        outer_line_offset = (
+            float(np.sum(nuclear_spins * np.abs(system.hyperfine_hz))) / hz_per_t
+        )
         broadening_span = 5.0 * broadening_hz / hz_per_t
-        half_span = max(0.6 * hyperfine_span + broadening_span, broadening_span)
+        half_span = 1.2 * outer_line_offset + broadening_span
     else:
         half_span = 0.5 * float(span_tesla)
         if half_span <= 0 or not np.isfinite(half_span):
