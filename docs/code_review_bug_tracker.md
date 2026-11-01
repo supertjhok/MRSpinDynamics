@@ -32,7 +32,7 @@ code, not run.
 | High | 0 | 0 | 13 | 0 |
 | CI / gates | 7 | 0 | 0 | 0 |
 | Medium | 1 | 0 | 43 | 1 |
-| Low | 34 | 0 | 21 | 0 |
+| Low | 28 | 0 | 27 | 0 |
 
 ## High
 
@@ -153,12 +153,12 @@ code, not run.
 | L-33 | probes | `probes/*` | `tuned_probe_lp`/`_orig` are 95% identical; `find_coil_current*` duplicated; `_field`/`_with_fields` helpers have drifted. | Open | |
 | L-34 | detection | `SQUIDMagnetometer`, `IdealFaradayCoil` | Advertise an `xp` (JAX) parameter but use boolean-mask indexing that JAX can't trace. | Open | |
 | L-35 | probes | wiring `_SOLVE_CACHE` | Unbounded cache. | Open | |
-| L-36 | fields | `fields/openems.py:1536` | The energy regex misses openEMS's padded `(- 9.50dB)` format. | Open | |
-| L-37 | fields | `fields/coils.py`, `coil_properties.py` | The two inductance models assume different turn pitch (L/(N−1) vs L/N). | Open | |
-| L-38 | fields | `nonlinear_magnetostatics._amg_linsolve_3d` | CG is used on a matrix the code itself says is non-symmetric. | Open | |
-| L-39 | fields | `HarmonicEMSolution.magnetic_flux_density` | An explicit `relative_permeability` is ignored when B is stored; B/H consistency is never checked. | Open | |
-| L-40 | fields | `fasthenry_interop.py`, FasterCap glue | Temp dirs leak; COM server not stopped on timeout; inconsistent `IsRunning`/`Quit` usage. | Open | |
-| L-41 | fields | Brauer ν(B²), `_rod_dipoles`, birdcage helpers | Logic duplicated 2–4× (the remanence drift in M-34 came from this). | Open | |
+| L-36 | fields | `fields/openems.py:1536` | The energy regex misses openEMS's padded `(- 9.50dB)` format. | Fixed | The regex accepts padded dB values (a real 32 MHz strip log now reports 0.0 dB instead of no convergence metadata). Test: `test_fullwave_validation.py::test_termination_parser_reads_padded_energy_values`. Commit `c70e936`. |
+| L-37 | fields | `fields/coils.py`, `coil_properties.py` | The two inductance models assume different turn pitch (L/(N−1) vs L/N). | Fixed | Conservative: `solenoid_field_inductance` uses the L/N pitch of `solenoid_properties` (default coil −8.5% → −2.1% vs sheet L); `coils.solenoid` keeps its documented centre-to-centre convention. Test: `test_coil_properties.py::test_currentsheet_matches_field_inductance` (tolerance 15% → 4%). Commit `c70e936`. |
+| L-38 | fields | `nonlinear_magnetostatics._amg_linsolve_3d` | CG is used on a matrix the code itself says is non-symmetric. | Fixed | Interior→boundary couplings are dropped (homogeneous Dirichlet), so the matrix is SPD; the solution is unchanged. Test: `test_scalar_potential_3d.py::LinearSolverTests::test_assembled_matrix_is_symmetric_for_cg_accelerated_amg`. Commit `c70e936`. |
+| L-39 | fields | `HarmonicEMSolution.magnetic_flux_density` | An explicit `relative_permeability` is ignored when B is stored; B/H consistency is never checked. | Fixed | Raises on an explicit permeability with stored B; `__post_init__` checks B = μ0μrH when all three maps are given. Tests: `test_harmonic_em.py::test_stored_b_rejects_an_explicit_relative_permeability`, `::test_b_and_h_must_satisfy_the_stored_constitutive_map`. Commit `c70e936`. |
+| L-40 | fields | `fasthenry_interop.py`, FasterCap glue | Temp dirs leak; COM server not stopped on timeout; inconsistent `IsRunning`/`Quit` usage. | Fixed | Shared `_com_value` for early/late binding (late-bound FasterCap raised TypeError); try/finally quit and temp cleanup. Tests: `test_coil_peec_fastercap.py::RunFasterCapWithFakeComTests`. Commit `c70e936`. |
+| L-41 | fields | Brauer ν(B²), `_rod_dipoles`, birdcage helpers | Logic duplicated 2–4× (the remanence drift in M-34 came from this). | Fixed | Shared `_brauer_nu`, rod cubature/dipole helpers and birdcage helpers; outputs are bitwise identical. Won't fix: RSP `_mu_from_h2` (a different computation). Commit `c70e936`. |
 | L-42 | optimization | `optimization/drivers.py:427-430` | AttributeError if the first inverse multistart is non-finite. | Fixed | Re-centres only once a finite best result exists. Test: `test_review_low_fixes_design_thermal.py::test_inverse_multistart_survives_non_finite_first_start`. Commit `0de0dca`. |
 | L-43 | analysis | `analysis/ilt.py:145` | Permitted complex input triggers ComplexWarning. | Fixed | Takes the real part before the float cast. Test: `::test_inversion_recovery_ilt_accepts_complex_input_without_warning`. Commit `0de0dca`. |
 | L-44 | thermal | `thermal/network.py:579-593` | `steady_state` `for/else` raises even when the last iteration converged; damping accepts T ≤ 0. | Fixed | Re-checks convergence after the final update; raises on non-positive damped Newton temperatures. Tests: `::test_steady_state_accepts_convergence_on_last_iteration`, `::test_steady_state_refuses_non_positive_newton_step`. Commit `0de0dca`. |
@@ -195,3 +195,4 @@ code, not run.
 - 2026-11-01: L-42 to L-48 (design, optimization, thermal) fixed in `0de0dca`.
 - 2026-11-01: L-21, L-23 to L-27 (NQR, DFT, database) fixed in `5cf2c2c`.
 - 2026-11-01: L-15 to L-20 and L-53 (ESR, DNP, nonresonant, constants) fixed in `6f2423a`; L-55 added.
+- 2026-11-01: L-36 to L-41 (fields) fixed in `c70e936`.
