@@ -21,6 +21,7 @@ from typing import Literal
 
 import numpy as np
 
+from spin_dynamics.core._jax_kernels import x64_enabled
 from spin_dynamics.optimal_control._jax_propagation import JAX_AVAILABLE
 from spin_dynamics.optimal_control.control_response import build_control_delivery
 
@@ -39,6 +40,7 @@ if JAX_AVAILABLE:
     )
 
 
+@x64_enabled
 def state_transfer_fidelity(psi_final, psi_target):
     """``|<target|final>|^2`` for normalized state vectors."""
 
@@ -46,6 +48,7 @@ def state_transfer_fidelity(psi_final, psi_target):
     return jnp.real(overlap * jnp.conj(overlap))
 
 
+@x64_enabled
 def average_gate_fidelity(u_final, u_target):
     """Nielsen average-gate fidelity ``(|Tr(U_target^H U_final)|^2 + d) / (d(d+1))``."""
 
@@ -57,6 +60,7 @@ def average_gate_fidelity(u_final, u_target):
 _SU2_AXIS_ANGLE_EPS = 1e-12
 
 
+@x64_enabled
 def su2_effective_axis(u):
     """Extract the effective rotation (axis, angle) of a 2x2 SU(2) unitary.
 
@@ -89,6 +93,7 @@ def su2_effective_axis(u):
     return axis, angle
 
 
+@x64_enabled
 def bloch_vector_to_ket(axis):
     """Return the spin-1/2 ket aligned with a Bloch-sphere unit vector.
 
@@ -107,6 +112,7 @@ def bloch_vector_to_ket(axis):
     )
 
 
+@x64_enabled
 def robust_ensemble_fidelity(
     fidelity_per_case,
     *,
@@ -148,6 +154,7 @@ def _require_jax() -> None:
         )
 
 
+@x64_enabled
 def make_grape_objective(
     model,
     *,
@@ -494,6 +501,7 @@ def make_grape_objective(
 
     _vg = jax.jit(jax.value_and_grad(score))
 
+    @x64_enabled
     def value_and_grad(x: np.ndarray) -> tuple[float, np.ndarray]:
         value, grad = _vg(jnp.asarray(x, dtype=jnp.float64))
         return float(value), np.asarray(grad)

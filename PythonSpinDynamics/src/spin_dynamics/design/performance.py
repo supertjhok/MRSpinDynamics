@@ -282,11 +282,16 @@ class LaplaceInformationGain:
         if self.backend == "jax":
             try:
                 import jax.numpy as jnp
+
+                from spin_dynamics.core._jax_kernels import x64_scope
             except ImportError as exc:
                 raise ImportError(
                     "backend='jax' requires the optional jax dependency"
                 ) from exc
-            eigenvalues = np.asarray(jnp.linalg.eigvalsh(jnp.asarray(covariance)))
+            with x64_scope():
+                eigenvalues = np.asarray(
+                    jnp.linalg.eigvalsh(jnp.asarray(covariance, dtype=jnp.float64))
+                )
         else:
             eigenvalues = np.linalg.eigvalsh(covariance)
         eigenvalues = np.maximum(eigenvalues, 0.0)

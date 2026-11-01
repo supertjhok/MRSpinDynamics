@@ -25,7 +25,7 @@ raise a helpful error when called. See ``docs/performance.md``.
 
 from __future__ import annotations
 
-from functools import partial
+from functools import partial, wraps
 
 import numpy as np
 
@@ -47,6 +47,25 @@ def x64_scope():
     from jax.experimental import enable_x64  # pragma: no cover - older JAX
 
     return enable_x64()  # pragma: no cover - older JAX
+
+
+def x64_enabled(func):
+    """Decorate ``func`` so every call runs inside :func:`x64_scope`.
+
+    Used on the package's JAX entry points (objective builders, the closures
+    they return, jitted propagators) so they trace and execute in
+    float64/complex128 without setting the process-wide ``jax_enable_x64``.
+    Calls are a no-op passthrough when JAX is not installed.
+    """
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        if not JAX_AVAILABLE:
+            return func(*args, **kwargs)
+        with x64_scope():
+            return func(*args, **kwargs)
+
+    return wrapper
 
 
 if JAX_AVAILABLE:

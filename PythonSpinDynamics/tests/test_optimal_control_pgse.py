@@ -208,5 +208,25 @@ class PgseObjectiveTests(unittest.TestCase):
         self.assertGreater(run.best_score, v0)
 
 
+# These tests build their own jnp inputs and call internal JAX building blocks
+# directly, so they need x64 for the whole module. The package no longer sets
+# the process-wide ``jax_enable_x64`` (L-06/L-56); scope it to this module.
+_MODULE_X64 = None
+
+
+def setUpModule() -> None:
+    global _MODULE_X64
+    from spin_dynamics.core._jax_kernels import JAX_AVAILABLE as _HAS_JAX, x64_scope
+
+    if _HAS_JAX:
+        _MODULE_X64 = x64_scope()
+        _MODULE_X64.__enter__()
+
+
+def tearDownModule() -> None:
+    if _MODULE_X64 is not None:
+        _MODULE_X64.__exit__(None, None, None)
+
+
 if __name__ == "__main__":
     unittest.main()

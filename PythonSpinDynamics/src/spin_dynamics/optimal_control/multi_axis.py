@@ -30,6 +30,7 @@ from spin_dynamics.nqr.full_dynamics import (
 )
 from spin_dynamics.nqr.hamiltonians import diagonalize_site
 from spin_dynamics.nqr.simulation import equilibrium_density
+from spin_dynamics.core._jax_kernels import x64_enabled
 from spin_dynamics.optimal_control._jax_propagation import (
     JAX_AVAILABLE,
     propagate_unitary_scan_multi_numpy,
@@ -266,6 +267,7 @@ if JAX_AVAILABLE:
         return energy
 
 
+@x64_enabled
 def make_multi_axis_slse_objective(config: MultiAxisSLSEConfig):
     """Return ``value_and_grad(x) -> (energy, grad)`` for the SLSE train energy.
 
@@ -283,6 +285,7 @@ def make_multi_axis_slse_objective(config: MultiAxisSLSEConfig):
     energy = _make_energy_fn(config)
     _vg = jax.jit(jax.value_and_grad(energy))
 
+    @x64_enabled
     def value_and_grad(x: np.ndarray) -> tuple[float, np.ndarray]:
         value, grad = _vg(jnp.asarray(x, dtype=jnp.float64))
         return float(value), np.asarray(grad, dtype=np.float64)

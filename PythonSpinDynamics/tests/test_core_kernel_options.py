@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 import sys
 import unittest
 from pathlib import Path
@@ -223,6 +224,77 @@ class MatrixExponentialTests(unittest.TestCase):
         jordan = np.array([[a, 1.0], [0.0, a]])
         expected = np.exp(a * t) * np.array([[1.0, t], [0.0, 1.0]])
         np.testing.assert_allclose(matrix_exponential(jordan, t), expected, atol=1e-14)
+
+    @staticmethod
+    def _nqr_liouvillian():
+        # Large-norm (||A||_1 ~ 8e4 after scaling by t), non-normal NQR
+        # field-relaxation Liouvillian from test_nqr_field_relaxation.
+        from spin_dynamics.nqr import (
+            FieldDependentRelaxationModel,
+            QuadrupolarSite,
+            nqr_hamiltonian,
+        )
+        from spin_dynamics.relaxation import liouville_hamiltonian
+
+        site = QuadrupolarSite(
+            spin=1.0,
+            isotope="14N",
+            quadrupole_frequency_hz=900.0e3,
+            eta=0.3,
+            gamma_hz_per_t=3.0766e6,
+        )
+        model = FieldDependentRelaxationModel(
+            temperature_kelvin=6.0e-5,
+            thermalization_time_seconds=2.0e-3,
+            dephasing_time_seconds=0.8e-3,
+        )
+        hamiltonian = nqr_hamiltonian(site, np.array([0.06, 0.03, 0.08]))
+        generator = liouville_hamiltonian(hamiltonian) + model.superoperator(hamiltonian)
+        return generator * 8.0e-3, site.dimension
+
+    @unittest.skipUnless(importlib.util.find_spec("scipy"), "scipy not installed")
+    def test_large_norm_liouvillian_matches_scipy(self) -> None:
+        from scipy.linalg import expm as scipy_expm
+
+        generator, dim = self._nqr_liouvillian()
+        reference = scipy_expm(generator)
+        result = matrix_exponential(generator, 1.0)
+        scale = np.max(np.abs(reference))
+        self.assertLess(np.max(np.abs(result - reference)) / scale, 1e-13)
+        state = np.ones(dim) / np.sqrt(dim)
+        rho = (result @ np.outer(state, state).reshape(-1, order="F")).reshape(
+            dim, dim, order="F"
+        )
+        self.assertAlmostEqual(float(np.trace(rho).real), 1.0, places=12)
+
+    @unittest.skipUnless(importlib.util.find_spec("scipy"), "scipy not installed")
+    def test_pade13_fallback_without_scipy(self) -> None:
+        from scipy.linalg import expm as scipy_expm
+
+        from spin_dynamics.core.numerics import _expm_pade13
+
+        generator, dim = self._nqr_liouvillian()
+        reference = scipy_expm(generator)
+        fallback = _expm_pade13(generator.astype(np.complex128))
+        self.assertLess(
+            np.max(np.abs(fallback - reference)) / np.max(np.abs(reference)), 5e-12
+        )
+        state = np.ones(dim) / np.sqrt(dim)
+        rho = (fallback @ np.outer(state, state).reshape(-1, order="F")).reshape(
+            dim, dim, order="F"
+        )
+        self.assertAlmostEqual(float(np.trace(rho).real), 1.0, places=11)
+        rng = np.random.default_rng(4)
+        for scale in (1e-3, 0.2, 0.9, 2.0, 5.0, 40.0):
+            matrix = scale * (rng.normal(size=(6, 6)) + 1j * rng.normal(size=(6, 6))) / 6
+            expected = scipy_expm(matrix)
+            np.testing.assert_allclose(
+                _expm_pade13(matrix), expected, rtol=0.0, atol=1e-13 * np.max(np.abs(expected))
+            )
+        jordan = np.array([[-2.0, 2.0], [0.0, -2.0]], dtype=np.complex128)
+        np.testing.assert_allclose(
+            _expm_pade13(jordan), np.exp(-2.0) * np.array([[1.0, 2.0], [0.0, 1.0]]), atol=1e-15
+        )
 
     def test_shared_with_exchange(self) -> None:
         from spin_dynamics.exchange import _matrix_exponential

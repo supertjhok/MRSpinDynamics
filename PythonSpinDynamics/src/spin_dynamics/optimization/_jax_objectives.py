@@ -12,8 +12,10 @@ critical-velocity term (`calc_v0crit`), and the windowed score. The pulse
 host-known and baked in; only the segment phases — the optimization variable —
 are traced, so the whole objective is differentiable with respect to them.
 
-x64 is enabled so the score matches the NumPy reference. Requires the optional
-``jax`` extra. See ``docs/performance.md``.
+The builder and the closure it returns run with JAX x64 enabled only for their
+own duration (``core._jax_kernels.x64_enabled``) so the score matches the NumPy
+reference without changing the process-wide ``jax_enable_x64``. Requires the
+optional ``jax`` extra. See ``docs/performance.md``.
 """
 
 from __future__ import annotations
@@ -22,12 +24,11 @@ from functools import lru_cache
 
 import numpy as np
 
+from spin_dynamics.core._jax_kernels import x64_enabled
 from spin_dynamics.parameters import set_params_ideal
 
 try:  # pragma: no cover - exercised by environment, not logic
     import jax
-
-    jax.config.update("jax_enable_x64", True)
     import jax.numpy as jnp
 
     JAX_AVAILABLE = True
@@ -127,6 +128,7 @@ def _v0crit(del_w, n0, n1, n2, alpha):
 
 
 @lru_cache(maxsize=64)
+@x64_enabled
 def make_ideal_v0crit_objective(
     num_segments: int,
     *,
@@ -184,6 +186,7 @@ def make_ideal_v0crit_objective(
 
     _vg = jax.jit(jax.value_and_grad(score))
 
+    @x64_enabled
     def value_and_grad(phases: np.ndarray) -> tuple[float, np.ndarray]:
         value, grad = _vg(jnp.asarray(phases, dtype=jnp.float64))
         return float(value), np.asarray(grad)

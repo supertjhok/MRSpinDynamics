@@ -35,6 +35,7 @@ from math import pi
 
 import numpy as np
 
+from spin_dynamics.core._jax_kernels import x64_enabled
 from spin_dynamics.optimal_control._jax_propagation import JAX_AVAILABLE
 from spin_dynamics.optimal_control.control_response import build_control_delivery
 
@@ -55,6 +56,7 @@ def _require_jax() -> None:
         )
 
 
+@x64_enabled
 def gradient_moments(gradient, dt, *, encode_end, coherence_sign=None):
     """q-vector moments of a (delivered) piecewise-constant gradient waveform.
 
@@ -83,6 +85,7 @@ def gradient_moments(gradient, dt, *, encode_end, coherence_sign=None):
     return q, q_encode, q_residual, b_value
 
 
+@x64_enabled
 def detected_echo_signal(coherences, weights, offsets_hz, *, n_acq, dt_acq):
     """Acquire the coherently-summed echo over a readout window.
 
@@ -99,6 +102,7 @@ def detected_echo_signal(coherences, weights, offsets_hz, *, n_acq, dt_acq):
     return tau, s
 
 
+@x64_enabled
 def detected_echo_snr(signal, dt_acq, *, rx_response=None, noise=1.0):
     """Matched-filter detected amplitude of an acquired echo over a noise floor.
 
@@ -117,6 +121,7 @@ def detected_echo_snr(signal, dt_acq, *, rx_response=None, noise=1.0):
     return jnp.sqrt(energy) / noise
 
 
+@x64_enabled
 def make_pgse_objective(
     *,
     drift_batch: Sequence[np.ndarray],
@@ -232,6 +237,7 @@ def make_pgse_objective(
 
     _vg = jax.jit(jax.value_and_grad(score))
 
+    @x64_enabled
     def value_and_grad(x: np.ndarray) -> tuple[float, np.ndarray]:
         value, grad = _vg(jnp.asarray(x, dtype=jnp.float64))
         return float(value), np.asarray(grad)

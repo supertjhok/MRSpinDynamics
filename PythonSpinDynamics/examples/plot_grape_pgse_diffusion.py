@@ -189,6 +189,13 @@ def _echo_amplitude_grid(amp_template_hz, phase, grad_cmd, dt, n, positions,
 
 # Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
+    if JAX_AVAILABLE:
+        import jax
+
+        # _echo_amplitude_grid builds its own jnp inputs for the low-level
+        # propagator, so the script opts in to x64 (the package no longer
+        # sets it globally).
+        jax.config.update("jax_enable_x64", True)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--segments", type=int, default=63)
     parser.add_argument("--positions", type=int, default=5)

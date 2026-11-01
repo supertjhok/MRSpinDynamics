@@ -80,6 +80,10 @@ if JAX_AVAILABLE:
         su2_effective_axis,
     )
 
+    # This script builds its own JAX objectives from the low-level propagators,
+    # so it opts in to x64 itself; the package no longer sets it globally.
+    jax.config.update("jax_enable_x64", True)
+
 TAU = 2.0 * np.pi
 PSI_UP = np.array([1.0, 0.0], dtype=np.complex128)
 PSI_X = np.array([1.0, 1.0], dtype=np.complex128) / np.sqrt(2.0)

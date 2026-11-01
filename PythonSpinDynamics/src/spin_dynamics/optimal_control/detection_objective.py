@@ -25,6 +25,7 @@ from collections.abc import Callable, Sequence
 
 import numpy as np
 
+from spin_dynamics.core._jax_kernels import x64_enabled
 from spin_dynamics.optimal_control._jax_propagation import JAX_AVAILABLE
 from spin_dynamics.optimal_control.control_response import build_control_delivery
 from spin_dynamics.optimal_control.diffusion import detected_echo_signal
@@ -65,6 +66,7 @@ def detector_noise_grid(detector, n_acq, dt_acq, *, center_hz=None) -> np.ndarra
     return n2
 
 
+@x64_enabled
 def detected_field_snr_jax(signal, dt_acq, noise_psd_grid, *, xp=None):
     """Field-referred matched-filter SNR of a baseband echo against ``N^2(f)``.
 
@@ -83,6 +85,7 @@ def detected_field_snr_jax(signal, dt_acq, noise_psd_grid, *, xp=None):
     return xp.sqrt(snr2)
 
 
+@x64_enabled
 def make_detected_snr_objective(
     *,
     drift_batch: Sequence[np.ndarray],
@@ -181,6 +184,7 @@ def make_detected_snr_objective(
 
     _vg = jax.jit(jax.value_and_grad(score))
 
+    @x64_enabled
     def value_and_grad(x: np.ndarray) -> tuple[float, np.ndarray]:
         value, grad = _vg(jnp.asarray(x, dtype=jnp.float64))
         return float(value), np.asarray(grad, dtype=np.float64)

@@ -43,10 +43,9 @@ from math import pi
 
 import numpy as np
 
-try:  # pragma: no cover - exercised by environment, not logic
-    import jax
+from spin_dynamics.core._jax_kernels import x64_enabled
 
-    jax.config.update("jax_enable_x64", True)
+try:  # pragma: no cover - exercised by environment, not logic
     import jax.numpy as jnp
     from jax import lax
 
@@ -513,6 +512,7 @@ def _uniform_dt_scalar(dt) -> float:
     )
 
 
+@x64_enabled
 def build_control_delivery(n_segments, dt, *, rf_response=None, gradient_response=None):
     """Build the commanded-to-delivered control transform for GRAPE objectives.
 
@@ -558,6 +558,7 @@ def build_control_delivery(n_segments, dt, *, rf_response=None, gradient_respons
             rf_response.transfer(freqs_fine, xp=np), dtype=jnp.complex128
         )
 
+    @x64_enabled
     def deliver(amplitude, phase, gradient):
         if rf_response is not None:
             envelope = amplitude * jnp.exp(1j * phase)

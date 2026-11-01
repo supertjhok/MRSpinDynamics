@@ -13,7 +13,12 @@ uses -- ported to ``jnp`` here so amplitude and phase become differentiable
 (traced) leaves instead of the baked-in host-side constants they are in the
 production ``core.kernels``/``core._jax_kernels`` arb10 path.
 
-x64 is enabled on import, matching every other JAX module in this package.
+The jitted propagators are wrapped with ``core._jax_kernels.x64_enabled``, so
+they trace and run in complex128 without changing the process-wide
+``jax_enable_x64`` (importing this module no longer sets it). Pass NumPy
+arrays (converted to 64-bit inside the scope) or build ``jnp`` inputs under
+``core._jax_kernels.x64_scope()`` / ``jax.enable_x64(True)``: ``jnp`` arrays
+created with x64 off are already truncated to 32 bits.
 """
 
 from __future__ import annotations
@@ -22,10 +27,10 @@ from functools import partial
 
 import numpy as np
 
+from spin_dynamics.core._jax_kernels import x64_enabled
+
 try:  # pragma: no cover - exercised by environment, not logic
     import jax
-
-    jax.config.update("jax_enable_x64", True)
     import jax.numpy as jnp
     from jax import lax
     from jax.scipy.linalg import expm as _jax_expm
@@ -367,6 +372,22 @@ if JAX_AVAILABLE:
             )
 
         return jax.vmap(one)(hx_stack_batch, hy_stack_batch)
+
+
+    # Every public jitted entry point runs inside its own x64 scope.
+    iterate_unitary = x64_enabled(iterate_unitary)
+    propagate_batched = x64_enabled(propagate_batched)
+    propagate_batched_controls = x64_enabled(propagate_batched_controls)
+    propagate_batched_grad = x64_enabled(propagate_batched_grad)
+    propagate_batched_grad_controls = x64_enabled(propagate_batched_grad_controls)
+    propagate_state_scan = x64_enabled(propagate_state_scan)
+    propagate_state_scan_grad = x64_enabled(propagate_state_scan_grad)
+    propagate_unitary_batched = x64_enabled(propagate_unitary_batched)
+    propagate_unitary_batched_grad = x64_enabled(propagate_unitary_batched_grad)
+    propagate_unitary_batched_multi = x64_enabled(propagate_unitary_batched_multi)
+    propagate_unitary_scan = x64_enabled(propagate_unitary_scan)
+    propagate_unitary_scan_grad = x64_enabled(propagate_unitary_scan_grad)
+    propagate_unitary_scan_multi = x64_enabled(propagate_unitary_scan_multi)
 
 
 def _segment_unitary_multi_numpy(h_drift, hx_stack, hy_stack, amp_vec, phase_vec, dt):
