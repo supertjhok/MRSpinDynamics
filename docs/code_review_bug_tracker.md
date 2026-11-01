@@ -171,7 +171,7 @@ code, not run.
 | L-51 | repo | `AGENTS.md`, `.gitattributes`, `tests/test_validation_gaps.py` | AGENTS.md points at a stale OneDrive copy and omits the validation-matrix check; `.gitattributes` names a missing path; 5 permanently skipped placeholder tests. | Open | |
 | L-52 | repo | `PythonSpinDynamics/docs/user_manual.pdf`, MATLAB tree, NQRDB exports | A 12 MB PDF in 129 commits (516 MiB pack); a Dropbox conflict copy and 23 paths with spaces/parentheses in MATLAB; 126 duplicate blobs across V2/V3; a `generated_at` timestamp in a tracked export. | Open | |
 | L-53 | esr | `examples/plot_esr_relaxation.py` (Hahn-echo panel) | Found while fixing M-17. The panel normalizes by the first echo at 2τ = 0.5 µs, so short-time points sit above exp(−2τ/T2) (same pattern as M-18, in example code). | Open | |
-| L-54 | workflows / fields | `fields/domain.py` docstring; `workflows/imaging.py` combine; MATLAB V3 `sim_cpmg_*_probe_img.m` | Found while fixing M-12/M-16. The `fields/domain.py` docstring still claims equality with `_default_gradient_maps` (stale for even n). Phase-encoded imaging keeps the unnormalized MATLAB-parity PAP combine. The MATLAB V3 imaging scripts still use linspace grids, so the Octave generator would reproduce the pre-M-12 fixtures. | Open | |
+| L-54 | workflows / fields | `fields/domain.py` docstring; `workflows/imaging.py` combine; MATLAB V3 `sim_cpmg_*_probe_img.m` | Found while fixing M-12/M-16. The `fields/domain.py` docstring still claims equality with `_default_gradient_maps` (stale for even n). Phase-encoded imaging keeps the unnormalized MATLAB-parity PAP combine. The MATLAB V3 imaging scripts still use linspace grids, so the Octave generator would reproduce the pre-M-12 fixtures. | Open | Partly fixed in `b7a89d8`: `SpatialDomain.normalized`/`normalized_coordinate_grids` now share `fields.domain.centered_unit_axis` with imaging. That path had still been feeding linspace grids to imaging (a real M-12 gap, caught by `test_spatial_fields.py::test_normalized_grids_match_default_gradient_maps`); new test `::test_normalized_axes_are_dft_centred`. Still open: the imaging PAP combine and the MATLAB V3 grids. |
 
 ## Change log
 
@@ -190,3 +190,4 @@ code, not run.
 - 2026-11-01: M-17 to M-19 (ESR, DNP) fixed in `c4bcf9c`; L-53 added.
 - 2026-11-01: M-28 to M-33 (experiment, detection, interference, probes) fixed in `1752cf8`.
 - 2026-11-01: M-10 to M-16 and M-44 (workflows) fixed in `89b2e01`/`f19bd50`; M-45 and L-54 added. Every Medium from the review is now closed; M-45 is new and open.
+- 2026-11-01: L-54 partly fixed in `b7a89d8` (SpatialDomain normalized grids now DFT-centred).
