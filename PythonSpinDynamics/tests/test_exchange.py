@@ -298,5 +298,39 @@ class RelaxationExchange2DTests(unittest.TestCase):
         self.assertGreater(cross_mass, 0.05 * diagonal_mass)
 
 
+class ExchangeSpectrumWindowTests(unittest.TestCase):
+    """M-02: the default window must cover off-centre offsets without aliasing."""
+
+    def test_off_centre_slow_exchange_lines_appear_at_their_offsets(self) -> None:
+        system = two_site_exchange(
+            offset_a_hz=1000.0,
+            offset_b_hz=1100.0,
+            k_ab_hz=1.0,
+            population_a=0.5,
+            t2_a_seconds=0.1,
+            t2_b_seconds=0.1,
+        )
+        frequencies, spectrum = exchange_spectrum(system)
+        self.assertGreater(frequencies.max(), 1100.0)
+        resolution = frequencies[1] - frequencies[0]
+        for offset in (1000.0, 1100.0):
+            window = np.abs(frequencies - offset) < 20.0
+            peak = frequencies[window][np.argmax(np.abs(spectrum[window]))]
+            self.assertLess(abs(peak - offset), resolution)
+        # Nothing comparable aliases into the low-frequency band.
+        low = np.abs(frequencies) < 500.0
+        self.assertLess(np.max(np.abs(spectrum[low])), 0.1 * np.max(np.abs(spectrum)))
+
+    def test_symmetric_offsets_keep_previous_default_span(self) -> None:
+        system = two_site_exchange(
+            offset_a_hz=-50.0, offset_b_hz=50.0, k_ab_hz=20.0, population_a=0.5
+        )
+        frequencies, _spectrum = exchange_spectrum(system, num_points=64)
+        span = 8.0 * 100.0 + 8.0 * 20.0 + 100.0
+        np.testing.assert_allclose(
+            frequencies, np.fft.fftshift(np.fft.fftfreq(64, d=1.0 / span))
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

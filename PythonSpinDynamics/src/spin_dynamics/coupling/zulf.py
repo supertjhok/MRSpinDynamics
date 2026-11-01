@@ -167,7 +167,9 @@ def simulate_zulf_spectrum(
     given full width at half maximum before the Fourier transform. The returned
     ``frequencies_hz`` and ``spectrum`` are ordered from negative to positive
     frequency; nuclei with positive gyromagnetic ratio appear at their positive
-    Larmor frequency.
+    Larmor frequency and negative-gamma nuclei (signed by default in
+    :func:`~spin_dynamics.coupling.multinuclear.multinuclear_system`) at the
+    corresponding negative frequency.
     """
 
     times, fid = simulate_zulf_fid(

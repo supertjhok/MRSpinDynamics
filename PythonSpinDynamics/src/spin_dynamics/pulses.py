@@ -96,17 +96,29 @@ def _as_vector(value: Any, dtype: Any = np.float64) -> np.ndarray:
     return np.asarray(value, dtype=dtype).reshape(-1)
 
 
-def quantize_phase(phi: np.ndarray | list[float], num_phases: int) -> np.ndarray:
-    """Quantize phases to the nearest evenly spaced phase state.
+def quantize_phase(
+    phi: np.ndarray | list[float],
+    num_phases: int,
+    *,
+    circular: bool = True,
+) -> np.ndarray:
+    """Quantize phases to the nearest evenly spaced phase state in ``[0, 2*pi)``.
 
-    Mirrors MATLAB `opt_pulse/quantize_phase.m`.
+    Ports MATLAB `opt_pulse/quantize_phase.m`. Phases are angles, so by default
+    the distance to each state is measured around the circle: ``2*pi`` and
+    ``-pi/2`` snap to ``0`` and ``3*pi/2``. ``circular=False`` reproduces the
+    MATLAB linear distance ``|state - phi|``, which mis-quantizes phases
+    outside (or near the top of) ``[0, 2*pi)``.
     """
 
     if int(num_phases) <= 0:
         raise ValueError("num_phases must be positive")
     phi_arr = _as_vector(phi)
     states = (2 * np.pi / int(num_phases)) * np.arange(int(num_phases), dtype=np.float64)
-    indices = np.argmin(np.abs(states[:, np.newaxis] - phi_arr[np.newaxis, :]), axis=0)
+    delta = states[:, np.newaxis] - phi_arr[np.newaxis, :]
+    if circular:
+        delta = np.angle(np.exp(1j * delta))
+    indices = np.argmin(np.abs(delta), axis=0)
     return states[indices]
 
 

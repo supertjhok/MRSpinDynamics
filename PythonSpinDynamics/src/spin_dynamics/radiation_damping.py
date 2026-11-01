@@ -248,8 +248,15 @@ class RadiationDampingSpec:
     """Settings for RD-aware arbitrary-sequence propagation.
 
     The sequence kernels use normalized time units. ``time_scale`` converts
-    physical seconds in ``probe`` to those units; for the current finite CPMG
-    workflows this is ``(pi/2) / T_90``.
+    physical seconds in ``probe`` to those units, i.e. it is *normalized units
+    per second*: ``t_normalized = t_seconds * time_scale``. For the finite CPMG
+    workflows this is ``(pi/2) / T_90``; :meth:`from_t90` builds it.
+
+    Note the opposite direction from
+    :class:`spin_dynamics.core.kernels.Arb10DiffusionParameters.time_scale`,
+    which is *seconds per normalized unit* (``2 * T_90 / pi``). The two are
+    reciprocals for the same ``T_90``; do not pass one where the other is
+    expected.
     """
 
     probe: RadiationDampingProbe
@@ -259,6 +266,25 @@ class RadiationDampingSpec:
     max_step: float | None = None
     apply_during_pulses: bool = False
     initial_feedback: complex = 0.0 + 0.0j
+
+    def __post_init__(self) -> None:
+        scale = float(self.time_scale)
+        if not np.isfinite(scale) or scale <= 0.0:
+            raise ValueError("time_scale must be finite and positive")
+
+    @classmethod
+    def from_t90(
+        cls,
+        probe: RadiationDampingProbe,
+        t90_seconds: float,
+        **kwargs: Any,
+    ) -> "RadiationDampingSpec":
+        """Return a spec whose ``time_scale`` is ``(pi/2) / t90_seconds``."""
+
+        t90 = float(t90_seconds)
+        if not np.isfinite(t90) or t90 <= 0.0:
+            raise ValueError("t90_seconds must be finite and positive")
+        return cls(probe=probe, time_scale=(np.pi / 2.0) / t90, **kwargs)
 
     @property
     def trd(self) -> float:
@@ -360,7 +386,9 @@ def initial_state_from_flip_angle(
     """Return the post-pulse normalized state for an ideal hard pulse.
 
     ``pulse_phase=0`` follows the package convention for an x-pulse, placing
-    the transverse magnetization along ``-y`` after a positive flip.
+    the transverse magnetization along ``-y`` after a positive flip. To build
+    the same pulse from a physical ``drive`` in :func:`simulate_radiation_damping`
+    use ``drive = -(omega1 / gamma) * exp(1j * pulse_phase)`` (see there).
     """
 
     theta = float(flip_angle)
@@ -461,7 +489,17 @@ def simulate_radiation_damping(
     initial_feedback: complex | None = None,
     max_step: float | None = None,
 ) -> RadiationDampingResult:
-    """Integrate the rotating-frame Bloch equations with RD back-action."""
+    """Integrate the rotating-frame Bloch equations with RD back-action.
+
+    ``drive`` is the physical transverse field ``B1 = Bx + i By`` in tesla and
+    enters as ``dM/dt = gamma M x B1`` (Bloch's sign), so a real positive drive
+    on ``+z`` magnetization tips it toward ``+y``. The package pulse-phase
+    convention (``rf_matrix_elements``, :func:`initial_state_from_flip_angle`)
+    instead treats a phase-``phi`` pulse as a positive rotation about the
+    ``phi`` axis (``+z`` to ``-y`` for ``phi = 0``). For ``gamma > 0`` that pulse
+    is ``drive = -(omega1 / gamma) * exp(1j * phi)`` with nutation rate
+    ``omega1 > 0``.
+    """
 
     time = np.asarray(time, dtype=np.float64).reshape(-1)
     if time.size < 2:

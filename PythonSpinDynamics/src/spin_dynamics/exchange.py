@@ -408,7 +408,13 @@ def exchange_spectrum(
     if num_points < 2:
         raise ValueError("num_points must be at least 2")
     offsets = system.offsets_hz
-    spread = float(np.ptp(offsets)) if offsets.size > 1 else abs(float(offsets[0]))
+    # The window is centred on zero, so it must reach the largest |offset|,
+    # not just the offset spread (an off-centre pair would otherwise alias).
+    # For offsets symmetric about zero both measures agree.
+    if offsets.size > 1:
+        spread = max(float(np.ptp(offsets)), 2.0 * float(np.max(np.abs(offsets))))
+    else:
+        spread = abs(float(offsets[0]))
     rate_scale = float(np.max(system.exchange_rates_hz)) if system.num_sites > 1 else 0.0
     if dwell_seconds is None:
         if span_hz is None:

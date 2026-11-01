@@ -12,6 +12,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from spin_dynamics.coupling.isotopes import (
     larmor_frequency_hz,
     nuclear_isotope,
+    signed_gamma_hz_per_t,
 )
 from spin_dynamics.coupling.mixed_operators import (
     dot_product_operator,
@@ -314,6 +315,59 @@ class ZulfSpectrumTests(unittest.TestCase):
                 system, r1_per_second=0.5, r2_per_second=0.5,
                 dwell_seconds=0.0, n_points=16,
             )
+
+
+class SignedGammaTests(unittest.TestCase):
+    """M-08: negative-gamma nuclei precess in the opposite sense by default."""
+
+    def test_proton_nitrogen15_levels_match_analytic_ab_formula(self) -> None:
+        b0 = 50e-6
+        j_hz = -90.0
+        system = multinuclear_system(
+            ["1H", "15N"], [[0.0, j_hz], [j_hz, 0.0]], b0
+        )
+        nu_h = nuclear_isotope("1H").gamma_hz_per_t * b0
+        nu_n = -nuclear_isotope("15N").gamma_hz_per_t * b0  # gamma(15N) < 0
+        np.testing.assert_allclose(system.larmor_hz, [nu_h, nu_n])
+        # Two-spin-1/2 AB levels for H = nu_A Iz_A + nu_B Iz_B + J I_A.I_B (Hz).
+        root = 0.5 * np.hypot(nu_h - nu_n, j_hz)
+        expected = np.sort(
+            [
+                0.5 * (nu_h + nu_n) + 0.25 * j_hz,
+                -0.5 * (nu_h + nu_n) + 0.25 * j_hz,
+                -0.25 * j_hz + root,
+                -0.25 * j_hz - root,
+            ]
+        )
+        levels = np.linalg.eigvalsh(multinuclear_hamiltonian(system)) / (2.0 * np.pi)
+        np.testing.assert_allclose(np.sort(levels), expected, atol=1e-9)
+
+    def test_magnitude_mode_and_registry_signs(self) -> None:
+        self.assertLess(signed_gamma_hz_per_t("15N"), 0.0)
+        self.assertLess(signed_gamma_hz_per_t("17O"), 0.0)
+        self.assertGreater(signed_gamma_hz_per_t("14N"), 0.0)
+        unsigned = multinuclear_system(
+            ["1H", "15N"], np.zeros((2, 2)), 1.0, signed_gamma=False
+        )
+        self.assertGreater(unsigned.gammas_hz_per_t[1], 0.0)
+        self.assertGreater(larmor_frequency_hz("15N", 1.0), 0.0)
+        self.assertLess(larmor_frequency_hz("15N", 1.0, signed=True), 0.0)
+
+    def test_negative_gamma_quadrupolar_site_rates_use_larmor_magnitude(self) -> None:
+        system = multinuclear_system(
+            ["1H", "17O"], [[0.0, 5.0], [5.0, 0.0]], 1.0
+        )
+        r1, r2 = multinuclear_quadrupolar_rates(
+            system, correlation_time_seconds=1e-9, quadrupole_coupling_hz=6.5e6
+        )
+        expected = quadrupolar_relaxation_rates(
+            6.5e6,
+            2.5,
+            1e-9,
+            larmor_angular_rad_per_s=2.0 * np.pi * nuclear_isotope("17O").gamma_hz_per_t,
+        )
+        self.assertAlmostEqual(float(r1[1]), float(expected.r1_per_second))
+        self.assertAlmostEqual(float(r2[1]), float(expected.r2_per_second))
 
 
 if __name__ == "__main__":

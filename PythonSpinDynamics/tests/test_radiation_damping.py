@@ -30,6 +30,7 @@ from spin_dynamics.radiation_damping import (
     radiation_damping_probe_from_tuned,
     radiation_damping_time,
     simulate_nmr_maser,
+    simulate_radiation_damping,
     simulate_radiation_damping_fid,
     water_proton_sample,
 )
@@ -300,6 +301,56 @@ class RadiationDampingTests(unittest.TestCase):
         self.assertLess(below.envelope[-1], below.envelope[0])
         self.assertGreater(above.envelope[-1], 1e3 * above.envelope[0])
         self.assertGreater(above.mz[-1], -0.8)
+
+
+class RadiationDampingConventionTests(unittest.TestCase):
+    """M-05 (drive sign) and M-06 (time_scale direction) conventions."""
+
+    def test_documented_drive_reproduces_package_pulse_phase_convention(self) -> None:
+        gamma = 2 * np.pi * 42.58e6
+        # Negligible feedback: fill factor and magnetization far below RD regime.
+        probe = RadiationDampingProbe(
+            gamma=gamma,
+            omega0=2 * np.pi * 400e6,
+            q=1e-6,
+            fill_factor=1e-6,
+            equilibrium_magnetization=1e-9,
+        )
+        omega1 = 2 * np.pi * 10e3
+        t90 = 0.5 * np.pi / omega1
+        for phase in (0.0, 0.7, np.pi / 2):
+            result = simulate_radiation_damping(
+                np.linspace(0.0, t90, 5),
+                probe,
+                initial_mxy=0.0,
+                initial_mz=1.0,
+                drive=-(omega1 / gamma) * np.exp(1j * phase),
+                max_step=t90 / 400,
+            )
+            mxy, mz = initial_state_from_flip_angle(np.pi / 2, pulse_phase=phase)
+            self.assertAlmostEqual(complex(result.mxy[-1]), complex(mxy), places=8)
+            self.assertAlmostEqual(float(result.mz[-1]), float(mz), places=8)
+            # Same state as the core pulse matrix (M+ = R_p0 * Mz).
+            core = rf_matrix_elements(np.array([0.0]), 1.0, np.pi / 2, phase)
+            self.assertAlmostEqual(complex(result.mxy[-1]), complex(core.R_p0[0]), places=8)
+
+    def test_spec_time_scale_is_normalized_units_per_second(self) -> None:
+        probe = RadiationDampingProbe(
+            gamma=2 * np.pi * 42.58e6,
+            omega0=2 * np.pi * 400e6,
+            q=50.0,
+            fill_factor=0.5,
+            equilibrium_magnetization=1.0,
+        )
+        t90 = 25e-6
+        spec = RadiationDampingSpec.from_t90(probe, t90, apply_during_pulses=True)
+        self.assertAlmostEqual(spec.time_scale, (np.pi / 2) / t90)
+        # Trd in normalized units equals Trd / T90 * pi/2 (90-degree pulse = pi/2).
+        self.assertAlmostEqual(spec.trd, probe.trd / t90 * (np.pi / 2))
+        self.assertTrue(spec.apply_during_pulses)
+        for bad in (0.0, -1.0, np.inf):
+            with self.assertRaises(ValueError):
+                RadiationDampingSpec(probe=probe, time_scale=bad)
 
 
 def _reference_pulsed_rd_bloch(

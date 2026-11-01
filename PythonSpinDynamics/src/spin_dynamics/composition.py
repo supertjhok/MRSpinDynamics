@@ -261,7 +261,12 @@ def _spatial_resample(
     positions = target.positions()
     trailing = data.shape[source.ndim :]
     flat_components = data.reshape((*source.shape, -1))
-    sampled = np.empty((positions.shape[0], flat_components.shape[-1]), dtype=data.dtype)
+    # Interpolated values are fractional: promote integer/bool channels to float
+    # (complex stays complex) instead of truncating them on assignment.
+    sampled = np.empty(
+        (positions.shape[0], flat_components.shape[-1]),
+        dtype=np.result_type(data.dtype, np.float64),
+    )
     for component in range(flat_components.shape[-1]):
         sampled[:, component] = dlinear_sample(
             flat_components[..., component], source.axes_m, positions

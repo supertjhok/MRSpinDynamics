@@ -1,4 +1,21 @@
-"""Reusable phase-cycle tables and signal combination helpers."""
+"""Reusable phase-cycle tables and signal combination helpers.
+
+Detection convention
+--------------------
+Receiver phases follow the coherence-order convention in which a branch
+signal of pathway ``Delta p`` carries ``exp(-1j * sum(Delta p * phi))`` when the
+*detected* quantity is ``M+ = Mx + i My`` (``<I+>``, e.g. ``trace(rho @ S+)``),
+with detection at ``p = -1``. The tables below are written for that case and
+:meth:`PhaseCycle.combine` defaults to it (``detection="m_plus"``).
+
+The arbitrary-pulse kernels in :mod:`spin_dynamics.core.kernels` acquire
+``M- = Mx - i My`` (``mvect[1]``), the complex conjugate of ``M+``. Pass
+``detection="m_minus"`` when combining those spectra: the branch weights are
+then conjugated, which selects the same pathway and returns its ``M-``
+signal. With the default weights, kernel output would select the mirror
+pathway instead. Purely real cycles (e.g. the two-step CPMG/PAP cycle) give
+identical results in both conventions.
+"""
 
 from __future__ import annotations
 
@@ -171,13 +188,28 @@ class PhaseCycle:
             dtype=np.float64,
         )
 
-    def combine(self, branch_signals: Sequence[np.ndarray | complex]) -> np.ndarray:
-        """Combine one signal per branch using receiver-weighted accumulation."""
+    def combine(
+        self,
+        branch_signals: Sequence[np.ndarray | complex],
+        *,
+        detection: str = "m_plus",
+    ) -> np.ndarray:
+        """Combine one signal per branch using receiver-weighted accumulation.
 
+        ``detection`` names the detected quantity (see the module docstring):
+        ``"m_plus"`` (default, ``<I+>``) or ``"m_minus"`` (``<I->``, what the
+        ``core.kernels`` arb10 simulators acquire), which conjugates the weights.
+        """
+
+        if detection not in ("m_plus", "m_minus"):
+            raise ValueError("detection must be 'm_plus' or 'm_minus'")
         if len(branch_signals) != self.num_steps:
             raise ValueError("branch_signals length must match phase cycle steps")
+        weights = self.branch_weights
+        if detection == "m_minus":
+            weights = np.conj(weights)
         combined = None
-        for weight, signal in zip(self.branch_weights, branch_signals):
+        for weight, signal in zip(weights, branch_signals):
             contribution = complex(weight) * np.asarray(signal)
             combined = contribution if combined is None else combined + contribution
         return np.asarray(combined)

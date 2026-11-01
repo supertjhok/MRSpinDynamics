@@ -101,3 +101,19 @@ def test_unit_conversion_handles_angular_frequency_and_temperature_offsets():
     np.testing.assert_allclose(convert_units([0.0, 100.0], "degC", "K"), [273.15, 373.15])
     with pytest.raises(ValueError, match="cannot convert"):
         convert_units([1.0], "s", "m")
+
+
+def test_resample_promotes_integer_channels_instead_of_truncating():
+    # M-09: interpolated values of an integer map are fractional; complex
+    # channels keep their imaginary part.
+    source = SpatialGrid((np.array([0.0, 1.0]),), ("x",))
+    target = SpatialGrid((np.array([0.0, 0.25, 0.5, 1.0]),), ("x",))
+    field = FieldSolutionAdapter(
+        source,
+        {"mask": np.array([0, 1]), "b1": np.array([0.0, 1.0j])},
+        {"mask": "1", "b1": "T"},
+    )
+    adapted = field.resample(target)
+    np.testing.assert_allclose(adapted.channels["mask"], [0.0, 0.25, 0.5, 1.0])
+    assert np.issubdtype(adapted.channels["mask"].dtype, np.floating)
+    np.testing.assert_allclose(adapted.channels["b1"], [0.0, 0.25j, 0.5j, 1.0j])

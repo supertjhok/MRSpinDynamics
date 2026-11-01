@@ -76,7 +76,9 @@ class Arb10DiffusionParameters(Arb10Parameters):
     ``time_scale`` is the number of physical seconds per unit of normalized
     pulse time (``2 * T_90 / pi``). It converts each normalized free-precession
     interval ``tf`` to seconds so the constant-gradient diffusion attenuation
-    is evaluated on the interval's own duration.
+    is evaluated on the interval's own duration. This is the reciprocal of
+    :attr:`spin_dynamics.radiation_damping.RadiationDampingSpec.time_scale`
+    (normalized units per second) for the same ``T_90``.
     """
 
     gamma: float
@@ -220,6 +222,8 @@ def sim_spin_dynamics_arb10(
     Mirrors MATLAB `sim_spin_dynamics_arb/sim_spin_dynamics_arb10.m`.
     `Rtot` uses MATLAB-style pulse numbering in `pul`, so `pul=1` selects the
     first Python sequence entry. Free-precession segments should have `amp=0`.
+    Acquired rows are ``M- = Mx - i My``; combine phase-cycled branches with
+    ``PhaseCycle.combine(..., detection="m_minus")``.
 
     `backend` selects the compute path: ``"numpy"`` (the reference) or
     ``"numba"`` (the JIT-compiled segment loop, requires the ``numba`` extra).

@@ -24,7 +24,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from spin_dynamics.coupling.isotopes import nuclear_isotope
+from spin_dynamics.coupling.isotopes import nuclear_isotope, signed_gamma_hz_per_t
 from spin_dynamics.coupling.mixed_operators import (
     dot_product_operator,
     embedded_operator,
@@ -97,7 +97,7 @@ class MultinuclearSpinSystem:
 
     @property
     def gammas_hz_per_t(self) -> np.ndarray:
-        """Per-site gyromagnetic ratios ``|gamma|/2pi`` in Hz/T."""
+        """Per-site gyromagnetic ratios ``gamma/2pi`` in Hz/T (signed by default)."""
 
         return np.array(
             [site.gamma_hz_per_t for site in self.sites], dtype=np.float64
@@ -137,12 +137,19 @@ def multinuclear_system(
     labels: Sequence[str] | None = None,
     spins: Sequence[float] | None = None,
     gammas_hz_per_t: Sequence[float] | None = None,
+    signed_gamma: bool = True,
 ) -> MultinuclearSpinSystem:
     """Build a validated heteronuclear system from isotope names and couplings.
 
     ``spins`` and ``gammas_hz_per_t`` default to the registry values for each
     isotope and may be overridden per site (required for nuclei not in the
-    registry). Labels default to ``"<isotope><index>"``.
+    registry). Registry gammas carry their physical sign (negative for
+    ``15N``, ``29Si``, ``17O``, ...; see
+    :data:`spin_dynamics.coupling.isotopes.NEGATIVE_GAMMA_ISOTOPES`), so
+    opposite-sign nuclei precess in opposite senses and are polarized with
+    opposite sign. ``signed_gamma=False`` uses the magnitudes instead.
+    Explicit ``gammas_hz_per_t`` are used as given. Labels default to
+    ``"<isotope><index>"``.
     """
 
     isotope_list = [str(iso) for iso in isotopes]
@@ -163,7 +170,12 @@ def multinuclear_system(
         if spin is None or gamma is None:
             entry = nuclear_isotope(isotope)
             spin = entry.spin if spin is None else spin
-            gamma = entry.gamma_hz_per_t if gamma is None else gamma
+            if gamma is None:
+                gamma = (
+                    signed_gamma_hz_per_t(isotope)
+                    if signed_gamma
+                    else entry.gamma_hz_per_t
+                )
         label = f"{isotope}{idx + 1}" if labels is None else str(labels[idx])
         sites.append(
             MultinuclearSite(
@@ -311,7 +323,7 @@ def multinuclear_quadrupolar_rates(
                 site.spin,
                 tau,
                 asymmetry=_lookup(asymmetry, site.isotope, "asymmetry"),
-                larmor_angular_rad_per_s=2.0 * np.pi * float(system.larmor_hz[idx]),
+                larmor_angular_rad_per_s=2.0 * np.pi * abs(float(system.larmor_hz[idx])),
             )
             r1[idx] = float(rates.r1_per_second)
             r2[idx] = float(rates.r2_per_second)

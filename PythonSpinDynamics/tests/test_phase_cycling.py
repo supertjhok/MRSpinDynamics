@@ -319,5 +319,66 @@ class PhaseCyclingTests(unittest.TestCase):
         self.assertEqual(result.phase_cycle.name, "pgste_stimulated_echo")
 
 
+def _kernel_stimulated_echo_branches(cycle: PhaseCycle) -> list[complex]:
+    """Ensemble-mean M- (what the arb10 kernel acquires) per ESEEM branch."""
+
+    from spin_dynamics.core.kernels import sim_spin_dynamics_arb10
+    from spin_dynamics.core.rotations import rf_matrix_elements
+
+    del_w = np.linspace(-3.0, 3.0, 2001)
+    n = del_w.size
+    w1 = 100.0  # hard pulses: offsets are 3% of the nutation rate
+    tau, mix = 20.0, 7.0
+    signals = []
+    for step in cycle.steps:
+        rtot = [
+            rf_matrix_elements(del_w, w1, 0.5 * np.pi / w1, step.pulse_phase(name))
+            for name in ("excitation_90", "store_90", "read_90")
+        ]
+        params = {
+            "tp": [0.0, tau, 0.0, mix, 0.0, tau],
+            "pul": [1, 0, 2, 0, 3, 0],
+            "amp": [1.0, 0.0, 1.0, 0.0, 1.0, 0.0],
+            "acq": [0, 0, 0, 0, 0, 1],
+            "grad": np.zeros(6),
+            "Rtot": rtot,
+            "del_w": del_w,
+            "del_wg": np.zeros(n),
+            "T1n": np.full(n, np.inf),
+            "T2n": np.full(n, np.inf),
+            "m0": np.ones(n),
+            "mth": np.ones(n),
+        }
+        signals.append(complex(np.mean(sim_spin_dynamics_arb10(params, backend="numpy")[0])))
+    return signals
+
+
+class DetectionConventionTests(unittest.TestCase):
+    """M-01: phase-cycle receiver weights vs the kernels' M- acquisition."""
+
+    def test_m_minus_detection_recovers_kernel_stimulated_echo(self) -> None:
+        # Ideal 90-tau-90-T-90 pulses give a stimulated echo of amplitude 1/2
+        # at tau after the read pulse; the cycle must keep exactly that pathway.
+        cycle = eseem_stimulated_echo_phase_cycle(4)
+        branches = _kernel_stimulated_echo_branches(cycle)
+        selected = complex(cycle.combine(branches, detection="m_minus"))
+        self.assertAlmostEqual(abs(selected), 0.5, delta=2e-3)
+        # The M+ weights applied to M- data pick the mirror pathway instead.
+        self.assertLess(abs(complex(cycle.combine(branches))), 0.05)
+
+    def test_m_minus_combination_is_conjugate_of_m_plus(self) -> None:
+        cycle = diff_stebp_phase_cycle()
+        rng = np.random.default_rng(3)
+        m_plus = rng.normal(size=(cycle.num_steps, 4)) + 1j * rng.normal(
+            size=(cycle.num_steps, 4)
+        )
+        np.testing.assert_allclose(
+            cycle.combine(list(np.conj(m_plus)), detection="m_minus"),
+            np.conj(cycle.combine(list(m_plus))),
+        )
+        with self.assertRaises(ValueError):
+            cycle.combine(list(m_plus), detection="mx")
+
+
 if __name__ == "__main__":
     unittest.main()

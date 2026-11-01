@@ -263,8 +263,13 @@ def calc_rot_axis_arba4(
 
         n = tmp.copy()
 
-    alpha = 2 * np.arccos(cs)
-    sn = np.sin(alpha / 2)
+    # (cs, n) is the unit quaternion (cos(alpha/2), sin(alpha/2) * axis).
+    # atan2 of its vector norm and scalar part is well defined even when
+    # rounding pushes |cs| above 1 (where arccos(cs) returns NaN), and
+    # dividing by that norm keeps the axis a unit vector near the identity.
+    # An exact identity keeps the MATLAB zero axis.
+    sn = np.sqrt(np.sum(n * n, axis=0))
+    alpha = 2 * np.arctan2(sn, cs)
     sn = np.where(sn == 0, zero_tol, sn)
     n[0, :] = n[0, :] / sn
     n[1, :] = n[1, :] / sn

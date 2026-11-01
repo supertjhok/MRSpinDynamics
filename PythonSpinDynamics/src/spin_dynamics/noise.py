@@ -14,7 +14,10 @@ class NoiseSpec:
     """Configuration for additive received-signal noise.
 
     `sigma` is the standard deviation of each real quadrature. Complex noise
-    therefore has expected power `2 * sigma**2` per sample.
+    therefore has expected power `2 * sigma**2` per sample. `target_snr` is
+    the ratio `rms(signal) / rms(noise)` of the added noise (the quantity
+    reported as `NoiseMetadata.realized_snr`) for both the white and probe
+    models.
     """
 
     model: str = "white"
@@ -420,7 +423,10 @@ def _resolve_white_sigma(signal: np.ndarray, spec: NoiseSpec) -> float:
         return float(spec.sigma)
     if spec.target_snr is None:
         raise ValueError("white noise requires sigma or target_snr")
-    return _rms(signal) / float(spec.target_snr)
+    # target_snr is rms(signal) / rms(noise), as in the probe model and the
+    # reported realized_snr. Complex noise has rms sqrt(2) * sigma.
+    quadratures = 2.0 if spec.complex_noise else 1.0
+    return _rms(signal) / (float(spec.target_snr) * np.sqrt(quadratures))
 
 
 def _normal_samples(

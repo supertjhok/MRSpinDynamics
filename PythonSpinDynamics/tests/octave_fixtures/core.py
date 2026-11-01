@@ -996,7 +996,9 @@ class OctaveCoreFixtureTests(OctaveFixtureBase):
         np.testing.assert_allclose(snr, snr_ref, rtol=8e-2, atol=2e-2)
     def test_quantize_phase_matches_matlab(self) -> None:
         table = np.loadtxt(FIXTURES / "pulse_quantize_phase.csv", delimiter=",")
-        actual = quantize_phase(table[:, 0], num_phases=8)
+        # The MATLAB reference uses linear distance; its 2*pi + 0.2 row maps to
+        # 7*pi/4 instead of 0, so parity is checked in the legacy mode.
+        actual = quantize_phase(table[:, 0], num_phases=8, circular=False)
         np.testing.assert_allclose(actual, table[:, 1], rtol=1e-14, atol=1e-14)
     def test_untuned_segment_adjustment_matches_matlab(self) -> None:
         table = np.loadtxt(FIXTURES / "pulse_untuned_segment_adjust.csv", delimiter=",")

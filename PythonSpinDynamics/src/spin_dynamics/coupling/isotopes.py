@@ -8,9 +8,11 @@ already owns spin-1 ``14N``, ``2H``, ... and higher-spin nuclei) with the common
 spin-1/2 nuclei so both are available through one lookup.
 
 Gyromagnetic ratios are magnitudes ``|gamma| / 2pi`` in Hz/T (Harris/IUPAC
-recommended values). A few nuclei (``15N``, ``29Si``) have negative ``gamma``;
-the stored magnitude fixes the resonance position, and code that needs the sign
-can pass ``gamma_hz_per_t`` explicitly.
+recommended values). The registry nuclei with negative ``gamma`` are listed in
+:data:`NEGATIVE_GAMMA_ISOTOPES`; :func:`signed_gamma_hz_per_t` restores the
+sign. The precession sense matters whenever nuclei of opposite sign are
+strongly coupled (the ZULF regime), so the multinuclear builders use the
+signed value by default.
 """
 
 from __future__ import annotations
@@ -43,6 +45,19 @@ NUCLEAR_ISOTOPES: dict[str, NuclearIsotope] = {
 }
 
 
+# Registry nuclei whose gyromagnetic ratio is negative (Harris/IUPAC signs).
+NEGATIVE_GAMMA_ISOTOPES: frozenset[str] = frozenset(
+    {"9Be", "15N", "17O", "25Mg", "29Si", "87Sr"}
+)
+
+
+def signed_gamma_hz_per_t(isotope: str) -> float:
+    """Return the signed ``gamma / 2pi`` in Hz/T for a registry isotope."""
+
+    magnitude = float(nuclear_isotope(isotope).gamma_hz_per_t)
+    return -magnitude if str(isotope) in NEGATIVE_GAMMA_ISOTOPES else magnitude
+
+
 def nuclear_isotope(isotope: str) -> NuclearIsotope:
     """Return the registry entry (spin and ``|gamma|/2pi``) for ``isotope``."""
 
@@ -61,16 +76,19 @@ def larmor_frequency_hz(
     b0_tesla: float,
     *,
     gamma_hz_per_t: float | None = None,
+    signed: bool = False,
 ) -> float:
     """Return the Larmor frequency ``gamma * B0`` in hertz for ``isotope``.
 
-    The magnitude comes from the registry unless ``gamma_hz_per_t`` is supplied
-    (use a signed value if the precession sense matters for your system).
+    The registry magnitude is used unless ``gamma_hz_per_t`` is supplied;
+    ``signed=True`` applies the registry sign (negative for
+    :data:`NEGATIVE_GAMMA_ISOTOPES`).
     """
 
-    gamma = (
-        nuclear_isotope(isotope).gamma_hz_per_t
-        if gamma_hz_per_t is None
-        else float(gamma_hz_per_t)
-    )
+    if gamma_hz_per_t is not None:
+        gamma = float(gamma_hz_per_t)
+    elif signed:
+        gamma = signed_gamma_hz_per_t(isotope)
+    else:
+        gamma = nuclear_isotope(isotope).gamma_hz_per_t
     return float(gamma) * float(b0_tesla)

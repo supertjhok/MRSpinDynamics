@@ -22,10 +22,12 @@ from spin_dynamics.coupling.isochromats import (
     simulate_coupled_isochromat_sequence,
 )
 from spin_dynamics.coupling.isotopes import (
+    NEGATIVE_GAMMA_ISOTOPES,
     NUCLEAR_ISOTOPES,
     SPIN_HALF_ISOTOPES,
     larmor_frequency_hz,
     nuclear_isotope,
+    signed_gamma_hz_per_t,
 )
 from spin_dynamics.coupling.j_editing import (
     JEditingFitResult,
@@ -80,6 +82,7 @@ __all__ = [
     "JEditingFitResult",
     "MultinuclearSite",
     "MultinuclearSpinSystem",
+    "NEGATIVE_GAMMA_ISOTOPES",
     "NUCLEAR_ISOTOPES",
     "SLICSpectrumResult",
     "SPIN_HALF_ISOTOPES",
@@ -112,6 +115,7 @@ __all__ = [
     "rf_hamiltonian",
     "rf_step",
     "secular_j_hamiltonian",
+    "signed_gamma_hz_per_t",
     "simulate_coupled_isochromat_sequence",
     "simulate_slic_spectrum",
     "simulate_zulf_fid",
