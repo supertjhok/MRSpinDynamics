@@ -31,7 +31,7 @@ code, not run.
 |---|---:|---:|---:|---:|
 | High | 0 | 0 | 13 | 0 |
 | CI / gates | 7 | 0 | 0 | 0 |
-| Medium | 44 | 0 | 0 | 0 |
+| Medium | 38 | 0 | 6 | 0 |
 | Low | 51 | 0 | 1 | 0 |
 
 ## High
@@ -105,12 +105,12 @@ code, not run.
 | M-35 | fields | `fields/magnetostatics.py:556`, `coils.planar_spiral` | `circular_loop(axis="y")` is left-handed, so `solenoid(axis="y")` points along −y and `maxwell_pair(axis="y")` has the wrong gradient sign. | Repro | Open | |
 | M-36 | fields | `fields/openems.py:1353,1867` | Multi-frequency dumps are normalized by port quantities computed only at `settings.frequency_hz`. | Reading | Open | |
 | M-37 | fields | `fasthenry_interop.py:101-104,181` | FastHenry results are labelled with the caller's `freqs`, not its log-spaced `.freq` sweep. | Reading | Open | |
-| M-38 | optimal_control | `optimal_control/multi_axis.py:70,112` | The `_built` cache is an init field, so `dataclasses.replace` shares stale operators. | Repro | Open | |
-| M-39 | optimization | `optimization/_bounded.py:194-201,272-280` | Bounds are silently ignored by BFGS/CG and `result.x` isn't checked, so GRAPE can exceed `amplitude_max_hz`. | Repro | Open | |
-| M-40 | optimal_control | `optimal_control/objectives.py:235`, `_jax_propagation.py:152` | With a gradient channel, `eigh` propagation is forced, and its gradient is NaN for a zero segment Hamiltonian (amplitude 0 at the position-0 member). | Reading | Open | |
-| M-41 | thermal | `thermal/conduction.py:143-157` | Grids starting at r=0 aren't rejected (divide by zero), and the sphere cell volume `r²dr` isn't exact, contradicting the "exact / conserves energy" docstring. | Repro | Open | |
-| M-42 | optimal_control | `optimal_control/solvers.py:685-686`, `objectives.py:410` | `best_fidelity`/`initial_fidelity` include the smoothness penalty, and `initial_fidelity` is evaluated at the unclipped `x0`. | Reading | Open | |
-| M-43 | optimal_control | `detection_objective.py` (`per_rf_power`), `diffusion.gradient_moments` | Non-uniform `dt` is mishandled: a non-scalar power term, and `cumsum(g)*dt` instead of `cumsum(g*dt)`. | Reading | Open | |
+| M-38 | optimal_control | `optimal_control/multi_axis.py:70,112` | The `_built` cache is an init field, so `dataclasses.replace` shares stale operators. | Repro | Fixed | `_built` is now `field(default_factory=dict, init=False)`, so `replace()` gets a fresh cache. Test: `test_optimal_control_review_fixes.py::MultiAxisCacheTests::test_replace_rebuilds_operators`. Commit `41f0bd6`. |
+| M-39 | optimization | `optimization/_bounded.py:194-201,272-280` | Bounds are silently ignored by BFGS/CG and `result.x` isn't checked, so GRAPE can exceed `amplitude_max_hz`. | Repro | Fixed | Named SciPy methods that ignore bounds (BFGS, CG, ...) now raise; results are always projected onto the box and rescored. Test: `test_bounded_optimizer.py::BoundsEnforcementTests`. Commit `41f0bd6`. |
+| M-40 | optimal_control | `optimal_control/objectives.py:235`, `_jax_propagation.py:152` | With a gradient channel, `eigh` propagation is forced, and its gradient is NaN for a zero segment Hamiltonian (amplitude 0 at the position-0 member). | Reading | Fixed | Confirmed with JAX (NaN gradients at the amplitude-0 bound and in the zero RF tail). `propagator="expm"` is now allowed with a gradient channel and in gate mode, threaded through every batched path; the default stays `eigh`, and the docstring says when to use `expm`. Test: `test_optimal_control_review_fixes.py::GradientChannelExpmTests` (finite differences). Commit `41f0bd6`. |
+| M-41 | thermal | `thermal/conduction.py:143-157` | Grids starting at r=0 aren't rejected (divide by zero), and the sphere cell volume `r²dr` isn't exact, contradicting the "exact / conserves energy" docstring. | Repro | Fixed | Radial grids whose first centre is below dr/2 are rejected; cell volumes use the exact shell formula; the docstring claim is corrected (energy-conserving, O(dr²)). Tests: `test_thermal.py::TestConduction1D::test_radial_grid_starting_at_axis_is_rejected`, `::test_radial_cell_volumes_are_exact`, `::test_sphere_steady_profile_and_energy_balance`. Commit `41f0bd6`. |
+| M-42 | optimal_control | `optimal_control/solvers.py:685-686`, `objectives.py:410` | `best_fidelity`/`initial_fidelity` include the smoothness penalty, and `initial_fidelity` is evaluated at the unclipped `x0`. | Reading | Fixed | Conservative: `best_fidelity`/`initial_fidelity` keep their (penalized-score) meaning, now documented; new `best_unpenalized_fidelity`/`initial_unpenalized_fidelity`. `x0` is clipped before the initial evaluation. Test: `test_optimal_control_review_fixes.py::UnpenalizedFidelityTests`. Commit `41f0bd6`. |
+| M-43 | optimal_control | `detection_objective.py` (`per_rf_power`), `diffusion.gradient_moments` | Non-uniform `dt` is mishandled: a non-scalar power term, and `cumsum(g)*dt` instead of `cumsum(g*dt)`. | Reading | Fixed | Confirmed (q = [1,6,1,0] vs the correct [1,4,3,0]). `gradient_moments` uses `cumsum(g·s·dt)` and `Σq²dt`; `detection_objective` uses `Σa²dt`; scalar `dt` is unchanged. Test: `test_optimal_control_review_fixes.py::NonUniformDtTests`. Commit `41f0bd6`. |
 | M-44 | workflows | `workflows/cpmg.py` `_calc_tuned_pulse_shape` | Found while fixing H-01. Each tuned pulse shape is max-normalized, and the corrected transient has a gate-on overshoot that depends on the absolute RF phase (peak 11.7 vs 13.7 against a steady 7.95). So the absolute pulse amplitude changes by about 15% with RF frequency/phase, and the π-step vs baseline echo ratio is 1.21, not 1. Normalizing by the steady-state amplitude would likely be the right reference. | Repro | Open | |
 
 ## Low
@@ -180,3 +180,4 @@ code, not run.
 - 2026-11-01: H-02 (radiation damping during pulses) fixed in `c215ed5`.
 - 2026-11-01: H-01 (tuned-probe transient) fixed in `1263cee` and H-09 (pipeline refocusing axis) in `c985409`; M-44 added (found during H-01). All High items closed.
 - 2026-11-01: Frozen NQR mail-screening study re-pinned to the corrected database (none of its materials use the changed rows).
+- 2026-11-01: M-38 to M-43 (optimization, GRAPE, thermal) fixed in `41f0bd6`.
