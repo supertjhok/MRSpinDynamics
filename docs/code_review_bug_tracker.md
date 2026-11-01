@@ -208,3 +208,4 @@ code, not run.
 - 2026-11-01: L-55 completed (`1744aa8`, `aeb7d41`, `b9c5da1`), L-56 and L-58 fixed in `2a61aea`, L-57 fixed in `b9c5da1`; L-32 follow-up (shared receiver-noise model, MATLAB rx) in `3d2c35d`. No items remain open.
 - 2026-11-01: G-08 (pre-existing py3.10 API-reference CI failure) added and fixed.
 - 2026-11-01: M-14 default switched to `"cpmg"` and L-52 mitigated (manual figures as palette PNGs, PDF 12.5 → 6.2 MB) in `b165e28`.
+- 2026-11-01: L-58 test follow-up: CI full-validation runners leave a 7.1e-13 trace error from SciPy's expm (CPU-dependent BLAS rounding), so the trace check moved from places=12 to delta=2e-12 (regression was 1.07e-11) in `a9144d2`. CI also confirmed G-08 (py3.10 smoke passes).
