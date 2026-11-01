@@ -8,13 +8,14 @@ from typing import Any
 import numpy as np
 
 from spin_dynamics.core.numerics import trapezoid
-from spin_dynamics.core.rotations import calc_rot_axis_arba4
 import spin_dynamics.optimization.drivers as drivers
 from spin_dynamics.optimization.results import (
     PulseProgram,
     SelectedOptimizationProgram,
     select_matlab_result_program,
 )
+from spin_dynamics.parameters import set_params_tuned_spa
+from spin_dynamics.probes.tuned import calc_rot_axis_tuned_probe_lp_orig2
 
 
 @dataclass(frozen=True)
@@ -117,34 +118,51 @@ def _result_at_pulse_number(refocusing: Any, pulse_number: int | None) -> Any:
     return results[index]
 
 
-def _axis_from_evaluation(
-    evaluation: Any,
+def _tuned_refocusing_axis(
+    times_t180: np.ndarray,
+    phases: np.ndarray,
+    amplitudes: np.ndarray,
     *,
-    numpts: int | None,
-) -> tuple[np.ndarray, np.ndarray] | None:
-    neff = getattr(evaluation, "neff", None)
-    if neff is None:
-        return None
-    neff_arr = np.asarray(neff, dtype=np.complex128)
-    if neff_arr.ndim != 2 or neff_arr.shape[0] != 3:
-        raise ValueError("refocusing evaluation neff must have shape (3, numpts)")
-    if numpts is not None and neff_arr.shape[1] != int(numpts):
-        raise ValueError("refocusing evaluation neff does not match requested numpts")
-    del_w = getattr(evaluation, "del_w", None)
-    if del_w is None:
-        del_w_arr = np.linspace(-10.0, 10.0, neff_arr.shape[1])
-    else:
-        del_w_arr = np.asarray(del_w, dtype=np.float64).reshape(-1)
-    if del_w_arr.shape != (neff_arr.shape[1],):
-        raise ValueError("refocusing evaluation del_w must have shape (numpts,)")
-    return del_w_arr, neff_arr
+    numpts: int,
+    free_precession_t180: float | None,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Tuned-probe refocusing-cycle axis, as MATLAB `opt_exc_pulse_tuned_repeat.m`.
+
+    The refocusing segments are played through the tuned SPA probe model with
+    the ``tfp`` free precession before and after the pulse
+    (:func:`spin_dynamics.probes.tuned.calc_rot_axis_tuned_probe_lp_orig2`), so
+    the axis includes the probe transient and the free precession exactly as
+    the tuned refocusing evaluator and the tuned excitation evaluator see it.
+    ``free_precession_t180=None`` uses the tuned SPA default ``tfp``.
+    """
+
+    params, sp, pp = set_params_tuned_spa(numpts=int(numpts))
+    tfp = (
+        float(params.tfp)
+        if free_precession_t180 is None
+        else float(free_precession_t180) * float(pp.T_180)
+    )
+    if not np.isfinite(tfp) or tfp < float(params.tqs):
+        raise ValueError(
+            "refocusing free precession must be finite and at least the Q-switch delay"
+        )
+    params = params.__class__(
+        **{
+            **params.__dict__,
+            "tref": np.asarray(times_t180, dtype=np.float64) * float(pp.T_180),
+            "pref": np.asarray(phases, dtype=np.float64),
+            "aref": np.asarray(amplitudes, dtype=np.float64),
+            "tfp": tfp,
+        }
+    )
+    neff = calc_rot_axis_tuned_probe_lp_orig2(params, sp, pp)
+    return np.asarray(sp.del_w, dtype=np.float64).copy(), np.asarray(neff)
 
 
 def _axis_from_program(
     program: PulseProgram,
     *,
     numpts: int,
-    maxoffs: float,
     times_are_t180: bool,
 ) -> tuple[np.ndarray, np.ndarray]:
     times = np.asarray(program.times, dtype=np.float64).reshape(-1)
@@ -154,10 +172,28 @@ def _axis_from_program(
         raise ValueError("refocusing pulse program arrays must have matching lengths")
     if times.size == 0:
         raise ValueError("refocusing pulse program must not be empty")
-    del_w = np.linspace(-float(maxoffs), float(maxoffs), int(numpts))
-    normalized_times = np.pi * times if times_are_t180 else times
-    neff, _alpha = calc_rot_axis_arba4(normalized_times, phases, amplitudes, del_w)
-    return del_w, neff
+    times_t180 = times if times_are_t180 else times / np.pi
+    # MATLAB-style refocusing cells store the cycle as [tfp, pulse..., tfp]
+    # with zero amplitude on the free-precession padding. Strip that padding
+    # and pass it as the tuned-probe tfp; cells without padding use the
+    # tuned SPA default free precession.
+    free_precession_t180 = None
+    if times.size >= 3 and amplitudes[0] == 0.0 and amplitudes[-1] == 0.0:
+        if not np.isclose(times_t180[0], times_t180[-1]):
+            raise ValueError(
+                "refocusing cell free-precession padding must be symmetric"
+            )
+        free_precession_t180 = float(times_t180[0])
+        times_t180 = times_t180[1:-1]
+        phases = phases[1:-1]
+        amplitudes = amplitudes[1:-1]
+    return _tuned_refocusing_axis(
+        times_t180,
+        phases,
+        amplitudes,
+        numpts=numpts,
+        free_precession_t180=free_precession_t180,
+    )
 
 
 def _resolve_refocusing_axis(
@@ -165,34 +201,27 @@ def _resolve_refocusing_axis(
     *,
     pulse_number: int | None,
     numpts: int,
-    maxoffs: float,
     result_times_are_t180: bool,
 ) -> tuple[np.ndarray, np.ndarray, SelectedOptimizationProgram | None]:
     if hasattr(refocusing, "best_result") and hasattr(refocusing, "results"):
         result = _result_at_pulse_number(refocusing, pulse_number)
-        evaluation_axis = _axis_from_evaluation(
-            getattr(result, "best_evaluation", None),
-            numpts=numpts,
-        )
-        if evaluation_axis is not None:
-            del_w, neff = evaluation_axis
-            return del_w, neff, None
         phases = np.asarray(getattr(result, "best_phases"), dtype=np.float64).reshape(-1)
+        if phases.size == 0:
+            raise ValueError("refocusing result phases must not be empty")
         evaluation = getattr(result, "best_evaluation", None)
         pulse_length = getattr(evaluation, "pulse_length_t180", None)
         segment_fraction = (
             0.1 if pulse_length is None else float(pulse_length) / phases.size
         )
-        program = PulseProgram(
-            times=segment_fraction * np.ones(phases.size, dtype=np.float64),
-            phases=phases,
-            amplitudes=np.ones(phases.size, dtype=np.float64),
-        )
-        del_w, neff = _axis_from_program(
-            program,
+        # A stored evaluation axis (e.g. an ideal-probe v0crit ``neff``) is not
+        # the axis the tuned excitation evaluator sees; always recompute it
+        # through the tuned probe with the tuned SPA free precession.
+        del_w, neff = _tuned_refocusing_axis(
+            segment_fraction * np.ones(phases.size, dtype=np.float64),
+            phases,
+            np.ones(phases.size, dtype=np.float64),
             numpts=numpts,
-            maxoffs=maxoffs,
-            times_are_t180=True,
+            free_precession_t180=None,
         )
         return del_w, neff, None
 
@@ -202,7 +231,6 @@ def _resolve_refocusing_axis(
     del_w, neff = _axis_from_program(
         selected.refocusing,
         numpts=numpts,
-        maxoffs=maxoffs,
         times_are_t180=result_times_are_t180,
     )
     return del_w, neff, selected
@@ -229,7 +257,7 @@ def run_tuned_excitation_inverse_pipeline(
     inverse_starts: int = 4,
     seed: int | None = None,
     numpts: int = 21,
-    maxoffs: float = 10.0,
+    maxoffs: float | None = None,
     result_times_are_t180: bool = True,
     random_fraction: float = 0.3,
     excitation_kwargs: dict[str, Any] | None = None,
@@ -242,13 +270,34 @@ def run_tuned_excitation_inverse_pipeline(
     `opt_exc_pulse_tuned_repeat.m`: select a refocusing pulse, derive its
     effective axis, optimize a target excitation pulse, then run the
     phase-flipped inverse-excitation multi-start search.
+
+    The refocusing axis ``neff`` is always the tuned-probe axis of the selected
+    refocusing cycle (:func:`~spin_dynamics.probes.tuned.calc_rot_axis_tuned_probe_lp_orig2`):
+    the pulse segments are played through the tuned SPA probe model with the
+    ``tfp`` free precession before and after, as MATLAB does. MATLAB-style
+    cells supply ``tfp`` from their zero-amplitude ``[tfp, pulse, tfp]``
+    padding (in T180 units when ``result_times_are_t180``, otherwise in
+    ``w1 = 1`` normalized time); Python results and unpadded cells use the
+    tuned SPA default. A stored evaluation ``neff`` (e.g. an ideal-probe
+    v0crit axis) is not reused.
+
+    The axis and the tuned excitation evaluators share the fixed tuned SPA
+    offset grid (``maxoffs = 10``). ``maxoffs`` is accepted only as a
+    consistency check against that grid; any other value raises
+    ``ValueError`` rather than silently misaligning the axis and the spectra.
     """
 
+    if maxoffs is not None:
+        _params, tuned_sp, _pp = set_params_tuned_spa(numpts=int(numpts))
+        if not np.isclose(float(maxoffs), float(tuned_sp.maxoffs)):
+            raise ValueError(
+                "maxoffs must match the tuned excitation evaluator offset grid "
+                f"(maxoffs={float(tuned_sp.maxoffs):g}); got {float(maxoffs):g}"
+            )
     del_w, neff, selected = _resolve_refocusing_axis(
         refocusing,
         pulse_number=pulse_number,
         numpts=numpts,
-        maxoffs=maxoffs,
         result_times_are_t180=result_times_are_t180,
     )
     actual_numpts = int(neff.shape[1])

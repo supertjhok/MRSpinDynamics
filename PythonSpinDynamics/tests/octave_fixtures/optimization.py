@@ -1414,12 +1414,31 @@ class OctaveOptimizationFixtureTests(OctaveFixtureBase):
             pair.inverse.selected_program.excitation.phases,
             [3.3, 3.4],
         )
-    def test_tuned_excitation_inverse_pipeline_uses_refocusing_neff(self) -> None:
+    def test_tuned_excitation_inverse_pipeline_recomputes_tuned_refocusing_neff(
+        self,
+    ) -> None:
+        # The stored ideal-probe evaluation axis must not be reused: the tuned
+        # excitation workflow (MATLAB opt_exc_pulse_tuned_repeat.m) derives
+        # neff through the tuned probe with tfp free precession on the tuned
+        # SPA offset grid.
+        from spin_dynamics.probes.tuned import calc_rot_axis_tuned_probe_lp_orig2
+
         original_exc = pipeline_module.drivers.run_tuned_excitation_multistart
         original_inv = pipeline_module.drivers.run_tuned_inverse_excitation_multistart
-        del_w = np.linspace(-1.0, 1.0, 5)
-        neff = np.zeros((3, 5), dtype=np.complex128)
-        neff[0, :] = 1.0
+        stored_neff = np.zeros((3, 5), dtype=np.complex128)
+        stored_neff[0, :] = 1.0
+        params, sp, pp = set_params_tuned_spa(numpts=5)
+        params = params.__class__(
+            **{
+                **params.__dict__,
+                "tref": 0.1 * pp.T_180 * np.ones(2),
+                "pref": np.array([0.1, 0.2]),
+                "aref": np.ones(2),
+            }
+        )
+        neff = calc_rot_axis_tuned_probe_lp_orig2(params, sp, pp)
+        del_w = sp.del_w
+        self.assertGreater(np.max(np.abs(neff - stored_neff)), 0.1)
         refocusing = SimpleNamespace(
             pulse_kind="refocusing",
             probe="ideal_v0crit",
@@ -1427,7 +1446,9 @@ class OctaveOptimizationFixtureTests(OctaveFixtureBase):
                 SimpleNamespace(
                     best_score=1.0,
                     best_phases=np.array([0.1, 0.2]),
-                    best_evaluation=SimpleNamespace(del_w=del_w, neff=neff),
+                    best_evaluation=SimpleNamespace(
+                        del_w=np.linspace(-1.0, 1.0, 5), neff=stored_neff
+                    ),
                 ),
             ),
             best_index=0,
@@ -1562,7 +1583,6 @@ class OctaveOptimizationFixtureTests(OctaveFixtureBase):
                 cells,
                 excitation_segments=1,
                 numpts=7,
-                maxoffs=2.0,
             )
         finally:
             pipeline_module.drivers.run_tuned_excitation_multistart = original_exc
@@ -1572,9 +1592,15 @@ class OctaveOptimizationFixtureTests(OctaveFixtureBase):
 
         self.assertIsNotNone(result.selected_refocusing)
         self.assertEqual(result.selected_refocusing.pulse_number, 1)
-        np.testing.assert_allclose(result.del_w, np.linspace(-2.0, 2.0, 7))
+        # The axis lives on the tuned SPA grid shared with the excitation
+        # evaluator, not on a caller-chosen maxoffs grid.
+        np.testing.assert_allclose(result.del_w, np.linspace(-10.0, 10.0, 7))
         self.assertEqual(result.neff.shape, (3, 7))
         self.assertEqual(result.residual_best_ratio, 0.0)
+        with self.assertRaises(ValueError):
+            run_tuned_excitation_inverse_pipeline(
+                cells, excitation_segments=1, numpts=7, maxoffs=2.0
+            )
     def test_tuned_excitation_multistart_forwards_neff_and_selects_best(self) -> None:
         original = driver_module.excitation_module.optimize_tuned_excitation_phases
         calls = []

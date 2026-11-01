@@ -111,7 +111,11 @@ def main() -> None:
         "--maxoffs",
         type=float,
         default=10.0,
-        help="Normalized offset half-width for reconstructing cell-based axes.",
+        help=(
+            "Normalized offset half-width of the ideal refocusing search. The "
+            "excitation pipeline recomputes the tuned-probe axis on the fixed "
+            "tuned SPA grid."
+        ),
     )
     parser.add_argument(
         "--free-precession",
@@ -148,7 +152,6 @@ def main() -> None:
         inverse_starts=args.inverse_starts,
         seed=args.seed + 100,
         numpts=args.numpts,
-        maxoffs=args.maxoffs,
         excitation_kwargs={
             "max_passes": args.max_passes,
             "initial_step": args.initial_step,
