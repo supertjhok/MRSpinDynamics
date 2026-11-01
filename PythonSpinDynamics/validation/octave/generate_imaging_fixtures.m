@@ -176,8 +176,8 @@ function [echo_int_all] = sim_cpmg_matched_probe_img_rect(params)
     Tgradn = (pi / 2) * Tgrad / T_90;
     wxmax = pi * px^2 / (2 * FOV(1) * Tgradn);
     wzmax = pi * pz^2 / (2 * FOV(2) * Tgradn);
-    gradx = wxmax * linspace(-1, 1, px);
-    gradz = wzmax * linspace(-1, 1, pz);
+    gradx = wxmax * ((0:px-1) - floor(px / 2)) / max((px - 1) / 2, 1);
+    gradz = wzmax * ((0:pz-1) - floor(pz / 2)) / max((pz - 1) / 2, 1);
 
     echo_int_all = zeros(px, pz, NE);
     for ii = 1:px

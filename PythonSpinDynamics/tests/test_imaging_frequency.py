@@ -278,6 +278,23 @@ class FrequencyEncodedImagingTests(unittest.TestCase):
         ratio = abs(spread_run.kspace[10, last, 0]) / abs(plain.kspace[10, last, 0])
         self.assertGreater(ratio, 0.8)
 
+    def test_unused_gamma_is_deprecated_and_has_no_effect(self) -> None:
+        # L-08: the encoding is set by fov and timing, so gamma was silently
+        # ignored. Passing it now warns, and the result is unchanged.
+        import warnings
+
+        rho = np.zeros((4, 4))
+        rho[1, 2] = 1.0
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            plain = run_spin_warp_imaging(rho)
+        with self.assertWarns(DeprecationWarning):
+            proton = run_spin_warp_imaging(rho, gamma=2.675e8)
+        with self.assertWarns(DeprecationWarning):
+            fluorine = run_rare_imaging(rho, gamma=2.518e8)
+        np.testing.assert_array_equal(proton.kspace, plain.kspace)
+        np.testing.assert_array_equal(fluorine.kspace, run_rare_imaging(rho).kspace)
+
     def test_spin_echo_refocuses_on_the_k0_sample_every_echo(self) -> None:
         # Regression (M-10): the spin echo fell one dwell before the k=0 sample
         # (index px//2), and for an echo train the k=0 sample sat off the CPMG

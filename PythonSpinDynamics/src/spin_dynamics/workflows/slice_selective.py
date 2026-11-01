@@ -31,12 +31,36 @@ from spin_dynamics.sequences.motion import MotionSequenceStep, run_motion_sequen
 Window = str  # "hamming" | "hanning" | "none"
 
 
+def resolve_time_bandwidth(
+    time_bandwidth: float = 4.0,
+    time_bandwidth_product: float | None = None,
+) -> float:
+    """Return the module's ``time_bandwidth`` parameter from either spelling.
+
+    ``time_bandwidth`` is this module's historical parameter: the sinc argument
+    spans ``[-time_bandwidth, time_bandwidth]``, so the pulse has
+    ``2 * time_bandwidth`` zero crossings and a conventional time-bandwidth
+    product (duration times excited bandwidth) of ``2 * time_bandwidth``. Its
+    meaning is unchanged. ``time_bandwidth_product`` is the conventional TBW;
+    when given it takes precedence and maps to ``time_bandwidth_product / 2``.
+    """
+
+    if time_bandwidth_product is None:
+        return float(time_bandwidth)
+    product = float(time_bandwidth_product)
+    if not np.isfinite(product) or product <= 0.0:
+        raise ValueError("time_bandwidth_product must be finite and positive")
+    return 0.5 * product
+
+
 def _windowed_sinc(num_samples: int, time_bandwidth: float, window: Window) -> np.ndarray:
     """Return a symmetric windowed-sinc envelope of unit peak.
 
-    ``time_bandwidth`` (the time-bandwidth product) sets how many sinc lobes fall
-    inside the pulse: the normalized argument spans ``[-time_bandwidth,
-    time_bandwidth]`` so the envelope has ``2 * time_bandwidth`` zero crossings.
+    ``time_bandwidth`` sets how many sinc lobes fall inside the pulse: the
+    normalized argument spans ``[-time_bandwidth, time_bandwidth]`` so the
+    envelope has ``2 * time_bandwidth`` zero crossings, i.e. a conventional
+    time-bandwidth product of ``2 * time_bandwidth`` (see
+    :func:`resolve_time_bandwidth`).
     """
 
     n = int(num_samples)
@@ -66,6 +90,7 @@ def make_slice_selective_excitation(
     slice_axis: int = 0,
     ndim: int = 2,
     time_bandwidth: float = 4.0,
+    time_bandwidth_product: float | None = None,
     num_substeps: int = 48,
     phase: float = 0.0,
     window: Window = "hamming",
@@ -81,10 +106,16 @@ def make_slice_selective_excitation(
     gradient lobe of duration ``rephase_fraction * duration`` and reversed
     polarity rephases the slice (half-area refocusing for a symmetric pulse).
 
+    ``time_bandwidth`` keeps its historical meaning (half the conventional
+    time-bandwidth product); pass ``time_bandwidth_product`` to give the
+    conventional TBW instead (see :func:`resolve_time_bandwidth`).
+
     ``slice_gradient`` is the gradient amplitude in engine units (rad/s per unit
     position along ``slice_axis``); the excited slice is centered where
     ``slice_gradient * position == 0``.
     """
+
+    time_bandwidth = resolve_time_bandwidth(time_bandwidth, time_bandwidth_product)
 
     if duration <= 0.0:
         raise ValueError("duration must be positive")
@@ -195,6 +226,7 @@ def slice_excitation_weights(
     center: float = 0.0,
     flip_angle: float = np.pi / 2,
     time_bandwidth: float = 4.0,
+    time_bandwidth_product: float | None = None,
     num_substeps: int = 48,
     window: Window = "hamming",
     rephase: bool = True,
@@ -207,6 +239,8 @@ def slice_excitation_weights(
     weight that position contributes to a slice image. ``positions`` need not be
     sorted; the result preserves the input ordering.
     """
+
+    time_bandwidth = resolve_time_bandwidth(time_bandwidth, time_bandwidth_product)
 
     positions = np.asarray(positions, dtype=np.float64).reshape(-1)
     shifted = positions - float(center)
@@ -241,6 +275,7 @@ def slice_profile_table(
     flip_angle: float = np.pi / 2,
     num: int = 1201,
     time_bandwidth: float = 4.0,
+    time_bandwidth_product: float | None = None,
     num_substeps: int = 48,
     window: Window = "hamming",
     rephase: bool = True,
@@ -256,6 +291,8 @@ def slice_profile_table(
     nonuniform B0 simply shifts and bends the excited band -- the table is built
     once and reused across all voxels and slices.
     """
+
+    time_bandwidth = resolve_time_bandwidth(time_bandwidth, time_bandwidth_product)
 
     if off_resonance_max <= 0.0:
         raise ValueError("off_resonance_max must be positive")
@@ -295,6 +332,7 @@ def simulate_slice_profile(
     slice_gradient: float,
     flip_angle: float = np.pi / 2,
     time_bandwidth: float = 4.0,
+    time_bandwidth_product: float | None = None,
     num_substeps: int = 48,
     window: Window = "hamming",
     rephase: bool = True,
@@ -309,6 +347,8 @@ def simulate_slice_profile(
     The returned ``profile`` is ``|M_xy|`` versus position: a localized band for
     a selective pulse, sharply bounded compared with a hard pulse.
     """
+
+    time_bandwidth = resolve_time_bandwidth(time_bandwidth, time_bandwidth_product)
 
     if num_positions < 2:
         raise ValueError("num_positions must be at least 2")

@@ -20,6 +20,7 @@ from spin_dynamics.workflows.electropermanent_imaging import (
     NonlinearEPMEncoding,
     run_epm_nonlinear_imaging,
 )
+from spin_dynamics.workflows._epm_common import _positive, _strict_axis
 
 __all__ = [
     "EPMParticleImagingResult",
@@ -30,18 +31,6 @@ __all__ = [
 ]
 
 
-def _strict_axis(values: Sequence[float] | np.ndarray, name: str) -> np.ndarray:
-    axis = np.asarray(values, dtype=np.float64)
-    if (
-        axis.ndim != 1
-        or axis.size < 2
-        or np.any(~np.isfinite(axis))
-        or np.any(np.diff(axis) <= 0.0)
-    ):
-        raise ValueError(f"{name} must be finite, one-dimensional, and increasing")
-    return axis
-
-
 def _positions(values: np.ndarray, name: str) -> np.ndarray:
     positions = np.asarray(values, dtype=np.float64)
     if positions.ndim != 2 or positions.shape[1] != 2 or np.any(~np.isfinite(positions)):
@@ -49,15 +38,6 @@ def _positions(values: np.ndarray, name: str) -> np.ndarray:
     if positions.shape[0] < 1:
         raise ValueError(f"{name} must contain at least one particle")
     return positions
-
-
-def _positive(value: float, name: str, *, allow_zero: bool = False) -> float:
-    result = float(value)
-    valid = result >= 0.0 if allow_zero else result > 0.0
-    if not np.isfinite(result) or not valid:
-        qualifier = "non-negative" if allow_zero else "positive"
-        raise ValueError(f"{name} must be finite and {qualifier}")
-    return result
 
 
 def particle_distribution_image(

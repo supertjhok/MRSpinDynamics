@@ -65,38 +65,15 @@ def calc_macq_ideal_probe_relax4(
     here using `pp.T_90`, matching the MATLAB wrapper.
     """
 
-    t_90 = float(_field(pp, "T_90"))
-    t1n = (np.pi / 2) * _as_vector(_field(sp, "T1"), np.float64) / t_90
-    t2n = (np.pi / 2) * _as_vector(_field(sp, "T2"), np.float64) / t_90
-
-    params = {
-        "tp": _field(pp, "tp"),
-        "pul": _field(pp, "pul"),
-        "amp": _field(pp, "amp"),
-        "acq": _field(pp, "acq"),
-        "grad": _field(pp, "grad"),
-        "Rtot": _field(pp, "Rtot"),
-        "del_w": _field(sp, "del_w"),
-        "del_wg": _field(sp, "del_wg"),
-        "w_1": _field(sp, "w_1"),
-        "T1n": t1n,
-        "T2n": t2n,
-        "m0": _field(sp, "m0"),
-        "mth": _field(sp, "mth"),
-    }
-    if rephase_max_time is not None:
-        check_rephasing(
-            params["del_w"],
-            rephase_max_time,
-            safety_factor=rephase_safety_factor,
-            action=rephase_action,
-        )
-    if radiation_damping is not None:
-        _forward_pulse_segments(params, pp)
-        return sim_spin_dynamics_arb10_radiation_damping(params, radiation_damping)
-    if num_workers is None or int(num_workers) > 1:
-        return sim_spin_dynamics_arb10_chunked(params, num_workers=num_workers)
-    return sim_spin_dynamics_arb10(params)
+    return _calc_macq_relax4(
+        sp,
+        pp,
+        num_workers=num_workers,
+        rephase_max_time=rephase_max_time,
+        rephase_safety_factor=rephase_safety_factor,
+        rephase_action=rephase_action,
+        radiation_damping=radiation_damping,
+    )
 
 
 def _calc_macq_relax4(

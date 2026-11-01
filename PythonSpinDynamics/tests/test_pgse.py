@@ -330,5 +330,24 @@ class PGSETests(unittest.TestCase):
             run_ogse_walkers(num_periods=0)
 
 
+
+class PGSEBackendConventionTests(unittest.TestCase):
+    def test_backend_echo_time_conventions_are_as_documented(self) -> None:
+        # L-10 (documented, not aligned): the moment backend books the first
+        # echo at 2 * diffusion_time; the walker backend samples at the end of
+        # the second lobe, excitation + diffusion_time + gradient_duration.
+        delta, big_delta, exc = 1.0e-3, 10.0e-3, 100.0e-6
+        common = dict(gradient_amplitude=0.0, gradient_duration=delta,
+                      diffusion_time=big_delta)
+        moment = run_pgse(backend="moment", **common)
+        walkers = run_pgse(backend="walkers", excitation_duration=exc,
+                           walkers_per_cell=1, seed=0, **common)
+        self.assertAlmostEqual(float(moment.echo_times[0]), 2 * big_delta)
+        self.assertAlmostEqual(float(walkers.echo_times[0]), exc + big_delta + delta, places=12)
+        self.assertAlmostEqual(moment.b_value, walkers.b_value)
+        with self.assertRaises(TypeError):
+            run_pgse(backend="moment", excitation_duration=exc, **common)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -20,6 +20,7 @@ cannot express.
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 from typing import Literal
 
@@ -130,6 +131,24 @@ class SliceSensitivityResult:
     fov: tuple[float, float]
 
 
+def _warn_unused_gamma(gamma: float | None) -> None:
+    """Deprecate the ``gamma`` keyword of the frequency-encoded imagers.
+
+    The encoding is specified by ``fov`` and the timing alone: the gradient
+    moments ``gamma * G`` are derived directly from the k-space steps, so the
+    gyromagnetic ratio never enters the simulation. Passing it had no effect.
+    """
+
+    if gamma is not None:
+        warnings.warn(
+            "gamma has no effect on the frequency-encoded imagers (the encoding "
+            "is set by fov and timing through the moments gamma*G) and is "
+            "deprecated; it will be removed in a future release",
+            DeprecationWarning,
+            stacklevel=3,
+        )
+
+
 def _resolve_maps(rho, t1_map, t2_map, b0_map, b1_tx_map, b1_rx_map):
     """Return ``(rho, t1, t2, b0, b1_tx, b1_rx)`` arrays from inputs.
 
@@ -226,7 +245,7 @@ def run_rare_imaging(
     seed: int | None = None,
     jitter: bool = False,
     refocusing: bool = True,
-    gamma: float = 2.675e8,
+    gamma: float | None = None,
     substeps_per_interval: int = 1,
 ) -> FrequencyEncodedImagingResult:
     """Simulate a RARE / fast-spin-echo frequency-encoded image.
@@ -266,7 +285,12 @@ def run_rare_imaging(
     ``refocusing=False`` selects a single Cartesian gradient echo and requires
     ``echo_train_length=1``. The same finite RF, B0, subvoxel, diffusion, and
     readout models remain active.
+
+    ``gamma`` is deprecated and ignored (a ``DeprecationWarning`` is raised
+    when it is passed): the encoding is fixed by ``fov`` and the timing.
     """
+
+    _warn_unused_gamma(gamma)
 
     rho_arr, t1_arr, t2_arr, b0_arr, b1_tx_arr, b1_rx_arr = _resolve_maps(
         rho, t1_map, t2_map, b0_map, b1_tx_map, b1_rx_map
@@ -580,7 +604,7 @@ def run_radial_ute_imaging(
     walkers_per_cell: int = 1,
     seed: int | None = None,
     jitter: bool = False,
-    gamma: float = 2.675e8,
+    gamma: float | None = None,
     substeps_per_interval: int = 1,
 ) -> RadialUTEImagingResult:
     """Simulate a finite-pulse center-out radial short-TE acquisition.
@@ -591,7 +615,12 @@ def run_radial_ute_imaging(
     model: TR saturation and concentration-dependent T1 relaxivity are not
     inferred. Spatial subvoxel B0 offsets, water exclusion, and random-walker
     diffusion follow the Cartesian imaging conventions.
+
+    ``gamma`` is deprecated and ignored (a ``DeprecationWarning`` is raised
+    when it is passed): the encoding is fixed by ``fov`` and the timing.
     """
+
+    _warn_unused_gamma(gamma)
 
     rho_arr, t1_arr, t2_arr, b0_arr, b1_tx_arr, b1_rx_arr = _resolve_maps(
         rho, t1_map, t2_map, b0_map, b1_tx_map, b1_rx_map

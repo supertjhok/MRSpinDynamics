@@ -37,6 +37,7 @@ from spin_dynamics.workflows.imaging_frequency import (
     run_radial_ute_imaging,
     run_spin_warp_imaging,
 )
+from spin_dynamics.workflows._epm_common import _bilinear_sample
 
 __all__ = [
     "ParticleMRSequence",
@@ -89,26 +90,6 @@ def _map(values: np.ndarray, shape: tuple[int, int], name: str) -> np.ndarray:
     if result.shape != shape or np.any(~np.isfinite(result)):
         raise ValueError(f"{name} must be finite with shape {shape}")
     return result
-
-
-def _bilinear_sample(
-    image: np.ndarray,
-    x_axis: np.ndarray,
-    y_axis: np.ndarray,
-    positions: np.ndarray,
-) -> np.ndarray:
-    x = np.clip(positions[:, 0], x_axis[0], x_axis[-1])
-    y = np.clip(positions[:, 1], y_axis[0], y_axis[-1])
-    ix = np.clip(np.searchsorted(x_axis, x, side="right") - 1, 0, x_axis.size - 2)
-    iy = np.clip(np.searchsorted(y_axis, y, side="right") - 1, 0, y_axis.size - 2)
-    fx = (x - x_axis[ix]) / (x_axis[ix + 1] - x_axis[ix])
-    fy = (y - y_axis[iy]) / (y_axis[iy + 1] - y_axis[iy])
-    return (
-        image[iy, ix] * (1.0 - fx) * (1.0 - fy)
-        + image[iy, ix + 1] * fx * (1.0 - fy)
-        + image[iy + 1, ix] * (1.0 - fx) * fy
-        + image[iy + 1, ix + 1] * fx * fy
-    )
 
 
 def particle_dipole_field_samples(

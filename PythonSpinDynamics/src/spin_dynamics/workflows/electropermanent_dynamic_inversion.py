@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 import numpy as np
+from spin_dynamics.workflows._epm_common import _positive
 
 __all__ = [
     "DynamicInversionHardwareAssessment",
@@ -38,15 +39,6 @@ BOLTZMANN = 1.380649e-23
 
 ParticleShape = Literal["sphere", "rod"]
 HardwareArchitecture = Literal["coils", "epm", "hybrid"]
-
-
-def _positive(value: float, name: str, *, allow_zero: bool = False) -> float:
-    result = float(value)
-    valid = result >= 0.0 if allow_zero else result > 0.0
-    if not np.isfinite(result) or not valid:
-        qualifier = "non-negative" if allow_zero else "positive"
-        raise ValueError(f"{name} must be finite and {qualifier}")
-    return result
 
 
 def _unit_directions(values: Sequence[Sequence[float]]) -> np.ndarray:

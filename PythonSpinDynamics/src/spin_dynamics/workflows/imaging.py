@@ -69,6 +69,28 @@ from spin_dynamics.workflows.sense import (
     uniform_cartesian_mask,
 )
 
+ImagingSignalConvention = Literal["matlab", "cpmg"]
+
+
+def _imaging_combine_scale(signal_convention: str) -> float:
+    """Return the PAP combine scale for the phase-encoded imagers.
+
+    ``"matlab"`` (default) keeps the MATLAB ``sim_cpmg_*_probe_img.m`` combine
+    ``mrx1 - mrx2`` (and ``mrx3 - mrx4`` for the quadrature pair), which is
+    twice the normalized ``(mrx1 - mrx2) / 2`` used by the finite CPMG trains.
+    ``"cpmg"`` applies that normalization, so an imaging k-space value is on
+    the same scale as the corresponding CPMG-train signal. The tuned imagers
+    acquire a single excitation branch (no subtraction) as in MATLAB, which is
+    already on the normalized scale, so they are unaffected.
+    """
+
+    if signal_convention == "matlab":
+        return 1.0
+    if signal_convention == "cpmg":
+        return 0.5
+    raise ValueError("signal_convention must be 'matlab' or 'cpmg'")
+
+
 def _as_map(value: Iterable[float] | np.ndarray, name: str) -> np.ndarray:
     arr = np.asarray(value, dtype=np.float64)
     if arr.ndim != 2:
@@ -1016,6 +1038,7 @@ def run_ideal_phase_encoded_cpmg_imaging(
     phase_workers: int | None = 1,
     density_normalization: Literal["legacy", "preserve"] = "legacy",
     noise: NoiseSpec | Mapping[str, object] | float | int | None = None,
+    signal_convention: ImagingSignalConvention = "matlab",
 ) -> IdealCPMGImagingResult:
     """Run a compact ideal-probe phase-encoded CPMG imaging simulation.
 
@@ -1038,6 +1061,7 @@ def run_ideal_phase_encoded_cpmg_imaging(
         density_normalization=density_normalization,
         inversion_time_seconds=None,
         noise=noise,
+        signal_convention=signal_convention,
     )
 
 
@@ -1066,6 +1090,7 @@ def run_ideal_receiver_array_cpmg_imaging(
     sense_offset: int = 0,
     sense_regularization: float = 0.0,
     sense_rank_tolerance: float | None = None,
+    signal_convention: ImagingSignalConvention = "matlab",
 ) -> ReceiverArrayCPMGImagingResult:
     """Run ideal CPMG once and project the response into every Rx channel.
 
@@ -1101,6 +1126,7 @@ def run_ideal_receiver_array_cpmg_imaging(
         sense_offset=sense_offset,
         sense_regularization=sense_regularization,
         sense_rank_tolerance=sense_rank_tolerance,
+        signal_convention=signal_convention,
     )
 
 def run_t1_encoded_phase_encoded_cpmg_imaging(
@@ -1119,6 +1145,7 @@ def run_t1_encoded_phase_encoded_cpmg_imaging(
     phase_workers: int | None = 1,
     density_normalization: Literal["legacy", "preserve"] = "legacy",
     noise: NoiseSpec | Mapping[str, object] | float | int | None = None,
+    signal_convention: ImagingSignalConvention = "matlab",
 ) -> IdealCPMGImagingResult:
     """Run ideal phase-encoded CPMG imaging with inversion-recovery T1 prep."""
 
@@ -1137,6 +1164,7 @@ def run_t1_encoded_phase_encoded_cpmg_imaging(
         density_normalization=density_normalization,
         inversion_time_seconds=inversion_time_seconds,
         noise=noise,
+        signal_convention=signal_convention,
     )
 
 
@@ -1156,6 +1184,7 @@ def run_t1_encoded_cpmg_imaging(
     phase_workers: int | None = 1,
     density_normalization: Literal["legacy", "preserve"] = "legacy",
     noise: NoiseSpec | Mapping[str, object] | float | int | None = None,
+    signal_convention: ImagingSignalConvention = "matlab",
 ) -> IdealCPMGImagingResult:
     """Compatibility alias for `run_t1_encoded_phase_encoded_cpmg_imaging`."""
 
@@ -1174,6 +1203,7 @@ def run_t1_encoded_cpmg_imaging(
         phase_workers=phase_workers,
         density_normalization=density_normalization,
         noise=noise,
+        signal_convention=signal_convention,
     )
 
 
@@ -1204,7 +1234,9 @@ def _ideal_phase_encoded_cpmg_imaging(
     sense_offset: int = 0,
     sense_regularization: float = 0.0,
     sense_rank_tolerance: float | None = None,
+    signal_convention: str = "matlab",
 ) -> IdealCPMGImagingResult | ReceiverArrayCPMGImagingResult:
+    combine_scale = _imaging_combine_scale(signal_convention)
     if inversion_time_seconds is not None and inversion_time_seconds <= 0:
         raise ValueError("inversion_time_seconds must be positive")
 
@@ -1421,8 +1453,8 @@ def _ideal_phase_encoded_cpmg_imaging(
         mrx2 = calc_macq_ideal_probe_relax4(sp_case, pp2, num_workers=num_workers)
         mrx3 = calc_macq_ideal_probe_relax4(sp_case, pp3, num_workers=num_workers)
         mrx4 = calc_macq_ideal_probe_relax4(sp_case, pp4, num_workers=num_workers)
-        delta_x = mrx1 - mrx2
-        delta_y = mrx3 - mrx4
+        delta_x = (mrx1 - mrx2) * combine_scale
+        delta_y = (mrx3 - mrx4) * combine_scale
         if receiver_weights is None:
             echo_x = isoc @ delta_x.T
             echo_y = isoc @ delta_y.T
@@ -1530,6 +1562,7 @@ def run_ideal_cpmg_imaging(
     phase_workers: int | None = 1,
     density_normalization: Literal["legacy", "preserve"] = "legacy",
     noise: NoiseSpec | Mapping[str, object] | float | int | None = None,
+    signal_convention: ImagingSignalConvention = "matlab",
 ) -> IdealCPMGImagingResult:
     """Compatibility alias for `run_ideal_phase_encoded_cpmg_imaging`."""
 
@@ -1547,6 +1580,7 @@ def run_ideal_cpmg_imaging(
         phase_workers=phase_workers,
         density_normalization=density_normalization,
         noise=noise,
+        signal_convention=signal_convention,
     )
 
 
@@ -1567,7 +1601,9 @@ def _probe_imaging(
     phase_workers: int | None,
     density_normalization: Literal["legacy", "preserve"],
     noise: NoiseSpec | Mapping[str, object] | float | int | None,
+    signal_convention: str = "matlab",
 ) -> ProbeCPMGImagingResult:
+    combine_scale = _imaging_combine_scale(signal_convention)
     field_maps, fov_arr = _validate_imaging_inputs(
         rho,
         t1_map,
@@ -1773,16 +1809,16 @@ def _probe_imaging(
             pp4 = {**pp_common, "pul": pul4}
             _macq2, mrx2 = calc_macq(sp_case, pp2, num_workers=num_workers)
             _macq4, mrx4 = calc_macq(sp_case, pp4, num_workers=num_workers)
-            echo_x = isoc @ (mrx1 - mrx2).T
-            echo_y = isoc @ (mrx3 - mrx4).T
+            echo_x = isoc @ ((mrx1 - mrx2) * combine_scale).T
+            echo_y = isoc @ ((mrx3 - mrx4) * combine_scale).T
             echo_xy_noisy = None
             if probe_noise:
                 mrx1_noisy, _metadata = add_probe_noise(mrx1, linear_index, 0)
                 mrx2_noisy, _metadata = add_probe_noise(mrx2, linear_index, 1)
                 mrx3_noisy, _metadata = add_probe_noise(mrx3, linear_index, 2)
                 mrx4_noisy, _metadata = add_probe_noise(mrx4, linear_index, 3)
-                echo_x_noisy = isoc @ (mrx1_noisy - mrx2_noisy).T
-                echo_y_noisy = isoc @ (mrx3_noisy - mrx4_noisy).T
+                echo_x_noisy = isoc @ ((mrx1_noisy - mrx2_noisy) * combine_scale).T
+                echo_y_noisy = isoc @ ((mrx3_noisy - mrx4_noisy) * combine_scale).T
                 echo_xy_noisy = np.imag(echo_x_noisy) - 1j * np.real(echo_y_noisy)
         echo_xy = np.imag(echo_x) - 1j * np.real(echo_y)
         if probe == "tuned":
@@ -1861,6 +1897,7 @@ def run_tuned_phase_encoded_cpmg_imaging(
     receive_mode: str = "raw",
     density_normalization: Literal["legacy", "preserve"] = "legacy",
     noise: NoiseSpec | Mapping[str, object] | float | int | None = None,
+    signal_convention: ImagingSignalConvention = "matlab",
 ) -> ProbeCPMGImagingResult:
     """Run a compact tuned-probe phase-encoded CPMG imaging simulation.
 
@@ -1885,6 +1922,7 @@ def run_tuned_phase_encoded_cpmg_imaging(
         phase_workers=phase_workers,
         density_normalization=density_normalization,
         noise=noise,
+        signal_convention=signal_convention,
     )
 
 
@@ -1904,6 +1942,7 @@ def run_tuned_cpmg_imaging(
     receive_mode: str = "raw",
     density_normalization: Literal["legacy", "preserve"] = "legacy",
     noise: NoiseSpec | Mapping[str, object] | float | int | None = None,
+    signal_convention: ImagingSignalConvention = "matlab",
 ) -> ProbeCPMGImagingResult:
     """Compatibility alias for `run_tuned_phase_encoded_cpmg_imaging`."""
 
@@ -1922,6 +1961,7 @@ def run_tuned_cpmg_imaging(
         receive_mode=receive_mode,
         density_normalization=density_normalization,
         noise=noise,
+        signal_convention=signal_convention,
     )
 
 
@@ -1940,6 +1980,7 @@ def run_matched_phase_encoded_cpmg_imaging(
     phase_workers: int | None = 1,
     density_normalization: Literal["legacy", "preserve"] = "legacy",
     noise: NoiseSpec | Mapping[str, object] | float | int | None = None,
+    signal_convention: ImagingSignalConvention = "matlab",
 ) -> ProbeCPMGImagingResult:
     """Run a compact matched-probe phase-encoded CPMG imaging simulation."""
 
@@ -1959,6 +2000,7 @@ def run_matched_phase_encoded_cpmg_imaging(
         phase_workers=phase_workers,
         density_normalization=density_normalization,
         noise=noise,
+        signal_convention=signal_convention,
     )
 
 
@@ -1977,6 +2019,7 @@ def run_matched_cpmg_imaging(
     phase_workers: int | None = 1,
     density_normalization: Literal["legacy", "preserve"] = "legacy",
     noise: NoiseSpec | Mapping[str, object] | float | int | None = None,
+    signal_convention: ImagingSignalConvention = "matlab",
 ) -> ProbeCPMGImagingResult:
     """Compatibility alias for `run_matched_phase_encoded_cpmg_imaging`."""
 
@@ -1994,4 +2037,5 @@ def run_matched_cpmg_imaging(
         phase_workers=phase_workers,
         density_normalization=density_normalization,
         noise=noise,
+        signal_convention=signal_convention,
     )

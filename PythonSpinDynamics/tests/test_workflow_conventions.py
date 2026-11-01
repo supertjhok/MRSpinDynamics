@@ -18,12 +18,15 @@ from spin_dynamics.parameters import (  # noqa: E402
     set_params_tuned_orig,
 )
 from spin_dynamics.workflows import (  # noqa: E402
+    make_imaging_field_maps,
     reconstruct_image_from_kspace,
     run_ideal_cpmg_imaging,
     run_ideal_cpmg_ir_train,
     run_ideal_cpmg_train,
+    run_matched_cpmg_imaging,
     run_matched_cpmg_train,
     run_matched_diffusion_cpmg,
+    run_tuned_cpmg_imaging,
     run_tuned_diffusion_cpmg,
 )
 from spin_dynamics.workflows.cpmg import _calc_tuned_pulse_shape  # noqa: E402
@@ -161,6 +164,41 @@ class PhaseEncodedGridTests(unittest.TestCase):
             image = np.abs(reconstruct_image_from_kspace(result.kspace, 0))
             self.assertEqual(np.unravel_index(int(np.argmax(image)), image.shape), index)
             self.assertGreater(image.max() / image.sum(), 0.999)
+
+
+class ImagingCombineConventionTests(unittest.TestCase):
+    def test_cpmg_convention_matches_the_refocused_magnetization(self) -> None:
+        # L-54: phase-encoded imaging keeps the MATLAB unnormalized PAP combine
+        # by default (2x the CPMG trains); signal_convention="cpmg" normalizes
+        # it. Reference: an on-resonance, non-relaxing unit voxel is fully
+        # refocused, so its k=0 echo integral is the normalized acquisition
+        # window length (pi/2) * tacq / T90.
+        rho = np.zeros((3, 3))
+        rho[1, 1] = 1.0
+        ones = np.ones_like(rho)
+        fields = make_imaging_field_maps(
+            rho, t1_map=1e3 * ones, t2_map=1e3 * ones, b1_tx_map=ones, b1_rx_map=ones
+        )
+        spacing = 0.2e-3
+        _sp, pp = set_params_ideal(numpts=1)
+        tacq = min(float(np.ravel(pp.tacq)[0]), spacing - 2 * pp.T_90)
+        window = (np.pi / 2) * tacq / pp.T_90
+        kw = dict(num_echoes=1, ny=1, maxoffs=1e-3, echo_spacing_seconds=spacing)
+        normalized = run_ideal_cpmg_imaging(fields, signal_convention="cpmg", **kw)
+        legacy = run_ideal_cpmg_imaging(fields, **kw)
+        self.assertAlmostEqual(abs(normalized.kspace[1, 1, 0]) / window, 1.0, delta=1e-4)
+        np.testing.assert_allclose(legacy.kspace, 2.0 * normalized.kspace, rtol=1e-12)
+        # Matched halves; tuned acquires one branch (already normalized).
+        matched = run_matched_cpmg_imaging(fields, num_echoes=1, ny=3)
+        matched_cpmg = run_matched_cpmg_imaging(
+            fields, num_echoes=1, ny=3, signal_convention="cpmg"
+        )
+        np.testing.assert_allclose(matched_cpmg.kspace, 0.5 * matched.kspace, rtol=1e-12)
+        tuned = run_tuned_cpmg_imaging(fields, num_echoes=1, ny=3)
+        tuned_cpmg = run_tuned_cpmg_imaging(fields, num_echoes=1, ny=3, signal_convention="cpmg")
+        np.testing.assert_array_equal(tuned_cpmg.kspace, tuned.kspace)
+        with self.assertRaises(ValueError):
+            run_ideal_cpmg_imaging(fields, signal_convention="bogus", **kw)
 
 
 if __name__ == "__main__":

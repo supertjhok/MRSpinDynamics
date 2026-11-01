@@ -49,6 +49,7 @@ from spin_dynamics.workflows.electropermanent_transport import (
     magnetic_force_map_2d,
     simulate_magnetophoretic_transport,
 )
+from spin_dynamics.workflows._epm_common import _positive, _strict_axis
 
 __all__ = [
     "ControllerModeInterval",
@@ -67,27 +68,6 @@ ParticleImagingModel = Literal[
     "susceptibility_spin_echo",
 ]
 ParticleImagingResult = EPMParticleImagingResult | ParticleSusceptibilitySpinEchoResult
-
-
-def _positive(value: float, name: str, *, allow_zero: bool = False) -> float:
-    result = float(value)
-    valid = result >= 0.0 if allow_zero else result > 0.0
-    if not np.isfinite(result) or not valid:
-        qualifier = "non-negative" if allow_zero else "positive"
-        raise ValueError(f"{name} must be finite and {qualifier}")
-    return result
-
-
-def _strict_axis(values: Sequence[float] | np.ndarray, name: str) -> np.ndarray:
-    axis = np.asarray(values, dtype=np.float64)
-    if (
-        axis.ndim != 1
-        or axis.size < 2
-        or np.any(~np.isfinite(axis))
-        or np.any(np.diff(axis) <= 0.0)
-    ):
-        raise ValueError(f"{name} must be finite, one-dimensional, and increasing")
-    return axis
 
 
 @dataclass(frozen=True)

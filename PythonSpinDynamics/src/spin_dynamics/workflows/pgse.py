@@ -181,6 +181,10 @@ def gradient_moment_b_value(
     effective gradient should already include RF-coherence sign changes. This
     helper is useful for validating rectangular PGSE and for future arbitrary
     diffusion-gradient waveforms.
+
+    The final moment is not checked: if the waveform leaves a residual
+    ``q(T) != 0``, stationary spins are not refocused and the returned integral
+    is not a pure Stejskal-Tanner b-value.
     """
 
     q = 0.0
@@ -193,11 +197,6 @@ def gradient_moment_b_value(
             raise ValueError("segment durations must be non-negative")
         integral += q * q * dt + q * slope * dt**2 + (slope * slope * dt**3) / 3.0
         q += slope * dt
-    if abs(q) > 1e-9 * max(1.0, abs(gamma_value)):
-        # A residual moment means stationary spins are not fully refocused.
-        # The integral is still meaningful, but it is not a pure diffusion
-        # weighting b-value in the usual Stejskal-Tanner sense.
-        pass
     return float(integral)
 
 
@@ -778,7 +777,30 @@ def run_pgse(
     backend: PGSEBackend = "moment",
     **kwargs: object,
 ) -> PGSEMomentResult | PGSEWalkerResult:
-    """Dispatch to the moment or random-walker PGSE backend."""
+    """Dispatch to the moment or random-walker PGSE backend.
+
+    The two backends are not drop-in replacements; ``kwargs`` must suit the
+    chosen backend (an unsupported keyword raises ``TypeError``).
+
+    * Shared: ``num_echoes``, ``gradient_amplitude``, ``gradient_duration``,
+      ``diffusion_time``, ``diffusion_coefficient``, ``gamma``, ``t2_seconds``,
+      ``echo_spacing_seconds``.
+    * ``"moment"`` only: ``first_echo_time_seconds``, ``initial_signal``. Echo
+      times are bookkeeping for the T2 factor: the first echo defaults to
+      ``2 * diffusion_time`` and later echoes to that same spacing (the same
+      defaults as the ``PGSE`` experiment spec and the PGSE design adapter).
+    * ``"walkers"`` only: the sample/transport inputs (``rho``, axes,
+      ``fields``, ``walkers_per_cell``, ``seed``, ``jitter``, ``velocity``,
+      ``boundary``), the RF timing (``excitation_duration``,
+      ``refocusing_duration``), ``gradient_axis``, ``t1_seconds`` and
+      ``substeps_per_interval``. Echo times are the simulated sample times
+      from the start of excitation: the first echo is at
+      ``excitation_duration + diffusion_time + gradient_duration`` (the end of
+      the second lobe), and ``echo_spacing_seconds`` is required when
+      ``num_echoes > 1``.
+
+    Both report the same Stejskal-Tanner ``b_value`` for the same gradients.
+    """
 
     if backend == "moment":
         return run_pgse_moment(**kwargs)

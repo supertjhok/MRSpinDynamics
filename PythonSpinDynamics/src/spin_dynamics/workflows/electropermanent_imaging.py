@@ -21,6 +21,7 @@ from spin_dynamics.fields.electropermanent_array import (
     ElectropermanentArrayFieldBasis,
 )
 from spin_dynamics.fields.magnetostatics import GAMMA_PROTON
+from spin_dynamics.workflows._epm_common import _strict_axis
 
 
 def _finite_vector(values: Sequence[float], name: str) -> np.ndarray:
@@ -36,18 +37,6 @@ def _unit_vector(values: Sequence[float], name: str) -> np.ndarray:
     if norm == 0.0:
         raise ValueError(f"{name} must be nonzero")
     return vector / norm
-
-
-def _strict_axis(values: Sequence[float] | np.ndarray, name: str) -> np.ndarray:
-    axis = np.asarray(values, dtype=np.float64)
-    if (
-        axis.ndim != 1
-        or axis.size < 2
-        or np.any(~np.isfinite(axis))
-        or np.any(np.diff(axis) <= 0.0)
-    ):
-        raise ValueError(f"{name} must be finite, one-dimensional, and increasing")
-    return axis
 
 
 @dataclass(frozen=True)

@@ -11,7 +11,9 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from spin_dynamics.workflows.slice_selective import (
     make_slice_selective_excitation,
+    resolve_time_bandwidth,
     simulate_slice_profile,
+    slice_profile_table,
 )
 
 
@@ -80,6 +82,31 @@ class SliceProfileTests(unittest.TestCase):
         )
         # doubling the gradient halves the slice width
         self.assertAlmostEqual(ratio, 0.5, delta=0.1)
+
+
+
+class TimeBandwidthAliasTests(unittest.TestCase):
+    def test_time_bandwidth_product_is_the_conventional_tbw(self) -> None:
+        # L-14: ``time_bandwidth`` is half the conventional TBW (unchanged);
+        # ``time_bandwidth_product`` is the conventional one. Reference: the
+        # measured small-flip slice FWHM (Hz) times the pulse duration.
+        duration = 1.0e-3
+        kw = dict(slice_gradient=1.0, duration=duration, flip_angle=np.deg2rad(10),
+                  num=2001, num_substeps=400)
+        off, aliased = slice_profile_table(
+            off_resonance_max=2 * np.pi * 12.0 / duration, time_bandwidth_product=4.0, **kw
+        )
+        _off, legacy = slice_profile_table(
+            off_resonance_max=2 * np.pi * 12.0 / duration, time_bandwidth=2.0, **kw
+        )
+        np.testing.assert_array_equal(aliased, legacy)
+        hz = off / (2 * np.pi)
+        fwhm = _fwhm(hz, np.abs(aliased))
+        self.assertAlmostEqual(fwhm * duration, 4.0, delta=0.08)
+        self.assertEqual(resolve_time_bandwidth(4.0, None), 4.0)
+        self.assertEqual(resolve_time_bandwidth(4.0, 6.0), 3.0)
+        with self.assertRaises(ValueError):
+            resolve_time_bandwidth(4.0, -1.0)
 
 
 if __name__ == "__main__":

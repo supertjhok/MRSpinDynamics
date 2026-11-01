@@ -74,6 +74,15 @@ class EngineMultiSliceTests(unittest.TestCase):
             envelope = np.abs(res.kspace[:, 0, n // 2])
             self.assertEqual(int(np.argmax(envelope)), n // 2)
 
+    def test_relaxation_maps_must_match_rho_shape(self):
+        # Regression (L-11): a same-size but transposed T1/T2 volume used to be
+        # accepted and silently assigned to the wrong voxels.
+        rho = _point_phantom((4, 6, 4), (1, 2, 3))
+        with self.assertRaises(ValueError):
+            run_multislice_imaging(rho, slice_gradient=1.5e7, t1_map=np.ones((6, 4, 4)))
+        with self.assertRaises(ValueError):
+            run_multislice_imaging(rho, slice_gradient=1.5e7, t2_map=np.zeros(rho.shape))
+
     def test_slice_axis_zero(self):
         rho = _point_phantom((5, 4, 4), (2, 1, 3))
         res = run_multislice_imaging(rho, slice_axis=0, slice_gradient=1.5e7, num_substeps=32)

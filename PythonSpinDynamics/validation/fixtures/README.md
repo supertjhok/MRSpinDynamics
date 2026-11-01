@@ -58,9 +58,14 @@ corrected Python with each file's existing layout and inputs (the inputs used by
   is the origin, so a point voxel was reconstructed half a pixel off and spread
   over a 2x2 block. Both grids are now `(i - n // 2) / ((n - 1) / 2)`, which is
   identical to `linspace(-1, 1, n)` for odd `n` and keeps the same step for even
-  `n`. The MATLAB Version 3 `Sim_CPMG/sim_cpmg_*_probe_img.m` scripts still use
-  the `linspace` grids, so rerunning `generate_imaging_fixtures.m` reproduces the
-  old values until those scripts adopt the same grid.
+  `n`. The MATLAB side now uses the same grid (L-54):
+  `MATLABSpinDynamics/Version_3/code/Sim_CPMG/sim_cpmg_{ideal,tuned,matched}_probe_img.m`
+  build `gradx`/`gradz` as `((0:n-1) - floor(n/2)) / max((n-1)/2, 1)`,
+  `create_fields/create_fields_single_sided.m` builds `del_wgx`/`del_wgz` the
+  same way, and so does the matched-probe helper inside
+  `validation/octave/generate_imaging_fixtures.m`. Rerunning that generator
+  should therefore reproduce these regenerated arrays (not yet run: Octave
+  was unavailable).
 - `run_tuned_cpmg_train_mrx.csv`, `run_tuned_cpmg_train_echo.csv`,
   `run_tuned_cpmg_train_integrals.csv` (M-44). Tuned-probe pulse shapes were
   min-max (peak) normalized. With the corrected gate-on transient (H-01) the

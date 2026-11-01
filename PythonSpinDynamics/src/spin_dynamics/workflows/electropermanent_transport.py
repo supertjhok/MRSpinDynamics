@@ -19,6 +19,7 @@ from typing import Literal
 import numpy as np
 
 from spin_dynamics.motion import advect_diffuse_positions
+from spin_dynamics.workflows._epm_common import _bilinear_sample, _positive, _strict_axis
 
 __all__ = [
     "MagneticForceMap2D",
@@ -40,25 +41,6 @@ TransportVelocity = (
     | Callable[[np.ndarray, float], np.ndarray]
     | None
 )
-
-
-def _strict_axis(values: Sequence[float] | np.ndarray, name: str) -> np.ndarray:
-    axis = np.asarray(values, dtype=np.float64)
-    if (
-        axis.ndim != 1
-        or axis.size < 2
-        or np.any(~np.isfinite(axis))
-        or np.any(np.diff(axis) <= 0.0)
-    ):
-        raise ValueError(f"{name} must be finite, one-dimensional, and increasing")
-    return axis
-
-
-def _positive(value: float, name: str) -> float:
-    result = float(value)
-    if not np.isfinite(result) or result <= 0.0:
-        raise ValueError(f"{name} must be finite and positive")
-    return result
 
 
 @dataclass(frozen=True)
@@ -523,23 +505,3 @@ def _circle_entry_fraction(
     valid = intersects & (entry >= 0.0) & (entry <= 1.0)
     result[valid] = entry[valid]
     return result
-
-
-def _bilinear_sample(
-    values: np.ndarray,
-    x_axis: np.ndarray,
-    y_axis: np.ndarray,
-    positions: np.ndarray,
-) -> np.ndarray:
-    x = np.clip(positions[:, 0], x_axis[0], x_axis[-1])
-    y = np.clip(positions[:, 1], y_axis[0], y_axis[-1])
-    ix = np.clip(np.searchsorted(x_axis, x, side="right") - 1, 0, x_axis.size - 2)
-    iy = np.clip(np.searchsorted(y_axis, y, side="right") - 1, 0, y_axis.size - 2)
-    tx = (x - x_axis[ix]) / (x_axis[ix + 1] - x_axis[ix])
-    ty = (y - y_axis[iy]) / (y_axis[iy + 1] - y_axis[iy])
-    return (
-        (1.0 - tx) * (1.0 - ty) * values[iy, ix]
-        + tx * (1.0 - ty) * values[iy, ix + 1]
-        + (1.0 - tx) * ty * values[iy + 1, ix]
-        + tx * ty * values[iy + 1, ix + 1]
-    )

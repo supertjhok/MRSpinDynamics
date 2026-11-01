@@ -37,6 +37,7 @@ from spin_dynamics.workflows.imaging_frequency import run_spin_warp_imaging
 from spin_dynamics.workflows.slice_selective import (
     Window,
     make_slice_selective_excitation,
+    resolve_time_bandwidth,
     slice_excitation_weights,
 )
 
@@ -87,6 +88,18 @@ def _prepare_volume(rho, slice_axis, fov, b0_map, b1_tx_map, b1_rx_map):
     return volume, moved, b0, b1_tx, b1_rx, in_plane_fov, slice_fov, fov
 
 
+def _relaxation_volume(values, name, shape, slice_axis):
+    """Validate an optional T1/T2 volume against ``rho``; move it to ``(x, slice, z)``."""
+    if values is None:
+        return None
+    arr = np.asarray(values, dtype=np.float64)
+    if arr.shape != tuple(shape):
+        raise ValueError(f"{name} must have the same shape as rho")
+    if np.any(np.isnan(arr)) or np.any(arr <= 0.0):
+        raise ValueError(f"{name} must be positive (np.inf disables relaxation)")
+    return np.moveaxis(arr, int(slice_axis), 1)
+
+
 def _slice_centers(slice_positions, slice_axis_positions):
     if slice_positions is None:
         return slice_axis_positions.copy()
@@ -127,6 +140,7 @@ def run_multislice_imaging(
     slice_duration: float = 1.0e-3,
     flip_angle: float = np.pi / 2,
     time_bandwidth: float = 4.0,
+    time_bandwidth_product: float | None = None,
     num_substeps: int = 48,
     window: Window = "hamming",
     rephase: bool = True,
@@ -152,6 +166,7 @@ def run_multislice_imaging(
     remaining axes are imaged in-plane (readout then phase encode). Returns a
     :class:`MultiSliceImagingResult` whose volume is ``(nx, n_slices, nz)``.
     """
+    time_bandwidth = resolve_time_bandwidth(time_bandwidth, time_bandwidth_product)
 
     if not np.isfinite(slice_gradient) or slice_gradient == 0.0:
         raise ValueError("slice_gradient must be a nonzero finite value")
@@ -162,10 +177,8 @@ def run_multislice_imaging(
     nx, ny, nz = moved.shape
     if min(nx, nz) < 2:
         raise ValueError("the two in-plane axes must each have at least 2 voxels")
-    t1_moved = np.moveaxis(np.asarray(t1_map, dtype=np.float64), int(slice_axis), 1) \
-        if t1_map is not None else None
-    t2_moved = np.moveaxis(np.asarray(t2_map, dtype=np.float64), int(slice_axis), 1) \
-        if t2_map is not None else None
+    t1_moved = _relaxation_volume(t1_map, "t1_map", volume.shape, slice_axis)
+    t2_moved = _relaxation_volume(t2_map, "t2_map", volume.shape, slice_axis)
 
     fov_x, fov_z = in_plane_fov
     x_axis = (np.arange(nx) - nx // 2) * (fov_x / nx)
@@ -319,6 +332,7 @@ def run_multislice_imaging_separable(
     slice_duration: float = 1.0e-3,
     flip_angle: float = np.pi / 2,
     time_bandwidth: float = 4.0,
+    time_bandwidth_product: float | None = None,
     num_substeps: int = 48,
     window: Window = "hamming",
     rephase: bool = True,
@@ -334,6 +348,7 @@ def run_multislice_imaging_separable(
     (slice curvature, readout distortion) matters. Extra keyword arguments are
     forwarded to :func:`run_spin_warp_imaging`.
     """
+    time_bandwidth = resolve_time_bandwidth(time_bandwidth, time_bandwidth_product)
 
     if not np.isfinite(slice_gradient) or slice_gradient == 0.0:
         raise ValueError("slice_gradient must be a nonzero finite value")
