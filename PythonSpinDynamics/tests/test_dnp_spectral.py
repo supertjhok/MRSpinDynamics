@@ -95,7 +95,7 @@ class DNPSpectralTests(unittest.TestCase):
         b = (
             1.00000000055e-7
             * hbar
-            * (2 * np.pi * 42.57747892e6)
+            * (2 * np.pi * 42.577478518e6)
             * (2 * np.pi * 28.0249514242e9)
         )
         # Zero-frequency Poisson solution of -D laplacian u=r^-3 Y_2m:
@@ -128,14 +128,14 @@ class DNPSpectralTests(unittest.TestCase):
                 h = sum(s @ i for s, i in zip(electron, nucleus)) - 3 * sdotr @ idotr
                 squared_elements += weight / 24 * np.abs(h) ** 2
         field = 0.35
-        we, wn = 2 * np.pi * field * np.array([28.0249514242e9, 42.57747892e6])
+        we, wn = 2 * np.pi * field * np.array([28.0249514242e9, 42.577478518e6])
         energies = np.diag(we * electron[2] - wn * nucleus[2]).real
         model = TranslationalDiffusionModel(3e-10, 3e-9)
         b0 = (
             1.00000000055e-7
             * (6.62607015e-34 / (2 * np.pi))
             * (2 * np.pi * 28.0249514242e9)
-            * (2 * np.pi * 42.57747892e6)
+            * (2 * np.pi * 42.577478518e6)
         )
         variance = b0 * b0 * 4 * np.pi * (6.02214076e26 * 0.001) / (3 * (3e-10) ** 3)
         frequencies = energies[:, None] - energies[None, :]

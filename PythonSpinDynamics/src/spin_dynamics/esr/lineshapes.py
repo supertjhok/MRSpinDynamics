@@ -1,4 +1,12 @@
-"""ESR absorption and derivative lineshape helpers."""
+"""ESR absorption and derivative lineshape helpers.
+
+Width convention: ``width`` (and the ``broadening_*`` arguments of the ESR
+spectrum simulators built on these helpers) is the Gaussian standard
+deviation ``sigma`` for ``"gaussian"`` but the half width at half maximum for
+``"lorentzian"``. The same number therefore gives a Gaussian whose FWHM is
+``2*sqrt(2*ln 2) ~ 2.355`` times ``width`` and a Lorentzian whose FWHM is
+``2 * width``. Use :func:`width_from_fwhm` to specify both by FWHM.
+"""
 
 from __future__ import annotations
 
@@ -12,7 +20,10 @@ def gaussian_lineshape(
     *,
     derivative: bool = False,
 ) -> np.ndarray:
-    """Return a unit-height Gaussian absorption line or its first derivative."""
+    """Return a unit-height Gaussian absorption line or its first derivative.
+
+    ``width`` is the standard deviation ``sigma`` (FWHM ``= 2.3548 * width``).
+    """
 
     axis = np.asarray(axis, dtype=np.float64)
     width = _validate_width(width)
@@ -30,7 +41,10 @@ def lorentzian_lineshape(
     *,
     derivative: bool = False,
 ) -> np.ndarray:
-    """Return a unit-height Lorentzian absorption line or its first derivative."""
+    """Return a unit-height Lorentzian absorption line or its first derivative.
+
+    ``width`` is the half width at half maximum (FWHM ``= 2 * width``).
+    """
 
     axis = np.asarray(axis, dtype=np.float64)
     width = _validate_width(width)
@@ -51,7 +65,11 @@ def spectrum_from_lines(
     lineshape: str = "gaussian",
     detection_mode: str = "absorption",
 ) -> np.ndarray:
-    """Return a broadened ESR spectrum from weighted line centers."""
+    """Return a broadened ESR spectrum from weighted line centers.
+
+    ``width`` is ``sigma`` for ``"gaussian"`` and HWHM for ``"lorentzian"``;
+    see :func:`width_from_fwhm` to convert from a full width at half maximum.
+    """
 
     axis = np.asarray(axis, dtype=np.float64).reshape(-1)
     centers = np.asarray(centers, dtype=np.float64).reshape(-1)
@@ -76,6 +94,25 @@ def spectrum_from_lines(
             derivative=derivative,
         )
     return out
+
+
+GAUSSIAN_FWHM_PER_SIGMA = 2.0 * np.sqrt(2.0 * np.log(2.0))
+"""Ratio FWHM / sigma for a Gaussian line, ``2*sqrt(2*ln 2)``."""
+
+
+def width_from_fwhm(fwhm: float, lineshape: str = "gaussian") -> float:
+    """Return the ``width`` argument giving a line of full width ``fwhm``.
+
+    ``fwhm / 2.3548`` (sigma) for ``"gaussian"`` and ``fwhm / 2`` (HWHM) for
+    ``"lorentzian"``, so both lineshapes can be compared at equal FWHM. The
+    result is in the units of ``fwhm`` (Hz or tesla).
+    """
+
+    fwhm = _validate_width(fwhm)
+    _profile_function(lineshape)
+    if lineshape == "gaussian":
+        return fwhm / GAUSSIAN_FWHM_PER_SIGMA
+    return 0.5 * fwhm
 
 
 def _validate_width(width: float) -> float:

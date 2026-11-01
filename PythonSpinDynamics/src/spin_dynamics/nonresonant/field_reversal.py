@@ -31,9 +31,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
-# |gamma|/2pi for the proton, in hertz per tesla (matches the value used elsewhere
-# in the package, e.g. nqr.polarization_enhancement).
-PROTON_GAMMA_HZ_PER_T = 42.57747892e6
+# |gamma|/2pi for the proton in Hz/T (CODATA 2018), re-exported for callers.
+from spin_dynamics.constants import PROTON_GAMMA_HZ_PER_T as PROTON_GAMMA_HZ_PER_T
 # A representative Earth's-field magnitude (the non-reversible background).
 EARTH_FIELD_TESLA = 50e-6
 
@@ -254,7 +253,11 @@ def sequence_waveform(unit, *, repeats: int = 1):
 def evolve_segment(
     magnetization: np.ndarray, ensemble: IsochromatEnsemble, segment: FieldSegment
 ) -> np.ndarray:
-    """Evolve the ``(N, 3)`` magnetization through one :class:`FieldSegment`."""
+    """Evolve the ``(N, 3)`` magnetization through one :class:`FieldSegment`.
+
+    Follows the Bloch equation ``dM/dt = gamma M x B`` for positive ``gamma``:
+    a left-handed (clockwise) rotation by ``gamma |B| dt`` about ``B``.
+    """
 
     m = magnetization
     gamma = ensemble.gamma_rad
@@ -264,7 +267,8 @@ def evolve_segment(
         safe = mag > 0
         axis = np.zeros_like(field)
         axis[safe] = field[safe] / mag[safe, None]
-        m = rodrigues_rotate(m, axis, gamma * mag * float(dt))
+        # gamma M x B = -gamma B x M: a negative right-handed angle about B.
+        m = rodrigues_rotate(m, axis, -gamma * mag * float(dt))
     return m
 
 
@@ -346,19 +350,33 @@ def simulate_field_reversal_echoes(
     multiplies the coherent train by ``exp(-t/T2)`` -- kept as a post-hoc envelope so
     the coherent refocusing physics (the odd-even / Bessel modulation) and the
     intrinsic relaxation stay cleanly separable, exactly as the paper decomposes the
-    decay.
+    decay. ``t2_seconds`` must be positive (``np.inf`` disables it). Without
+    ``echo_spacing_seconds``, echo ``k`` is timed at the cumulative duration of
+    the units played so far, so supercycle units may differ in length.
     """
 
     if num_echoes <= 0:
         raise ValueError("num_echoes must be positive")
+    t2_seconds = float(t2_seconds)
+    if not t2_seconds > 0:
+        raise ValueError("t2_seconds must be positive (use np.inf for no decay)")
     cycle = _as_unit_cycle(unit)
 
     init = model.coil_a_direction if initial_direction is None else initial_direction
     m0 = _unit(init)
     m = np.tile(m0, (ensemble.size, 1)).astype(np.float64)
 
-    period = sum(seg.duration for seg in cycle[0])
-    spacing = period if echo_spacing_seconds is None else float(echo_spacing_seconds)
+    if echo_spacing_seconds is None:
+        # Each echo is read at the end of its own unit, so a supercycle whose
+        # units differ in length has non-uniform echo times.
+        unit_durations = [sum(seg.duration for seg in u) for u in cycle]
+        echo_times = np.cumsum(
+            [unit_durations[echo % len(cycle)] for echo in range(num_echoes)],
+            dtype=np.float64,
+        )
+    else:
+        spacing = float(echo_spacing_seconds)
+        echo_times = (np.arange(num_echoes, dtype=np.float64) + 1.0) * spacing
 
     ax_x, ax_y = _detection_axes(model)
     weight = ensemble.weight
@@ -369,9 +387,8 @@ def simulate_field_reversal_echoes(
         mean = weight @ m  # coherent (weighted) magnetization vector
         coherent[echo] = np.dot(mean, ax_x) + 1j * np.dot(mean, ax_y)
 
-    echo_times = (np.arange(num_echoes, dtype=np.float64) + 1.0) * spacing
-    if np.isfinite(t2_seconds) and t2_seconds > 0:
-        envelope = np.exp(-echo_times / float(t2_seconds))
+    if np.isfinite(t2_seconds):
+        envelope = np.exp(-echo_times / t2_seconds)
     else:
         envelope = np.ones_like(echo_times)
 

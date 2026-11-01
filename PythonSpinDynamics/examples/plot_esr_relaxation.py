@@ -29,11 +29,6 @@ from spin_dynamics.esr import (  # noqa: E402
 )
 
 
-def _normalized(values: np.ndarray) -> np.ndarray:
-    scale = float(np.max(np.abs(values))) if values.size else 0.0
-    return values / scale if scale > 0 else values
-
-
 # Follow the user workflow: parse inputs, build the model, run, then report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -89,7 +84,10 @@ def main() -> None:
 
     # A Hahn echo is visible after summing detuned isochromats.  At the echo
     # center, the static detuning is refocused, while T2 relaxation remains and
-    # gives the familiar approximately exp(-2*tau/T2) envelope.
+    # gives the familiar approximately exp(-2*tau/T2) envelope.  Each relaxed
+    # echo is divided by the relaxation-free echo at the same tau, so the ratio
+    # is the T2 decay itself (normalizing by the first echo would force the
+    # 2*tau = 0.5 us point to 1 and lift the whole curve above the envelope).
     offsets_hz = np.linspace(
         -0.5 * args.detuning_span_mhz * 1e6,
         0.5 * args.detuning_span_mhz * 1e6,
@@ -98,22 +96,28 @@ def main() -> None:
     tau_values = np.linspace(0.25e-6, args.max_tau_us * 1e-6, 18)
     echo_amplitudes = np.empty(tau_values.size, dtype=np.float64)
     for tau_idx, tau in enumerate(tau_values):
-        echo_sum = 0.0 + 0.0j
-        for offset_hz in offsets_hz:
-            shifted_field = resonance_field_tesla(system, carrier + offset_hz)
-            result = simulate_hahn_echo(
-                system,
-                [0.0, 0.0, shifted_field],
-                nutation_hz=nutation_hz,
-                excitation_duration_seconds=t90,
-                refocus_duration_seconds=t180,
-                tau_seconds=tau,
-                times_seconds=[tau],
-                rf_frequency_hz=carrier,
-                relaxation=ESRRelaxationModel(t2_seconds=t2),
-            )
-            echo_sum += result.signal[0]
-        echo_amplitudes[tau_idx] = abs(echo_sum)
+        sums = {}
+        for label, relaxation in (
+            ("relaxed", ESRRelaxationModel(t2_seconds=t2)),
+            ("reference", None),
+        ):
+            echo_sum = 0.0 + 0.0j
+            for offset_hz in offsets_hz:
+                shifted_field = resonance_field_tesla(system, carrier + offset_hz)
+                result = simulate_hahn_echo(
+                    system,
+                    [0.0, 0.0, shifted_field],
+                    nutation_hz=nutation_hz,
+                    excitation_duration_seconds=t90,
+                    refocus_duration_seconds=t180,
+                    tau_seconds=tau,
+                    times_seconds=[tau],
+                    rf_frequency_hz=carrier,
+                    relaxation=relaxation,
+                )
+                echo_sum += result.signal[0]
+            sums[label] = abs(echo_sum)
+        echo_amplitudes[tau_idx] = sums["relaxed"] / sums["reference"]
 
     # T1 inversion recovery.  The density matrices are high-temperature
     # deviations; passing equilibrium_density makes T1 restore the thermal
@@ -155,9 +159,9 @@ def main() -> None:
 
     axes[0, 1].plot(
         2.0e6 * tau_values,
-        _normalized(echo_amplitudes),
+        echo_amplitudes,
         "o-",
-        label="simulated echo peaks",
+        label="relaxed / relaxation-free echo",
     )
     axes[0, 1].plot(
         2.0e6 * tau_values,
@@ -166,7 +170,7 @@ def main() -> None:
         label="exp(-2 tau / T2)",
     )
     axes[0, 1].set_xlabel("Echo evolution time 2 tau (us)")
-    axes[0, 1].set_ylabel("Normalized echo amplitude")
+    axes[0, 1].set_ylabel("Echo amplitude ratio")
     axes[0, 1].set_title("Hahn-Echo T2 Envelope")
     axes[0, 1].legend()
 

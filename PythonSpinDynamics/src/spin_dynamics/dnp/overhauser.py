@@ -9,15 +9,16 @@ from dataclasses import dataclass
 
 import numpy as np
 
+# Shared CODATA 2018 constants, re-exported here for existing DNP callers.
+from spin_dynamics.constants import AVOGADRO_PER_MOL as AVOGADRO_PER_MOL
+from spin_dynamics.constants import BOLTZMANN_J_PER_K as BOLTZMANN_J_PER_K
+from spin_dynamics.constants import ELECTRON_GAMMA_HZ_PER_T as ELECTRON_GAMMA_HZ_PER_T
+from spin_dynamics.constants import MU0_OVER_4PI as MU0_OVER_4PI
+from spin_dynamics.constants import PLANCK_J_S as PLANCK_J_S
+from spin_dynamics.constants import PROTON_GAMMA_HZ_PER_T as PROTON_GAMMA_HZ_PER_T
+
 from ._validation import array, fraction
 from .spectral import TranslationalDiffusionModel
-
-PROTON_GAMMA_HZ_PER_T = 42.57747892e6
-ELECTRON_GAMMA_HZ_PER_T = 28.0249514242e9
-PLANCK_J_S = 6.62607015e-34
-BOLTZMANN_J_PER_K = 1.380649e-23
-AVOGADRO_PER_MOL = 6.02214076e23
-MU0_OVER_4PI = 1.00000000055e-7
 
 ASSUMPTIONS = (
     "Positive-gamma spin-1/2 nucleus; S=1/2 electron; Zeeman/weak-coupling limit",

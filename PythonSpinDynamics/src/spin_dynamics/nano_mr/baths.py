@@ -7,6 +7,7 @@ from typing import Literal, TypeAlias
 
 import numpy as np
 
+from spin_dynamics.constants import BOLTZMANN_J_PER_K, PLANCK_J_S
 from spin_dynamics.nano_mr.geometry import (
     ISOTOPE_GAMMA_HZ_PER_T,
     SurfaceGeometry,
@@ -14,11 +15,11 @@ from spin_dynamics.nano_mr.geometry import (
 from spin_dynamics.nqr.operators import validate_spin
 
 
-PLANCK_CONSTANT_J_S = 6.62607015e-34
-"""Planck constant in joule seconds."""
+PLANCK_CONSTANT_J_S = PLANCK_J_S
+"""Planck constant in joule seconds (alias of ``spin_dynamics.constants``)."""
 
-BOLTZMANN_CONSTANT_J_PER_K = 1.380649e-23
-"""Boltzmann constant in joules per kelvin."""
+BOLTZMANN_CONSTANT_J_PER_K = BOLTZMANN_J_PER_K
+"""Boltzmann constant in joules per kelvin (alias of ``spin_dynamics.constants``)."""
 
 ISOTOPE_SPIN = {
     "1H": 0.5,

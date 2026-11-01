@@ -18,7 +18,10 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from spin_dynamics.nonresonant import (  # noqa: E402
+    FieldSegment,
+    IsochromatEnsemble,
     NonresonantFieldModel,
+    evolve_segment,
     basic_reversal_sequence,
     csar_double_reversal_sequence,
     csar_sequence,
@@ -176,6 +179,59 @@ class SequenceComparisonTests(unittest.TestCase):
         r = simulate_field_reversal_echoes(_model(), self.ens, sc_seq, num_echoes=12,
                                            t2_seconds=np.inf)
         self.assertEqual(r.magnitude.shape, (12,))
+
+
+def _single_isochromat(background_vector):
+    return IsochromatEnsemble(
+        coil_a_dir=np.array([[1.0, 0.0, 0.0]]),
+        coil_b_dir=np.array([[0.0, 1.0, 0.0]]),
+        coil_a_scale=np.array([1.0]),
+        coil_b_scale=np.array([1.0]),
+        background=np.asarray(background_vector, dtype=np.float64),
+        gamma_rad=2.0 * np.pi * 42.577478518e6,
+        weight=np.array([1.0]),
+    )
+
+
+class ReviewFixTests(unittest.TestCase):
+    def test_precession_follows_bloch_equation_sense(self):
+        # Regression (L-17): dM/dt = gamma M x B with gamma > 0 and B = B0 z
+        # gives M(t) = (cos wt, -sin wt, 0) for M(0) = x and w = gamma B0.
+        ens = _single_isochromat([0.0, 0.0, 1.0e-4])
+        dt = 2.0e-6
+        angle = ens.gamma_rad * 1.0e-4 * dt
+        m = evolve_segment(np.array([[1.0, 0.0, 0.0]]), ens,
+                           FieldSegment(a_tesla=0.0, b_tesla=0.0, dt=dt))
+        np.testing.assert_allclose(m[0], [np.cos(angle), -np.sin(angle), 0.0],
+                                   atol=1e-12)
+        # The finite-difference derivative matches gamma M x B directly.
+        tiny = 1.0e-12
+        m_small = evolve_segment(np.array([[1.0, 0.0, 0.0]]), ens,
+                                 FieldSegment(a_tesla=0.0, b_tesla=0.0, dt=tiny))
+        derivative = (m_small[0] - [1.0, 0.0, 0.0]) / tiny
+        expected = ens.gamma_rad * np.cross([1.0, 0.0, 0.0], [0.0, 0.0, 1.0e-4])
+        np.testing.assert_allclose(derivative, expected, rtol=1e-6, atol=1e-3)
+
+    def test_supercycle_echo_times_accumulate_each_unit_duration(self):
+        # Regression (L-18): echo times used only the first unit's duration.
+        model = _model()
+        ens = sample_isochromats(model, 10, seed=1)
+        short_unit = [FieldSegment(a_tesla=0.0, b_tesla=1e-3, dt=1.0e-3)]
+        long_unit = [FieldSegment(a_tesla=0.0, b_tesla=1e-3, dt=1.0e-3),
+                     FieldSegment(a_tesla=0.0, b_tesla=-1e-3, dt=2.0e-3)]
+        r = simulate_field_reversal_echoes(model, ens, [short_unit, long_unit],
+                                           num_echoes=5)
+        np.testing.assert_allclose(r.echo_times, [1e-3, 4e-3, 5e-3, 8e-3, 9e-3],
+                                   rtol=1e-12)
+
+    def test_nonpositive_t2_is_rejected(self):
+        # Regression (L-18): t2_seconds <= 0 was silently treated as infinite.
+        seq = csar_sequence(_model(), echo_spacing_seconds=2.5e-3)
+        ens = sample_isochromats(_model(), 10, seed=1)
+        for t2 in (0.0, -1.0, np.nan):
+            with self.assertRaises(ValueError):
+                simulate_field_reversal_echoes(_model(), ens, seq, num_echoes=2,
+                                               t2_seconds=t2)
 
 
 class WaveformTests(unittest.TestCase):

@@ -35,6 +35,7 @@ from spin_dynamics.esr import (  # noqa: E402
     simulate_hyperfine_field_sweep,
     spectrum_from_lines,
     static_disorder_grid,
+    width_from_fwhm,
     zeeman_hamiltonian,
 )
 
@@ -457,15 +458,70 @@ class ESRTests(unittest.TestCase):
             fields_tesla=fields,
             detection_mode="derivative",
         )
-        # The two nuclear states each carry the bare electron intensity, so
-        # the A -> 0 hyperfine trace is twice the bare-electron trace.
+        # Intensities are per electron (L-16), so no multiplicity factor.
         scale = float(np.max(np.abs(reference.spectrum)))
         np.testing.assert_allclose(
-            hyperfine.spectrum / 2.0,
+            hyperfine.spectrum,
             reference.spectrum,
             rtol=0.0,
             atol=1.0e-6 * scale,
         )
+
+    def test_hyperfine_absorption_intensity_is_per_electron(self) -> None:
+        # Regression (L-16): each nuclear state carried the full electron
+        # intensity, so the A -> 0 limit was (2I+1)^N times the bare-electron
+        # spectrum (2x for one proton, 6x for 14N plus a proton).
+        g = 2.0
+        hz_per_t = BOHR_MAGNETON_HZ_PER_T * g
+        microwave_frequency_hz = 9.5e9
+        broadening_hz = 2.0e6
+        center = microwave_frequency_hz / hz_per_t
+        fields = np.linspace(center - 4.0e-4, center + 4.0e-4, 201)
+        reference = simulate_field_sweep(
+            ESRSpinSystem(g_tensor=g),
+            microwave_frequency_hz,
+            broadening_tesla=broadening_hz / hz_per_t,
+            fields_tesla=fields,
+        )
+        for nuclei in (
+            [NuclearSite("H1", gamma_hz_per_t=0.0)],
+            [
+                NuclearSite("N", isotope="14N", spin=1.0, gamma_hz_per_t=0.0),
+                NuclearSite("H1", gamma_hz_per_t=0.0),
+            ],
+        ):
+            system = electron_nuclear_system(
+                [1.0] * len(nuclei), nuclei=nuclei, g_tensor=g
+            )
+            hyperfine = simulate_hyperfine_field_sweep(
+                system,
+                microwave_frequency_hz,
+                broadening_hz=broadening_hz,
+                fields_tesla=fields,
+            )
+            np.testing.assert_allclose(
+                hyperfine.spectrum, reference.spectrum, rtol=0.0, atol=1.0e-9
+            )
+
+    def test_width_from_fwhm_matches_measured_half_maximum(self) -> None:
+        # L-15: ``width`` is sigma for Gaussian but HWHM for Lorentzian; the
+        # helper must give both lineshapes the requested full width.
+        axis = np.linspace(-5.0, 5.0, 200001)
+        fwhm = 1.7
+        for name, profile in (
+            ("gaussian", gaussian_lineshape),
+            ("lorentzian", lorentzian_lineshape),
+        ):
+            values = profile(axis, 0.0, width_from_fwhm(fwhm, name))
+            above = axis[values >= 0.5]
+            self.assertAlmostEqual(above[-1] - above[0], fwhm, delta=1e-4)
+        self.assertAlmostEqual(
+            width_from_fwhm(fwhm, "gaussian"),
+            fwhm / (2.0 * np.sqrt(2.0 * np.log(2.0))),
+        )
+        self.assertAlmostEqual(width_from_fwhm(fwhm, "lorentzian"), fwhm / 2.0)
+        with self.assertRaises(ValueError):
+            width_from_fwhm(fwhm, "voigt")
 
     def test_hyperfine_derivative_matches_numerical_field_gradient(self) -> None:
         # A resolved doublet with nuclear Zeeman: derivative mode must equal the

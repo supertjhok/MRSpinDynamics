@@ -48,7 +48,7 @@ class TempolPublishedBenchmarkTests(unittest.TestCase):
         self.assertEqual(result["fit_parameters"], [])
         self.assertTrue(result["within_reduction_envelopes"])
         self.assertAlmostEqual(
-            result["enhancement_profile"]["rmse"], 0.4884946790981705, delta=1e-10
+            result["enhancement_profile"]["rmse"], 0.4884946875275926, delta=1e-10
         )
         self.assertAlmostEqual(
             result["saturation_published_theory"]["rmse"],
@@ -57,7 +57,7 @@ class TempolPublishedBenchmarkTests(unittest.TestCase):
         )
         s, epsilon = profile_model(self.data, np.array([-42, 0, 42]))
         profile = self.data["sezer_profile"]
-        ratio = 28.0249514242e9 / 42.57747892e6
+        ratio = 28.0249514242e9 / 42.577478518e6
         assert_allclose(
             epsilon,
             -ratio * profile["coupling_factor"] * profile["leakage_factor"] * s,
@@ -71,7 +71,7 @@ class TempolPublishedBenchmarkTests(unittest.TestCase):
         result = compare(self.data)
         self.assertAlmostEqual(
             result["model_comparison"]["reduced"]["enhancement"]["rmse"],
-            0.4828455827862031,
+            0.48284558715991344,
             delta=1e-10,
         )
         self.assertLess(

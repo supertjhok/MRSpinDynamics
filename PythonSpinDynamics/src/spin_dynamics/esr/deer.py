@@ -211,12 +211,17 @@ def deer_dipolar_spectrum(
     form_factor,
     *,
     zero_fill: int = 4,
+    lambda_depth: float | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Return the dipolar (Pake) spectrum of a DEER form factor.
 
-    The intramolecular ``(1 - lambda)`` offset is removed before transforming, so
-    the spectrum is the cosine transform of the modulated part. Returns
-    ``(frequencies_hz, spectrum)`` with a one-sided non-negative frequency axis.
+    The unmodulated ``(1 - lambda)`` offset is removed before transforming, so
+    the spectrum is the transform of the modulated part ``lambda <cos>``. When
+    ``lambda_depth`` is given the exact offset ``1 - lambda_depth`` is removed;
+    otherwise the last sample is used as an estimate of it, which is accurate
+    only once the powder-averaged modulation has decayed by the end of the
+    trace. Returns ``(frequencies_hz, spectrum)`` with a one-sided non-negative
+    frequency axis.
     """
 
     times = _validate_times(times_seconds)
@@ -228,7 +233,11 @@ def deer_dipolar_spectrum(
     signal = np.asarray(form_factor, dtype=np.float64).reshape(-1)
     if signal.size != times.size:
         raise ValueError("form_factor must match times_seconds")
-    centered = signal - float(signal[-1])
+    if lambda_depth is None:
+        offset = float(signal[-1])
+    else:
+        offset = 1.0 - _validate_lambda(lambda_depth)
+    centered = signal - offset
     n_fft = int(zero_fill) * times.size
     if n_fft < times.size:
         raise ValueError("zero_fill must be at least 1")

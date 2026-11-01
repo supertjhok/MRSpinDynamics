@@ -125,7 +125,11 @@ def simulate_frequency_spectrum(
     lineshape: str = "gaussian",
     detection_mode: str = "absorption",
 ) -> ESRFrequencySpectrumResult:
-    """Return a broadened fixed-field ESR spectrum on a frequency axis."""
+    """Return a broadened fixed-field ESR spectrum on a frequency axis.
+
+    ``broadening_hz`` is ``sigma`` for Gaussian and HWHM for Lorentzian lines
+    (see :func:`spin_dynamics.esr.lineshapes.width_from_fwhm`).
+    """
 
     b0 = float(b0_tesla)
     if b0 < 0 or not np.isfinite(b0):
@@ -212,7 +216,11 @@ def simulate_field_sweep(
     lineshape: str = "gaussian",
     detection_mode: str = "absorption",
 ) -> ESRFieldSweepResult:
-    """Return a broadened fixed-frequency ESR spectrum on a field axis."""
+    """Return a broadened fixed-frequency ESR spectrum on a field axis.
+
+    ``broadening_tesla`` is ``sigma`` for Gaussian and HWHM for Lorentzian
+    lines (see :func:`spin_dynamics.esr.lineshapes.width_from_fwhm`).
+    """
 
     frequency = float(microwave_frequency_hz)
     if frequency <= 0 or not np.isfinite(frequency):

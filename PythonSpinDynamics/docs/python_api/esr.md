@@ -88,7 +88,10 @@ dark.
 
 For conventional CW-style displays, the spectrum helpers also accept
 `lineshape="gaussian"` or `"lorentzian"` and
-`detection_mode="absorption"` or `"derivative"`.
+`detection_mode="absorption"` or `"derivative"`. The broadening value is the
+standard deviation for a Gaussian but the half width at half maximum for a
+Lorentzian; `width_from_fwhm(fwhm, lineshape)` converts a full width at half
+maximum into the right value for either lineshape.
 
 ```python
 result = simulate_field_sweep(

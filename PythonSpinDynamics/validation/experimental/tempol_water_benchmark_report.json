@@ -6,10 +6,10 @@
     "reduced": {
       "enhancement": {
         "n": 31,
-        "rmse": 0.4828455827862031,
-        "mae": 0.404198199218284,
-        "max_absolute_error": 1.0585702734707017,
-        "bias": -0.043099813431814814
+        "rmse": 0.48284558715991344,
+        "mae": 0.404198204370149,
+        "max_absolute_error": 1.058570308369561,
+        "bias": -0.04309984019021143
       },
       "saturation_theory": {
         "n": 19,
@@ -22,10 +22,10 @@
     "line_dependent": {
       "enhancement": {
         "n": 31,
-        "rmse": 0.4745633590259842,
-        "mae": 0.40301539983836987,
-        "max_absolute_error": 1.051399814242874,
-        "bias": -0.039910818208648266
+        "rmse": 0.4745633632326613,
+        "mae": 0.40301540232054933,
+        "max_absolute_error": 1.0513998490740324,
+        "bias": -0.039910844936935606
       },
       "saturation_theory": {
         "n": 19,
@@ -38,10 +38,10 @@
     "full": {
       "enhancement": {
         "n": 31,
-        "rmse": 0.4884946790981705,
-        "mae": 0.4084291932185264,
-        "max_absolute_error": 1.1573091063385688,
-        "bias": -0.11415490915130969
+        "rmse": 0.4884946875275926,
+        "mae": 0.40842919575182063,
+        "max_absolute_error": 1.1573091421696815,
+        "bias": -0.11415493658058086
       },
       "saturation_theory": {
         "n": 19,
@@ -65,10 +65,10 @@
   },
   "enhancement_profile": {
     "n": 31,
-    "rmse": 0.4884946790981705,
-    "mae": 0.4084291932185264,
-    "max_absolute_error": 1.1573091063385688,
-    "bias": -0.11415490915130969
+    "rmse": 0.4884946875275926,
+    "mae": 0.40842919575182063,
+    "max_absolute_error": 1.1573091421696815,
+    "bias": -0.11415493658058086
   },
   "saturation_published_theory": {
     "n": 19,
@@ -92,14 +92,14 @@
     {
       "field_tesla": 0.34,
       "leakage_from_nmrd": 0.9044862518089725,
-      "epsilon_factor_closure": -98.5887200492097,
+      "epsilon_factor_closure": -98.58872098004608,
       "epsilon_approximate_reported": -100,
       "independent_validation": false
     },
     {
       "field_tesla": 3.4,
       "leakage_from_nmrd": 0.8368065303301876,
-      "epsilon_factor_closure": -24.785774854375955,
+      "epsilon_factor_closure": -24.785775088393606,
       "epsilon_approximate_reported": -20,
       "independent_validation": false
     }

@@ -54,7 +54,7 @@ class OverhauserDNPTests(unittest.TestCase):
     def test_dipolar_and_scalar_limits_and_cancellation(self):
         rates = translational_relaxation_rates(1e-12, self.motion, 0.001)
         assert_allclose(rates.coupling_factor, 0.5, rtol=1e-6)
-        ratio = 28.0249514242e9 / 42.57747892e6
+        ratio = 28.0249514242e9 / 42.577478518e6
         self.assertAlmostEqual(
             float(self.cw(OverhauserRates(0, 2, 1)).enhancement), 1 - ratio / 2
         )

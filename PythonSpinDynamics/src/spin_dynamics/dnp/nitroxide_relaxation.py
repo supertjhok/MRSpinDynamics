@@ -11,8 +11,9 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from spin_dynamics.constants import ELECTRON_GAMMA_HZ_PER_T, FREE_ELECTRON_G
+
 from ._validation import array
-from .overhauser import ELECTRON_GAMMA_HZ_PER_T
 
 
 def _spin_operators(spin):
@@ -122,7 +123,7 @@ class NitroxideRelaxationMatrix:
         if r2 < r1 / 2:
             raise ValueError("additional R2 must be >= additional R1/2")
         omega = 2 * np.pi * ELECTRON_GAMMA_HZ_PER_T * field
-        gg = omega * (g - g.mean()) / 2.00231930436256
+        gg = omega * (g - g.mean()) / FREE_ELECTRON_G
         aa = a - a.mean()
         cgg, cga, caa = np.dot(gg, gg) / 5, np.dot(gg, aa) / 5, np.dot(aa, aa) / 5
         attenuation = 1 / (1 + (omega * tau) ** 2)

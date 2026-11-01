@@ -173,6 +173,20 @@ class DeerQuantumValidationTests(unittest.TestCase):
         self.assertLess(analytic[0], 0.9)
         np.testing.assert_allclose(quantum, analytic, atol=1e-9)
 
+    def test_dipolar_spectrum_removes_exact_one_minus_lambda_offset(self) -> None:
+        # Regression (L-19): the documented (1 - lambda) offset was replaced by
+        # the last sample, which is wrong when the trace ends mid-oscillation.
+        times = np.linspace(0.0, 1.3e-6, 128)
+        lam = 0.4
+        nu_dd = dipolar_angular_frequency_hz(2.5, np.pi / 2.0)
+        trace = deer_pair_trace(times, 2.5, np.pi / 2.0, lambda_depth=lam)
+        freqs, spectrum = deer_dipolar_spectrum(times, trace, lambda_depth=lam)
+        reference = np.abs(
+            np.fft.rfft(lam * np.cos(2.0 * np.pi * nu_dd * times), n=4 * times.size)
+        )
+        np.testing.assert_allclose(freqs, np.fft.rfftfreq(4 * times.size, d=times[1]))
+        np.testing.assert_allclose(spectrum, reference, atol=1e-9)
+
     def test_quantum_echo_refocuses_observer_offset(self) -> None:
         times = np.linspace(0, 1.5e-6, 31)
 

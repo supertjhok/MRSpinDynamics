@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from spin_dynamics.constants import FREE_ELECTRON_G, PROTON_GAMMA_HZ_PER_T
 from spin_dynamics.esr.hamiltonians import (
     TAU,
     effective_g_value,
@@ -24,7 +25,7 @@ class NuclearSite:
     label: str
     isotope: str = "1H"
     spin: float = 0.5
-    gamma_hz_per_t: float = 42.57747892e6
+    gamma_hz_per_t: float = PROTON_GAMMA_HZ_PER_T
 
     def __post_init__(self) -> None:
         spin = validate_spin(self.spin)
@@ -49,7 +50,7 @@ class ElectronNuclearSystem:
 
     nuclei: tuple[NuclearSite, ...]
     hyperfine_hz: np.ndarray | Sequence[float]
-    g_tensor: float | np.ndarray | list[float] | tuple[float, ...] = 2.00231930436256
+    g_tensor: float | np.ndarray | list[float] | tuple[float, ...] = FREE_ELECTRON_G
     electron_label: str = "e"
 
     def __post_init__(self) -> None:
@@ -158,7 +159,7 @@ def electron_nuclear_system(
     hyperfine_hz: Sequence[float] | np.ndarray,
     *,
     nuclei: Sequence[NuclearSite] | None = None,
-    g_tensor: float | np.ndarray | list[float] | tuple[float, ...] = 2.00231930436256,
+    g_tensor: float | np.ndarray | list[float] | tuple[float, ...] = FREE_ELECTRON_G,
 ) -> ElectronNuclearSystem:
     """Build an electron-nuclear spin system from isotropic hyperfine constants."""
 
@@ -323,6 +324,14 @@ def simulate_hyperfine_field_sweep(
     convention as :func:`spin_dynamics.esr.spectra.simulate_field_sweep`. Each
     line's field slope ``d(nu)/dB`` comes from the Hellmann-Feynman derivative
     of its two levels, and its intensity is held at the local value.
+
+    Intensities are per electron: each ``|<l|b1.S|u>|^2`` is divided by the
+    nuclear Hilbert-space dimension (the equal high-temperature population of
+    each nuclear state), so the summed intensity matches
+    :func:`spin_dynamics.esr.spectra.simulate_field_sweep` for the bare
+    electron. ``intensity_tolerance`` is applied before that division.
+    ``broadening_hz`` follows :mod:`spin_dynamics.esr.lineshapes` (``sigma``
+    for Gaussian, HWHM for Lorentzian).
     """
 
     frequency = float(microwave_frequency_hz)
@@ -352,6 +361,7 @@ def simulate_hyperfine_field_sweep(
         if not np.all(np.isfinite(fields)):
             raise ValueError("fields_tesla must be finite")
 
+    nuclear_dimension = system.dimension // 2
     spectrum = np.zeros(fields.size, dtype=np.float64)
     transition_points: list[HyperfineFieldPoint] = []
     for idx, field in enumerate(fields):
@@ -363,6 +373,7 @@ def simulate_hyperfine_field_sweep(
             intensity = float(abs(rf_amplitude) ** 2)
             if intensity <= intensity_tolerance:
                 continue
+            intensity /= nuclear_dimension
             centers.append(transition.frequency_hz)
             if derivative:
                 # The profile derivative is taken with respect to the microwave

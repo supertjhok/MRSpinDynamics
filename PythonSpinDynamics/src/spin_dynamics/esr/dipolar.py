@@ -22,20 +22,13 @@ from __future__ import annotations
 
 import numpy as np
 
+# Free-electron g factor (CODATA 2018), re-exported for existing callers.
+from spin_dynamics.constants import FREE_ELECTRON_G as FREE_ELECTRON_G
+from spin_dynamics.constants import BOHR_MAGNETON_J_PER_T as _BOHR_MAGNETON_J_PER_T
+from spin_dynamics.constants import MU0_OVER_4PI as _MU0_OVER_4PI
+from spin_dynamics.constants import PLANCK_J_S as _PLANCK_J_S
 from spin_dynamics.esr.hamiltonians import TAU
-from spin_dynamics.esr.systems import BOHR_MAGNETON_HZ_PER_T
 from spin_dynamics.nqr.operators import spin_matrices
-
-
-FREE_ELECTRON_G = 2.00231930436256
-"""Free-electron ``g`` factor (CODATA)."""
-
-# mu_0 / (4 pi) in T^2 m^3 / J. With mu_0 = 4 pi x 1e-7, this is exactly 1e-7.
-_MU0_OVER_4PI = 1.0e-7
-# Planck constant in J s.
-_PLANCK_J_S = 6.62607015e-34
-# Bohr magneton in J/T, consistent with BOHR_MAGNETON_HZ_PER_T = mu_B / h.
-_BOHR_MAGNETON_J_PER_T = BOHR_MAGNETON_HZ_PER_T * _PLANCK_J_S
 
 
 def dipolar_constant_hz_nm3(

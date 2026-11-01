@@ -6,19 +6,17 @@ from dataclasses import dataclass
 
 import numpy as np
 
+# mu_0/(4*pi) and mu_B (CODATA 2018), re-exported for existing nano-MR callers.
+from spin_dynamics.constants import BOHR_MAGNETON_J_PER_T as BOHR_MAGNETON_J_PER_T
+from spin_dynamics.constants import MU0_OVER_4PI as MU0_OVER_4PI
+from spin_dynamics.constants import PROTON_GAMMA_HZ_PER_T
 from spin_dynamics.nano_mr.frames import unit_vector
 from spin_dynamics.nano_mr.sensors import DefectSpinSensor
 from spin_dynamics.nqr.operators import validate_spin
 
 
-MU0_OVER_4PI = 1.0e-7
-"""Vacuum permeability divided by ``4*pi`` in SI units."""
-
-BOHR_MAGNETON_J_PER_T = 9.2740100783e-24
-"""Bohr magneton in joules per tesla."""
-
 ISOTOPE_GAMMA_HZ_PER_T = {
-    "1H": 42.57747892e6,
+    "1H": PROTON_GAMMA_HZ_PER_T,
     "13C": 10.7084e6,
     "19F": 40.052e6,
     "29Si": -8.465e6,

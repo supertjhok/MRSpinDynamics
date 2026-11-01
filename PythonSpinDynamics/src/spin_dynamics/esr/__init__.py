@@ -82,6 +82,7 @@ from spin_dynamics.esr.lineshapes import (
     gaussian_lineshape,
     lorentzian_lineshape,
     spectrum_from_lines,
+    width_from_fwhm,
 )
 from spin_dynamics.esr.orientations import (
     ESROrientationSample,
@@ -203,6 +204,7 @@ __all__ = [
     "spectrum_from_lines",
     "static_hamiltonian_rotating",
     "static_disorder_grid",
+    "width_from_fwhm",
     "zeeman_hamiltonian",
     # Pulsed dipolar / electron-nuclear correlation spectroscopy
     "HyperfineCoupling",

@@ -6,11 +6,10 @@ from dataclasses import dataclass
 
 import numpy as np
 
+# mu_B/h in Hz/T, re-exported from the shared CODATA 2018 constants.
+from spin_dynamics.constants import BOHR_MAGNETON_HZ_PER_T as BOHR_MAGNETON_HZ_PER_T
+from spin_dynamics.constants import FREE_ELECTRON_G
 from spin_dynamics.nqr.operators import spin_dimension, validate_spin
-
-
-BOHR_MAGNETON_HZ_PER_T = 13.99624555e9
-"""Bohr magneton divided by Planck's constant, in Hz/T."""
 
 
 def as_g_tensor(
@@ -39,7 +38,7 @@ def as_g_tensor(
 class ESRSpinSystem:
     """Single-electron ESR spin system with an isotropic or anisotropic ``g`` tensor."""
 
-    g_tensor: float | np.ndarray | list[float] | tuple[float, ...] = 2.00231930436256
+    g_tensor: float | np.ndarray | list[float] | tuple[float, ...] = FREE_ELECTRON_G
     spin: float = 0.5
     label: str = "e"
 
