@@ -31,7 +31,7 @@ code, not run.
 |---|---:|---:|---:|---:|
 | High | 0 | 0 | 13 | 0 |
 | CI / gates | 7 | 0 | 0 | 0 |
-| Medium | 34 | 0 | 10 | 0 |
+| Medium | 25 | 0 | 18 | 1 |
 | Low | 51 | 0 | 1 | 0 |
 
 ## High
@@ -68,15 +68,15 @@ code, not run.
 
 | ID | Area | Location | Problem | Evidence | Status | Resolution |
 |---|---|---|---|---|---|---|
-| M-01 | core | `phase_cycling.py:88-92` | The cycles assume M+ detection, but the arb10 kernels and motion code acquire M−, so combining them cancels the signal (\|S\| ≈ 1e-4). The convention is undocumented. | Repro | Open | |
-| M-02 | core | `exchange.py:411-415` | The default spectrum span uses `ptp(offsets)`, not `max\|offset\|`, so peaks alias (1000/1100 Hz → 92/192 Hz). | Repro | Open | |
-| M-03 | core | `pulses.py:98-110` | `quantize_phase` doesn't wrap (2π → 3π/2, −π/2 → 0), which has drifted from `absolute_phase.quantize_phase_to_bins`. | Repro | Open | |
-| M-04 | core | `core/rotations.py:266` | `calc_rot_axis_arba4` calls `arccos` without clipping, giving NaN angles near the identity and a non-unit axis for an exact identity. | Repro | Open | |
-| M-05 | core | `radiation_damping.py:440` | The drive sign is opposite to the package pulse convention (Mz tips to +y instead of −y). | Repro | Open | |
-| M-06 | core | `core/kernels.py:68-80` vs `radiation_damping.py:247-273` | `time_scale` means s/unit in one API and unit/s in the other. | Reading | Open | |
-| M-07 | core | `noise.py:390` vs `:423` | `target_snr` differs by √2 between the white and probe noise models. | Repro | Open | |
-| M-08 | core | `coupling/multinuclear.py:205`, `coupling/isotopes.py` | Zeeman terms use \|γ\| for every nucleus, so the precession sense is wrong for ¹⁵N/²⁹Si mixed with ¹H. | Reading | Open | |
-| M-09 | core | `composition.py:264` | `_spatial_resample` output inherits the input dtype, so integer channels are truncated. | Repro | Open | |
+| M-01 | core | `phase_cycling.py:88-92` | The cycles assume M+ detection, but the arb10 kernels and motion code acquire M−, so combining them cancels the signal (\|S\| ≈ 1e-4). The convention is undocumented. | Repro | Fixed | `PhaseCycle.combine(detection="m_minus")` conjugates the weights for M− acquisitions (the arb10 kernels); the convention is documented, and the default M+ is unchanged. Tests: `test_phase_cycling.py::DetectionConventionTests` (stimulated echo 2.5e-19 → 0.500). Commit `e3bcad3`. |
+| M-02 | core | `exchange.py:411-415` | The default spectrum span uses `ptp(offsets)`, not `max\|offset\|`, so peaks alias (1000/1100 Hz → 92/192 Hz). | Repro | Fixed | The default span covers max(ptp, 2·max\|offset\|); symmetric cases are unchanged. Tests: `test_exchange.py::ExchangeSpectrumWindowTests`. Commit `e3bcad3`. |
+| M-03 | core | `pulses.py:98-110` | `quantize_phase` doesn't wrap (2π → 3π/2, −π/2 → 0), which has drifted from `absolute_phase.quantize_phase_to_bins`. | Repro | Fixed | Circular distance by default (`circular=True`); the MATLAB linear mode is kept for the Octave fixture. Tests: `test_core_conventions.py::QuantizePhaseTests`. Behaviour change for phases outside [0, 2π). Commit `e3bcad3`. |
+| M-04 | core | `core/rotations.py:266` | `calc_rot_axis_arba4` calls `arccos` without clipping, giving NaN angles near the identity and a non-unit axis for an exact identity. | Repro | Fixed | α = 2·atan2(\|v\|, cs) with the axis normalized by \|v\| (15 NaN → 0; unit axes). Tests: `test_core_conventions.py::RotationAxisTests`. Commit `e3bcad3`. |
+| M-05 | core | `radiation_damping.py:440` | The drive sign is opposite to the package pulse convention (Mz tips to +y instead of −y). | Repro | Not a bug | dM/dt = γM×B1 is physical; the mapping to the package pulse-phase convention (drive = −(ω1/γ)e^{iφ}) is now documented and pinned by `test_radiation_damping.py::RadiationDampingConventionTests::test_documented_drive_reproduces_package_pulse_phase_convention`. Commit `e3bcad3`. |
+| M-06 | core | `core/kernels.py:68-80` vs `radiation_damping.py:247-273` | `time_scale` means s/unit in one API and unit/s in the other. | Reading | Fixed | Both directions are documented and cross-referenced; `RadiationDampingSpec.from_t90` added; non-positive time_scale rejected. Test: `RadiationDampingConventionTests::test_spec_time_scale_is_normalized_units_per_second`. Commit `e3bcad3`. |
+| M-07 | core | `noise.py:390` vs `:423` | `target_snr` differs by √2 between the white and probe noise models. | Repro | Fixed | Behaviour change: white-noise `target_snr` now means rms(signal)/rms(complex noise), as in the probe model (realized 7.08 → 10.0). Test: `test_core_conventions.py::NoiseTargetSnrTests`. Commit `e3bcad3`. |
+| M-08 | core | `coupling/multinuclear.py:205`, `coupling/isotopes.py` | Zeeman terms use \|γ\| for every nucleus, so the precession sense is wrong for ¹⁵N/²⁹Si mixed with ¹H. | Reading | Fixed | Signed γ by default (`signed_gamma=True`; `NEGATIVE_GAMMA_ISOTOPES`, `signed_gamma_hz_per_t`). ¹H–¹⁵N Δν at 50 µT: 1913 → 2345 Hz. Tests: `test_zulf_jcoupling.py::SignedGammaTests` (analytic AB levels). Commit `e3bcad3`. |
+| M-09 | core | `composition.py:264` | `_spatial_resample` output inherits the input dtype, so integer channels are truncated. | Repro | Fixed | Output dtype is `result_type(input, float64)`. Test: `test_composition.py::test_resample_promotes_integer_channels_instead_of_truncating`. Commit `e3bcad3`. |
 | M-10 | workflows | `workflows/imaging_frequency.py:333` | Spin-echo branch (RARE / spin-warp / multislice) samples k=0 one dwell after the echo. The gradient-echo branch uses `center_sample`. | Repro | Open | |
 | M-11 | workflows | `workflows/imaging_3d.py:190-191` | Same echo timing error as M-10, plus a slice-rephase offset (`rephase_fraction·slice_duration/2`). | Reading | Open | |
 | M-12 | workflows | `workflows/imaging.py:1389-1390` | Phase-encode grid misses k=0 for even `px` (half-pixel shift), and SENSE `_folding_matrix` assumes an exact DFT. The fix exists in `imaging_frequency.py` only. | Repro (emulated) | Open | |
@@ -182,3 +182,4 @@ code, not run.
 - 2026-11-01: Frozen NQR mail-screening study re-pinned to the corrected database (none of its materials use the changed rows).
 - 2026-11-01: M-38 to M-43 (optimization, GRAPE, thermal) fixed in `41f0bd6`.
 - 2026-11-01: M-34 to M-37 (fields) fixed in `fc240a6`.
+- 2026-11-01: M-01 to M-09 (core) fixed in `e3bcad3` (M-05 closed as not a bug, with documentation).
