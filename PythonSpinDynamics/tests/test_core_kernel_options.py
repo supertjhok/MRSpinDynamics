@@ -265,7 +265,9 @@ class MatrixExponentialTests(unittest.TestCase):
         rho = (result @ np.outer(state, state).reshape(-1, order="F")).reshape(
             dim, dim, order="F"
         )
-        self.assertAlmostEqual(float(np.trace(rho).real), 1.0, places=12)
+        # SciPy's own expm leaves 2e-13 to 7e-13 here depending on the CPU's
+        # BLAS kernels; the Taylor-series regression (L-58) left 1.07e-11.
+        self.assertAlmostEqual(float(np.trace(rho).real), 1.0, delta=2e-12)
 
     @unittest.skipUnless(importlib.util.find_spec("scipy"), "scipy not installed")
     def test_pade13_fallback_without_scipy(self) -> None:
