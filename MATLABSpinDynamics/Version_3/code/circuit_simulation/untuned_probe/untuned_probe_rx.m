@@ -36,7 +36,8 @@ mrx=macq.*tf.*(2*pi*f/w0).^2;
 % inductive detection efficiency factors
 
 vni2=4*k*T*R*abs(tf).^2;
-pnoise=vn.^2+in.^2*abs(Zs).^2+4*k*T*(Rdup+R1+R2/Nv^2)*abs(tf).^2+vni2;
+vnd2=4*k*T/Rd*abs(Zs).^2; % Damping-resistor thermal noise (4kT/Rd) at the input node
+pnoise=vn.^2+in.^2*abs(Zs).^2+4*k*T*(Rdup+R1+R2/Nv^2)*abs(tf).^2+vni2+vnd2;
 
 % Matched filtering (maximize SNR at t=0)
 switch mf_type

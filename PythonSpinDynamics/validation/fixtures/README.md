@@ -81,8 +81,13 @@ corrected Python with each file's existing layout and inputs (the inputs used by
 
 `tuned_probe_rx` and `untuned_probe_rx` now include the thermal current noise
 `4 k T / Rd` of the damping resistor, seen at the receiver input through `Zs`.
-The MATLAB `tuned_probe_rx.m` / `untuned_probe_rx.m` omit it, so these SNR or
-score values were regenerated from Python (signal spectra are unchanged):
+The same receiver model (`tuned_probe_receiver_noise`,
+`untuned_probe_receiver_noise`) now also backs
+`spin_dynamics.noise.{tuned,untuned}_probe_output_noise_density`, so the probe
+SNR, the injected probe noise and the field-referred detectors use one formula
+(at the default `Rd = 1 MOhm` that density rises by 0.02-0.8 %, and by about
+3 % for the untuned SPA set). Octave was unavailable, so these SNR or score
+values were regenerated from Python (signal spectra are unchanged):
 
 - `calc_masy_tuned_probe_lp_orig.csv`, `calc_masy_untuned_probe_lp.csv`: SNR
   column only (at the default `Rd = 1 MOhm`: tuned 0.88349 to 0.88212, -0.16 %;
@@ -98,5 +103,9 @@ score values were regenerated from Python (signal spectra are unchanged):
   `optimization_untuned_refocusing_results.mat`: the stored score element only
   (untuned refocusing 0.93154 to 0.91805 and 0.86146 to 0.84900).
 
-Rerunning the Octave generators reproduces the old values until the MATLAB
-receiver functions add the same term.
+The MATLAB Version 3 `circuit_simulation/tuned_probe/tuned_probe_rx.m` and
+`circuit_simulation/untuned_probe/untuned_probe_rx.m` now add the same term
+(`vnd2 = 4*k*T/Rd*abs(Zs).^2`), so rerunning the Octave generators should
+reproduce these regenerated values (not yet run: Octave was unavailable). The
+older `untuned_probe_rx2.m` / `untuned_probe_rx3.m` variants, which the
+generators do not call, are unchanged.

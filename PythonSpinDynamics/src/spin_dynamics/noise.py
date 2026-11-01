@@ -207,35 +207,16 @@ def tuned_probe_output_noise_density(
     ``Z_n(dw)`` is inserted in series with the coil and its Nyquist noise
     ``4*k*T_sample*Re(Z_n)`` is added at the sample temperature, while the
     coil resistance stays at the circuit temperature ``sp.T``. See
-    ``docs/spin_noise.md``.
+    ``docs/spin_noise.md``. The density, including the damping resistor's
+    ``4kT/Rd`` noise, comes from
+    :func:`spin_dynamics.probes.tuned.tuned_probe_receiver_noise`, the same
+    receiver model :func:`~spin_dynamics.probes.tuned.tuned_probe_rx` uses.
     """
 
-    k = float(_field(sp, "k"))
-    T = float(_field(sp, "T"))
-    L = float(_field(sp, "L"))
-    R = float(_field(sp, "R"))
-    C = float(_field(sp, "C"))
-    Cin = float(_field(sp, "Cin"))
-    Rin = float(_field(sp, "Rin"))
-    Rd = float(_field(sp, "Rd"))
-    vn = float(_field(sp, "vn"))
-    inn = float(_field(sp, "in_"))
-    w0 = float(_field(sp, "w0"))
-    del_w = _as_vector(_field(sp, "del_w"))
-    w1_max = (np.pi / 2) / float(_field(pp, "T_90"))
-    s = 1j * (w0 + del_w * w1_max)
-    f = np.imag(s) / (2 * np.pi)
-    zn = sample.z_n(del_w * w1_max) if sample is not None else 0.0
-    z_coil = s * L + R + zn
-    Yin = s * Cin + 1 / Rin
-    Yp = s * C + 1 / Rd + 1 / z_coil
-    tf = 1 / (1 + z_coil * (s * C + 1 / Rd + Yin))
-    Zs = 1 / (Yin + Yp)
-    vni2 = 4 * k * T * R * np.abs(tf) ** 2
-    if sample is not None:
-        vni2 = vni2 + 4 * k * float(sample.temperature) * np.real(zn) * np.abs(tf) ** 2
-    pnoise = vn**2 + inn**2 * np.abs(Zs) ** 2 + vni2
-    return np.asarray(pnoise, dtype=np.float64), f
+    from spin_dynamics.probes.tuned import tuned_probe_receiver_noise
+
+    pnoise, f, _tf, _zs = tuned_probe_receiver_noise(sp, pp, sample=sample)
+    return pnoise, f
 
 
 def untuned_probe_output_noise_density(
@@ -248,47 +229,14 @@ def untuned_probe_output_noise_density(
 
     ``sample`` optionally inserts the spin-noise sample impedance in series
     with the coil branch and adds its Nyquist noise at the sample temperature
-    (see :func:`tuned_probe_output_noise_density`).
+    (see :func:`tuned_probe_output_noise_density`). Computed by
+    :func:`spin_dynamics.probes.untuned.untuned_probe_receiver_noise`.
     """
 
-    k = float(_field(sp, "k"))
-    T = float(_field(sp, "T"))
-    L = float(_field(sp, "L"))
-    R = float(_field(sp, "R"))
-    C = float(_field(sp, "C"))
-    Cin = float(_field(sp, "Cin"))
-    Rin = float(_field(sp, "Rin"))
-    Rd = float(_field(sp, "Rd"))
-    Rdup = float(_field(sp, "Rdup"))
-    Nrx = float(_field(sp, "Nrx"))
-    krx = float(_field(sp, "krx"))
-    L1 = float(_field(sp, "L1"))
-    R1 = float(_field(sp, "R1"))
-    vn = float(_field(sp, "vn"))
-    inn = float(_field(sp, "in_"))
-    w0 = float(_field(sp, "w0"))
-    del_w = _as_vector(_field(sp, "del_w"))
-    w1_max = (np.pi / 2) / float(_field(pp, "T_90"))
-    s = 1j * (w0 + del_w * w1_max)
-    f = np.imag(s) / (2 * np.pi)
-    zn = sample.z_n(del_w * w1_max) if sample is not None else 0.0
-    Yin = s * Cin + 1 / Rin + 1 / Rd
-    Yp = s * C + 1 / (s * L + R + zn)
-    Zp = 1 / Yp
-    Nv = krx * Nrx * L1 / (L + L1)
-    Zeff = (Zp + Rdup + R1) * Nv**2 + s * L1 * Nrx**2 * (1 - krx**2) + Nrx * R1
-    tf = Nv / (1 + Zeff * Yin)
-    Zs = Zeff / (1 + Yin * Zeff)
-    vni2 = 4 * k * T * R * np.abs(tf) ** 2
-    if sample is not None:
-        vni2 = vni2 + 4 * k * float(sample.temperature) * np.real(zn) * np.abs(tf) ** 2
-    pnoise = (
-        vn**2
-        + inn**2 * np.abs(Zs) ** 2
-        + 4 * k * T * (Rdup + R1 + Nrx * R1 / Nv**2) * np.abs(tf) ** 2
-        + vni2
-    )
-    return np.asarray(pnoise, dtype=np.float64), f
+    from spin_dynamics.probes.untuned import untuned_probe_receiver_noise
+
+    pnoise, f, _tf, _zs = untuned_probe_receiver_noise(sp, pp, sample=sample)
+    return pnoise, f
 
 
 def matched_probe_output_noise_density(

@@ -92,15 +92,22 @@ def untuned_probe_lp(
     return tvect2, icr2, tvect, ic
 
 
-def untuned_probe_rx(
+def untuned_probe_receiver_noise(
     sp: Mapping[str, Any] | Any,
     pp: Mapping[str, Any] | Any,
-    macq: np.ndarray,
-) -> tuple[np.ndarray, float, np.ndarray]:
-    """Apply untuned-probe receiver filtering and matched-filter SNR.
+    *,
+    sample: Any | None = None,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Return the untuned receiver's output noise PSD and network response.
 
-    Mirrors MATLAB `circuit_simulation/untuned_probe/untuned_probe_rx.m`, plus
-    the damping resistor's thermal noise ``4kT/Rd * |Zs|^2``, which MATLAB omits.
+    Returns ``(pnoise, f, tf, Zs)`` like
+    :func:`spin_dynamics.probes.tuned.tuned_probe_receiver_noise`, for the
+    transformer-coupled untuned probe: amplifier ``vn``/``in``, the coil
+    ``4kTR|tf|^2``, the duplexer and transformer winding resistances, and the
+    damping resistor's ``4kT/Rd |Zs|^2``. ``sample`` optionally inserts a
+    spin-noise sample impedance in series with the coil branch. Shared by
+    :func:`untuned_probe_rx` and
+    :func:`spin_dynamics.noise.untuned_probe_output_noise_density`.
     """
 
     k = float(_field(sp, "k"))
@@ -118,18 +125,17 @@ def untuned_probe_rx(
     R1 = float(_field(sp, "R1"))
     vn = float(_field(sp, "vn"))
     inn = float(_field(sp, "in_"))
-    mf_type = int(_field(sp, "mf_type"))
     w0 = float(_field(sp, "w0"))
     del_w = _as_vector(_field(sp, "del_w"))
-    macq = np.asarray(macq, dtype=np.complex128).reshape(-1)
 
     L2 = L1 * Nrx**2
     R2 = Nrx * R1
     w1_max = (np.pi / 2) / float(_field(pp, "T_90"))
     s = 1j * (w0 + del_w * w1_max)
     f = np.imag(s) / (2 * np.pi)
+    zn = sample.z_n(del_w * w1_max) if sample is not None else 0.0
     Yin = s * Cin + 1 / Rin + 1 / Rd
-    Yp = s * C + 1 / (s * L + R)
+    Yp = s * C + 1 / (s * L + R + zn)
     Zp = 1 / Yp
 
     Nv = krx * Nrx * L1 / (L + L1)
@@ -137,8 +143,9 @@ def untuned_probe_rx(
     tf = Nv / (1 + Zeff * Yin)
     Zs = Zeff / (1 + Yin * Zeff)
 
-    mrx = macq * tf * (2 * np.pi * f / w0) ** 2
     vni2 = 4 * k * T * R * np.abs(tf) ** 2
+    if sample is not None:
+        vni2 = vni2 + 4 * k * float(sample.temperature) * np.real(zn) * np.abs(tf) ** 2
     pnoise = (
         vn**2
         + inn**2 * np.abs(Zs) ** 2
@@ -148,6 +155,27 @@ def untuned_probe_rx(
         # node, seen through Zs (omitted in the MATLAB reference).
         + (4 * k * T / Rd) * np.abs(Zs) ** 2
     )
+    return np.asarray(pnoise, dtype=np.float64), f, tf, Zs
+
+
+def untuned_probe_rx(
+    sp: Mapping[str, Any] | Any,
+    pp: Mapping[str, Any] | Any,
+    macq: np.ndarray,
+) -> tuple[np.ndarray, float, np.ndarray]:
+    """Apply untuned-probe receiver filtering and matched-filter SNR.
+
+    Mirrors MATLAB `circuit_simulation/untuned_probe/untuned_probe_rx.m`, plus
+    the damping resistor's thermal noise ``4kT/Rd * |Zs|^2``, which MATLAB omits.
+    """
+
+    mf_type = int(_field(sp, "mf_type"))
+    w0 = float(_field(sp, "w0"))
+    del_w = _as_vector(_field(sp, "del_w"))
+    macq = np.asarray(macq, dtype=np.complex128).reshape(-1)
+
+    pnoise, f, tf, _zs = untuned_probe_receiver_noise(sp, pp)
+    mrx = macq * tf * (2 * np.pi * f / w0) ** 2
 
     if mf_type == 0:
         theta = np.arctan2(np.sum(np.imag(mrx)), np.sum(np.real(mrx)))
