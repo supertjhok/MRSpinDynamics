@@ -32,7 +32,7 @@ code, not run.
 | High | 0 | 0 | 13 | 0 |
 | CI / gates | 7 | 0 | 0 | 0 |
 | Medium | 1 | 0 | 43 | 1 |
-| Low | 40 | 0 | 14 | 0 |
+| Low | 34 | 0 | 21 | 0 |
 
 ## High
 
@@ -132,12 +132,12 @@ code, not run.
 | L-12 | workflows | `workflows/acquisition.py` | `calc_macq_ideal_probe_relax4` and `_calc_macq_relax4` are identical. | Open | |
 | L-13 | workflows | `workflows/electropermanent_*.py` | `_strict_axis`/`_positive`/`_bilinear_sample` are copy-pasted across 5 modules. | Open | |
 | L-14 | workflows | `workflows/slice_selective.py` | `time_bandwidth` is half the conventional TBW (documented, but misleading). | Open | |
-| L-15 | esr | `esr/lineshapes.py:292` vs `:310` | `width` means σ for Gaussian but HWHM for Lorentzian. | Open | |
-| L-16 | esr | `esr/hyperfine.py:350-356` | Intensities aren't normalized by nuclear multiplicity (2× vs `ESRSpinSystem` for one proton). | Open | |
-| L-17 | nonresonant | `nonresonant/field_reversal.py:267` | Rotation sense is +γ\|B\|dt (opposite to dM/dt = γM×B); flips the quadrature sign. | Open | |
-| L-18 | nonresonant | `nonresonant/field_reversal.py:360,373` | Supercycle `echo_times` uses only `cycle[0]`'s duration, and `t2_seconds <= 0` is treated as infinite. | Open | |
-| L-19 | esr | `esr/deer.py:231` | `deer_dipolar_spectrum` subtracts `signal[-1]`, not the (1−λ) offset its docstring describes. | Open | |
-| L-20 | constants | `esr/systems.py:167`, dnp, nano_mr, nonresonant | Physical constants come from mixed CODATA vintages and are duplicated per module. | Open | |
+| L-15 | esr | `esr/lineshapes.py:292` vs `:310` | `width` means σ for Gaussian but HWHM for Lorentzian. | Fixed | Conventions are documented across lineshapes and spectra; new `width_from_fwhm` / `GAUSSIAN_FWHM_PER_SIGMA`. Test: `test_esr.py::test_width_from_fwhm_matches_measured_half_maximum`. Commit `6f2423a`. |
+| L-16 | esr | `esr/hyperfine.py:350-356` | Intensities aren't normalized by nuclear multiplicity (2× vs `ESRSpinSystem` for one proton). | Fixed | Hyperfine intensities are per electron (÷ nuclear dimension), so A→0 matches `simulate_field_sweep` (2.0 → 1.0); hyperfine absolute amplitudes change by 1/(2I+1)^N. Test: `test_esr.py::test_hyperfine_absorption_intensity_is_per_electron`. Commit `6f2423a`. |
+| L-17 | nonresonant | `nonresonant/field_reversal.py:267` | Rotation sense is +γ\|B\|dt (opposite to dM/dt = γM×B); flips the quadrature sign. | Fixed | Rotation by −γ\|B\|dt (dM/dt = γM×B); the quadrature of echo/coherent amplitudes flips sign and magnitudes shift ≤ 0.015 for tilted 3-D coils. Test: `test_nonresonant_field_reversal.py::ReviewFixTests::test_precession_follows_bloch_equation_sense`. Commit `6f2423a`. |
+| L-18 | nonresonant | `nonresonant/field_reversal.py:360,373` | Supercycle `echo_times` uses only `cycle[0]`'s duration, and `t2_seconds <= 0` is treated as infinite. | Fixed | Echo times accumulate each played unit's duration; `t2_seconds <= 0`/NaN raise. Tests: `::test_supercycle_echo_times_accumulate_each_unit_duration`, `::test_nonpositive_t2_is_rejected`. Commit `6f2423a`. |
+| L-19 | esr | `esr/deer.py:231` | `deer_dipolar_spectrum` subtracts `signal[-1]`, not the (1−λ) offset its docstring describes. | Fixed | Optional `lambda_depth` removes exactly 1−λ; the default is documented as an estimate. Test: `test_esr_deer.py::test_dipolar_spectrum_removes_exact_one_minus_lambda_offset`. Commit `6f2423a`. |
+| L-20 | constants | `esr/systems.py:167`, dnp, nano_mr, nonresonant | Physical constants come from mixed CODATA vintages and are duplicated per module. | Fixed | New `spin_dynamics.constants` (CODATA 2018) used by esr, dnp, nano_mr and nonresonant, with old names re-exported; changes are ~1e-8, and the TEMPOL report was regenerated and stays within its envelopes. Remaining duplicates elsewhere are tracked as L-55. Commit `6f2423a`. |
 | L-21 | nqr | `nqr/structure_coupling.py:319`, `QDFT/strain_coupling.py:633` | The posix-`shlex` CIF tokenizer rejects legal CIF quoting (`'O'Brien'`). | Fixed | A CIF 1.1 lexer replaces shlex in both packages (the bundled Acetaminophen CIF now parses). Tests: `test_nqr_cif.py::CIFLexerTests`, `QuadrupolarDFT/tests/test_strain_coupling.py::test_cif_with_legal_embedded_apostrophe_parses`. Commit `5cf2c2c`. |
 | L-22 | qdft | `QDFT/abinit.py` | `_FLOAT` accepts Fortran `D` exponents, but `float()` fails on them. | Fixed | `_fortran_float` helper; fixed together with H-13 in `23def73`. |
 | L-23 | nqrdb | `NQRDB/scripts/build_cwru_database.py` `first_number`/`parse_time_s` | No scientific notation; `µs` vs `us`; "hours" matches "us". | Fixed | Scientific notation and leading-dot values are parsed; no shipped data changes. Test: `NQRDatabase/tests/test_relaxation_units.py::test_scientific_notation_and_leading_dot`. Commit `5cf2c2c`. |
@@ -170,8 +170,9 @@ code, not run.
 | L-50 | integration | `integration/src/mr_integration/database.py` | `with _connect()` doesn't close sqlite connections; the URI isn't built with `as_uri()`. Spin support is only 1 and 3/2, and DFT C_Q/η are averaged over non-equivalent atoms. | Open | |
 | L-51 | repo | `AGENTS.md`, `.gitattributes`, `tests/test_validation_gaps.py` | AGENTS.md points at a stale OneDrive copy and omits the validation-matrix check; `.gitattributes` names a missing path; 5 permanently skipped placeholder tests. | Open | |
 | L-52 | repo | `PythonSpinDynamics/docs/user_manual.pdf`, MATLAB tree, NQRDB exports | A 12 MB PDF in 129 commits (516 MiB pack); a Dropbox conflict copy and 23 paths with spaces/parentheses in MATLAB; 126 duplicate blobs across V2/V3; a `generated_at` timestamp in a tracked export. | Open | |
-| L-53 | esr | `examples/plot_esr_relaxation.py` (Hahn-echo panel) | Found while fixing M-17. The panel normalizes by the first echo at 2τ = 0.5 µs, so short-time points sit above exp(−2τ/T2) (same pattern as M-18, in example code). | Open | |
+| L-53 | esr | `examples/plot_esr_relaxation.py` (Hahn-echo panel) | Found while fixing M-17. The panel normalizes by the first echo at 2τ = 0.5 µs, so short-time points sit above exp(−2τ/T2) (same pattern as M-18, in example code). | Fixed | Hahn echoes are normalized by the relaxation-free echo at the same τ (first point 1.0 → 0.82 vs analytic 0.846; the remainder is T2 during finite pulses). Example code only. Commit `6f2423a`. |
 | L-54 | workflows / fields | `fields/domain.py` docstring; `workflows/imaging.py` combine; MATLAB V3 `sim_cpmg_*_probe_img.m` | Found while fixing M-12/M-16. The `fields/domain.py` docstring still claims equality with `_default_gradient_maps` (stale for even n). Phase-encoded imaging keeps the unnormalized MATLAB-parity PAP combine. The MATLAB V3 imaging scripts still use linspace grids, so the Octave generator would reproduce the pre-M-12 fixtures. | Open | Partly fixed in `b7a89d8`: `SpatialDomain.normalized`/`normalized_coordinate_grids` now share `fields.domain.centered_unit_axis` with imaging. That path had still been feeding linspace grids to imaging (a real M-12 gap, caught by `test_spatial_fields.py::test_normalized_grids_match_default_gradient_maps`); new test `::test_normalized_axes_are_dft_centred`. Still open: the imaging PAP combine and the MATLAB V3 grids. |
+| L-55 | constants | `nqr/` (polarization_enhancement, structure_coupling, crossover, field_relaxation, piezo_detection), `relaxation.py`, `radiation_damping.py`, `susceptibility.py`, `receiver_network.py`, `fields/` (magnetostatics, nonlinear_magnetostatics, birdcage_multiport), `interference/sources.py`, `workflows/` (bipolar, electropermanent_*, portable_halbach), `coupling/isotopes.py`, `experiment/specs.py`, `design/adapter_benchmarks.py`, several examples and `validation/validate_overhauser_diffusion.py` | Found while fixing L-20. These modules still carry their own physical constants (mixed CODATA 2010/2014, truncated values such as γp = 2.675e8 in `workflows/bipolar.py`) instead of `spin_dynamics.constants`. | Open | |
 
 ## Change log
 
@@ -193,3 +194,4 @@ code, not run.
 - 2026-11-01: L-54 partly fixed in `b7a89d8` (SpatialDomain normalized grids now DFT-centred).
 - 2026-11-01: L-42 to L-48 (design, optimization, thermal) fixed in `0de0dca`.
 - 2026-11-01: L-21, L-23 to L-27 (NQR, DFT, database) fixed in `5cf2c2c`.
+- 2026-11-01: L-15 to L-20 and L-53 (ESR, DNP, nonresonant, constants) fixed in `6f2423a`; L-55 added.
