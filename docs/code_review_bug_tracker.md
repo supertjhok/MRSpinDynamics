@@ -32,7 +32,7 @@ code, not run.
 | High | 0 | 0 | 13 | 0 |
 | CI / gates | 0 | 0 | 7 | 0 |
 | Medium | 0 | 0 | 44 | 1 |
-| Low | 10 | 0 | 44 | 2 |
+| Low | 11 | 1 | 44 | 2 |
 
 ## High
 
@@ -174,6 +174,8 @@ code, not run.
 | L-54 | workflows / fields | `fields/domain.py` docstring; `workflows/imaging.py` combine; MATLAB V3 `sim_cpmg_*_probe_img.m` | Found while fixing M-12/M-16. The `fields/domain.py` docstring still claims equality with `_default_gradient_maps` (stale for even n). Phase-encoded imaging keeps the unnormalized MATLAB-parity PAP combine. The MATLAB V3 imaging scripts still use linspace grids, so the Octave generator would reproduce the pre-M-12 fixtures. | Fixed | Domain grids fixed in `b7a89d8`. `signal_convention="cpmg"` added to all phase-encoded imagers (default unchanged; test `test_workflow_conventions.py::ImagingCombineConventionTests`). The MATLAB V3 imaging scripts, `create_fields_single_sided.m` and the Octave imaging generator now use the centred grid (not run: Octave unavailable). Commit `09f0afe`. |
 | L-55 | constants | `nqr/` (polarization_enhancement, structure_coupling, crossover, field_relaxation, piezo_detection), `relaxation.py`, `radiation_damping.py`, `susceptibility.py`, `receiver_network.py`, `fields/` (magnetostatics, nonlinear_magnetostatics, birdcage_multiport), `interference/sources.py`, `workflows/` (bipolar, electropermanent_*, portable_halbach), `coupling/isotopes.py`, `experiment/specs.py`, `design/adapter_benchmarks.py`, several examples and `validation/validate_overhauser_diffusion.py` | Found while fixing L-20. These modules still carry their own physical constants (mixed CODATA 2010/2014, truncated values such as γp = 2.675e8 in `workflows/bipolar.py`) instead of `spin_dynamics.constants`. | Open | |
 | L-56 | jax | `optimization/_jax_objectives.py`, `optimal_control/control_response.py`, `optimal_control/_jax_propagation.py`, `nqr/_jax_eigh.py` | Found while fixing L-06. These modules still call `jax.config.update("jax_enable_x64", True)` at import, so `import spin_dynamics.workflows` flips the flag process-wide. | Open | |
+| L-57 | fields | gradient-shielding eddy-mode extraction; `tests/test_gradient_shielding.py::test_eddy_mode_adapter_builds_existing_gradient_driver` | Found while fixing L-55. A 5.5e-10 relative change in μ0 moves the physical eddy α from 1.03908e-2 to 1.04212e-2 (0.29%), and the test depends on a mode whose α is at roundoff (±5e-19) with `min_alpha=0`. This suggests a discontinuity in stream-function contour or winding extraction; it blocks switching `fields.magnetostatics.MU0` to CODATA. | Open | |
+| L-58 | core | `core/numerics.expm` (from L-01, `50df5d7`) | Regression: the shared scaling-and-squaring expm loses about 5e-12 in trace on the NQR field-relaxation Liouvillian, so `test_nqr_field_relaxation.py::test_relaxation_preserves_physical_density_matrix` fails (bisected to `50df5d7`). | In progress | |
 
 ## Change log
 
@@ -200,3 +202,4 @@ code, not run.
 - 2026-11-01: L-08 to L-14 and L-54 (workflows) closed in `09f0afe` (L-10 as won't fix, documented).
 - 2026-11-01: M-45, L-01 to L-06 and L-49 (core) fixed in `50df5d7`; L-56 added.
 - 2026-11-01: G-01 to G-07, L-07, L-50, L-51 fixed and L-52 partly addressed in `0e6fffb`.
+- 2026-11-01: L-55 part 1 in `1744aa8`; L-57 and L-58 (regression from L-01) added.
