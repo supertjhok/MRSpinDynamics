@@ -19,6 +19,24 @@ def _validate_axis(values: Iterable[float] | np.ndarray, index: int) -> np.ndarr
     return axis
 
 
+def centered_unit_axis(size: int) -> np.ndarray:
+    """Return ``(i - size // 2) / ((size - 1) / 2)``: the DFT-centred unit grid.
+
+    Index ``size // 2`` sits exactly at zero, which is the centre that
+    ``fftshift``/``ifftshift`` assume. For odd ``size`` this is identical to
+    ``linspace(-1, 1, size)``; for even ``size`` it keeps the same step but
+    drops the half-integer centre, which otherwise imprints a half-pixel shift
+    (and a missing k=0 sample) on an imaging reconstruction.
+    """
+
+    n = int(size)
+    if n < 1:
+        raise ValueError("size must be positive")
+    if n == 1:
+        return np.zeros(1, dtype=np.float64)
+    return (np.arange(n, dtype=np.float64) - n // 2) / ((n - 1) / 2.0)
+
+
 @dataclass(frozen=True)
 class SpatialDomain:
     """A rectilinear voxel grid of one to three spatial axes.
@@ -50,16 +68,17 @@ class SpatialDomain:
         return tuple((float(axis[0]), float(axis[-1])) for axis in self.axes)
 
     def normalized_coordinate_grids(self) -> tuple[np.ndarray, ...]:
-        """Return one ``-1..1`` coordinate grid per axis, full domain shape.
+        """Return one DFT-centred unit coordinate grid per axis, full domain shape.
 
-        For ``d == 2`` these equal the default ``del_wx``/``del_wz`` gradient
-        sensitivity maps produced by ``imaging._default_gradient_maps``.
+        Each axis is :func:`centered_unit_axis` (``linspace(-1, 1, n)`` for odd
+        ``n``). For ``d == 2`` these equal the default ``del_wx``/``del_wz``
+        gradient sensitivity maps produced by ``imaging._default_gradient_maps``.
         """
 
         shape = self.shape
         grids: list[np.ndarray] = []
         for k, n in enumerate(shape):
-            base = np.linspace(-1.0, 1.0, n)
+            base = centered_unit_axis(n)
             reshaped = base.reshape(tuple(n if j == k else 1 for j in range(self.ndim)))
             grids.append(np.ascontiguousarray(np.broadcast_to(reshaped, shape)))
         return tuple(grids)
@@ -71,10 +90,11 @@ class SpatialDomain:
 
     @classmethod
     def normalized(cls, shape: tuple[int, ...]) -> "SpatialDomain":
-        """Build a domain whose axes are ``linspace(-1, 1, n)`` for each ``n``.
+        """Build a domain whose axes are :func:`centered_unit_axis` for each ``n``.
 
         This matches the implicit coordinate frame the imaging workflows use,
-        where gradient-sensitivity maps default to normalized coordinates.
+        where gradient-sensitivity maps default to normalized coordinates with
+        index ``n // 2`` at zero (``linspace(-1, 1, n)`` for odd ``n``).
         """
 
-        return cls(tuple(np.linspace(-1.0, 1.0, int(n)) for n in shape))
+        return cls(tuple(centered_unit_axis(int(n)) for n in shape))

@@ -55,6 +55,18 @@ class SpatialDomainTests(unittest.TestCase):
         np.testing.assert_array_equal(g0, d0)
         np.testing.assert_array_equal(g1, d1)
 
+    def test_normalized_axes_are_dft_centred(self):
+        # Index n // 2 must sit at zero (the fftshift centre) for even n, with
+        # the linspace(-1, 1, n) step; odd n is exactly linspace(-1, 1, n).
+        for n in (2, 4, 6, 7):
+            (axis,) = SpatialDomain.normalized((n,)).axes
+            self.assertEqual(axis[n // 2], 0.0)
+            np.testing.assert_allclose(np.diff(axis), 2.0 / (n - 1))
+            if n % 2:
+                np.testing.assert_allclose(axis, np.linspace(-1.0, 1.0, n))
+        (g,) = SpatialDomain.normalized((4,)).normalized_coordinate_grids()
+        np.testing.assert_array_equal(g, SpatialDomain.normalized((4,)).axes[0])
+
 
 class FlattenParityTests(unittest.TestCase):
     def _reference(self, m, dwx, dwz, ny, maxoffs, scale):

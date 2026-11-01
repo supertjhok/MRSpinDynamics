@@ -13,6 +13,7 @@ import numpy as np
 
 from spin_dynamics.core.numerics import trapezoid
 from spin_dynamics.core.rotations import calc_rotation_matrix
+from spin_dynamics.fields.domain import centered_unit_axis as _centered_unit_axis
 from spin_dynamics.motion import circular_b1_component_magnitude
 from spin_dynamics.noise import (
     NoiseMetadata,
@@ -77,22 +78,6 @@ def _as_map(value: Iterable[float] | np.ndarray, name: str) -> np.ndarray:
     if not np.all(np.isfinite(arr)):
         raise ValueError(f"{name} must be finite")
     return arr
-
-
-def _centered_unit_axis(size: int) -> np.ndarray:
-    """Return ``(i - size // 2) / ((size - 1) / 2)``: the DFT-centred unit grid.
-
-    Index ``size // 2`` sits exactly at zero, which is the centre that
-    ``fftshift``/``ifftshift`` assume. For odd ``size`` this is identical to
-    ``linspace(-1, 1, size)``; for even ``size`` it keeps the same step but
-    drops the half-integer centre, which otherwise imprints a half-pixel shift
-    (and a missing k=0 sample) on the reconstruction.
-    """
-
-    n = int(size)
-    if n == 1:
-        return np.zeros(1, dtype=np.float64)
-    return (np.arange(n, dtype=np.float64) - n // 2) / ((n - 1) / 2.0)
 
 
 def _default_gradient_maps(shape: tuple[int, int]) -> tuple[np.ndarray, np.ndarray]:
