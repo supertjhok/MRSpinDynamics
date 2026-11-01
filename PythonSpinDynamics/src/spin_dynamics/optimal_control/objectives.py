@@ -111,6 +111,7 @@ def robust_ensemble_fidelity(
     fidelity_per_case,
     *,
     reduction: Literal["mean", "worst_case"] = "mean",
+    weights=None,
 ):
     """Reduce a ``(batch,)`` array of per-case fidelities to a scalar score.
 
@@ -119,13 +120,24 @@ def robust_ensemble_fidelity(
     gradient everywhere. ``"worst_case"`` (``jnp.min``) has a gradient that
     flows only through the single worst ensemble member and can flip
     discontinuously between optimizer steps -- documented here, not hidden.
+
+    ``weights`` (optional, ``(batch,)``, non-negative) turns ``"mean"`` into
+    the weighted mean ``sum(w f) / sum(w)`` -- required for quadrature
+    ensembles such as a Gauss-Legendre powder grid, whose orientations are not
+    equally weighted. For ``"worst_case"`` only members with positive weight
+    are considered. ``None`` keeps the unweighted behaviour.
     """
 
-    if reduction == "mean":
-        return jnp.mean(fidelity_per_case)
-    if reduction == "worst_case":
+    if reduction not in ("mean", "worst_case"):
+        raise ValueError("reduction must be 'mean' or 'worst_case'")
+    if weights is None:
+        if reduction == "mean":
+            return jnp.mean(fidelity_per_case)
         return jnp.min(fidelity_per_case)
-    raise ValueError("reduction must be 'mean' or 'worst_case'")
+    weights = jnp.asarray(weights, dtype=jnp.float64)
+    if reduction == "mean":
+        return jnp.sum(weights * fidelity_per_case) / jnp.sum(weights)
+    return jnp.min(jnp.where(weights > 0.0, fidelity_per_case, jnp.inf))
 
 
 def _require_jax() -> None:
@@ -152,6 +164,7 @@ def make_grape_objective(
     control_operator_batch: Sequence[tuple[np.ndarray, np.ndarray]] | None = None,
     hamiltonian_batch: Sequence[np.ndarray] | None = None,
     ensemble_reduction: Literal["mean", "worst_case"] = "mean",
+    ensemble_weights: Sequence[float] | np.ndarray | None = None,
     phase_smoothness_weight: float = 0.0,
     gradient_smoothness_weight: float = 0.0,
     propagator: Literal["eigh", "expm"] = "eigh",
@@ -187,6 +200,15 @@ def make_grape_objective(
     ``amplitude``/``phase`` waveform stays shared -- the powder-averaging case,
     where each crystallite's RF-to-EFG coupling differs. State-transfer mode
     only; not combinable with the gradient channel in this increment.
+
+    **Ensemble weights.** ``ensemble_weights`` (one non-negative value per
+    ensemble member, positive sum) makes ``ensemble_reduction="mean"`` a
+    weighted mean (see :func:`robust_ensemble_fidelity`). Powder ensembles
+    built on a quadrature grid must pass the orientation weights, e.g.
+    ``hamiltonians.nqr_powder_control_weights(orientations)`` alongside
+    ``nqr_powder_control_batch(site, orientations)``; without them every
+    crystallite counts equally, which is not the powder average. ``None``
+    (default) keeps the unweighted mean.
 
     Control-vector layout: ``concat([amplitude?, phase, gradient?])`` (each
     block ``n_segments``); the amplitude block is present only when
@@ -329,6 +351,42 @@ def make_grape_objective(
                 )
             controls_drift_batch = batch
 
+    if gradient_active:
+        ensemble_count = grad_batch_size
+    elif controls_active:
+        ensemble_count = controls_batch_size
+    elif batch is not None:
+        ensemble_count = batch.shape[0]
+    else:
+        ensemble_count = None
+    weights_j = None
+    if ensemble_weights is not None:
+        if ensemble_count is None:
+            raise ValueError(
+                "ensemble_weights requires an ensemble (hamiltonian_batch, "
+                "control_operator_batch, or gradient_operator_batch)"
+            )
+        weights_np = np.asarray(ensemble_weights, dtype=np.float64).reshape(-1)
+        if weights_np.size != ensemble_count:
+            raise ValueError(
+                f"ensemble_weights must have one entry per ensemble member "
+                f"({ensemble_count}); got {weights_np.size}"
+            )
+        if (
+            not np.all(np.isfinite(weights_np))
+            or np.any(weights_np < 0.0)
+            or float(np.sum(weights_np)) <= 0.0
+        ):
+            raise ValueError(
+                "ensemble_weights must be finite, non-negative, and have a positive sum"
+            )
+        weights_j = jnp.asarray(weights_np / float(np.sum(weights_np)))
+
+    def _reduce(fids):
+        return robust_ensemble_fidelity(
+            fids, reduction=ensemble_reduction, weights=weights_j
+        )
+
     # Per-case (vs shared) target: an extra leading batch axis beyond the
     # base operand rank (1 for a state ket, 2 for a gate unitary).
     base_target_rank = 1 if mode == "state_transfer" else 2
@@ -359,14 +417,7 @@ def make_grape_objective(
 
     if mode == "state_transfer":
         psi0_j = jnp.asarray(psi0, dtype=jnp.complex128)
-        if gradient_active:
-            ensemble_size = grad_batch_size
-        elif controls_active:
-            ensemble_size = controls_batch_size
-        elif batch is not None:
-            ensemble_size = batch.shape[0]
-        else:
-            ensemble_size = None
+        ensemble_size = ensemble_count
         psi0_batch = (
             jnp.broadcast_to(psi0_j, (ensemble_size,) + psi0_j.shape)
             if ensemble_size is not None
@@ -384,7 +435,7 @@ def make_grape_objective(
                 fids = jax.vmap(state_transfer_fidelity, in_axes=(0, target_in_axis))(
                     psi_finals, target_j
                 )
-                fidelity = robust_ensemble_fidelity(fids, reduction=ensemble_reduction)
+                fidelity = _reduce(fids)
             elif controls_active:
                 psi_finals = propagate_batched_controls(
                     controls_drift_batch, hx_batch, hy_batch,
@@ -393,7 +444,7 @@ def make_grape_objective(
                 fids = jax.vmap(state_transfer_fidelity, in_axes=(0, target_in_axis))(
                     psi_finals, target_j
                 )
-                fidelity = robust_ensemble_fidelity(fids, reduction=ensemble_reduction)
+                fidelity = _reduce(fids)
             elif batch is not None:
                 psi_finals = propagate_batched(
                     batch, h_x, h_y, amplitude, phase, dt_eff, psi0_batch, method=propagator
@@ -401,7 +452,7 @@ def make_grape_objective(
                 fids = jax.vmap(state_transfer_fidelity, in_axes=(0, target_in_axis))(
                     psi_finals, target_j
                 )
-                fidelity = robust_ensemble_fidelity(fids, reduction=ensemble_reduction)
+                fidelity = _reduce(fids)
             else:
                 psi_final = propagate_state_scan(
                     h_drift, h_x, h_y, amplitude, phase, dt_eff, psi0_j, method=propagator
@@ -421,13 +472,13 @@ def make_grape_objective(
                 fids = jax.vmap(average_gate_fidelity, in_axes=(0, target_in_axis))(
                     u_finals, target_j
                 )
-                fidelity = robust_ensemble_fidelity(fids, reduction=ensemble_reduction)
+                fidelity = _reduce(fids)
             elif batch is not None:
                 u_finals = propagate_unitary_batched(batch, h_x, h_y, amplitude, phase, dt_eff)
                 fids = jax.vmap(average_gate_fidelity, in_axes=(0, target_in_axis))(
                     u_finals, target_j
                 )
-                fidelity = robust_ensemble_fidelity(fids, reduction=ensemble_reduction)
+                fidelity = _reduce(fids)
             else:
                 u_final = propagate_unitary_scan(h_drift, h_x, h_y, amplitude, phase, dt_eff)
                 fidelity = average_gate_fidelity(u_final, target_j)

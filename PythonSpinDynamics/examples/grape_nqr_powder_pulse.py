@@ -13,7 +13,10 @@ the per-case control-operator path of the engine (Milestone 3): the drive
 operators ``h_x``/``h_y`` vary per crystallite (``nqr_powder_control_batch``)
 while a single shared RF waveform is optimized. The degeneracy-safe ``expm``
 propagator is used (quadrupolar spectra are Kramers-degenerate). Trained on a
-coarse powder grid, the pulse is checked on a finer held-out grid.
+coarse powder grid, the pulse is checked on a finer held-out grid. Both grids
+are Gauss-Legendre quadratures, so the training objective and the reported
+held-out means use the orientation weights (``nqr_powder_control_weights``);
+an unweighted crystallite mean is not the powder average.
 
 Scope: this is a *single-pulse* inversion. The powder RF-coupling distribution is
 mild for spin-3/2 (no orientations with zero coupling), so a single robust
@@ -49,6 +52,7 @@ from spin_dynamics.optimal_control.drivers import run_grape_multistart
 from spin_dynamics.optimal_control.hamiltonians import (
     nqr_fundamental_states,
     nqr_powder_control_batch,
+    nqr_powder_control_weights,
     nqr_site_control_model,
 )
 from spin_dynamics.optimal_control.parameterization import rectangular_seed_phase
@@ -109,6 +113,7 @@ def main() -> None:
 
     train_orient = powder_average_grid(n_theta=int(args.train_theta), n_phi=int(args.train_phi))
     train_batch = nqr_powder_control_batch(site, train_orient, rf_frequency_hz=rf)
+    train_weights = nqr_powder_control_weights(train_orient)
 
     rng = np.random.default_rng(args.seed)
     rect = rectangular_seed_phase(n_segments)
@@ -121,12 +126,14 @@ def main() -> None:
         dt=dt, target=target, psi0=psi0,
         fixed_amplitude=nutation,
         control_operator_batch=train_batch,
+        ensemble_weights=train_weights,
         propagator="expm",
     )
     best = multistart.best_result
 
     eval_orient = powder_average_grid(n_theta=int(args.eval_theta), n_phi=int(args.eval_phi))
     eval_batch = nqr_powder_control_batch(site, eval_orient, rf_frequency_hz=rf)
+    eval_weights = nqr_powder_control_weights(eval_orient)
     rect_fids = _powder_inversion_fidelity(eval_batch, model.h_drift, rect, nutation, dt, psi0, target)
     opt_fids = _powder_inversion_fidelity(eval_batch, model.h_drift, best.best_phase, nutation, dt, psi0, target)
 
@@ -139,9 +146,11 @@ def main() -> None:
     print(f"fundamental transition eigenstates: |{lower}> -> |{upper}>   "
           f"optimizer iterations: {best.iterations}")
     print()
-    print(f"training-ensemble mean fidelity: rectangular {best.initial_fidelity:.4f} "
+    print(f"training powder-average fidelity: rectangular {best.initial_fidelity:.4f} "
           f"-> optimized {best.best_fidelity:.4f}")
-    print(f"held-out mean inversion : rectangular {rect_fids.mean():.4f} -> optimized {opt_fids.mean():.4f}")
+    rect_mean = np.average(rect_fids, weights=eval_weights)
+    opt_mean = np.average(opt_fids, weights=eval_weights)
+    print(f"held-out powder average : rectangular {rect_mean:.4f} -> optimized {opt_mean:.4f}")
     print(f"held-out worst-case     : rectangular {rect_fids.min():.4f} -> optimized {opt_fids.min():.4f}")
 
     if args.save is not None:

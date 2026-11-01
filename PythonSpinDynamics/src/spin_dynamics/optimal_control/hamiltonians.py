@@ -247,7 +247,10 @@ def nqr_powder_control_batch(
     direction). Feed the returned list to
     ``objectives.make_grape_objective(control_operator_batch=...)`` /
     ``solvers.grape_optimize(control_operator_batch=...)`` for powder-robust
-    optimization.
+    optimization, together with ``ensemble_weights=``
+    :func:`nqr_powder_control_weights` ``(orientations)``: quadrature grids
+    such as ``nqr.orientations.powder_average_grid`` are not equally weighted,
+    so an unweighted crystallite mean is not the powder average.
     """
 
     batch: list[tuple[np.ndarray, np.ndarray]] = []
@@ -260,3 +263,22 @@ def nqr_powder_control_batch(
         )
         batch.append((model.h_x, model.h_y))
     return batch
+
+
+def nqr_powder_control_weights(orientations) -> np.ndarray:
+    """Orientation quadrature weights matching :func:`nqr_powder_control_batch`.
+
+    Returns ``[sample.weight for sample in orientations]`` as a float array in
+    the same order as the control batch built from the same ``orientations``;
+    pass it as ``ensemble_weights`` to ``make_grape_objective`` /
+    ``grape_optimize``.
+    """
+
+    weights = np.array([float(sample.weight) for sample in orientations], dtype=np.float64)
+    if weights.size == 0:
+        raise ValueError("orientations must not be empty")
+    if not np.all(np.isfinite(weights)) or np.any(weights < 0.0) or weights.sum() <= 0.0:
+        raise ValueError(
+            "orientation weights must be finite, non-negative, with positive sum"
+        )
+    return weights

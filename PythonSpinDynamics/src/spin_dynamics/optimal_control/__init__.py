@@ -37,6 +37,7 @@ from spin_dynamics.optimal_control.hamiltonians import (
     gradient_control_operator,
     nqr_fundamental_states,
     nqr_powder_control_batch,
+    nqr_powder_control_weights,
     nqr_site_control_model,
     position_gradient_batch,
 )
@@ -109,6 +110,7 @@ __all__ = [
     "make_multi_axis_slse_objective",
     "nqr_fundamental_states",
     "nqr_powder_control_batch",
+    "nqr_powder_control_weights",
     "nqr_site_control_model",
     "optimize_multi_axis_slse",
     "phase_only_bounds",

@@ -97,6 +97,7 @@ def grape_optimize(
     phase_bound_rad: float = 4 * np.pi,
     hamiltonian_batch: Sequence[np.ndarray] | None = None,
     ensemble_reduction: Literal["mean", "worst_case"] = "mean",
+    ensemble_weights: Sequence[float] | np.ndarray | None = None,
     phase_smoothness_weight: float = 0.0,
     gradient_smoothness_weight: float = 0.0,
     propagator: Literal["eigh", "expm"] = "eigh",
@@ -130,7 +131,10 @@ def grape_optimize(
     ``(h_x, h_y)`` pairs, e.g. from ``hamiltonians.nqr_powder_control_batch``)
     for ensembles whose RF drive operators vary per member -- NQR powder
     averaging, where each crystallite's RF-to-EFG coupling differs while the RF
-    waveform is shared. State-transfer mode only.
+    waveform is shared. State-transfer mode only. Pass the orientation
+    quadrature weights as ``ensemble_weights`` (e.g.
+    ``hamiltonians.nqr_powder_control_weights``) so the score is the powder
+    average rather than an unweighted crystallite mean.
 
     **Hardware response.** Pass ``rf_response`` (a probe
     :class:`~optimal_control.control_response.EnvelopeResponse`) and/or
@@ -211,6 +215,7 @@ def grape_optimize(
         control_operator_batch=control_operator_batch,
         hamiltonian_batch=hamiltonian_batch,
         ensemble_reduction=ensemble_reduction,
+        ensemble_weights=ensemble_weights,
         phase_smoothness_weight=phase_smoothness_weight,
         gradient_smoothness_weight=gradient_smoothness_weight,
         propagator=propagator,
@@ -264,6 +269,7 @@ def grape_optimize_phase_only(
     phase_bound_rad: float = 4 * np.pi,
     hamiltonian_batch: Sequence[np.ndarray] | None = None,
     ensemble_reduction: Literal["mean", "worst_case"] = "mean",
+    ensemble_weights: Sequence[float] | np.ndarray | None = None,
     phase_smoothness_weight: float = 0.0,
     scipy_method: str = "L-BFGS-B",
     scipy_options: dict[str, object] | None = None,
@@ -286,6 +292,7 @@ def grape_optimize_phase_only(
         phase_bound_rad=phase_bound_rad,
         hamiltonian_batch=hamiltonian_batch,
         ensemble_reduction=ensemble_reduction,
+        ensemble_weights=ensemble_weights,
         phase_smoothness_weight=phase_smoothness_weight,
         scipy_method=scipy_method,
         scipy_options=scipy_options,
