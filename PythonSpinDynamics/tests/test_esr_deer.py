@@ -164,6 +164,15 @@ class DeerQuantumValidationTests(unittest.TestCase):
 
         np.testing.assert_allclose(quantum, analytic, atol=1e-9)
 
+    def test_quantum_normalized_to_zero_pump_time_when_axis_starts_later(self) -> None:
+        # Regression: the trace was normalized (and phased) by its first
+        # sample, so an axis starting at t > 0 was forced to F = 1 there.
+        times = np.linspace(0.2e-6, 1.8e-6, 33)
+        analytic = deer_pair_trace(times, 2.5, 0.6, lambda_depth=1.0)
+        quantum = deer_pair_trace_quantum(times, 2.5, 0.6, pump_flip_rad=np.pi)
+        self.assertLess(analytic[0], 0.9)
+        np.testing.assert_allclose(quantum, analytic, atol=1e-9)
+
     def test_quantum_echo_refocuses_observer_offset(self) -> None:
         times = np.linspace(0, 1.5e-6, 31)
 

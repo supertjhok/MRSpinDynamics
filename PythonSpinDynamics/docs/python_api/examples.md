@@ -1304,7 +1304,7 @@ derivative CW display, Lorentzian broadening, diagonal `g` strain, and field
 strain. The pulsed example shows rectangular-pulse calibration, an on-resonance
 FID, and a Hahn echo from a detuned isochromat ensemble. The relaxation example
 uses the Liouville-space `ESRRelaxationModel` to compare FID T2 decay,
-Hahn-echo T2 decay, and T1 population relaxation. The hyperfine example shows
+Hahn-echo T2 decay, and T1 inversion recovery. The hyperfine example shows
 the classic one-nucleus ESR doublet from an isotropic coupling.
 
 ```powershell

@@ -88,7 +88,9 @@ class NitroxideRelaxationMatrix:
     ):
         """Build all nitrogen/electron blocks from aligned principal tensors.
 
-        g is dimensionless; A is in Hz, not angular frequency or gauss. The
+        g is dimensionless; A is signed Hz, not angular frequency or gauss
+        (negative for 15N), and NitroxideSaturationModel.hyperfine_hz must use
+        the same sign so each line keeps its g/A cross-correlation width. The
         rank-two correlation time is tau_D=1/(6*D_rot). g/A anisotropy and their
         cross-correlation use J_XY=c_XY*tau/(1+omega_e^2*tau^2), c_XY=Tr(X'Y')/5,
         with X=omega_e*g/g_free and Y=2*pi*A. Spin-rotation spectral densities

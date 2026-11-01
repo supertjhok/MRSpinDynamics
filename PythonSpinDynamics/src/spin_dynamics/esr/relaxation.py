@@ -13,7 +13,9 @@ class ESRRelaxationModel:
 
     ``t1_seconds`` damps population differences while preserving trace.
     ``t2_seconds`` damps coherences. Both act on the trace-zero
-    high-temperature density-matrix deviation used by the ESR pulse helpers.
+    high-temperature density-matrix deviation used by the ESR pulse helpers,
+    which relax it toward their thermal equilibrium deviation (see
+    :func:`propagate_density_liouville`).
     """
 
     t1_seconds: float = np.inf
@@ -110,15 +112,42 @@ def propagate_density_liouville(
     duration: float,
     *,
     relaxation: ESRRelaxationModel | None = None,
+    equilibrium_density: np.ndarray | None = None,
 ) -> np.ndarray:
-    """Propagate a density matrix with Hamiltonian and ESR relaxation."""
+    """Propagate a density matrix with Hamiltonian and ESR relaxation.
+
+    Relaxation acts on ``rho - equilibrium_density``, so ``T1`` drives the
+    populations toward the supplied (diagonal, eigenbasis) equilibrium:
+    ``d rho/dt = L_H rho + R (rho - rho_eq)``. Without ``equilibrium_density``
+    the target is the uniform (infinite-temperature) population state. The
+    pulsed ESR helpers pass their high-temperature thermal deviation.
+    """
 
     density = np.asarray(density, dtype=np.complex128)
     if density.ndim != 2 or density.shape[0] != density.shape[1]:
         raise ValueError("density must be square")
-    superoperator = matrix_exponential(
-        liouville_superoperator(hamiltonian, relaxation),
-        duration,
-    )
+    generator = liouville_superoperator(hamiltonian, relaxation)
     vector = density.reshape(-1, order="F")
-    return (superoperator @ vector).reshape(density.shape, order="F")
+    if relaxation is None or equilibrium_density is None:
+        superoperator = matrix_exponential(generator, duration)
+        return (superoperator @ vector).reshape(density.shape, order="F")
+
+    equilibrium = np.asarray(equilibrium_density, dtype=np.complex128)
+    if equilibrium.shape != density.shape:
+        raise ValueError("equilibrium_density must match density")
+    duration = float(duration)
+    if duration < 0 or not np.isfinite(duration):
+        raise ValueError("duration must be non-negative and finite")
+    equilibrium_vector = equilibrium.reshape(-1, order="F")
+    # With x = rho - rho_eq: dx/dt = M x + L_H rho_eq, solved exactly as
+    # x(t) = exp(M t) x(0) + phi_1(M t) t L_H rho_eq.
+    source = liouville_hamiltonian(hamiltonian) @ equilibrium_vector
+    values, vectors = np.linalg.eig(generator)
+    scaled = values * duration
+    small = np.abs(scaled) < 1e-8
+    safe = np.where(small, 1.0, values)
+    phi = np.where(small, duration * (1.0 + 0.5 * scaled), np.expm1(scaled) / safe)
+    inverse = np.linalg.inv(vectors)
+    deviation = vectors @ (np.exp(scaled) * (inverse @ (vector - equilibrium_vector)))
+    deviation = deviation + vectors @ (phi * (inverse @ source))
+    return (equilibrium_vector + deviation).reshape(density.shape, order="F")

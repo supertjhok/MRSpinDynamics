@@ -79,7 +79,9 @@ class NitroxideSaturationModel:
     """CW electron/nitrogen populations for resolved 14N or 15N nitroxides.
 
     Supply intrinsic T1e/T2e as scalars or vectors in ascending nitrogen m.
-    Positive infinity disables that independent bath. Hyperfine splitting is Hz. The
+    Positive infinity disables that independent bath. Hyperfine A is signed Hz
+    (negative for 15N, whose gamma is negative); use the sign of the tensor
+    passed to NitroxideRelaxationMatrix.from_isotropic_tumbling. The
     optional T2 broadening coefficient adds coefficient*C to 1/T2e, independently
     of exchange; it is not automatically inferred from the collision rate.
     C is mol/L, exchange coefficient is M^-1 s^-1, and k_ex=coefficient*C is
@@ -118,10 +120,13 @@ class NitroxideSaturationModel:
         if self.nitrogen_spin not in (0.5, 1.0):
             raise ValueError("nitrogen_spin must be 1 (14N) or 0.5 (15N)")
         n = len(self.nitrogen_m)
-        for name in ("hyperfine_hz",):
-            object.__setattr__(
-                self, name, _scalar(getattr(self, name), name, positive=True)
-            )
+        # Signed: 15N (negative gamma) nitroxides have A_iso < 0, and the line
+        # of nitrogen m sits at omega_e + 2*pi*A*m with the same sign as the
+        # tensor given to NitroxideRelaxationMatrix.from_isotropic_tumbling.
+        hyperfine = array(self.hyperfine_hz, "hyperfine_hz")
+        if hyperfine.ndim or hyperfine == 0:
+            raise ValueError("hyperfine_hz must be a non-zero scalar")
+        object.__setattr__(self, "hyperfine_hz", float(hyperfine))
         for name in ("electron_t1_seconds", "electron_t2_seconds"):
             object.__setattr__(
                 self, name, _line_parameter(getattr(self, name), name, n)
@@ -232,7 +237,7 @@ class NitroxideSaturationModel:
             )
         if np.any(
             ELECTRON_GAMMA_HZ_PER_T * field
-            < 10 * self.hyperfine_hz * self.nitrogen_spin
+            < 10 * abs(self.hyperfine_hz) * self.nitrogen_spin
         ):
             raise ValueError("field is too low for the secular resolved-line model")
         with np.errstate(over="ignore", invalid="ignore"):

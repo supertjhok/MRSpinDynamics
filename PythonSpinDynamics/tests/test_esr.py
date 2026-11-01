@@ -257,6 +257,54 @@ class ESRTests(unittest.TestCase):
         expected = np.exp(-1.0) * density
         np.testing.assert_allclose(relaxed, expected, atol=1e-12)
 
+    def test_esr_t1_recovers_toward_supplied_equilibrium(self) -> None:
+        # Bloch inversion recovery: p(t) = p_eq * (1 - 2 exp(-t/T1)).
+        equilibrium = np.diag([1.0, -1.0]).astype(np.complex128)
+        hamiltonian = np.diag([-1.0e6, 1.0e6]).astype(np.complex128)
+        t1_seconds = 2.0e-6
+        for duration in (0.5e-6, 2.0e-6, 10.0e-6):
+            relaxed = propagate_density_liouville(
+                -equilibrium,
+                hamiltonian,
+                duration,
+                relaxation=ESRRelaxationModel(t1_seconds=t1_seconds),
+                equilibrium_density=equilibrium,
+            )
+            expected = (1.0 - 2.0 * np.exp(-duration / t1_seconds)) * equilibrium
+            np.testing.assert_allclose(relaxed, expected, atol=1e-12)
+
+    def test_continuous_drive_reaches_bloch_steady_state_with_t1(self) -> None:
+        # Regression: T1 relaxed the pulse helpers toward zero polarization,
+        # so a long resonant drive decayed to no signal. The Bloch steady
+        # state on resonance is M_perp = M0 * w1*T2 / (1 + w1^2*T1*T2).
+        system = ESRSpinSystem(g_tensor=2.0)
+        b0 = [0.0, 0.0, 0.35]
+        carrier = resonance_frequency_hz(system, b0)
+        nutation_hz = 0.2e6
+        t1_seconds, t2_seconds = 2.0e-6, 1.0e-6
+        omega1 = 2.0 * np.pi * nutation_hz
+        common = dict(rf_frequency_hz=carrier, times_seconds=np.array([0.0]))
+
+        ideal = simulate_fid(
+            system,
+            b0,
+            nutation_hz=nutation_hz,
+            pulse_duration_seconds=flip_angle_duration(np.pi / 2.0, nutation_hz),
+            **common,
+        )
+        driven = simulate_fid(
+            system,
+            b0,
+            nutation_hz=nutation_hz,
+            pulse_duration_seconds=40.0 * t1_seconds,
+            relaxation=ESRRelaxationModel(t1_seconds=t1_seconds, t2_seconds=t2_seconds),
+            **common,
+        )
+
+        expected = omega1 * t2_seconds / (1.0 + omega1**2 * t1_seconds * t2_seconds)
+        ratio = abs(driven.signal[0]) / abs(ideal.signal[0])
+        self.assertAlmostEqual(ratio, expected, places=9)
+
     def test_esr_relaxation_model_controls_fid_t2_decay(self) -> None:
         system = ESRSpinSystem(g_tensor=2.0)
         b0 = [0.0, 0.0, 0.35]

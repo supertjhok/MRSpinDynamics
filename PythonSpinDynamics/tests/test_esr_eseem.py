@@ -63,6 +63,15 @@ class TwoPulseEseemTests(unittest.TestCase):
         quantum = two_pulse_eseem_quantum(self.tau, self.coupling, electron_offset_hz=8.0e6)
         np.testing.assert_allclose(quantum, analytic, atol=1e-9)
 
+    def test_quantum_normalized_to_tau_zero_when_axis_starts_later(self) -> None:
+        # Regression: the quantum trace was divided by its first sample, so an
+        # axis starting at tau > 0 was forced to V = 1 there.
+        tau = np.linspace(0.1e-6, 2.0e-6, 50)
+        analytic = two_pulse_eseem(tau, self.coupling)
+        quantum = two_pulse_eseem_quantum(tau, self.coupling, electron_offset_hz=8.0e6)
+        self.assertLess(analytic[0], 0.99)
+        np.testing.assert_allclose(quantum, analytic, atol=1e-9)
+
     def test_no_modulation_without_anisotropy(self) -> None:
         isotropic = HyperfineCoupling(larmor_hz=14.5e6, secular_hz=3.0e6, pseudosecular_hz=0.0)
         trace = two_pulse_eseem(self.tau, isotropic)

@@ -400,13 +400,16 @@ def two_pulse_eseem_quantum(
     excite = _ideal_pulse(np.pi / 2.0, "y", nuclear_spin=spin)
     refocus = _ideal_pulse(np.pi, "x", nuclear_spin=spin)
     rho0 = excite @ ops.thermal @ excite.conj().T
-    out = np.empty(tau.size, dtype=np.float64)
-    for idx, value in enumerate(tau):
-        rho = evolve_density(rho0, hamiltonian, float(value))
+
+    def echo(value: float) -> float:
+        rho = evolve_density(rho0, hamiltonian, value)
         rho = refocus @ rho @ refocus.conj().T
-        rho = evolve_density(rho, hamiltonian, float(value))
-        out[idx] = float(np.real(np.trace(rho @ ops.sx)))
-    reference = out[0]
+        rho = evolve_density(rho, hamiltonian, value)
+        return float(np.real(np.trace(rho @ ops.sx)))
+
+    out = np.array([echo(float(value)) for value in tau], dtype=np.float64)
+    # Normalize by the tau = 0 echo, not the first requested sample.
+    reference = echo(0.0)
     if reference == 0:
         raise ValueError("degenerate echo reference; check coupling parameters")
     return out / reference

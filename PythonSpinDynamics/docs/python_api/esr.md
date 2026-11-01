@@ -185,8 +185,11 @@ envelope, sum several detuned isochromats as shown in
 
 For physical relaxation during pulses, free evolution, and acquisition, pass an
 `ESRRelaxationModel` to the pulsed helpers. The model uses Liouville-space
-propagation in the energy eigenbasis: `t1_seconds` damps population differences
-and `t2_seconds` damps coherences while preserving trace.
+propagation in the energy eigenbasis: `t1_seconds` restores population
+differences toward the thermal deviation and `t2_seconds` damps coherences while
+preserving trace. The pulsed helpers relax toward `equilibrium_density(levels)`;
+direct `propagate_density_liouville` calls take an optional
+`equilibrium_density` (without it, T1 relaxes toward equal populations).
 
 ```python
 from spin_dynamics.esr import ESRRelaxationModel, simulate_fid
@@ -206,7 +209,7 @@ The older `t2_seconds` argument is a simple post-propagation envelope retained
 for quick demos. When using `ESRRelaxationModel`, leave `t2_seconds=inf` to
 avoid double-counting coherence decay. See `examples/plot_esr_relaxation.py`
 for a commented comparison of FID T2 decay, Hahn-echo T2 decay, and T1
-population relaxation.
+inversion recovery.
 
 ## Hyperfine Coupling
 

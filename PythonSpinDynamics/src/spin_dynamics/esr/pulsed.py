@@ -175,6 +175,7 @@ def _propagate(
     hamiltonian: np.ndarray,
     duration: float,
     relaxation: ESRRelaxationModel | None = None,
+    equilibrium: np.ndarray | None = None,
 ) -> np.ndarray:
     if duration <= 0:
         return density
@@ -184,6 +185,7 @@ def _propagate(
             hamiltonian,
             duration,
             relaxation=relaxation,
+            equilibrium_density=equilibrium,
         )
     return evolve_density(density, hamiltonian, duration)
 
@@ -196,6 +198,7 @@ def _sample_signal(
     *,
     t2_seconds: float,
     relaxation: ESRRelaxationModel | None,
+    equilibrium: np.ndarray | None = None,
 ) -> np.ndarray:
     signal = np.empty(times.size, dtype=np.complex128)
     current = 0.0
@@ -206,6 +209,7 @@ def _sample_signal(
             free_hamiltonian,
             float(sample_time) - current,
             relaxation,
+            equilibrium,
         )
         current = float(sample_time)
         signal[idx] = np.trace(rho @ detector)
@@ -229,7 +233,11 @@ def simulate_fid(
     relaxation: ESRRelaxationModel | None = None,
     initial_density: np.ndarray | None = None,
 ) -> ESRFIDResult:
-    """Simulate a pulsed ESR free-induction decay in the rotating frame."""
+    """Simulate a pulsed ESR free-induction decay in the rotating frame.
+
+    With ``relaxation``, T1 restores populations toward the thermal deviation
+    :func:`equilibrium_density` (the default initial state and its scale).
+    """
 
     times = _validate_times(times_seconds)
     t2_seconds = float(t2_seconds)
@@ -240,8 +248,9 @@ def simulate_fid(
     carrier = _default_carrier_hz(eigensystem) if rf_frequency_hz is None else float(
         rf_frequency_hz
     )
+    thermal = equilibrium_density(eigensystem.levels_hz)
     rho = (
-        equilibrium_density(eigensystem.levels_hz)
+        thermal.copy()
         if initial_density is None
         else np.asarray(initial_density, dtype=np.complex128).copy()
     )
@@ -252,7 +261,9 @@ def simulate_fid(
         phase=phase,
         b1_direction_g=b1_direction_g,
     )
-    rho = _propagate(rho, pulse, float(pulse_duration_seconds), relaxation)
+    rho = _propagate(
+        rho, pulse, float(pulse_duration_seconds), relaxation, thermal
+    )
     free = static_hamiltonian_rotating(eigensystem, carrier)
     detector = detection_operator(
         eigensystem,
@@ -268,6 +279,7 @@ def simulate_fid(
             times,
             t2_seconds=t2_seconds,
             relaxation=relaxation,
+            equilibrium=thermal,
         ),
         rf_frequency_hz=carrier,
         eigensystem=eigensystem,
@@ -295,7 +307,8 @@ def simulate_hahn_echo(
     """Simulate a two-pulse ESR Hahn echo for one isochromat.
 
     ``times_seconds`` are measured from the end of the refocusing pulse, so the
-    echo center is near ``tau_seconds``.
+    echo center is near ``tau_seconds``. With ``relaxation``, T1 restores
+    populations toward the thermal deviation :func:`equilibrium_density`.
     """
 
     tau = float(tau_seconds)
@@ -310,8 +323,9 @@ def simulate_hahn_echo(
     carrier = _default_carrier_hz(eigensystem) if rf_frequency_hz is None else float(
         rf_frequency_hz
     )
+    thermal = equilibrium_density(eigensystem.levels_hz)
     rho = (
-        equilibrium_density(eigensystem.levels_hz)
+        thermal.copy()
         if initial_density is None
         else np.asarray(initial_density, dtype=np.complex128).copy()
     )
@@ -330,9 +344,13 @@ def simulate_hahn_echo(
         phase=refocus_phase,
         b1_direction_g=b1_direction_g,
     )
-    rho = _propagate(rho, excite, float(excitation_duration_seconds), relaxation)
-    rho = _propagate(rho, free, tau, relaxation)
-    rho = _propagate(rho, refocus, float(refocus_duration_seconds), relaxation)
+    rho = _propagate(
+        rho, excite, float(excitation_duration_seconds), relaxation, thermal
+    )
+    rho = _propagate(rho, free, tau, relaxation, thermal)
+    rho = _propagate(
+        rho, refocus, float(refocus_duration_seconds), relaxation, thermal
+    )
     detector = detection_operator(
         eigensystem,
         carrier,
@@ -345,6 +363,7 @@ def simulate_hahn_echo(
         times,
         t2_seconds=t2_seconds,
         relaxation=relaxation,
+        equilibrium=thermal,
     )
     if np.isfinite(t2_seconds):
         signal = signal * np.exp(-tau / t2_seconds)

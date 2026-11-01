@@ -115,23 +115,26 @@ def main() -> None:
             echo_sum += result.signal[0]
         echo_amplitudes[tau_idx] = abs(echo_sum)
 
-    # T1 acts on the longitudinal population difference.  The density matrices
-    # used here are high-temperature deviations, so relaxation drives the
-    # trace-zero population difference toward zero rather than toward a full
-    # thermal density matrix.
+    # T1 inversion recovery.  The density matrices are high-temperature
+    # deviations; passing equilibrium_density makes T1 restore the thermal
+    # population difference (as the pulsed helpers do), so an ideally inverted
+    # state recovers as 1 - 2 exp(-t / T1).  Without it, T1 would relax toward
+    # equal populations (infinite temperature).
     eigensystem = fid_fast.eigensystem
     rho0 = equilibrium_density(eigensystem.levels_hz)
     zero_hamiltonian = np.zeros_like(rho0)
     recovery_times = np.linspace(0.0, 4.0 * t1, args.points)
     longitudinal = np.empty(recovery_times.size, dtype=np.float64)
+    thermal_difference = float(np.real(rho0[0, 0] - rho0[1, 1]))
     for idx, delay in enumerate(recovery_times):
         rho = propagate_density_liouville(
-            rho0,
+            -rho0,
             zero_hamiltonian,
             delay,
             relaxation=ESRRelaxationModel(t1_seconds=t1),
+            equilibrium_density=rho0,
         )
-        longitudinal[idx] = float(np.real(rho[0, 0] - rho[1, 1]))
+        longitudinal[idx] = float(np.real(rho[0, 0] - rho[1, 1])) / thermal_difference
 
     fig, axes = plt.subplots(2, 2, figsize=(11.5, 8.0), constrained_layout=True)
 
@@ -169,20 +172,21 @@ def main() -> None:
 
     axes[1, 0].plot(
         1e6 * recovery_times,
-        _normalized(longitudinal),
+        longitudinal,
         color="tab:green",
-        label="population difference",
+        label="simulated population difference",
     )
     axes[1, 0].plot(
         1e6 * recovery_times,
-        np.exp(-recovery_times / t1),
+        1.0 - 2.0 * np.exp(-recovery_times / t1),
         "--",
         color="0.3",
-        label="exp(-t / T1)",
+        label="1 - 2 exp(-t / T1)",
     )
-    axes[1, 0].set_xlabel("Delay (us)")
-    axes[1, 0].set_ylabel("Normalized longitudinal deviation")
-    axes[1, 0].set_title("T1 Population Relaxation")
+    axes[1, 0].axhline(0.0, color="0.8", linewidth=0.8)
+    axes[1, 0].set_xlabel("Recovery delay after inversion (us)")
+    axes[1, 0].set_ylabel("Population difference / thermal")
+    axes[1, 0].set_title("T1 Inversion Recovery")
     axes[1, 0].legend()
 
     axes[1, 1].axis("off")

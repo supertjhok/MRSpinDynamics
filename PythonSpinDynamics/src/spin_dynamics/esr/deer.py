@@ -358,16 +358,19 @@ def deer_pair_trace_quantum(
     rho0 = np.kron(spin_matrices(0.5).iz, 0.5 * spin_matrices(0.5).identity)
     rho0 = excite_a @ rho0 @ excite_a.conj().T
 
-    signal = np.empty(times.size, dtype=np.complex128)
-    for idx, t_pump in enumerate(times):
+    def echo(t_pump: float) -> complex:
         rho = evolve_density(rho0, h_free, tau1)
         rho = pi_a @ rho @ pi_a.conj().T
-        rho = evolve_density(rho, h_free, tau1 + float(t_pump))
+        rho = evolve_density(rho, h_free, tau1 + t_pump)
         rho = pump @ rho @ pump.conj().T
-        rho = evolve_density(rho, h_free, tau2 - float(t_pump))
+        rho = evolve_density(rho, h_free, tau2 - t_pump)
         rho = pi_a @ rho @ pi_a.conj().T
         rho = evolve_density(rho, h_free, tau2)
-        signal[idx] = np.trace(rho @ detector)
+        return complex(np.trace(rho @ detector))
 
-    reference = np.abs(signal[0]) if np.abs(signal[0]) > 0 else 1.0
-    return np.real(signal * np.conj(signal[0]) / reference**2)
+    signal = np.array([echo(float(t_pump)) for t_pump in times], dtype=np.complex128)
+    # Normalize (amplitude and phase) by the t = 0 echo, where F(0) = 1,
+    # not by the first requested pump position.
+    zero = echo(0.0)
+    reference = np.abs(zero) if np.abs(zero) > 0 else 1.0
+    return np.real(signal * np.conj(zero) / reference**2)

@@ -106,6 +106,56 @@ class NitroxideRelaxationMatrixTests(unittest.TestCase):
         assert_allclose(v, u.T, atol=1e-10)
         self.assertGreater(np.linalg.norm(u), 0)
 
+    def test_signed_15n_hyperfine_matches_mirrored_positive_convention(self):
+        # Regression: 15N has negative gamma, so A < 0. The tumbling factory
+        # accepted a signed tensor but the CW model rejected hyperfine_hz < 0.
+        # (A, m) -> (-A, -m) mirrors the line widths exactly (transverse
+        # block), so the signed model must reproduce the established positive-A
+        # electron saturation spectrum. Nitrogen populations are not an exact
+        # mirror (ZQ/DQ weights 1/6 vs 1 swap), so they are not compared.
+        options = {**self.options, "nitrogen_spin": 0.5}
+        options.pop("hyperfine_tensor_hz")
+        detuning = 2 * np.pi * np.linspace(-80e6, 80e6, 33)
+        parameters = dict(
+            field_tesla=self.field,
+            concentration_molar=0.0,
+            nutation_rad_per_s=2e6,
+            detuning_rad_per_s=detuning,
+        )
+
+        def matrix(tensor_sign):
+            return NitroxideRelaxationMatrix.from_isotropic_tumbling(
+                hyperfine_tensor_hz=tensor_sign * self.a, **options
+            )
+
+        assert_allclose(
+            matrix(-1).transverse_per_second,
+            matrix(+1).transverse_per_second[::-1, ::-1],
+            rtol=1e-12,
+        )
+
+        def model(tensor_sign, model_sign):
+            return NitroxideSaturationModel(
+                hyperfine_hz=model_sign * self.a.mean(),
+                nitrogen_spin=0.5,
+                electron_t1_seconds=np.inf,
+                electron_t2_seconds=np.inf,
+                relaxation_matrix=matrix(tensor_sign),
+            ).steady_state(**parameters)
+
+        positive = model(+1, +1)
+        signed = model(-1, -1)
+        assert_allclose(
+            signed.saturation_factor, positive.saturation_factor, rtol=1e-8, atol=1e-14
+        )
+        # The g/A cross term makes the two lines unequal, so a sign mismatch
+        # between tensor and model is a different (wrong) spectrum.
+        mismatched = model(-1, +1)
+        self.assertGreater(
+            np.max(np.abs(mismatched.saturation_factor - positive.saturation_factor)),
+            1e-3 * np.max(positive.saturation_factor),
+        )
+
     def test_15n_hyperfine_operator_against_independent_lindblad_jumps(self):
         # Project the general A1d operator through independent jump dissipators,
         # avoiding normalization ambiguities in compact isotope formulas.
