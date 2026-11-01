@@ -167,6 +167,19 @@ def ndfeb(remanence_t: float = 1.3, *, mu_rec: float = 1.05) -> MagneticMaterial
     return MagneticMaterial("ndfeb", mu_r=float(mu_rec), remanence_t=float(remanence_t))
 
 
+def _coercivity_a_per_m(material: MagneticMaterial) -> float:
+    """Return the equivalent coercivity ``H_c = B_r / (mu0 mu_rec)`` of a magnet.
+
+    The vector-potential solvers use ``H = nu B - H_c``; with the recoil
+    reluctivity ``nu = 1/(mu0 mu_rec)`` this is ``B = mu0 mu_rec H + B_r``, the
+    same linear-recoil magnet law the 3-D reduced-scalar-potential solver uses, so
+    ``remanence_t`` is the flux density at ``H = 0`` in every solver.
+    """
+
+    mu_rec = material.bh.mu_r0 if material.bh is not None else material.mu_r
+    return float(material.remanence_t / (MU0 * mu_rec))
+
+
 # ---------------------------------------------------------------------------
 # Matrix-free preconditioned conjugate gradient (SPD systems)
 # ---------------------------------------------------------------------------
@@ -541,7 +554,7 @@ class PlanarMagnetostatics:
             self.mu_r[mask] = material.mu_r
         if material.remanence_t > 0.0:
             angle = np.deg2rad(remanence_angle_deg)
-            hc = material.remanence_t / MU0
+            hc = _coercivity_a_per_m(material)
             self.hcx[mask] = hc * np.cos(angle)
             self.hcy[mask] = hc * np.sin(angle)
         if current_total_a is not None:
@@ -605,7 +618,10 @@ class PlanarMagnetostatics:
         diag = c_ip + c_im + c_jp + c_jm
         b = np.zeros(nu.shape, dtype=bool)
         b[0, :] = b[-1, :] = b[:, 0] = b[:, -1] = True
-        diag[b] = 1.0
+        # Scale the Dirichlet rows (zero right-hand side) to the interior diagonal,
+        # as in the axisymmetric solver: unit rows beside ~1e11-scale interior rows
+        # leave ~1e-4 relative LU round-off on the boundary values.
+        diag[b] = float(np.max(diag[~b])) if np.any(~b) else 1.0
         for arr in (c_ip, c_im, c_jp, c_jm):
             arr[b] = 0.0
         return diag, c_ip, c_im, c_jp, c_jm
@@ -790,7 +806,7 @@ class AxisymmetricMagnetostatics:
             self.nl[mask] = False
             self.mu_r[mask] = material.mu_r
         if material.remanence_t > 0.0:
-            hc = material.remanence_t / MU0
+            hc = _coercivity_a_per_m(material)
             if remanence_axis == "z":
                 self.hcz[mask] = hc
             elif remanence_axis == "r":

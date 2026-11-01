@@ -732,7 +732,10 @@ def test_receive_array_preserves_absolute_complex_channel_maps() -> None:
     center = tuple(size // 2 for size in phantom.rho.shape)
     x_channel = sensitivity.b1_minus_t_per_a[(0, *center)]
     y_channel = sensitivity.b1_minus_t_per_a[(1, *center)]
-    assert y_channel / x_channel == pytest.approx(1.0j, abs=1e-12)
+    # Both solenoids are right-handed about their axis (B along +x and +y), so with
+    # B1- = (Bx - i By)/2 the y channel lags the x channel by 90 degrees. (The old
+    # +1j encoded the left-handed axis="y" winding fixed in fields.circular_loop.)
+    assert y_channel / x_channel == pytest.approx(-1.0j, abs=1e-12)
 
 
 @pytest.mark.smoke

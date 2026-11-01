@@ -19,6 +19,7 @@ The ``.inp`` export (:func:`to_fasthenry_inp`) is pure text and always available
 from __future__ import annotations
 
 import os
+import shutil
 import tempfile
 import time
 from dataclasses import dataclass
@@ -59,6 +60,11 @@ def to_fasthenry_inp(
     Units are metres, so conductivity is written in S/m directly. The wire path becomes a
     chain of nodes/segments; the two ends are the single external port. ``nwinc``/``nhinc``
     set the cross-section filament counts (default: the conductor's own tiling counts).
+
+    FastHenry's ``.freq`` card is a logarithmic sweep (``ndec`` points per decade from
+    ``fmin`` to ``fmax``), so a deck for several frequencies solves exactly the requested
+    ones only when they are log-uniform on that grid; :func:`run_fasthenry` therefore
+    runs one single-frequency deck per requested frequency.
 
     ``rw``/``rh`` set the ratio of adjacent filament sizes across the width/height. **If
     omitted, FastHenry defaults them to 2.0** (geometrically graded toward the surface --
@@ -147,39 +153,61 @@ def run_fasthenry(
 ) -> FastHenryResult:
     """Run FastHenry on ``conductor`` and return its ``L(f)``/``R(f)`` (single port).
 
-    Writes the ``.inp`` deck, drives the ``FastHenry2.Document`` COM server (dynamic
-    dispatch: ``Run(path)``, poll the ``IsRunning`` property, read the ``GetInductance`` and
-    ``GetResistance`` properties, ``Quit``), and returns the per-frequency inductance and
-    resistance. Windows + FastHenry2 + pywin32 only; raises ``RuntimeError`` otherwise.
+    Writes one single-frequency ``.inp`` deck per requested frequency (FastHenry's
+    ``.freq`` card sweeps a log grid, which would not hit arbitrary frequencies), drives
+    the ``FastHenry2.Document`` COM server (dynamic dispatch: ``Run(path)``, poll the
+    ``IsRunning`` property, read the ``GetInductance`` and ``GetResistance`` properties),
+    and returns the inductance and resistance at exactly ``frequencies``. The COM server
+    is always quit and a temporary deck directory (used when ``workdir`` is ``None``) is
+    always removed, also on timeout or error. Windows + FastHenry2 + pywin32 only; raises
+    ``RuntimeError`` otherwise.
     """
 
-    freqs = np.atleast_1d(np.asarray(frequencies, dtype=np.float64))
-    deck = to_fasthenry_inp(conductor, freqs, nwinc=nwinc, nhinc=nhinc, rw=rw, rh=rh)
-    tmpdir = workdir or tempfile.mkdtemp(prefix="fasthenry_")
-    inp_path = os.path.join(tmpdir, "peec_conductor.inp")
-    with open(inp_path, "w", encoding="ascii") as fh:
-        fh.write(deck)
-
-    doc = _find_fasthenry_com()
-    doc.Run('"%s"' % os.path.abspath(inp_path))
-    t0 = time.time()
-    while doc.IsRunning:
-        time.sleep(0.2)
-        if time.time() - t0 > timeout:  # pragma: no cover
-            raise RuntimeError("FastHenry run exceeded the timeout")
-    # GetInductance/GetResistance are COM properties returning (F, nport, nport) arrays.
-    ind = np.array(doc.GetInductance, dtype=np.float64)
-    res = np.array(doc.GetResistance, dtype=np.float64)
+    freqs = np.atleast_1d(np.asarray(frequencies, dtype=np.float64)).reshape(-1)
+    if freqs.size == 0 or not np.all(np.isfinite(freqs)) or np.any(freqs <= 0.0):
+        raise ValueError("frequencies must be finite and positive")
+    own_tmpdir = workdir is None
+    tmpdir = tempfile.mkdtemp(prefix="fasthenry_") if own_tmpdir else workdir
+    ind = np.empty(freqs.size)
+    res = np.empty(freqs.size)
+    doc = None
     try:
-        doc.Quit
+        doc = _find_fasthenry_com()
+        for index, frequency in enumerate(freqs):
+            deck = to_fasthenry_inp(
+                conductor, [frequency], nwinc=nwinc, nhinc=nhinc, rw=rw, rh=rh
+            )
+            name = "peec_conductor.inp" if freqs.size == 1 else f"peec_conductor_{index}.inp"
+            inp_path = os.path.join(tmpdir, name)
+            with open(inp_path, "w", encoding="ascii") as fh:
+                fh.write(deck)
+            doc.Run('"%s"' % os.path.abspath(inp_path))
+            t0 = time.time()
+            while doc.IsRunning:
+                time.sleep(0.2)
+                if time.time() - t0 > timeout:
+                    raise RuntimeError("FastHenry run exceeded the timeout")
+            # GetInductance/GetResistance are COM properties returning (F, nport, nport)
+            # arrays; a single-frequency, single-port deck gives one value each.
+            ind[index] = np.asarray(doc.GetInductance, dtype=np.float64).reshape(-1)[0]
+            res[index] = np.asarray(doc.GetResistance, dtype=np.float64).reshape(-1)[0]
+    finally:
+        if doc is not None:
+            _quit_com(doc)
+        if own_tmpdir:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+    return FastHenryResult(frequency=freqs, inductance=ind, resistance=res)
+
+
+def _quit_com(doc) -> None:
+    """Quit a COM document, whether ``Quit`` resolves to a method or is invoked on access."""
+
+    try:
+        quit_method = getattr(doc, "Quit", None)
+        if callable(quit_method):
+            quit_method()
     except Exception:  # pragma: no cover - Quit occasionally reports via exception
         pass
-    # Single port: collapse the (F, 1, 1) matrices. FastHenry returns results in ascending
-    # frequency order (fmin first), matching how `.freq` is swept here.
-    ind = ind.reshape(ind.shape[0], -1)[:, 0]
-    res = res.reshape(res.shape[0], -1)[:, 0]
-    out_freq = freqs if ind.size == freqs.size else np.asarray(freqs[: ind.size])
-    return FastHenryResult(frequency=out_freq, inductance=ind, resistance=res)
 
 
 def compare_with_fasthenry(

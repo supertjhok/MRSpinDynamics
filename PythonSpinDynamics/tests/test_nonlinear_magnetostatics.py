@@ -88,6 +88,58 @@ class PlanarSolverTests(unittest.TestCase):
         self.assertLess(abs(float(bx[0])), 0.05)
         self.assertGreater(float(by[0]), 0.4)
 
+    @staticmethod
+    def _cylinder_interior_bx(mu_r: float) -> float:
+        radius = 0.03
+        half = 12.0 * radius
+        axis = np.linspace(-half, half, 161)
+        prob = PlanarMagnetostatics(axis, axis)
+        prob.add_material(
+            prob.disk((0.0, 0.0), radius),
+            MagneticMaterial("mag", mu_r=mu_r, remanence_t=1.0),
+        )
+        bx, _ = prob.solve().sample([0.0, 0.005, -0.005], [0.0, 0.005, -0.005])
+        return float(np.mean(bx))
+
+    def test_recoil_magnet_cylinder_matches_closed_form(self) -> None:
+        # B = mu0 mu_rec H + B_r in a transversely magnetized cylinder gives the
+        # interior field B_r / (1 + mu_rec). Pre-fix the source was B_r/mu0 rather
+        # than B_r/(mu0 mu_rec), so mu_rec = 1.5 gave 0.606 instead of 0.4 (and the
+        # ratio to the mu_rec = 1 cylinder was 1.22 instead of 0.8).
+        b_recoil = self._cylinder_interior_bx(1.5)
+        b_unit = self._cylinder_interior_bx(1.0)
+        self.assertAlmostEqual(b_recoil, 1.0 / 2.5, delta=0.012)
+        self.assertAlmostEqual(b_recoil / b_unit, 2.0 / 2.5, delta=0.02)
+
+    def test_linear_solve_matches_interior_only_reference(self) -> None:
+        # Independent assembly of -div(nu grad A) = J + curl(H_c) on the interior
+        # nodes only (no Dirichlet rows), solved directly. Pre-fix the unit
+        # Dirichlet rows next to ~1e11-scale interior rows left ~1e-4 relative
+        # LU round-off on the boundary, so the returned A differed by ~1e-4.
+        from scipy.sparse import diags, kron
+        from scipy.sparse import identity as sparse_identity
+        from scipy.sparse.linalg import spsolve
+
+        n = 161
+        axis = np.linspace(-0.36, 0.36, n)
+        prob = PlanarMagnetostatics(axis, axis)
+        prob.add_material(
+            prob.disk((0.0, 0.0), 0.03),
+            MagneticMaterial("mag", mu_r=1.0, remanence_t=1.0),
+        )
+        sol = prob.solve()
+
+        # Uniform nu = 1/mu0 everywhere here, so the operator is a scaled Laplacian.
+        h = float(axis[1] - axis[0])
+        m = n - 2
+        second = diags([-np.ones(m - 1), 2.0 * np.ones(m), -np.ones(m - 1)], [-1, 0, 1])
+        laplacian = (kron(second, sparse_identity(m)) + kron(sparse_identity(m), second)) / h**2
+        rhs = prob._rhs()[1:-1, 1:-1].ravel()
+        reference = spsolve((laplacian / MU0).tocsc(), rhs).reshape(m, m)
+
+        scale = float(np.max(np.abs(reference)))
+        np.testing.assert_allclose(sol.a_z[1:-1, 1:-1], reference, rtol=0.0, atol=1e-9 * scale)
+
 
 class AxisymmetricSolverTests(unittest.TestCase):
     def _solenoid(self, core=None, core_r=0.04):
@@ -130,6 +182,29 @@ class AxisymmetricSolverTests(unittest.TestCase):
         # gave 1.97.)
         self.assertGreater(b_fer / b_air, 8.0)
         self.assertLess(b_fer / b_air, 14.0)
+
+    def test_recoil_magnet_sphere_matches_closed_form(self) -> None:
+        # Axially magnetized sphere with B = mu0 mu_rec H + B_r: interior field
+        # 2 B_r / (2 + mu_rec). Pre-fix (source B_r/mu0) mu_rec = 1.5 gave 0.865
+        # instead of 0.571, and the ratio to mu_rec = 1 was 1.295 instead of 0.857.
+        def interior_bz(mu_rec: float) -> float:
+            h = 1.0e-3
+            r = np.arange(0.0, 0.2 + 0.5 * h, h)
+            z = np.arange(-0.2, 0.2 + 0.5 * h, h)
+            prob = AxisymmetricMagnetostatics(r, z)
+            prob.add_material(
+                prob._gr**2 + prob._gz**2 <= 0.02**2,
+                MagneticMaterial("mag", mu_r=mu_rec, remanence_t=1.0),
+                remanence_axis="z",
+            )
+            sol = prob.solve()
+            return float(np.mean(sol.b_z[:6, int(np.argmin(np.abs(z)))]))
+
+        b_recoil = interior_bz(1.5)
+        b_unit = interior_bz(1.0)
+        self.assertAlmostEqual(b_recoil, 2.0 / 3.5, delta=0.012)
+        self.assertAlmostEqual(b_unit, 2.0 / 3.0, delta=0.012)
+        self.assertAlmostEqual(b_recoil / b_unit, 3.0 / 3.5, delta=0.015)
 
     @staticmethod
     def _long_cored_solenoid(mu_r: float, *, h_r: float = 1.0e-3, r_max: float = 0.16):

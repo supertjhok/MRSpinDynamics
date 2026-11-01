@@ -1349,18 +1349,30 @@ def main():
     if args.setup_only:
         return
 
+    # Port quantities at the design frequency (index 0, the legacy keys) and at every
+    # dumped field frequency, so each dumped field can be normalized by the drive at
+    # its own frequency.
+    port_frequencies = [float(settings["frequency_hz"])]
+    for item in frequency:
+        if all(abs(item - known) > 1.0e-9 * known for known in port_frequencies):
+            port_frequencies.append(item)
+    target_frequency = np.asarray(port_frequencies)
     port_results = []
-    target_frequency = np.asarray([float(settings["frequency_hz"])])
     for port_data, port in ports:
         port.CalcPort(str(output_dir), target_frequency)
         port_results.append(
             {
                 "number": int(port_data["number"]),
                 "name": port_data["name"],
+                "frequency_hz": port_frequencies[0],
                 "voltage_v": _complex_pair(port.uf_tot[0]),
                 "current_a": _complex_pair(port.if_tot[0]),
                 "accepted_power_w": float(port.P_acc[0]),
                 "reference_impedance_ohm": float(port_data["resistance_ohm"]),
+                "frequencies_hz": port_frequencies,
+                "voltages_v": [_complex_pair(v) for v in port.uf_tot],
+                "currents_a": [_complex_pair(v) for v in port.if_tot],
+                "accepted_powers_w": [float(v) for v in port.P_acc],
             }
         )
     (output_dir / "openems_port.json").write_text(
@@ -1837,6 +1849,49 @@ def _read_json_object(path: Path, name: str) -> dict[str, object]:
     return raw
 
 
+def _port_values_at_frequency(
+    raw_port: Mapping[str, object],
+    frequency_hz: float,
+    *,
+    design_frequency_hz: float,
+) -> tuple[complex, complex, float]:
+    """Return one port's ``(V, I, P_accepted)`` at the loaded field frequency.
+
+    Current drivers record the port quantities at every dumped frequency
+    (``frequencies_hz`` with per-frequency lists). Older metadata holds a single
+    set, computed at the project's design frequency; fields dumped at any other
+    frequency cannot be normalized by it, so that case is refused rather than
+    silently mixing frequencies.
+    """
+
+    tolerance = max(1.0e-6 * frequency_hz, 1.0e-3)
+    if "frequencies_hz" in raw_port:
+        frequencies = np.asarray(raw_port["frequencies_hz"], dtype=np.float64).reshape(-1)
+        matches = np.flatnonzero(np.abs(frequencies - frequency_hz) <= tolerance)
+        if matches.size == 0:
+            raise ValueError(
+                f"openEMS port metadata has no port quantities at {frequency_hz:g} Hz"
+            )
+        index = int(matches[0])
+        voltage = _complex_from_json(raw_port["voltages_v"][index], "voltages_v")  # type: ignore[index]
+        current = _complex_from_json(raw_port["currents_a"][index], "currents_a")  # type: ignore[index]
+        power = float(raw_port["accepted_powers_w"][index])  # type: ignore[index]
+    else:
+        port_frequency = float(raw_port.get("frequency_hz", design_frequency_hz))  # type: ignore[arg-type]
+        if abs(port_frequency - frequency_hz) > tolerance:
+            raise ValueError(
+                f"openEMS port metadata was computed at {port_frequency:g} Hz, not at "
+                f"the loaded field frequency {frequency_hz:g} Hz; rerun the driver to "
+                "record port quantities at every dump frequency"
+            )
+        voltage = _complex_from_json(raw_port["voltage_v"], "voltage_v")
+        current = _complex_from_json(raw_port["current_a"], "current_a")
+        power = float(raw_port["accepted_power_w"])  # type: ignore[arg-type]
+    if not np.isfinite(power):
+        raise ValueError("accepted_power_w must be finite")
+    return voltage, current, power
+
+
 def load_openems_solution(
     directory: str | Path,
     *,
@@ -1850,8 +1905,10 @@ def load_openems_solution(
     openEMS frequency-domain dumps use the package's canonical
     ``exp(+i*omega*t)`` representation.  Normalization divides both fields by
     the complex total port current or voltage, or by the positive square root
-    of accepted power.  Numerical termination is not claimed as convergence;
-    the requested limits are retained in provenance for Phase 4 validation.
+    of accepted power, all taken at the frequency of the loaded field dump
+    (port metadata without that frequency is refused).  Numerical termination
+    is not claimed as convergence; the requested limits are retained in
+    provenance for Phase 4 validation.
     """
 
     if normalization not in {
@@ -1897,11 +1954,11 @@ def load_openems_solution(
         if not isinstance(raw_port, Mapping):
             raise ValueError("each openEMS port metadata entry must be an object")
         number = int(raw_port["number"])
-        voltage = _complex_from_json(raw_port["voltage_v"], "voltage_v")
-        current = _complex_from_json(raw_port["current_a"], "current_a")
-        power = float(raw_port["accepted_power_w"])
-        if not np.isfinite(power):
-            raise ValueError("accepted_power_w must be finite")
+        voltage, current, power = _port_values_at_frequency(
+            raw_port,
+            electric.frequency_hz,
+            design_frequency_hz=project.settings.frequency_hz,
+        )
         port_values[number] = (voltage, current, power)
         port_objects.append(
             HarmonicPort(

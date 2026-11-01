@@ -45,6 +45,67 @@ class BiotSavartTests(unittest.TestCase):
             biot_savart(np.zeros((4, 2)), [], 1.0)
 
 
+class CoilHandednessTests(unittest.TestCase):
+    # Every generator winds right-handed about +axis. Pre-fix, axis="y" was
+    # left-handed: the loop-centre field was -mu0 I/(2R) along y and the y Maxwell
+    # pair gradient was -3.2e-4 T/m/A while x and z gave +3.2e-4.
+
+    def test_loop_centre_field_points_along_plus_axis(self):
+        from spin_dynamics.fields import coils
+
+        radius = 0.01
+        expected = MU0 / (2.0 * radius)
+        for index, axis in enumerate("xyz"):
+            for segments in (
+                circular_loop((0, 0, 0), radius, axis=axis, n_segments=400),
+                coils.conducting_ring(radius=radius, axis=axis, n_segments=400),
+            ):
+                b = biot_savart(np.zeros((1, 3)), segments, 1.0)[0]
+                self.assertAlmostEqual(b[index] / expected, 1.0, delta=1e-4, msg=axis)
+
+    def test_solenoid_centre_field_matches_finite_solenoid_formula(self):
+        from spin_dynamics.fields import coils
+
+        radius, length, turns = 0.01, 0.1, 50
+        pitch = length / (turns - 1)  # loops span centre-to-centre `length`
+        sheet = turns / (length + pitch)
+        span = length + pitch
+        expected = MU0 * sheet * span / np.sqrt(span**2 + 4.0 * radius**2)
+        for index, axis in enumerate("xyz"):
+            segments = coils.solenoid(
+                radius=radius, length=length, turns=turns, axis=axis, n_segments=96
+            )
+            b = biot_savart(np.zeros((1, 3)), segments, 1.0)[0]
+            self.assertAlmostEqual(b[index] / expected, 1.0, delta=0.01, msg=axis)
+
+    def test_maxwell_pair_gradient_matches_closed_form_for_every_axis(self):
+        from spin_dynamics.fields import coils
+
+        radius = 0.05
+        half = 0.5 * np.sqrt(3.0) * radius
+        expected = 3.0 * MU0 * radius**2 * half / (radius**2 + half**2) ** 2.5
+        for index, axis in enumerate("xyz"):
+            segments = coils.maxwell_pair(radius=radius, axis=axis, n_segments=144)
+            points = np.zeros((2, 3))
+            points[0, index], points[1, index] = 1e-4, -1e-4
+            b = biot_savart(points, segments, 1.0)
+            gradient = (b[0, index] - b[1, index]) / 2e-4
+            self.assertAlmostEqual(gradient / expected, 1.0, delta=0.005, msg=axis)
+
+    def test_planar_spiral_moment_points_along_plus_axis(self):
+        from spin_dynamics.fields import coils
+
+        for index, axis in enumerate("xyz"):
+            segments = coils.planar_spiral(
+                r_inner=0.002, r_outer=0.01, turns=4, axis=axis, n_points=2000
+            )
+            # Area vector 1/2 sum(r x dl) of the open spiral is along the winding axis.
+            area = 0.5 * sum(np.cross(start, end - start) for start, end in segments)
+            self.assertGreater(area[index], 0.0, msg=axis)
+            b = biot_savart(np.zeros((1, 3)), segments, 1.0)[0]
+            self.assertGreater(b[index], 0.0, msg=axis)
+
+
 class YokeImageTests(unittest.TestCase):
     def setUp(self):
         # A bar floating above the yoke plane at y=0.

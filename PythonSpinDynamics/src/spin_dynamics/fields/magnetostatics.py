@@ -549,7 +549,9 @@ def circular_loop(
     """Return straight-segment endpoints approximating a circular current loop.
 
     The loop lies in the plane normal to ``axis`` (``"x"``, ``"y"``, or ``"z"``)
-    and is centered at ``center`` (3-D, m).
+    and is centered at ``center`` (3-D, m). The segments run right-handed about
+    ``+axis`` for every axis, so a positive current gives a field along ``+axis``
+    at the centre.
     """
 
     c = np.asarray(center, dtype=np.float64)
@@ -558,7 +560,8 @@ def circular_loop(
     v = radius * np.sin(theta)
     zeros = np.zeros_like(theta)
     if axis == "y":
-        ring = np.column_stack([u, zeros, v])
+        # z x x = +y: run from +x towards -z (same vertices as an x-z circle).
+        ring = np.column_stack([u, zeros, -v])
     elif axis == "x":
         ring = np.column_stack([zeros, u, v])
     elif axis == "z":

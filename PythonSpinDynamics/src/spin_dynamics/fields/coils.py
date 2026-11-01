@@ -79,7 +79,9 @@ def planar_spiral(
 ) -> list[Segment]:
     """A planar Archimedean spiral from ``r_inner`` to ``r_outer`` over ``turns``.
 
-    Lies in the plane normal to ``axis`` (a flat "pancake" RF coil).
+    Lies in the plane normal to ``axis`` (a flat "pancake" RF coil). Like
+    ``circular_loop`` it winds right-handed about ``+axis``, so a positive current
+    gives a field along ``+axis`` at the centre.
     """
 
     if r_inner < 0 or r_outer <= r_inner or turns < 1:
@@ -90,6 +92,8 @@ def planar_spiral(
     r = r_inner + (r_outer - r_inner) * theta / (2.0 * np.pi * turns)
     u = r * np.cos(theta)
     v = r * np.sin(theta)
+    if axis == "y":
+        v = -v  # in-plane axes (x, z) are left-handed about +y: z x x = +y
     # In-plane axes are the two axes that are not `axis`.
     plane = [i for i in range(3) if i != ai]
     pts = np.zeros((theta.size, 3))

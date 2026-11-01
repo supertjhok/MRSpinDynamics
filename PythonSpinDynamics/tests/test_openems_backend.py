@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import ast
 import json
+import os
+import subprocess
 import sys
 from dataclasses import replace
 from pathlib import Path
@@ -13,9 +15,11 @@ import pytest
 
 import spin_dynamics.fields.openems as openems_module
 from spin_dynamics.fields import coils
+from spin_dynamics.fields.domain import SpatialDomain
 from spin_dynamics.fields.openems import (
     OPENEMS_PROJECT_SCHEMA,
     OpenEMSExecutionError,
+    OpenEMSFieldDump,
     OpenEMSMaterialBox,
     OpenEMSPlanarConductor,
     OpenEMSProject,
@@ -430,3 +434,152 @@ def test_port_sweep_import_gives_reflection(tmp_path) -> None:
     np.testing.assert_allclose(sweep.frequency_hz, frequency)
     with pytest.raises(ValueError, match="missing openEMS port sweep"):
         load_openems_port_sweep(tmp_path / "nowhere")
+
+
+def _multifrequency_bundle(
+    directory: Path, port_record: dict, monkeypatch
+) -> dict[float, np.ndarray]:
+    """Two-frequency dump bundle; the HDF5 reader is replaced by an in-memory one
+    (the dump format itself is covered by the h5py tests above), so the port
+    normalization logic is exercised without h5py."""
+
+    project = loaded_loop_openems_reference(n_wire_points=24)
+    f0 = project.settings.frequency_hz
+    project = replace(
+        project,
+        settings=replace(project.settings, dump_frequencies_hz=(f0, 1.1 * f0)),
+    )
+    write_openems_project(project, directory)
+    domain = SpatialDomain(
+        (np.array([-0.01, 0.0, 0.01]), np.array([-0.02, 0.02]), np.array([0.0, 0.03]))
+    )
+    fields = {f0: _canonical_field((3, 2, 2), 1.0), 1.1 * f0: _canonical_field((3, 2, 2), 3.0)}
+
+    def fake_dump(path, *, frequency_hz=None):
+        stored = min(fields, key=lambda item: abs(item - frequency_hz))
+        assert abs(stored - frequency_hz) <= 1.0e-6 * frequency_hz
+        return OpenEMSFieldDump(domain, stored, fields[stored], "NXYZ", False)
+
+    monkeypatch.setattr(openems_module, "load_openems_field_dump", fake_dump)
+    (directory / "openems_run.json").write_text(
+        json.dumps({"completed": True, "backend": "openEMS"}), encoding="utf-8"
+    )
+    (directory / "openems_port.json").write_text(json.dumps([port_record]), encoding="utf-8")
+    return fields
+
+
+def test_multifrequency_import_normalizes_by_the_port_current_at_that_frequency(
+    tmp_path, monkeypatch
+) -> None:
+    # Per-frequency port metadata: each dumped field is divided by the port current
+    # at its own frequency. Pre-fix every frequency was divided by the
+    # design-frequency current (2j here), i.e. a factor 1.5 off at 1.1 f0.
+    f0 = loaded_loop_openems_reference(n_wire_points=24).settings.frequency_hz
+    record = {
+        "number": 1,
+        "name": "feed",
+        "frequency_hz": f0,
+        "voltage_v": [100.0, 0.0],
+        "current_a": [0.0, 2.0],
+        "accepted_power_w": 25.0,
+        "frequencies_hz": [f0, 1.1 * f0],
+        "voltages_v": [[100.0, 0.0], [90.0, 0.0]],
+        "currents_a": [[0.0, 2.0], [3.0, 0.0]],
+        "accepted_powers_w": [25.0, 16.0],
+    }
+    fields = _multifrequency_bundle(tmp_path, record, monkeypatch)
+
+    at_design = load_openems_solution(tmp_path, normalization="per_ampere", frequency_hz=f0)
+    np.testing.assert_allclose(at_design.magnetic_flux_density_t, fields[f0] / 2.0j)
+    shifted = load_openems_solution(
+        tmp_path, normalization="per_ampere", frequency_hz=1.1 * f0
+    )
+    np.testing.assert_allclose(shifted.magnetic_flux_density_t, fields[1.1 * f0] / 3.0)
+    assert shifted.ports[0].current_a == pytest.approx(3.0)
+    powered = load_openems_solution(
+        tmp_path, normalization="per_sqrt_watt", frequency_hz=1.1 * f0
+    )
+    np.testing.assert_allclose(powered.electric_field_v_per_m, fields[1.1 * f0] / 4.0)
+
+
+def test_single_frequency_port_metadata_is_refused_at_other_dump_frequencies(
+    tmp_path, monkeypatch
+) -> None:
+    f0 = loaded_loop_openems_reference(n_wire_points=24).settings.frequency_hz
+    legacy_record = {
+        "number": 1,
+        "name": "feed",
+        "voltage_v": [100.0, 0.0],
+        "current_a": [0.0, 2.0],
+        "accepted_power_w": 25.0,
+    }
+    fields = _multifrequency_bundle(tmp_path, legacy_record, monkeypatch)
+    solution = load_openems_solution(tmp_path, normalization="per_ampere", frequency_hz=f0)
+    np.testing.assert_allclose(solution.magnetic_flux_density_t, fields[f0] / 2.0j)
+    with pytest.raises(ValueError, match="not at the loaded field frequency"):
+        load_openems_solution(tmp_path, normalization="per_ampere", frequency_hz=1.1 * f0)
+
+
+_FAKE_OPENEMS = r'''
+import json, os
+import numpy as np
+__version__ = "fake"
+
+class _Stub:
+    def __init__(self, *args, **kwargs):
+        pass
+    def __getattr__(self, name):
+        return lambda *args, **kwargs: _Stub()
+
+class _Port:
+    def CalcPort(self, path, frequency):
+        f = np.asarray(frequency, dtype=float)
+        with open(os.path.join(path, "calcport_calls.json"), "a") as handle:
+            handle.write(json.dumps(f.tolist()) + "\n")
+        self.uf_tot = f / 1e6 + 0j
+        self.if_tot = 1j * f / 1e8
+        self.P_acc = f / 1e9
+        self.uf_inc = self.uf_ref = self.if_inc = self.if_ref = f + 0j
+
+class openEMS(_Stub):
+    def AddCurvePort(self, **kwargs):
+        return _Port()
+    AddLumpedPort = AddCurvePort
+'''
+
+
+def test_driver_records_port_quantities_at_every_dump_frequency(tmp_path) -> None:
+    # Run the generated driver against stub openEMS/CSXCAD bindings whose port
+    # quantities are known functions of frequency. Pre-fix CalcPort was evaluated
+    # at the design frequency only.
+    stubs = tmp_path / "stubs"
+    (stubs / "openEMS").mkdir(parents=True)
+    (stubs / "CSXCAD").mkdir()
+    (stubs / "openEMS" / "__init__.py").write_text(_FAKE_OPENEMS, encoding="utf-8")
+    (stubs / "CSXCAD" / "__init__.py").write_text(
+        "from openEMS import _Stub as ContinuousStructure\n", encoding="utf-8"
+    )
+    base = loaded_loop_openems_reference(n_wire_points=24)
+    f0 = base.settings.frequency_hz
+    dumps = (0.9 * f0, f0, 1.2 * f0)
+    project = replace(base, settings=replace(base.settings, dump_frequencies_hz=dumps))
+    run_dir = tmp_path / "run"
+    project_path, driver_path = write_openems_project(project, run_dir)
+
+    env = dict(os.environ, PYTHONPATH=str(stubs))
+    subprocess.run(
+        [sys.executable, str(driver_path), str(project_path), "--output-dir", str(run_dir)],
+        check=True,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    (record,) = json.loads((run_dir / "openems_port.json").read_text(encoding="utf-8"))
+    assert record["frequency_hz"] == pytest.approx(f0)
+    assert record["current_a"] == pytest.approx([0.0, f0 / 1e8])
+    np.testing.assert_allclose(record["frequencies_hz"], [f0, 0.9 * f0, 1.2 * f0])
+    for frequency, current, power in zip(
+        record["frequencies_hz"], record["currents_a"], record["accepted_powers_w"]
+    ):
+        assert current == pytest.approx([0.0, frequency / 1e8])
+        assert power == pytest.approx(frequency / 1e9)
