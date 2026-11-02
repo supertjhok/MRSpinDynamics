@@ -427,7 +427,7 @@ what supports the underlying scientific or numerical claim.
 - **Metric:** Resonance field/frequency, splitting, normalization, decay, and echo timing
 - **Tolerance:** Analytical numerical tolerances declared per test.
 - **References:** Standard spin-1/2 ESR resonance and hyperfine formulas
-- **Reproduce:** [`tests/test_esr.py::test_isotropic_resonance_frequency_uses_bohr_magneton_scale`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_esr.py#L45); [`tests/test_esr.py::test_single_nucleus_hyperfine_doublet_splitting_matches_coupling`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_esr.py#L351); [`tests/test_esr.py::test_detuned_isochromat_ensemble_rephases_at_hahn_echo_time`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_esr.py#L582)
+- **Reproduce:** [`tests/test_esr.py::test_isotropic_resonance_frequency_uses_bohr_magneton_scale`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_esr.py#L46); [`tests/test_esr.py::test_single_nucleus_hyperfine_doublet_splitting_matches_coupling`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_esr.py#L352); [`tests/test_esr.py::test_detuned_isochromat_ensemble_rephases_at_hahn_echo_time`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_esr.py#L629)
 - **Limitations:** No broad experimental spectral library comparison. Multi-electron and general anisotropic hyperfine systems remain incomplete.
 
 ### Small scalar-coupled spin systems

@@ -1668,7 +1668,8 @@ For model selection, units and worked examples, use the [user manual](manual.md)
 | --- | --- | --- |
 | function | `equilibrium_density(levels_hz: np.ndarray) -> np.ndarray` | Return a trace-zero high-temperature ESR density matrix. |
 | function | `flip_angle_duration(flip_angle_rad: float, nutation_hz: float) -> float` | Return the rectangular-pulse duration for a spin-1/2 flip angle. |
-| function | `rf_operator_eigenbasis(eigensystem: ESREigensystem, direction_g = (1.0, 0.0, 0.0)) -> np.ndarray` | Return ``e1 . S`` for a unit microwave-field direction in the eigenbasis. |
+| function | `rf_operator_eigenbasis(eigensystem: ESREigensystem, direction_g = (1.0, 0.0, 0.0)) -> np.ndarray` | Return ``e1 . (g / g_e) S`` for a unit field direction in the eigenbasis. |
+| function | `effective_nutation_hz(system: ESRSpinSystem, b0_vector_tesla_g, nutation_hz: float, *, b1_direction_g = (1.0, 0.0, 0.0), rf_frequency_hz: float \| None = None) -> float` | Return the on-resonance Rabi rate of the addressed line, in hertz. |
 | function | `rotating_indices(levels_hz: np.ndarray, rf_frequency_hz: float) -> np.ndarray` | Return two-level RWA winding numbers for a carrier frequency. |
 | function | `static_hamiltonian_rotating(eigensystem: ESREigensystem, rf_frequency_hz: float) -> np.ndarray` | Return the rotating-frame static Hamiltonian in radians per second. |
 | function | `pulse_hamiltonian(eigensystem: ESREigensystem, *, nutation_hz: float, rf_frequency_hz: float, phase: float = 0.0, b1_direction_g = (1.0, 0.0, 0.0)) -> np.ndarray` | Return a rectangular microwave-pulse Hamiltonian in the rotating frame. |

@@ -11,6 +11,7 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
+from spin_dynamics.constants import FREE_ELECTRON_G  # noqa: E402
 from spin_dynamics.coupling.evolution import evolve_density  # noqa: E402
 from spin_dynamics.esr import (  # noqa: E402
     ESRRelaxationModel,
@@ -149,7 +150,7 @@ class PulsedHelperTests(unittest.TestCase):
         self.assertFalse(np.allclose(detector, detector.conj().T))
 
     def test_pi_pulse_produces_no_transverse_signal(self) -> None:
-        system = ESRSpinSystem(g_tensor=2.0)
+        system = ESRSpinSystem(g_tensor=FREE_ELECTRON_G)  # nominal rate exact (M-47)
         b0 = [0.0, 0.0, 0.35]
         carrier = resonance_frequency_hz(system, b0)
         nutation_hz = 1.0e6

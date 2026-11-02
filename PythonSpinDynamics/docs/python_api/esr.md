@@ -148,9 +148,15 @@ result = simulate_field_sweep_distribution(
 ## Pulsed ESR
 
 The pulsed helpers use a single rotating frame with the rotating-wave
-approximation. The `nutation_hz` parameter is the on-resonance spin-1/2 Rabi
-rate for the selected microwave-field direction, so a rectangular 90-degree
-pulse has duration `1 / (4 * nutation_hz)`.
+approximation. The `nutation_hz` parameter sets the microwave field strength as
+the on-resonance Rabi rate it gives a free electron (`g = g_e`) with the field
+perpendicular to `B0`, so for that electron a rectangular 90-degree pulse lasts
+`1 / (4 * nutation_hz)`. The field couples through `(g / g_e) S`, as in the CW
+spectra, so with another or an anisotropic g the addressed line nutates at
+`effective_nutation_hz(system, b0, nutation_hz, b1_direction_g=...)`, which
+changes with orientation across a powder. Pass that rate to
+`flip_angle_duration` for an exact flip angle at one orientation. Detection uses
+the same g-weighted moment.
 
 ```python
 import numpy as np

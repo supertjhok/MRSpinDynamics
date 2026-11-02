@@ -342,6 +342,15 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
   `g_e/g_eff`. Spectra of anisotropic-g systems change shape (a rhombic powder
   pattern by up to 4%) and now match EasySpin; free-electron-like spectra are
   essentially unchanged in scale.
+- Behaviour change (M-47): pulsed ESR drives and detects through the same
+  g-weighted moment. `nutation_hz` now sets the microwave field as the Rabi rate
+  it gives a free electron; the new `effective_nutation_hz` returns the
+  addressed line's rate, which varies with orientation for anisotropic g.
+  Free-electron results are unchanged; g = 2.0 nutates 0.12% slower.
+  In the tracked Bayesian benchmark the ESR Hahn adaptive success moves from
+  87.5% to 89.6%. `validation/bayesian_adapter_benchmarks.json` is regenerated;
+  it had not been updated after the CPMG-IR sign change and still held the old
+  CPMG-IR results.
 - Rewrote the PythonSpinDynamics web documentation openings around reader
   questions, prerequisites, model boundaries, and neighboring guides; added a
   documentation map and maintainer writing standard; clarified that the

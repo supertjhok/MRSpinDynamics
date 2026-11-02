@@ -1792,9 +1792,12 @@ field-disorder sampling.
 \section{Pulsed ESR}
 
 The pulsed ESR helpers use a single rotating frame and a rotating-wave
-approximation. The \code{nutation\_hz} parameter is the on-resonance spin-1/2
-Rabi rate for the selected microwave \(B_1\) direction, so a rectangular pulse
-of flip angle \(\theta\) has duration
+approximation. The \code{nutation\_hz} parameter sets the microwave field as
+the on-resonance Rabi rate \(\nu_1\) it gives a free electron with \(B_1\)
+perpendicular to \(B_0\). The field couples through \((\mathbf{g}/g_e)\mathbf{S}\),
+so for another or an anisotropic \(g\) the addressed line nutates at
+\code{effective\_nutation\_hz}, which varies with orientation in a powder. For
+the free electron a rectangular pulse of flip angle \(\theta\) has duration
 \[
   t_p = \frac{\theta}{2\pi \nu_1}.
 \]
@@ -4069,7 +4072,7 @@ action budget. Zero-width intervals on the finite NQR grid are drawn at
 
 The tracked 96-trial reference run gave adaptive versus fixed-coverage success
 of 94.8\% versus 86.5\% for CPMG-IR, 76.0\% versus 16.7\% for PGSE, 94.8\%
-versus 84.4\% for NQR, and 87.5\% versus 63.5\% for ESR. Corresponding median
+versus 84.4\% for NQR, and 89.6\% versus 63.5\% for ESR. Corresponding median
 physical times were 0.302 versus 1.022~s, 0.612 versus 0.816~s, 4.61 versus
 6.92~ms, and 39.6 versus 100.2~\(\mu\)s. These medians retain failed trials at
 their acquisition budget. The machine-readable result additionally records

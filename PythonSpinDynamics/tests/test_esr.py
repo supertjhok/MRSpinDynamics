@@ -21,6 +21,7 @@ from spin_dynamics.esr import (  # noqa: E402
     diagonalize_hyperfine_system,
     effective_g_value,
     electron_nuclear_system,
+    effective_nutation_hz,
     flip_angle_duration,
     gaussian_lineshape,
     lorentzian_lineshape,
@@ -231,7 +232,7 @@ class ESRTests(unittest.TestCase):
         self.assertAlmostEqual(flip_angle_duration(np.pi, 1.0e6), 0.5e-6)
 
     def test_resonant_90_degree_pulse_creates_transverse_fid(self) -> None:
-        system = ESRSpinSystem(g_tensor=2.0)
+        system = ESRSpinSystem(g_tensor=FREE_ELECTRON_G)  # nominal rate exact (M-47)
         b0 = [0.0, 0.0, 0.35]
         carrier = resonance_frequency_hz(system, b0)
         nutation_hz = 1.0e6
@@ -283,7 +284,7 @@ class ESRTests(unittest.TestCase):
         # Regression: T1 relaxed the pulse helpers toward zero polarization,
         # so a long resonant drive decayed to no signal. The Bloch steady
         # state on resonance is M_perp = M0 * w1*T2 / (1 + w1^2*T1*T2).
-        system = ESRSpinSystem(g_tensor=2.0)
+        system = ESRSpinSystem(g_tensor=FREE_ELECTRON_G)  # nominal rate exact (M-47)
         b0 = [0.0, 0.0, 0.35]
         carrier = resonance_frequency_hz(system, b0)
         nutation_hz = 0.2e6
@@ -529,6 +530,52 @@ class ESRTests(unittest.TestCase):
         np.testing.assert_allclose(
             np.abs(moment[:2]), np.array(g[:2]) / FREE_ELECTRON_G / 2.0, rtol=1e-12
         )
+
+    def test_pulsed_drive_couples_through_the_g_tensor(self) -> None:
+        # M-47: the drive was e1 . S, so an anisotropic g did not change the
+        # nutation rate with orientation. For spin 1/2 the Rabi rate is
+        # nu1 |d x m| with drive d = g^T e1 / g_e and quantization axis
+        # m = g^T b0 / |g^T b0|.
+        nutation = 5.0e6
+        free = ESRSpinSystem(g_tensor=FREE_ELECTRON_G)
+        self.assertAlmostEqual(
+            effective_nutation_hz(free, [0.0, 0.0, 0.34], nutation) / nutation, 1.0, places=12
+        )
+        g = np.diag([1.95, 2.05, 2.20])
+        system = ESRSpinSystem(g_tensor=g)
+        rng = np.random.default_rng(4)
+        for _ in range(6):
+            b0 = rng.normal(size=3)
+            b0 *= 0.33 / np.linalg.norm(b0)
+            e1 = np.cross(b0, rng.normal(size=3))
+            e1 /= np.linalg.norm(e1)
+            axis = g.T @ b0 / np.linalg.norm(g.T @ b0)
+            drive = g.T @ e1 / FREE_ELECTRON_G
+            expected = nutation * np.linalg.norm(np.cross(drive, axis))
+            self.assertAlmostEqual(
+                effective_nutation_hz(system, b0, nutation, b1_direction_g=e1) / expected,
+                1.0,
+                places=10,
+            )
+        # A pi pulse timed with the effective rate inverts the spin.
+        b0 = [0.0, 0.0, 0.31]
+        rate = effective_nutation_hz(system, b0, nutation, b1_direction_g=[1.0, 0.0, 0.0])
+        self.assertAlmostEqual(rate / nutation, 1.95 / FREE_ELECTRON_G, places=12)
+        inverted = simulate_fid(
+            system,
+            b0,
+            nutation_hz=nutation,
+            pulse_duration_seconds=flip_angle_duration(np.pi, rate),
+            times_seconds=[0.0],
+        )
+        quarter = simulate_fid(
+            system,
+            b0,
+            nutation_hz=nutation,
+            pulse_duration_seconds=flip_angle_duration(np.pi / 2, rate),
+            times_seconds=[0.0],
+        )
+        self.assertLess(abs(inverted.signal[0]), 1e-9 * abs(quarter.signal[0]))
 
     def test_width_from_fwhm_matches_measured_half_maximum(self) -> None:
         # L-15: ``width`` is sigma for Gaussian but HWHM for Lorentzian; the

@@ -8,13 +8,16 @@ import warnings
 import numpy as np
 
 from spin_dynamics.coupling.evolution import evolve_density
-from spin_dynamics.esr.hamiltonians import TAU, diagonalize_system
+from spin_dynamics.esr.hamiltonians import (
+    TAU,
+    diagonalize_system,
+    g_weighted_spin_operators,
+)
 from spin_dynamics.esr.relaxation import (
     ESRRelaxationModel,
     propagate_density_liouville,
 )
 from spin_dynamics.esr.systems import ESREigensystem, ESRSpinSystem
-from spin_dynamics.nqr.operators import spin_matrices
 
 
 def _unit(direction) -> np.ndarray:
@@ -37,7 +40,11 @@ def equilibrium_density(levels_hz: np.ndarray) -> np.ndarray:
 
 
 def flip_angle_duration(flip_angle_rad: float, nutation_hz: float) -> float:
-    """Return the rectangular-pulse duration for a spin-1/2 flip angle."""
+    """Return the rectangular-pulse duration for a spin-1/2 flip angle.
+
+    ``nutation_hz`` is the Rabi rate of the addressed line; for a g other
+    than the free-electron value pass :func:`effective_nutation_hz`.
+    """
 
     flip_angle = float(flip_angle_rad)
     nutation = float(nutation_hz)
@@ -52,13 +59,53 @@ def rf_operator_eigenbasis(
     eigensystem: ESREigensystem,
     direction_g=(1.0, 0.0, 0.0),
 ) -> np.ndarray:
-    """Return ``e1 . S`` for a unit microwave-field direction in the eigenbasis."""
+    """Return ``e1 . (g / g_e) S`` for a unit field direction in the eigenbasis.
 
-    ops = spin_matrices(eigensystem.system.spin)
+    The microwave field couples through the g tensor, as the static field
+    does, so drive and detection follow the electron's magnetic moment
+    (M-47). For a free electron this is ``e1 . S``.
+    """
+
+    system = eigensystem.system
     e1 = _unit(direction_g)
-    lab = e1[0] * ops.ix + e1[1] * ops.iy + e1[2] * ops.iz
+    components = g_weighted_spin_operators(np.asarray(system.g_tensor), system.spin)
+    lab = e1[0] * components[0] + e1[1] * components[1] + e1[2] * components[2]
     vectors = eigensystem.eigenvectors
     return vectors.conj().T @ lab @ vectors
+
+
+def effective_nutation_hz(
+    system: ESRSpinSystem,
+    b0_vector_tesla_g,
+    nutation_hz: float,
+    *,
+    b1_direction_g=(1.0, 0.0, 0.0),
+    rf_frequency_hz: float | None = None,
+) -> float:
+    """Return the on-resonance Rabi rate of the addressed line, in hertz.
+
+    ``nutation_hz`` is the free-electron Rabi rate of the microwave field (see
+    :func:`pulse_hamiltonian`). The result is ``2 nutation_hz |<u|e1 . (g /
+    g_e) S|l>|`` for the strongest line, or the line nearest
+    ``rf_frequency_hz``: the rate to use with :func:`flip_angle_duration` for
+    an exact flip angle at this orientation.
+    """
+
+    nutation = float(nutation_hz)
+    if nutation < 0 or not np.isfinite(nutation):
+        raise ValueError("nutation_hz must be finite and non-negative")
+    eigensystem = diagonalize_system(system, b0_vector_tesla_g)
+    if not eigensystem.transitions:
+        raise ValueError("system has no RF-active ESR transitions")
+    if rf_frequency_hz is None:
+        transition = max(eigensystem.transitions, key=lambda t: t.strength)
+    else:
+        transition = min(
+            eigensystem.transitions,
+            key=lambda t: abs(t.frequency_hz - float(rf_frequency_hz)),
+        )
+    operator = rf_operator_eigenbasis(eigensystem, b1_direction_g)
+    return 2.0 * nutation * float(abs(operator[transition.upper, transition.lower]))
 
 
 def rotating_indices(levels_hz: np.ndarray, rf_frequency_hz: float) -> np.ndarray:
@@ -92,9 +139,12 @@ def pulse_hamiltonian(
 ) -> np.ndarray:
     """Return a rectangular microwave-pulse Hamiltonian in the rotating frame.
 
-    ``nutation_hz`` is the on-resonance spin-1/2 Rabi rate for the selected
-    microwave-field direction. A 90-degree pulse therefore has duration
-    ``1 / (4 * nutation_hz)``.
+    ``nutation_hz`` sets the microwave field strength as the on-resonance
+    Rabi rate it would give a free electron (``g = g_e``) with the field
+    perpendicular to ``B0``; a 90-degree pulse for that electron lasts
+    ``1 / (4 * nutation_hz)``. The field couples through ``(g / g_e) S``, so
+    for other or anisotropic g the addressed line nutates at
+    :func:`effective_nutation_hz`, which varies with orientation in a powder.
     """
 
     nutation = float(nutation_hz)

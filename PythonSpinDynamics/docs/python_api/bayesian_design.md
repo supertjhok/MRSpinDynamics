@@ -287,14 +287,15 @@ The tracked 96-trial reference run produced:
 | CPMG-IR T1 | 94.8% | 86.5% | 0.302 s | 1.022 s | 94.8% |
 | PGSE diffusion | 76.0% | 16.7% | 0.612 s | 0.816 s | 95.8% |
 | NQR site frequency | 94.8% | 84.4% | 4.61 ms | 6.92 ms | 100.0% |
-| ESR Hahn T2 | 87.5% | 63.5% | 39.6 us | 100.2 us | 97.9% |
+| ESR Hahn T2 | 89.6% | 63.5% | 39.6 us | 100.2 us | 97.9% |
 
 These medians include unsuccessful trials at their eight-action budget. The
 JSON result also reports success-conditioned time, action count, RMSE, bias,
 coverage, interval width, and planning time for all three policies. In the ESR
-case the prior-ranked fixed protocol has a slightly shorter median laboratory
-time than adaptive among all trials, but lower success (75.0%), lower coverage
-(93.8%), and higher RMSE. The benchmark preserves that tradeoff rather than
+case the prior-ranked fixed protocol reaches lower success (75.0%) and coverage
+(93.8%) and a higher RMSE at a longer median laboratory time (46.0 versus
+39.6 us). Before the pulsed-ESR drive fix (M-47) its median time was the
+shorter one (38.1 us); the benchmark reports such tradeoffs rather than
 claiming uniform dominance.
 
 Three clocks must not be conflated:
