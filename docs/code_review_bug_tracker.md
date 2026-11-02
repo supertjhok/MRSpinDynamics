@@ -216,3 +216,4 @@ code, not run.
 - 2026-11-01: L-58 test follow-up: CI full-validation runners leave a 7.1e-13 trace error from SciPy's expm (CPU-dependent BLAS rounding), so the trace check moved from places=12 to delta=2e-12 (regression was 1.07e-11) in `a9144d2`. CI also confirmed G-08 (py3.10 smoke passes).
 - 2026-11-02: L-59 (archive spec fingerprint after spec-field additions) and L-60 (two stale manual listings, found by the new snippet runner) added and fixed in `6fba14a`.
 - 2026-11-02: L-61 (exact echo registration, odd lengths), L-62 (MATLAB 2x2 imaging grid) and L-63 (Octave-incompatible fixture generators) added and fixed in `9e4d9f6`.
+- 2026-11-02: All fixture generators rerun in MATLAB R2025a (H-01, M-12, M-44 and L-32 follow-up): every fixture is MATLAB-generated again, including matched-probe and re-optimized optimizer results; all 158 fixture tests pass.

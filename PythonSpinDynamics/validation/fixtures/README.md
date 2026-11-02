@@ -4,6 +4,17 @@ Compact reference arrays consumed by `tests/octave_fixtures/`. Most files are
 written by the Octave/MATLAB generators in `validation/octave/` (CSV written
 with `dlmwrite(..., 'precision', '%.17g')`).
 
+## Current provenance: MATLAB R2025a, 2026-11-02
+
+All five generators were run in MATLAB R2025a (with the Optimization, Control
+System and Statistics toolboxes), so every array here, including the
+matched-probe and optimizer-result fixtures, again comes from the MATLAB
+Version 3 code rather than from the Python regenerations described in the
+sections below. `generate_optimization_result_fixtures_main` re-ran the
+`fmincon` optimizations, so the stored optimizer phases are new. All 158
+fixture tests pass against these files. The Octave parity CI job regenerates
+the Octave-compatible subset on every relevant change.
+
 ## Regenerating with Octave
 
 The generators are function files, so call them by name from
