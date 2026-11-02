@@ -283,6 +283,14 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
   1 MB, mirroring the PythonSpinDynamics smoke job's static checks.
 - Added `docs/enhancement_survey.md`, a ranked list of repository
   enhancements made after the code review closed.
+- The release workflow can upload the three workspace distributions to TestPyPI
+  or PyPI through Trusted Publishing. The job is off until the repository
+  variable `PACKAGE_INDEX` is set; `docs/release_process.md` lists the one-time
+  setup.
+- The README recommends a blob-less clone (`git clone --filter=blob:none`),
+  which downloads about 21 MiB of git data instead of the 516 MiB history.
+- The development-environment guide now recommends a checkout on the WSL
+  Linux filesystem for test runs, with measured timings.
 - Rewrote the PythonSpinDynamics web documentation openings around reader
   questions, prerequisites, model boundaries, and neighboring guides; added a
   documentation map and maintainer writing standard; clarified that the

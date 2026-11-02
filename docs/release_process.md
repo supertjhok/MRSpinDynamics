@@ -4,12 +4,14 @@ _Last updated: 2026-07-12_
 
 MRSpinDynamics is released as a **single citable unit**: the whole repository is
 versioned together, tagged once, published as one GitHub Release, and archived on
-Zenodo to mint a citable DOI. There is no per-subproject PyPI publishing — the
+Zenodo to mint a citable DOI. There is no per-subproject versioning — the
 subprojects are interdependent and at very different maturity levels, so a single
-workspace version is the model that fits.
+workspace version is the model that fits. The release workflow can optionally
+upload the same three distributions to PyPI or TestPyPI; see
+[Publishing to a package index](#publishing-to-a-package-index-optional).
 
-> If independent PyPI distribution of a specific subproject (most likely
-> `PythonSpinDynamics`) is wanted later, see
+> Independent versioning of a specific subproject (most likely
+> `PythonSpinDynamics`) is discussed in
 > [`publishing_plan.md`](publishing_plan.md). That is a possible **future**
 > direction, not the current release model.
 
@@ -101,6 +103,45 @@ Zenodo issues a *concept DOI* (always resolves to the latest version) plus a
    `spin-dynamics --version`, and `spin-dynamics --help`.
 10. Zenodo archives the Release and mints the DOI. Add the DOI to
    [`CITATION.cff`](../CITATION.cff) and the README badge in a follow-up commit.
+
+## Publishing to a package index (optional)
+
+The `publish-package-index` job in the release workflow uploads the three
+wheel/sdist pairs (`python-spin-dynamics`, `quadrupolar-dft`, `mr-integration`)
+after the GitHub Release is created. It is off until the repository variable
+`PACKAGE_INDEX` is set to `testpypi` or `pypi`, so releases behave as before
+until the setup below is done. Uploads use
+[Trusted Publishing](https://docs.pypi.org/trusted-publishers/): GitHub mints a
+short-lived credential for that one job, and no API token is stored.
+
+One-time setup, done first on TestPyPI and then repeated on PyPI:
+
+1. On [TestPyPI](https://test.pypi.org/) (or [PyPI](https://pypi.org/)), add a
+   *pending trusted publisher* for each of the three project names with owner
+   `supertjhok`, repository `MRSpinDynamics`, workflow `release.yml`, and
+   environment `testpypi` (or `pypi`). The names were all unregistered on both
+   indexes on 2026-11-02.
+2. In the GitHub repository settings, create the environment of the same name.
+   For `pypi`, add yourself as a required reviewer so every upload waits for
+   approval.
+3. Set the repository variable `PACKAGE_INDEX` to `testpypi`.
+
+The next release then uploads to TestPyPI. Check that a fresh environment can
+install it (the extra index supplies NumPy):
+
+```bash
+python -m pip install --index-url https://test.pypi.org/simple/ \
+  --extra-index-url https://pypi.org/simple/ mr-integration==<version>
+spin-dynamics --version
+```
+
+After one clean TestPyPI round trip, set `PACKAGE_INDEX` to `pypi`. Uploaded
+versions cannot be replaced, so a broken upload needs a new version number. A
+re-run of the job skips files that are already on the index. `mr-integration`
+bundles no data: it reads the NQR database and the DFT results from an
+MRSpinDynamics checkout named by `MR_INTEGRATION_REPO_ROOT`, so installing it
+from an index is useful mainly alongside a checkout. `python-spin-dynamics` and
+`quadrupolar-dft` need only NumPy at runtime.
 
 ## Consistency check
 

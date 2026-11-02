@@ -97,6 +97,30 @@ never synced, and on `ext4` rather than `/mnt/c`, so installs and imports are
 much faster. The editable install still points back at the source under
 `/mnt/c`, so edits take effect immediately.
 
+### Checkout on the Linux filesystem
+
+Tests also run faster when the source tree itself is on the Linux filesystem,
+because every import and fixture read from `/mnt/c` crosses the Windows/WSL
+file-system boundary. Measured on 2026-11-02 with the same environment and
+single-threaded BLAS, the full suite took 8.3 minutes from `~/MRSpinDynamics`
+and 12.2 minutes from `/mnt/c` (smoke tests: 12 s against 17 s). A second
+checkout for test runs is cheap with a blob-less clone (about 21 MiB of git
+data):
+
+```bash
+git clone --filter=blob:none https://github.com/supertjhok/MRSpinDynamics.git ~/MRSpinDynamics
+cd ~/MRSpinDynamics/PythonSpinDynamics
+VENV="$HOME/.venvs/python-spin-dynamics-native" bash scripts/setup_dev_env_wsl.sh
+source "$HOME/.venvs/python-spin-dynamics-native/bin/activate"
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python -m pytest -q tests
+```
+
+To test uncommitted Windows-side work there, push it to a branch or fetch from
+the Windows checkout (`git fetch /mnt/c/path/to/MRSpinDynamics <branch>`).
+Editors on Windows can open the Linux checkout through `\\wsl$\Ubuntu-24.04\`.
+Leave the BLAS thread variables set unless a test needs threading: without
+them each test process may start one BLAS thread per core.
+
 ## Installed Extras
 
 The setup scripts install:

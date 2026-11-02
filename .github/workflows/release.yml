@@ -169,6 +169,14 @@ jobs:
             --artifacts-dir release-artifacts \
             --check-generated
           python scripts/write_sha256s.py release-artifacts
+      - name: Keep the distributions for the package-index job
+        uses: actions/upload-artifact@v4
+        with:
+          name: workspace-distributions
+          path: |
+            release-artifacts/*.whl
+            release-artifacts/*.tar.gz
+          if-no-files-found: error
       - name: Build release notes from CHANGELOG
         run: python scripts/extract_changelog.py "$RELEASE_VERSION" > release_notes.md
       - name: Create GitHub Release
@@ -180,3 +188,30 @@ jobs:
           name: v${{ needs.release-guard.outputs.version }}
           body_path: release_notes.md
           files: release-artifacts/*
+
+  publish-package-index:
+    name: Publish distributions to PyPI or TestPyPI
+    # Opt-in: runs only when the repository variable PACKAGE_INDEX is "pypi" or
+    # "testpypi". Uploads use Trusted Publishing (OIDC), so no API token is
+    # stored; each project needs a trusted publisher for this workflow file and
+    # the GitHub environment of the same name (docs/release_process.md).
+    needs: github-release
+    if: ${{ vars.PACKAGE_INDEX == 'pypi' || vars.PACKAGE_INDEX == 'testpypi' }}
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ vars.PACKAGE_INDEX }}
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: workspace-distributions
+          path: dist
+      - name: Publish
+        # pypa/gh-action-pypi-publish v1.14.3, pinned by commit SHA because this
+        # job can mint upload credentials. Update the SHA deliberately.
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
+        with:
+          repository-url: ${{ vars.PACKAGE_INDEX == 'testpypi' && 'https://test.pypi.org/legacy/' || 'https://upload.pypi.org/legacy/' }}
+          # A re-run after a partial upload must not fail on files already there.
+          skip-existing: true

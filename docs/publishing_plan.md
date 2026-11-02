@@ -2,6 +2,13 @@
 
 _Last updated: 2026-07-11_
 
+> **Update 2026-11-02:** the workspace release workflow now has an opt-in job
+> that uploads all three distributions, at the shared workspace version, to
+> TestPyPI or PyPI through Trusted Publishing. Setup and the TestPyPI round trip
+> are in [`release_process.md`](release_process.md#publishing-to-a-package-index-optional).
+> This plan's separate `python-spin-dynamics-v*` tags and independent version
+> remain unimplemented.
+>
 > **Status: artifact readiness and hosted documentation are complete; public
 > index publication remains deferred.** MRSpinDynamics is released as a
 > single citable workspace unit (one repo version, one GitHub Release, one Zenodo
