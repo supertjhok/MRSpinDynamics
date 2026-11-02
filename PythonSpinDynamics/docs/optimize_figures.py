@@ -101,6 +101,8 @@ def optimize_png(path: Path, *, dry_run: bool = False) -> str:
     original_size = path.stat().st_size
     with Image.open(path) as image:
         image.load()
+    if image.mode == "P":
+        return f"kept (already a palette PNG): {path.name}"
     if image.mode in ("RGBA", "LA") and image.getchannel("A").getextrema() != (255, 255):
         return f"skipped (transparent): {path.name}"
     rgb = image.convert("RGB")

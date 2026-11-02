@@ -34,7 +34,7 @@ The models intentionally span several levels of description. Bloch isochromats
 are used for independent spin-1/2 ensembles, small dense Hamiltonians for
 explicit quantum effects, and specialized stochastic or continuum models where
 motion, relaxation, fields, or hardware must be represented. The
-[Python user manual](PythonSpinDynamics/docs/user_manual.pdf) documents the
+[Python user manual](https://supertjhok.github.io/MRSpinDynamics/user_manual.pdf) documents the
 boundaries and assumptions for each layer.
 
 ## Quick Start: Python Experiments
@@ -153,8 +153,9 @@ does not silently round the sequence.
 
 - [Searchable PythonSpinDynamics documentation](https://supertjhok.github.io/MRSpinDynamics/)
 - [Documentation guide and document-status map](docs/documentation_guide.md)
-- [Python user manual (PDF)](PythonSpinDynamics/docs/user_manual.pdf) and
+- [Python user manual (PDF)](https://supertjhok.github.io/MRSpinDynamics/user_manual.pdf), built by CI from its
   [LaTeX source](PythonSpinDynamics/docs/user_manual.tex)
+  (`python PythonSpinDynamics/docs/build_manual.py` builds it locally)
 - [Python package README](PythonSpinDynamics/README.md),
   [generated API reference](PythonSpinDynamics/docs/python_api/api_reference.md),
   [validation evidence matrix](PythonSpinDynamics/docs/validation_matrix.md),

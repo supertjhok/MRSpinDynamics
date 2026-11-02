@@ -91,7 +91,7 @@ def main() -> None:
         CPMGIRDesign(float(delay))
         for delay in np.geomspace(5e-3, 0.8, args.candidates)
     ).actions
-    likelihood = ComplexGaussianLikelihood(0.5)
+    likelihood = ComplexGaussianLikelihood(0.25)
     cost = ExperimentAdapterCost(adapter)
 
     log_t1_min = float(np.log(np.min(all_t1)))

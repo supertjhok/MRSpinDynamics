@@ -63,7 +63,7 @@ def main() -> None:
         CPMGIRDesign(float(delay))
         for delay in np.geomspace(5e-3, 0.6, 8)
     )
-    likelihood = ComplexGaussianLikelihood(sigma=0.5)
+    likelihood = ComplexGaussianLikelihood(sigma=0.25)
     session = make_adapter_session(
         adapter=adapter,
         likelihood=likelihood,

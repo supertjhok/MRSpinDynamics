@@ -161,6 +161,95 @@ FIGURES: dict[str, tuple[str, ...]] = {
         "--save",
         "example_squid_ulf_crossover.png",
     ),
+    "epm-particle-spin-echo": (
+        "plot_epm_particle_spin_echo.py",
+        "--output",
+        "example_epm_particle_spin_echo.png",
+    ),
+    "epm-particle-sequence-comparison": (
+        "plot_epm_particle_sequence_comparison.py",
+        "--output",
+        "example_epm_particle_sequence_comparison.png",
+    ),
+    "portable-halbach-capstone": (
+        "plot_portable_halbach_adaptive_mri.py",
+        "--output",
+        "portable_halbach_capstone_imaging.png",
+    ),
+    "bloch-siegert-multifrequency": (
+        "plot_bloch_siegert_multifrequency.py",
+        "--output",
+        "mandal2014_bloch_siegert_multifrequency.png",
+    ),
+    "lls-phip-workflows": (
+        "plot_lls_phip_workflows.py",
+        "--output",
+        "lls_phip_workflows.png",
+    ),
+    "tempol-published-comparison": (
+        "plot_tempol_published_benchmarks.py",
+        "--output",
+        "../assets/tempol_published_comparison.png",
+    ),
+    "bayesian-adapter-end-to-end": (
+        "plot_bayesian_adapter_benchmarks.py",
+        "--trials",
+        "96",
+        "--output",
+        "bayesian_adapter_end_to_end.png",
+    ),
+    "bayesian-pgse-batch-speedup": (
+        "plot_bayesian_pgse_batch_speedup.py",
+        "--output",
+        "bayesian_pgse_batch_speedup.png",
+    ),
+    "bayesian-surrogate-screening": (
+        "plot_bayesian_surrogate_screening.py",
+        "--output",
+        "bayesian_surrogate_screening.png",
+    ),
+    "esr-nano-mr-cw": ("plot_esr_nano_mr_cw.py", "--output", "example_esr_nano_mr_cw.png"),
+    "esr-nano-mr-pulsed": (
+        "plot_esr_nano_mr_pulsed.py",
+        "--output",
+        "example_esr_nano_mr_pulsed.png",
+    ),
+    "nano-mr-statistical-spectra": (
+        "plot_nano_mr_statistical_spectra.py",
+        "--output",
+        "example_nano_mr_statistical_spectra.png",
+    ),
+    "nano-mr-xy8-filter-readout": (
+        "plot_nano_mr_xy8_filter_readout.py",
+        "--output",
+        "example_nano_mr_xy8_filter_readout.png",
+    ),
+    "nano-mr-realistic-noise": (
+        "plot_nano_mr_realistic_noise.py",
+        "--output",
+        "example_nano_mr_realistic_noise.png",
+    ),
+    "nano-mr-qdyne": ("plot_nano_mr_qdyne.py", "--output", "example_nano_mr_qdyne.png"),
+    "nano-mr-endor-qdyne": (
+        "plot_nano_mr_endor_qdyne.py",
+        "--output",
+        "example_nano_mr_endor_qdyne.png",
+    ),
+    "nano-mr-chemical-shift-j": (
+        "plot_nano_mr_chemical_shift_j.py",
+        "--output",
+        "example_nano_mr_chemical_shift_j.png",
+    ),
+    "nano-mr-diffusing-liquid": (
+        "plot_nano_mr_diffusing_liquid.py",
+        "--output",
+        "example_nano_mr_diffusing_liquid.png",
+    ),
+    "nano-mr-scan-reconstruction": (
+        "plot_nano_mr_scan_reconstruction.py",
+        "--output",
+        "example_nano_mr_scan_reconstruction.png",
+    ),
 }
 
 

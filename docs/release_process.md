@@ -71,6 +71,7 @@ Zenodo issues a *concept DOI* (always resolves to the latest version) plus a
    python -m build --outdir release-artifacts QuadrupolarDFT
    python -m build --outdir release-artifacts integration
    python -m twine check release-artifacts\*
+   python PythonSpinDynamics\docs\build_manual.py
    Copy-Item PythonSpinDynamics\docs\user_manual.pdf release-artifacts\python_spin_dynamics_user_manual.pdf
    Copy-Item QuadrupolarDFT\docs\user_manual.pdf release-artifacts\quadrupolar_dft_user_manual.pdf
    Copy-Item MATLABSpinDynamics\docs\user_manual.pdf release-artifacts\matlab_spin_dynamics_user_manual.pdf

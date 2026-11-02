@@ -3922,7 +3922,7 @@ adapter = CPMGIRAdapter(
 )
 session = make_adapter_session(
     adapter=adapter,
-    likelihood=ComplexGaussianLikelihood(0.5),
+    likelihood=ComplexGaussianLikelihood(0.25),
     posterior=posterior,
     design_space=CandidateDesignSpace(
         CPMGIRDesign(t) for t in np.geomspace(5e-3, 0.6, 8)
@@ -4023,9 +4023,9 @@ action budget. Zero-width intervals on the finite NQR grid are drawn at
 \end{figure}
 
 The tracked 96-trial reference run gave adaptive versus fixed-coverage success
-of 97.9\% versus 96.9\% for CPMG-IR, 76.0\% versus 16.7\% for PGSE, 94.8\%
+of 94.8\% versus 86.5\% for CPMG-IR, 76.0\% versus 16.7\% for PGSE, 94.8\%
 versus 84.4\% for NQR, and 87.5\% versus 63.5\% for ESR. Corresponding median
-physical times were 0.281 versus 0.996~s, 0.612 versus 0.816~s, 4.61 versus
+physical times were 0.302 versus 1.022~s, 0.612 versus 0.816~s, 4.61 versus
 6.92~ms, and 39.6 versus 100.2~\(\mu\)s. These medians retain failed trials at
 their acquisition budget. The machine-readable result additionally records
 success-conditioned time, action count, RMSE, bias, coverage, interval width,
@@ -5291,17 +5291,19 @@ Radial short TE & Center-out paired magnitude difference & Reaches 11~$\mu$s at 
   \centering
   \includegraphics[width=0.98\textwidth]{images/example_epm_particle_sequence_comparison.png}
   \caption{Sequence comparison under one retained EPM state. Hidden particle
-  locations score the estimators but do not construct the contrast maps. Spin
-  echo gives the lowest centroid error in this low-field susceptibility-only
-  diagnostic; phase-gradient processing improves raw GRE; short TE alone does
-  not prevent radial ringing from creating extra foci.}
+  locations score the estimators but do not construct the contrast maps. In
+  this low-field susceptibility-only diagnostic, phase-gradient processing
+  gives the lowest centroid error and improves raw GRE; spin echo, which
+  refocuses most static susceptibility phase at $k=0$, gives the lowest
+  symmetric focus error; short TE alone does not prevent radial ringing from
+  creating extra foci.}
   \label{fig:epm-particle-sequence-comparison}
 \end{figure}
 
 For the default $16\mathbin{\times}16$ diagnostic, spin echo, GRE,
 phase-gradient GRE, and radial short TE respectively give centroid errors of
-1.97, 6.10, 4.64, and 5.63~mm. Their symmetric nearest-focus errors are 7.42,
-8.77, 8.58, and 11.44~mm, and their center-k-space times are 3000, 1575, 1575,
+5.89, 6.10, 4.64, and 5.63~mm. Their symmetric nearest-focus errors are 6.93,
+8.77, 8.58, and 11.44~mm, and their center-k-space times are 3250, 1575, 1575,
 and 11~$\mu$s. Receiver noise is disabled for these mechanism-level numbers.
 When enabled, SNR is relative to each acquisition rather than absolute,
 bandwidth- and scan-time-matched noise.

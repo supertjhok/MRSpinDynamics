@@ -91,7 +91,8 @@ site is configured by `PythonSpinDynamics/mkdocs.yml`, built strictly in CI, and
 deployed from clean `main` commits to
 <https://supertjhok.github.io/MRSpinDynamics/>. Existing Markdown is the web
 manual, the generated API and validation matrix are checked before deployment,
-and `docs/user_manual.pdf` remains the downloadable print edition.
+and `docs/user_manual.pdf`, built from LaTeX in the same job rather than
+tracked in git, remains the downloadable print edition.
 
 Add `PythonSpinDynamics/mkdocs.yml` and use the existing Markdown docs as the
 first public site:

@@ -108,7 +108,7 @@ def _build(seed: int, checkpoint: Path, audit: Path, batch_size: int, latency: f
     actions = CandidateDesignSpace(
         CPMGIRDesign(float(delay)) for delay in np.geomspace(5e-3, 0.6, 8)
     )
-    likelihood = ComplexGaussianLikelihood(0.5)
+    likelihood = ComplexGaussianLikelihood(0.25)
     base = make_adapter_session(
         adapter=adapter,
         likelihood=likelihood,

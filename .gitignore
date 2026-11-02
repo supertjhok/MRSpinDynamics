@@ -37,6 +37,8 @@ PythonSpinDynamics/docs/*.out
 PythonSpinDynamics/docs/*.toc
 PythonSpinDynamics/docs/*.fdb_latexmk
 PythonSpinDynamics/docs/*.fls
+# Built by PythonSpinDynamics/docs/build_manual.py locally and in CI; not tracked.
+PythonSpinDynamics/docs/user_manual.pdf
 MATLABSpinDynamics/.tmp/
 MATLABSpinDynamics/docs/*.aux
 MATLABSpinDynamics/docs/*.log

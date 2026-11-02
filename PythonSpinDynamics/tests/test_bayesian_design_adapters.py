@@ -165,7 +165,7 @@ def test_adapter_session_mandates_planner_constraint_and_ranks() -> None:
     )
     session = make_adapter_session(
         adapter=adapter,
-        likelihood=ComplexGaussianLikelihood(0.2),
+        likelihood=ComplexGaussianLikelihood(0.1),
         posterior=posterior,
         design_space=CandidateDesignSpace(
             [CPMGIRDesign(0.01), CPMGIRDesign(0.05)]

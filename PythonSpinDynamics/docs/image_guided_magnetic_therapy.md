@@ -225,13 +225,16 @@ noise disabled, the results are:
 
 | Sequence | Center-k-space time | Centroid error | Symmetric focus error | Resolved foci |
 |---|---:|---:|---:|---:|
-| Spin echo | 3000 us | 1.97 mm | 7.42 mm | 7 |
+| Spin echo | 3250 us | 5.89 mm | 6.93 mm | 7 |
 | Gradient echo | 1575 us | 6.10 mm | 8.77 mm | 8 |
 | GRE phase gradient | 1575 us | 4.64 mm | 8.58 mm | 5 |
 | Radial short TE | 11 us | 5.63 mm | 11.44 mm | 17 |
 
-Spin echo wins the centroid metric in this particular susceptibility-only
-low-field example; the phase-gradient map improves on raw GRE. Radial short TE
+In this particular susceptibility-only low-field example the phase-gradient
+map wins the centroid metric and improves on raw GRE, while spin echo wins the
+symmetric focus metric: with its echo centred on the k=0 sample it refocuses
+most static susceptibility phase, which keeps foci compact but weakens
+particle contrast. Radial short TE
 preserves the fastest-decaying signal but does not automatically make that
 signal particle-specific, so its spoke undersampling and background structure
 produce extra foci. The implementation deliberately does **not** infer the

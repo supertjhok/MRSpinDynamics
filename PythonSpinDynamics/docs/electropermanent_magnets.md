@@ -385,9 +385,10 @@ refocusing pulse suppresses static susceptibility phase at the echo center;
 finite RF bandwidth, readout off-resonance, intravoxel field distributions, and
 diffusion retain contrast but also create blooming. The bundled diagnostic
 therefore retains spin echo as a physical baseline. The implemented comparison
-shows that phase-gradient processing improves raw GRE centroid error in the
-bundled case, while an 11 microsecond radial acquisition does not outperform
-spin echo without calibrated T1 relaxivity and produces more artifact foci.
+shows that phase-gradient processing gives the lowest centroid error in the
+bundled case and improves on raw GRE, while an 11 microsecond radial
+acquisition only narrowly beats spin echo on centroid error, without
+calibrated T1 relaxivity, and produces far more artifact foci.
 See [Image-Guided Magnetic Therapy](image_guided_magnetic_therapy.md#sequence-comparison)
 for the method table and reproducible metrics.
 

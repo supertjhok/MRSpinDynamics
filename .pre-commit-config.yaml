@@ -1,0 +1,38 @@
+# Local mirror of the PythonSpinDynamics smoke job's static checks, so stale
+# generated files and lint errors are caught before a push instead of in CI.
+# Set up once per clone:
+#   python -m pip install pre-commit
+#   pre-commit install
+# Run on demand with `pre-commit run --all-files`. The generator hooks rewrite
+# their outputs and fail; stage the regenerated files and commit again.
+# The unit smoke tests (`python -m unittest tests.smoke_tests`) take minutes
+# and still run only in CI.
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.21  # keep in step with the ruff pin in PythonSpinDynamics/pyproject.toml
+    hooks:
+      - id: ruff
+        name: ruff (PythonSpinDynamics src, tests, examples)
+        files: ^PythonSpinDynamics/(src|tests|examples)/.*\.py$
+
+  - repo: local
+    hooks:
+      - id: api-reference
+        name: regenerate PythonSpinDynamics API reference
+        entry: python PythonSpinDynamics/docs/generate_api_reference.py
+        language: python
+        pass_filenames: false
+        files: ^PythonSpinDynamics/(src/spin_dynamics/|docs/generate_api_reference\.py|docs/python_api/api_reference\.md)
+      - id: validation-matrix
+        name: regenerate PythonSpinDynamics validation matrix
+        entry: python PythonSpinDynamics/docs/generate_validation_matrix.py
+        language: python
+        pass_filenames: false
+        files: ^PythonSpinDynamics/(src|tests|examples|validation|docs)/
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=1024]

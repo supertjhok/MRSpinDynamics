@@ -996,9 +996,10 @@ python examples\plot_epm_particle_sequence_comparison.py --output results\epm_pa
 ```
 
 The figure reports centroid error, a symmetric nearest-focus error, center
-k-space time, and focus count. In the default susceptibility-only case spin
-echo has the lowest centroid error, phase-gradient processing improves raw GRE,
-and the 11 microsecond radial acquisition generates extra artifact foci. The
+k-space time, and focus count. In the default susceptibility-only case
+phase-gradient processing has the lowest centroid error and improves raw GRE,
+spin echo has the lowest symmetric focus error, and the 11 microsecond radial
+acquisition generates extra artifact foci. The
 short-TE path does not invent T1 relaxivity; quantitative positive UTE contrast
 requires measured r1/r2-star data. Optional `--snr-db` is relative to each
 sequence separately, not an absolute scan-time-matched noise model.

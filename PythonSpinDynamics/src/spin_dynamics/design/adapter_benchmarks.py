@@ -136,7 +136,9 @@ def make_cpmg_ir_benchmark(
         adapter=adapter,
         posterior=posterior,
         actions=actions,
-        likelihood=ComplexGaussianLikelihood(1.5),
+        # The CPMG-convention echo is half the MATLAB relax4 combine, so this
+        # is the original sigma of 1.5 at the same signal-to-noise ratio.
+        likelihood=ComplexGaussianLikelihood(0.75),
         target_name="t1_seconds",
         maximum_width=0.07,
         target_unit="s",

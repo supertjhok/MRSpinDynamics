@@ -155,9 +155,21 @@ python docs\generate_validation_matrix.py --check
 git diff --exit-code docs\python_api\api_reference.md
 ```
 
-The coverage command enforces the floor configured in `pyproject.toml`. The
-initial MyPy gate covers the typed deprecation API and installed CLI boundary;
-expand that file list as additional modules become annotation-clean. CI also
+The static part of that list also runs automatically on each commit through
+the repository's pre-commit hooks (ruff, API-reference and validation-matrix
+regeneration). Set them up once per clone from the repository root:
+
+```powershell
+python -m pip install pre-commit
+pre-commit install
+```
+
+A generator hook that rewrites its output fails the commit; stage the
+regenerated file and commit again.
+
+The coverage command enforces the floor configured in `pyproject.toml`. MyPy
+analyses the whole package against the shrink-only type-debt list in
+`pyproject.toml`. CI also
 builds both wheel and source distributions, checks their metadata, installs
 each into a fresh environment, and executes the installed `spin-dynamics`
 entry point.

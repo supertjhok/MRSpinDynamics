@@ -48,6 +48,28 @@ jobs:
         run: |
           python docs/generate_api_reference.py
           git diff --exit-code docs/python_api/api_reference.md
+      - name: Install TeX Live for the PDF manual
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            texlive-latex-base texlive-latex-recommended texlive-latex-extra \
+            texlive-pictures texlive-fonts-recommended cm-super lmodern poppler-utils
+      - name: Build PDF manual
+        # Not tracked in git; MkDocs publishes docs/user_manual.pdf with the site.
+        run: python docs/build_manual.py
+      - name: Check the PDF embeds only scalable fonts
+        run: |
+          if pdffonts docs/user_manual.pdf | grep -q "Type 3"; then
+            pdffonts docs/user_manual.pdf | grep "Type 3"
+            echo "bitmap (Type 3) fonts in user_manual.pdf; install cm-super" >&2
+            exit 1
+          fi
+      - name: Upload PDF manual
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-spin-dynamics-user-manual
+          path: PythonSpinDynamics/docs/user_manual.pdf
+          if-no-files-found: error
       - name: Build site with strict warnings
         run: python -m mkdocs build --strict
       - name: Configure GitHub Pages

@@ -251,12 +251,38 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
   the normalized `(mrx1 - mrx2) / 2` combine shared with the CPMG trains, so
   recovered magnetization reads positive and follows `+(1 - 2 exp(-tau/T1))`.
   The old default was MATLAB `relax4`'s `mrx2 - mrx1` (−2× that); pass
-  `signal_convention="matlab"` to keep it.
+  `signal_convention="matlab"` to keep it. Because the echo is now half as
+  large, the CPMG-IR Bayesian benchmark (`make_cpmg_ir_benchmark`) and the
+  CPMG-IR adapter examples halve their absolute likelihood σ (1.5 → 0.75,
+  0.5 → 0.25) to keep the same signal-to-noise ratio. With the old sign and σ
+  the benchmark reproduces its earlier numbers exactly; the new reference run
+  differs only by noise realization (CPMG-IR adaptive vs fixed-coverage success
+  94.8% vs 86.5%, previously 97.9% vs 96.9%).
 - The user manual's figures are stored as 256-colour palette PNGs
   (`docs/optimize_figures.py`, run automatically by
   `generate_manual_figures.py`). The most frequent colours are kept exactly and
   every figure stays above 43 dB PSNR. The figures shrink from 12.3 MB to
   4.2 MB and `user_manual.pdf` from 12.5 MB to 6.2 MB.
+- **PDF manual built by CI, no longer tracked:** `PythonSpinDynamics/docs/user_manual.pdf`
+  is built from LaTeX by `docs/build_manual.py` (plain `pdflatex`, no
+  `latexmk`/Perl) in the documentation workflow, published with the site at
+  <https://supertjhok.github.io/MRSpinDynamics/user_manual.pdf>, uploaded as a
+  workflow artifact, and attached to each release. The release preflight only
+  requires it among the release artifacts.
+- **Manual figures regenerated from the current code.** All 46 figures now
+  have an entry in `docs/generate_manual_figures.py` (19 had none), and a test
+  keeps it that way. The figures had been made before the review fixes. The
+  EPM particle spin-echo comparison changed materially: with the M-10 echo
+  timing fix the spin echo is centred on the k=0 sample (TE 3000 → 3250 µs) and
+  refocuses more susceptibility phase, so its centroid error rises from 1.97 to
+  5.89 mm and phase-gradient GRE (4.64 mm) now has the lowest centroid error;
+  spin echo keeps the lowest symmetric focus error (6.93 mm). The manual and
+  web pages are updated to match.
+- Added a root `.pre-commit-config.yaml` that runs ruff, regenerates the API
+  reference and validation matrix, and blocks merge markers and new files over
+  1 MB, mirroring the PythonSpinDynamics smoke job's static checks.
+- Added `docs/enhancement_survey.md`, a ranked list of repository
+  enhancements made after the code review closed.
 - Rewrote the PythonSpinDynamics web documentation openings around reader
   questions, prerequisites, model boundaries, and neighboring guides; added a
   documentation map and maintainer writing standard; clarified that the

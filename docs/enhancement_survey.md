@@ -1,0 +1,39 @@
+# Enhancement survey
+
+Survey of repository-wide enhancements made on 2026-11-02, after every item in
+the [code review bug tracker](code_review_bug_tracker.md) was closed. Items are
+ordered by payoff relative to effort. Effort: XS under an hour, S a few hours,
+M a few days, L a week or more.
+
+Status column: *Open*, *In progress*, or *Done* with the commit.
+
+## Quick wins
+
+| # | Enhancement | Effort | Payoff | Why | Status |
+|---|---|---|---|---|---|
+| 1 | Regenerate the manual's figures. | S | High | They date from July, before the review fixes. At least the gradient-shielding figure is wrong (its eddy α moved by up to 28% with the L-57 winding fix); the probe CPMG figure probably changed with the tuned-probe fix. 19 of the 46 figures had no entry in `generate_manual_figures.py`. | Done: all 46 registered and regenerated. Two findings: the EPM spin-echo comparison changed with the M-10 echo-timing fix (spin echo no longer has the lowest centroid error; text updated), and the CPMG-IR sign change halved the Bayesian benchmark's SNR (σ halved to compensate). |
+| 2 | Pre-commit hooks that mirror the smoke job (ruff, API-reference regeneration, validation-matrix check). | S | High | Stale generated files caused two CI failures during the review, caught only after pushing. | Done: `.pre-commit-config.yaml` at the repository root. |
+| 3 | Build `user_manual.pdf` in CI instead of committing it; publish it on the docs site and attach it to releases. | S–M | High | Every docs edit added about 6 MB of history (131 copies, 69 MiB so far), and local builds need LaTeX with Perl for `latexmk`. | Done: `docs/build_manual.py`; the docs workflow publishes the PDF on Pages and the release workflow attaches it. |
+| 4 | Partial-clone tip in the README (`git clone --filter=blob:none`). | XS | Medium | Contributors download only the files they check out instead of the 516 MiB history, without a history rewrite. | Open |
+| 5 | Publish the package to PyPI from `release.yml`. | S | High | The release workflow already builds and checks the wheel and sdist; only the upload step is missing. Check that the name `python-spin-dynamics` is free first. | Open |
+| 6 | Run tests from a checkout inside WSL, or add a devcontainer. | XS | Medium | The full suite took 43 minutes locally from `/mnt/c` against about 8 minutes in CI; cross-filesystem I/O is the likely cause (not measured). | Open |
+
+## Medium effort, high payoff
+
+| # | Enhancement | Effort | Payoff | Why | Status |
+|---|---|---|---|---|---|
+| 7 | Test that every workflow option is reachable from its experiment spec. | S–M | Medium | `CPMGIRTrain` cannot choose `signal_convention`, for example. List each workflow's keyword arguments and require each to be settable from the spec or explicitly execution-only (the catalog already has `execution_kwargs`). | Open |
+| 8 | One conventions switch, e.g. `spin_dynamics.conventions("physics")`. | M | High | Physically consistent results need five or more opt-in flags (in-pulse relaxation, exact registration, imaging sign, `m_minus` detection, ...). A profile plus deprecation warnings (`deprecation.py`) prepares a clean switch of defaults at 1.0. | Open |
+| 9 | Run the manual's code in CI. | M | High | 178 listings in `user_manual.tex` and 51 Python blocks in the web docs are never run. Start by parsing them and checking that the names they use exist, then run them at small sizes. | Open |
+| 10 | Property-based physics invariant tests (Hypothesis). | M | High | Most review bugs broke an invariant: trace preservation (L-58), the CPMG-IR sign (M-14), magnetization above 1 (M-16), detailed balance. Add cross-workflow checks of shared limits, e.g. CPMG-IR at long delays equals CPMG, single-step imaging equals CPMG. | Open |
+| 11 | Octave parity job in CI. | M | Medium–High | Octave installs with apt on Linux runners. It closes the gap left by regenerating fixtures from Python and editing MATLAB V3 files without running them. | Open |
+| 12 | Pay down the type-checking backlog, most-edited modules first. | L, ongoing | Medium | 121 modules are still exempt from type errors. | Open |
+
+## Larger bets
+
+| # | Enhancement | Effort | Payoff | Why | Status |
+|---|---|---|---|---|---|
+| 13 | Put the NQR database online as a static, searchable GitHub Pages site. | M–L | High, unique | The NQRDatabase README notes there is no standard online NQR spectra database. A local explorer (`NQRDatabase/app`) already exists. | Open |
+| 14 | Compare against established codes: EasySpin (ESR), Spinach or SIMPSON (coupled spins), KomaMRI or MRzero (Pulseq). | L | High credibility | External evidence in the validation matrix is a stronger claim than agreement with our own MATLAB. | Open |
+| 15 | Runnable examples in the browser (JupyterLite/Pyodide) on the docs site. | L | Medium | The NumPy/SciPy core may run in the browser; helps outreach and teaching. | Open |
+| 16 | Rewrite history to drop 411 MiB of deleted MATLAB output and the old PDF copies. | S technically, high disruption | High | The pack would shrink from 516 MiB to about 100 MiB, but every commit hash changes: force-push, re-clones, and care with Zenodo's archived versions. Do it once, at a release, after #3. | Open |

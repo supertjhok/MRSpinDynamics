@@ -148,6 +148,14 @@ jobs:
           .release-test/bin/python -c "import quadrupolar_dft, mr_integration"
           MR_INTEGRATION_REPO_ROOT="$PWD" .release-test/bin/python -c \
             "import mr_integration as m; assert m.measured_lines('NaNO2', isotope='14N')"
+      - name: Build the Python user manual
+        # The PDF is not tracked in git; build it from LaTeX for the release.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            texlive-latex-base texlive-latex-recommended texlive-latex-extra \
+            texlive-pictures texlive-fonts-recommended cm-super lmodern
+          python PythonSpinDynamics/docs/build_manual.py
       - name: Add manuals and verify release contents
         run: |
           cp PythonSpinDynamics/docs/user_manual.pdf \

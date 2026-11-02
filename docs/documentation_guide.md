@@ -15,7 +15,7 @@ confusion. Use this map to choose the right starting point.
 - System-level NQR screening: the [study guide](../PythonSpinDynamics/docs/nqr_mail_screening.md), including the physical sensitivity limitations.
 - Checking scientific support: the [validation matrix](../PythonSpinDynamics/docs/validation_matrix.md) and [known gaps](../PythonSpinDynamics/docs/python_api/known_gaps.md).
 - Whole-workspace orientation: the [repository README](../README.md) and [roadmap](roadmap.md).
-- Detailed reading or offline use: the [Python user manual](../PythonSpinDynamics/docs/user_manual.pdf).
+- Detailed reading or offline use: the [Python user manual](https://supertjhok.github.io/MRSpinDynamics/user_manual.pdf).
 
 ## Document types
 

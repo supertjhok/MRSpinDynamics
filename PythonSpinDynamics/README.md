@@ -420,7 +420,8 @@ The full example catalog is documented in `docs/python_api/examples.md`.
   generated API reference, examples guide, validation evidence, and a
   downloadable PDF print edition.
 - `docs/user_manual.tex` is the LaTeX user manual with model equations,
-  examples, validation notes, and an API reference.
+  examples, validation notes, and an API reference. Its PDF is not tracked in
+  git: CI builds it for the documentation site and each release.
 - `docs/python_api/index.md` is the Markdown documentation index.
 - `docs/python_api/experiment_workflow.md` is the getting-started guide for the
   unified experiment facade (the recommended entry point) and its CLI.
@@ -439,12 +440,12 @@ The full example catalog is documented in `docs/python_api/examples.md`.
   `docs/validation_results.md` document the MATLAB-to-Python port, fixture
   parity checks, and historical run log.
 
-Build the manual from its documentation directory so relative asset paths
-resolve correctly:
+Build the PDF locally with TeX Live or MiKTeX. The script runs `pdflatex` in
+the documentation directory until cross-references settle, so neither
+`latexmk` nor Perl is needed:
 
 ```powershell
-cd docs
-pdflatex -interaction=nonstopmode -halt-on-error user_manual.tex
+python docs/build_manual.py
 ```
 
 The example-result figures embedded in the manual are reproducible from the

@@ -160,7 +160,7 @@ posterior = ParticlePosterior({
 })
 session = make_adapter_session(
     adapter=adapter,
-    likelihood=ComplexGaussianLikelihood(0.5),
+    likelihood=ComplexGaussianLikelihood(0.25),
     posterior=posterior,
     design_space=CandidateDesignSpace(
         CPMGIRDesign(delay) for delay in np.geomspace(5e-3, 0.6, 8)
@@ -284,7 +284,7 @@ The tracked 96-trial reference run produced:
 
 | Adapter target | Adaptive success | Fixed-coverage success | Adaptive median lab time | Fixed median lab time | Adaptive 90% coverage |
 |---|---:|---:|---:|---:|---:|
-| CPMG-IR T1 | 97.9% | 96.9% | 0.281 s | 0.996 s | 100.0% |
+| CPMG-IR T1 | 94.8% | 86.5% | 0.302 s | 1.022 s | 94.8% |
 | PGSE diffusion | 76.0% | 16.7% | 0.612 s | 0.816 s | 95.8% |
 | NQR site frequency | 94.8% | 84.4% | 4.61 ms | 6.92 ms | 100.0% |
 | ESR Hahn T2 | 87.5% | 63.5% | 39.6 us | 100.2 us | 97.9% |

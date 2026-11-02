@@ -33,6 +33,9 @@ MANUALS = {
         ROOT / "MATLABSpinDynamics" / "docs" / "user_manual.pdf"
     ),
 }
+# Manuals that CI builds from LaTeX instead of tracking in git. They are only
+# required once built, i.e. in the release artifacts.
+BUILT_MANUALS = {"python_spin_dynamics_user_manual.pdf"}
 REQUIRED_PROJECT_URLS = {"Documentation", "Source", "Issues", "Changelog"}
 
 
@@ -88,7 +91,9 @@ def extract_changelog(version: str) -> str:
 
 
 def _check_manuals() -> None:
-    for path in MANUALS.values():
+    for name, path in MANUALS.items():
+        if name in BUILT_MANUALS:
+            continue
         if not path.is_file() or path.stat().st_size < 10_000:
             raise ValueError(f"missing or implausibly small manual: {path}")
         if not path.read_bytes().startswith(b"%PDF-"):
