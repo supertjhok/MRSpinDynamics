@@ -86,14 +86,17 @@ def spectrum_from_lines(
     derivative = _is_derivative_mode(detection_mode)
     profile = _profile_function(lineshape)
     out = np.zeros(axis.size, dtype=np.float64)
-    for center, intensity in zip(centers, intensities):
-        out += float(intensity) * profile(
-            axis,
-            float(center),
-            width,
-            derivative=derivative,
+    # Evaluate blocks of lines at once; a powder can hold 10^5-10^6 lines.
+    block = max(1, _SPECTRUM_BLOCK_ELEMENTS // max(axis.size, 1))
+    for start in range(0, centers.size, block):
+        offsets = axis[None, :] - centers[start : start + block, None]
+        out += intensities[start : start + block] @ profile(
+            offsets, 0.0, width, derivative=derivative
         )
     return out
+
+
+_SPECTRUM_BLOCK_ELEMENTS = 1 << 21
 
 
 GAUSSIAN_FWHM_PER_SIGMA = 2.0 * np.sqrt(2.0 * np.log(2.0))

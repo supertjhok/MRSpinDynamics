@@ -77,15 +77,33 @@ def single_crystal_orientation(
     )
 
 
-def _perpendicular_basis(direction: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    reference = (
-        np.array([0.0, 0.0, 1.0])
-        if abs(float(direction[2])) < 0.9
-        else np.array([1.0, 0.0, 0.0])
+def _trusted_sample(
+    b0_direction_g: np.ndarray, weight: float, b1_direction_g: np.ndarray | None
+) -> ESROrientationSample:
+    """Build a sample from already validated unit vectors and weight.
+
+    Powder grids hold 10^5 samples, for which ``__post_init__`` validation
+    dominates the cost of a spectrum.
+    """
+
+    sample = object.__new__(ESROrientationSample)
+    object.__setattr__(sample, "b0_direction_g", b0_direction_g)
+    object.__setattr__(sample, "weight", weight)
+    object.__setattr__(sample, "b1_direction_g", b1_direction_g)
+    return sample
+
+
+def _perpendicular_basis(directions: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Return two unit vectors perpendicular to each row of ``directions``."""
+
+    reference = np.where(
+        (np.abs(directions[:, 2]) < 0.9)[:, None],
+        np.array([0.0, 0.0, 1.0]),
+        np.array([1.0, 0.0, 0.0]),
     )
-    first = np.cross(direction, reference)
-    first = first / np.linalg.norm(first)
-    second = np.cross(direction, first)
+    first = np.cross(directions, reference)
+    first = first / np.linalg.norm(first, axis=1, keepdims=True)
+    second = np.cross(directions, first)
     return first, second
 
 
@@ -107,29 +125,30 @@ def powder_average_grid(
     if not np.isfinite(b1_b0_angle):
         raise ValueError("b1_b0_angle must be finite")
 
+    # Samples run over theta, then phi, then chi (the last fastest).
     mu_values, mu_weights = np.polynomial.legendre.leggauss(n_theta)
-    samples: list[ESROrientationSample] = []
-    for mu, mu_weight in zip(mu_values, mu_weights):
-        beta = float(np.arccos(mu))
-        for phi_idx in range(n_phi):
-            alpha = 2.0 * np.pi * phi_idx / n_phi
-            b0_direction = spherical_direction(alpha, beta)
-            e1, e2 = _perpendicular_basis(b0_direction)
-            for chi_idx in range(n_chi):
-                chi = 2.0 * np.pi * chi_idx / n_chi
-                perpendicular = np.cos(chi) * e1 + np.sin(chi) * e2
-                b1_direction = (
-                    np.cos(b1_b0_angle) * b0_direction
-                    + np.sin(b1_b0_angle) * perpendicular
-                )
-                samples.append(
-                    ESROrientationSample(
-                        b0_direction_g=b0_direction,
-                        b1_direction_g=b1_direction,
-                        weight=float(mu_weight) / (2.0 * n_phi * n_chi),
-                    )
-                )
-    return tuple(samples)
+    beta = np.arccos(mu_values)[:, None]
+    alpha = (2.0 * np.pi * np.arange(n_phi) / n_phi)[None, :]
+    b0 = np.stack(
+        np.broadcast_arrays(
+            np.cos(alpha) * np.sin(beta), np.sin(alpha) * np.sin(beta), np.cos(beta)
+        ),
+        axis=-1,
+    ).reshape(-1, 3)
+    e1, e2 = _perpendicular_basis(b0)
+    chi = (2.0 * np.pi * np.arange(n_chi) / n_chi)[None, :, None]
+    perpendicular = np.cos(chi) * e1[:, None, :] + np.sin(chi) * e2[:, None, :]
+    b1 = (
+        np.cos(b1_b0_angle) * b0[:, None, :] + np.sin(b1_b0_angle) * perpendicular
+    ).reshape(-1, 3)
+    b0 = np.repeat(b0, n_chi, axis=0)
+    b0 = b0 / np.linalg.norm(b0, axis=1, keepdims=True)
+    b1 = b1 / np.linalg.norm(b1, axis=1, keepdims=True)
+    weights = np.repeat(mu_weights / (2.0 * n_phi * n_chi), n_phi * n_chi)
+    return tuple(
+        _trusted_sample(b0[index], float(weights[index]), b1[index])
+        for index in range(b0.shape[0])
+    )
 
 
 def normalize_orientations(
@@ -143,8 +162,14 @@ def normalize_orientations(
     total = sum(sample.weight for sample in samples)
     if total <= 0:
         raise ValueError("orientation weights must have positive sum")
+    if not np.isfinite(total):
+        raise ValueError("orientation weights must have a finite sum")
+    # ESROrientationSample instances are already validated; rescaling keeps
+    # them valid.
     return tuple(
-        ESROrientationSample(
+        _trusted_sample(sample.b0_direction_g, sample.weight / total, sample.b1_direction_g)
+        if isinstance(sample, ESROrientationSample)
+        else ESROrientationSample(
             b0_direction_g=sample.b0_direction_g,
             b1_direction_g=sample.b1_direction_g,
             weight=sample.weight / total,

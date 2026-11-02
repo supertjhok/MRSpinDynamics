@@ -98,7 +98,6 @@ def test_hyperfine_resonance_fields_and_intensities_match_easyspin(case: dict) -
 
 def test_rhombic_powder_spectrum_matches_easyspin_pepper() -> None:
     from spin_dynamics.esr import ESRSpinSystem
-    from spin_dynamics.esr.orientations import powder_average_grid
     from spin_dynamics.esr.spectra import simulate_field_sweep
 
     powder = METADATA["powder"]
@@ -106,12 +105,12 @@ def test_rhombic_powder_spectrum_matches_easyspin_pepper() -> None:
     no_one_over_g = np.loadtxt(REFERENCES / "powder_rhombic_freq2field0.csv", delimiter=",")
     fields = default[:, 0] * 1e-3
     sigma = powder["lw_gaussian_fwhm_mT"] * 1e-3 / (2.0 * np.sqrt(2.0 * np.log(2.0)))
-    # Three microwave-field directions per orientation average |B1 . moment|^2
-    # exactly over the plane perpendicular to B0, as EasySpin does.
+    # The default "powder" grid is sized from the anisotropy (L-64); it was
+    # 16 x 32 x 8 and missed this comparison by 46%.
     ours = simulate_field_sweep(
         ESRSpinSystem(g_tensor=powder["g"]),
         powder["mwFreq_GHz"] * 1e9,
-        orientations=powder_average_grid(128, 256, 3),
+        orientations="powder",
         broadening_tesla=sigma,
         fields_tesla=fields,
     ).spectrum

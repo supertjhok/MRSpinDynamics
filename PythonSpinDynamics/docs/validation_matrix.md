@@ -427,7 +427,7 @@ what supports the underlying scientific or numerical claim.
 - **Metric:** Resonance field/frequency, splitting, normalization, decay, and echo timing
 - **Tolerance:** Analytical numerical tolerances declared per test.
 - **References:** Standard spin-1/2 ESR resonance and hyperfine formulas
-- **Reproduce:** [`tests/test_esr.py::test_isotropic_resonance_frequency_uses_bohr_magneton_scale`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_esr.py#L46); [`tests/test_esr.py::test_single_nucleus_hyperfine_doublet_splitting_matches_coupling`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_esr.py#L352); [`tests/test_esr.py::test_detuned_isochromat_ensemble_rephases_at_hahn_echo_time`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_esr.py#L629)
+- **Reproduce:** [`tests/test_esr.py::test_isotropic_resonance_frequency_uses_bohr_magneton_scale`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_esr.py#L48); [`tests/test_esr.py::test_single_nucleus_hyperfine_doublet_splitting_matches_coupling`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_esr.py#L377); [`tests/test_esr.py::test_detuned_isochromat_ensemble_rephases_at_hahn_echo_time`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_esr.py#L723)
 - **Limitations:** No broad experimental spectral library comparison. Multi-electron and general anisotropic hyperfine systems remain incomplete.
 
 ### Small scalar-coupled spin systems
@@ -698,10 +698,10 @@ what supports the underlying scientific or numerical claim.
 
 - **Claim:** Field-swept powder spectra of a rhombic g tensor match EasySpin pepper with its default Aasa-Vanngard (Freq2Field) weighting.
 - **Evidence:** C (validated)
-- **Basis:** EasySpin 6.0.15 pepper (GridSize [181 4], 1 mT Gaussian FWHM) against simulate_field_sweep on a 128 x 256 x 3 powder grid; the comparison also confirms the g-weighted transition moment from single-crystal amplitude ratios (g_z^2/g_x^2 = 1.2729).
+- **Basis:** EasySpin 6.0.15 pepper (GridSize [181 4], 1 mT Gaussian FWHM) against simulate_field_sweep with its default (anisotropy-sized, 131 x 262 x 3) powder grid; the comparison also confirms the g-weighted transition moment from single-crystal amplitude ratios (g_z^2/g_x^2 = 1.2729).
 - **Tested range:** g = (1.95, 2.05, 2.20) at 9.5 GHz, 295-360 mT.
 - **Metric:** Maximum area-normalized spectral difference relative to the peak
 - **Tolerance:** 0.8% (the spectrum without the 1/g factor differs by 2%, which the test requires).
 - **References:** https://easyspin.org; https://doi.org/10.1016/0022-2364(75)90045-1
 - **Reproduce:** [`tests/test_easyspin_references.py::test_rhombic_powder_spectrum_matches_easyspin_pepper`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_easyspin_references.py#L99); [`validation/easyspin/generate_easyspin_references.m`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/validation/easyspin/generate_easyspin_references.m)
-- **Limitations:** Spin-1/2 Zeeman-only systems; zero-field splitting, hyperfine anisotropy and strain models are not compared. The package's default powder grid is much coarser than the one this comparison uses.
+- **Limitations:** Spin-1/2 Zeeman-only systems; zero-field splitting, hyperfine anisotropy and strain models are not compared. Linewidths (sigma) narrower than about 1/180 of the resonance spread reach the 256-knot grid cap and converge less well; pass a finer powder_average_grid there.

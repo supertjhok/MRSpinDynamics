@@ -1732,9 +1732,10 @@ with Gaussian or Lorentzian profiles. The same helpers can return absorption
 or first-derivative CW-style spectra. Line intensities use the transition
 moment \(\langle l|(\mathbf{g}/g_e)\mathbf{S}|u\rangle\), because the microwave
 field couples through the \(g\) tensor, and field-swept spectra carry the
-Aasa--V\"anngard factor \(g_e/g_{\text{eff}}\); both match EasySpin. The default
-powder grid is coarse, so pass a finer \code{powder\_average\_grid} when the
-\(g\) anisotropy spans many linewidths:
+Aasa--V\"anngard factor \(g_e/g_{\text{eff}}\); both match EasySpin. With
+\code{orientations="powder"} the grid is sized from the resonance spread
+relative to the linewidth (1.4 polar knots per linewidth, 16 to 256), which
+matches EasySpin to 0.5\% for a rhombic \(g\) at 1~mT linewidth:
 
 \begin{lstlisting}[language=Python]
 from spin_dynamics.esr import simulate_field_sweep

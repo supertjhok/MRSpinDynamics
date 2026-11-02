@@ -91,11 +91,17 @@ free electron. Field-swept spectra also carry the Aasa-Vanngard factor
 `1 / (g_eff mu_B)` of field. Both conventions match EasySpin's defaults
 (`tests/test_easyspin_references.py`).
 
-The default `orientations="powder"` grid (16 x 32 x 8 orientations) is coarse:
-when the g anisotropy spans many linewidths the spectrum shows grid spikes.
-Pass `powder_average_grid(n_theta, n_phi, n_chi)` with more orientations for a
-converged powder pattern; 128 x 256 x 3 matches EasySpin to 0.5% for 65 mT of
-anisotropy at a 1 mT linewidth.
+`orientations="powder"` sizes its grid from the spread of resonance positions
+relative to the linewidth: 1.4 Gauss-Legendre polar knots per linewidth of
+spread (16 to 256), twice as many azimuths, and three microwave-field
+directions per orientation, which average `|B1 . moment|^2` exactly. For
+g = (1.95, 2.05, 2.20) at 9.5 GHz and 1 mT FWHM (a 39.6 mT spread) that is
+131 x 262 x 3 orientations, matching EasySpin to 0.5% in about 1 s. Spin-1/2
+lines are computed in closed form rather than by diagonalizing each
+orientation. Pass `powder_average_grid(n_theta, n_phi, n_chi)` to choose the
+grid yourself; lines narrower than about 1/180 of the spread reach the
+256-knot cap and are less converged. The static-disorder helpers below give
+all their samples one such grid and divide its line budget among them.
 
 For conventional CW-style displays, the spectrum helpers also accept
 `lineshape="gaussian"` or `"lorentzian"` and

@@ -46,9 +46,11 @@ def main() -> None:
     parser.add_argument("--field-broadening-mt", type=float, default=0.35)
     parser.add_argument("--frequency-broadening-mhz", type=float, default=8.0)
     parser.add_argument("--points", type=int, default=1401)
-    parser.add_argument("--n-theta", type=int, default=16)
-    parser.add_argument("--n-phi", type=int, default=32)
-    parser.add_argument("--n-chi", type=int, default=4)
+    # Without explicit grid sizes the "powder" default sizes the grid from the
+    # g anisotropy relative to the linewidth.
+    parser.add_argument("--n-theta", type=int, default=None)
+    parser.add_argument("--n-phi", type=int, default=None)
+    parser.add_argument("--n-chi", type=int, default=None)
     parser.add_argument(
         "--lineshape",
         choices=["gaussian", "lorentzian"],
@@ -95,11 +97,19 @@ def main() -> None:
         g_points=args.strain_points,
         field_points=args.strain_points,
     )
-    orientations = powder_average_grid(
-        n_theta=args.n_theta,
-        n_phi=args.n_phi,
-        n_chi=args.n_chi,
-        b1_b0_angle=np.deg2rad(args.b1_b0_angle),
+    explicit_grid = (
+        any(value is not None for value in (args.n_theta, args.n_phi, args.n_chi))
+        or args.b1_b0_angle != 90.0
+    )
+    orientations = (
+        powder_average_grid(
+            n_theta=args.n_theta or 16,
+            n_phi=args.n_phi or 32,
+            n_chi=args.n_chi or 4,
+            b1_b0_angle=np.deg2rad(args.b1_b0_angle),
+        )
+        if explicit_grid
+        else "powder"
     )
 
     # Conventional continuous-wave ESR is usually field swept at fixed
@@ -135,6 +145,10 @@ def main() -> None:
     line_fields = np.array([line.field_tesla for line in field_result.lines])
     line_frequencies = np.array([line.frequency_hz for line in frequency_result.lines])
     line_intensities = np.array([line.intensity for line in field_result.lines])
+    # Each sweep sizes its own default powder grid, so weight each by its lines.
+    frequency_intensities = np.array(
+        [line.intensity for line in frequency_result.lines]
+    )
 
     fig, axes = plt.subplots(2, 2, figsize=(11.5, 8.0), constrained_layout=True)
 
@@ -170,13 +184,13 @@ def main() -> None:
     axes[1, 1].hist(
         line_frequencies / 1e9,
         bins=64,
-        weights=line_intensities,
+        weights=frequency_intensities,
         color="tab:orange",
         alpha=0.8,
     )
     axes[1, 1].set_xlabel("Orientation-resolved frequency (GHz)")
     axes[1, 1].set_ylabel("Weighted counts")
-    axes[1, 1].set_title("Same Orientations at Fixed Field")
+    axes[1, 1].set_title("Powder Distribution at Fixed Field")
 
     if args.output is not None:
         args.output.parent.mkdir(parents=True, exist_ok=True)

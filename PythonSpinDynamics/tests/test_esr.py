@@ -33,9 +33,11 @@ from spin_dynamics.esr import (  # noqa: E402
     simulate_field_sweep_distribution,
     simulate_fid,
     simulate_frequency_spectrum,
+    simulate_frequency_spectrum_distribution,
     simulate_hahn_echo,
     simulate_hyperfine_field_sweep,
     spectrum_from_lines,
+    spherical_direction,
     static_disorder_grid,
     width_from_fwhm,
     zeeman_hamiltonian,
@@ -127,6 +129,29 @@ class ESRTests(unittest.TestCase):
 
         self.assertEqual(len(grid), 60)
         self.assertAlmostEqual(sum(sample.weight for sample in grid), 1.0)
+
+    def test_powder_grid_order_and_b1_geometry(self) -> None:
+        # The grid is built with array operations (L-64); samples still run
+        # over theta, then phi, then chi, with B1 at the requested angle.
+        n_theta, n_phi, n_chi, angle = 3, 5, 4, 1.1
+        grid = powder_average_grid(n_theta, n_phi, n_chi, b1_b0_angle=angle)
+        mu, _ = np.polynomial.legendre.leggauss(n_theta)
+        index = 0
+        for beta in np.arccos(mu):
+            for phi_idx in range(n_phi):
+                expected = spherical_direction(2.0 * np.pi * phi_idx / n_phi, beta)
+                b1_set = []
+                for _ in range(n_chi):
+                    sample = grid[index]
+                    np.testing.assert_allclose(sample.b0_direction_g, expected, atol=1e-15)
+                    self.assertAlmostEqual(np.linalg.norm(sample.b1_direction_g), 1.0, places=14)
+                    self.assertAlmostEqual(
+                        float(sample.b0_direction_g @ sample.b1_direction_g), np.cos(angle), places=14
+                    )
+                    b1_set.append(sample.b1_direction_g)
+                    index += 1
+                # The n_chi B1 directions are equally spaced about B0.
+                np.testing.assert_allclose(np.mean(b1_set, axis=0), np.cos(angle) * expected, atol=1e-14)
 
     def test_lorentzian_has_heavier_tails_than_gaussian(self) -> None:
         axis = np.array([0.0, 3.0])
@@ -576,6 +601,75 @@ class ESRTests(unittest.TestCase):
             times_seconds=[0.0],
         )
         self.assertLess(abs(inverted.signal[0]), 1e-9 * abs(quarter.signal[0]))
+
+    def test_vectorized_spin_half_lines_match_diagonalization(self) -> None:
+        # L-64: spin-1/2 powder lines are computed in closed form; they must
+        # equal per-orientation diagonalization, including a non-diagonal g,
+        # tilted B1 directions and the b1_direction_g=None default.
+        from spin_dynamics.esr.orientations import ESROrientationSample
+        from spin_dynamics.esr.spectra import (
+            _field_lines_by_diagonalization,
+            _frequency_lines_by_diagonalization,
+            _spin_half_lines,
+        )
+
+        system = ESRSpinSystem(
+            g_tensor=[[1.95, 0.02, 0.0], [0.01, 2.05, 0.03], [0.0, 0.02, 2.20]]
+        )
+        samples = powder_average_grid(6, 12, 3, b1_b0_angle=1.2) + (
+            ESROrientationSample(b0_direction_g=(0.3, -0.2, 0.9), weight=0.5),
+        )
+        for fast, slow in (
+            (
+                _spin_half_lines(system, samples, microwave_frequency_hz=9.5e9),
+                _field_lines_by_diagonalization(system, 9.5e9, samples),
+            ),
+            (
+                _spin_half_lines(system, samples, field_tesla=0.34),
+                _frequency_lines_by_diagonalization(system, 0.34, samples),
+            ),
+        ):
+            self.assertEqual(len(fast), len(slow))
+            for a, b in zip(fast, slow):
+                self.assertEqual(a.orientation_index, b.orientation_index)
+                self.assertAlmostEqual(a.field_tesla, b.field_tesla, places=14)
+                self.assertAlmostEqual(a.frequency_hz / b.frequency_hz, 1.0, places=13)
+                self.assertAlmostEqual(a.intensity / b.intensity, 1.0, places=12)
+                self.assertAlmostEqual(a.transition_strength, b.transition_strength, places=13)
+                np.testing.assert_allclose(a.b1_direction_g, b.b1_direction_g, atol=1e-15)
+
+    def test_default_powder_grid_follows_the_anisotropy(self) -> None:
+        # L-64: 1.4 polar knots per linewidth of resonance spread, 16 to 256.
+        isotropic = simulate_field_sweep(
+            ESRSpinSystem(g_tensor=2.0036), 9.5e9, orientations="powder", points=33
+        )
+        self.assertEqual(len(isotropic.lines), 16 * 32 * 3)
+        rhombic = ESRSpinSystem(g_tensor=[1.95, 2.05, 2.20])
+        wide = simulate_field_sweep(
+            rhombic, 9.5e9, orientations="powder", broadening_tesla=3e-3, points=33
+        )
+        spread = 9.5e9 / BOHR_MAGNETON_HZ_PER_T * (1 / 1.95 - 1 / 2.20)
+        knots = int(np.ceil(1.4 * spread / 3e-3))
+        self.assertEqual(len(wide.lines), knots * 2 * knots * 3)
+        narrow = simulate_field_sweep(
+            rhombic, 9.5e9, orientations="powder", broadening_tesla=0.05e-3, points=33
+        )
+        self.assertEqual(len(narrow.lines), 256 * 512 * 3)
+
+    def test_distribution_samples_share_the_powder_budget(self) -> None:
+        # L-64: 25 disorder samples cap the shared grid at 256 / 5 knots.
+        system = ESRSpinSystem(g_tensor=[2.0, 2.1, 2.2])
+        disorder = static_disorder_grid(
+            system, g_std=[0.0, 0.0, 0.005], field_std_tesla=0.1e-3, g_points=5, field_points=5
+        )
+        field = simulate_field_sweep_distribution(
+            disorder, 9.5e9, orientations="powder", broadening_tesla=0.05e-3, points=33
+        )
+        self.assertEqual(len(field.lines), 25 * (51 * 102 * 3))
+        frequency = simulate_frequency_spectrum_distribution(
+            disorder, 0.34, orientations="powder", broadening_hz=1e6, points=33
+        )
+        self.assertEqual(len(frequency.lines), 25 * (51 * 102 * 3))
 
     def test_width_from_fwhm_matches_measured_half_maximum(self) -> None:
         # L-15: ``width`` is sigma for Gaussian but HWHM for Lorentzian; the

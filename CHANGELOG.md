@@ -351,6 +351,15 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
   87.5% to 89.6%. `validation/bayesian_adapter_benchmarks.json` is regenerated;
   it had not been updated after the CPMG-IR sign change and still held the old
   CPMG-IR results.
+- Behaviour change (L-64): `orientations="powder"` in the ESR field and
+  frequency sweeps sizes its grid from the resonance spread relative to the
+  linewidth instead of a fixed 16 x 32 x 8 grid, and spin-1/2 lines are
+  computed in closed form. A rhombic-g powder that the old default missed by
+  46% now matches EasySpin to 0.5% in about 1 s; the ESR powder figure is a
+  smooth pattern instead of grid spikes. The static-disorder helpers share
+  one such grid across their samples. `powder_average_grid` is vectorized
+  (about 7x faster, identical samples) and `spectrum_from_lines` sums lines
+  in blocks instead of one at a time.
 - Rewrote the PythonSpinDynamics web documentation openings around reader
   questions, prerequisites, model boundaries, and neighboring guides; added a
   documentation map and maintainer writing standard; clarified that the

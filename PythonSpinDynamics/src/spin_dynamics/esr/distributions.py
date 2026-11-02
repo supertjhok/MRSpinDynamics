@@ -15,6 +15,9 @@ from spin_dynamics.esr.lineshapes import spectrum_from_lines
 from spin_dynamics.esr.spectra import (
     ESRLine,
     OrientationInput,
+    _field_sweep_spread,
+    _frequency_spread,
+    _powder_grid,
     simulate_field_sweep,
     simulate_frequency_spectrum,
 )
@@ -153,13 +156,23 @@ def simulate_field_sweep_distribution(
     lineshape: str = "gaussian",
     detection_mode: str = "absorption",
 ) -> ESRFieldDistributionResult:
-    """Return a field-swept ESR spectrum averaged over static disorder."""
+    """Return a field-swept ESR spectrum averaged over static disorder.
+
+    With ``orientations="powder"`` all samples share one grid, sized for the
+    widest sample and the linewidth, whose line budget they divide.
+    """
 
     samples = normalize_distribution(samples)
     frequency = float(microwave_frequency_hz)
     if frequency <= 0 or not np.isfinite(frequency):
         raise ValueError("microwave_frequency_hz must be positive and finite")
     broadening = _positive_finite(broadening_tesla, "broadening_tesla")
+    if isinstance(orientations, str) and orientations == "powder":
+        orientations = _powder_grid(
+            max(_field_sweep_spread(sample.system, frequency) for sample in samples),
+            broadening,
+            shared_by=len(samples),
+        )
 
     lines: list[ESRLine] = []
     for sample in samples:
@@ -232,13 +245,26 @@ def simulate_frequency_spectrum_distribution(
     lineshape: str = "gaussian",
     detection_mode: str = "absorption",
 ) -> ESRFrequencyDistributionResult:
-    """Return a frequency-swept ESR spectrum averaged over static disorder."""
+    """Return a frequency-swept ESR spectrum averaged over static disorder.
+
+    With ``orientations="powder"`` all samples share one grid, sized for the
+    widest sample and the linewidth, whose line budget they divide.
+    """
 
     samples = normalize_distribution(samples)
     b0 = float(b0_tesla)
     if b0 < 0 or not np.isfinite(b0):
         raise ValueError("b0_tesla must be finite and non-negative")
     broadening = _positive_finite(broadening_hz, "broadening_hz")
+    if isinstance(orientations, str) and orientations == "powder":
+        orientations = _powder_grid(
+            max(
+                _frequency_spread(sample.system, max(b0 + sample.field_offset_tesla, 0.0))
+                for sample in samples
+            ),
+            broadening,
+            shared_by=len(samples),
+        )
 
     lines: list[ESRLine] = []
     for sample in samples:
