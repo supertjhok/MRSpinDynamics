@@ -14,14 +14,16 @@ def calc_time_domain_echo(
     wvect: np.ndarray,
     *,
     zero_fill: int = 4,
-    registration: str = "matlab",
+    registration: str | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Convert an offset-domain spectrum into a time-domain echo.
 
     This mirrors the numerical path in MATLAB `calc_time_domain_echo.m` with
     plotting removed. `spect` and `wvect` are treated as one-dimensional arrays.
 
-    ``registration="matlab"`` (default, Octave parity) keeps MATLAB's layout:
+    ``registration=None`` follows :mod:`spin_dynamics.conventions` (``"matlab"``
+    unless the ``"physics"`` profile is active).
+    ``registration="matlab"`` (Octave parity) keeps MATLAB's layout:
     the last spectral sample is dropped for odd lengths, ``omega = 0`` lands
     ``zero_fill * (n mod 2) / 2`` bins off the DFT centre (2 bins for odd
     ``n`` at ``zero_fill = 4``), which multiplies the echo by a linear phase
@@ -33,6 +35,9 @@ def calc_time_domain_echo(
     each returned time (scaled by ``zero_fill / (zero_fill * n)`` as in MATLAB).
     """
 
+    from spin_dynamics.conventions import resolve_echo_registration
+
+    registration = resolve_echo_registration(registration)
     if registration == "exact":
         return _calc_time_domain_echo_exact(spect, wvect, zero_fill)
     if registration != "matlab":

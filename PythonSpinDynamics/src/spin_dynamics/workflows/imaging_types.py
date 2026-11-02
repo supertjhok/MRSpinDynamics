@@ -247,7 +247,7 @@ class ImagingFieldMaps:
         ny: int,
         maxoffs: float,
         *,
-        density_normalization: Literal["legacy", "preserve"] = "legacy",
+        density_normalization: Literal["legacy", "preserve"] | None = None,
     ) -> dict[str, np.ndarray]:
         """Return flattened arrays consumed by the arbitrary-pulse kernels.
 
@@ -255,6 +255,7 @@ class ImagingFieldMaps:
         path by assigning each auxiliary offset sample the full voxel density.
         `density_normalization="preserve"` divides density by the number of
         auxiliary samples so the total represented spin density is unchanged.
+        ``None`` follows :mod:`spin_dynamics.conventions`.
 
         This delegates to the dimension-agnostic `SpatialFieldMaps.flatten`,
         passing the stored `del_wx`/`del_wz` gradient sensitivities through

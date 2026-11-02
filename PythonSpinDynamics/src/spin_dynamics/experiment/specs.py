@@ -534,6 +534,12 @@ class Hardware:
     """Defect-spin sensor preset for nano-MR workflows."""
     nano_mr_optical_readout: NanoMROpticalReadout | None = None
     """Optional effective photon-count readout for Qdyne."""
+    receive_mode: str | None = None
+    """Tuned-probe imaging receive chain: ``"raw"`` (MATLAB raw current) or
+    ``"weighted"``; ``None`` keeps the workflow default (``"raw"``)."""
+
+    def __post_init__(self) -> None:
+        _check_choice("receive_mode", self.receive_mode, ("raw", "weighted"))
 
 
 @register_serializable
@@ -632,11 +638,15 @@ class CPMGIRTrain:
     num_echoes: int = 10
     echo_spacing_seconds: float = 0.5e-3
     tauvect: tuple[float, ...] | None = None
+    signal_convention: str | None = None
+    """Phase-cycle combine: ``"cpmg"`` or ``"matlab"``; ``None`` keeps the
+    workflow default (``"cpmg"``)."""
 
     def __post_init__(self) -> None:
         if self.tauvect is not None and not isinstance(self.tauvect, tuple):
             values: Iterable[float] = np.asarray(self.tauvect, dtype=np.float64).reshape(-1)
             object.__setattr__(self, "tauvect", tuple(float(v) for v in values))
+        _check_choice("signal_convention", self.signal_convention, ("cpmg", "matlab"))
 
 
 @register_serializable
@@ -656,12 +666,22 @@ class CPMGImaging:
     fov: tuple[float, float] = (20.0, 20.0)
     ny: int = 9
     maxoffs: float = 5.0
+    signal_convention: str | None = None
+    """PAP combine scale: ``"matlab"`` or ``"cpmg"``; ``None`` keeps the
+    workflow default (``"matlab"``)."""
+    density_normalization: str | None = None
+    """``"legacy"`` or ``"preserve"``; ``None`` keeps the workflow default
+    (``"legacy"``)."""
 
     def __post_init__(self) -> None:
         fov = tuple(float(v) for v in self.fov)
         if len(fov) != 2:
             raise ValueError("fov must contain two values")
         object.__setattr__(self, "fov", fov)
+        _check_choice("signal_convention", self.signal_convention, ("matlab", "cpmg"))
+        _check_choice(
+            "density_normalization", self.density_normalization, ("legacy", "preserve")
+        )
 
 
 @register_serializable
@@ -770,9 +790,13 @@ class NQRSORC:
     orientations: str = "powder"
     b0_tesla: float = 0.0
     t2e_seconds: float | None = None
+    model: str | None = None
+    """``"pathway"``, ``"steady_state"``, or ``"coherent"``; ``None`` keeps
+    the workflow default (``"pathway"``)."""
 
     def __post_init__(self) -> None:
         _validate_nqr_common(self)
+        _check_choice("model", self.model, ("pathway", "steady_state", "coherent"))
         if self.num_pulses <= 0:
             raise ValueError("num_pulses must be positive")
         if self.half_spacing_seconds < 0:
@@ -1289,6 +1313,12 @@ class Experiment:
     @staticmethod
     def from_json(payload: str) -> "Experiment":
         return Experiment.from_dict(json.loads(payload))
+
+
+def _check_choice(name: str, value: str | None, choices: tuple[str, ...]) -> None:
+    if value is not None and value not in choices:
+        options = " or ".join(repr(choice) for choice in choices)
+        raise ValueError(f"{name} must be {options} when set")
 
 
 def _differs(value: Any, default: Any) -> bool:

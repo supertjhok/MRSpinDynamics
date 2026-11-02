@@ -25,6 +25,15 @@ class WorkflowEntry:
     build_kwargs: Callable[[Experiment], dict[str, Any]]
     honors: frozenset[str]
     execution_kwargs: frozenset[str] = field(default_factory=frozenset)
+    direct_only: frozenset[str] = field(default_factory=frozenset)
+    """Workflow keyword arguments deliberately not reachable from the spec.
+
+    Every other keyword argument of the workflow (and of each function
+    ``resolve_func`` can return) must be produced by ``build_kwargs`` or be
+    listed in ``execution_kwargs``; ``tests/test_experiment_reachability.py``
+    enforces this, so a new workflow option is either wired into the spec or
+    declared here.
+    """
     max_time: Callable[[Experiment], float] | None = None
     """Normalized total evolution time estimator, for the rephasing pre-check.
 

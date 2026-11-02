@@ -28,6 +28,7 @@ MODULES = [
     "coupling.systems",
     "coupling.zulf",
     "composition",
+    "conventions",
     "core.echo",
     "core.isochromats",
     "core.kernels",

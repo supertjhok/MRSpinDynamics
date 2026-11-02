@@ -36,6 +36,7 @@ makes ideal/probe-aware A/B comparisons reuse exactly the same IR.
 
 ## Initial API
 
+<!-- snippet: skip -- reads the reader's Pulseq file -->
 ```python
 import dataclasses
 
@@ -79,6 +80,7 @@ specialized sequences. The spatial model is explicit: `SequenceDomain` carries
 one to three physical axes, spin density, optional B0/B1 maps, constant
 velocity, and the mapping from its dimensions to physical gradient channels.
 
+<!-- snippet: skip -- reads the reader's Pulseq file -->
 ```python
 import numpy as np
 from spin_dynamics.experiment import (
@@ -128,6 +130,7 @@ overlap, unexpected gaps, phase changes, and acquisition alignment visible.
 
 The package-level function and the `.plot()` methods are equivalent:
 
+<!-- snippet: skip -- reads the reader's Pulseq file -->
 ```python
 from spin_dynamics.sequences import plot_sequence, read_pulseq
 

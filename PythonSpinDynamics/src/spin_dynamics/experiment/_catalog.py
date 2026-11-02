@@ -236,6 +236,8 @@ def _ir_train_kwargs(experiment: Experiment) -> dict[str, Any]:
     }
     if sequence.tauvect is not None:
         kwargs["tauvect"] = sequence.tauvect
+    if sequence.signal_convention is not None:
+        kwargs["signal_convention"] = sequence.signal_convention
     if sample.t1_seconds is not None:
         kwargs["t1_seconds"] = sample.t1_seconds
     if sample.t2_seconds is not None:
@@ -400,6 +402,13 @@ def _imaging_kwargs(experiment: Experiment) -> dict[str, Any]:
         "ny": sequence.ny,
         "maxoffs": sequence.maxoffs,
     }
+    if sequence.signal_convention is not None:
+        kwargs["signal_convention"] = sequence.signal_convention
+    if sequence.density_normalization is not None:
+        kwargs["density_normalization"] = sequence.density_normalization
+    hardware = experiment.hardware
+    if hardware.probe == "tuned" and hardware.receive_mode is not None:
+        kwargs["receive_mode"] = hardware.receive_mode
     if isinstance(experiment.hardware.rx_coil, RxArray):
         sensitivities = solve_receive_sensitivities(
             experiment.sample.phantom, experiment.hardware
@@ -440,6 +449,9 @@ _IMAGING_HONORS = frozenset(
         "acquisition.sense_regularization",
     }
 )
+# The solved ImagingFieldMaps container carries the T1/T2 maps from
+# ``sample``; the workflows reject explicit maps alongside it.
+_IMAGING_DIRECT_ONLY = frozenset({"t1_map", "t2_map"})
 
 def _resolve_imaging_func(experiment: Experiment) -> Any:
     if (
@@ -462,8 +474,18 @@ for _probe, _func in _IMAGING_FUNCS.items():
             probe=_probe,
             func=_func,
             build_kwargs=_imaging_kwargs,
-            honors=_IMAGING_HONORS,
+            honors=(
+                _IMAGING_HONORS | {"hardware.receive_mode"}
+                if _probe == "tuned"
+                else _IMAGING_HONORS
+            ),
             execution_kwargs=frozenset({"num_workers", "phase_workers"}),
+            # The ideal receiver-array imager adds a SENSE solver tolerance.
+            direct_only=(
+                _IMAGING_DIRECT_ONLY | {"sense_rank_tolerance"}
+                if _probe == "ideal"
+                else _IMAGING_DIRECT_ONLY
+            ),
             resolve_func=_resolve_imaging_func,
         )
     )
@@ -505,6 +527,7 @@ register_workflow(
         func=run_pgse_moment,
         build_kwargs=_pgse_kwargs,
         honors=frozenset({"sample.diffusion_coefficient", "sample.t2_seconds"}),
+        direct_only=frozenset({"initial_signal"}),
         cost=_pgse_cost,
     )
 )
@@ -566,6 +589,8 @@ register_workflow(
         probe="ideal",
         func=run_pgse_walkers,
         build_kwargs=_pgse_walkers_kwargs,
+        # Precomputed background fields; the facade has no field-map input.
+        direct_only=frozenset({"fields"}),
         honors=frozenset(
             {
                 "sample.diffusion_coefficient",
@@ -583,6 +608,10 @@ register_workflow(
 # default "ideal" probe only. SLSE dispatches reduced-vs-full per spec/site
 # via the adapter; SORC has a reduced implementation only.
 _NQR_HONORS = frozenset({"sample.site"})
+# Custom initial states, relaxation models, and solver backends are
+# direct-call options; the facade runs from thermal equilibrium.
+_NQR_DIRECT_ONLY = frozenset({"initial_density", "relaxation"})
+_NQR_DIRECTIONS = frozenset({"b1_direction_pas", "rx_direction_pas"})
 register_workflow(
     WorkflowEntry(
         name="simulate_slse",
@@ -591,6 +620,8 @@ register_workflow(
         func=nqr_adapter.simulate_slse,
         build_kwargs=nqr_adapter.slse_kwargs,
         honors=_NQR_HONORS,
+        # Reduced engine: backend; full engine: coil directions.
+        direct_only=_NQR_DIRECT_ONLY | _NQR_DIRECTIONS | {"backend"},
         resolve_func=nqr_adapter.resolve_slse_func,
     )
 )
@@ -602,6 +633,7 @@ register_workflow(
         func=nqr_adapter.simulate_sorc,
         build_kwargs=nqr_adapter.sorc_kwargs,
         honors=_NQR_HONORS,
+        direct_only=frozenset({"initial_density", "backend"}),
     )
 )
 
@@ -648,6 +680,7 @@ register_workflow(
         func=nqr_adapter.simulate_full_fid,
         build_kwargs=nqr_adapter.fid_kwargs,
         honors=_NQR_HONORS,
+        direct_only=_NQR_DIRECT_ONLY | _NQR_DIRECTIONS,
     )
 )
 register_workflow(
@@ -665,6 +698,9 @@ register_workflow(
 # circuit is modeled, so they register under the default "ideal" probe. The
 # static field (hardware.b0 with field_tesla) sets the Larmor frequency.
 _ESR_HONORS = frozenset({"sample.esr_system", "hardware.b0"})
+_ESR_DIRECT_ONLY = frozenset(
+    {"initial_density", "relaxation", "b1_direction_g", "rx_direction_g"}
+)
 register_workflow(
     WorkflowEntry(
         name="simulate_fid",
@@ -673,6 +709,7 @@ register_workflow(
         func=esr_adapter.simulate_fid,
         build_kwargs=esr_adapter.fid_kwargs,
         honors=_ESR_HONORS,
+        direct_only=_ESR_DIRECT_ONLY,
     )
 )
 register_workflow(
@@ -683,6 +720,7 @@ register_workflow(
         func=esr_adapter.simulate_hahn_echo,
         build_kwargs=esr_adapter.hahn_kwargs,
         honors=_ESR_HONORS,
+        direct_only=_ESR_DIRECT_ONLY,
     )
 )
 register_workflow(
@@ -693,6 +731,8 @@ register_workflow(
         func=esr_adapter.simulate_field_sweep,
         build_kwargs=esr_adapter.cw_sweep_kwargs,
         honors=frozenset({"sample.esr_system"}),
+        # An explicit field grid; the spec sets the sweep by span and points.
+        direct_only=frozenset({"fields_tesla"}),
     )
 )
 register_workflow(
@@ -860,6 +900,8 @@ register_workflow(
         func=nano_mr_adapter.simulate_statistical_spectrum,
         build_kwargs=nano_mr_adapter.statistical_kwargs,
         honors=_NANO_STATISTICAL_HONORS,
+        # Only voxel samples need a sensor position; the spec has layers only.
+        direct_only=frozenset({"sensor_position_lab_nm"}),
         cost=_nano_statistical_cost,
     )
 )

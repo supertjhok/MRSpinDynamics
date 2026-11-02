@@ -65,6 +65,8 @@ jobs:
           git diff --exit-code docs/python_api/api_reference.md
       - name: Check validation evidence registry
         run: python docs/generate_validation_matrix.py --check
+      - name: Check documentation snippets (syntax and imports)
+        run: python docs/check_doc_snippets.py
       - name: Smoke tests
         run: python -m unittest tests.smoke_tests
 
@@ -144,6 +146,23 @@ jobs:
             --ignore=tests/test_coil_peec_fastercap.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m pytest -q tests/test_coil_peec_fastercap.py
+
+  doc-snippets:
+    name: Run documentation snippets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: PythonSpinDynamics/pyproject.toml
+      - name: Install package
+        run: python -m pip install -e ".[dev,opt,plot]"
+      - name: Run every manual and web-documentation snippet
+        run: python docs/check_doc_snippets.py --run
+        env:
+          MPLBACKEND: Agg
 
   optional-numba:
     name: Optional Numba backend parity

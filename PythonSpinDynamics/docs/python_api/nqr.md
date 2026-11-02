@@ -989,6 +989,7 @@ d_HQ = (mu0 / 4pi) h gamma_H gamma_Q / r^3
 
 and reports individual couplings plus an RMS effective coupling:
 
+<!-- snippet: skip -- reads a CIF by a checkout-relative path -->
 ```python
 from spin_dynamics.nqr import estimate_proton_dipolar_couplings_from_cif
 

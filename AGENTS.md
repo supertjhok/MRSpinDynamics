@@ -17,12 +17,13 @@
   1. `python -m ruff check src tests examples`
   2. `python docs/generate_api_reference.py && git diff --exit-code docs/python_api/api_reference.md`
   3. `python docs/generate_validation_matrix.py --check`
-  4. `python -m unittest tests.smoke_tests`
+  4. `python docs/check_doc_snippets.py`
+  5. `python -m unittest tests.smoke_tests`
 
   If the Windows/bundled Python lacks `ruff`, use `Ubuntu-24.04` WSL with a
   temporary venv:
   `python3 -m venv /tmp/nmr-ci-venv && . /tmp/nmr-ci-venv/bin/activate && cd '/mnt/c/dev/MRSpinDynamics/PythonSpinDynamics' && python -m pip install -q -e '.[dev,opt,plot]'`.
-  Then run the four smoke steps from that activated venv before committing or
+  Then run the five smoke steps from that activated venv before committing or
   pushing.
 - For PythonSpinDynamics updates in this repository, push completed and
   validated changes directly to `main` unless the user explicitly asks for a

@@ -18,6 +18,7 @@ from typing import Any, Callable, Mapping
 import numpy as np
 
 from spin_dynamics import __version__
+from spin_dynamics.conventions import get_conventions
 from spin_dynamics.experiment.serialization import encode
 
 PROVENANCE_SCHEMA_VERSION = 2
@@ -38,7 +39,18 @@ def _sha256_json(value: Any) -> str:
 def experiment_fingerprint(experiment: Any) -> str:
     """Return a canonical SHA-256 identity for a complete experiment spec."""
 
-    return _sha256_json(encode(experiment))
+    return encoded_fingerprint(encode(experiment))
+
+
+def encoded_fingerprint(payload: Any) -> str:
+    """Return the SHA-256 identity of an already-encoded JSON payload.
+
+    ``experiment_fingerprint(x) == encoded_fingerprint(encode(x))``; applied to
+    a stored spec payload it identifies exactly what was saved, independent of
+    fields added to the spec classes since.
+    """
+
+    return _sha256_json(payload)
 
 
 def _feed(hasher: Any, value: Any) -> None:
@@ -311,6 +323,7 @@ def build_provenance(
         "environment": environment,
         "source": source_revision(),
         "randomness": randomness_identity(experiment),
+        "conventions": get_conventions().as_dict(),
     }
 
 
@@ -319,6 +332,7 @@ __all__ = [
     "PROVENANCE_SCHEMA_VERSION",
     "build_provenance",
     "callable_identity",
+    "encoded_fingerprint",
     "environment_identity",
     "experiment_fingerprint",
     "package_source_fingerprint",

@@ -29,6 +29,13 @@ repos:
         language: python
         pass_filenames: false
         files: ^PythonSpinDynamics/(src|tests|examples|validation|docs)/
+      - id: doc-snippets
+        name: check PythonSpinDynamics documentation snippets (syntax, imports)
+        # Imports spin_dynamics, so it runs in the active environment.
+        entry: python PythonSpinDynamics/docs/check_doc_snippets.py
+        language: system
+        pass_filenames: false
+        files: ^PythonSpinDynamics/(src/spin_dynamics/|docs/.*\.(md|tex|py)$)
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0

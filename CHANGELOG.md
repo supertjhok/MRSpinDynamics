@@ -291,6 +291,22 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
   which downloads about 21 MiB of git data instead of the 516 MiB history.
 - The development-environment guide now recommends a checkout on the WSL
   Linux filesystem for test runs, with measured timings.
+- Added `spin_dynamics.conventions`: `"matlab"` (default, unchanged results)
+  and `"physics"` profiles that select relaxation during pulses, exact echo
+  registration, the CPMG-scale imaging combine, and density-preserving
+  imaging together. The affected keyword defaults are now `None` (follow the
+  profile), and facade runs record the profile in provenance and reproduce
+  under it.
+- Experiment specs can now set every workflow option that is not deliberately
+  direct-call only: `CPMGIRTrain.signal_convention`,
+  `CPMGImaging.signal_convention` and `density_normalization`,
+  `Hardware.receive_mode` (tuned imaging), and `NQRSORC.model`. A new test
+  fails when a workflow gains an option the spec cannot reach.
+- `docs/check_doc_snippets.py` checks every Python snippet in the manual and
+  the web docs (syntax and imports in the smoke job and pre-commit; a CI job
+  runs them). Two stale manual listings it found are fixed.
+- Saved runs from before a spec class gained a defaulted field now pass
+  `LoadedRun.specification_matches`; the stored spec is checked as saved.
 - Rewrote the PythonSpinDynamics web documentation openings around reader
   questions, prerequisites, model boundaries, and neighboring guides; added a
   documentation map and maintainer writing standard; clarified that the

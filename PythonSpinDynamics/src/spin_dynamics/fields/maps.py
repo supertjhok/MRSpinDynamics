@@ -23,6 +23,7 @@ from typing import Literal
 
 import numpy as np
 
+from spin_dynamics.conventions import resolve_imaging_density_normalization
 from spin_dynamics.fields.domain import SpatialDomain
 from spin_dynamics.fields.interpolate import dlinear_sample
 
@@ -50,7 +51,7 @@ class SpatialFieldMaps:
         self,
         ny: int,
         maxoffs: float,
-        density_normalization: Literal["legacy", "preserve"] = "legacy",
+        density_normalization: Literal["legacy", "preserve"] | None = None,
         *,
         axis_names: Sequence[str] | None = None,
     ) -> dict[str, np.ndarray]:
@@ -59,7 +60,8 @@ class SpatialFieldMaps:
         The auxiliary off-resonance axis spans ``ny`` samples over
         ``[-maxoffs, maxoffs]`` and is broadcast over every voxel.
         ``density_normalization="legacy"`` assigns each auxiliary sample the full
-        voxel density (MATLAB parity); ``"preserve"`` divides density by ``ny``.
+        voxel density (MATLAB parity); ``"preserve"`` divides density by ``ny``;
+        ``None`` follows :mod:`spin_dynamics.conventions`.
         Per-axis gradient-sensitivity columns are returned under ``axis_names``
         (defaulting to ``del_w0 .. del_w{d-1}``); callers requiring the legacy
         ``del_wx``/``del_wz`` keys pass them explicitly.
@@ -67,12 +69,13 @@ class SpatialFieldMaps:
 
         if ny <= 0:
             raise ValueError("ny must be positive")
-        if density_normalization not in {"legacy", "preserve"}:
+        normalization = resolve_imaging_density_normalization(density_normalization)
+        if normalization not in {"legacy", "preserve"}:
             raise ValueError("density_normalization must be 'legacy' or 'preserve'")
         reps = int(ny)
         del_w0y = np.linspace(-float(maxoffs), float(maxoffs), reps)
         b0 = self.b0_map.reshape(-1)
-        density_scale = 1.0 if density_normalization == "legacy" else 1.0 / reps
+        density_scale = 1.0 if normalization == "legacy" else 1.0 / reps
         density = density_scale * self.rho.reshape(-1)
 
         sensitivity = self._sensitivity()

@@ -19,8 +19,10 @@ from typing import Any, Mapping
 
 import numpy as np
 
+from spin_dynamics.conventions import conventions
 from spin_dynamics.experiment.runner import RunRecord
 from spin_dynamics.experiment.provenance import (
+    encoded_fingerprint,
     experiment_fingerprint,
     result_fingerprint,
 )
@@ -146,6 +148,7 @@ class LoadedRun:
     result_type: str
     unsaved_result_fields: tuple[str, ...]
     _result_meta: Mapping[str, Any]
+    _experiment_payload: Mapping[str, Any] = dataclasses.field(default_factory=dict)
 
     @property
     def result(self) -> Any:
@@ -176,11 +179,20 @@ class LoadedRun:
 
     @property
     def specification_matches(self) -> bool | None:
-        """Whether the loaded spec matches its recorded canonical fingerprint."""
+        """Whether the loaded spec matches its recorded canonical fingerprint.
+
+        The stored spec payload is checked as saved, so an archive written
+        before a spec class gained a defaulted field still matches; the
+        re-encoded spec is accepted too.
+        """
 
         expected = self.provenance.get("experiment_sha256")
         if expected is None:
             return None
+        if self._experiment_payload and expected == encoded_fingerprint(
+            self._experiment_payload
+        ):
+            return True
         return bool(expected == experiment_fingerprint(self.experiment))
 
     @property
@@ -198,14 +210,21 @@ class LoadedRun:
     def verify_reproduction(self, **execution: Any) -> ReproductionReport:
         """Rerun the saved experiment and compare canonical result identities.
 
-        Stored execution options are reused unless explicitly overridden.
+        Stored execution options are reused unless explicitly overridden, and
+        the rerun uses the :mod:`spin_dynamics.conventions` recorded with the
+        run (archives without a record rerun under the active conventions).
         Version-1 archives without a result fingerprint can still be rerun, but
         cannot make an exact identity claim and therefore report ``matches=False``.
         """
 
         options = dict(self.provenance.get("execution", {}))
         options.update(execution)
-        rerun = self.experiment.run(**options)
+        saved_conventions = self.provenance.get("conventions")
+        if saved_conventions is None:
+            rerun = self.experiment.run(**options)
+        else:
+            with conventions(saved_conventions):
+                rerun = self.experiment.run(**options)
         expected = self.provenance.get("result_sha256")
         actual = rerun.provenance.get("result_sha256")
         experiment_matches = self.specification_matches
@@ -285,4 +304,5 @@ def load_run(path: str | os.PathLike[str]) -> LoadedRun:
         result_type=str(meta.get("result_type", "")),
         unsaved_result_fields=tuple(meta.get("unsaved_result_fields", ())),
         _result_meta=dict(meta.get("result_meta", {})),
+        _experiment_payload=meta["experiment"],
     )

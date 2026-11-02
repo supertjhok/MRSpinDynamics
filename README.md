@@ -185,6 +185,7 @@ python -m ruff check src tests examples
 python docs/generate_api_reference.py
 git diff --exit-code docs/python_api/api_reference.md
 python docs/generate_validation_matrix.py --check
+python docs/check_doc_snippets.py
 python -m unittest tests.smoke_tests
 ```
 

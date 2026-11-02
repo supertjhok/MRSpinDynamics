@@ -182,7 +182,7 @@ def sorc_kwargs(experiment: Any) -> dict[str, Any]:
     site = require_site(experiment)
     sequence = experiment.sequence
     transition = target_transition(site, sequence.transition)
-    return {
+    kwargs: dict[str, Any] = {
         "site": site,
         "sequence": SORCSequence(
             detection=SelectivePulse(
@@ -199,6 +199,9 @@ def sorc_kwargs(experiment: Any) -> dict[str, Any]:
         "b0_tesla": sequence.b0_tesla,
         "t2e_seconds": _t2e(sequence),
     }
+    if sequence.model is not None:
+        kwargs["model"] = sequence.model
+    return kwargs
 
 
 def fid_kwargs(experiment: Any) -> dict[str, Any]:

@@ -87,6 +87,22 @@ errors; warnings are surfaced but do not block. Current rules:
 Set fields the resolved workflow does not consume and `plan()` warns that they
 will be ignored, so mismatched specs never fail silently.
 
+The reverse holds too: every keyword argument of a registered workflow is
+either set from the spec, an execution option such as `num_workers`, or
+declared on its registry entry as `direct_only` (custom initial density
+matrices, relaxation models, explicit field grids and similar objects that the
+spec does not describe). `tests/test_experiment_reachability.py` fails when a
+workflow gains an option that is none of these. Convention and model choices
+are spec fields:
+
+| Spec field | Values (default `None` = workflow default) |
+|---|---|
+| `CPMGIRTrain.signal_convention` | `"cpmg"` (workflow default) or `"matlab"` (−2× CPMG) |
+| `CPMGImaging.signal_convention` | `"matlab"` or `"cpmg"`; `None` follows the [conventions profile](conventions.md) |
+| `CPMGImaging.density_normalization` | `"legacy"` or `"preserve"`; `None` follows the conventions profile |
+| `Hardware.receive_mode` | Tuned-probe imaging only: `"raw"` (default) or `"weighted"` |
+| `NQRSORC.model` | `"pathway"` (default), `"steady_state"`, or `"coherent"` |
+
 ## Automatic hardware wiring (imaging)
 
 For imaging sequences, describe the transmit coil as geometry in SI meters and
@@ -185,6 +201,7 @@ channel mapping. Planning compiles the IR and checks backend policy before any
 walkers are initialized; execution returns demodulated ADC samples and the final
 ensemble, with normal archive provenance and rerun verification.
 
+<!-- snippet: skip -- reads the reader's Pulseq file -->
 ```python
 import numpy as np
 from spin_dynamics.experiment import (
@@ -264,7 +281,9 @@ provenance, and scalar result fields. Provenance includes canonical SHA-256
 identities for the experiment and native result; resolved callable, module,
 and complete package-source hashes; package and Git revision/dirty state; Python, NumPy, SciPy,
 NumPy-build, platform, and thread settings; and explicit deterministic,
-seeded, or unseeded randomness classification. `load_run(path)` returns a
+seeded, or unseeded randomness classification, plus the active
+[conventions profile](conventions.md), which `verify_reproduction()` reuses for
+the rerun. `load_run(path)` returns a
 `LoadedRun` exposing the raw arrays,
 the reconstructed native result, and — via `loaded.experiment` — the original
 spec, so a saved run can be re-run or tweaked:
@@ -284,7 +303,9 @@ content against its recorded identities without rerunning (the latter is
 an exact bitwise numerical claim; a changed environment or implementation is
 reported separately so small cross-platform differences are not mislabeled as
 the same result. Version-1 archives remain readable but cannot make a result
-identity claim retroactively.
+identity claim retroactively. The spec identity is checked against the spec as
+stored, so an archive written before a spec class gained a defaulted field
+still matches.
 
 Specs are JSON-serializable directly, too (`Experiment.to_json()` /
 `Experiment.from_json(...)`).

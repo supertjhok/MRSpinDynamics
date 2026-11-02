@@ -177,11 +177,20 @@ python -m coverage report
 python docs\generate_api_reference.py
 python docs\generate_validation_matrix.py --check
 git diff --exit-code docs\python_api\api_reference.md
+python docs\check_doc_snippets.py
+python docs\check_doc_snippets.py --run
 ```
+
+`check_doc_snippets.py` parses every Python snippet in the user manual and the
+web documentation and checks its `spin_dynamics` imports; `--run` (a separate
+CI job) also executes them, each document top to bottom in one namespace.
+Mark a snippet that cannot run in a scratch directory with
+`% snippet: skip -- reason` (LaTeX) or `<!-- snippet: skip -- reason -->`
+(Markdown) on the line above it.
 
 The static part of that list also runs automatically on each commit through
 the repository's pre-commit hooks (ruff, API-reference and validation-matrix
-regeneration). Set them up once per clone from the repository root:
+regeneration, and the static snippet check). Set them up once per clone from the repository root:
 
 ```powershell
 python -m pip install pre-commit

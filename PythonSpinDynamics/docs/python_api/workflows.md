@@ -1112,6 +1112,7 @@ polarization and motion-induced echo dephasing.
 
 ## CPMG Imaging
 
+<!-- snippet: skip -- reads the reader's saved field maps -->
 ```python
 import numpy as np
 

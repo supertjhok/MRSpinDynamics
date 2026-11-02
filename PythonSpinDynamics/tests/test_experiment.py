@@ -267,6 +267,32 @@ def test_archive_fingerprints_detect_spec_and_result_tampering(tmp_path) -> None
     assert load_run(str(changed_spec)).specification_matches is False
 
 
+def test_archive_from_before_a_spec_field_was_added_still_matches(tmp_path) -> None:
+    from spin_dynamics.experiment.provenance import encoded_fingerprint
+
+    current = tmp_path / "current.npz"
+    Experiment(sequence=CPMG(), acquisition=Acquisition(numpts=15)).run().save(
+        str(current)
+    )
+    with np.load(current, allow_pickle=False) as archive:
+        meta = json.loads(str(archive["__meta__"]))
+        arrays = {
+            key: archive[key].copy() for key in archive.files if key != "__meta__"
+        }
+    # An archive written before Hardware.receive_mode existed.
+    del meta["experiment"]["hardware"]["receive_mode"]
+    meta["provenance"]["experiment_sha256"] = encoded_fingerprint(meta["experiment"])
+    older = tmp_path / "older.npz"
+    np.savez(older, __meta__=json.dumps(meta), **arrays)
+    loaded = load_run(str(older))
+    assert loaded.experiment.hardware.receive_mode is None
+    assert loaded.specification_matches is True
+
+    meta["experiment"]["acquisition"]["numpts"] = 17
+    np.savez(older, __meta__=json.dumps(meta), **arrays)
+    assert load_run(str(older)).specification_matches is False
+
+
 @pytest.mark.smoke
 def test_tuned_q_value_and_mistuning_forwarded() -> None:
     experiment = Experiment(

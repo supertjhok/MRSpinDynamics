@@ -152,6 +152,7 @@ nav:
   - API Reference:
       - Generated API reference: python_api/api_reference.md
       - Core numerical functions: python_api/core.md
+      - Conventions profiles: python_api/conventions.md
       - Parameters: python_api/parameters.md
       - Cross-component composition: python_api/composition.md
   - Validation:
