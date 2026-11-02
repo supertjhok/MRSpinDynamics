@@ -51,6 +51,11 @@ dev = [
 bench = [
   "pytest-benchmark>=4"
 ]
+crossval = [
+  # Independent reference codes for tests/test_external_references.py.
+  "qutip>=5.3,<6; python_version >= '3.11'",
+  "nmrsim>=0.7.1,<0.8"
+]
 opt = [
   "scipy>=1.11",
   "pyamg>=5"

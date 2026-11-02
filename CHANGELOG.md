@@ -325,6 +325,13 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
   JSON; the front end uses them through `static-api.js`, and its overview now
   states the CC BY 4.0 data license and how to cite. Review and staging
   tables are not published.
+- Added comparisons against independent codes: nmrsim line lists for strongly
+  coupled spin-1/2 systems, and QuTiP for quadrupolar plus Zeeman levels and
+  for Overhauser Lindblad trajectories and steady states. They live in
+  `tests/test_external_references.py`, need the new `crossval` extra, run in
+  their own CI job, and add three level-C records to the validation matrix.
+- The fixture-generator instructions in the validation guide, the manual and
+  `validation_results.md` now call the generators as functions.
 - Rewrote the PythonSpinDynamics web documentation openings around reader
   questions, prerequisites, model boundaries, and neighboring guides; added a
   documentation map and maintainer writing standard; clarified that the

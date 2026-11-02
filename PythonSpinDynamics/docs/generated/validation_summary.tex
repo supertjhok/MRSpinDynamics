@@ -59,5 +59,8 @@ Inverse-excitation cancellation diagnostics & A, R & validated & Excitation/inve
 Numba and JAX acceleration & C, R & validated & Accelerated kernels reproduce the NumPy reference for supported batched rotations, propagation, and optimization primitives. \\
 RFI synthesis and rejection & R & regression only & Reference-channel cancellers preserve protected acquisition windows and suppress known synthetic coherent, colored, and impulsive interference. \\
 Full-wave openEMS fields and validation & A, C, R & partial & Full-wave field maps expose time termination, mesh change, E/J loss consistency, reciprocity, and low-frequency analytical-limit evidence before quantitative promotion. \\
+Strongly coupled spin-1/2 Hamiltonians and density-matrix propagation & C & validated & The isotropic scalar-coupling Hamiltonian and unitary propagation reproduce nmrsim's second-order line lists, including weak and combination lines, for AB, AB2, ABX, AA'BB' and five-spin systems. \\
+Quadrupolar plus Zeeman eigenproblem and NQR transition list & C, A & validated & Energy levels, transition frequencies and summed dipole strengths from diagonalize\_site match an independent QuTiP construction of the textbook Hamiltonian from the quadrupole coupling constant, for spins 1, 3/2, 5/2 and 7/2 at zero and arbitrary-orientation fields. \\
+Coupled electron-nuclear Overhauser Lindblad dynamics & C, A & validated & Driven rotating-frame trajectories and steady states of CoupledElectronNuclearModel agree with QuTiP's mesolve and steadystate, and the undriven steady state is QuTiP's own Gibbs state. \\
 \bottomrule
 \end{longtable}

@@ -9062,15 +9062,17 @@ Regenerate dependency-light fixtures with Octave or MATLAB from the
 \code{PythonSpinDynamics} directory:
 
 \begin{lstlisting}[language=bash]
-matlab -batch "run('validation/octave/generate_basic_fixtures.m')"
-matlab -batch "run('validation/octave/generate_imaging_fixtures.m')"
-matlab -batch "run('validation/octave/generate_optimization_fixtures.m')"
-matlab -batch "run('validation/octave/generate_pulse_fixtures.m')"
+matlab -batch "addpath('validation/octave'); generate_basic_fixtures"
+matlab -batch "addpath('validation/octave'); generate_imaging_fixtures"
+matlab -batch "addpath('validation/octave'); generate_optimization_fixtures"
+matlab -batch "addpath('validation/octave'); generate_pulse_fixtures"
 \end{lstlisting}
 
+The generators are function files, so Octave calls them the same way
+(\code{octave-cli --eval "addpath('validation/octave'); generate\_basic\_fixtures();"}).
 Matched-probe fixtures require MATLAB toolboxes used by the reference
-implementation. Octave fixture generation skips matched-probe files when
-\code{fmincon} is unavailable. A successful fixture run establishes level-B
+implementation; Octave skips them when \code{tf} or \code{fmincon} is
+unavailable. A successful fixture run establishes level-B
 parity only for the recorded arrays and parameter sets.
 
 \chapter{API Reference}

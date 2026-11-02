@@ -27,22 +27,23 @@ be interpreted as independent physical validation.
 The full fixture suite is generated with MATLAB by:
 
 ```powershell
-matlab -batch "run('validation/octave/generate_basic_fixtures.m')"
-matlab -batch "run('validation/octave/generate_imaging_fixtures.m')"
-matlab -batch "run('validation/octave/generate_optimization_fixtures.m')"
-matlab -batch "run('validation/octave/generate_optimization_result_fixtures.m')"
-matlab -batch "run('validation/octave/generate_pulse_fixtures.m')"
+matlab -batch "addpath('validation/octave'); generate_basic_fixtures"
+matlab -batch "addpath('validation/octave'); generate_imaging_fixtures"
+matlab -batch "addpath('validation/octave'); generate_optimization_fixtures"
+matlab -batch "addpath('validation/octave'); generate_optimization_result_fixtures_main"
+matlab -batch "addpath('validation/octave'); generate_pulse_fixtures"
 ```
 
 Most fixtures can also be generated with Octave by:
 
 ```powershell
-& 'C:\Program Files\GNU Octave\Octave-11.3.0\mingw64\bin\octave-cli.exe' --quiet validation\octave\generate_basic_fixtures.m
-& 'C:\Program Files\GNU Octave\Octave-11.3.0\mingw64\bin\octave-cli.exe' --no-gui --quiet --eval "run('validation/octave/generate_optimization_result_fixtures.m')"
+octave-cli --no-gui --quiet --eval "addpath('validation/octave'); generate_basic_fixtures();"
 ```
 
-The script writes CSV fixtures under `validation/fixtures`. Octave generation
-skips matched-probe files when `fmincon` is unavailable.
+The generators are function files and write CSV fixtures under
+`validation/fixtures`. Octave skips the matched-probe files when `tf` or
+`fmincon` is unavailable, and the optimizer-result generator needs MATLAB's
+Optimization Toolbox.
 
 ## Initial Functions
 

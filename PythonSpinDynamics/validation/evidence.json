@@ -973,6 +973,54 @@
       "reproducers": ["tests/test_fullwave_validation.py", "examples/validate_openems_fullwave.py"],
       "references": ["Biot-Savart circular-loop center field", "openEMS Python interface and MRI loop tutorial"],
       "limitations": ["The passing mesh claim is limited to the loaded-sample interior with a 3 mm dielectric-interface exclusion; interface E and fields outside that region are not covered.", "An independent published or cross-solver high-frequency field benchmark remains required before generalizing beyond the reference geometry."]
+    },
+    {
+      "id": "external_nmrsim_coupled_spin_spectra",
+      "component": "Strongly coupled spin-1/2 Hamiltonians and density-matrix propagation",
+      "claim": "The isotropic scalar-coupling Hamiltonian and unitary propagation reproduce nmrsim's second-order line lists, including weak and combination lines, for AB, AB2, ABX, AA'BB' and five-spin systems.",
+      "evidence_types": ["C"],
+      "basis": "The free-induction signal Tr(F+ rho(t)) after an ideal 90-degree pulse, propagated with spin_dynamics.coupling, against 0.5 * sum_k I_k exp(2 pi i f_k t) built from nmrsim.qm.qm_spinsystem (dense path, intensity cutoff 0) at 48 random times per system.",
+      "parameter_range": "Two to five spin-1/2 nuclei; offsets 40-400 Hz with |delta nu| comparable to J; couplings -3 to 15 Hz.",
+      "metric": "Absolute complex signal difference normalized per spin",
+      "tolerance": "1e-8 per spin (1e-9 except ABX, whose -192 Hz combination line of intensity ~1e-9 nmrsim omits).",
+      "status": "validated",
+      "reproducers": ["tests/test_external_references.py::test_coupled_spin_fid_matches_nmrsim_line_list"],
+      "references": ["https://github.com/sametz/nmrsim"],
+      "limitations": ["nmrsim reports positive frequencies only, so the test systems lie entirely above zero frequency.", "Checks isotropic scalar coupling and ideal hard pulses; relaxation, finite pulses and multinuclear systems are not covered by this comparison."]
+    },
+    {
+      "id": "external_qutip_quadrupolar_zeeman",
+      "component": "Quadrupolar plus Zeeman eigenproblem and NQR transition list",
+      "claim": "Energy levels, transition frequencies and summed dipole strengths from diagonalize_site match an independent QuTiP construction of the textbook Hamiltonian from the quadrupole coupling constant, for spins 1, 3/2, 5/2 and 7/2 at zero and arbitrary-orientation fields.",
+      "evidence_types": ["C", "A"],
+      "basis": "QuTiP builds C_Q / (4I(2I-1)) [3Iz^2 - I^2 + eta (Ix^2 - Iy^2)] - gamma B.I from qutip.jmat and diagonalizes it; our site is built from the same C_Q through quadrupolar_site, so the nu_Q convention is checked too. The QuTiP reference reproduces the analytic spin-1 lines 3/4 C_Q (1 +/- eta/3) and C_Q eta / 2.",
+      "parameter_range": "14N, 35Cl, 27Al and 51V with C_Q 3.2-68 MHz, eta 0.1-0.45, and fields up to 1.6 T spanning the pure-NQR to crossover regimes.",
+      "metric": "Level differences, distinct line frequencies, and per-line summed |<l|I|u>|^2",
+      "tolerance": "Levels to 1e-9 C_Q; line strengths to 1e-9 relative; frequencies equal to 1 mHz.",
+      "status": "validated",
+      "reproducers": [
+        "tests/test_external_references.py::test_quadrupolar_zeeman_lines_match_qutip",
+        "tests/test_external_references.py::test_qutip_reference_reproduces_the_spin1_textbook_lines"
+      ],
+      "references": ["https://qutip.org", "https://doi.org/10.1016/j.cpc.2012.11.019"],
+      "limitations": ["Static eigenproblem only; pulsed NQR dynamics, relaxation and powder averaging are not covered by this comparison.", "Line strengths are compared summed over degenerate partners, because individual strengths inside a Kramers doublet depend on the basis."]
+    },
+    {
+      "id": "external_qutip_overhauser_lindblad",
+      "component": "Coupled electron-nuclear Overhauser Lindblad dynamics",
+      "claim": "Driven rotating-frame trajectories and steady states of CoupledElectronNuclearModel agree with QuTiP's mesolve and steadystate, and the undriven steady state is QuTiP's own Gibbs state.",
+      "evidence_types": ["C", "A"],
+      "basis": "QuTiP builds the rotating-frame Hamiltonian (detuning, secular hyperfine and microwave drive) from its own spin-1/2 operators and integrates with mesolve using the model's detailed-balance jump operators; steadystate is compared with model.steady_state, and with the drive off with exp(-H_lab hbar / kT) built in QuTiP.",
+      "parameter_range": "0.35 T, 10 K, secular hyperfine 200 kHz, electron T1 2 us, nuclear T1 0.5 s, electron dephasing 3e5 1/s, nutation 4e5 rad/s, detuning 10 kHz, 20 us of evolution.",
+      "metric": "Absolute density-matrix element differences",
+      "tolerance": "1e-8 along trajectories (QuTiP rtol 1e-10); 1e-10 for steady states.",
+      "status": "validated",
+      "reproducers": [
+        "tests/test_external_references.py::test_overhauser_dynamics_match_qutip_mesolve",
+        "tests/test_external_references.py::test_overhauser_steady_state_matches_qutip"
+      ],
+      "references": ["https://qutip.org", "https://doi.org/10.1016/j.cpc.2012.11.019"],
+      "limitations": ["The jump operators come from the model, so the comparison validates Liouvillian assembly, propagation and the steady-state solve, not the choice of relaxation rates. Detailed balance is checked independently through the undriven Gibbs state."]
     }
   ]
 }

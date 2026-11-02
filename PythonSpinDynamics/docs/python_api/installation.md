@@ -126,6 +126,8 @@ Optional extras:
 - `dev`: test and lint tooling.
 - `perf`: Numba and JAX acceleration backends.
 - `bench`: benchmark tooling.
+- `crossval`: QuTiP and nmrsim for the external-code comparisons in
+  `tests/test_external_references.py`.
 - `jax-cuda13` / `jax-cuda12`: CUDA-enabled JAX wheels for Linux/WSL GPU
   environments.
 

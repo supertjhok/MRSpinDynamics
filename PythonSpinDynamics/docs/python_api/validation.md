@@ -10,28 +10,34 @@ Use the generated [Validation Evidence Matrix](../validation_matrix.md) to
 inspect capability-level claims, evidence grades, ranges, tolerances,
 reproducers, and limitations. Its structured source is
 `validation/evidence.json`. This page explains how to regenerate the MATLAB and
-Octave parity fixtures that form one part of that evidence.
+Octave parity fixtures that form one part of that evidence, and how the
+comparisons with independent external codes run.
 
 The fixture workflow below supplies the MATLAB/Octave parity portion of that
 evidence. Python functions are compared with small reference arrays stored in
 `validation/fixtures`.
 
-Generate fixtures from `PythonSpinDynamics`:
+The generators are function files. Call them by name from
+`PythonSpinDynamics`:
 
 ```powershell
-matlab -batch "run('validation/octave/generate_basic_fixtures.m')"
-matlab -batch "run('validation/octave/generate_imaging_fixtures.m')"
-matlab -batch "run('validation/octave/generate_optimization_fixtures.m')"
-matlab -batch "run('validation/octave/generate_optimization_result_fixtures.m')"
-matlab -batch "run('validation/octave/generate_pulse_fixtures.m')"
+matlab -batch "addpath('validation/octave'); generate_basic_fixtures"
+matlab -batch "addpath('validation/octave'); generate_imaging_fixtures"
+matlab -batch "addpath('validation/octave'); generate_optimization_fixtures"
+matlab -batch "addpath('validation/octave'); generate_optimization_result_fixtures_main"
+matlab -batch "addpath('validation/octave'); generate_pulse_fixtures"
 ```
 
-or:
+or, with Octave (`generate_optimization_result_fixtures_main` and the
+matched-probe arrays need MATLAB toolboxes; see
+`validation/fixtures/README.md`):
 
 ```powershell
-& 'C:\Program Files\GNU Octave\Octave-11.3.0\mingw64\bin\octave-cli.exe' --quiet validation\octave\generate_basic_fixtures.m
-& 'C:\Program Files\GNU Octave\Octave-11.3.0\mingw64\bin\octave-cli.exe' --no-gui --quiet --eval "run('validation/octave/generate_optimization_result_fixtures.m')"
+octave-cli --no-gui --quiet --eval "addpath('validation/octave'); generate_basic_fixtures();"
 ```
+
+The `Octave parity` CI workflow runs the four Octave-compatible generators
+and the fixture tests against their output.
 
 Run tests:
 
@@ -83,3 +89,27 @@ both generated outputs; CI checks them with `--check`.
 For measured NMR and NQR relaxation datasets, model boundaries, ingestion
 requirements, and the staged experimental-validation program, see
 [Microscopic Relaxation Validation](../relaxation_validation.md).
+
+## Comparisons with external codes
+
+Agreement with the MATLAB port shows the translation is faithful, not that
+the shared physics is right. `tests/test_external_references.py` therefore
+rebuilds selected models with independent packages:
+
+| Reference | What is compared | Evidence record |
+|---|---|---|
+| [nmrsim](https://github.com/sametz/nmrsim) | Strongly coupled spin-1/2 FIDs against second-order line lists (AB to five spins) | `external_nmrsim_coupled_spin_spectra` |
+| [QuTiP](https://qutip.org) | Quadrupolar plus Zeeman levels, lines and strengths for spins 1 to 7/2 | `external_qutip_quadrupolar_zeeman` |
+| QuTiP `mesolve`/`steadystate` | Driven Overhauser Lindblad trajectories, steady states and the Gibbs state | `external_qutip_overhauser_lindblad` |
+
+Install the reference codes with the `crossval` extra and run the file:
+
+```bash
+python -m pip install -e ".[dev,opt,crossval]"
+python -m pytest -q tests/test_external_references.py
+```
+
+Without the packages the tests skip. The `external-references` CI job sets
+`SPIN_DYNAMICS_REQUIRE_CROSSVAL=1`, which turns a missing package into a
+failure. EasySpin and Spinach (MATLAB) and SIMPSON (a separately licensed
+binary) are not yet part of this comparison.

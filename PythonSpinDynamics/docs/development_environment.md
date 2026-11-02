@@ -134,6 +134,8 @@ The setup scripts install:
 - `plot` provides Matplotlib and Pillow for examples.
 - `perf` provides Numba and JAX for accelerated numerical backends.
 - `bench` provides benchmark tooling.
+- `crossval` provides QuTiP and nmrsim for the external-code comparisons
+  (not in the default set; nmrsim currently requires NumPy below 2.5).
 
 The CUDA-enabled JAX wheel is installed separately by the WSL setup script when
 `JAX_CUDA=13` or `JAX_CUDA=12` is set, because those wheels are platform- and

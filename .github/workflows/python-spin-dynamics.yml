@@ -164,6 +164,24 @@ jobs:
         env:
           MPLBACKEND: Agg
 
+  external-references:
+    name: Comparisons against external codes (QuTiP, nmrsim)
+    runs-on: ubuntu-latest
+    env:
+      # Fail, rather than skip, if a reference package is missing.
+      SPIN_DYNAMICS_REQUIRE_CROSSVAL: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: PythonSpinDynamics/pyproject.toml
+      - name: Install package with the reference codes
+        run: python -m pip install -e ".[dev,opt,crossval]"
+      - name: Compare against QuTiP and nmrsim
+        run: python -m pytest -q -rs tests/test_external_references.py
+
   optional-numba:
     name: Optional Numba backend parity
     runs-on: ubuntu-latest
