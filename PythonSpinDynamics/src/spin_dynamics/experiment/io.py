@@ -79,7 +79,9 @@ def save_run(record: RunRecord, path: str | os.PathLike[str]) -> Path:
     if not dataclasses.is_dataclass(result) or isinstance(result, type):
         raise TypeError("RunRecord.result must be a workflow result dataclass")
 
-    arrays: dict[str, np.ndarray] = {}
+    # Values are ndarrays; typed Any so ``**arrays`` passes numpy's savez stub,
+    # whose keyword ``allow_pickle: bool`` would otherwise reject them.
+    arrays: dict[str, Any] = {}
     scalars: dict[str, Any] = {}
     meta_fields: dict[str, Any] = {}
     unsaved: list[str] = []

@@ -1341,8 +1341,8 @@ def non_default_fields(experiment: Experiment) -> dict[str, Any]:
             value = getattr(group, spec_field.name)
             if spec_field.default is not dataclasses.MISSING:
                 default = spec_field.default
-            elif spec_field.default_factory is not dataclasses.MISSING:  # type: ignore[misc]
-                default = spec_field.default_factory()  # type: ignore[misc]
+            elif spec_field.default_factory is not dataclasses.MISSING:
+                default = spec_field.default_factory()
             else:
                 continue
             if _differs(value, default):

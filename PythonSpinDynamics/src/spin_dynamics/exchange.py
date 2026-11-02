@@ -38,7 +38,8 @@ Conventions
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 
@@ -109,6 +110,11 @@ class ExchangeSystem:
     exchange_rates_hz: np.ndarray
     balance: str = "warn"
     balance_tolerance: float = 1e-6
+
+    if TYPE_CHECKING:
+        # Set in __post_init__; declared for type checkers only so it stays
+        # out of the runtime dataclass fields, repr, and equality.
+        _populations: np.ndarray = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         sites = tuple(self.sites)
@@ -248,7 +254,8 @@ def two_site_exchange(
         p_b = 1.0 - p_a
         k_ba = k_ab * p_a / p_b
     else:
-        k_ba = float(k_ba_hz)
+        # The exactly-one check above guarantees k_ba_hz is set here.
+        k_ba = float(cast(float, k_ba_hz))
         if k_ba < 0.0:
             raise ValueError("k_ba_hz must be non-negative")
         if k_ab + k_ba > 0.0:

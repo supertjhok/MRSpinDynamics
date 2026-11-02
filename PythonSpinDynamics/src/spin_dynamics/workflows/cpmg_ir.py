@@ -12,6 +12,12 @@ import numpy as np
 from spin_dynamics.core.isochromats import check_rephasing
 from spin_dynamics.core.rotations import calc_rotation_matrix
 from spin_dynamics.parameters import (
+    TunedOrigParameters,
+    TunedPulseParameters,
+    TunedSystemParameters,
+    UntunedOrigParameters,
+    UntunedPulseParameters,
+    UntunedSystemParameters,
     set_params_ideal,
     set_params_matched_orig,
     set_params_tuned_orig,
@@ -239,7 +245,7 @@ def run_ideal_cpmg_ir_train(
     acq_ref = np.tile(np.array([0, 0, 1], dtype=np.int64), int(num_echoes))
     grad_ref = np.zeros(3 * int(num_echoes), dtype=np.float64)
 
-    pp_common = {
+    pp_common: dict[str, Any] = {
         "T_90": t_90,
         "tp": np.concatenate([tenc, texc, tref]),
         "amp": np.concatenate([aenc, aexc, aref]),
@@ -306,6 +312,9 @@ def _run_probe_cpmg_ir_train(
     _validate_ir_inputs(num_echoes, echo_spacing_seconds, t1_seconds, t2_seconds)
     _check_signal_convention(signal_convention)
     tau = _as_tauvect(tauvect)
+    _params: TunedOrigParameters | UntunedOrigParameters
+    sp0: TunedSystemParameters | UntunedSystemParameters
+    pp0: TunedPulseParameters | UntunedPulseParameters
     if probe == "tuned":
         _params, sp0, pp0 = set_params_tuned_orig(numpts=numpts)
         pulse_shape = _calc_tuned_pulse_shape
@@ -391,7 +400,7 @@ def _run_probe_cpmg_ir_train(
     acq_ref = np.tile(np.array([0, 0, 1], dtype=np.int64), int(num_echoes))
     grad_ref = np.zeros(3 * int(num_echoes), dtype=np.float64)
 
-    pp_common = {
+    pp_common: dict[str, Any] = {
         "T_90": t_90,
         "tp": np.concatenate([tenc, texc, tref]),
         "amp": np.concatenate([aenc, aexc, aref]),
@@ -654,7 +663,7 @@ def run_matched_cpmg_ir_train(
     acq_ref = np.tile(np.array([0, 0, 1], dtype=np.int64), int(num_echoes))
     grad_ref = np.zeros(3 * int(num_echoes), dtype=np.float64)
 
-    pp_common = {
+    pp_common: dict[str, Any] = {
         "T_90": t_90,
         "tp": np.concatenate([tenc, texc, tref]),
         "amp": np.concatenate([aenc, aexc, aref]),

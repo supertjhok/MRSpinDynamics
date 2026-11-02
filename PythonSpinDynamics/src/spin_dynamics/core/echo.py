@@ -93,7 +93,9 @@ def _calc_time_domain_echo_exact(
     spect_zf[start : start + n] = spect
     ts = 2.0 * np.pi / (total * dw)
     tvect = ts * (np.arange(total, dtype=np.float64) - total // 2)
-    echo = zero_fill * np.fft.ifftshift(np.fft.ifft(np.fft.fftshift(spect_zf)))
+    # ifftshift moves index total // 2 (omega = 0) to 0 and fftshift moves t = 0
+    # back to index total // 2; the reverse pairing is off by one for odd totals.
+    echo = zero_fill * np.fft.fftshift(np.fft.ifft(np.fft.ifftshift(spect_zf)))
     echo = echo * np.exp(1j * residual * tvect)
     return echo, tvect
 

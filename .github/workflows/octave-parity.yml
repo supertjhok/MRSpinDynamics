@@ -1,0 +1,66 @@
+name: Octave parity
+
+# Regenerates the MATLAB-reference fixtures with Octave from
+# MATLABSpinDynamics/Version_3 and checks the Python package against them, so
+# MATLAB edits and Python-regenerated fixtures cannot drift apart unnoticed.
+# The matched-probe and optimizer-result fixtures need MATLAB toolboxes (tf,
+# fmincon from the Optimization Toolbox) and keep their committed values here.
+on:
+  push:
+    paths:
+      - ".github/workflows/octave-parity.yml"
+      - "MATLABSpinDynamics/Version_3/**"
+      - "PythonSpinDynamics/validation/octave/**"
+      - "PythonSpinDynamics/validation/fixtures/**"
+      - "PythonSpinDynamics/tests/octave_fixtures/**"
+  pull_request:
+    paths:
+      - ".github/workflows/octave-parity.yml"
+      - "MATLABSpinDynamics/Version_3/**"
+      - "PythonSpinDynamics/validation/octave/**"
+      - "PythonSpinDynamics/validation/fixtures/**"
+      - "PythonSpinDynamics/tests/octave_fixtures/**"
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: PythonSpinDynamics
+
+env:
+  PYTHONUTF8: "1"
+  OPENBLAS_NUM_THREADS: "1"
+  OMP_NUM_THREADS: "1"
+  MKL_NUM_THREADS: "1"
+
+jobs:
+  octave-parity:
+    name: Octave-regenerated fixtures vs Python
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: PythonSpinDynamics/pyproject.toml
+      - name: Install Octave
+        # gnuplot-nox gives the MATLAB plotting calls a headless backend.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends octave gnuplot-nox
+          octave --version | head -1
+      - name: Install package
+        run: python -m pip install -e ".[dev,opt]"
+      - name: Regenerate fixtures from MATLAB Version 3 with Octave
+        run: |
+          for generator in generate_basic_fixtures generate_pulse_fixtures \
+              generate_imaging_fixtures generate_optimization_fixtures; do
+            echo "::group::${generator}"
+            octave --no-gui --no-window-system --quiet \
+              --eval "addpath('validation/octave'); ${generator}();"
+            echo "::endgroup::"
+          done
+      - name: Show drift from the committed fixtures
+        run: git diff --stat -- validation/fixtures
+      - name: Check Python against the regenerated fixtures
+        run: python -m pytest -q tests/test_basic_octave_fixtures.py

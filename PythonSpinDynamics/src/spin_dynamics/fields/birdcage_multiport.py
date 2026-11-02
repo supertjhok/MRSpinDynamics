@@ -16,7 +16,7 @@ include charge correction, skin-effect shielding, or full-wave propagation.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable, Sequence, TypeAlias
+from typing import Iterable, Sequence, TypeAlias, cast
 
 import numpy as np
 
@@ -36,6 +36,7 @@ from spin_dynamics.fields.birdcage_circuit import (
     _normalize_mode,
 )
 from spin_dynamics.fields.coil_peec import _mutualfil_matrix
+from spin_dynamics.fields.quasistatic import Segment as QuasistaticSegment
 from spin_dynamics.fields.quasistatic import vector_potential
 from spin_dynamics.fields.validity import (
     QuasistaticAssessment,
@@ -175,7 +176,9 @@ def birdcage_conductive_loading_resistance(
     flat_conductivity = conductivity.reshape(-1)
     potentials = np.asarray(
         [
-            vector_potential(flat_points, path, current=1.0)
+            vector_potential(
+                flat_points, cast(Sequence[QuasistaticSegment], path), current=1.0
+            )
             for path in _branch_paths(geometry)
         ]
     )
@@ -406,6 +409,7 @@ def retune_loaded_birdcage(
     family = preliminary.modal_analysis().azimuthal_modes(mode_index)
     current = float(np.mean([mode.frequency_hz for mode in family]))
     capacitance_scale = (current / target) ** 2
+    # BirdcageCircuit.__post_init__ stores branch values as ndarrays.
     tuned = BirdcageCircuit(
         geometry=circuit.geometry,
         rung_inductance_h=circuit.rung_inductance_h,
@@ -413,12 +417,12 @@ def retune_loaded_birdcage(
         rung_capacitance_f=(
             None
             if circuit.rung_capacitance_f is None
-            else circuit.rung_capacitance_f * capacitance_scale
+            else cast(np.ndarray, circuit.rung_capacitance_f) * capacitance_scale
         ),
         end_ring_capacitance_f=(
             None
             if circuit.end_ring_capacitance_f is None
-            else circuit.end_ring_capacitance_f * capacitance_scale
+            else cast(np.ndarray, circuit.end_ring_capacitance_f) * capacitance_scale
         ),
         rung_resistance_ohm=circuit.rung_resistance_ohm,
         end_ring_resistance_ohm=circuit.end_ring_resistance_ohm,
@@ -466,14 +470,15 @@ def calibrate_birdcage_conductor_quality_factor(
             "fixed loading loss already exceeds the requested total loss"
         )
     base = circuit.circuit
+    # BirdcageCircuit.__post_init__ stores branch values as ndarrays.
     calibrated = BirdcageCircuit(
         geometry=base.geometry,
         rung_inductance_h=base.rung_inductance_h,
         end_ring_inductance_h=base.end_ring_inductance_h,
         rung_capacitance_f=base.rung_capacitance_f,
         end_ring_capacitance_f=base.end_ring_capacitance_f,
-        rung_resistance_ohm=base.rung_resistance_ohm * scale,
-        end_ring_resistance_ohm=base.end_ring_resistance_ohm * scale,
+        rung_resistance_ohm=cast(np.ndarray, base.rung_resistance_ohm) * scale,
+        end_ring_resistance_ohm=cast(np.ndarray, base.end_ring_resistance_ohm) * scale,
     )
     return BirdcageLoadedCircuit(calibrated, circuit.loading)
 

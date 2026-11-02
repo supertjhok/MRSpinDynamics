@@ -2457,7 +2457,7 @@ For model selection, units and worked examples, use the [user manual](manual.md)
 | attribute | `BirdcageFieldSolution.b1_minus_t: np.ndarray` | Declared attribute; inherited fields are not repeated. |
 | attribute | `BirdcageFieldSolution.mode: BirdcageCurrentMode` | Declared attribute; inherited fields are not repeated. |
 | attribute | `BirdcageFieldSolution.validity: QuasistaticAssessment \| None = None` | Declared attribute; inherited fields are not repeated. |
-| function | `solve_birdcage_field(geometry: BirdcageGeometry, mode: BirdcageCurrentMode, points_m: np.ndarray, *, b0_direction: Sequence[float] \| np.ndarray \| None = None, frequency_hz: float \| None = None, validity_regions: Sequence[QuasistaticRegion] \| None = None, validity_policy: ValidityPolicy = 'warn') -> BirdcageFieldSolution` | Evaluate one complex birdcage mode and its B1+/B1- components. |
+| function | `solve_birdcage_field(geometry: BirdcageGeometry, mode: BirdcageCurrentMode, points_m: np.ndarray \| Sequence[float], *, b0_direction: Sequence[float] \| np.ndarray \| None = None, frequency_hz: float \| None = None, validity_regions: Sequence[QuasistaticRegion] \| None = None, validity_policy: ValidityPolicy = 'warn') -> BirdcageFieldSolution` | Evaluate one complex birdcage mode and its B1+/B1- components. |
 | class | `BirdcageFieldMetrics` | ROI field-uniformity and polarization diagnostics. |
 | attribute | `BirdcageFieldMetrics.target_handedness: int` | Declared attribute; inherited fields are not repeated. |
 | attribute | `BirdcageFieldMetrics.mean_b1_t: float` | Declared attribute; inherited fields are not repeated. |
@@ -3350,7 +3350,7 @@ For model selection, units and worked examples, use the [user manual](manual.md)
 | attribute | `HarmonicFieldNormalization.description: str \| None = None` | Declared attribute; inherited fields are not repeated. |
 | property | `HarmonicFieldNormalization.field_unit_suffix` | Return the denominator appended to the base SI field unit. |
 | method | `HarmonicFieldNormalization.to_dict() -> dict[str, object]` |  |
-| method | `HarmonicFieldNormalization.from_dict(value: Mapping[str, object]) -> HarmonicFieldNormalization` |  |
+| method | `HarmonicFieldNormalization.from_dict(value: Mapping[str, Any]) -> HarmonicFieldNormalization` |  |
 | class | `HarmonicPort` | Frequency-domain voltage, current, and accepted-power port metadata. |
 | attribute | `HarmonicPort.index: int` | Declared attribute; inherited fields are not repeated. |
 | attribute | `HarmonicPort.name: str` | Declared attribute; inherited fields are not repeated. |
@@ -3360,7 +3360,7 @@ For model selection, units and worked examples, use the [user manual](manual.md)
 | attribute | `HarmonicPort.metadata: Mapping[str, object] = field(default_factory=dict)` | Declared attribute; inherited fields are not repeated. |
 | property | `HarmonicPort.impedance_ohm` | Return ``V/I`` when a nonzero current phasor is available. |
 | method | `HarmonicPort.to_dict() -> dict[str, object]` |  |
-| method | `HarmonicPort.from_dict(value: Mapping[str, object]) -> HarmonicPort` |  |
+| method | `HarmonicPort.from_dict(value: Mapping[str, Any]) -> HarmonicPort` |  |
 | class | `HarmonicMaterial` | Solver-neutral material properties and backend region identity. |
 | attribute | `HarmonicMaterial.name: str` | Declared attribute; inherited fields are not repeated. |
 | attribute | `HarmonicMaterial.relative_permittivity: float` | Declared attribute; inherited fields are not repeated. |
@@ -3369,7 +3369,7 @@ For model selection, units and worked examples, use the [user manual](manual.md)
 | attribute | `HarmonicMaterial.region_id: str \| int \| None = None` | Declared attribute; inherited fields are not repeated. |
 | attribute | `HarmonicMaterial.metadata: Mapping[str, object] = field(default_factory=dict)` | Declared attribute; inherited fields are not repeated. |
 | method | `HarmonicMaterial.to_dict() -> dict[str, object]` |  |
-| method | `HarmonicMaterial.from_dict(value: Mapping[str, object]) -> HarmonicMaterial` |  |
+| method | `HarmonicMaterial.from_dict(value: Mapping[str, Any]) -> HarmonicMaterial` |  |
 | class | `HarmonicSolverProvenance` | Identify the backend and model that produced a field solution. |
 | attribute | `HarmonicSolverProvenance.backend: str` | Declared attribute; inherited fields are not repeated. |
 | attribute | `HarmonicSolverProvenance.backend_version: str \| None = None` | Declared attribute; inherited fields are not repeated. |
@@ -3388,7 +3388,7 @@ For model selection, units and worked examples, use the [user manual](manual.md)
 | attribute | `HarmonicConvergence.energy_balance_relative_error: float \| None = None` | Declared attribute; inherited fields are not repeated. |
 | attribute | `HarmonicConvergence.metadata: Mapping[str, object] = field(default_factory=dict)` | Declared attribute; inherited fields are not repeated. |
 | method | `HarmonicConvergence.to_dict() -> dict[str, object]` |  |
-| method | `HarmonicConvergence.from_dict(value: Mapping[str, object]) -> HarmonicConvergence` |  |
+| method | `HarmonicConvergence.from_dict(value: Mapping[str, Any]) -> HarmonicConvergence` |  |
 | class | `HarmonicEMSolution` | Complex electromagnetic phasors sampled on a rectilinear spatial grid. |
 | attribute | `HarmonicEMSolution.domain: SpatialDomain` | Declared attribute; inherited fields are not repeated. |
 | attribute | `HarmonicEMSolution.frequency_hz: float` | Declared attribute; inherited fields are not repeated. |

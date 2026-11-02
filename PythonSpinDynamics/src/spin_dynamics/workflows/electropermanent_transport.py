@@ -169,12 +169,12 @@ def magnetic_force_from_gradient(
     if gradient.shape != field.shape + (2,) or np.any(~np.isfinite(gradient)):
         raise ValueError("grad_b_squared_t2_m must have shape field.shape + (2,)")
     if model == "linear":
-        coefficient = (
+        linear_coefficient = (
             particle.magnetic_volume_m3
             * particle.volume_susceptibility
             / (2.0 * MU0)
         )
-        return coefficient * gradient
+        return linear_coefficient * gradient
     magnetization = particle.magnetization_a_m(field, model=model)
     coefficient = np.empty_like(field)
     nonzero = field > np.finfo(np.float64).tiny

@@ -307,6 +307,18 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
   runs them). Two stale manual listings it found are fixed.
 - Saved runs from before a spec class gained a defaulted field now pass
   `LoadedRun.specification_matches`; the stored spec is checked as saved.
+- Added Hypothesis property tests of shared physical invariants
+  (`tests/test_physics_invariants.py`; `hypothesis` joins the `dev` extra).
+  They found that `calc_time_domain_echo(registration="exact")` shifted the
+  echo by one sample for odd `zero_fill * numpts`; fixed (L-61).
+- A new `Octave parity` CI workflow regenerates the MATLAB-reference fixtures
+  from `MATLABSpinDynamics/Version_3` with Octave and runs the fixture tests
+  against them. The generators are now Octave-compatible function files,
+  the MATLAB V3 imaging grids are fixed for 2x2 matrices (L-62), the
+  tuned-train generator matches the M-44 normalization (L-63), and 28
+  fixtures are now Octave-generated.
+- Type checking now covers 34 more modules (the most-edited ones); 86
+  remain on the type-debt list.
 - Rewrote the PythonSpinDynamics web documentation openings around reader
   questions, prerequisites, model boundaries, and neighboring guides; added a
   documentation map and maintainer writing standard; clarified that the

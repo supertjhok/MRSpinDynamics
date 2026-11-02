@@ -10,7 +10,7 @@ from __future__ import annotations
 import inspect
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, replace
-from typing import Literal
+from typing import Literal, cast
 
 import numpy as np
 
@@ -202,7 +202,12 @@ def make_motion_field_maps(
     ``b1_tx``.
     """
 
-    domain = axes if isinstance(axes, SpatialDomain) else SpatialDomain(tuple(axes))
+    # SpatialDomain validates and converts each axis to an ndarray itself.
+    domain = (
+        axes
+        if isinstance(axes, SpatialDomain)
+        else SpatialDomain(cast("tuple[np.ndarray, ...]", tuple(axes)))
+    )
     shape = domain.shape
     b0 = np.zeros(shape) if b0_map is None else np.asarray(b0_map, dtype=np.float64)
     b1_tx = (
@@ -402,7 +407,12 @@ def _ensemble_from_axes(
         widths = np.repeat(widths, int(walkers_per_cell), axis=0)
         positions = positions + rng.uniform(-0.5, 0.5, size=positions.shape) * widths
         bounds = tuple((float(a[0]), float(a[-1])) for a in axes)
-        positions = apply_boundary(positions, bounds, "clip")
+        # apply_boundary clips each listed axis, so N-D bounds are fine here.
+        positions = apply_boundary(
+            positions,
+            cast("tuple[tuple[float, float], tuple[float, float]]", bounds),
+            "clip",
+        )
 
     weights = np.repeat(density.ravel() / int(walkers_per_cell), int(walkers_per_cell))
     diffusion = _particle_values(
@@ -536,9 +546,10 @@ def apply_rf_rotation(
     b1 = _particle_values(b1_tx, num_particles, "b1_tx")
     if np.any(b1 < 0.0):
         raise ValueError("b1_tx must be non-negative")
+    # rf_matrix_elements broadcasts a per-particle w1 array.
     mat = rf_matrix_elements(
         omega,
-        float(amplitude) * b1,
+        cast(float, float(amplitude) * b1),
         float(duration),
         float(phase),
     )
@@ -597,7 +608,7 @@ def receive_signal(
 ) -> complex:
     """Sum weighted received transverse magnetization over particles."""
 
-    receive_weight = 1.0
+    receive_weight: float | np.ndarray = 1.0
     if fields is not None:
         receive_weight = fields.sample(ensemble.positions)["b1_rx"]
     return complex(

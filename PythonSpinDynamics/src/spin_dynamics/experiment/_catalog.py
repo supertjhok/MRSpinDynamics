@@ -9,7 +9,7 @@ call bit for bit.
 from __future__ import annotations
 
 import dataclasses
-from typing import Any
+from typing import Any, Callable, cast
 
 import numpy as np
 
@@ -47,11 +47,15 @@ from spin_dynamics.experiment.specs import (
     NQRSORC,
     NQRFID,
     NQRPopulationTransfer,
+    NanoMRLayer,
     NanoMRQdyne,
     NanoMRStatisticalSpectrum,
     PGSE,
     PGSEWalkers,
+    Phantom,
+    SequenceDomain,
     SequenceIRExecution,
+    TransportDomain2D,
 )
 from spin_dynamics.experiment.wiring import (
     solve_for_experiment,
@@ -344,7 +348,7 @@ _TRAIN_HONORS = (
 )
 _IR_HONORS = _ACQ_GRID | _ACQ_REPHASE | _SAMPLE_RELAX
 
-_CPMG_FUNCS = {
+_CPMG_FUNCS: dict[str, Callable[..., Any]] = {
     "ideal": run_ideal_cpmg,
     "tuned": run_tuned_cpmg,
     "untuned": run_untuned_cpmg,
@@ -410,8 +414,9 @@ def _imaging_kwargs(experiment: Experiment) -> dict[str, Any]:
     if hardware.probe == "tuned" and hardware.receive_mode is not None:
         kwargs["receive_mode"] = hardware.receive_mode
     if isinstance(experiment.hardware.rx_coil, RxArray):
+        # solve_for_experiment above has already rejected a missing phantom.
         sensitivities = solve_receive_sensitivities(
-            experiment.sample.phantom, experiment.hardware
+            cast(Phantom, experiment.sample.phantom), experiment.hardware
         )
         kwargs.update(
             receiver_sensitivities=sensitivities.normalized_complex,
@@ -461,7 +466,7 @@ def _resolve_imaging_func(experiment: Experiment) -> Any:
         return run_ideal_receiver_array_cpmg_imaging
     return _IMAGING_FUNCS[experiment.hardware.probe]
 
-_IMAGING_FUNCS = {
+_IMAGING_FUNCS: dict[str, Callable[..., Any]] = {
     "ideal": run_ideal_cpmg_imaging,
     "tuned": run_tuned_cpmg_imaging,
     "matched": run_matched_cpmg_imaging,
@@ -536,7 +541,8 @@ register_workflow(
 def _pgse_walkers_kwargs(experiment: Experiment) -> dict[str, Any]:
     sequence = experiment.sequence
     sample = experiment.sample
-    domain = sample.transport_domain
+    # Plan-time sanity checks require a TransportDomain2D for PGSEWalkers.
+    domain = cast(TransportDomain2D, sample.transport_domain)
     kwargs: dict[str, Any] = {
         "rho": domain.rho,
         "x_axis": domain.x_axis,
@@ -569,7 +575,7 @@ def _pgse_walkers_kwargs(experiment: Experiment) -> dict[str, Any]:
 
 def _pgse_walkers_cost(experiment: Experiment) -> CostModel:
     sequence = experiment.sequence
-    domain = experiment.sample.transport_domain
+    domain = cast(TransportDomain2D, experiment.sample.transport_domain)
     occupied_cells = int(np.count_nonzero(domain.rho > 0.0))
     particles = occupied_cells * sequence.walkers_per_cell
     intervals = 5 + 3 * max(0, sequence.num_echoes - 1)
@@ -641,7 +647,8 @@ register_workflow(
 def _sequence_ir_cost(experiment: Experiment) -> CostModel:
     compiled = sequence_adapter.compile_for_experiment(experiment)
     sequence = experiment.sequence
-    domain = experiment.sample.sequence_domain
+    # Plan-time sanity checks require a SequenceDomain for SequenceIRExecution.
+    domain = cast(SequenceDomain, experiment.sample.sequence_domain)
     particles = int(np.count_nonzero(domain.density > 0.0)) * sequence.walkers_per_cell
     intervals = max(1, compiled.durations_seconds.size)
     units = float(particles * intervals * sequence.default_substeps)
@@ -849,7 +856,9 @@ for _probe, _func in _IR_FUNCS.items():
 
 def _nano_statistical_cost(experiment: Experiment) -> CostModel:
     sequence = experiment.sequence
-    components = len(experiment.sample.nano_mr_layer.components)
+    # Plan-time sanity checks require a NanoMRLayer for this sequence.
+    layer = cast(NanoMRLayer, experiment.sample.nano_mr_layer)
+    components = len(layer.components)
     points = sequence.num_points
     work = float(components * points)
     arrays = 2 * components * points + 4 * components + points

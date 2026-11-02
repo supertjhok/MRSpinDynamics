@@ -252,8 +252,8 @@ def _emit(value: Any) -> Any:
 def _is_default(field: dataclasses.Field, value: Any) -> bool:
     if field.default is not dataclasses.MISSING:
         default = field.default
-    elif field.default_factory is not dataclasses.MISSING:  # type: ignore[misc]
-        default = field.default_factory()  # type: ignore[misc]
+    elif field.default_factory is not dataclasses.MISSING:
+        default = field.default_factory()
     else:
         return False
     if isinstance(value, np.ndarray) or isinstance(default, np.ndarray):
@@ -376,7 +376,7 @@ def _loads_toml(text: str) -> dict[str, Any]:
         import tomllib
     except ModuleNotFoundError:  # Python < 3.11
         try:
-            import tomli as tomllib  # type: ignore[no-redef]
+            import tomli as tomllib
         except ModuleNotFoundError as exc:  # pragma: no cover
             raise ConfigError(
                 "reading TOML configs requires Python 3.11+ or the 'tomli' "

@@ -188,6 +188,10 @@ Mark a snippet that cannot run in a scratch directory with
 `% snippet: skip -- reason` (LaTeX) or `<!-- snippet: skip -- reason -->`
 (Markdown) on the line above it.
 
+`tests/test_physics_invariants.py` draws its inputs with Hypothesis. The
+default profile is derandomized so CI is reproducible; for a longer randomized
+search run it with `HYPOTHESIS_PROFILE=thorough`.
+
 The static part of that list also runs automatically on each commit through
 the repository's pre-commit hooks (ruff, API-reference and validation-matrix
 regeneration, and the static snippet check). Set them up once per clone from the repository root:

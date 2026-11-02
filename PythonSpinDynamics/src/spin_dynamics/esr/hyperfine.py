@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import cast
 
 import numpy as np
 
@@ -203,7 +204,8 @@ def zeeman_hamiltonian(
     b0 = np.asarray(b0_vector_tesla_g, dtype=np.float64).reshape(3)
     if not np.all(np.isfinite(b0)):
         raise ValueError("b0_vector_tesla_g must be finite")
-    effective_field = system.g_tensor.T @ b0
+    # __post_init__ normalises g_tensor to a 3x3 ndarray.
+    effective_field = cast(np.ndarray, system.g_tensor).T @ b0
     hamiltonian = TAU * BOHR_MAGNETON_HZ_PER_T * (
         effective_field[0] * electron_operator(system, "x")
         + effective_field[1] * electron_operator(system, "y")

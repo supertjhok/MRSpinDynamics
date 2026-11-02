@@ -11,9 +11,9 @@ spin-pair constants and any convention-specific prefactors.
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import lru_cache
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol, cast
 
 import numpy as np
 
@@ -316,7 +316,8 @@ class DipolarRelaxationSource:
 
         return dipolar_coupling_tensor(
             self.vector_angstrom,
-            coupling_hz=float(self.coupling_hz),
+            # __post_init__ always resolves coupling_hz to a float.
+            coupling_hz=float(cast(float, self.coupling_hz)),
         )
 
     @property
@@ -442,6 +443,11 @@ class RedfieldEFGRelaxationModel:
     motion: MotionalAveragingModel
     secular_tolerance_rad_per_s: float = 1.0e-3
 
+    if TYPE_CHECKING:
+        # Set in __post_init__; declared for type checkers only so it stays
+        # out of the runtime dataclass fields, repr, and equality.
+        _dimension: int = field(init=False, repr=False, compare=False)
+
     def __post_init__(self) -> None:
         spin = _validate_spin(self.spin)
         amplitude = float(self.fluctuation_amplitude_hz)
@@ -491,6 +497,11 @@ class RedfieldDipolarRelaxationModel:
     coupling_covariance_rad2_per_s2: np.ndarray
     motion: MotionalAveragingModel
     secular_tolerance_rad_per_s: float = 1.0e-6
+
+    if TYPE_CHECKING:
+        # Set in __post_init__; declared for type checkers only so it stays
+        # out of the runtime dataclass fields, repr, and equality.
+        _dimension: int = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         spin = float(self.spin)
@@ -544,7 +555,12 @@ class RedfieldDipolarRelaxationModel:
                 raise ValueError(
                     "either motion or correlation_time_seconds must be provided"
                 )
-            motion = RigidSolidMotionalAveraging(correlation_time_seconds)
+            # Frozen dataclass attributes are read-only, so mypy does not match
+            # them to the protocol's plain (settable) attribute members.
+            motion = cast(
+                MotionalAveragingModel,
+                RigidSolidMotionalAveraging(correlation_time_seconds),
+            )
         elif correlation_time_seconds is not None:
             raise ValueError(
                 "pass correlation_time_seconds through the motion model, not both"
@@ -634,6 +650,11 @@ class WallCollisionRelaxationModel:
     spin: float
     collision_rate_per_second: float
     depolarization_probability: float
+
+    if TYPE_CHECKING:
+        # Set in __post_init__; declared for type checkers only so it stays
+        # out of the runtime dataclass fields, repr, and equality.
+        _dimension: int = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         spin = _validate_spin(self.spin)
@@ -1604,7 +1625,7 @@ def _validate_coefficients(
         raise ValueError(f"{name} must contain finite values")
     if any(value < 0.0 for value in values):
         raise ValueError(f"{name} must be non-negative")
-    return values
+    return cast(tuple[float, float, float], values)  # length checked above
 
 
 def _require_finite_array(values: np.ndarray, name: str) -> None:

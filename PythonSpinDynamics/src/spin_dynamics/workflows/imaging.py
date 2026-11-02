@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace as dataclass_replace
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Literal
+from typing import Literal, cast
 
 import numpy as np
 
@@ -752,7 +752,7 @@ def _finish_receiver_array_result(
             combination_covariance,
         )
         roemer_kspace_noisy = centered_kspace_from_images(roemer_image_noisy)
-        if sense_sampled_kspace is not None:
+        if sense_sampled_kspace is not None and sampling_mask is not None:
             sense_sampled_kspace_noisy = add_receiver_array_noise(
                 sense_sampled_kspace,
                 covariance,
@@ -1049,7 +1049,7 @@ def run_ideal_phase_encoded_cpmg_imaging(
     `Sim_CPMG/sim_cpmg_ideal_probe_img.m`, but returns arrays without plotting.
     """
 
-    return _ideal_phase_encoded_cpmg_imaging(
+    result = _ideal_phase_encoded_cpmg_imaging(
         rho,
         t1_map=t1_map,
         t2_map=t2_map,
@@ -1066,6 +1066,7 @@ def run_ideal_phase_encoded_cpmg_imaging(
         noise=noise,
         signal_convention=signal_convention,
     )
+    return cast(IdealCPMGImagingResult, result)
 
 
 def run_ideal_receiver_array_cpmg_imaging(
@@ -1103,7 +1104,7 @@ def run_ideal_receiver_array_cpmg_imaging(
     covariance ``E[n n^H]`` for each k-space sample.
     """
 
-    return _ideal_phase_encoded_cpmg_imaging(
+    result = _ideal_phase_encoded_cpmg_imaging(
         rho,
         t1_map=t1_map,
         t2_map=t2_map,
@@ -1131,6 +1132,7 @@ def run_ideal_receiver_array_cpmg_imaging(
         sense_rank_tolerance=sense_rank_tolerance,
         signal_convention=signal_convention,
     )
+    return cast(ReceiverArrayCPMGImagingResult, result)
 
 def run_t1_encoded_phase_encoded_cpmg_imaging(
     rho: Iterable[float] | np.ndarray | ImagingFieldMaps,
@@ -1152,7 +1154,7 @@ def run_t1_encoded_phase_encoded_cpmg_imaging(
 ) -> IdealCPMGImagingResult:
     """Run ideal phase-encoded CPMG imaging with inversion-recovery T1 prep."""
 
-    return _ideal_phase_encoded_cpmg_imaging(
+    result = _ideal_phase_encoded_cpmg_imaging(
         rho,
         t1_map=t1_map,
         t2_map=t2_map,
@@ -1169,6 +1171,7 @@ def run_t1_encoded_phase_encoded_cpmg_imaging(
         noise=noise,
         signal_convention=signal_convention,
     )
+    return cast(IdealCPMGImagingResult, result)
 
 
 def run_t1_encoded_cpmg_imaging(
@@ -1368,7 +1371,7 @@ def _ideal_phase_encoded_cpmg_imaging(
     prep_p = np.array([], dtype=np.int64)
     prep_acq = np.array([], dtype=np.int64)
     prep_grad = np.array([], dtype=np.float64)
-    if inversion_time_seconds is not None:
+    if inversion_time_seconds is not None and inversion_pulse is not None:
         tinv_delay = (np.pi / 2) * float(inversion_time_seconds) / t90
         prep_t = np.array([np.pi, tinv_delay], dtype=np.float64)
         prep_a = np.array([1.0, 0.0], dtype=np.float64)
@@ -1847,7 +1850,7 @@ def _probe_imaging(
     if probe_noise:
         kspace_noisy = np.zeros_like(kspace)
     for (ix, iz), values in zip(indices, rows):
-        if probe_noise:
+        if kspace_noisy is not None:
             clean_values, noisy_values = values
             kspace[ix, iz, :] = clean_values
             kspace_noisy[ix, iz, :] = noisy_values
@@ -1861,7 +1864,7 @@ def _probe_imaging(
         offset_seconds=2.0 * gradient_duration_seconds + t180,
     )
     noise_metadata = None
-    if probe_noise:
+    if probe_noise and noise_spec is not None:
         _dummy, noise_metadata = add_received_noise(
             np.zeros((1, del_w.size), dtype=np.complex128),
             _indexed_noise_spec(noise_spec, 0),

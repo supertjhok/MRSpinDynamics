@@ -12,7 +12,7 @@ import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 import numpy as np
 
@@ -116,7 +116,7 @@ class HarmonicFieldNormalization:
         }
 
     @classmethod
-    def from_dict(cls, value: Mapping[str, object]) -> HarmonicFieldNormalization:
+    def from_dict(cls, value: Mapping[str, Any]) -> HarmonicFieldNormalization:
         return cls(
             kind=str(value.get("kind", "absolute")),  # type: ignore[arg-type]
             reference_value=float(value.get("reference_value", 1.0)),
@@ -175,7 +175,7 @@ class HarmonicPort:
         }
 
     @classmethod
-    def from_dict(cls, value: Mapping[str, object]) -> HarmonicPort:
+    def from_dict(cls, value: Mapping[str, Any]) -> HarmonicPort:
         voltage = value.get("voltage_v")
         current = value.get("current_a")
         metadata = value.get("metadata", {})
@@ -243,7 +243,7 @@ class HarmonicMaterial:
         }
 
     @classmethod
-    def from_dict(cls, value: Mapping[str, object]) -> HarmonicMaterial:
+    def from_dict(cls, value: Mapping[str, Any]) -> HarmonicMaterial:
         metadata = value.get("metadata", {})
         if not isinstance(metadata, Mapping):
             raise ValueError("material metadata must be a mapping")
@@ -362,7 +362,7 @@ class HarmonicConvergence:
         }
 
     @classmethod
-    def from_dict(cls, value: Mapping[str, object]) -> HarmonicConvergence:
+    def from_dict(cls, value: Mapping[str, Any]) -> HarmonicConvergence:
         metadata = value.get("metadata", {})
         if not isinstance(metadata, Mapping):
             raise ValueError("convergence metadata must be a mapping")
@@ -777,7 +777,7 @@ def save_harmonic_em_npz(
 ) -> None:
     """Write the versioned harmonic-field interchange schema to NPZ."""
 
-    arrays: dict[str, object] = {
+    arrays: dict[str, Any] = {
         "schema": np.asarray(HARMONIC_EM_SCHEMA),
         "frequency_hz": np.asarray(solution.frequency_hz),
         "phasor_convention": np.asarray(solution.phasor_convention),

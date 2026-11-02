@@ -102,7 +102,7 @@ def load_cif_structure(path: str | Path) -> CIFStructure:
         _cif.cif_float(items.get("_cell_angle_beta", "90")),
         _cif.cif_float(items.get("_cell_angle_gamma", "90")),
     )
-    sym_ops = _cif.symmetry_operations_from_loops(loops)
+    sym_ops: Sequence[str] = _cif.symmetry_operations_from_loops(loops)
     if not sym_ops:
         sym_ops = ("x,y,z",)
     return CIFStructure(

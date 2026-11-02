@@ -59,6 +59,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass, field
+from typing import cast
 
 import numpy as np
 
@@ -341,8 +342,10 @@ class Conductor:
         if "subfil" in self._cache:
             return self._cache["subfil"]
         if self.cross_section == "rect":
+            # __post_init__ guarantees width/height are set for "rect".
             offsets, areas, gmd = _rect_cross_section(
-                self.width, self.height, self.n_width, self.n_height, self.grading
+                cast(float, self.width), cast(float, self.height),
+                self.n_width, self.n_height, self.grading,
             )
         else:
             offsets, areas, gmd = _round_cross_section(self.wire_radius, self.n_radial, self.n_angular)
@@ -1037,7 +1040,7 @@ def _perimeter_offsets(conductor: Conductor, delta: float, n: int) -> tuple[np.n
     """
 
     if conductor.cross_section == "rect":
-        w, h = float(conductor.width), float(conductor.height)
+        w, h = float(cast(float, conductor.width)), float(cast(float, conductor.height))
         wi, hi = max(w - delta, w * 1e-3), max(h - delta, h * 1e-3)
         perim = 2.0 * (wi + hi)
         s = (np.arange(n) + 0.5) / n * perim  # arc length around the inset rectangle
@@ -1131,7 +1134,7 @@ def extract_impedance_surface(
             r_out[idx] = z_term.real
             l_out[idx] = z_term.imag / omega
     dc_r = rho * total_len / (np.pi * conductor.wire_radius**2) if conductor.cross_section == "round" \
-        else rho * total_len / (conductor.width * conductor.height)
+        else rho * total_len / (cast(float, conductor.width) * cast(float, conductor.height))
     return PEECImpedance(frequency=freqs, inductance=l_out, resistance=r_out,
                          dc_inductance=float(l_out[0]) if l_out.size else float("nan"), dc_resistance=float(dc_r))
 
@@ -1158,7 +1161,10 @@ def current_distribution(
         raise ValueError("formulation must be 'chain' or 'full'")
     filaments, areas, gmd = conductor.subfilaments()
     if conductor.cross_section == "rect":
-        offsets, _, _ = _rect_cross_section(conductor.width, conductor.height, conductor.n_width, conductor.n_height)
+        offsets, _, _ = _rect_cross_section(
+            cast(float, conductor.width), cast(float, conductor.height),
+            conductor.n_width, conductor.n_height,
+        )
     else:
         offsets, _, _ = _round_cross_section(conductor.wire_radius, conductor.n_radial, conductor.n_angular)
     omega = 2.0 * np.pi * float(frequency)

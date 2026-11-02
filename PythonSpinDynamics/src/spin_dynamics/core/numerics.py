@@ -14,7 +14,7 @@ def trapezoid(y: Any, x: Any | None = None, axis: int = -1) -> np.ndarray:
     Keep this wrapper so public examples work in common Anaconda environments.
     """
 
-    integrator = np.trapezoid if hasattr(np, "trapezoid") else np.trapz
+    integrator = np.trapezoid if hasattr(np, "trapezoid") else getattr(np, "trapz")
     return integrator(y, x=x, axis=axis)
 
 

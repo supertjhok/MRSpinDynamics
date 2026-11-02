@@ -165,8 +165,8 @@ pul4=[pexc2 penc2 pref2]; % Sequence 4: (-y,y)
 Tgradn=(pi/2)*Tgrad/T_90; % Normalized gradient length
 % Estimate maximum gradient frequency offsets using specified FOV
 wxmax=pi*px^2/(2*FOV(1)*Tgradn); wzmax=pi*pz^2/(2*FOV(2)*Tgradn);
-gradx=wxmax*((0:px-1)-floor(px/2))/max((px-1)/2,1); % x-gradient steps, DFT-centred (index floor(px/2)+1 is k=0)
-gradz=wzmax*((0:pz-1)-floor(pz/2))/max((pz-1)/2,1); % z-gradient steps, DFT-centred
+gradx=wxmax*((0:px-1)-floor(px/2))/max((px-1)/2,0.5); % x-gradient steps, DFT-centred (index floor(px/2)+1 is k=0)
+gradz=wzmax*((0:pz-1)-floor(pz/2))/max((pz-1)/2,0.5); % z-gradient steps, DFT-centred
 
 %Get receiver transfer function
 [sp.tf]=tuned_probe_rx_tf(sp,pp); % Filtering by tuned receiver

@@ -443,7 +443,7 @@ def _integrate(values: np.ndarray, axis_values: np.ndarray, *, axis: int = -1) -
         return np.take(values, 0, axis=axis)
     if hasattr(np, "trapezoid"):
         return np.trapezoid(values, axis_values, axis=axis)
-    return np.trapz(values, axis_values, axis=axis)
+    return getattr(np, "trapz")(values, axis_values, axis=axis)
 
 
 def _rms(signal: np.ndarray) -> float:

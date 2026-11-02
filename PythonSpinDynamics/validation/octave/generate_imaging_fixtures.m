@@ -1,3 +1,4 @@
+function generate_imaging_fixtures()
 % GENERATE_IMAGING_FIXTURES
 % Generate compact MATLAB reference CSV files for CPMG imaging validation.
 
@@ -17,6 +18,7 @@ addpath(fullfile(matlab_code, 'Sim_CPMG'));
 addpath(fullfile(matlab_code, 'sim_spin_dynamics_arb'));
 addpath(fullfile(matlab_code, 'circuit_simulation', 'tuned_probe'));
 addpath(fullfile(matlab_code, 'circuit_simulation', 'matched_probe'));
+add_octave_fallbacks();
 
 params = struct();
 params.NE = 2;
@@ -34,11 +36,18 @@ write_imaging_fixture( ...
 write_imaging_fixture( ...
     fullfile(fixture_dir, 'run_tuned_cpmg_imaging_kspace.csv'), ...
     sim_cpmg_tuned_probe_img(params));
-write_imaging_fixture( ...
-    fullfile(fixture_dir, 'run_matched_cpmg_imaging_kspace.csv'), ...
-    sim_cpmg_matched_probe_img_rect(params));
+% The matched-probe response uses tf (Control System Toolbox); plain Octave
+% keeps the committed MATLAB fixture.
+if exist('tf') ~= 0
+    write_imaging_fixture( ...
+        fullfile(fixture_dir, 'run_matched_cpmg_imaging_kspace.csv'), ...
+        sim_cpmg_matched_probe_img_rect(params));
+else
+    disp('Skipping run_matched_cpmg_imaging_kspace.csv: tf (Control System Toolbox) unavailable');
+end
 
 disp(['Wrote imaging fixtures to ', fixture_dir]);
+end
 
 function write_imaging_fixture(path, kspace)
     [px, pz, ne] = size(kspace);
@@ -176,8 +185,8 @@ function [echo_int_all] = sim_cpmg_matched_probe_img_rect(params)
     Tgradn = (pi / 2) * Tgrad / T_90;
     wxmax = pi * px^2 / (2 * FOV(1) * Tgradn);
     wzmax = pi * pz^2 / (2 * FOV(2) * Tgradn);
-    gradx = wxmax * ((0:px-1) - floor(px / 2)) / max((px - 1) / 2, 1);
-    gradz = wzmax * ((0:pz-1) - floor(pz / 2)) / max((pz - 1) / 2, 1);
+    gradx = wxmax * ((0:px-1) - floor(px / 2)) / max((px - 1) / 2, 0.5);
+    gradz = wzmax * ((0:pz-1) - floor(pz / 2)) / max((pz - 1) / 2, 0.5);
 
     echo_int_all = zeros(px, pz, NE);
     for ii = 1:px
@@ -246,4 +255,16 @@ function matlab_code = resolve_matlab_code(repo_root)
         end
     end
     matlab_code = candidates{end};
+end
+
+function add_octave_fallbacks()
+    % Plain Octave lacks fmincon (Optimization Toolbox) and mvnpdf (Statistics
+    % Toolbox), which the MATLAB code uses; add bound-only/exact fallbacks.
+    compat = fullfile(fileparts(mfilename('fullpath')), 'compat');
+    if exist('fmincon') == 0
+        addpath(fullfile(compat, 'fmincon'));
+    end
+    if exist('mvnpdf') == 0
+        addpath(fullfile(compat, 'mvnpdf'));
+    end
 end

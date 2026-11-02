@@ -34,6 +34,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import cast
 
 import numpy as np
 
@@ -655,7 +656,10 @@ class PlanarMagnetostatics:
 
     def _rhs(self) -> np.ndarray:
         # -div(nu grad A) = J_z + curl(H_c) ; H_c = B_r / mu0 (bound-current model)
-        pm = np.gradient(self.hcy, self.x, axis=0) - np.gradient(self.hcx, self.y, axis=1)
+        # A single ``axis`` makes np.gradient return one array, not a tuple.
+        dhcy_dx = cast(np.ndarray, np.gradient(self.hcy, self.x, axis=0))
+        dhcx_dy = cast(np.ndarray, np.gradient(self.hcx, self.y, axis=1))
+        pm = dhcy_dx - dhcx_dy
         rhs = self.jz + pm
         rhs[0, :] = rhs[-1, :] = rhs[:, 0] = rhs[:, -1] = 0.0
         return rhs
@@ -932,7 +936,10 @@ class AxisymmetricMagnetostatics:
 
     def _rhs(self) -> np.ndarray:
         # curl(H_c)_phi = dHc_r/dz - dHc_z/dr ; weighted by r for the symmetric form
-        pm = np.gradient(self.hcr, self.z, axis=1) - np.gradient(self.hcz, self.r, axis=0)
+        # A single ``axis`` makes np.gradient return one array, not a tuple.
+        dhcr_dz = cast(np.ndarray, np.gradient(self.hcr, self.z, axis=1))
+        dhcz_dr = cast(np.ndarray, np.gradient(self.hcz, self.r, axis=0))
+        pm = dhcr_dz - dhcz_dr
         rhs = self.r[:, None] * (self.jphi + pm)
         rhs[0, :] = rhs[-1, :] = rhs[:, 0] = rhs[:, -1] = 0.0
         return rhs

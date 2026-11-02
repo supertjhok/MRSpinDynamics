@@ -14,7 +14,7 @@ probe, bad ``numpts``) are handled earlier in :mod:`spin_dynamics.experiment.pla
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Callable, Iterable
+from typing import Any, Callable, Iterable, cast
 
 import numpy as np
 
@@ -155,16 +155,16 @@ def hardware_wiring_rule(
 
     from spin_dynamics.experiment import wiring
     from spin_dynamics.experiment.hardware import RxArray
-    from spin_dynamics.experiment.specs import CPMGImaging
+    from spin_dynamics.experiment.specs import CPMGImaging, Phantom
 
     if not isinstance(experiment.sequence, CPMGImaging):
         # Unused coil specs on other sequences are reported by the generic
         # ignored-field warnings via each entry's `honors` set.
         return []
-    is_receiver_array = isinstance(experiment.hardware.rx_coil, RxArray)
-    receiver_network = (
-        experiment.hardware.rx_coil.network if is_receiver_array else None
-    )
+    # Typed Any: `is_receiver_array` guards the RxArray-only attribute uses.
+    rx_coil: Any = experiment.hardware.rx_coil
+    is_receiver_array = isinstance(rx_coil, RxArray)
+    receiver_network = rx_coil.network if is_receiver_array else None
     if is_receiver_array and experiment.hardware.probe != "ideal":
         return [
             RuleFinding(
@@ -233,7 +233,7 @@ def hardware_wiring_rule(
             )
         ]
     if is_receiver_array and sense_acceleration is not None:
-        if len(experiment.hardware.rx_coil.channels) < sense_acceleration:
+        if len(rx_coil.channels) < sense_acceleration:
             return [
                 RuleFinding(
                     rule="hardware_wiring",
@@ -263,8 +263,9 @@ def hardware_wiring_rule(
         return []
     try:
         wiring.solve_for_experiment(experiment)
+        # solve_for_experiment has just rejected a missing phantom.
         diagnostics = wiring.solve_diagnostics(
-            experiment.sample.phantom, experiment.hardware
+            cast(Phantom, experiment.sample.phantom), experiment.hardware
         )
     except ValueError as exc:
         return [
@@ -503,7 +504,7 @@ def sequence_ir_rule(experiment: Experiment, entry: WorkflowEntry) -> list[RuleF
     """Compile general IR at plan time and reject unsupported backend policy."""
 
     from spin_dynamics.experiment import sequence_adapter
-    from spin_dynamics.experiment.specs import SequenceIRExecution
+    from spin_dynamics.experiment.specs import SequenceDomain, SequenceIRExecution
 
     if not isinstance(experiment.sequence, SequenceIRExecution):
         return []
@@ -513,6 +514,8 @@ def sequence_ir_rule(experiment: Experiment, entry: WorkflowEntry) -> list[RuleF
         return [
             RuleFinding(rule="sequence_ir", severity="error", message=str(exc))
         ]
+    # prepare_for_experiment has just rejected a missing sequence_domain.
+    domain = cast(SequenceDomain, experiment.sample.sequence_domain)
     return [
         RuleFinding(
             rule="sequence_ir",
@@ -520,13 +523,13 @@ def sequence_ir_rule(experiment: Experiment, entry: WorkflowEntry) -> list[RuleF
             message=(
                 f"compiled {compiled.durations_seconds.size} intervals and "
                 f"{compiled.adc.times_seconds.size} ADC samples for a "
-                f"{len(experiment.sample.sequence_domain.axes)}-D motion backend"
+                f"{len(domain.axes)}-D motion backend"
             ),
             details={
                 "intervals": int(compiled.durations_seconds.size),
                 "adc_samples": int(compiled.adc.times_seconds.size),
                 "particles": int(
-                    np.count_nonzero(experiment.sample.sequence_domain.density > 0.0)
+                    np.count_nonzero(domain.density > 0.0)
                     * experiment.sequence.walkers_per_cell
                 ),
                 "source_format": compiled.source_format,

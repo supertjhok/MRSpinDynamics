@@ -314,7 +314,7 @@ def make_grape_objective(
         batch = jnp.stack([jnp.asarray(h, dtype=jnp.complex128) for h in hamiltonian_batch])
 
     hgrad_batch = None
-    if gradient_active:
+    if gradient_operator_batch is not None:  # i.e. gradient_active
         hgrad_batch = jnp.stack(
             [jnp.asarray(h, dtype=jnp.complex128) for h in gradient_operator_batch]
         )
@@ -339,7 +339,7 @@ def make_grape_objective(
     hy_batch = None
     controls_drift_batch = None
     controls_batch_size = None
-    if controls_active:
+    if control_operator_batch is not None:  # i.e. controls_active
         hx_batch = jnp.stack(
             [jnp.asarray(hx, dtype=jnp.complex128) for hx, _hy in control_operator_batch]
         )

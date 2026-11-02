@@ -14,6 +14,7 @@ shield) stack their loops along that same axis.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import cast
 
 import numpy as np
 
@@ -151,7 +152,9 @@ def conducting_ring(
 
     if radius <= 0:
         raise ValueError("radius must be > 0")
-    return circular_loop(np.asarray(center, dtype=np.float64), radius, axis=axis, n_segments=n_segments)
+    # circular_loop is annotated Sequence[float] but converts with np.asarray.
+    c = cast(Sequence[float], np.asarray(center, dtype=np.float64))
+    return circular_loop(c, radius, axis=axis, n_segments=n_segments)
 
 
 def cylindrical_shield(

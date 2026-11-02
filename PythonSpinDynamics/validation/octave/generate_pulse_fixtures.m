@@ -1,3 +1,4 @@
+function generate_pulse_fixtures()
 % GENERATE_PULSE_FIXTURES
 % Generate compact MATLAB reference CSV files for pulse helper validation.
 
@@ -15,6 +16,7 @@ addpath(fullfile(matlab_code, 'opt_pulse'));
 addpath(fullfile(matlab_code, 'circuit_simulation', 'tuned_probe'));
 addpath(fullfile(matlab_code, 'circuit_simulation', 'untuned_probe'));
 addpath(fullfile(matlab_code, 'circuit_simulation', 'matched_probe'));
+add_octave_fallbacks();
 
 VBB = 62.5;
 
@@ -37,21 +39,27 @@ write_complex_samples( ...
     fullfile(fixture_dir, 'pulse_untuned_rectangular.csv'), ...
     tvect2, VBB * Icr2, tvect, VBB * Ic, tf);
 
-[sp_matched, pp_matched] = set_params_matched_JMR;
-sp_matched.numpts = 17;
-sp_matched.del_w = linspace(-sp_matched.maxoffs, sp_matched.maxoffs, sp_matched.numpts);
-sp_matched.plt_tx = 0;
-sp_matched.plt_rx = 0;
-[C1, C2] = matching_network_design2(sp_matched.L, sp_matched.Q, sp_matched.f0, sp_matched.Rs, 0);
-sp_matched.C1 = C1;
-sp_matched.C2 = C2;
-pp_matched.tp = pp_matched.tref;
-pp_matched.phi = pp_matched.pref;
-pp_matched.amp = pp_matched.aref;
-[tvec2, yr2, ~, ~, tf1, tf2] = find_coil_current_orig(sp_matched, pp_matched);
-write_matched_samples( ...
-    fullfile(fixture_dir, 'pulse_matched_rectangular.csv'), ...
-    tvec2, yr2, tf1, tf2, C1, C2);
+% The matched-probe response uses tf (Control System Toolbox); plain Octave
+% keeps the committed MATLAB fixture.
+if has_control_toolbox()
+    [sp_matched, pp_matched] = set_params_matched_JMR;
+    sp_matched.numpts = 17;
+    sp_matched.del_w = linspace(-sp_matched.maxoffs, sp_matched.maxoffs, sp_matched.numpts);
+    sp_matched.plt_tx = 0;
+    sp_matched.plt_rx = 0;
+    [C1, C2] = matching_network_design2(sp_matched.L, sp_matched.Q, sp_matched.f0, sp_matched.Rs, 0);
+    sp_matched.C1 = C1;
+    sp_matched.C2 = C2;
+    pp_matched.tp = pp_matched.tref;
+    pp_matched.phi = pp_matched.pref;
+    pp_matched.amp = pp_matched.aref;
+    [tvec2, yr2, ~, ~, tf1, tf2] = find_coil_current_orig(sp_matched, pp_matched);
+    write_matched_samples( ...
+        fullfile(fixture_dir, 'pulse_matched_rectangular.csv'), ...
+        tvec2, yr2, tf1, tf2, C1, C2);
+else
+    disp('Skipping pulse_matched_rectangular.csv: tf (Control System Toolbox) unavailable');
+end
 
 phi = [-0.2, 0.1, pi/5, pi/2, pi, 1.8*pi, 2*pi + 0.2];
 pp_tuned.NumPhases = 8;
@@ -75,6 +83,7 @@ dlmwrite( ...
     'precision', '%.17g');
 
 disp(['Wrote pulse fixtures to ', fixture_dir]);
+end
 
 function write_complex_samples(path, t_rot, i_rot, t_raw, i_raw, tf)
     rot_idx = unique(round(linspace(1, length(t_rot), min(8, length(t_rot)))));
@@ -159,4 +168,20 @@ function matlab_code = resolve_matlab_code(repo_root)
         end
     end
     matlab_code = candidates{end};
+end
+
+function add_octave_fallbacks()
+    % Plain Octave lacks fmincon (Optimization Toolbox) and mvnpdf (Statistics
+    % Toolbox), which the MATLAB code uses; add bound-only/exact fallbacks.
+    compat = fullfile(fileparts(mfilename('fullpath')), 'compat');
+    if exist('fmincon') == 0
+        addpath(fullfile(compat, 'fmincon'));
+    end
+    if exist('mvnpdf') == 0
+        addpath(fullfile(compat, 'mvnpdf'));
+    end
+end
+
+function available = has_control_toolbox()
+    available = exist('tf') ~= 0;
 end

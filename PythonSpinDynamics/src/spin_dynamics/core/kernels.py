@@ -1068,14 +1068,14 @@ def sim_spin_dynamics_arb10_radiation_damping(
             mat = rtot[int(pul_j) - 1]
             mlong = np.zeros(numpts, dtype=np.complex128)
             mvect = _apply_matrix_step(mvect, mat, mlong)
-        elif amp_j > 0 and segments[int(pul_j) - 1] is not None:
+        elif amp_j > 0 and (pulse_segments := segments[int(pul_j) - 1]) is not None:
             key = (int(pul_j), del_w.tobytes())
             if key not in verified:
-                _check_pulse_segments(segments[int(pul_j) - 1], rtot[int(pul_j) - 1], del_w)
+                _check_pulse_segments(pulse_segments, rtot[int(pul_j) - 1], del_w)
                 verified.add(key)
             mvect, feedback = _advance_pulse_segments_with_radiation_damping(
                 mvect,
-                segments[int(pul_j) - 1],
+                pulse_segments,
                 del_w,
                 radiation_damping,
                 weights,

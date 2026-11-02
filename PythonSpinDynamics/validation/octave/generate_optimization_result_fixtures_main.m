@@ -25,6 +25,7 @@ addpath(fullfile(matlab_code, 'time_varying_field'));
 addpath(fullfile(matlab_code, 'circuit_simulation', 'tuned_probe'));
 addpath(fullfile(matlab_code, 'circuit_simulation', 'untuned_probe'));
 addpath(fullfile(matlab_code, 'circuit_simulation', 'matched_probe'));
+addpath(fullfile(matlab_code, 'plot_utils'));
 
 [params, sp, pp] = set_params_tuned_SPA;
 sp.numpts = 9;

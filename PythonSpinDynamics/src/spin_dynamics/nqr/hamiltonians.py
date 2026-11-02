@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 import numpy as np
 
 from spin_dynamics.nqr.operators import fundamental_operator_gap, spin_matrices
@@ -274,7 +276,7 @@ def batched_nqr_hamiltonians(
 
 def _batched_eigh(hamiltonians: np.ndarray, backend: str) -> tuple[np.ndarray, np.ndarray]:
     if backend == "numpy":
-        return np.linalg.eigh(hamiltonians)
+        return cast(tuple[np.ndarray, np.ndarray], np.linalg.eigh(hamiltonians))
     if backend == "jax":
         from spin_dynamics.nqr import _jax_eigh as je
 

@@ -402,6 +402,20 @@ class EchoRegistrationTests(unittest.TestCase):
             np.testing.assert_allclose(echo, direct, atol=1e-12)
             self.assertAlmostEqual(float(tvect[tvect.size // 2]), 0.0)
 
+    def test_exact_registration_with_odd_zero_filled_length(self) -> None:
+        # L-61 (found by tests/test_physics_invariants.py): an odd
+        # zero_fill * numpts paired fftshift/ifftshift the wrong way round, so
+        # the echo came back circularly shifted by one sample.
+        rng = np.random.default_rng(3)
+        for numpts, zero_fill in ((3, 1), (101, 1), (7, 3)):
+            wvect = np.linspace(-5.0, 5.0, numpts)
+            spect = rng.normal(size=numpts) + 1j * rng.normal(size=numpts)
+            echo, tvect = calc_time_domain_echo(
+                spect, wvect, zero_fill=zero_fill, registration="exact"
+            )
+            direct = np.exp(1j * np.outer(tvect, wvect)) @ spect / numpts
+            np.testing.assert_allclose(echo, direct, atol=1e-12)
+
     def test_matlab_registration_is_the_default(self) -> None:
         wvect = np.linspace(-10.0, 10.0, 101)
         spect = np.exp(-(wvect**2))

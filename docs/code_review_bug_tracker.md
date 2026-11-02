@@ -32,7 +32,7 @@ code, not run.
 | High | 0 | 0 | 13 | 0 |
 | CI / gates | 0 | 0 | 8 | 0 |
 | Medium | 0 | 0 | 44 | 1 |
-| Low | 0 | 0 | 57 | 3 |
+| Low | 0 | 0 | 60 | 3 |
 
 ## High
 
@@ -179,6 +179,9 @@ code, not run.
 | L-58 | core | `core/numerics.expm` (from L-01, `50df5d7`) | Regression: the shared scaling-and-squaring expm loses about 5e-12 in trace on the NQR field-relaxation Liouvillian, so `test_nqr_field_relaxation.py::test_relaxation_preserves_physical_density_matrix` fails (bisected to `50df5d7`). | Fixed | `core.numerics.expm` uses `scipy.linalg.expm` when available and a Higham 2005 Padé-13 fallback otherwise (trace error 1.07e-11 → 2.0e-13; fallback 2.8e-12). Tests: `test_core_kernel_options.py::test_large_norm_liouvillian_matches_scipy`, `::test_pade13_fallback_without_scipy`; `test_nqr_field_relaxation.py` passes again. Commit `2a61aea`. |
 | L-59 | experiment | `experiment/io.py` `LoadedRun.specification_matches` | Found while adding spec fields (survey item 7). The check re-encodes the loaded spec, so adding any defaulted field to a spec class changes the fingerprint: archives saved before such an addition (for example the receiver-array `Acquisition` fields of 2026-08-02) reported `specification_matches=False`. | Fixed | The stored spec payload is also fingerprinted as saved (`provenance.encoded_fingerprint`), so older archives match while edited ones still fail. Test: `test_experiment.py::test_archive_from_before_a_spec_field_was_added_still_matches`. Commit `6fba14a`. |
 | L-60 | docs | `user_manual.tex` quasistatic-validity and motion-sequence listings | Found by the new snippet runner (survey item 9). Two listings used removed arguments: `QuasistaticRegion(length_m=...)` (now `characteristic_length_m`) and `initialize_ensemble_from_density` without its required axes. | Fixed | Listings corrected; `docs/check_doc_snippets.py --run` now runs every snippet in CI. Commit `6fba14a`. |
+| L-61 | core | `core/echo.py` exact registration (from L-49) | Found by the new property tests (survey item 10). When `zero_fill * numpts` is odd, `registration="exact"` paired `fftshift`/`ifftshift` the wrong way round, returning the echo shifted by one sample. The default `zero_fill=4` always gives an even length, so only an explicit odd `zero_fill` was affected. | Fixed | Shifts swapped (identical for even lengths). Tests: `test_core_kernel_options.py::test_exact_registration_with_odd_zero_filled_length`, `test_physics_invariants.py::test_exact_echo_registration_is_the_direct_sum`. Commit `PENDING`. |
+| L-62 | matlab | `create_fields_single_sided.m`, `sim_cpmg_{ideal,tuned,matched}_probe_img.m`, `generate_imaging_fixtures.m` (from L-54) | Found by the Octave parity job (survey item 11). The DFT-centred grid divided by `max((n-1)/2, 1)`, which is 1 instead of 0.5 for `n = 2`, so MATLAB's 2x2 imaging k-space differed from Python's by up to 80%. | Fixed | Guard is `max((n-1)/2, 0.5)` (only `n = 1` uses it). Octave-run MATLAB now reproduces the Python imaging fixtures. Commit `PENDING`. |
+| L-63 | validation | `validation/octave/*.m` | Found with L-62. The fixture generators could not run in Octave (scripts with trailing local functions), and the tuned-train section of `generate_basic_fixtures.m` kept the peak normalization that M-44 removed from Python, so the H-01/M-12/M-44 fixture regenerations had never been checked against the MATLAB code. | Fixed | Generators are function files with Octave fallbacks for `fmincon`/`mvnpdf`, the tuned train normalizes like Python, 28 fixtures were regenerated with Octave 10.3 (all 158 tests pass), and CI runs them (`octave-parity.yml`). Matched-probe and optimizer fixtures still need MATLAB toolboxes. Commit `PENDING`. |
 
 ## Change log
 

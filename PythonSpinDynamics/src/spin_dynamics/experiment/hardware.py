@@ -13,13 +13,11 @@ The specs are pure data — solving them into field maps happens in
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Sequence
+from typing import Any
 
 from spin_dynamics.experiment.serialization import register_serializable
-from spin_dynamics.fields.coils import planar_spiral, solenoid
+from spin_dynamics.fields.coils import Segment, planar_spiral, solenoid
 from spin_dynamics.receiver_network import ReceiverNetwork
-
-Segment = tuple[Sequence[float], Sequence[float]]
 
 _AXES = ("x", "y", "z")
 _PLANES = ("xz", "xy", "yz")

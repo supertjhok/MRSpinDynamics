@@ -42,7 +42,9 @@ References
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import cast
 
 import numpy as np
 
@@ -547,7 +549,8 @@ def solenoid_field_inductance(
     pitch = float(length) / N
     centers = np.zeros((N, 3))
     centers[:, 2] = np.linspace(-0.5 * (length - pitch), 0.5 * (length - pitch), N)
-    radii = np.full(N, radius)
+    # coil_inductance is annotated Sequence[float] but converts with np.asarray.
+    radii = cast(Sequence[float], np.full(N, radius))
     return float(
         coil_inductance(radii, centers, wire_radius=wire_radius, axis="z", n_segments=n_segments)
     )

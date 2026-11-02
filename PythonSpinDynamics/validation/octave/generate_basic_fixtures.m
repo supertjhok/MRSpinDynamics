@@ -1,3 +1,4 @@
+function generate_basic_fixtures()
 % GENERATE_BASIC_FIXTURES
 % Generate Octave/MATLAB reference CSV files for early Python validation.
 
@@ -759,8 +760,11 @@ for kk = 1:3
     phi_tuned_pulse = atan2(imag(Icr_tuned_pulse), real(Icr_tuned_pulse));
     amp_tuned_pulse = abs(Icr_tuned_pulse);
     amp_tuned_pulse(amp_tuned_pulse < pp_tuned_train_default.amp_zero) = 0;
-    amp_tuned_pulse = (amp_tuned_pulse - min(amp_tuned_pulse)) / ...
-        (max(amp_tuned_pulse) - min(amp_tuned_pulse));
+    % M-44: normalize to the steady-state coil current of the drive, as
+    % spin_dynamics.workflows.cpmg does, not to the gate-on peak, whose
+    % overshoot depends on the absolute RF phase.
+    amp_tuned_pulse = amp_tuned_pulse / tuned_steady_state_current( ...
+        sp_tuned_train, pp_curr_tuned, pulse_amp_tuned_train(kk));
     amp_tuned_pulse(amp_tuned_pulse < pp_tuned_train_default.amp_zero) = 0;
 
     pp_out_tuned = struct();
@@ -1132,6 +1136,7 @@ catch matched_train_fixture_error
 end
 
 disp(['Wrote fixtures to ', fixture_dir]);
+end
 
 function matlab_code = resolve_matlab_code(repo_root)
     parent = fileparts(repo_root);
@@ -1146,4 +1151,16 @@ function matlab_code = resolve_matlab_code(repo_root)
         end
     end
     matlab_code = candidates{end};
+end
+
+function current = tuned_steady_state_current(sp, pp, amplitude)
+    % Driven (particular) solution of the series-RLC model in tuned_probe_lp,
+    % matching spin_dynamics.workflows.cpmg._tuned_steady_state_current.
+    wp = 1 / sqrt(sp.L * sp.C);
+    Z0 = sqrt(sp.L / sp.C);
+    rs = pp.Rsref(1);
+    w = pp.w / wp;
+    gamma = 0.5 * (sp.R / Z0 + Z0 / rs);
+    wn_sq = 1 + sp.R / rs;
+    current = 0.5 * abs(amplitude) / (rs * abs(wn_sq - w^2 + 2i * gamma * w));
 end

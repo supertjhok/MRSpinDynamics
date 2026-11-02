@@ -7,7 +7,7 @@ MATLAB reference folder:
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 
@@ -300,7 +300,8 @@ def tuned_probe_rx(
     vsig = trapezoid(mrx * mf, del_w)
     vnoise = np.sqrt(trapezoid(pnoise * np.abs(mf) ** 2, f))
     snr = float(np.real(vsig) / vnoise)
-    return mrx, snr, vsig
+    # A 1-D trapezoid integral is a NumPy complex scalar (a complex subclass).
+    return mrx, snr, cast(complex, vsig)
 
 
 def calc_rot_axis_tuned_probe_lp_orig2(

@@ -4,6 +4,43 @@ Compact reference arrays consumed by `tests/octave_fixtures/`. Most files are
 written by the Octave/MATLAB generators in `validation/octave/` (CSV written
 with `dlmwrite(..., 'precision', '%.17g')`).
 
+## Regenerating with Octave
+
+The generators are function files, so call them by name from
+`PythonSpinDynamics/`:
+
+```bash
+octave --no-gui --no-window-system --eval "addpath('validation/octave'); generate_basic_fixtures();"
+```
+
+and likewise `generate_pulse_fixtures`, `generate_imaging_fixtures` and
+`generate_optimization_fixtures`. Plain Octave lacks `fmincon` and `mvnpdf`;
+the pulse and imaging generators then add the bound-only and exact fallbacks
+in `validation/octave/compat/`. The matched-probe arrays
+(`pulse_matched_rectangular.csv`, `run_matched_cpmg_imaging_kspace.csv`) need
+`tf` from the Control System Toolbox and are skipped without it, and
+`generate_optimization_result_fixtures` needs the Optimization Toolbox, so
+those files keep their committed MATLAB (or documented Python) values. The
+`Octave parity` CI workflow runs the four generators and then
+`tests/test_basic_octave_fixtures.py` against their output.
+
+On 2026-11-02 the four generators were run with Octave 10.3, which reproduced
+the July MATLAB imaging fixture to about 1e-15 relative error when given the
+July MATLAB code. Their 28 output files replaced the Python-regenerated values
+described below; all 158 fixture tests pass against them. Getting there fixed
+three problems the earlier Python-only regeneration could not see:
+
+- The generators were scripts with local functions after the main body,
+  which MATLAB accepts and Octave does not; they are now function files.
+- The tuned-train section of `generate_basic_fixtures.m` still peak-normalized
+  the pulse shapes (M-44); it now normalizes to the steady-state coil current
+  like `spin_dynamics.workflows.cpmg`.
+- The centred-grid edits for L-54 in `create_fields_single_sided.m`, the three
+  `sim_cpmg_*_probe_img.m` scripts and the imaging generator divided by
+  `max((n-1)/2, 1)`, which is `1` instead of `0.5` for `n = 2`, so the 2x2
+  imaging fixtures disagreed with Python. The guard is now
+  `max((n-1)/2, 0.5)`, which only matters for `n = 1`.
+
 ## Tuned-probe fixtures regenerated after the Version 3 transient correction
 
 `MATLABSpinDynamics/Version_3/code/circuit_simulation/tuned_probe/tuned_probe_lp.m`

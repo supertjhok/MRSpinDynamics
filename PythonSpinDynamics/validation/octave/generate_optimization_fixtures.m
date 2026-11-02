@@ -1,3 +1,4 @@
+function generate_optimization_fixtures()
 % GENERATE_OPTIMIZATION_FIXTURES
 % Generate compact MATLAB reference CSV files for optimization parity checks.
 
@@ -46,6 +47,7 @@ dlmwrite( ...
     'precision', '%.17g');
 
 disp(['Wrote optimization fixtures to ', fixture_dir]);
+end
 
 function [mrx, masy, snr] = evaluate_tuned_excitation_fixture(phases, neff, sp, pp)
     T_90 = pp.T_90;

@@ -9,7 +9,7 @@ quadrature combinations.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable, Sequence
+from typing import Iterable, Sequence, cast
 
 import numpy as np
 
@@ -23,6 +23,8 @@ from spin_dynamics.fields.validity import (
 )
 
 Segment = tuple[np.ndarray, np.ndarray]
+# Endpoint type in the biot_savart signature; ndarray endpoints are accepted.
+_BiotSavartSegments = Sequence[tuple[Sequence[float], Sequence[float]]]
 
 _AXIS_FRAMES = {
     "x": (
@@ -141,7 +143,8 @@ class BirdcageGeometry:
                 self.ring_segments_per_section + 1,
             )
             points = (
-                self.center[np.newaxis, :]
+                # __post_init__ stores center as a read-only ndarray.
+                cast(np.ndarray, self.center)[np.newaxis, :]
                 + axial[np.newaxis, :]
                 + self.radius
                 * (
@@ -342,7 +345,9 @@ def _branch_field(
 ) -> np.ndarray:
     if current_a == 0.0:
         return np.zeros(points.shape, dtype=np.complex128)
-    return current_a * biot_savart(points, segments, current=1.0)
+    return current_a * biot_savart(
+        points, cast(_BiotSavartSegments, segments), current=1.0
+    )
 
 
 @dataclass(frozen=True)
@@ -360,7 +365,7 @@ class BirdcageFieldSolution:
 def solve_birdcage_field(
     geometry: BirdcageGeometry,
     mode: BirdcageCurrentMode,
-    points_m: np.ndarray,
+    points_m: np.ndarray | Sequence[float],
     *,
     b0_direction: Sequence[float] | np.ndarray | None = None,
     frequency_hz: float | None = None,
@@ -396,11 +401,11 @@ def solve_birdcage_field(
         stacklevel=3,
     )
     field = np.zeros(points.shape, dtype=np.complex128)
-    for segments, current in zip(
+    for rung_segment, current in zip(
         geometry.rung_segments(),
         mode.rung_currents_a,
     ):
-        field += _branch_field(points, (segments,), current)
+        field += _branch_field(points, (rung_segment,), current)
     for segments, current in zip(
         geometry.positive_end_ring_sections,
         mode.positive_end_ring_currents_a,

@@ -21,6 +21,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass, field
+from typing import cast
 
 import numpy as np
 
@@ -30,6 +31,7 @@ from spin_dynamics.nqr.full_dynamics import (
 )
 from spin_dynamics.nqr.hamiltonians import diagonalize_site
 from spin_dynamics.nqr.simulation import equilibrium_density
+from spin_dynamics.nqr.systems import QuadrupolarSite
 from spin_dynamics.core._jax_kernels import x64_enabled
 from spin_dynamics.optimal_control._jax_propagation import (
     JAX_AVAILABLE,
@@ -113,7 +115,7 @@ def _build_model(config: MultiAxisSLSEConfig) -> dict:
     if config._built:
         return config._built
 
-    eigensystem = diagonalize_site(config.site, None)
+    eigensystem = diagonalize_site(cast(QuadrupolarSite, config.site), None)
     carrier = _carrier(config, eigensystem)
     dim = eigensystem.site.dimension
     n_coils = config.n_coils
@@ -453,7 +455,8 @@ def optimize_multi_axis_slse(
 
     return MultiAxisSLSEResult(
         config=config,
-        best_x=best_x,
+        # n_starts >= 1, so best_x is set unless every start scored NaN/-inf.
+        best_x=cast(np.ndarray, best_x),
         best_energy=float(best_energy),
         start_energies=np.asarray(start_energies),
         seed_energies=np.asarray(seed_energies),

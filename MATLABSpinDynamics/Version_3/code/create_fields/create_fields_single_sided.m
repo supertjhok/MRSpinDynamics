@@ -16,8 +16,8 @@ end
 % Pulsed offset: gradients in (x,z) plane
 nx=sp.nx; nz=sp.nz; % Size of (x,z) plane
 x1=linspace(1,nx,nx); z1=linspace(1,nz,nz);
-del_wgx=((0:nx-1)-floor(nx/2))/max((nx-1)/2,1); % Normalized, DFT-centred (equals linspace(-1,1,nx) for odd nx)
-del_wgz=((0:nz-1)-floor(nz/2))/max((nz-1)/2,1);
+del_wgx=((0:nx-1)-floor(nx/2))/max((nx-1)/2,0.5); % Normalized, DFT-centred (equals linspace(-1,1,nx) for odd nx)
+del_wgz=((0:nz-1)-floor(nz/2))/max((nz-1)/2,0.5);
 
 del_wgx=repmat(del_wgx',1,nz);
 del_wgz=repmat(del_wgz,nx,1);

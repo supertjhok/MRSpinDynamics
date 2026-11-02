@@ -501,7 +501,9 @@ def _longitudinal_phase_kick_matrix(
     pulse_start_phase_rad: float,
     pulse_kind: str,
 ) -> MatrixElements | None:
-    model = None if spec is None else spec.transient_model
+    if spec is None:
+        return None
+    model = spec.transient_model
     if not isinstance(model, LongitudinalPhaseKick):
         return None
     end_phase = (
@@ -690,7 +692,7 @@ def _build_absolute_phase_rtot_segments_and_pul(
     unique_shapes: list[PulseShape] = []
 
     for echo_idx, matrix_phase in enumerate(matrix_phases):
-        if spec.phase_bins is not None:
+        if refocus_bins is not None:
             key: int | float = int(refocus_bins[echo_idx])
         else:
             key = round(float(matrix_phase) / (2.0 * np.pi), 12)
@@ -1917,8 +1919,9 @@ def run_matched_cpmg(
     )
     mrx, masy, snr = calc_masy_matched_probe_orig(sp, pp)
     echo, tvect = calc_time_domain_echo(mrx, del_w)
-    sp_noise = sp
-    if as_noise_spec(noise) is not None and as_noise_spec(noise).model == "probe":
+    sp_noise: Any = sp
+    noise_spec = as_noise_spec(noise)
+    if noise_spec is not None and noise_spec.model == "probe":
         sp_match, tf1 = _matched_excitation_tf1(sp, pp)
         sp_noise = _with_fields(sp_match, tf1=tf1)
     mrx_noisy, noise_metadata = _add_optional_spectrum_noise(

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal, cast
 
 import numpy as np
 
@@ -803,10 +803,12 @@ def run_pgse(
     Both report the same Stejskal-Tanner ``b_value`` for the same gradients.
     """
 
+    # Each backend checks its own keywords when called.
+    options = cast("dict[str, Any]", kwargs)
     if backend == "moment":
-        return run_pgse_moment(**kwargs)
+        return run_pgse_moment(**options)
     if backend == "walkers":
-        return run_pgse_walkers(**kwargs)
+        return run_pgse_walkers(**options)
     raise ValueError("backend must be 'moment' or 'walkers'")
 
 

@@ -23,6 +23,7 @@ import shutil
 import tempfile
 import time
 from dataclasses import dataclass
+from typing import cast
 
 import numpy as np
 
@@ -40,7 +41,8 @@ def _bar_dimensions(conductor: Conductor) -> tuple[float, float]:
     """Return the FastHenry (width, height) for the conductor's cross-section (m)."""
 
     if conductor.cross_section == "rect":
-        return float(conductor.width), float(conductor.height)
+        # Conductor.__post_init__ guarantees width/height are set for "rect".
+        return float(cast(float, conductor.width)), float(cast(float, conductor.height))
     # Round wire -> square bar of equal cross-sectional area.
     side = float(np.sqrt(np.pi) * conductor.wire_radius)
     return side, side
@@ -167,7 +169,7 @@ def run_fasthenry(
     if freqs.size == 0 or not np.all(np.isfinite(freqs)) or np.any(freqs <= 0.0):
         raise ValueError("frequencies must be finite and positive")
     own_tmpdir = workdir is None
-    tmpdir = tempfile.mkdtemp(prefix="fasthenry_") if own_tmpdir else workdir
+    tmpdir = tempfile.mkdtemp(prefix="fasthenry_") if workdir is None else workdir
     ind = np.empty(freqs.size)
     res = np.empty(freqs.size)
     doc = None

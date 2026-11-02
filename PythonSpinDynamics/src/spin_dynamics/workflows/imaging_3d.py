@@ -23,6 +23,7 @@ reconstructed with ``ifftn``) is a separate workflow left for later.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import cast
 
 import numpy as np
 
@@ -40,6 +41,10 @@ from spin_dynamics.workflows.slice_selective import (
     resolve_time_bandwidth,
     slice_excitation_weights,
 )
+
+# ``MotionSequenceStep.gradient`` is annotated for 2-D ensembles, but the motion
+# engine takes one component per domain axis; the steps here carry (x, y, z).
+_StepGradient = tuple[float, float]
 
 
 @dataclass(frozen=True)
@@ -242,7 +247,7 @@ def run_multislice_imaging(
         return [
             MotionSequenceStep(
                 duration=refocusing_duration,
-                gradient=(0.0, 0.0, 0.0),
+                gradient=cast(_StepGradient, (0.0, 0.0, 0.0)),
                 rf_amplitude=np.pi / refocusing_duration,
                 rf_phase=0.0,
                 substeps=sub,
@@ -250,13 +255,13 @@ def run_multislice_imaging(
             ),
             MotionSequenceStep(
                 duration=phase_time,
-                gradient=(moment_predephase, 0.0, moment_pe),
+                gradient=cast(_StepGradient, (moment_predephase, 0.0, moment_pe)),
                 substeps=sub,
                 label="dephase_encode",
             ),
             MotionSequenceStep(
                 duration=readout_time,
-                gradient=(moment_readout, 0.0, 0.0),
+                gradient=cast(_StepGradient, (moment_readout, 0.0, 0.0)),
                 acquire=True,
                 num_samples=nx,
                 substeps=sub,
@@ -264,7 +269,7 @@ def run_multislice_imaging(
             ),
             MotionSequenceStep(
                 duration=phase_time,
-                gradient=(moment_rewind, 0.0, -moment_pe),
+                gradient=cast(_StepGradient, (moment_rewind, 0.0, -moment_pe)),
                 substeps=sub,
                 label="rewind",
             ),
@@ -282,7 +287,7 @@ def run_multislice_imaging(
                 steps.append(
                     MotionSequenceStep(
                         duration=pre_180_gap,
-                        gradient=(0.0, 0.0, 0.0),
+                        gradient=cast(_StepGradient, (0.0, 0.0, 0.0)),
                         substeps=sub,
                         label="te_centering",
                     )

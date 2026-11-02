@@ -40,6 +40,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from math import pi
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 
@@ -215,6 +216,11 @@ class UntunedProbeResponse(EnvelopeResponse):
     oversample: int = 4
     tail: TailSpec = TailSpec()
 
+    if TYPE_CHECKING:
+        # Set in __post_init__; declared for type checkers only so it stays
+        # out of the runtime dataclass fields, repr, and equality.
+        _tau_complex: complex = field(init=False, repr=False, compare=False)
+
     def __post_init__(self) -> None:
         if self.inductance_h <= 0 or self.resistance_ohm <= 0 or self.carrier_hz <= 0:
             raise ValueError("inductance_h, resistance_ohm, carrier_hz must be positive")
@@ -253,6 +259,11 @@ class MatchedProbeResponse(EnvelopeResponse):
     extra_detuning_hz: float = 0.0
     oversample: int = 8
     tail: TailSpec = TailSpec()
+
+    if TYPE_CHECKING:
+        # Set in __post_init__; declared for type checkers only so it stays
+        # out of the runtime dataclass fields, repr, and equality.
+        _gain: complex = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         if self.tau_main <= 0 or self.tau_extra <= 0:
@@ -460,7 +471,7 @@ class ReceiverResponse:
         sampled = self._sample_freqs is not None
         if analytic == sampled:
             raise ValueError("provide exactly one of an analytic tau or sampled (freqs, tf)")
-        if analytic and self.tau <= 0:
+        if self.tau is not None and self.tau <= 0:  # i.e. analytic
             raise ValueError("tau must be positive")
         if sampled:
             f = np.asarray(self._sample_freqs, dtype=np.float64).reshape(-1)
@@ -482,9 +493,12 @@ class ReceiverResponse:
 
         if self.tau is not None:
             return 1.0 / (1.0 + 1j * (2.0 * pi * self.tau) * (freqs - self.detuning_hz))
+        # __post_init__ guarantees the sampled pair whenever tau is None.
+        sample_freqs = cast(np.ndarray, self._sample_freqs)
+        sample_tf = cast(np.ndarray, self._sample_tf)
         f = np.asarray(freqs, dtype=np.float64)
-        re = np.interp(f, self._sample_freqs, self._sample_tf.real)
-        im = np.interp(f, self._sample_freqs, self._sample_tf.imag)
+        re = np.interp(f, sample_freqs, sample_tf.real)
+        im = np.interp(f, sample_freqs, sample_tf.imag)
         h = re + 1j * im
         return xp.asarray(h) if xp is not np else h
 
