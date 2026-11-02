@@ -1563,6 +1563,7 @@ For model selection, units and worked examples, use the [user manual](manual.md)
 
 | Kind | Name | Summary |
 | --- | --- | --- |
+| function | `g_weighted_spin_operators(g_tensor: np.ndarray, spin: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]` | Return ``((g / g_e) S)_k = sum_j g_kj S_j / g_e`` for k = x, y, z. |
 | function | `effective_g_vector(system: ESRSpinSystem, b0_direction_g: np.ndarray \| Sequence[float]) -> np.ndarray` | Return ``g^T n`` for a unit static-field direction in the ``g`` frame. |
 | function | `effective_g_value(system: ESRSpinSystem, b0_direction_g: np.ndarray \| Sequence[float]) -> float` | Return the ESR effective ``g`` value for a static-field direction. |
 | function | `resonance_frequency_hz(system: ESRSpinSystem, b0_vector_tesla_g: float \| np.ndarray \| Sequence[float]) -> float` | Return the spin-1/2 ESR transition frequency in hertz. |

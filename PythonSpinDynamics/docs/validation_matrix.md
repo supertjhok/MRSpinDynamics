@@ -20,8 +20,8 @@ what supports the underlying scientific or numerical claim.
 
 ## Coverage Summary
 
-- 50 capability-level claims
-- 22 validated
+- 52 capability-level claims
+- 24 validated
 - 23 partially validated
 - 5 regression-only
 
@@ -77,6 +77,8 @@ what supports the underlying scientific or numerical claim.
 | Strongly coupled spin-1/2 Hamiltonians and density-matrix propagation | The isotropic scalar-coupling Hamiltonian and unitary propagation reproduce nmrsim's second-order line lists, including weak and combination lines, for AB, AB2, ABX, AA'BB' and five-spin systems. | **C** | validated |
 | Quadrupolar plus Zeeman eigenproblem and NQR transition list | Energy levels, transition frequencies and summed dipole strengths from diagonalize_site match an independent QuTiP construction of the textbook Hamiltonian from the quadrupole coupling constant, for spins 1, 3/2, 5/2 and 7/2 at zero and arbitrary-orientation fields. | **C**, **A** | validated |
 | Coupled electron-nuclear Overhauser Lindblad dynamics | Driven rotating-frame trajectories and steady states of CoupledElectronNuclearModel agree with QuTiP's mesolve and steadystate, and the undriven steady state is QuTiP's own Gibbs state. | **C**, **A** | validated |
+| Electron-nuclear hyperfine ESR resonance fields and line intensities | Resonance fields and relative field-swept intensities of every allowed and forbidden transition agree with EasySpin's exact resfields for isotropic g and hyperfine couplings, including the Breit-Rabi hydrogen atom. | **C** | validated |
+| Field-swept powder spectra for anisotropic g tensors | Field-swept powder spectra of a rhombic g tensor match EasySpin pepper with its default Aasa-Vanngard (Freq2Field) weighting. | **C** | validated |
 
 ## Detailed Evidence
 
@@ -425,7 +427,7 @@ what supports the underlying scientific or numerical claim.
 - **Metric:** Resonance field/frequency, splitting, normalization, decay, and echo timing
 - **Tolerance:** Analytical numerical tolerances declared per test.
 - **References:** Standard spin-1/2 ESR resonance and hyperfine formulas
-- **Reproduce:** [`tests/test_esr.py::test_isotropic_resonance_frequency_uses_bohr_magneton_scale`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_esr.py#L44); [`tests/test_esr.py::test_single_nucleus_hyperfine_doublet_splitting_matches_coupling`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_esr.py#L346); [`tests/test_esr.py::test_detuned_isochromat_ensemble_rephases_at_hahn_echo_time`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_esr.py#L555)
+- **Reproduce:** [`tests/test_esr.py::test_isotropic_resonance_frequency_uses_bohr_magneton_scale`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_esr.py#L45); [`tests/test_esr.py::test_single_nucleus_hyperfine_doublet_splitting_matches_coupling`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_esr.py#L351); [`tests/test_esr.py::test_detuned_isochromat_ensemble_rephases_at_hahn_echo_time`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_esr.py#L582)
 - **Limitations:** No broad experimental spectral library comparison. Multi-electron and general anisotropic hyperfine systems remain incomplete.
 
 ### Small scalar-coupled spin systems
@@ -679,3 +681,27 @@ what supports the underlying scientific or numerical claim.
 - **References:** https://qutip.org; https://doi.org/10.1016/j.cpc.2012.11.019
 - **Reproduce:** [`tests/test_external_references.py::test_overhauser_dynamics_match_qutip_mesolve`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_external_references.py#L239); [`tests/test_external_references.py::test_overhauser_steady_state_matches_qutip`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_external_references.py#L259)
 - **Limitations:** The jump operators come from the model, so the comparison validates Liouvillian assembly, propagation and the steady-state solve, not the choice of relaxation rates. Detailed balance is checked independently through the undriven Gibbs state.
+
+### Electron-nuclear hyperfine ESR resonance fields and line intensities
+
+- **Claim:** Resonance fields and relative field-swept intensities of every allowed and forbidden transition agree with EasySpin's exact resfields for isotropic g and hyperfine couplings, including the Breit-Rabi hydrogen atom.
+- **Evidence:** C (validated)
+- **Basis:** EasySpin 6.0.15 resfields (matrix diagonalization, RediagLimit 1, Threshold 0) against root-found resonances of our Hamiltonian, with transition probability |<l|(g/g_e)Sx|u>|^2 divided by the Hellmann-Feynman d(nu)/dB as EasySpin's Freq2Field factor.
+- **Tested range:** 9.5 GHz; hydrogen atom (A = 1420.4 MHz), a 50 MHz proton, 45 MHz 14N, and 1H plus 14N (30 and 45 MHz) with four forbidden lines near 1.2e-4 relative intensity.
+- **Metric:** Absolute resonance-field difference and relative-intensity agreement
+- **Tolerance:** 1e-4 mT in field (nuclear-constant and CODATA differences); 2e-3 relative intensity.
+- **References:** https://easyspin.org; https://doi.org/10.1016/j.jmr.2005.08.013
+- **Reproduce:** [`tests/test_easyspin_references.py::test_hyperfine_resonance_fields_and_intensities_match_easyspin`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_easyspin_references.py#L80); [`validation/easyspin/generate_easyspin_references.m`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/validation/easyspin/generate_easyspin_references.m)
+- **Limitations:** Isotropic hyperfine only; anisotropic hyperfine tensors and nuclear quadrupole couplings are not modelled. EasySpin's default RediagLimit (0.95) interpolates eigenvectors and overstates these forbidden lines by about 10%; the references use exact rediagonalization.
+
+### Field-swept powder spectra for anisotropic g tensors
+
+- **Claim:** Field-swept powder spectra of a rhombic g tensor match EasySpin pepper with its default Aasa-Vanngard (Freq2Field) weighting.
+- **Evidence:** C (validated)
+- **Basis:** EasySpin 6.0.15 pepper (GridSize [181 4], 1 mT Gaussian FWHM) against simulate_field_sweep on a 128 x 256 x 3 powder grid; the comparison also confirms the g-weighted transition moment from single-crystal amplitude ratios (g_z^2/g_x^2 = 1.2729).
+- **Tested range:** g = (1.95, 2.05, 2.20) at 9.5 GHz, 295-360 mT.
+- **Metric:** Maximum area-normalized spectral difference relative to the peak
+- **Tolerance:** 0.8% (the spectrum without the 1/g factor differs by 2%, which the test requires).
+- **References:** https://easyspin.org; https://doi.org/10.1016/0022-2364(75)90045-1
+- **Reproduce:** [`tests/test_easyspin_references.py::test_rhombic_powder_spectrum_matches_easyspin_pepper`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/tests/test_easyspin_references.py#L99); [`validation/easyspin/generate_easyspin_references.m`](https://github.com/supertjhok/MRSpinDynamics/blob/main/PythonSpinDynamics/validation/easyspin/generate_easyspin_references.m)
+- **Limitations:** Spin-1/2 Zeeman-only systems; zero-field splitting, hyperfine anisotropy and strain models are not compared. The package's default powder grid is much coarser than the one this comparison uses.

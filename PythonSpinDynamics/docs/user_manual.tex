@@ -1729,7 +1729,12 @@ b_res = resonance_field_tesla(system, microwave_frequency_hz=9.5e9)
 
 Frequency-swept and field-swept helpers broaden orientation-resolved ESR lines
 with Gaussian or Lorentzian profiles. The same helpers can return absorption
-or first-derivative CW-style spectra:
+or first-derivative CW-style spectra. Line intensities use the transition
+moment \(\langle l|(\mathbf{g}/g_e)\mathbf{S}|u\rangle\), because the microwave
+field couples through the \(g\) tensor, and field-swept spectra carry the
+Aasa--V\"anngard factor \(g_e/g_{\text{eff}}\); both match EasySpin. The default
+powder grid is coarse, so pass a finer \code{powder\_average\_grid} when the
+\(g\) anisotropy spans many linewidths:
 
 \begin{lstlisting}[language=Python]
 from spin_dynamics.esr import simulate_field_sweep

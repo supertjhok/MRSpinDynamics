@@ -9,6 +9,7 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
+from spin_dynamics.constants import FREE_ELECTRON_G  # noqa: E402
 from spin_dynamics.esr import (  # noqa: E402
     BOHR_MAGNETON_HZ_PER_T,
     ESRDistributionSample,
@@ -74,7 +75,10 @@ class ESRTests(unittest.TestCase):
             eigensystem.transitions[0].frequency_hz,
             resonance_frequency_hz(system, [0.0, 0.0, 0.35]),
         )
-        self.assertAlmostEqual(eigensystem.transitions[0].strength, np.sqrt(0.5))
+        # The transition moment is (g / g_e) S, relative to a free electron.
+        self.assertAlmostEqual(
+            eigensystem.transitions[0].strength, np.sqrt(0.5) * 2.0 / FREE_ELECTRON_G
+        )
 
     def test_field_sweep_places_isotropic_line_at_resonance_field(self) -> None:
         system = ESRSpinSystem(g_tensor=2.0)
@@ -90,7 +94,8 @@ class ESRTests(unittest.TestCase):
         expected = resonance_field_tesla(system, microwave_frequency_hz)
         self.assertEqual(len(result.lines), 1)
         self.assertAlmostEqual(result.lines[0].field_tesla, expected)
-        self.assertAlmostEqual(result.lines[0].intensity, 0.25)
+        # |b1 . (g / g_e) S|^2 = 0.25 (g / g_e)^2, times the field-swept g_e / g.
+        self.assertAlmostEqual(result.lines[0].intensity, 0.25 * 2.0 / FREE_ELECTRON_G)
         self.assertAlmostEqual(
             result.fields_tesla[np.argmax(result.spectrum)],
             expected,
@@ -458,11 +463,14 @@ class ESRTests(unittest.TestCase):
             fields_tesla=fields,
             detection_mode="derivative",
         )
-        # Intensities are per electron (L-16), so no multiplicity factor.
+        # Intensities are per electron (L-16), so no multiplicity factor. The
+        # field sweep applies the Aasa-Vanngard factor g_e / g explicitly; the
+        # frequency-broadened hyperfine sweep gets 1/g through its width, so
+        # at matched widths the two differ by g / g_e (1 for a free electron).
         scale = float(np.max(np.abs(reference.spectrum)))
         np.testing.assert_allclose(
             hyperfine.spectrum,
-            reference.spectrum,
+            reference.spectrum * g / FREE_ELECTRON_G,
             rtol=0.0,
             atol=1.0e-6 * scale,
         )
@@ -499,9 +507,28 @@ class ESRTests(unittest.TestCase):
                 broadening_hz=broadening_hz,
                 fields_tesla=fields,
             )
+            # g / g_e: see test_hyperfine_derivative_matches_field_sweep_derivative_convention.
             np.testing.assert_allclose(
-                hyperfine.spectrum, reference.spectrum, rtol=0.0, atol=1.0e-9
+                hyperfine.spectrum,
+                reference.spectrum * g / FREE_ELECTRON_G,
+                rtol=0.0,
+                atol=1.0e-9,
             )
+
+    def test_microwave_field_couples_through_the_g_tensor(self) -> None:
+        # Found by the EasySpin comparison: the transition moment was <S>, so
+        # anisotropic powder patterns weighted orientations wrongly. With B0
+        # along z and B1 along x the weight is (g_x / g_e)^2 / 4, times the
+        # field-swept g_e / g_z.
+        g = (1.95, 2.05, 2.20)
+        result = simulate_field_sweep(ESRSpinSystem(g_tensor=g), 9.5e9, points=65)
+        expected = (g[0] / FREE_ELECTRON_G) ** 2 / 4.0 * FREE_ELECTRON_G / g[2]
+        self.assertAlmostEqual(result.lines[0].intensity, expected, places=12)
+        eigensystem = diagonalize_system(ESRSpinSystem(g_tensor=g), [0.0, 0.0, 0.3])
+        moment = eigensystem.transitions[0].dipole_vector
+        np.testing.assert_allclose(
+            np.abs(moment[:2]), np.array(g[:2]) / FREE_ELECTRON_G / 2.0, rtol=1e-12
+        )
 
     def test_width_from_fwhm_matches_measured_half_maximum(self) -> None:
         # L-15: ``width`` is sigma for Gaussian but HWHM for Lorentzian; the

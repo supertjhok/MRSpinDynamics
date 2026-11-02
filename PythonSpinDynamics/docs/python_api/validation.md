@@ -101,6 +101,8 @@ rebuilds selected models with independent packages:
 | [nmrsim](https://github.com/sametz/nmrsim) | Strongly coupled spin-1/2 FIDs against second-order line lists (AB to five spins) | `external_nmrsim_coupled_spin_spectra` |
 | [QuTiP](https://qutip.org) | Quadrupolar plus Zeeman levels, lines and strengths for spins 1 to 7/2 | `external_qutip_quadrupolar_zeeman` |
 | QuTiP `mesolve`/`steadystate` | Driven Overhauser Lindblad trajectories, steady states and the Gibbs state | `external_qutip_overhauser_lindblad` |
+| [EasySpin](https://easyspin.org) `resfields` | Hyperfine resonance fields and intensities, including forbidden lines and the hydrogen atom | `external_easyspin_hyperfine_resonances` |
+| EasySpin `pepper` | Rhombic-g field-swept powder spectra with the Aasa-Vanngard factor | `external_easyspin_rhombic_powder` |
 
 Install the reference codes with the `crossval` extra and run the file:
 
@@ -111,5 +113,10 @@ python -m pytest -q tests/test_external_references.py
 
 Without the packages the tests skip. The `external-references` CI job sets
 `SPIN_DYNAMICS_REQUIRE_CROSSVAL=1`, which turns a missing package into a
-failure. EasySpin and Spinach (MATLAB) and SIMPSON (a separately licensed
-binary) are not yet part of this comparison.
+failure.
+
+EasySpin runs in MATLAB, so `validation/easyspin/generate_easyspin_references.m`
+writes its results to `validation/external/easyspin/` and
+`tests/test_easyspin_references.py` compares against those committed files in
+every test run. Rerun the generator with EasySpin on the MATLAB path after
+changing the cases. Spinach and SIMPSON are not yet part of the comparison.

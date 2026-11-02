@@ -82,9 +82,20 @@ result = simulate_field_sweep(
 ```
 
 Both helpers return broadened Gaussian spectra plus orientation-resolved
-`ESRLine` metadata. Intensities include the microwave `B1` projection onto the
-transition dipole, so a `B1` direction parallel to the spin quantization axis is
-dark.
+`ESRLine` metadata. Intensities are `|B1 . <l|(g / g_e) S|u>|^2`: the microwave
+field couples through the g tensor, as the static field does, so an anisotropic
+g weights orientations by their perpendicular g components, and a `B1` direction
+parallel to the spin quantization axis is dark. Intensities are relative to a
+free electron. Field-swept spectra also carry the Aasa-Vanngard factor
+`g_e / g_eff`, because a line of fixed frequency-domain weight spans
+`1 / (g_eff mu_B)` of field. Both conventions match EasySpin's defaults
+(`tests/test_easyspin_references.py`).
+
+The default `orientations="powder"` grid (16 x 32 x 8 orientations) is coarse:
+when the g anisotropy spans many linewidths the spectrum shows grid spikes.
+Pass `powder_average_grid(n_theta, n_phi, n_chi)` with more orientations for a
+converged powder pattern; 128 x 256 x 3 matches EasySpin to 0.5% for 65 mT of
+anisotropy at a 1 mT linewidth.
 
 For conventional CW-style displays, the spectrum helpers also accept
 `lineshape="gaussian"` or `"lorentzian"` and

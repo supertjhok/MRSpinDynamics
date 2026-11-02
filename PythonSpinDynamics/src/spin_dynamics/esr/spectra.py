@@ -6,8 +6,10 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from spin_dynamics.constants import FREE_ELECTRON_G
 from spin_dynamics.esr.hamiltonians import (
     diagonalize_system,
+    effective_g_value,
     resonance_field_tesla,
     resonance_frequency_hz,
 )
@@ -220,6 +222,10 @@ def simulate_field_sweep(
 
     ``broadening_tesla`` is ``sigma`` for Gaussian and HWHM for Lorentzian
     lines (see :func:`spin_dynamics.esr.lineshapes.width_from_fwhm`).
+    Each line carries the transition probability times the field-swept
+    Aasa-Vanngard factor ``g_e / g_eff``: a line of unit frequency-domain
+    weight spans ``1 / (g_eff mu_B)`` of field, so anisotropic powder
+    patterns weight high-``g`` orientations less (as EasySpin's default).
     """
 
     frequency = float(microwave_frequency_hz)
@@ -234,6 +240,8 @@ def simulate_field_sweep(
     for orientation_index, sample in enumerate(samples):
         field = resonance_field_tesla(system, frequency, sample.b0_direction_g)
         intensity, strength, b1_direction = _line_intensity(system, field, sample)
+        # Field-swept (Aasa-Vanngard) factor: d(nu)/dB is g_eff mu_B.
+        intensity *= FREE_ELECTRON_G / effective_g_value(system, sample.b0_direction_g)
         if intensity <= 0:
             continue
         lines.append(

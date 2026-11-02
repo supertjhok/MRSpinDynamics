@@ -71,7 +71,13 @@ class ESRSpinSystem:
 
 @dataclass(frozen=True)
 class ESRTransition:
-    """One ESR transition between electron-spin energy eigenstates."""
+    """One ESR transition between electron-spin energy eigenstates.
+
+    ``dipole_vector`` is ``<lower|(g / g_e) S|upper>`` in the ``g`` frame: the
+    microwave coupling ``mu_B B1^T g S`` relative to a free electron, so
+    ``|b1 . dipole_vector|^2`` is the transition probability for a unit
+    field along ``b1``. ``strength`` is its norm.
+    """
 
     label: str
     lower: int

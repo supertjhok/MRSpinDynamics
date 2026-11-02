@@ -1021,6 +1021,40 @@
       ],
       "references": ["https://qutip.org", "https://doi.org/10.1016/j.cpc.2012.11.019"],
       "limitations": ["The jump operators come from the model, so the comparison validates Liouvillian assembly, propagation and the steady-state solve, not the choice of relaxation rates. Detailed balance is checked independently through the undriven Gibbs state."]
+    },
+    {
+      "id": "external_easyspin_hyperfine_resonances",
+      "component": "Electron-nuclear hyperfine ESR resonance fields and line intensities",
+      "claim": "Resonance fields and relative field-swept intensities of every allowed and forbidden transition agree with EasySpin's exact resfields for isotropic g and hyperfine couplings, including the Breit-Rabi hydrogen atom.",
+      "evidence_types": ["C"],
+      "basis": "EasySpin 6.0.15 resfields (matrix diagonalization, RediagLimit 1, Threshold 0) against root-found resonances of our Hamiltonian, with transition probability |<l|(g/g_e)Sx|u>|^2 divided by the Hellmann-Feynman d(nu)/dB as EasySpin's Freq2Field factor.",
+      "parameter_range": "9.5 GHz; hydrogen atom (A = 1420.4 MHz), a 50 MHz proton, 45 MHz 14N, and 1H plus 14N (30 and 45 MHz) with four forbidden lines near 1.2e-4 relative intensity.",
+      "metric": "Absolute resonance-field difference and relative-intensity agreement",
+      "tolerance": "1e-4 mT in field (nuclear-constant and CODATA differences); 2e-3 relative intensity.",
+      "status": "validated",
+      "reproducers": [
+        "tests/test_easyspin_references.py::test_hyperfine_resonance_fields_and_intensities_match_easyspin",
+        "validation/easyspin/generate_easyspin_references.m"
+      ],
+      "references": ["https://easyspin.org", "https://doi.org/10.1016/j.jmr.2005.08.013"],
+      "limitations": ["Isotropic hyperfine only; anisotropic hyperfine tensors and nuclear quadrupole couplings are not modelled.", "EasySpin's default RediagLimit (0.95) interpolates eigenvectors and overstates these forbidden lines by about 10%; the references use exact rediagonalization."]
+    },
+    {
+      "id": "external_easyspin_rhombic_powder",
+      "component": "Field-swept powder spectra for anisotropic g tensors",
+      "claim": "Field-swept powder spectra of a rhombic g tensor match EasySpin pepper with its default Aasa-Vanngard (Freq2Field) weighting.",
+      "evidence_types": ["C"],
+      "basis": "EasySpin 6.0.15 pepper (GridSize [181 4], 1 mT Gaussian FWHM) against simulate_field_sweep on a 128 x 256 x 3 powder grid; the comparison also confirms the g-weighted transition moment from single-crystal amplitude ratios (g_z^2/g_x^2 = 1.2729).",
+      "parameter_range": "g = (1.95, 2.05, 2.20) at 9.5 GHz, 295-360 mT.",
+      "metric": "Maximum area-normalized spectral difference relative to the peak",
+      "tolerance": "0.8% (the spectrum without the 1/g factor differs by 2%, which the test requires).",
+      "status": "validated",
+      "reproducers": [
+        "tests/test_easyspin_references.py::test_rhombic_powder_spectrum_matches_easyspin_pepper",
+        "validation/easyspin/generate_easyspin_references.m"
+      ],
+      "references": ["https://easyspin.org", "https://doi.org/10.1016/0022-2364(75)90045-1"],
+      "limitations": ["Spin-1/2 Zeeman-only systems; zero-field splitting, hyperfine anisotropy and strain models are not compared.", "The package's default powder grid is much coarser than the one this comparison uses."]
     }
   ]
 }

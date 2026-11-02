@@ -62,5 +62,7 @@ Full-wave openEMS fields and validation & A, C, R & partial & Full-wave field ma
 Strongly coupled spin-1/2 Hamiltonians and density-matrix propagation & C & validated & The isotropic scalar-coupling Hamiltonian and unitary propagation reproduce nmrsim's second-order line lists, including weak and combination lines, for AB, AB2, ABX, AA'BB' and five-spin systems. \\
 Quadrupolar plus Zeeman eigenproblem and NQR transition list & C, A & validated & Energy levels, transition frequencies and summed dipole strengths from diagonalize\_site match an independent QuTiP construction of the textbook Hamiltonian from the quadrupole coupling constant, for spins 1, 3/2, 5/2 and 7/2 at zero and arbitrary-orientation fields. \\
 Coupled electron-nuclear Overhauser Lindblad dynamics & C, A & validated & Driven rotating-frame trajectories and steady states of CoupledElectronNuclearModel agree with QuTiP's mesolve and steadystate, and the undriven steady state is QuTiP's own Gibbs state. \\
+Electron-nuclear hyperfine ESR resonance fields and line intensities & C & validated & Resonance fields and relative field-swept intensities of every allowed and forbidden transition agree with EasySpin's exact resfields for isotropic g and hyperfine couplings, including the Breit-Rabi hydrogen atom. \\
+Field-swept powder spectra for anisotropic g tensors & C & validated & Field-swept powder spectra of a rhombic g tensor match EasySpin pepper with its default Aasa-Vanngard (Freq2Field) weighting. \\
 \bottomrule
 \end{longtable}

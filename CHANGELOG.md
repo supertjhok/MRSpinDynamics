@@ -332,6 +332,16 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
   their own CI job, and add three level-C records to the validation matrix.
 - The fixture-generator instructions in the validation guide, the manual and
   `validation_results.md` now call the generators as functions.
+- Every validation fixture is MATLAB-generated again (R2025a), including the
+  matched-probe and re-optimized optimizer-result fixtures.
+- Added EasySpin comparisons from committed MATLAB-generated references
+  (`validation/easyspin/`, `tests/test_easyspin_references.py`): hyperfine
+  resonance fields and intensities, and rhombic-g powder spectra.
+- Behaviour change (M-46): ESR transition moments now include the g tensor,
+  `<l|(g/g_e) S|u>`, and field-swept spectra carry the Aasa-Vanngard factor
+  `g_e/g_eff`. Spectra of anisotropic-g systems change shape (a rhombic powder
+  pattern by up to 4%) and now match EasySpin; free-electron-like spectra are
+  essentially unchanged in scale.
 - Rewrote the PythonSpinDynamics web documentation openings around reader
   questions, prerequisites, model boundaries, and neighboring guides; added a
   documentation map and maintainer writing standard; clarified that the

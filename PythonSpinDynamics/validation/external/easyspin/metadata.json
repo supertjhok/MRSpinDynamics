@@ -1,0 +1,59 @@
+{
+  "easyspin_version": "6.0.15 (GitHub tag v6.0.15)",
+  "matlab_version": "25.1.0.2973910 (R2025a) Update 1",
+  "generated": "2026-11-02",
+  "powder": {
+    "g": [
+      1.95,
+      2.05,
+      2.2
+    ],
+    "lw_gaussian_fwhm_mT": 1,
+    "mwFreq_GHz": 9.5,
+    "range_mT": [
+      295,
+      360
+    ],
+    "nPoints": 2601,
+    "GridSize": [
+      181,
+      4
+    ]
+  },
+  "hyperfine": {
+    "mwFreq_GHz": 9.5,
+    "range_mT": [
+      100,
+      600
+    ],
+    "cases": [
+      {
+        "name": "h_atom",
+        "g": 2.00226,
+        "nucs": "1H",
+        "A_MHz": 1420.40575
+      },
+      {
+        "name": "proton_50",
+        "g": 2.0036,
+        "nucs": "1H",
+        "A_MHz": 50
+      },
+      {
+        "name": "n14_45",
+        "g": 2.0058,
+        "nucs": "14N",
+        "A_MHz": 45
+      },
+      {
+        "name": "h_n14",
+        "g": 2.005,
+        "nucs": "1H,14N",
+        "A_MHz": [
+          30,
+          45
+        ]
+      }
+    ]
+  }
+}

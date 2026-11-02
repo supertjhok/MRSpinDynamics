@@ -264,8 +264,11 @@ def diagonalize_hyperfine_system(
     vectors = vectors[:, order]
     levels_hz = values / TAU
 
+    # B1 couples through the g tensor: ((g / g_e) S)_k, as in diagonalize_system.
+    electron = tuple(electron_operator(system, axis) for axis in ("x", "y", "z"))
+    g_relative = cast(np.ndarray, system.g_tensor) / FREE_ELECTRON_G
     operator_components = tuple(
-        electron_operator(system, axis) for axis in ("x", "y", "z")
+        sum(g_relative[k, j] * electron[j] for j in range(3)) for k in range(3)
     )
     transitions: list[HyperfineTransition] = []
     for lower in range(system.dimension):

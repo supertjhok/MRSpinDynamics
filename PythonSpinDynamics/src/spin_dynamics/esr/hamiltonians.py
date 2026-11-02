@@ -6,6 +6,7 @@ from collections.abc import Sequence
 
 import numpy as np
 
+from spin_dynamics.constants import FREE_ELECTRON_G
 from spin_dynamics.esr.systems import (
     BOHR_MAGNETON_HZ_PER_T,
     ESREigensystem,
@@ -16,6 +17,27 @@ from spin_dynamics.nqr.operators import spin_matrices
 
 
 TAU = 2.0 * np.pi
+
+
+def g_weighted_spin_operators(
+    g_tensor: np.ndarray, spin: float
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Return ``((g / g_e) S)_k = sum_j g_kj S_j / g_e`` for k = x, y, z.
+
+    The microwave field couples as ``mu_B B1^T g S``, so this is the
+    transition-moment operator, relative to a free electron: anisotropic
+    ``g`` weights each orientation correctly and an isotropic free-electron
+    ``g`` leaves ``S`` unchanged.
+    """
+
+    ops = spin_matrices(spin)
+    components = (ops.ix, ops.iy, ops.iz)
+    g_relative = np.asarray(g_tensor, dtype=np.float64) / FREE_ELECTRON_G
+
+    def component(k: int) -> np.ndarray:
+        return sum(g_relative[k, j] * components[j] for j in range(3))
+
+    return component(0), component(1), component(2)
 
 
 def effective_g_vector(
@@ -117,8 +139,7 @@ def diagonalize_system(
     vectors = vectors[:, order]
     levels_hz = values / TAU
 
-    ops = spin_matrices(system.spin)
-    operator_components = (ops.ix, ops.iy, ops.iz)
+    operator_components = g_weighted_spin_operators(system.g_tensor, system.spin)
     transitions: list[ESRTransition] = []
     for lower in range(system.dimension):
         for upper in range(lower + 1, system.dimension):
