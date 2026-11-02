@@ -306,6 +306,16 @@ h3 {
   color: var(--muted);
 }
 
+.data-license {
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 0.9em;
+}
+
+.data-license a {
+  color: var(--accent);
+}
+
 .detail {
   display: grid;
   gap: 18px;

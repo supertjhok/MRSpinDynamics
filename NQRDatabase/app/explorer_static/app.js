@@ -35,6 +35,15 @@ const els = {
   sources: document.getElementById("sources")
 };
 
+// The local server answers /api/*; the static GitHub Pages build loads
+// static-api.js first, which defines NQR_STATIC_API over prebuilt JSON files.
+const api = window.NQR_STATIC_API || {
+  stats: () => getJson("/api/stats"),
+  options: () => getJson("/api/options"),
+  search: params => getJson(`/api/search?${params.toString()}`),
+  compound: id => getJson(`/api/compound/${encodeURIComponent(id)}`)
+};
+
 init();
 
 async function init() {
@@ -57,8 +66,8 @@ async function init() {
     search();
   });
   const [stats, options] = await Promise.all([
-    getJson("/api/stats"),
-    getJson("/api/options")
+    api.stats(),
+    api.options()
   ]);
   renderStats(stats);
   renderOptions(options);
@@ -117,7 +126,7 @@ async function search() {
   if (els.sourceType.value) params.set("source_type", els.sourceType.value);
   if (els.freqMin.value) params.set("freq_min", els.freqMin.value);
   if (els.freqMax.value) params.set("freq_max", els.freqMax.value);
-  const data = await getJson(`/api/search?${params.toString()}`);
+  const data = await api.search(params);
   state.results = data.rows || [];
   renderResults();
   if (!state.results.length) {
@@ -155,7 +164,7 @@ function renderResults() {
 
 async function selectCompound(id) {
   state.selectedId = id;
-  state.selected = await getJson(`/api/compound/${encodeURIComponent(id)}`);
+  state.selected = await api.compound(id);
   renderDetail();
   markSelected();
 }

@@ -24,6 +24,7 @@ PythonSpinDynamics/results/
 PythonSpinDynamics/src/*.egg-info/
 PythonSpinDynamics/*.egg-info/
 PythonSpinDynamics/build/
+NQRDatabase/build/
 PythonSpinDynamics/dist/
 PythonSpinDynamics/site/
 PythonSpinDynamics/**/__pycache__/

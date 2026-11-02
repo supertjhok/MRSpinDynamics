@@ -319,6 +319,12 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
   fixtures are now Octave-generated.
 - Type checking now covers 34 more modules (the most-edited ones); 86
   remain on the type-debt list.
+- The NQR Spectra Explorer is published as a static site at
+  https://supertjhok.github.io/MRSpinDynamics/nqr/. `NQRDatabase/scripts/
+  build_static_explorer.py` precomputes the explorer server's responses as
+  JSON; the front end uses them through `static-api.js`, and its overview now
+  states the CC BY 4.0 data license and how to cite. Review and staging
+  tables are not published.
 - Rewrote the PythonSpinDynamics web documentation openings around reader
   questions, prerequisites, model boundaries, and neighboring guides; added a
   documentation map and maintainer writing standard; clarified that the

@@ -209,7 +209,22 @@ def search_compounds(query: dict[str, list[str]]) -> dict:
             """
         )
 
+    rows = compound_rows(clauses, params, limit)
+    return {"rows": rows, "count": len(rows)}
+
+
+def compound_rows(
+    clauses: list[str], params: list[object], limit: int | None
+) -> list[dict]:
+    """Return search-result rows for compounds matching every SQL clause.
+
+    ``limit=None`` returns every match; the static explorer build uses that to
+    list all compounds with the same query the live search runs.
+    """
+
     where = "WHERE " + " AND ".join(clauses) if clauses else ""
+    limit_sql = "" if limit is None else "LIMIT ?"
+    params = [*params, *([] if limit is None else [limit])]
     sql = f"""
         SELECT
             c.id,
@@ -232,9 +247,8 @@ def search_compounds(query: dict[str, list[str]]) -> dict:
         {where}
         GROUP BY c.id
         ORDER BY line_count DESC, c.canonical_name
-        LIMIT ?
+        {limit_sql}
     """
-    params.append(limit)
     with connect() as conn:
         rows = []
         for row in conn.execute(sql, params):
@@ -243,7 +257,7 @@ def search_compounds(query: dict[str, list[str]]) -> dict:
             payload["source_types"] = split_sqlite_list(payload.pop("source_types_raw"))
             payload["structure"] = structure_payload(payload, aliases=[])
             rows.append(payload)
-    return {"rows": rows, "count": len(rows)}
+    return rows
 
 
 def split_sqlite_list(value: str | None) -> list[str]:

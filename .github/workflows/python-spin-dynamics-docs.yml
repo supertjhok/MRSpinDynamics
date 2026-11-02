@@ -9,6 +9,10 @@ on:
       - "PythonSpinDynamics/pyproject.toml"
       - "PythonSpinDynamics/docs/**"
       - "PythonSpinDynamics/src/**"
+      # The static NQR Spectra Explorer is published under /nqr/ on the same site.
+      - "NQRDatabase/app/**"
+      - "NQRDatabase/data/exports/**"
+      - "NQRDatabase/scripts/build_static_explorer.py"
   pull_request:
     paths:
       - ".github/workflows/python-spin-dynamics-docs.yml"
@@ -16,6 +20,10 @@ on:
       - "PythonSpinDynamics/pyproject.toml"
       - "PythonSpinDynamics/docs/**"
       - "PythonSpinDynamics/src/**"
+      # The static NQR Spectra Explorer is published under /nqr/ on the same site.
+      - "NQRDatabase/app/**"
+      - "NQRDatabase/data/exports/**"
+      - "NQRDatabase/scripts/build_static_explorer.py"
   workflow_dispatch:
 
 permissions:
@@ -72,6 +80,8 @@ jobs:
           if-no-files-found: error
       - name: Build site with strict warnings
         run: python -m mkdocs build --strict
+      - name: Add the static NQR Spectra Explorer under /nqr/
+        run: python ../NQRDatabase/scripts/build_static_explorer.py --out site/nqr
       - name: Configure GitHub Pages
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         uses: actions/configure-pages@v5

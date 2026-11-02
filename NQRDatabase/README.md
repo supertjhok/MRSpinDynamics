@@ -40,8 +40,10 @@ The database includes two small local web applications.
 
 ### Explorer GUI
 
-The explorer is the main human-facing interface. Start it from the repository
-root:
+The explorer is the main human-facing interface. A static copy is published at
+<https://supertjhok.github.io/MRSpinDynamics/nqr/>, rebuilt whenever the export
+or the explorer changes. To run it locally with the live database, start it
+from the repository root:
 
 ```powershell
 python NQRDatabase/app/explorer_server.py
@@ -55,6 +57,12 @@ reference links, and an overview page explaining the database terms. Where a
 compound name, formula, or CAS number can be matched, the browser attempts to
 display a 2D structure image from PubChem; otherwise it falls back to the stored
 formula.
+
+The published copy is built by `scripts/build_static_explorer.py`, which
+precomputes every server response as JSON (`--out` picks the directory). Only
+the canonical tables are published; the Landolt review queue and page extracts
+stay in the repository. `tests/test_static_explorer.py` checks that the static
+search returns the same compounds, in the same order, as the server.
 
 When the optional consistency overlay has been generated (see below), each site
 that stores both quadrupolar parameters and lines also shows a badge indicating

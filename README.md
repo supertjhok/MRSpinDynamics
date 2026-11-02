@@ -158,6 +158,8 @@ does not silently round the sequence.
 ## Documentation and Development
 
 - [Searchable PythonSpinDynamics documentation](https://supertjhok.github.io/MRSpinDynamics/)
+- [NQR Spectra Explorer](https://supertjhok.github.io/MRSpinDynamics/nqr/): search
+  the curated NQR database (CC BY 4.0) in the browser
 - [Documentation guide and document-status map](docs/documentation_guide.md)
 - [Python user manual (PDF)](https://supertjhok.github.io/MRSpinDynamics/user_manual.pdf), built by CI from its
   [LaTeX source](PythonSpinDynamics/docs/user_manual.tex)
