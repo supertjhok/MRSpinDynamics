@@ -44,10 +44,12 @@ jobs:
           cache: pip
           cache-dependency-path: PythonSpinDynamics/pyproject.toml
       - name: Install Octave
-        # gnuplot-nox gives the MATLAB plotting calls a headless backend.
+        # Some MATLAB code paths draw figures: gnuplot-nox gives them a headless
+        # backend and the fonts let Octave's text renderer lay out axes.
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends octave gnuplot-nox
+          sudo apt-get install -y --no-install-recommends \
+            octave gnuplot-nox fonts-freefont-otf
           octave --version | head -1
       - name: Install package
         run: python -m pip install -e ".[dev,opt]"
