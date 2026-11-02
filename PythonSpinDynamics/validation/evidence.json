@@ -1044,7 +1044,7 @@
       "component": "Field-swept powder spectra for anisotropic g tensors",
       "claim": "Field-swept powder spectra of a rhombic g tensor match EasySpin pepper with its default Aasa-Vanngard (Freq2Field) weighting.",
       "evidence_types": ["C"],
-      "basis": "EasySpin 6.0.15 pepper (GridSize [181 4], 1 mT Gaussian FWHM) against simulate_field_sweep with its default (anisotropy-sized, 131 x 262 x 3) powder grid; the comparison also confirms the g-weighted transition moment from single-crystal amplitude ratios (g_z^2/g_x^2 = 1.2729).",
+      "basis": "EasySpin 6.0.15 pepper (GridSize [181 4], 1 mT Gaussian FWHM) against simulate_field_sweep with its default (anisotropy-sized, 196 x 392 x 3) powder grid; the comparison also confirms the g-weighted transition moment from single-crystal amplitude ratios (g_z^2/g_x^2 = 1.2729).",
       "parameter_range": "g = (1.95, 2.05, 2.20) at 9.5 GHz, 295-360 mT.",
       "metric": "Maximum area-normalized spectral difference relative to the peak",
       "tolerance": "0.8% (the spectrum without the 1/g factor differs by 2%, which the test requires).",
@@ -1054,7 +1054,7 @@
         "validation/easyspin/generate_easyspin_references.m"
       ],
       "references": ["https://easyspin.org", "https://doi.org/10.1016/0022-2364(75)90045-1"],
-      "limitations": ["Spin-1/2 Zeeman-only systems; zero-field splitting, hyperfine anisotropy and strain models are not compared.", "Linewidths (sigma) narrower than about 1/180 of the resonance spread reach the 256-knot grid cap and converge less well; pass a finer powder_average_grid there."]
+      "limitations": ["Spin-1/2 Zeeman-only systems; zero-field splitting, hyperfine anisotropy and strain models are not compared.", "Linewidths (sigma) narrower than about 1/120 of the resonance spread reach the 256-knot grid cap and converge less well; pass a finer powder_average_grid there."]
     }
   ]
 }

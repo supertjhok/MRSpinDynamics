@@ -12,6 +12,9 @@ Examples can be run from `PythonSpinDynamics` or from inside
 
 [Browse all example source files on GitHub](https://github.com/supertjhok/MRSpinDynamics/tree/main/PythonSpinDynamics/examples){ .md-button }
 
+To try a few of these models without installing anything, open the
+[notebooks that run in your browser](try_in_browser.md).
+
 ## Choose a learning path
 
 For liquid-state CW Overhauser DNP, run `plot_overhauser_dnp.py` and read

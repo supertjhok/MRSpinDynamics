@@ -51,7 +51,7 @@ jobs:
           cache: pip
           cache-dependency-path: PythonSpinDynamics/pyproject.toml
       - name: Install documentation dependencies
-        run: python -m pip install -e ".[docs]"
+        run: python -m pip install -e ".[docs,lite]"
       - name: Verify generated API reference
         run: |
           python docs/generate_api_reference.py
@@ -82,6 +82,8 @@ jobs:
         run: python -m mkdocs build --strict
       - name: Add the static NQR Spectra Explorer under /nqr/
         run: python ../NQRDatabase/scripts/build_static_explorer.py --out site/nqr
+      - name: Add the in-browser notebooks (JupyterLite) under /lite/
+        run: python docs/lite/build_lite.py --out site/lite
       - name: Configure GitHub Pages
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
         uses: actions/configure-pages@v5

@@ -9,6 +9,15 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
 
 ### Added
 
+- Notebooks that run the package in the browser (enhancement survey item 15):
+  JupyterLite with Pyodide, published under `/lite/` on the documentation site
+  and linked from the new "Try it in your browser" page. Four notebooks (CPMG
+  echo train through the experiment facade, BPP relaxation, ESR powder
+  spectrum, spin-1 NQR powder nutation) are kept as `# %%` sources in
+  `docs/lite/notebooks/` and built by `docs/lite/build_lite.py` (new `lite`
+  extra). `tests/test_lite_notebooks.py` runs them under CPython, and a new
+  `pyodide` CI job installs the wheel in Pyodide 314.0.6 (the kernel's
+  version), imports all 289 modules, and runs every notebook.
 - Added a coupled electron–nuclear Overhauser dynamics reference with exact Gibbs
   recovery, detailed-balance cross transitions, coherent microwave driving,
   trace-preserving density-matrix propagation, stationary solves, pair-motion
@@ -123,6 +132,11 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
 
 ### Fixed
 
+- The package imports in Pyodide: `nqr.crossover_sequences` imports
+  `ProcessPoolExecutor` (and so `multiprocessing`) only when a process pool is
+  requested, and `nqr.piezo_detection` imports `sqlite3` only inside the
+  database reader. Before, any import reaching `spin_dynamics.nqr` failed in
+  the browser.
 - Made every PythonSpinDynamics plotting example display interactively when no
   output path is supplied, while retaining explicit headless saving for batch
   and documentation builds; added a repository-wide regression guard.
@@ -355,7 +369,9 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
   frequency sweeps sizes its grid from the resonance spread relative to the
   linewidth instead of a fixed 16 x 32 x 8 grid, and spin-1/2 lines are
   computed in closed form. A rhombic-g powder that the old default missed by
-  46% now matches EasySpin to 0.5% in about 1 s; the ESR powder figure is a
+  46% now matches EasySpin to 0.5% in about 1.5 s, and first-derivative
+  spectra converge to 0.05% (L-65: an initial 1.4 knots per linewidth left
+  2-3% ripple in derivative mode); the ESR powder figure is a
   smooth pattern instead of grid spikes. The static-disorder helpers share
   one such grid across their samples. `powder_average_grid` is vectorized
   (about 7x faster, identical samples) and `spectrum_from_lines` sums lines

@@ -87,6 +87,15 @@ docs = [
   "mkdocs>=1.6,<2",
   "mkdocs-material>=9.5,<10"
 ]
+lite = [
+  # docs/lite/build_lite.py: in-browser notebooks on the documentation site.
+  # The kernel pin fixes the Pyodide version (314.0.6), which
+  # docs/lite/package.json matches for the Pyodide smoke test.
+  "build>=1.2",
+  "jupyter-server>=2.14",
+  "jupyterlite-core==0.8.7",
+  "jupyterlite-pyodide-kernel==0.8.6"
+]
 
 [project.scripts]
 spin-dynamics = "spin_dynamics.experiment.cli:main"

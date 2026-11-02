@@ -585,6 +585,18 @@ Confirm that the console entry point is available:
 spin-dynamics --help
 \end{lstlisting}
 
+\section{Running Without an Install}
+
+The documentation site has notebooks that run the package in a web browser
+with JupyterLite and Pyodide, a WebAssembly build of Python
+(\url{https://supertjhok.github.io/MRSpinDynamics/python_api/try_in_browser/}).
+They cover a CPMG echo train through the experiment facade, BPP relaxation,
+an ESR powder spectrum, and spin-1 NQR powder nutation; the first cell installs
+the package from a wheel published with the site. Pyodide runs in one thread
+with a few gigabytes of memory, so keep worker options at 1 and run large 3-D
+field solves on a desktop install. A CI job imports every module and runs each
+notebook in the same Pyodide version.
+
 \section{Tests}
 
 Use the smoke tier during normal editing:
@@ -1734,7 +1746,7 @@ moment \(\langle l|(\mathbf{g}/g_e)\mathbf{S}|u\rangle\), because the microwave
 field couples through the \(g\) tensor, and field-swept spectra carry the
 Aasa--V\"anngard factor \(g_e/g_{\text{eff}}\); both match EasySpin. With
 \code{orientations="powder"} the grid is sized from the resonance spread
-relative to the linewidth (1.4 polar knots per linewidth, 16 to 256), which
+relative to the linewidth (2.1 polar knots per linewidth, 16 to 256), which
 matches EasySpin to 0.5\% for a rhombic \(g\) at 1~mT linewidth:
 
 \begin{lstlisting}[language=Python]

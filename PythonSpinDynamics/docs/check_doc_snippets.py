@@ -66,7 +66,10 @@ class Snippet:
 
 def documents() -> list[Path]:
     markdown = sorted(
-        path for path in DOCS.rglob("*.md") if not path.name.endswith("_plan.md")
+        path
+        for path in DOCS.rglob("*.md")
+        # node_modules: npm packages for docs/lite/pyodide_smoke.mjs.
+        if not path.name.endswith("_plan.md") and "node_modules" not in path.parts
     )
     return [MANUAL, *markdown]
 

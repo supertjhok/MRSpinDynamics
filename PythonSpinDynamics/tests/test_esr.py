@@ -639,7 +639,7 @@ class ESRTests(unittest.TestCase):
                 np.testing.assert_allclose(a.b1_direction_g, b.b1_direction_g, atol=1e-15)
 
     def test_default_powder_grid_follows_the_anisotropy(self) -> None:
-        # L-64: 1.4 polar knots per linewidth of resonance spread, 16 to 256.
+        # L-64/L-65: 2.1 polar knots per linewidth of resonance spread, 16 to 256.
         isotropic = simulate_field_sweep(
             ESRSpinSystem(g_tensor=2.0036), 9.5e9, orientations="powder", points=33
         )
@@ -649,12 +649,25 @@ class ESRTests(unittest.TestCase):
             rhombic, 9.5e9, orientations="powder", broadening_tesla=3e-3, points=33
         )
         spread = 9.5e9 / BOHR_MAGNETON_HZ_PER_T * (1 / 1.95 - 1 / 2.20)
-        knots = int(np.ceil(1.4 * spread / 3e-3))
+        knots = int(np.ceil(2.1 * spread / 3e-3))
         self.assertEqual(len(wide.lines), knots * 2 * knots * 3)
         narrow = simulate_field_sweep(
             rhombic, 9.5e9, orientations="powder", broadening_tesla=0.05e-3, points=33
         )
         self.assertEqual(len(narrow.lines), 256 * 512 * 3)
+
+    def test_default_powder_grid_converges_derivative_spectra(self) -> None:
+        # L-65: differentiation amplifies grid ripple; at 1.4 knots per
+        # linewidth this case was 2.7% off a converged grid.
+        system = ESRSpinSystem(g_tensor=[2.0, 2.1, 2.2])
+        fields = np.linspace(0.29, 0.35, 1201)
+        kwargs = dict(broadening_tesla=1e-3, fields_tesla=fields, detection_mode="derivative")
+        default = simulate_field_sweep(system, 9.5e9, orientations="powder", **kwargs)
+        converged = simulate_field_sweep(
+            system, 9.5e9, orientations=powder_average_grid(200, 400, 3), **kwargs
+        )
+        error = np.max(np.abs(default.spectrum - converged.spectrum))
+        self.assertLess(error, 1e-3 * np.max(np.abs(converged.spectrum)))
 
     def test_distribution_samples_share_the_powder_budget(self) -> None:
         # L-64: 25 disorder samples cap the shared grid at 256 / 5 knots.

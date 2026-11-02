@@ -160,6 +160,9 @@ does not silently round the sequence.
 - [Searchable PythonSpinDynamics documentation](https://supertjhok.github.io/MRSpinDynamics/)
 - [NQR Spectra Explorer](https://supertjhok.github.io/MRSpinDynamics/nqr/): search
   the curated NQR database (CC BY 4.0) in the browser
+- [Try PythonSpinDynamics in your browser](https://supertjhok.github.io/MRSpinDynamics/python_api/try_in_browser/):
+  JupyterLite notebooks (CPMG, relaxation, ESR, NQR) that run the package with
+  Pyodide, with nothing to install
 - [Documentation guide and document-status map](docs/documentation_guide.md)
 - [Python user manual (PDF)](https://supertjhok.github.io/MRSpinDynamics/user_manual.pdf), built by CI from its
   [LaTeX source](PythonSpinDynamics/docs/user_manual.tex)

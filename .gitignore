@@ -27,6 +27,8 @@ PythonSpinDynamics/build/
 NQRDatabase/build/
 PythonSpinDynamics/dist/
 PythonSpinDynamics/site/
+# npm install for docs/lite/pyodide_smoke.mjs.
+PythonSpinDynamics/docs/lite/node_modules/
 PythonSpinDynamics/**/__pycache__/
 PythonSpinDynamics/**/*.py[cod]
 PythonSpinDynamics/**/*.npz

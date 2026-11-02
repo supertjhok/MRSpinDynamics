@@ -1,0 +1,9 @@
+{
+  "name": "python-spin-dynamics-pyodide-smoke",
+  "private": true,
+  "description": "Runs the package and the JupyterLite notebooks inside Pyodide (see pyodide_smoke.mjs).",
+  "type": "module",
+  "dependencies": {
+    "pyodide": "314.0.6"
+  }
+}

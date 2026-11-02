@@ -78,11 +78,12 @@ def _perpendicular_direction(direction: np.ndarray) -> np.ndarray:
 
 
 # Default powder grid (L-64): Gauss-Legendre polar knots per linewidth of
-# resonance spread, with twice as many azimuths. 1.4 per linewidth matches
-# EasySpin to 0.5% for a 39.6 mT spread at 1 mT FWHM (sigma 0.42 mT). The
+# resonance spread, with twice as many azimuths. Convergence is very fast:
+# 1.4 per linewidth leaves 0.1-0.5% error in absorption but 2-3% ripple in
+# derivative spectra (L-65); 2.1 brings both below 0.05%. The
 # cap keeps a sweep under 4 x 10^5 lines (about 2 s); samples of a static
 # disorder distribution share that budget.
-_POWDER_KNOTS_PER_LINEWIDTH = 1.4
+_POWDER_KNOTS_PER_LINEWIDTH = 2.1
 _MIN_POWDER_KNOTS = 16
 _MAX_POWDER_KNOTS = 256
 

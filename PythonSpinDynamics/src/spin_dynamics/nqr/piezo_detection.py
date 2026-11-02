@@ -12,13 +12,16 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 import re
-import sqlite3
+from typing import TYPE_CHECKING
 
 import numpy as np
 
 from spin_dynamics.constants import AVOGADRO_PER_MOL, BOLTZMANN_J_PER_K, PLANCK_J_S
 from spin_dynamics.nqr.hamiltonians import diagonalize_site
 from spin_dynamics.nqr.systems import QuadrupolarSite
+
+if TYPE_CHECKING:
+    import sqlite3
 
 # CODATA 2018 (exact SI), from spin_dynamics.constants.
 PLANCK = PLANCK_J_S
@@ -250,6 +253,10 @@ def default_glycine_nqr_lines() -> tuple[PiezoNQRLine, ...]:
 
 def load_glycine_nqr_lines_from_sqlite(path: str | Path) -> tuple[PiezoNQRLine, ...]:
     """Load deduplicated glycine ``14N`` lines from an NQRDatabase SQLite export."""
+
+    # Imported here: browser (Pyodide) builds of Python load sqlite3 only on
+    # request, and spin_dynamics.nqr imports this module.
+    import sqlite3
 
     db_path = Path(path)
     if not db_path.exists():

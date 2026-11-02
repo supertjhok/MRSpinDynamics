@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from concurrent.futures import Executor, ThreadPoolExecutor
 from dataclasses import dataclass
 import os
 
@@ -705,8 +705,16 @@ def simulate_crossover_slse_powder(
     if workers == 1:
         chunk_results = tuple(map(_simulate_crossover_orientation_chunk, tasks))
     else:
-        executor_type = ThreadPoolExecutor if backend == "thread" else ProcessPoolExecutor
-        with executor_type(max_workers=workers) as executor:
+        executor: Executor
+        if backend == "thread":
+            executor = ThreadPoolExecutor(max_workers=workers)
+        else:
+            # Imported here: multiprocessing is unavailable in browser
+            # (Pyodide) builds of Python, which import this module.
+            from concurrent.futures import ProcessPoolExecutor
+
+            executor = ProcessPoolExecutor(max_workers=workers)
+        with executor:
             chunk_results = tuple(
                 executor.map(_simulate_crossover_orientation_chunk, tasks)
             )
