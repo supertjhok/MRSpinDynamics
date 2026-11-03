@@ -20,7 +20,7 @@ Bayesian experiment planning and in-browser notebooks.
 Git history was rewritten before this release (enhancement survey item 16) to
 drop about 410 MiB of deleted MATLAB output (`.fig`, `.mat`) and old copies of
 the generated PDF manual. A full clone shrinks from about 516 MiB to about
-45 MiB. Every commit hash changed, including those behind the `v0.1.0`,
+49 MiB. Every commit hash changed, including those behind the `v0.1.0`,
 `v0.2.0` and `v0.3.0` tags. The file trees at those tags are unchanged, so they
 still match the Zenodo archives. Between releases, the history now shows the
 last released copy of the Python manual PDF instead of each rebuild.
@@ -361,7 +361,7 @@ which GitHub still serves for those pull requests.
   setup.
 - The README recommends a blob-less clone (`git clone --filter=blob:none`),
   which downloads about 21 MiB of git data instead of the full history (516 MiB
-  before the history rewrite, about 45 MiB after).
+  before the history rewrite, about 49 MiB after).
 - The development-environment guide now recommends a checkout on the WSL
   Linux filesystem for test runs, with measured timings.
 - Added `spin_dynamics.conventions`: `"matlab"` (default, unchanged results)
