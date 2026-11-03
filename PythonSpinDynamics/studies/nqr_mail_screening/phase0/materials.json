@@ -6,7 +6,7 @@
   "source_database": {
     "path": "NQRDatabase/data/exports/nqr.sqlite",
     "sha256": "b75690bd3237f31d22d5acca062ee8c761d37b9758a47078eeb5058e10f078cc",
-    "repository_commit": "6205987f598fd15790fb36dd7fdf735a4da94bc9"
+    "repository_commit": "69de134db975980ded0162e9f55aaad1c689273f"
   },
   "materials": [
     {

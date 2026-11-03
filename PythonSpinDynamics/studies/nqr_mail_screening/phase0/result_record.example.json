@@ -45,7 +45,7 @@
     "truth_label": "target_absent"
   },
   "provenance": {
-    "repository_commit": "4a9351ab015177c8f9df997f2c96ab3d5bc8e0e5",
+    "repository_commit": "4b88cd6ea863698a44c015f1560aa08cede881f1",
     "input_records": [
       "requirements.json@0.4.0",
       "materials.json@0.3.0"

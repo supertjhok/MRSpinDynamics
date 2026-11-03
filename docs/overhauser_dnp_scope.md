@@ -1,6 +1,6 @@
 # Overhauser DNP: literature survey and implementation scope
 
-Survey date: 2026-10-24. Repository inspected at `4f39f0a`.
+Survey date: 2026-10-24. Repository inspected at `1d350f1`.
 This document records the initial design and subsequent implementation status.
 The original repository assessment below describes the survey-time baseline.
 

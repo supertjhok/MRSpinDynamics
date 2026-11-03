@@ -94,7 +94,7 @@
     "four_average_ratio_relative_error": 0.02803476446091402
   },
   "provenance": {
-    "repository_base_commit": "e8dc4e53006bdeec4c8ad27f7c771e7c18b4e544",
+    "repository_base_commit": "16f7069b93b8b289cd8e841335929b342d55f63e",
     "working_tree_dirty": true,
     "numpy_version": "2.5.2",
     "reference_source_sha256": "31443dd53457d848d5aeabf27d6cc565bf0d05411dedb21a315310f37af1e86a",
