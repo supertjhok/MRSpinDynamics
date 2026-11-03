@@ -7,6 +7,64 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-02
+
+This release follows a whole-repository code review: every finding in
+`docs/code_review_bug_tracker.md` is fixed or documented, and the enhancement
+survey's tooling, validation and documentation items are in place. It also
+adds nanoscale and Overhauser magnetic-resonance models, receiver arrays,
+Bayesian experiment planning and in-browser notebooks.
+
+### Repository history rewritten
+
+Git history was rewritten before this release (enhancement survey item 16) to
+drop about 410 MiB of deleted MATLAB output (`.fig`, `.mat`) and old copies of
+the generated PDF manual. A full clone shrinks from about 516 MiB to about
+45 MiB. Every commit hash changed, including those behind the `v0.1.0`,
+`v0.2.0` and `v0.3.0` tags. The file trees at those tags are unchanged, so they
+still match the Zenodo archives. Between releases, the history now shows the
+last released copy of the Python manual PDF instead of each rebuild.
+
+Existing clones cannot be fast-forwarded. Clone again, or, with no local work
+to keep:
+
+```bash
+git fetch origin --tags --force
+git checkout main
+git reset --hard origin/main
+```
+
+Branches made from the old history must be rebased onto the new `main` (for
+example `git rebase --onto origin/main <old-main-commit> <branch>`). Commit
+hashes cited in the repository's documents were updated to the new IDs; hashes
+quoted elsewhere, such as in closed pull requests, refer to the old history,
+which GitHub still serves for those pull requests.
+
+### v0.4.0 highlights
+
+- Closed all 133 findings of the 2026-11 whole-repository review (13 high,
+  8 CI, 47 medium and 65 low severity): 129 fixed, 4 closed without change
+  and documented.
+- Added comparisons against independent codes (nmrsim, EasySpin) and
+  regenerated every validation fixture from MATLAB R2025a; an Octave parity
+  workflow keeps them reproducible.
+- Added `spin_dynamics.conventions` with `"matlab"` (default) and `"physics"`
+  profiles, documentation-snippet checks, property tests and wider typing.
+- Added Overhauser dynamics and liquid-state CW Overhauser DNP, defect-spin
+  nanoscale magnetic resonance, ENDOR-QDyne, receiver arrays, Bayesian
+  experiment planning, particle imaging and gradient-coil design.
+- The PDF manual is built by CI instead of being committed, and notebooks run
+  the package in the browser from the documentation site.
+
+### Compatibility
+
+- Behaviour changes, each described below: the CPMG-IR sign convention, ESR
+  transition moments that include the g tensor (M-46), pulsed ESR that drives
+  and detects through the same frame (M-47), and an anisotropy-sized default
+  ESR powder grid (L-64, L-65).
+- Python 3.10--3.12 remains the supported CI range. Core PythonSpinDynamics
+  still requires only NumPy.
+
 ### Added
 
 - Notebooks that run the package in the browser (enhancement survey item 15):
@@ -302,7 +360,8 @@ subprojects. The format follows [Keep a Changelog](https://keepachangelog.com/en
   variable `PACKAGE_INDEX` is set; `docs/release_process.md` lists the one-time
   setup.
 - The README recommends a blob-less clone (`git clone --filter=blob:none`),
-  which downloads about 21 MiB of git data instead of the 516 MiB history.
+  which downloads about 21 MiB of git data instead of the full history (516 MiB
+  before the history rewrite, about 45 MiB after).
 - The development-environment guide now recommends a checkout on the WSL
   Linux filesystem for test runs, with measured timings.
 - Added `spin_dynamics.conventions`: `"matlab"` (default, unchanged results)

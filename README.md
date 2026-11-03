@@ -39,9 +39,9 @@ boundaries and assumptions for each layer.
 
 ## Quick Start: Python Experiments
 
-Python 3.10 or newer is required. The full git history is about 516 MiB, mostly
-MATLAB output that has since been deleted. A blob-less clone downloads file
-contents only for the commit you check out (about 21 MiB of git data):
+Python 3.10 or newer is required. A full clone downloads about 45 MiB of git
+history. A blob-less clone downloads file contents only for the commit you
+check out (about 21 MiB of git data):
 
 ```bash
 git clone --filter=blob:none https://github.com/supertjhok/MRSpinDynamics.git

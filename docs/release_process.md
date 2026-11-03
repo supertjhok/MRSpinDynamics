@@ -1,6 +1,6 @@
 # Release Process
 
-_Last updated: 2026-07-12_
+_Last updated: 2026-11-02_
 
 MRSpinDynamics is released as a **single citable unit**: the whole repository is
 versioned together, tagged once, published as one GitHub Release, and archived on
@@ -67,7 +67,7 @@ Zenodo issues a *concept DOI* (always resolves to the latest version) plus a
    used by the tag workflow:
 
    ```powershell
-   python scripts\release_preflight.py --expected-version 0.3.0 --require-clean
+   python scripts\release_preflight.py --expected-version 0.4.0 --require-clean
    python -m pip install build twine
    python -m build --outdir release-artifacts PythonSpinDynamics
    python -m build --outdir release-artifacts QuadrupolarDFT
@@ -77,7 +77,7 @@ Zenodo issues a *concept DOI* (always resolves to the latest version) plus a
    Copy-Item PythonSpinDynamics\docs\user_manual.pdf release-artifacts\python_spin_dynamics_user_manual.pdf
    Copy-Item QuadrupolarDFT\docs\user_manual.pdf release-artifacts\quadrupolar_dft_user_manual.pdf
    Copy-Item MATLABSpinDynamics\docs\user_manual.pdf release-artifacts\matlab_spin_dynamics_user_manual.pdf
-   python scripts\release_preflight.py --expected-version 0.3.0 --artifacts-dir release-artifacts --check-generated
+   python scripts\release_preflight.py --expected-version 0.4.0 --artifacts-dir release-artifacts --check-generated
    python scripts\write_sha256s.py release-artifacts
    ```
 
@@ -89,8 +89,8 @@ Zenodo issues a *concept DOI* (always resolves to the latest version) plus a
 7. Tag and push:
 
    ```powershell
-   git tag v0.3.0
-   git push origin v0.3.0
+   git tag v0.4.0
+   git push origin v0.4.0
    ```
 
 8. The [release workflow](../.github/workflows/release.yml) independently builds

@@ -37,7 +37,7 @@ evidence before you encounter the detailed APIs.
 The site is the searchable web manual, organized by experiments, physical
 models, hardware systems, and validation evidence. The equation-rich
 [PDF print edition](user_manual.pdf) is also available here and from the
-[v0.3.0 GitHub Release](https://github.com/supertjhok/MRSpinDynamics/releases/tag/v0.3.0).
+[v0.4.0 GitHub Release](https://github.com/supertjhok/MRSpinDynamics/releases/tag/v0.4.0).
 
 PythonSpinDynamics is released as part of the single-version MRSpinDynamics
 workspace. Source, issues, release notes, and the other subprojects are in the

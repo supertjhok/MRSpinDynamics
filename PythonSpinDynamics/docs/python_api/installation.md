@@ -87,7 +87,7 @@ same directory:
 
 ```powershell
 Get-FileHash -Algorithm SHA256 *.whl,*.tar.gz,*.pdf
-python -m pip install --find-links . "mr-integration==0.3.0"
+python -m pip install --find-links . "mr-integration==0.4.0"
 spin-dynamics --version
 spin-dynamics --help
 ```
